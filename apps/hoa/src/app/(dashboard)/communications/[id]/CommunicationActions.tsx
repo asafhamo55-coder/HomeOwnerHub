@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { RotateCw, Trash2 } from 'lucide-react'
+import { CalendarX, RotateCw, Trash2 } from 'lucide-react'
 import {
   Alert,
   Button,
@@ -13,7 +13,7 @@ import {
   Input,
   useToast,
 } from '@homeowner-portal/ui'
-import { deleteCommunication } from '@/lib/communications/actions'
+import { cancelScheduledCommunication, deleteCommunication } from '@/lib/communications/actions'
 import {
   getResendPreflight,
   resendFailedRecipients,
@@ -24,9 +24,12 @@ export function CommunicationActions({
   commId,
   subject,
   failedEmailCount,
+  status,
 }: {
   commId: string
   subject: string
+  /** The communication's status. 'scheduled' offers Cancel (BL-102 A1). */
+  status?: string
   /** Email recipients in `delivery_status = 'failed'`. Zero hides the
    *  resend button entirely — there is nothing to retry, and an always-on
    *  button next to Delete invites a pointless re-send. */
@@ -102,6 +105,28 @@ export function CommunicationActions({
 
   return (
     <>
+      {status === 'scheduled' ? (
+        <ConfirmDialog
+          destructive
+          title="Cancel this scheduled message?"
+          description={<>“{subject}” won’t be sent. Nobody has received it yet.</>}
+          confirmLabel="Cancel message"
+          onConfirm={async () => {
+            const result = await cancelScheduledCommunication(commId)
+            if (!result.ok) {
+              toast({ tone: 'error', message: result.error })
+              throw new Error(result.error)
+            }
+            toast({ tone: 'success', message: 'Scheduled message cancelled. Nothing was sent.' })
+            router.refresh()
+          }}
+          trigger={
+            <Button variant="secondary" icon={<CalendarX aria-hidden />}>
+              Cancel scheduled message
+            </Button>
+          }
+        />
+      ) : null}
       <ConfirmDialog
         destructive
         title="Delete this message?"

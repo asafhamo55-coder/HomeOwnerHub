@@ -12,6 +12,7 @@ import { loadOrFail } from '@/lib/load-or-fail'
 import { parsePropertyParam } from '@/lib/property-scope'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { BUDGET_NOTICE_FROM } from '@/lib/budget-notice/draft-handoff'
+import { smsConfigured } from '@/lib/sms'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
 export const metadata = { title: 'New message' }
@@ -154,7 +155,7 @@ export default async function NewCommunicationPage({
       linkAs={Link}
       breadcrumbs={BREADCRUMBS}
       title="New message"
-      description="Pick the audience, write the message, review, send. Every message and its delivery history are kept under Communications."
+      description="Pick a template or write your own, choose who gets it, review, send. Every message and its delivery history are kept under Communications."
     >
       {propertyTotal > properties.length ? (
         <Alert variant="warning" title="Not every property is in the picker">
@@ -183,6 +184,8 @@ export default async function NewCommunicationPage({
           initialPropertyId={initialPropertyId}
           officialNoticeOffered={officialNoticeOffered}
           prefillFrom={prefillFrom}
+          // Env names only; never sent to the browser as values.
+          smsConfigured={smsConfigured()}
         />
       </Card>
     </Page>

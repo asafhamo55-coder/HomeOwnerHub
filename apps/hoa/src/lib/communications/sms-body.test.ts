@@ -52,7 +52,8 @@ describe('SMS hint says what the server does', () => {
     const wizard = readFileSync(path.join(here, '../../app/(dashboard)/communications/new/NewCommunicationWizard.tsx'), 'utf8')
     expect(wizard).toMatch(/hint: SMS_CHANNEL_HINT/)
     expect(wizard).not.toMatch(/split at 279/i)
-    const send = readFileSync(path.join(here, 'send.ts'), 'utf8')
-    expect(send).toMatch(/composeSmsBody\(/)
+    // The delivery (send-now and scheduled) lives in deliver.ts.
+    const deliver = readFileSync(path.join(here, 'deliver.ts'), 'utf8')
+    expect(deliver).toMatch(/composeSmsBody\(/)
   })
 })

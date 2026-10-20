@@ -6,7 +6,7 @@ topic: communications
 roles: [admin, board]
 routes: ["/communications/new", "/communications/[id]"]
 primary_route: /communications/new
-keywords: [audience, segment, group, recipients, who gets it, owners only, tenants only, late on dues, delinquent, open violations, specific property, one home, board only, custom contacts, vendor, attorney, sms, text message, texting, character limit, "279 characters", long text, delivery, delivered, opened, bounced, failed, resend, not opened, notice, who opened, outside people, non-residents]
+keywords: [opted out, opt in, texting not set up, audience, segment, group, recipients, who gets it, owners only, tenants only, late on dues, delinquent, open violations, specific property, one home, board only, custom contacts, vendor, attorney, sms, text message, texting, character limit, "279 characters", long text, delivery, delivered, opened, bounced, failed, resend, not opened, notice, who opened, outside people, non-residents]
 related: [communications-send-announcement, inbox-reply-to-resident]
 reviewed: 2026-10-19
 ---
@@ -19,7 +19,7 @@ Use this when a message is only for some people, or should also go out as a text
 3. For **Specific property** (one address), choose the home, then tick the people living there. [[Owners]], [[Tenants]], [[All]] and [[None]] tick them for you.
 4. For **Board**, tick the board members. For **Custom contacts**, type a name, email or US phone and select [[Add]].
 5. Select [[Continue]], write the message, then select [[Continue]] again.
-6. Under **Channels**, tick **SMS** to also send a text.
+6. Under **Channels**, tick **Text** to also send a text.
 7. Check the **Review** box, then select [[Send now]] or [[Schedule]].
 
 ## What happens next
@@ -30,11 +30,15 @@ The message's own page shows **Delivered**, **Opened**, **Replied** and **Failed
 - "Pick at least one resident at that property.": tick at least one person before you continue.
 - "No active residents recorded for this property. Add residents on the property page first.": add people to that home, then come back.
 - "… doesn't look like a US phone number.": custom contacts only take US numbers.
+- "Texting isn't set up yet.": your HOA can't send texts yet, so **Text** can't be ticked. Send by email and the portal.
+- A text shows **Failed** with "SMS not configured": texting wasn't set up when it was sent, so no text went out.
 
 ## Good to know
 - **Everyone**, **Late on dues** and **Units with open violations** reach one person per home: the owner, or the tenant if no owner is on file.
 - **Late on dues** means a charge was due before today and isn't fully paid.
 - A text holds up to 279 characters, subject included. Longer ones are cut short and end with a link to the full message in the portal. Each person gets one text, never a chain of texts.
+- Texts only go to residents who said yes to texts. Everyone else gets the email and portal copy instead. The **Review** step shows how many will be skipped (opted out).
+- Residents who turned off email don't get the email.
 - People with no phone number on file get no text. Board members are never texted.
 - **Resend** only retries failed emails, not texts.
 - Picking a template sets **Channels** to that template's own choices. Check **Channels** before you send.

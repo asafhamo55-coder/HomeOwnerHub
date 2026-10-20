@@ -132,11 +132,14 @@ describe('wiring', () => {
   it('send.ts stores the Spanish in the body and uses the bilingual SMS composer', () => {
     const send = readFileSync(path.join(here, 'send.ts'), 'utf8')
     expect(send).toMatch(/composeBilingualHtml\(/)
-    expect(send).toMatch(/composeBilingualSms\(/)
     expect(send).toMatch(/Review the Spanish version before sending/)
-    // every send still goes through the outbound guard
-    expect(send).toMatch(/sendSms\(\{ to: phone, body: smsBody \}, outbound\)/)
-    expect(send).toMatch(/sendEmailBatch\(payloads, outbound\)/)
+    // Delivery lives in deliver.ts, shared by send-now and the scheduled
+    // dispatcher; every send still goes through the outbound guard.
+    const deliver = readFileSync(path.join(here, 'deliver.ts'), 'utf8')
+    expect(deliver).toMatch(/composeBilingualSms\(/)
+    expect(deliver).toMatch(/sendSms\(\{ to: phone, body: smsBody \}, outbound\)/)
+    expect(deliver).toMatch(/sendEmailBatch\(payloads, outbound\)/)
+    expect(send).toMatch(/deliverToRecipients\(/)
   })
 
   it('the wizard offers "Add Spanish version" and shows the English-only note', () => {

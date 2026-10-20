@@ -15,10 +15,14 @@ import {
   Select,
   Textarea,
   WizardStepper,
+  cn,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
 import { previewOfficialNotice, type OfficialNoticePreview } from '@/lib/communications/official-notice-actions'
+import { previewPreferenceSkips, type PreferencePreview } from '@/lib/communications/preference-actions'
+import { BUILT_IN_TEMPLATES, isBuiltInTemplateId } from '@/lib/communications/built-in-templates'
+import { SCHEDULING_COMING_SOON, SCHEDULING_ENABLED } from '@/lib/communications/scheduling'
 import { paperNoticeLabel } from '@/lib/communications/official-notice'
 import { SMS_CHANNEL_HINT } from '@/lib/communications/sms-body'
 import { SMS_ENGLISH_ONLY_NOTE, composeBilingualSms, htmlToPlainText } from '@/lib/communications/bilingual'
@@ -61,7 +65,25 @@ interface TemplateOption {
    *  present the composer can offer per-section toggles; when null it falls
    *  back to the stored body_html, which is the pre-sections behaviour. */
   topicSlug?: string | null
+  /** BL-102 A4: a code-defined built-in (lib/communications/built-in-templates.ts),
+   *  available to every HOA. Sent with no templateId. */
+  builtIn?: boolean
 }
+
+/** The built-in library as composer options — listed first, for every HOA. */
+const BUILT_IN_OPTIONS: TemplateOption[] = BUILT_IN_TEMPLATES.map((t) => ({
+  id: t.id,
+  category: t.category,
+  name: t.name,
+  description: t.description,
+  subject: t.subject,
+  bodyHtml: t.bodyHtml,
+  bodyText: '',
+  channels: t.channels,
+  questions: t.questions,
+  topicSlug: null,
+  builtIn: true,
+}))
 
 const CATEGORIES = [
   'welcome',
@@ -92,13 +114,17 @@ const CATEGORY_LABEL: Record<(typeof CATEGORIES)[number], string> = {
 const CHANNELS = ['email', 'sms', 'portal'] as const
 
 const CHANNEL_COPY: Record<(typeof CHANNELS)[number], { label: string; hint: string }> = {
-  email: { label: 'Email', hint: 'To every recipient with an email on file' },
-  sms: { label: 'SMS', hint: SMS_CHANNEL_HINT },
+  email: { label: 'Email', hint: 'To every recipient with an email on file, unless they opted out' },
+  // Only residents who opted in to texts get one (BL-102); said in the guide.
+  sms: { label: 'Text', hint: SMS_CHANNEL_HINT },
   portal: { label: 'Portal', hint: "Shows in the resident's in-app inbox" },
 }
 
+/** Shown on the Text option when Vonage isn't configured (BL-102). */
+export const SMS_NOT_SET_UP = 'Texting isn’t set up yet.'
+
 const STEPS = [
-  { id: 'audience', label: 'Topic & audience' },
+  { id: 'audience', label: 'Template & audience' },
   { id: 'message', label: 'Message' },
   { id: 'delivery', label: 'Review & send' },
 ] as const
@@ -113,6 +139,7 @@ export function NewCommunicationWizard({
   initialPropertyId = null,
   officialNoticeOffered = false,
   prefillFrom = null,
+  smsConfigured = false,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
@@ -136,10 +163,19 @@ export function NewCommunicationWizard({
    * reviews and sends as usual.
    */
   prefillFrom?: typeof BUDGET_NOTICE_FROM | null
+  /**
+   * BL-102: false when the Vonage keys are missing (lib/sms.ts
+   * smsConfigured). The Text channel is then disabled with "Texting isn't
+   * set up yet", instead of offering a send that can't go out.
+   */
+  smsConfigured?: boolean
 }) {
   const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
   const router = useRouter()
-  const [category, setCategory] = useState<(typeof CATEGORIES)[number]>('announcement')
+  // BL-102 A4: no Topic step. A template brings its own category; a
+  // message written from scratch is filed as an announcement (or, from the
+  // budget notice, as financial).
+  const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>('announcement')
   const [audience, setAudience] = useState<AudienceKind>(preselect ? 'specific_property' : 'everyone')
   const [templateId, setTemplateId] = useState<string>('')
   const [answers, setAnswers] = useState<AnswerMap>({})
@@ -167,7 +203,7 @@ export function NewCommunicationWizard({
       setPrefill('missing')
       return
     }
-    setCategory('financial')
+    setBaseCategory('financial')
     setAudience('owners_only')
     setSubject(draft.subject)
     setBodyHtml(draft.bodyHtml)
@@ -303,17 +339,17 @@ export function NewCommunicationWizard({
     setCheckedBoardIds(new Set())
   }
 
-  // Templates relevant to the picked category come first; "Custom" gets
-  // everything. Selecting a template pre-fills subject + body so the
-  // manager can tweak before sending.
-  const visibleTemplates = useMemo(
-    () =>
-      templates.filter(
-        (t) => category === 'custom' || t.category === category,
-      ),
-    [templates, category],
-  )
-  const selectedTemplate = templates.find((t) => t.id === templateId)
+  // BL-102 A4: every template is listed, never filtered by a topic — the
+  // built-ins first (every HOA has them), then the HOA's own templates and
+  // the shared community library. Selecting one pre-fills subject + body so
+  // the manager can tweak before sending.
+  const allTemplates = useMemo(() => [...BUILT_IN_OPTIONS, ...templates], [templates])
+  const selectedTemplate = allTemplates.find((t) => t.id === templateId)
+  const category = (
+    selectedTemplate && (CATEGORIES as readonly string[]).includes(selectedTemplate.category)
+      ? selectedTemplate.category
+      : baseCategory
+  ) as (typeof CATEGORIES)[number]
 
   // Answers are keyed by question id, and question ids are only unique
   // *within* a template — reset on every templateId change (picking a
@@ -334,13 +370,16 @@ export function NewCommunicationWizard({
 
   function pickTemplate(id: string) {
     setTemplateId(id)
-    const t = templates.find((x) => x.id === id)
+    const t = allTemplates.find((x) => x.id === id)
     if (t) {
       setSubject(t.subject)
       setBodyHtml(t.bodyHtml)
       // Default to the template's channels but intersect with what we
-      // support today (email + portal). SMS/mail get filtered out in v1.
-      setChannels(t.channels.filter((c) => CHANNELS.includes(c as (typeof CHANNELS)[number])))
+      // support (email, portal, and text only once texting is set up).
+      const next = t.channels.filter(
+        (c) => CHANNELS.includes(c as (typeof CHANNELS)[number]) && (c !== 'sms' || smsConfigured),
+      )
+      setChannels(next.length > 0 ? next : ['email', 'portal'])
     }
   }
 
@@ -408,7 +447,9 @@ export function NewCommunicationWizard({
         }
       }
     }
-    if (i === 2 && channels.length === 0) errs.channels = 'Pick at least one channel.'
+    if (i === 2 && channels.filter((c) => c !== 'sms' || smsConfigured).length === 0) {
+      errs.channels = 'Pick at least one channel.'
+    }
     return errs
   }
 
@@ -525,6 +566,37 @@ export function NewCommunicationWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officialActive, audience, selectedPropertyId, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels])
 
+  // BL-102: on the Review step, how many recipients each channel skips
+  // because of their own preferences. The send applies the same policy, so
+  // this is what it will do.
+  const [prefPreview, setPrefPreview] = useState<PreferencePreview | null>(null)
+  const reviewing = step === lastStep
+  useEffect(() => {
+    if (!reviewing) {
+      setPrefPreview(null)
+      return
+    }
+    const built = buildAudienceDef()
+    if (!built.ok) {
+      setPrefPreview(null)
+      return
+    }
+    let cancelled = false
+    setPrefPreview(null)
+    previewPreferenceSkips(built.def, channels, officialNoticeOffered && officialNotice)
+      .then((r) => {
+        if (!cancelled) setPrefPreview(r)
+      })
+      .catch(() => {
+        if (!cancelled) setPrefPreview({ ok: false, error: 'Couldn’t check residents’ message preferences.' })
+      })
+    return () => {
+      cancelled = true
+    }
+    // buildAudienceDef reads exactly these picks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewing, audience, selectedPropertyId, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels, officialNotice])
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     // Enter inside an earlier step means "continue", never "send".
@@ -584,16 +656,26 @@ export function NewCommunicationWizard({
     }
     const audienceDef = built.def
 
+    // datetime-local has no zone; read it in the board member's own zone
+    // and send an absolute instant, so 9:00 means 9:00 where they are.
+    const scheduledAt = SCHEDULING_ENABLED && scheduledFor ? new Date(scheduledFor) : null
+    if (scheduledAt && Number.isNaN(scheduledAt.getTime())) {
+      setError('Pick a valid date and time to send it, or clear the field to send now.')
+      return
+    }
+
     startTransition(async () => {
       const result = await sendCommunication({
         category,
         subject: finalSubject,
         bodyHtml: finalBodyHtml,
         bodyText: stripHtml(finalBodyHtml),
-        channels: channels as ('email' | 'portal' | 'sms' | 'mail')[],
+        // Never send a text channel the server can't deliver (BL-102).
+        channels: channels.filter((c) => c !== 'sms' || smsConfigured) as ('email' | 'portal' | 'sms' | 'mail')[],
         audience: audienceDef,
-        templateId: templateId || undefined,
-        scheduledFor: scheduledFor || undefined,
+        // Built-ins have no communication_templates row.
+        templateId: templateId && !isBuiltInTemplateId(templateId) ? templateId : undefined,
+        scheduledFor: scheduledAt ? scheduledAt.toISOString() : undefined,
         extraFields,
         spanish: spanish
           ? { subject: spanish.subject.trim(), bodyHtml: spanish.bodyHtml, reviewed: spanish.viewed }
@@ -605,8 +687,8 @@ export function NewCommunicationWizard({
         setError(result.error)
         return
       }
-      const msg = scheduledFor
-        ? `Scheduled for ${new Date(scheduledFor).toLocaleString()}. ${result.recipientCount} recipient(s).`
+      const msg = scheduledAt
+        ? `Scheduled for ${scheduledAt.toLocaleString()}. ${result.recipientCount} recipient(s).`
         : `Sent. ${result.sentCount}/${result.recipientCount} delivered` +
           (result.failedCount > 0 ? `, ${result.failedCount} failed` : '') +
           '.' +
@@ -663,23 +745,13 @@ export function NewCommunicationWizard({
         ) : null}
         {/* Step 1 — topic + audience */}
         <div hidden={step !== 0} className="space-y-6">
-          <Field label="Topic" hint="Filters the templates on the next step and files the message.">
-            <Select
-              value={category}
-              onValueChange={(v) => {
-                setCategory(v as (typeof CATEGORIES)[number])
-                setTemplateId('')
-              }}
-              disabled={pending}
-              placeholder="Choose a topic"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {CATEGORY_LABEL[c]}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <TemplatePicker
+            builtIns={BUILT_IN_OPTIONS}
+            others={templates}
+            value={templateId}
+            onChange={pickTemplate}
+            disabled={pending}
+          />
 
           <Fieldset legend="Audience" hint="Counts are recipients right now." error={fieldErrors.audience}>
             <AudienceStep
@@ -726,37 +798,13 @@ export function NewCommunicationWizard({
 
         {/* Step 2 — template, declared questions, subject + body */}
         <div hidden={step !== 1} className="space-y-6">
-          <Field
-            label="Template"
-            optional
-            hint={
-              visibleTemplates.length === 0
-                ? `No ${CATEGORY_LABEL[category]} templates yet — write the message yourself below.`
-                : 'Pre-fills the subject and body. You can edit both.'
-            }
-          >
-            <Select
-              value={templateId}
-              onValueChange={pickTemplate}
-              disabled={pending || visibleTemplates.length === 0}
-              placeholder="Custom message (no template)"
-            >
-              <option value="">Custom message (no template)</option>
-              {visibleTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
           {/* Declared questions, only when the chosen template has any.
               Answers become the merge bag for its {{ fields }}. */}
           {effectiveQuestions.length > 0 ? (
             <section className="space-y-4 rounded-lg border border-border bg-subtle/50 p-4">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Details</h3>
-                <p className="text-xs text-muted">Your answers fill in this template’s merge fields.</p>
+                <p className="text-xs text-muted">Your answers are added to the message for you.</p>
               </div>
               <QuestionStep
                 questions={effectiveQuestions}
@@ -771,7 +819,7 @@ export function NewCommunicationWizard({
             label="Subject"
             required
             error={fieldErrors.subject}
-            hint="{{ variables }} render per recipient."
+            hint="Words in {{ double braces }}, like {{ recipient_name }}, are filled in for each person."
           >
             <Input
               type="text"
@@ -795,7 +843,7 @@ export function NewCommunicationWizard({
             label="Body"
             required
             error={fieldErrors.body}
-            hint="HTML. {{ variables }} render per recipient."
+            hint="Words in {{ double braces }} are filled in for each person."
             labelAside={
               <AiRewriteButton
                 value={bodyHtml}
@@ -832,19 +880,22 @@ export function NewCommunicationWizard({
         <div hidden={step !== 2} className="space-y-6">
           <Fieldset legend="Channels" error={fieldErrors.channels}>
             <div className="grid gap-3 sm:grid-cols-3">
-              {CHANNELS.map((c) => (
-                <Checkbox
-                  key={c}
-                  checked={channels.includes(c)}
-                  onChange={() => {
-                    toggleChannel(c)
-                    setFieldErrors((e) => ({ ...e, channels: '' }))
-                  }}
-                  disabled={pending}
-                  label={CHANNEL_COPY[c].label}
-                  description={CHANNEL_COPY[c].hint}
-                />
-              ))}
+              {CHANNELS.map((c) => {
+                const unavailable = c === 'sms' && !smsConfigured
+                return (
+                  <Checkbox
+                    key={c}
+                    checked={!unavailable && channels.includes(c)}
+                    onChange={() => {
+                      toggleChannel(c)
+                      setFieldErrors((e) => ({ ...e, channels: '' }))
+                    }}
+                    disabled={pending || unavailable}
+                    label={CHANNEL_COPY[c].label}
+                    description={unavailable ? SMS_NOT_SET_UP : CHANNEL_COPY[c].hint}
+                  />
+                )
+              })}
             </div>
           </Fieldset>
 
@@ -858,20 +909,27 @@ export function NewCommunicationWizard({
             />
           ) : null}
 
-          <Field label="Send at" optional hint="Leave blank to send now. Uses your local time.">
-            <Input
-              type="datetime-local"
-              value={scheduledFor}
-              onChange={(e) => setScheduledFor(e.target.value)}
-              disabled={pending}
-              className="sm:max-w-xs"
-            />
-          </Field>
+          {SCHEDULING_ENABLED ? (
+            <Field
+              label="Send at"
+              optional
+              hint="Leave blank to send now. Uses your local time. It goes out within 5 minutes of the time you pick."
+            >
+              <Input
+                type="datetime-local"
+                value={scheduledFor}
+                onChange={(e) => setScheduledFor(e.target.value)}
+                disabled={pending}
+                className="sm:max-w-xs"
+              />
+            </Field>
+          ) : (
+            <p className="text-sm text-muted">{SCHEDULING_COMING_SOON}</p>
+          )}
 
           <section className="rounded-lg border border-border bg-subtle/50 p-4">
             <h3 className="mb-3 text-sm font-semibold text-foreground">Review</h3>
             <KeyValueList>
-              <KeyValue label="Topic" value={CATEGORY_LABEL[category]} />
               <KeyValue
                 label="Audience"
                 value={
@@ -889,10 +947,12 @@ export function NewCommunicationWizard({
               />
               <KeyValue
                 label="When"
-                value={scheduledFor ? new Date(scheduledFor).toLocaleString() : 'Immediately'}
+                value={SCHEDULING_ENABLED && scheduledFor ? new Date(scheduledFor).toLocaleString() : 'Immediately'}
               />
             </KeyValueList>
           </section>
+
+          <PreferenceSkips preview={prefPreview} channels={channels} />
 
           {officialActive ? <PaperNoticeList preview={officialPreview} /> : null}
 
@@ -919,13 +979,116 @@ export function NewCommunicationWizard({
           <Button
             type="submit"
             loading={pending}
-            icon={scheduledFor ? <CalendarClock aria-hidden /> : <Send aria-hidden />}
+            icon={SCHEDULING_ENABLED && scheduledFor ? <CalendarClock aria-hidden /> : <Send aria-hidden />}
           >
-            {scheduledFor ? 'Schedule' : 'Send now'}
+            {SCHEDULING_ENABLED && scheduledFor ? 'Schedule' : 'Send now'}
           </Button>
         )}
       </div>
     </form>
+  )
+}
+
+/**
+ * BL-102 A4: templates first. The built-in library (every HOA has it) as
+ * cards, then the HOA's own templates and the community library in one
+ * list. Never filtered by a topic.
+ */
+function TemplatePicker({
+  builtIns,
+  others,
+  value,
+  onChange,
+  disabled,
+}: {
+  builtIns: TemplateOption[]
+  others: TemplateOption[]
+  value: string
+  onChange: (id: string) => void
+  disabled: boolean
+}) {
+  const otherSelected = others.some((t) => t.id === value)
+  const cards: Array<{ id: string; name: string; description: string }> = [
+    ...builtIns.map((t) => ({ id: t.id, name: t.name, description: t.description })),
+    { id: '', name: 'Write my own', description: 'Start from a blank message.' },
+  ]
+  return (
+    <Fieldset legend="Start from a template" hint="Pick one and fill in a few details, or write your own.">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {cards.map((c) => {
+          const selected = c.id === '' ? value === '' : value === c.id
+          const id = `template-${c.id || 'own'}`
+          return (
+            <label
+              key={id}
+              htmlFor={id}
+              className={cn(
+                'flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-fast',
+                'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
+                selected ? 'border-primary bg-primary-subtle' : 'border-border bg-surface hover:bg-subtle',
+                disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+              )}
+            >
+              <input
+                id={id}
+                type="radio"
+                name="template"
+                value={c.id}
+                checked={selected}
+                onChange={() => onChange(c.id)}
+                disabled={disabled}
+                className="mt-1 size-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-foreground">{c.name}</span>
+                <span className="block text-xs text-muted">{c.description}</span>
+              </span>
+            </label>
+          )
+        })}
+      </div>
+      {others.length > 0 ? (
+        <div className="mt-3">
+          <Field label="More templates" optional hint="Your HOA’s own templates and the community library.">
+            <Select
+              value={otherSelected ? value : ''}
+              onValueChange={(v) => onChange(v)}
+              disabled={disabled}
+              placeholder="Choose another template"
+            >
+              <option value="">Choose another template</option>
+              {others.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+      ) : null}
+    </Fieldset>
+  )
+}
+
+/** BL-102 Review step: "N will be skipped (opted out)", per channel. */
+function PreferenceSkips({ preview, channels }: { preview: PreferencePreview | null; channels: string[] }) {
+  if (!preview) return null
+  if (!preview.ok) return <Alert variant="warning">{preview.error}</Alert>
+  const lines: string[] = []
+  if (channels.includes('email') && preview.email > 0) {
+    lines.push(`Email: ${preview.email} will be skipped (opted out).`)
+  }
+  if (channels.includes('sms') && preview.sms > 0) {
+    lines.push(`Text: ${preview.sms} will be skipped (opted out, or never opted in to texts).`)
+  }
+  if (lines.length === 0) return null
+  return (
+    <Alert variant="info" title="Some people won’t get every channel">
+      {lines.map((l) => (
+        <p key={l}>{l}</p>
+      ))}
+      <p className="mt-1">They still get the message on any other channel you picked.</p>
+    </Alert>
   )
 }
 

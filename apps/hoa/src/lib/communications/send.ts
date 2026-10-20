@@ -4,10 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
-import { sendEmailBatch, type BatchSendResult } from '@/lib/email'
+import { sendEmailBatch } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
-import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -22,10 +21,18 @@ import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
 import { recoverFromRenderedSubject, unresolvedFields } from './merge-recovery'
 import { normalizeSuppliedFields } from './supplied-fields'
-import { composeSmsBody } from './sms-body'
-import { composeBilingualHtml, composeBilingualSms, htmlToPlainText, splitBilingualHtml } from './bilingual'
-import { extractMergeFields, renderTemplateStrict, type MergeBag } from './templates'
-import { appUrl } from '@/lib/app-origin'
+import { composeBilingualHtml, htmlToPlainText } from './bilingual'
+import { extractMergeFields, type MergeBag } from './templates'
+import { deliverToRecipients, markFailed, type QueuedRecipientRow } from './deliver'
+import {
+  PREFERENCES_READ_FAILED,
+  applyPreferences,
+  loadPreferenceMap,
+  preferencesApply,
+  type PreferencePolicy,
+} from './preferences'
+import { humanizeFieldName, renderForSchedule } from './partial-render'
+import { SCHEDULING_COMING_SOON, SCHEDULING_ENABLED } from './scheduling'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
 type RecipientInsert = Database['public']['Tables']['communication_recipients']['Insert']
@@ -38,6 +45,9 @@ export type SendCommunicationResult =
       sentCount: number
       failedCount: number
       skippedCount: number
+      /** BL-102: recipients who lost at least one channel to their own
+       *  preferences (email opt-out, or no text opt-in). Absent when 0. */
+      optedOutCount?: number
       /** BL-020: present only for an official notice to a CA association
        *  with M1 applied — who this send did not email and so needs a
        *  paper notice. Absent on every other send. */
@@ -152,7 +162,8 @@ export type SendCommunicationInput = z.infer<typeof SendSchema>
  * Resolve audience → create communications row → fan out to recipients →
  * call Resend (email) or just persist (portal). One server action covers
  * both "send now" and "schedule for later" — the scheduled path lands in
- * `status='scheduled'` and the cron picks it up at `scheduled_for`.
+ * `status='scheduled'` and the communications-scheduled-dispatch Inngest
+ * job (packages/jobs) delivers it at `scheduled_for`.
  *
  * Errors during per-recipient delivery don't fail the whole send. Each
  * recipient's `delivery_status` reflects what happened; the manager sees
@@ -297,11 +308,62 @@ export async function sendCommunication(
     }
   }
 
-  // 2. Insert communications row. scheduled_for > now() ⇒ status='scheduled';
-  //    otherwise 'sending' for the duration of the fan-out, flipped to
-  //    'sent' / 'failed' at the end.
+  // 2. Scheduled? scheduled_for > now() ⇒ status='scheduled', delivered
+  //    later by the communications-scheduled-dispatch Inngest job, which
+  //    has only what is stored on the row. So the template answers are
+  //    baked into the stored subject and body now (they are not persisted
+  //    anywhere else — no migration in Phase A), and a message that still
+  //    has a blank answer is refused rather than queued to fail later.
   const scheduledForFuture =
-    value.scheduledFor && new Date(value.scheduledFor) > new Date()
+    !!value.scheduledFor && new Date(value.scheduledFor) > new Date()
+  // The wizard's declared-question answers (value.extraFields) and, for the
+  // lease-cap-status template, the server-resolved occupancy fields both
+  // flow in here — merged once, ahead of the per-recipient fan-out.
+  const mergedExtraFields: MergeBag = { ...value.extraFields, ...leaseCapExtra }
+  let storedSubject = value.subject
+  let storedBodyHtml = bodyHtml
+  let storedBodyText = bodyText
+  if (scheduledForFuture) {
+    if (!SCHEDULING_ENABLED) return { ok: false, error: SCHEDULING_COMING_SOON }
+    if (value.extraMergeFields && Object.keys(value.extraMergeFields).length > 0) {
+      return {
+        ok: false,
+        error: 'This message has different details for each home, so it can’t be scheduled. Send it now instead.',
+      }
+    }
+    const baked = renderForSchedule({
+      subject: value.subject,
+      bodyHtml,
+      bodyText,
+      fields: mergedExtraFields,
+      associationName: assocRow.name,
+    })
+    if (!baked.ok) {
+      return {
+        ok: false,
+        error: `Answer every question before scheduling. Still blank: ${baked.missing.map(humanizeFieldName).join(', ')}.`,
+      }
+    }
+    storedSubject = baked.subject
+    storedBodyHtml = baked.bodyHtml
+    storedBodyText = baked.bodyText ?? undefined
+  }
+
+  // 2.5. BL-102: resident preferences. Email goes unless the resident opted
+  //      out; a text only when they opted in. An official notice keeps its
+  //      own e-consent rule for email (emailKeep above). Read before any row
+  //      is written: a failed read refuses the send instead of defaulting
+  //      to "text everyone with a phone".
+  const policy: PreferencePolicy = { map: null, officialNoticeEmail: emailKeep !== null }
+  if (preferencesApply(value.audience.kind, value.channels)) {
+    const prefs = await loadPreferenceMap(supabase, assocRow.organization_id)
+    if (!prefs.ok) return { ok: false, error: PREFERENCES_READ_FAILED }
+    policy.map = prefs.map
+  }
+
+  // 3. Insert communications row. 'scheduled' for later; otherwise 'sending'
+  //    for the duration of the fan-out, flipped to 'sent' / 'failed' at the
+  //    end.
   const initialStatus: CommInsert['status'] = scheduledForFuture ? 'scheduled' : 'sending'
 
   const commPayload: CommInsert = {
@@ -310,9 +372,9 @@ export async function sendCommunication(
     thread_id: value.threadId ?? null,
     template_id: value.templateId ?? null,
     category: value.category,
-    subject: value.subject,
-    body_html: bodyHtml,
-    body_text: bodyText ?? null,
+    subject: storedSubject,
+    body_html: storedBodyHtml,
+    body_text: storedBodyText ?? null,
     channels: value.channels,
     // Cast to satisfy Supabase's strict `Json` type — `audience.extra` is
     // typed `Record<string, unknown>` which TS doesn't narrow to Json
@@ -321,7 +383,14 @@ export async function sendCommunication(
     // stripAudienceForPersist drops the recipient array for precomputed
     // audiences — names and emails live in communication_recipients, and
     // copying them here would scatter PII across two tables for no benefit.
-    audience_definition: stripAudienceForPersist(value.audience as AudienceDefinition) as never,
+    //
+    // A scheduled official notice records that it is one, so the
+    // dispatcher's preference re-check leaves its email rows (already
+    // filtered by e-consent) alone. Only then — every other payload is
+    // exactly what it always was.
+    audience_definition: (scheduledForFuture && emailKeep !== null
+      ? { ...stripAudienceForPersist(value.audience as AudienceDefinition), official_notice: true }
+      : stripAudienceForPersist(value.audience as AudienceDefinition)) as never,
     audience_summary: audience.summary,
     status: initialStatus,
     source: 'manual',
@@ -337,13 +406,18 @@ export async function sendCommunication(
     return { ok: false, error: `communications insert: ${commErr?.message}` }
   }
 
-  // 3. Insert one communication_recipients row per (audience × channel).
+  // 4. Insert one communication_recipients row per (audience × channel).
   //    Each row tracks delivery for its channel independently.
   const recipientInserts: RecipientInsert[] = []
+  // Recipients who lose at least one channel to their own preferences.
+  let optedOutCount = 0
   for (const r of audience.recipients) {
     // Only channels the recipient can receive on — and, for an official
-    // notice, email only with consent (emailKeep is null otherwise).
-    for (const channel of deliverableChannels(r, value.channels, emailKeep)) {
+    // notice, email only with consent (emailKeep is null otherwise) — then
+    // only the ones their preferences allow.
+    const { keep, optedOut } = applyPreferences(r.userId, deliverableChannels(r, value.channels, emailKeep), policy)
+    if (optedOut.length > 0) optedOutCount += 1
+    for (const channel of keep) {
       recipientInserts.push({
         organization_id: assocRow.organization_id,
         communication_id: comm.id,
@@ -362,6 +436,7 @@ export async function sendCommunication(
       })
     }
   }
+  const optedOut = optedOutCount > 0 ? { optedOutCount } : {}
 
   if (recipientInserts.length === 0) {
     // Audience had units but none on any selected channel — bail with
@@ -374,7 +449,9 @@ export async function sendCommunication(
       ok: false,
       error: paperNotice
         ? `No one in this audience can receive this official notice on the selected channels. All ${paperNotice.count} need a paper notice.`
-        : 'No recipients had a deliverable contact for the selected channels.',
+        : optedOutCount > 0
+          ? 'Nobody in this audience can get this message: everyone with contact details on file has opted out of the selected channels.'
+          : 'No recipients had a deliverable contact for the selected channels.',
     }
   }
 
@@ -390,7 +467,7 @@ export async function sendCommunication(
     return { ok: false, error: `recipient insert: ${recErr?.message}` }
   }
 
-  // 4. Scheduled? Stop here; the cron picks up the queued rows at
+  // 5. Scheduled? Stop here; the dispatcher delivers the queued rows at
   //    scheduled_for.
   if (scheduledForFuture) {
     revalidatePath('/communications')
@@ -401,205 +478,27 @@ export async function sendCommunication(
       sentCount: 0,
       failedCount: 0,
       skippedCount: 0,
+      ...optedOut,
       ...(paperNotice ? { paperNotice } : {}),
     }
   }
 
-  // 5. Send-now: per-recipient delivery. Each recipient still resolves to a
-  //    'sent' | 'failed' | 'skipped' outcome independently — a single bad
-  //    address never blocks the others.
-  //
-  //    Email is sent as ONE batched call per 100 recipients, ahead of the
-  //    fan-out below, because Resend's limit is 10 requests/second per team.
-  //    This used to be a Promise.all of one request per recipient, and a
-  //    real 47-recipient announcement on 2026-08-31 delivered 10 and failed
-  //    37 — the burst spent the whole team's per-second budget at once.
-  //    SMS still goes one at a time: different provider, different limits.
-  type Outcome = 'sent' | 'failed' | 'skipped'
-  type RecipientRow = {
-    id: string
-    channel: string
-    email: string | null
-    phone: string | null
-    recipient_name: string | null
-    unit_id: string | null
-  }
-  const recipientRows: RecipientRow[] = insertedRecipients as RecipientRow[]
-  // Capture closed-over values OUTSIDE the async fn so TS doesn't lose
-  // the prior null-narrowing across the await boundary.
-  const associationName = assocRow.name
-  // From-header name only — merge fields keep the bare `associationName`, so
-  // "Madison Park HOA" in the inbox doesn't leak into {{association_name}}.
-  const senderName = buildSenderName(associationName, assocRow.type)
-  // Filled by the batched pre-send below; deliverOne reads its recipient's
-  // outcome out of here instead of issuing its own request.
-  const emailBatchResults = new Map<string, BatchSendResult>()
-  const commId = comm.id
-  // Outbound safety guard (BL-004): a sandboxed org only reaches
-  // OUTBOUND_ALLOWLIST recipients, even in production. Read once per send.
-  const outbound = {
-    orgSandbox: await fetchOrgSandbox(supabase, assocRow.organization_id),
-    ref: commId,
-  }
+  // 6. Send-now: per-recipient delivery (./deliver.ts, shared with the
+  //    scheduled dispatcher).
+  const { sentCount, failedCount, skippedCount } = await deliverToRecipients(supabase, {
+    communicationId: comm.id,
+    organizationId: assocRow.organization_id,
+    associationName: assocRow.name,
+    associationType: assocRow.type,
+    subject: value.subject,
+    bodyHtml,
+    bodyText,
+    extraFields: mergedExtraFields,
+    extraMergeFields: value.extraMergeFields,
+    recipients: insertedRecipients as QueuedRecipientRow[],
+  })
 
-  // extraFields is the caller-supplied bag built from the template's
-  // declared questions via buildMergeBag. Ambient recipient fields are
-  // merged in per recipient, then rendering is strict — a template whose
-  // fields are not all supplied must fail loudly before Resend is called.
-  async function deliverOne(recipient: RecipientRow, extraFields: MergeBag): Promise<Outcome> {
-    const bag = buildRecipientBag({
-      extraFields,
-      recipient,
-      associationName,
-      extraMergeFields: value.extraMergeFields,
-    })
-
-    let subject: string
-    let html: string
-    let text: string | undefined
-    try {
-      subject = renderTemplateStrict(value.subject, bag)
-      html = renderTemplateStrict(bodyHtml, bag)
-      text = bodyText ? renderTemplateStrict(bodyText, bag) : undefined
-    } catch (err) {
-      await markFailed(supabase, recipient.id, (err as Error).message)
-      return 'failed'
-    }
-
-    if (recipient.channel === 'email') {
-      if (!recipient.email) {
-        await markFailed(supabase, recipient.id, 'no email address', subject)
-        return 'skipped'
-      }
-      // Already sent by the batched pre-send. A missing entry means the
-      // batch never saw this recipient, which only happens when rendering
-      // threw — and the same throw above has already returned 'failed'.
-      const result = emailBatchResults.get(recipient.id) ?? {
-        ok: false as const,
-        error: 'not included in the send batch',
-      }
-      if (result.ok) {
-        await supabase
-          .from('communication_recipients')
-          .update({
-            delivery_status: 'sent',
-            sent_at: new Date().toISOString(),
-            external_id: result.messageId,
-            rendered_subject: subject,
-          })
-          .eq('id', recipient.id)
-        return 'sent'
-      }
-      await markFailed(supabase, recipient.id, result.error, subject)
-      return 'failed'
-    }
-
-    if (recipient.channel === 'sms') {
-      const phone = recipient.phone
-      if (!phone) {
-        await markFailed(supabase, recipient.id, 'no phone number', subject)
-        return 'skipped'
-      }
-      // SMS body — squash to plain text, then one message of at most 279
-      // characters; a longer one is shortened and links to the full
-      // message in the portal (composeSmsBody, which the wizard's hint
-      // describes).
-      const portalLink = appUrl(`/communications/${commId}`)
-      // BL-025: a bilingual body sends both languages only when both fit
-      // whole in one text; otherwise English only (the portal link carries
-      // the Spanish). The wizard warns the board when that will happen.
-      const parts = splitBilingualHtml(html)
-      const smsBody = parts.spanish
-        ? composeBilingualSms({
-            subject,
-            englishText: htmlToPlainText(parts.englishHtml),
-            spanish: { subject: parts.spanish.subject, text: htmlToPlainText(parts.spanish.html) },
-            portalLink,
-          }).body
-        : composeSmsBody({ subject, body: text ?? htmlToSmsBody(html, 200), portalLink })
-      const result = await sendSms({ to: phone, body: smsBody }, outbound)
-      if (result.ok) {
-        await supabase
-          .from('communication_recipients')
-          .update({
-            delivery_status: 'sent',
-            sent_at: new Date().toISOString(),
-            external_id: result.messageSid,
-            rendered_subject: subject,
-          })
-          .eq('id', recipient.id)
-        return 'sent'
-      }
-      await markFailed(supabase, recipient.id, result.error, subject)
-      return 'failed'
-    }
-
-    if (recipient.channel === 'portal') {
-      // No external send — the portal reads from communication_recipients
-      // to show unread comms to the resident.
-      await supabase
-        .from('communication_recipients')
-        .update({
-          delivery_status: 'sent',
-          sent_at: new Date().toISOString(),
-          rendered_subject: subject,
-        })
-        .eq('id', recipient.id)
-      return 'sent'
-    }
-
-    // 'mail' (physical) not yet wired — skip with a clear marker.
-    await markFailed(
-      supabase,
-      recipient.id,
-      `${recipient.channel} channel not yet implemented`,
-      subject,
-    )
-    return 'skipped'
-  }
-
-  // The wizard's declared-question answers (value.extraFields) and, for the
-  // lease-cap-status template, the server-resolved occupancy fields both
-  // flow in here — merged once, ahead of the per-recipient fan-out, rather
-  // than re-merged inside deliverOne per recipient.
-  const mergedExtraFields: MergeBag = { ...value.extraFields, ...leaseCapExtra }
-
-  // Batched email pre-send. Rendering is repeated inside deliverOne rather
-  // than threaded through: it is pure and deterministic, so the second pass
-  // produces identical output, and keeping deliverOne's own render means the
-  // failure path and its error message stay in one place. A recipient whose
-  // render throws is simply left out of the batch here.
-  const emailTargets = recipientRows.filter((r) => r.channel === 'email' && r.email)
-  if (emailTargets.length > 0) {
-    const { payloads, owners } = buildEmailPayloads({
-      recipients: emailTargets,
-      subject: value.subject,
-      bodyHtml,
-      bodyText,
-      associationName,
-      senderName,
-      extraFields: mergedExtraFields,
-      extraMergeFields: value.extraMergeFields,
-    })
-    // `failures` is ignored here on purpose: deliverOne re-renders, throws
-    // identically, and records the real message against the row.
-    const batchResults = await sendEmailBatch(payloads, outbound)
-    batchResults.forEach((result, i) => emailBatchResults.set(owners[i], result))
-  }
-
-  const outcomes = await Promise.all(
-    recipientRows.map((r) => deliverOne(r, mergedExtraFields)),
-  )
-  let sentCount = 0
-  let failedCount = 0
-  let skippedCount = 0
-  for (const o of outcomes) {
-    if (o === 'sent') sentCount += 1
-    else if (o === 'failed') failedCount += 1
-    else skippedCount += 1
-  }
-
-  // 6. Finalize the parent row. 'failed' only when EVERY recipient failed;
+  // 7. Finalize the parent row. 'failed' only when EVERY recipient failed;
   //    partial success stays 'sent' with per-recipient detail.
   const finalStatus: CommInsert['status'] = sentCount > 0 ? 'sent' : 'failed'
   await supabase
@@ -619,6 +518,7 @@ export async function sendCommunication(
     sentCount,
     failedCount,
     skippedCount,
+    ...optedOut,
     ...(paperNotice ? { paperNotice } : {}),
   }
 }
@@ -942,36 +842,4 @@ export async function resendFailedRecipients(
   revalidatePath('/communications')
   revalidatePath(`/communications/${comm.id}`)
   return { ok: true, sentCount, failedCount }
-}
-
-/**
- * `renderedSubject` is optional because there are two kinds of failure:
- * one where the merge fields resolved and the provider refused, and one
- * where rendering itself threw. Only the first has a subject to record.
- * Omitting it leaves the column NULL, which migration 0050 defines as
- * "unknown" — distinct from an empty subject.
- *
- * `organizationId` is likewise optional. sendCommunication owns the rows it
- * just inserted and omits it; resendFailedRecipients passes it so that every
- * statement it issues off a client-supplied id carries the org filter, even
- * though the id came out of an already-scoped select.
- */
-async function markFailed(
-  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
-  recipientId: string,
-  error: string,
-  renderedSubject?: string,
-  organizationId?: string,
-): Promise<void> {
-  let q = supabase
-    .from('communication_recipients')
-    .update({
-      delivery_status: 'failed',
-      failed_at: new Date().toISOString(),
-      error_message: error,
-      ...(renderedSubject === undefined ? {} : { rendered_subject: renderedSubject }),
-    })
-    .eq('id', recipientId)
-  if (organizationId) q = q.eq('organization_id', organizationId)
-  await q
 }

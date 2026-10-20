@@ -10,9 +10,11 @@
 //                         also accept an alphanumeric sender ID, e.g.
 //                         "HomeownerHub".
 //
-// If VONAGE_API_KEY/SECRET are unset we no-op and log instead. Keeps
-// dev/preview builds from failing when SMS isn't configured yet — same
-// graceful-degrade pattern email uses with RESEND_API_KEY.
+// If any of the three is unset, sendSms returns { ok: false, error:
+// SMS_NOT_CONFIGURED }. It used to no-op and report success when the key
+// or secret was missing, so a broadcast's text rows read "sent" while
+// nothing went out (BL-102 finding 2). smsConfigured() lets the composer
+// grey out the Text option up front instead.
 //
 // We use the `@vonage/server-sdk` package (the official Vonage Node SDK)
 // and its legacy SMS API (vonage.sms.send), which authenticates with the
@@ -43,6 +45,15 @@ function getClient(): Vonage | null {
   return _client
 }
 
+/** The error a send returns when Vonage isn't fully configured. */
+export const SMS_NOT_CONFIGURED = 'SMS not configured'
+
+/** True only when every Vonage variable a send needs is present. Reads
+ *  names only, never values, and logs nothing. */
+export function smsConfigured(): boolean {
+  return Boolean(process.env.VONAGE_API_KEY && process.env.VONAGE_API_SECRET && process.env.VONAGE_FROM_NUMBER)
+}
+
 export interface SendSmsInput {
   /** E.164-formatted destination number, e.g. "+14045551234". */
   to: string
@@ -63,16 +74,11 @@ export async function sendSms(
   }
 
   const from = process.env.VONAGE_FROM_NUMBER
-  if (!from) {
-    return { ok: false, error: 'VONAGE_FROM_NUMBER is not configured.' }
-  }
-  const client = getClient()
-  if (!client) {
-    // No key/secret configured — log so a developer can still trace the
-    // flow without burning a real Vonage send. NOT for prod.
-    // No number or body in logs.
-    console.warn('[sms] VONAGE_API_KEY / VONAGE_API_SECRET missing; skipping send')
-    return { ok: true, messageSid: null }
+  const client = from ? getClient() : null
+  if (!from || !client) {
+    // Never report success for a text that did not go out: the recipient
+    // row must read failed, not sent.
+    return { ok: false, error: SMS_NOT_CONFIGURED }
   }
 
   // Vonage expects E.164 *without* the leading + (digits only): country
