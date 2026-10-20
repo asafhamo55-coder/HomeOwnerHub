@@ -17,6 +17,7 @@ import { HoaSidebar } from '@/components/layout/HoaSidebar'
 import { HoaHubSwitcher } from '@/components/layout/HoaHubSwitcher'
 import { HoaCommandPalette, HoaUserMenu } from '@/components/layout/HoaChrome'
 import { DashboardProviders } from '@/components/layout/DashboardProviders'
+import { ProductAnalytics } from '@/components/analytics/ProductAnalytics'
 import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
@@ -141,6 +142,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           helpArticles={articlesFor(role).map((a) => ({ id: a.id, title: a.title, href: articleHref(a.id, 'board'), keywords: a.keywords }))}
         />
       </AppShell>
+      {/* BL-009: cookieless, scrubbed page views; off unless NEXT_PUBLIC_ANALYTICS_ENABLED. */}
+      <ProductAnalytics />
     </DashboardProviders>
   )
 }

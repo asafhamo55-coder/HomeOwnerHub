@@ -7,6 +7,7 @@ import { ResidentTabBar } from '@/components/resident/ResidentTabBar'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { ImpersonationBanner } from '@/components/ImpersonationBanner'
 import { ResidentProviders } from '@/components/resident/ResidentProviders'
+import { ProductAnalytics } from '@/components/analytics/ProductAnalytics'
 import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
@@ -84,6 +85,8 @@ export default async function ResidentLayout({
 
       <ResidentTabBar />
     </div>
+    {/* BL-009: cookieless, scrubbed page views; off unless NEXT_PUBLIC_ANALYTICS_ENABLED. */}
+    <ProductAnalytics />
     </ResidentProviders>
   )
 }

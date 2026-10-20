@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <section className="pb-24">
         <div className="container-page">
           <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-foreground-secondary">
-            <p className="text-sm text-muted">Last updated: May 15, 2026</p>
+            <p className="text-sm text-muted">Last updated: October 20, 2026</p>
 
             <h2>The short version</h2>
             <ul>
@@ -32,6 +32,7 @@ export default function PrivacyPage() {
               <li>We never train models on your data.</li>
               <li>We never sell or share your data with third parties.</li>
               <li>We log every AI action for your audit trail.</li>
+              <li>We count how the app is used in aggregate, without cookies and without anything that identifies you.</li>
             </ul>
 
             <h2>1. Information we collect</h2>
@@ -60,6 +61,20 @@ export default function PrivacyPage() {
               number, and inbox reply drafts remove contact details from
               resident messages before the AI reads them. Each provider operates under a
               data-processing agreement and processes only what's necessary.
+            </p>
+
+            <h2 id="usage-analytics">Usage analytics</h2>
+            <p>
+              To learn which features boards and residents actually use, the
+              app records aggregate usage with Vercel Web Analytics: which
+              kinds of pages are viewed and a few product actions (for example,
+              that an approval was decided or a request was submitted). It sets
+              no cookies and does not identify you. Page addresses are reduced
+              to their shape before they are sent (record numbers are replaced
+              and search terms are removed), and events never include names,
+              emails, addresses, message text or record numbers. If your
+              browser sends Do Not Track or Global Privacy Control, nothing is
+              recorded.
             </p>
 
             <h2 id="text-messages">Text messages</h2>

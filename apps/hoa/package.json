@@ -25,6 +25,7 @@
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-table": "^8.20.0",
+    "@vercel/analytics": "^1.6.1",
     "@vonage/server-sdk": "^3.21.2",
     "cmdk": "^1.0.0",
     "date-fns": "^4.0.0",

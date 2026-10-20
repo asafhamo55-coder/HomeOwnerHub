@@ -7,6 +7,7 @@ import { Alert, Button, Field, Input, Select, Textarea, useToast } from '@homeow
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createArcRequest, type ArcCategory } from '@/lib/resident-submissions'
 import type { ResidentUnit } from '@/lib/resident'
+import { trackEvent } from '@/lib/analytics/track'
 import { responseErrorMessage } from '@/lib/api/client'
 import { ArcPrecheckResult, type ArcPrecheckResponse } from './ArcPrecheckResult'
 
@@ -104,6 +105,7 @@ export function ArcRequestForm({
         else setError(result.error)
         return
       }
+      trackEvent('resident.request_submitted', { type: 'arc' })
       toast({ tone: 'success', message: 'Application submitted to the board.' })
       router.push(`/resident/arc/${result.data.requestId}`)
     })

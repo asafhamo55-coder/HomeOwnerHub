@@ -12,6 +12,7 @@ import {
 import { summarizePhotoUploads, type PhotoUploadOutcome } from '@/lib/attachment-rules'
 import { uploadAttachmentDirect } from '@/lib/upload-attachment'
 import { PhotoPicker } from './PhotoPicker'
+import { trackEvent } from '@/lib/analytics/track'
 import { VIOLATION_CATEGORIES } from '@/lib/violation-categories'
 
 const CATEGORIES = VIOLATION_CATEGORIES
@@ -55,6 +56,7 @@ export function ReportViolationForm({
         return
       }
 
+      trackEvent('resident.request_submitted', { type: 'violation_report' })
       const newReportId = result.data.reportId
       setReportId(newReportId)
 
