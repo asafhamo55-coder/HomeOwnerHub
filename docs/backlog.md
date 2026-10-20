@@ -1134,3 +1134,36 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 - **BL-112 Meter every AI call (Done 2026-10-20: AI_PLATFORM_KILL_SWITCH enforced in packages/ai guard for all 19 clients, embeddings and direct fetches; manual inbox draft and 8 board actions now draw on board_ai; job/embedding usage counted in ai.usage.job.*/ai.usage.embed and included in the daily spend alert):** model calls that skip `requireAiQuota` aren't counted, aren't capped and ignore `AI_PLATFORM_KILL_SWITCH`: the inbox's manual "Draft a reply", background jobs and embeddings (about 19 OpenAI client sites). Route them all through a single metered and kill-switchable client wrapper. User-triggered calls count against the right bucket; jobs and embeddings get their own platform-level counters.
 - **BL-108 Rebalance the per-plan AI budget before PRICING_V2 goes on:** under the "every cap saturated" 30% rule, Essentials is left with 0 Copilot questions a day and Complete exceeds 30%. An Opus advisor is reviewing (realistic-use model plus an org monthly AI spend ceiling). The Essentials/Complete numbers for meeting_summary and ask_community are PROVISIONAL until then.
 - **BL-109 Guard-held sends everywhere (Done 2026-10-20: resident-notify, vendor COI, the communications resend path, the monthly board report and recurring-event alerts all finish via finalSendStatus; held rows are `suppressed` and never offered for retry; a held alert day still counts toward the BL-056 retry cap; the inbox reply draft (mailbox-send) keeps `failed` + the guard message, since drafts have no held status):** apply `finalSendStatus` (packages/observability/src/send-status.ts) to the resident-notify and vendor-COI flows and the resend path in communications send.ts, so a send the outbound guard holds for every recipient reads "held by safety guard", not "failed".
+
+## Ranked open work — round 2 (2026-10-20)
+
+**Source:** `docs/research/2026-10-20-next-wins.md`. It covers the board complaints with URLs, the gap analysis against the routes and guides, and the "Partly done" leftovers. All ten need **no migration** and no owner keys. Each is sized for one worktree agent. Highest value first.
+
+1. **BL-113 ARC decision clock.** Per-association "decide within N days" setting in `associations.compliance_settings`, a days-left chip on /arc, due-soon and overdue lines in the daily digest, and a deemed-approval warning. Pain: late ARC decisions get deemed approved. Effort S, score 3.60. Files: `apps/hoa/src/lib/arc-review/clock.ts` (new), `apps/hoa/src/app/(dashboard)/arc/`, `packages/jobs/src/daily-digest.ts`.
+2. **BL-114 Payment receipt email to the owner when the board records a payment.** A resident-notify `payment_recorded` event: guarded, idempotent per payment, respects `email_opt_in`. Pain: Zelle and check payment disputes. Effort S, score 2.70. Files: `apps/hoa/src/lib/resident-notify/`, `apps/hoa/src/lib/assessments.ts`.
+3. **BL-115 Board activity log.** /settings/activity over the existing `audit_log`: filters, plain-language labels, metadata allowlist, audited CSV. Check `audit_log` RLS first. Pain: lost records at turnover and self-dealing suspicion. Effort S–M, score 2.27. Files: `apps/hoa/src/app/(dashboard)/settings/activity/` (new), `apps/hoa/src/lib/audit/` (new).
+4. **BL-116 Motion log across meetings.** /meetings/motions flattens `hoa_meeting_minutes.motions`, with filter, search, CSV, ⌘K results and approved-only display for residents. Pain: secretaries hunting past motions through PDFs. Effort S, score 2.40. Files: `apps/hoa/src/lib/meetings/motions.ts` (new), `apps/hoa/src/lib/search/records.ts`.
+5. **BL-117 Board turnover kit.** /settings/handover, a live checklist:
+   - access and roles, with remove or invite successor;
+   - person-bound connections (mailbox, Plaid, Zelle);
+   - open work and expiring COIs;
+   - the data export;
+   - a printable state-of-the-association page.
+
+   Pain: "HOAs run on oral tradition." Effort M, score 1.60. Files: `apps/hoa/src/app/(dashboard)/settings/handover/` (new), `apps/hoa/src/lib/handover/` (new).
+6. **BL-118 Meeting notice to owners with a calendar invite.** "Send notice" on a scheduled meeting prefills the composer and adds an `.ics` file. It also warns when the date is inside the state minimum notice: FL § 720.303(2)/720.306, CA § 4920, TX § 209.0051, and the bylaws for GA. Write `notice_posted_at` only behind the BL-050 flag. Pain: short notice voids decisions. Effort M, score 1.50. Files: `apps/hoa/src/app/(dashboard)/meetings/[id]/MeetingActions.tsx`, `apps/hoa/src/lib/meetings/notice-law.ts` (new), `apps/hoa/src/lib/ics.ts` (new).
+7. **BL-119 Board task list.** /tasks over `meeting_action_items`, where `meeting_id` is nullable. Assign, due, done, make a task from a ticket or thread, overdue lines in the assignee's digest, and a dashboard card. Pain: burnout, one person carries everything. Effort M, score 1.20. Files: `apps/hoa/src/app/(dashboard)/tasks/` (new), `apps/hoa/src/lib/meeting-action-items.ts`, `packages/jobs/src/daily-digest.ts`.
+8. **BL-120 Reserve snapshot.** Reserve fund balance, year-to-date contributions vs budget, draws and a 12-month trend on the dashboard and in the monthly board report, from `funds` and `ledger_entries.fund_id`. Pain: underfunded reserves. Effort S–M, score 1.50. Files: `apps/hoa/src/lib/accounting/reserves.ts` (new), `apps/hoa/src/lib/dashboard/queries.ts`, `packages/jobs/src/monthly-board-report/run.ts`.
+9. **BL-121 Year-end CPA package and 1120-H worksheet.** A zip of TB, GL, statements, AR aging and bank recs, plus:
+   - a 60%/90% test and 30% tax estimate labelled "not tax advice";
+   - 1099-NEC candidates (≥ $600, with the W-9 on file flag).
+
+   Board-only and audited. Ship by January. Pain: "HOA never filed taxes." Effort M–L, score 1.12. Files: `apps/hoa/src/app/(dashboard)/accounting/reports/year-end/` (new), `apps/hoa/src/lib/accounting/year-end/` (new).
+10. **BL-122 Annual meeting quorum kit.** A printable sign-in sheet and per-home proxy forms from the voter roster, a proxy chase list, and a live quorum counter saved to `hoa_meeting_minutes.attendees`. No e-voting (that is BL-023, M2). Ship before the Q1 meeting season. Pain: annual meetings never reach quorum. Effort M–L, score 1.12. Files: `apps/hoa/src/app/(dashboard)/meetings/[id]/quorum/` (new), `apps/hoa/src/lib/meetings/quorum.ts` (new).
+
+**Below the line:**
+- Board and emergency contacts on the resident portal.
+- Georgia statute adapter (BL-069 GA).
+- Records-request deadline log. It needs a `tickets.category` value or a new table, so propose it for the next migration batch.
+
+**Not code:** BL-099 slow pages (needs Asaf's Vercel logs) and BL-031 (needs a real CINC export).
