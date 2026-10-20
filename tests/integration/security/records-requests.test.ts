@@ -3,9 +3,13 @@
  * against real Postgres. CI only (no local database).
  *
  *   1. tickets.category accepts 'records_request' from the resident's own
- *      client (the path lib/records-requests/actions.ts takes), with
- *      records_due_at set; every 0024 category is still accepted and an
- *      unknown one is still refused with 23514.
+ *      client (the path lib/records-requests/actions.ts takes); every 0024
+ *      category is still accepted and an unknown one is still refused with
+ *      23514.
+ *   3. tickets_records_due_at_guard: a resident cannot set records_due_at
+ *      (insert or, were RLS ever to allow it, update); the app path (the
+ *      resident inserts, the service role writes the due day) and the
+ *      board's own client can.
  *   2. records_due_at round-trips as the stored instant, and the board can
  *      close the request (the "Mark fulfilled" write) through its own client.
  *
@@ -44,14 +48,12 @@ function ticketRow(category: string, extra: Record<string, unknown> = {}) {
 }
 
 describe('1. tickets.category accepts records_request', () => {
-  it('a resident files a records request with a due day through their own client', async () => {
+  it('a resident files a records request through their own client', async () => {
     const { data, error } = await resident.client
       .from('tickets')
-      // records_due_at is not in the generated types until gen:types runs
-      // after prod has 0066 (CLAUDE.md footgun 3), hence the cast.
       // unit_id NULL: the 0063 insert policy allows it, and linking the
       // resident to a unit (ownerships) is rls-sweep.test.ts's job.
-      .insert(ticketRow('records_request', { unit_id: null, records_due_at: '2026-11-03T17:00:00.000Z' }) as never)
+      .insert(ticketRow('records_request', { unit_id: null }) as never)
       .select('id')
       .single()
     expect(error).toBeNull()
@@ -107,5 +109,103 @@ describe('2. records_due_at and mark fulfilled', () => {
       .select('records_due_at' as never)
       .single()
     expect((data as unknown as { records_due_at: string | null }).records_due_at).toBeNull()
+  })
+})
+
+describe('3. records_due_at guard (tickets_records_due_at_guard)', () => {
+  const DUE = '2026-11-03T17:00:00.000Z'
+
+  async function recordsCount(): Promise<number | null> {
+    const { count } = await adminDb()
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('category' as never, 'records_request')
+    return count
+  }
+
+  async function dueOf(id: string): Promise<string | null> {
+    const { data } = await adminDb().from('tickets').select('records_due_at' as never).eq('id', id).single()
+    const due = (data as unknown as { records_due_at: string | null }).records_due_at
+    return due === null ? null : new Date(due).toISOString()
+  }
+
+  it('a resident cannot insert a records request with their own due day', async () => {
+    // records_due_at is not in the generated types until gen:types runs
+    // after prod has 0066 (CLAUDE.md footgun 3), hence the cast.
+    const { error } = await resident.client
+      .from('tickets')
+      .insert(ticketRow('records_request', { unit_id: null, records_due_at: '2099-01-01T17:00:00.000Z' }) as never)
+    expect(error?.code).toBe('42501')
+    expect(await recordsCount()).toBe(0)
+  })
+
+  it('the app path: the resident inserts, then the service role writes the due day', async () => {
+    const { data, error } = await resident.client
+      .from('tickets')
+      .insert(ticketRow('records_request', { unit_id: null }) as never)
+      .select('id')
+      .single()
+    expect(error).toBeNull()
+    const id = (data as { id: string }).id
+    expect(await dueOf(id)).toBeNull()
+
+    // Same filters as createRecordsRequest's service-role write.
+    const { data: set, error: setError } = await adminDb()
+      .from('tickets')
+      .update({ records_due_at: DUE } as never)
+      .eq('id', id)
+      .eq('organization_id' as never, org.orgId)
+      .eq('submitted_by' as never, resident.id)
+      .eq('category' as never, 'records_request')
+      .is('records_due_at' as never, null)
+      .select('id')
+    expect(setError).toBeNull()
+    expect(set).toHaveLength(1)
+    expect(await dueOf(id)).toBe(DUE)
+  })
+
+  it('the resident cannot change the due day afterwards', async () => {
+    const { data } = await adminDb()
+      .from('tickets')
+      .insert(ticketRow('records_request', { records_due_at: DUE }) as never)
+      .select('id')
+      .single()
+    const id = (data as { id: string }).id
+    // Refused by 0063's board-only UPDATE policy (no row matched) or by
+    // the guard (42501); either way the stored day is unchanged.
+    await resident.client
+      .from('tickets')
+      .update({ records_due_at: '2099-01-01T17:00:00.000Z' } as never)
+      .eq('id', id)
+    expect(await dueOf(id)).toBe(DUE)
+  })
+
+  it('the board can set and change the due day through its own client', async () => {
+    const { data: created, error } = await board.client
+      .from('tickets')
+      .insert(ticketRow('records_request', { records_due_at: DUE }) as never)
+      .select('id')
+      .single()
+    expect(error).toBeNull()
+    const id = (created as { id: string }).id
+    expect(await dueOf(id)).toBe(DUE)
+
+    const later = '2026-11-10T17:00:00.000Z'
+    const { error: updError } = await board.client
+      .from('tickets')
+      .update({ records_due_at: later } as never)
+      .eq('id', id)
+    expect(updError).toBeNull()
+    expect(await dueOf(id)).toBe(later)
+  })
+
+  it("a board member of another org cannot set this org's due day", async () => {
+    const otherOrg = await makeOrg()
+    const outsider = await mintUser(otherOrg, 'board')
+    const { error } = await outsider.client
+      .from('tickets')
+      .insert(ticketRow('records_request', { records_due_at: DUE }) as never)
+    expect(error).not.toBeNull()
+    expect(await recordsCount()).toBe(0)
   })
 })

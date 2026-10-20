@@ -3,7 +3,7 @@
 -- Apply: docs/specs/2026-10-20-sql-runbook.md, Section I. Needs 0024
 -- (tickets). Independent of 0063–0065.
 --
--- Two parts, each idempotent (safe to run any number of times):
+-- Three parts, each idempotent (safe to run any number of times):
 --
 --   1. tickets.category CHECK also allows 'records_request'. Every value
 --      0024 allowed is kept. Before this, inserting a records request
@@ -12,6 +12,15 @@
 --      a records request, stored as that day at 17:00 UTC (see
 --      apps/hoa/src/lib/records-requests/law.ts, STORAGE). NULL for every
 --      other ticket and for states whose deadline is not loaded.
+--   3. tickets_records_due_at_guard trigger: an authenticated caller who
+--      is not board/admin of the ticket's org cannot set or change
+--      records_due_at (42501). 0063's tickets_insert policy lets a
+--      resident INSERT their own ticket with any column values, so
+--      without this a resident posting to PostgREST directly could pick
+--      their own statutory deadline. The app files the request with the
+--      resident's client and then writes the due day with the service
+--      role (apps/hoa/src/lib/records-requests/actions.ts). Service role
+--      and direct SQL (no JWT) are unaffected.
 --
 -- Nothing reads or writes either until RECORDS_REQUESTS_LIVE
 -- (packages/db/src/records-requests.ts) is flipped; that is a separate
@@ -60,5 +69,42 @@ COMMENT ON COLUMN public.tickets.records_due_at IS
 CREATE INDEX IF NOT EXISTS tickets_records_due_idx
   ON public.tickets (organization_id, records_due_at)
   WHERE category = 'records_request' AND deleted_at IS NULL;
+
+-- ── 3. records_due_at guard ───────────────────────────────────────────
+-- Fires only when records_due_at is in the INSERT or in the UPDATE's SET
+-- list. INSERT: refuses a non-null value. UPDATE: refuses any change
+-- (clearing a deadline is tampering too). Residents cannot UPDATE tickets
+-- at all under 0063, so the UPDATE arm is defence in depth. Same role
+-- test as 0065's resident_sms_opt_in_self_only; board/admin is the same
+-- SECURITY DEFINER helper the tickets RLS policies use.
+CREATE OR REPLACE FUNCTION public.tickets_records_due_at_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_role text := coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '');
+BEGIN
+  IF tg_op = 'INSERT' THEN
+    IF new.records_due_at IS NULL THEN
+      RETURN new;
+    END IF;
+  ELSIF new.records_due_at IS NOT DISTINCT FROM old.records_due_at THEN
+    RETURN new;
+  END IF;
+  IF v_role IN ('authenticated', 'anon')
+     AND NOT coalesce(public.auth_is_board_or_admin(new.organization_id), false) THEN
+    RAISE EXCEPTION 'records_due_at can only be set by the board or the server'
+      USING errcode = '42501';
+  END IF;
+  RETURN new;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tickets_records_due_at_guard ON public.tickets;
+CREATE TRIGGER tickets_records_due_at_guard
+  BEFORE INSERT OR UPDATE OF records_due_at ON public.tickets
+  FOR EACH ROW EXECUTE FUNCTION public.tickets_records_due_at_guard();
 
 COMMIT;
