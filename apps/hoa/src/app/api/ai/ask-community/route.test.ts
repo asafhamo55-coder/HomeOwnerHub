@@ -38,7 +38,16 @@ vi.mock('@/lib/supabase/server', () => ({
 const askCommunity = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/community-qa/agent', () => ({ askCommunity }))
 
+// BL-106: the limiter is mocked (lib/api/rate-limit.test.ts pins the ledger
+// and the bucket math); the real rateLimitedError builds the 429 below.
+const quota = vi.hoisted(() => ({ requireAiQuota: vi.fn() }))
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: quota.requireAiQuota,
+}))
+
 import { POST } from './route'
+import { rateLimitedError } from '@/lib/api/rate-limit'
 import { ContactVault } from '@/lib/community-qa/contact-placeholders'
 
 const ASSOC = '11111111-1111-4111-8111-111111111111'
@@ -65,6 +74,8 @@ beforeEach(() => {
   process.env.AI_API_KEY = 'test-key'
   askCommunity.mockReset()
   askCommunity.mockResolvedValue({ answer: 'Twelve.', toolCalls: [], steps: 1 })
+  quota.requireAiQuota.mockReset()
+  quota.requireAiQuota.mockResolvedValue({ usageId: 'usage-1', userId: 'user-1' })
 })
 
 describe('POST /api/ai/ask-community', () => {
@@ -202,6 +213,56 @@ describe('POST /api/ai/ask-community', () => {
       citations: [],
       confidence: 'LOW',
       runId: 'run-1',
+    })
+  })
+
+  describe('BL-106 quota (ask_community bucket)', () => {
+    it('draws on its own ask_community bucket with the gate org id, before the agent runs', async () => {
+      const res = await POST(req({ question: 'How many units are leased?' }))
+      expect(res.status).toBe(200)
+      expect(quota.requireAiQuota).toHaveBeenCalledTimes(1)
+      expect(quota.requireAiQuota).toHaveBeenCalledWith('ask_community', 'org-1')
+      expect(quota.requireAiQuota.mock.invocationCallOrder[0]).toBeLessThan(askCommunity.mock.invocationCallOrder[0]!)
+    })
+
+    it('over the cap: 429 rate_limited with Retry-After and the friendly message, and no agent call', async () => {
+      quota.requireAiQuota.mockRejectedValue(
+        rateLimitedError('ask_community', { ok: false, scope: 'user', retryAfterSeconds: 900 }),
+      )
+      const res = await POST(req({ question: 'How many units are leased?' }))
+      expect(res.status).toBe(429)
+      expect(res.headers.get('Retry-After')).toBe('900')
+      expect((await res.json()).error).toEqual({
+        code: 'rate_limited',
+        reason: 'user_limit',
+        retryAfterSeconds: 900,
+        message: 'You’ve reached the limit of 15 Copilot questions an hour. Try again in about 15 minutes.',
+      })
+      expect(askCommunity).not.toHaveBeenCalled()
+    })
+
+    it('a failed agent run still counts: the slot is taken before the provider is reached', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      askCommunity.mockRejectedValue(new Error('provider down'))
+      const res = await POST(req({ question: 'How many units are leased?' }))
+      expect(res.status).toBe(503)
+      expect(quota.requireAiQuota).toHaveBeenCalledTimes(1)
+      spy.mockRestore()
+    })
+
+    it('does not spend quota on a refused caller, a bad request, a foreign association or a missing key', async () => {
+      h.role = 'resident'
+      await POST(req({ question: 'How many units?' }))
+      h.role = 'board'
+      await POST(req('{not json', true))
+      await POST(req({ question: 'hi' }))
+      h.assocFound = false
+      await POST(req({ question: 'Pet limit?', associationId: ASSOC }))
+      h.assocFound = true
+      delete process.env.AI_API_KEY
+      const unset = await POST(req({ question: 'How many units?' }))
+      expect(unset.status).toBe(503)
+      expect(quota.requireAiQuota).not.toHaveBeenCalled()
     })
   })
 })

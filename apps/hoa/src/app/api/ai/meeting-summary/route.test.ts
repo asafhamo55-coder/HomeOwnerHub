@@ -39,7 +39,16 @@ vi.mock('@/lib/platform-admin', () => ({ isPlatformAdmin: vi.fn(async () => fals
 vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
 vi.mock('@homeowner-portal/ai', () => ({ summarizeMeeting: h.summarize }))
 
+// BL-106: the limiter is mocked (lib/api/rate-limit.test.ts pins the ledger
+// and the bucket math); the real rateLimitedError builds the 429 below.
+const quota = vi.hoisted(() => ({ requireAiQuota: vi.fn() }))
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: quota.requireAiQuota,
+}))
+
 import { POST } from './route'
+import { rateLimitedError } from '@/lib/api/rate-limit'
 
 const TRANSCRIPT = 'The board met and discussed the pool, the budget and the landscaping contract renewal.'
 
@@ -58,6 +67,8 @@ beforeEach(() => {
   h.summarize.mockImplementation(async () => 'SUMMARY')
   h.orgRow = { data: { name: 'Test HOA' }, error: null }
   h.orgQuery = []
+  quota.requireAiQuota.mockReset()
+  quota.requireAiQuota.mockResolvedValue({ usageId: 'usage-1', userId: 'user-1' })
 })
 
 describe('POST /api/ai/meeting-summary', () => {
@@ -193,5 +204,54 @@ describe('POST /api/ai/meeting-summary', () => {
     expect((await res.json()).error.code).toBe('internal')
     expect(h.summarize).not.toHaveBeenCalled()
     spy.mockRestore()
+  })
+
+  describe('BL-106 quota (meeting_summary bucket)', () => {
+    it('draws on its own meeting_summary bucket with the gate org id, before the model call', async () => {
+      const res = await POST(post({ meetingDate: '2026-10-01', transcript: TRANSCRIPT }))
+      expect(res.status).toBe(200)
+      expect(quota.requireAiQuota).toHaveBeenCalledTimes(1)
+      expect(quota.requireAiQuota).toHaveBeenCalledWith('meeting_summary', ORG.id)
+      expect(quota.requireAiQuota.mock.invocationCallOrder[0]).toBeLessThan(h.summarize.mock.invocationCallOrder[0]!)
+    })
+
+    it('over the cap: 429 rate_limited with Retry-After and the friendly message, and no model call', async () => {
+      quota.requireAiQuota.mockRejectedValue(
+        rateLimitedError('meeting_summary', { ok: false, scope: 'org', retryAfterSeconds: 3 * 3600 }),
+      )
+      const res = await POST(post({ meetingDate: '2026-10-01', transcript: TRANSCRIPT }))
+      expect(res.status).toBe(429)
+      expect(res.headers.get('Retry-After')).toBe(String(3 * 3600))
+      expect((await res.json()).error).toEqual({
+        code: 'rate_limited',
+        reason: 'org_limit',
+        retryAfterSeconds: 3 * 3600,
+        message:
+          'Your community has reached its limit of 10 meeting summaries a day. Try again in about 3 hours. You can still write the minutes yourself.',
+      })
+      expect(h.summarize).not.toHaveBeenCalled()
+      expect(h.orgQuery).toEqual([])
+    })
+
+    it('a failed model call still counts: the slot is taken before the provider is reached', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      h.summarize.mockImplementation(async () => {
+        throw new Error('provider down')
+      })
+      const res = await POST(post({ meetingDate: '2026-10-01', transcript: TRANSCRIPT }))
+      expect(res.status).toBe(503)
+      expect(quota.requireAiQuota).toHaveBeenCalledTimes(1)
+      spy.mockRestore()
+    })
+
+    it('does not spend quota on a refused caller or a request that fails validation', async () => {
+      h.role = 'resident'
+      await POST(post({ meetingDate: '2026-10-01', transcript: TRANSCRIPT }))
+      h.role = 'board'
+      await POST(post('{nope', true))
+      await POST(post({ meetingDate: '2026-10-01', transcript: 'too short' }))
+      await POST(post({ meetingDate: '2026-10-01', transcript: 'x'.repeat(500_001) }))
+      expect(quota.requireAiQuota).not.toHaveBeenCalled()
+    })
   })
 })

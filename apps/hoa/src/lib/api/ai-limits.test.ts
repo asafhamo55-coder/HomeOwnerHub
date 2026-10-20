@@ -3,8 +3,11 @@ import { HOA_PLAN_IDS, bandFor } from '@homeowner-portal/billing'
 import {
   AI_BAND_MULTIPLIER,
   AI_RATE_LIMITS,
+  AI_CALL_COST_ESTIMATE_USD,
   BOARD_AI_DAILY,
+  BOARD_AI_POOL,
   aiCostCeilingUsd,
+  flatCapsWorstCaseMonthlyUsd,
   aiLimitFor,
   aiTierFor,
   worstCaseMonthlyAiCostUsd,
@@ -30,7 +33,7 @@ describe('worst-case AI cost ≤ 30% of the price, every plan, 1–2,000 doors',
 
   it('the base ceilings alone (~$120/mo) would break the rule at the smallest band — the reason for BL-104', () => {
     const baseOnly = (Object.keys(AI_RATE_LIMITS) as AiUsageBucket[])
-      .filter((b) => !AI_RATE_LIMITS[b].orgPool)
+      .filter((b) => !AI_RATE_LIMITS[b].orgPool && !AI_RATE_LIMITS[b].flat)
       .reduce((sum, b) => sum + AI_RATE_LIMITS[b].perOrg.limit, 0)
     expect(baseOnly).toBe(3100) // research §3.1's 3,100 calls/day
     expect(aiCostCeilingUsd('complete', 50)).toBeLessThan(115)
@@ -103,7 +106,7 @@ describe('aiTierFor', () => {
 describe('legacy and pre-flip orgs: limits equal today’s values exactly', () => {
   // Pinned literally: the BL-078 / BL-096 / BL-101 / BL-102 numbers as they
   // stood before BL-104. A null tier must return every one unchanged.
-  const TODAY: Record<Exclude<AiUsageBucket, 'board_ai'>, { perUser: number; perOrg: number; perUserDaily?: number }> = {
+  const TODAY: Record<Exclude<AiUsageBucket, 'board_ai' | 'meeting_summary' | 'ask_community'>, { perUser: number; perOrg: number; perUserDaily?: number }> = {
     arc_precheck: { perUser: 10, perOrg: 200 },
     ask_docs: { perUser: 30, perOrg: 500 },
     help_ask: { perUser: 30, perOrg: 500 },
@@ -128,5 +131,65 @@ describe('legacy and pre-flip orgs: limits equal today’s values exactly', () =
   it('the new board_ai cap (previously unlimited routes) is at the Complete level, 200/day', () => {
     expect(aiLimitFor('board_ai', aiTierFor({ plan: 'annual', doors: 40 }, true)).perOrg.limit).toBe(BOARD_AI_DAILY.complete)
     expect(aiLimitFor('board_ai', aiTierFor({ plan: 'free', doors: 40 }, false)).perOrg.limit).toBe(200)
+  })
+})
+
+describe('BL-106: meeting_summary and ask_community (decision amendment)', () => {
+  const FLAT = ['meeting_summary', 'ask_community'] as const
+
+  it('pins the caps: meeting summary 5/hour, 10/day; Copilot 15/hour, 25/day', () => {
+    expect(AI_RATE_LIMITS.meeting_summary.perUser).toEqual({ limit: 5, windowMs: 60 * 60 * 1000 })
+    expect(AI_RATE_LIMITS.meeting_summary.perOrg).toEqual({ limit: 10, windowMs: 24 * 60 * 60 * 1000 })
+    expect(AI_RATE_LIMITS.ask_community.perUser).toEqual({ limit: 15, windowMs: 60 * 60 * 1000 })
+    expect(AI_RATE_LIMITS.ask_community.perOrg).toEqual({ limit: 25, windowMs: 24 * 60 * 60 * 1000 })
+  })
+
+  it('are their own buckets: not in the board_ai pool, not pooled with anything', () => {
+    for (const b of FLAT) {
+      expect(BOARD_AI_POOL).not.toContain(b)
+      expect(AI_RATE_LIMITS[b].orgPool).toBeUndefined()
+      expect(AI_RATE_LIMITS[b].flat).toBe(true)
+    }
+  })
+
+  it('are flat: the same ceilings at every plan and band, and for a null tier', () => {
+    for (const b of FLAT) {
+      expect(aiLimitFor(b, null)).toBe(AI_RATE_LIMITS[b])
+      for (const plan of HOA_PLAN_IDS) {
+        for (const band of Object.keys(AI_BAND_MULTIPLIER[plan]) as Array<keyof (typeof AI_BAND_MULTIPLIER)['complete']>) {
+          expect(aiLimitFor(b, { plan, band })).toEqual(AI_RATE_LIMITS[b])
+        }
+      }
+    }
+  })
+
+  it('leave the decision §3 sum untouched: worstCaseMonthlyAiCostUsd ignores them', () => {
+    const tier = { plan: 'essentials', band: '1-50' } as const
+    let perDay = 0
+    for (const b of Object.keys(AI_RATE_LIMITS) as AiUsageBucket[]) {
+      if (AI_RATE_LIMITS[b].flat || AI_RATE_LIMITS[b].orgPool) continue
+      perDay += aiLimitFor(b, tier).perOrg.limit * AI_CALL_COST_ESTIMATE_USD[b]
+    }
+    perDay += BOARD_AI_DAILY.essentials * AI_CALL_COST_ESTIMATE_USD.board_ai
+    expect(worstCaseMonthlyAiCostUsd(tier)).toBeCloseTo(perDay * 30, 6)
+  })
+
+  it('per-call estimates follow the code budgets: summary ≈ $0.0024, Copilot ≈ $0.03', () => {
+    // 7.7k in × $0.15/M + 2k out × $0.60/M
+    expect(AI_CALL_COST_ESTIMATE_USD.meeting_summary).toBeCloseTo(7700 * 0.15e-6 + 2000 * 0.6e-6, 4)
+    // 72k in + 8k out over 8 steps, + 16 docs searches at $0.0009
+    expect(AI_CALL_COST_ESTIMATE_USD.ask_community).toBeCloseTo(72000 * 0.15e-6 + 8000 * 0.6e-6 + 16 * 0.0009, 2)
+  })
+
+  it('worst case, both maxed every day: $23.22/mo, under half the smallest band price ($49)', () => {
+    const cost = flatCapsWorstCaseMonthlyUsd()
+    expect(cost).toBeCloseTo((10 * 0.0024 + 25 * 0.03) * 30, 6)
+    expect(cost).toBeCloseTo(23.22, 2)
+    expect(cost).toBeLessThan(0.5 * 49)
+  })
+
+  it('normal work fits: several meetings a month and dozens of Copilot questions a day', () => {
+    expect(AI_RATE_LIMITS.meeting_summary.perOrg.limit).toBeGreaterThanOrEqual(5)
+    expect(AI_RATE_LIMITS.ask_community.perOrg.limit).toBeGreaterThanOrEqual(24)
   })
 })

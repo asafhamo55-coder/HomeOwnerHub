@@ -8,8 +8,10 @@
 //
 // Board-only AI routes sit behind requireRouteBoardOrAdmin. The BL-025
 // translation, follow-up letters and the BL-102 compose box have their own
-// buckets; since BL-104 the rest (violation drafting, digests,
-// parse/suggest, meeting summary, ask-community) share `board_ai`.
+// buckets; since BL-104 violation drafting, digests, analyze-violation and
+// parse/suggest share `board_ai`. Meeting summary and the board Copilot
+// (ask-community) are NOT in `board_ai`: since BL-106 each has its own flat
+// bucket (`meeting_summary`, `ask_community`), outside the decision §3 sum.
 //
 // The mechanism (lib/api/rate-limit.ts) counts rows in audit_log with
 // action `ai.usage.<bucket>`. Changing a number here takes effect on the next
@@ -22,7 +24,7 @@
 //     so worst-case AI cost stays ≤ 30% of the band's monthly price;
 //   - the board-only routes that had no limit (violation drafting from the
 //     wizard and /inspect, analyze-violation, digests, parse-document,
-//     suggest-fields, meeting-summary, ask-community) draw on `board_ai`,
+//     suggest-fields) draw on `board_ai`,
 //     and the BL-102 compose box shares that bucket's org ceiling
 //     (BOARD_AI_POOL): 100/day on Essentials, 200/day on Complete;
 //   - per-user windows are unchanged.
@@ -33,6 +35,12 @@
 // new board_ai cap at the Complete level (200/day): added safety on routes
 // that had no limit, not a reduction. A tier that can't be read falls back
 // to the same base ceilings (fail open, like the ledger).
+//
+// BL-106 (decision 2026-10-20-pricing.md, "Amendment — BL-106") —
+// `meeting_summary` and `ask_community` are `flat`: the same ceiling at every
+// plan and band, never scaled, and kept out of worstCaseMonthlyAiCostUsd so
+// the §3 ≤30% check for the BL-104 buckets is unchanged. Their own worst
+// case is flatCapsWorstCaseMonthlyUsd().
 
 import {
   bandFor,
@@ -54,6 +62,8 @@ export type AiUsageBucket =
   | 'resident_assistant'
   | 'inbox_autodraft'
   | 'board_ai'
+  | 'meeting_summary'
+  | 'ask_community'
 
 export interface RateWindow {
   /** Max calls inside the window. */
@@ -78,6 +88,12 @@ export interface AiRateLimit {
   orgPool?: readonly AiUsageBucket[]
   /** Plural noun for the org-scope 429 when the ceiling is pooled. */
   orgNoun?: string
+  /**
+   * BL-106: a fixed ceiling at every plan and band (aiLimitFor never scales
+   * it) whose cost is accounted in the decision's BL-106 amendment, not in
+   * the §3 sum (worstCaseMonthlyAiCostUsd skips it).
+   */
+  flat?: true
 }
 
 export const HOUR_MS = 60 * 60 * 1000
@@ -167,8 +183,9 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
   },
   // BL-104 — the board-only AI routes that had no limit: violation drafts
   // (wizard and the /inspect offline queue; follow-up letters keep their own
-  // bucket), analyze-violation, the daily digest, parse-document,
-  // suggest-fields, meeting-summary and ask-community. One combined per-org
+  // bucket), analyze-violation, the daily digest, parse-document and
+  // suggest-fields. (Not meeting-summary or ask-community: BL-106 buckets
+  // below.) One combined per-org
   // daily ceiling, shared with `compose`: 200 on Complete (the base here),
   // 100 on Essentials (BOARD_AI_DAILY). The per-person window is only a
   // runaway guard; an /inspect queue flushing a walkthrough fits under it.
@@ -179,6 +196,28 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
     suffix: 'You can still write it yourself.',
     orgPool: BOARD_AI_POOL,
     orgNoun: 'board AI drafts',
+  },
+  // BL-106 — POST /api/ai/meeting-summary, the meeting wizard's "Summarize
+  // transcript". Board-only. A board summarizes one or two meetings a month
+  // and may retry a few times, so 10 a day per community is far above real
+  // use; the per-person window stops a stuck retry loop. Flat (see above).
+  meeting_summary: {
+    perUser: { limit: 5, windowMs: HOUR_MS },
+    perOrg: { limit: 10, windowMs: DAY_MS },
+    noun: 'meeting summaries',
+    suffix: 'You can still write the minutes yourself.',
+    flat: true,
+  },
+  // BL-106 — POST /api/ai/ask-community, the board Copilot and dashboard Ask
+  // page. Board-only. Each question is a tool loop (up to 8 model steps and
+  // 16 tool runs, some of them docs searches with their own model call), so
+  // it is the dearest call per click. 25 a day per community and 15 an hour
+  // per person cover a busy board's day of questions. Flat (see above).
+  ask_community: {
+    perUser: { limit: 15, windowMs: HOUR_MS },
+    perOrg: { limit: 25, windowMs: DAY_MS },
+    noun: 'Copilot questions',
+    flat: true,
   },
 }
 
@@ -230,7 +269,7 @@ export function aiTierFor(org: { plan: string | null | undefined; doors: number 
 /** The limits one org gets for one bucket. null tier = the base ceilings (fail open). */
 export function aiLimitFor(bucket: AiUsageBucket, tier: AiTier | null): AiRateLimit {
   const base = AI_RATE_LIMITS[bucket]
-  if (!tier) return base
+  if (!tier || base.flat) return base
   const limit = base.orgPool
     ? BOARD_AI_DAILY[tier.plan]
     : Math.max(MIN_ORG_DAILY, Math.round(base.perOrg.limit * AI_BAND_MULTIPLIER[tier.plan][tier.band]))
@@ -254,6 +293,16 @@ export const AI_CALL_COST_ESTIMATE_USD: Readonly<Record<AiUsageBucket, number>> 
   resident_assistant: 0.0024, // 12k / 1k, multi-step tool loop
   compose: 0.0009,
   board_ai: 0.0009, // decision §3: ~$0.0009 per call
+  // BL-106, from the code's own budgets (decision amendment):
+  // packages/ai summarizeMeeting slices the transcript to 30,000 chars
+  // (~7.5k tokens) + ~0.2k prompt, max_tokens 2,000 →
+  // 7.7k × $0.15/M + 2k × $0.60/M ≈ $0.0024.
+  meeting_summary: 0.0024,
+  // community-qa/loop.ts: ≤ 8 steps re-sending a growing context (~9k tokens
+  // on average → ~72k in) and ~1k out per step (8k; the loop sets no
+  // max_tokens, so this is an assumption) ≈ $0.0156, plus up to 16 tool runs
+  // that could all be docs searches at ~$0.0009 each ($0.0144) → ≈ $0.03.
+  ask_community: 0.03,
 }
 
 /** Days in the worst-case month. */
@@ -268,6 +317,7 @@ export function worstCaseMonthlyAiCostUsd(tier: AiTier): number {
   const pooled = new Set<AiUsageBucket>()
   for (const bucket of Object.keys(AI_RATE_LIMITS) as AiUsageBucket[]) {
     const cfg = aiLimitFor(bucket, tier)
+    if (cfg.flat) continue // BL-106: accounted in flatCapsWorstCaseMonthlyUsd
     if (cfg.orgPool) {
       if (cfg.orgPool.some((b) => pooled.has(b))) continue
       cfg.orgPool.forEach((b) => pooled.add(b))
@@ -275,6 +325,19 @@ export function worstCaseMonthlyAiCostUsd(tier: AiTier): number {
     } else {
       perDay += cfg.perOrg.limit * AI_CALL_COST_ESTIMATE_USD[bucket]
     }
+  }
+  return perDay * COST_MONTH_DAYS
+}
+
+/**
+ * BL-106: worst-case monthly cost of the flat buckets — every one maxed
+ * every day at its per-call estimate. The same at every plan and band.
+ */
+export function flatCapsWorstCaseMonthlyUsd(): number {
+  let perDay = 0
+  for (const bucket of Object.keys(AI_RATE_LIMITS) as AiUsageBucket[]) {
+    const cfg = AI_RATE_LIMITS[bucket]
+    if (cfg.flat) perDay += cfg.perOrg.limit * AI_CALL_COST_ESTIMATE_USD[bucket]
   }
   return perDay * COST_MONTH_DAYS
 }
