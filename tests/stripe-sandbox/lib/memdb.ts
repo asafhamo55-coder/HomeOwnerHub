@@ -2,6 +2,10 @@
 //
 // It models exactly what packages/billing/src/webhook.ts touches:
 //   - from('orgs' | 'eviction_cases').update(patch).eq(...)  (pre-M1 path)
+//   - from(table).select(cols).eq(...).order(...).limit(n), where a column
+//     may be a JSON path (`metadata->>sub_id`), and
+//     from('audit_log').insert(row)  (customer.subscription.updated and
+//     invoice.payment_failed, both paths)
 //   - the three stripe_webhook_* functions from migrations/0064_m1_batch.sql
 //     (M1 path), ported statement for statement: event-id dedupe ledger,
 //     per-subscription rows, and stripe_billing_recompute.
@@ -21,6 +25,17 @@ export interface MemOrg {
   plan: string
   stripe_customer_id: string | null
   stripe_sub_id: string | null
+  doors_count: number | null
+}
+
+export interface MemAuditRow {
+  org_id: string | null
+  user_id: string | null
+  action: string
+  entity_type: string | null
+  metadata: Record<string, unknown>
+  /** Insertion order stands in for created_at (now()). */
+  created_at: number
 }
 
 export interface MemCase {
@@ -43,6 +58,7 @@ interface State {
   cases: Map<string, MemCase>
   subs: Map<string, SubRow>
   events: Map<string, { type: string; outcome: string }>
+  audit: MemAuditRow[]
 }
 
 const PRE_0064_PLANS = ['free', 'starter', 'standard', 'pro', 'enterprise', 'per_case', 'unlimited']
@@ -58,14 +74,24 @@ function clone(s: State): State {
     cases: new Map([...s.cases].map(([k, v]) => [k, { ...v }])),
     subs: new Map([...s.subs].map(([k, v]) => [k, { ...v }])),
     events: new Map([...s.events].map(([k, v]) => [k, { ...v }])),
+    audit: s.audit.map((r) => structuredClone(r)),
   }
+}
+
+type SelectResult = { data: Array<Record<string, unknown>> | null; error: { code?: string } | null }
+
+/** A column, or PostgREST's `col->>key` (text, so numbers compare as strings). */
+function field(row: Record<string, unknown>, col: string): string | null {
+  const m = /^(\w+)->>(\w+)$/.exec(col)
+  const v = m ? (row[m[1]!] as Record<string, unknown> | null | undefined)?.[m[2]!] : row[col]
+  return v == null ? null : String(v)
 }
 
 const minTs = (a: number | null, b: number | null) => (a == null ? b : b == null ? a : Math.min(a, b))
 
 export function createMemDb(opts: { planCheck?: 'pre0064' | 'post0064' } = {}) {
   const allowedPlans = new Set(opts.planCheck === 'pre0064' ? PRE_0064_PLANS : POST_0064_PLANS)
-  let state: State = { orgs: new Map(), cases: new Map(), subs: new Map(), events: new Map() }
+  let state: State = { orgs: new Map(), cases: new Map(), subs: new Map(), events: new Map(), audit: [] }
   let writes = 0
   let failNext: string | null = null
 
@@ -210,6 +236,35 @@ export function createMemDb(opts: { planCheck?: 'pre0064' | 'post0064' } = {}) {
           }
           return builder
         },
+        select() {
+          const filters: Array<[string, string]> = []
+          let order: { col: string; asc: boolean } | null = null
+          let limit = Infinity
+          const q = {
+            eq(col: string, value: string) {
+              filters.push([col, value])
+              return q
+            },
+            order(col: string, o: { ascending: boolean }) {
+              order = { col, asc: o.ascending }
+              return q
+            },
+            limit(n: number) {
+              limit = n
+              return q
+            },
+            then<T1 = SelectResult, T2 = never>(
+              onfulfilled?: ((v: SelectResult) => T1 | PromiseLike<T1>) | null,
+              onrejected?: ((reason: unknown) => T2 | PromiseLike<T2>) | null,
+            ): PromiseLike<T1 | T2> {
+              return Promise.resolve(runSelect(table, filters, order, limit)).then(onfulfilled, onrejected)
+            },
+          }
+          return q
+        },
+        insert(row) {
+          return Promise.resolve(runInsert(table, row))
+        },
       }
     },
     rpc(fn, args) {
@@ -217,15 +272,54 @@ export function createMemDb(opts: { planCheck?: 'pre0064' | 'post0064' } = {}) {
     },
   }
 
-  function runUpdate(table: 'orgs' | 'eviction_cases', patch: Record<string, unknown>, filters: Array<[string, string]>) {
+  function rowsOf(s: State, table: string): Array<Record<string, unknown>> {
+    if (table === 'orgs') return [...s.orgs.values()] as unknown as Array<Record<string, unknown>>
+    if (table === 'eviction_cases') return [...s.cases.values()] as unknown as Array<Record<string, unknown>>
+    return s.audit as unknown as Array<Record<string, unknown>>
+  }
+
+  function runSelect(table: string, filters: Array<[string, string]>, order: { col: string; asc: boolean } | null, limit: number): SelectResult {
+    const injected = takeInjectedFailure()
+    if (injected) return { data: null, error: injected }
+    let rows = rowsOf(state, table).filter((r) => filters.every(([c, v]) => field(r, c) === v))
+    if (order) {
+      const { col, asc } = order
+      rows = [...rows].sort((a, b) => {
+        const x = field(a, col) ?? ''
+        const y = field(b, col) ?? ''
+        return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1)
+      })
+    }
+    return { data: rows.slice(0, limit).map((r) => structuredClone(r)), error: null }
+  }
+
+  function runInsert(table: string, row: Record<string, unknown>) {
+    const injected = takeInjectedFailure()
+    if (injected) return { error: injected }
+    // Only audit_log is ever inserted into; anything else is a bug in the handler.
+    if (table !== 'audit_log') return { error: { code: '42501' } }
+    state.audit.push({
+      org_id: (row.org_id as string | null) ?? null,
+      user_id: (row.user_id as string | null) ?? null,
+      action: row.action as string,
+      entity_type: (row.entity_type as string | null) ?? null,
+      metadata: structuredClone((row.metadata as Record<string, unknown>) ?? {}),
+      created_at: state.audit.length,
+    })
+    writes++
+    return { error: null }
+  }
+
+  function runUpdate(table: 'orgs' | 'eviction_cases' | 'audit_log', patch: Record<string, unknown>, filters: Array<[string, string]>) {
     const injected = takeInjectedFailure()
     if (injected) return { error: injected }
     const next = clone(state)
-    const rows = (table === 'orgs' ? [...next.orgs.values()] : [...next.cases.values()]) as unknown as Array<Record<string, unknown>>
+    if (table === 'audit_log') return { error: { code: '42501' } } // append-only
+    const rows = rowsOf(next, table)
     let matched = 0
     try {
       for (const row of rows) {
-        if (!filters.every(([c, v]) => row[c] === v)) continue
+        if (!filters.every(([c, v]) => field(row, c) === v)) continue
         if (table === 'orgs') setOrg(row as unknown as MemOrg, patch as Partial<MemOrg>)
         else Object.assign(row, patch)
         matched++
@@ -259,7 +353,7 @@ export function createMemDb(opts: { planCheck?: 'pre0064' | 'post0064' } = {}) {
   return {
     db,
     addOrg(id: string, init: Partial<Omit<MemOrg, 'id'>> = {}) {
-      state.orgs.set(id, { id, plan: 'free', stripe_customer_id: null, stripe_sub_id: null, ...init })
+      state.orgs.set(id, { id, plan: 'free', stripe_customer_id: null, stripe_sub_id: null, doors_count: 0, ...init })
     },
     addCase(id: string, orgId: string) {
       state.cases.set(id, { id, org_id: orgId, stripe_payment_id: null })
@@ -277,9 +371,13 @@ export function createMemDb(opts: { planCheck?: 'pre0064' | 'post0064' } = {}) {
       return c ? { ...c } : undefined
     },
     eventCount: () => state.events.size,
+    /** audit_log rows, optionally one action's. */
+    audit(action?: string): MemAuditRow[] {
+      return state.audit.filter((r) => !action || r.action === action).map((r) => structuredClone(r))
+    },
     /** Successful row writes + applied (non-duplicate) function calls. */
     writes: () => writes,
-    /** The next write or function call fails with this Postgres code. */
+    /** The next db call (select, insert, update or function) fails with this Postgres code. */
     failNextWrite(code: string) {
       failNext = code
     },

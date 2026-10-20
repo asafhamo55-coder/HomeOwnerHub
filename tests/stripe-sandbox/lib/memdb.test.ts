@@ -154,4 +154,31 @@ describe('memdb table updates', () => {
     expect(await m.db.from('orgs').update({ plan: 'pro' }).eq('id', ORG)).toEqual({ error: null })
     expect(m.org(ORG)?.plan).toBe('pro')
   })
+
+  it('select filters on columns and JSON paths, orders and limits; insert appends to audit_log only', async () => {
+    const m = createMemDb()
+    m.addOrg(ORG, { stripe_sub_id: 'sub_1' })
+    const orgs = await m.db.from('orgs').select('id').eq('stripe_sub_id', 'sub_1').order('id', { ascending: true }).limit(1)
+    expect(orgs).toMatchObject({ error: null, data: [{ id: ORG }] })
+
+    for (const [id, at] of [['e1', T1], ['e3', T3], ['e2', T2]] as const) {
+      expect(await m.db.from('audit_log').insert({ org_id: ORG, action: 'a', metadata: { event_id: id, event_created: at, sub_id: 'sub_1' } })).toEqual({
+        error: null,
+      })
+    }
+    await m.db.from('audit_log').insert({ org_id: ORG, action: 'a', metadata: { event_id: 'x', event_created: T1, sub_id: 'sub_2' } })
+    const r = await m.db.from('audit_log').select('metadata').eq('metadata->>sub_id', 'sub_1').order('metadata->>event_created', { ascending: false }).limit(2)
+    expect(r.data!.map((row) => (row.metadata as { event_id: string }).event_id)).toEqual(['e3', 'e2'])
+    expect(m.audit('a')).toHaveLength(4)
+
+    expect(await m.db.from('orgs').insert({ id: 'x' })).toEqual({ error: { code: '42501' } })
+    expect(await m.db.from('audit_log').update({ action: 'b' }).eq('action', 'a')).toEqual({ error: { code: '42501' } })
+  })
+
+  it('failNextWrite also fails the next select', async () => {
+    const m = createMemDb()
+    m.failNextWrite('57014')
+    expect(await m.db.from('orgs').select('id').eq('id', ORG)).toEqual({ data: null, error: { code: '57014' } })
+    expect(await m.db.from('orgs').select('id').eq('id', ORG)).toEqual({ data: [], error: null })
+  })
 })

@@ -7,7 +7,9 @@ import {
   createPortalSession,
   isStripeConfigured,
   billableDoors,
+  checkoutErrorMessage,
   getStripe,
+  stripeErrorFacts,
 } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -59,7 +61,8 @@ async function resolvePriceId(cadence: HoaCadence): Promise<string | null> {
     if (id) priceIdCache[cadence] = id
     return id
   } catch (err) {
-    console.warn(`[billing] price lookup failed for ${cadence}:`, err)
+    // Type and code only: Stripe's message is provider detail (BL-103).
+    console.warn(`[billing] price lookup failed for ${cadence}:`, stripeErrorFacts(err))
     return null
   }
 }
@@ -83,9 +86,10 @@ export async function startHoaCheckout(
 
   const priceId = await resolvePriceId(parsed.data)
   if (!priceId) {
-    return {
-      error: `Stripe price for "${parsed.data}" billing is not configured. Hit /api/admin/setup-stripe-pricing once to create it, or set STRIPE_PRICE_PER_DOOR_${parsed.data.toUpperCase()} in Vercel env vars.`,
-    }
+    // Operator detail goes to the log (fix: hit /api/admin/setup-stripe-pricing
+    // once, or set STRIPE_PRICE_PER_DOOR_<CADENCE>); the board sees ours.
+    console.error('[billing] checkout price not configured', { cadence: parsed.data })
+    return { error: checkoutErrorMessage(null) }
   }
 
   const org = await getCurrentOrg()
@@ -126,13 +130,15 @@ export async function startHoaCheckout(
       customerEmail: user?.email ?? null,
     })
   } catch (err) {
-    return {
-      error: err instanceof Error ? err.message : 'Could not start checkout.',
-    }
+    // BL-103: Stripe's own text can quote the request (email, ids) and
+    // means nothing to a board member: log its type and code only, show ours.
+    console.error('[billing] checkout session failed', stripeErrorFacts(err))
+    return { error: checkoutErrorMessage(err) }
   }
 
   if (!session.url) {
-    return { error: 'Stripe returned an empty session URL.' }
+    console.error('[billing] checkout session has no url')
+    return { error: checkoutErrorMessage(null) }
   }
 
   redirect(session.url)
@@ -154,16 +160,20 @@ export async function openHoaPortal(): Promise<void> {
 
   const appUrl = appOrigin()
 
+  let url: string
   try {
-    const url = await createPortalSession({
+    url = await createPortalSession({
       customerId,
       returnUrl: `${appUrl}/settings/billing`,
     })
-    redirect(url)
   } catch (err) {
     // Swallow + log — caller renders a toast in the UI when the redirect
     // never happens. (Throwing into a server action triggers Next's error
     // boundary; not desirable here.)
-    console.error('[billing] portal session failed', err)
+    console.error('[billing] portal session failed', stripeErrorFacts(err))
+    return
   }
+  // Outside the try: redirect() works by throwing NEXT_REDIRECT, which the
+  // catch above used to swallow, so "Manage subscription" never left the page.
+  redirect(url)
 }

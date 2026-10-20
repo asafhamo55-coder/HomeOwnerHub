@@ -38,13 +38,38 @@ The pm and eviction apps call the same `createCheckoutSession`,
 | `checkout.session.completed`, mode `subscription` | org gets `plan`, `stripe_customer_id` and `stripe_sub_id` (pre-M1: a direct update; M1: `stripe_webhook_checkout_subscription`) |
 | `checkout.session.completed`, mode `payment` | stamps `stripe_customer_id`, plus `eviction_cases.stripe_payment_id` when there is a `case_id` |
 | `customer.subscription.deleted` | org goes to `free` (pre-M1: matched by customer; M1: matched by subscription id, so it does not depend on delivery order) |
-| `invoice.payment_failed` | acknowledged only; nothing is written |
+| `customer.subscription.updated` | for the org whose `stripe_sub_id` is this subscription only. `canceled` / `incomplete_expired` downgrade like a deletion. Otherwise the plan is kept; a price switch (lookup key, or the configured `STRIPE_PRICE_PER_DOOR_*` ids) reaches `orgs.plan` **under M1 only**, through `stripe_webhook_checkout_subscription` (before 0064 the plan check refuses `monthly` / `annual`); a quantity that differs from `billableDoors(doors_count)` syncs `doors_count`. Every applied update appends an `audit_log` row (`billing.subscription_updated`: event id and time, sub id, status, plan, quantity) |
+| `invoice.payment_failed` | appends an `audit_log` row (`billing.invoice_payment_failed`: event id and time, invoice id, sub id, attempt count) for the org on that subscription; the plan is untouched (Stripe retries) |
 | anything else | `ignored` (200) |
 
-**Not handled:** `customer.subscription.updated`. That means `past_due` /
-`unpaid`, and any plan or quantity change made in the portal, never reach
-`orgs.plan`. Handling it under M1 needs a new SQL function, which means a
-migration, so it is left as a follow-up.
+**Ordering and idempotency for the two audit-backed events.** 0064 has no
+function for them and this change adds no migration, so the audit rows are
+the clock: an update is applied only if it is later, by (`event.created`,
+event id), than every update already applied for that subscription;
+otherwise it is `ignored: stale_event`. A recorded event id is a
+`duplicate`. The audit row is written last, so a failure part-way answers
+500 and the redelivery redoes the (idempotent) writes. A failed read is
+`read_failed`, also 500. Residual: two deliveries for one subscription
+processed concurrently can both pass the check (no row lock without a SQL
+function); the next event for it corrects the state.
+
+**The banner.** `apps/hoa/src/components/billing/BillingStatusBanner.tsx`,
+mounted in the dashboard layout, reads those rows for the org's current
+subscription (`billingAttention`): `past_due` / `unpaid` / `paused`, or a
+failed invoice newer than the last status, shows a warning on every board
+page until a later `active` clears it. Admins get an "Update payment
+method" button into the Stripe billing portal; board members are told to
+ask an admin.
+
+**Checkout errors.** `startHoaCheckout` never shows or logs Stripe's
+message: the log gets the error's type and code (`stripeErrorFacts`), the
+board gets `checkoutErrorMessage` (a retry hint when Stripe was unreachable,
+otherwise a generic message with the support address).
+
+**Manual step (live endpoint).** The production `/api/webhooks/stripe`
+endpoint in the Stripe dashboard must have `customer.subscription.updated`
+and `invoice.payment_failed` selected, or neither reaches the app. Stripe
+only delivers the events an endpoint lists.
 
 ### Payment-method types
 
@@ -147,12 +172,13 @@ wherever the app has one.
 | `checkout.sandbox.test.ts` | Both plans × door counts 0, 10, 40, 41, 42, 180 and 1000. Each asserts quantity = `billableDoors`, Stripe `amount_total` = unit × quantity, `cs_test_`, metadata, success URL and line item. Also: the minimum bill ($204.59 / $2,209.08); Stripe rejecting a non-integer quantity, and `billableDoors` never producing one; customer reuse; one-time `payment` mode with `case_id`; and a record of the payment-method types offered |
 | `cards.sandbox.test.ts` | `pm_card_visa` succeeds. `pm_card_chargeDeclined` is declined (`generic_decline`). `pm_card_visa_chargeDeclinedInsufficientFunds` is declined (`insufficient_funds`). `pm_card_authenticationRequired` returns `requires_action` (3DS). As a subscription's first invoice: visa makes it active and paid; 3DS leaves it `incomplete`; `pm_card_chargeCustomerFail` is refused |
 | `ach.sandbox.test.ts` | Asserts and records whether Checkout offers `us_bank_account`. If it does: microdeposit verification by amounts and then success, verification by descriptor code, wrong amounts refused, and closed account `000111111116` failing |
-| `lifecycle.sandbox.test.ts` | Runs on test clocks. Trial → active → renewal. Failed renewal → `past_due`, with the real failed invoice signed into the handler, then recovery by a new card and `invoices.pay`. Cancel at period end, with the real `customer.subscription.deleted` downgrading the org both pre-M1 and under M1. A quantity change (41 → 180) mid-cycle with proration, then monthly → annual with a credit for the unused time; the handler ignores the update |
+| `lifecycle.sandbox.test.ts` | Runs on test clocks. Trial → active → renewal. Failed renewal → `past_due`: the real failed invoice and the real `past_due` subscription signed into the handler (both M1 states) raise the banner, then recovery by a new card and `invoices.pay`, whose `active` clears it. Cancel at period end, with the real `customer.subscription.deleted` downgrading the org both pre-M1 and under M1. A quantity change (41 → 180) mid-cycle with proration, then monthly → annual with a credit for the unused time. The real updates through the handler: the quantity syncs `doors_count`; the switch reaches `orgs.plan` under M1 and is recorded only before it |
 | `portal.sandbox.test.ts` | A portal session URL, plus a record of what the default portal config allows |
-| `webhook.sandbox.test.ts` | Every handled event, signed with `STRIPE_TEST_WEBHOOK_SECRET` via `generateTestHeaderString`, with M1 both off and on. Also: idempotency (same event twice); out-of-order delivery (late deletion of the old subscription, deletion before its checkout, and the known pre-M1 defect); unknown events ignored; wrong secret, tampered body, stale timestamp and missing header. Through the real route: 400 bad signature, 200 handled, 200 ignored, 500 on a rejected write |
+| `webhook.sandbox.test.ts` | Every handled event, signed with `STRIPE_TEST_WEBHOOK_SECRET` via `generateTestHeaderString`, with M1 both off and on. `customer.subscription.updated` past_due → banner → active clears it, a plan switch (M1 on vs off), a quantity sync, `canceled` downgrading, duplicate and stale updates; `invoice.payment_failed` recorded, or ignored for an unknown subscription. Also: idempotency (same event twice); out-of-order delivery (late deletion of the old subscription, deletion before its checkout, and the known pre-M1 defect); unknown events ignored; wrong secret, tampered body, stale timestamp and missing header. Through the real route: 400 bad signature, 200 handled, 200 ignored, 500 on a rejected write, 500 then 200 for a subscription update whose db read fails once |
 
 The webhook cases use `tests/stripe-sandbox/lib/memdb.ts`, an in-memory
-`WebhookDb`. It models the pre-M1 table updates and the three
+`WebhookDb`. It models the pre-M1 table updates, the `orgs` / `audit_log`
+selects (JSON-path filters and ordering) and `audit_log` inserts, and the three
 `stripe_webhook_*` functions from `0064_m1_batch.sql`, including
 `orgs_plan_check` before and after 0064. Its unit test replays the same
 orderings and outcomes as the real-Postgres

@@ -20,6 +20,7 @@ import { DashboardProviders } from '@/components/layout/DashboardProviders'
 import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { BillingStatusBanner } from '@/components/billing/BillingStatusBanner'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
 import { countPendingApprovals } from '@/lib/approvals-inbox/load'
@@ -115,7 +116,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <HoaUserMenu email={user.email ?? ''} role={role} orgName={org.name} />
             </div>
           </AppShellHeader>
-          <AppShellContent>{children}</AppShellContent>
+          <AppShellContent>
+            {/* BL-103: a past-due or failed subscription payment, on every
+                page until Stripe reports it recovered. Streams in; renders
+                nothing when billing is fine or the read fails. */}
+            <Suspense fallback={null}>
+              <BillingStatusBanner orgId={org.id} role={role} className="mb-5" />
+            </Suspense>
+            {children}
+          </AppShellContent>
         </AppShellMain>
         {/* Docked copilot panel: an in-flow column at lg+ (the page narrows
             rather than being covered), an overlay below. Toggled from the

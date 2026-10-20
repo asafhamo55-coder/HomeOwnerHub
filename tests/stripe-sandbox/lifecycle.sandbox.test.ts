@@ -4,9 +4,10 @@
 // outcome, the REAL test-mode object is signed into the app's webhook
 // handler (in-memory db) and its effect asserted.
 import type Stripe from 'stripe'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ANNUAL_UNIT_CENTS, MONTHLY_UNIT_CENTS } from '../../packages/billing/src/pricing'
 import { handleStripeWebhook } from '../../packages/billing/src/webhook'
+import { AUDIT_SUBSCRIPTION_UPDATED, billingAttention } from '../../packages/billing/src/billing-status'
 import { Registry } from './lib/cleanup'
 import {
   RUN,
@@ -102,8 +103,8 @@ describe.skipIf(!RUN)('subscription lifecycle on test clocks (Stripe test mode)'
     expect(paid).toHaveLength(2)
   })
 
-  it('failed renewal → past_due (handler acknowledges invoice.payment_failed) → recovery', async () => {
-    const { clock, customer, sub } = await subscribed('pastdue')
+  it('failed renewal → past_due (recorded, banner raised) → recovery (banner cleared)', async () => {
+    const { clock, customer, sub, orgId } = await subscribed('pastdue')
     expect(sub.status).toBe('active')
 
     // A card that attaches but declines every charge.
@@ -116,21 +117,36 @@ describe.skipIf(!RUN)('subscription lifecycle on test clocks (Stripe test mode)'
     expect(failed).toBeTruthy()
     expect(failed!.attempt_count).toBeGreaterThanOrEqual(1)
 
-    // The real failed invoice, signed, through the app's handler: it only
-    // acknowledges (Stripe retries on its own) and writes nothing.
-    const db = createMemDb()
+    // The real failed invoice and the real past_due subscription, signed,
+    // through the app's handler: both are recorded (ids only) and raise the
+    // banner; the plan is untouched (Stripe retries on its own).
     for (const m1 of [false, true]) {
-      const r = await deliver(makeEvent('invoice.payment_failed', failed as unknown as Record<string, unknown>), db, m1)
+      const db = createMemDb()
+      db.addOrg(orgId, { plan: 'monthly', stripe_customer_id: customer.id, stripe_sub_id: sub.id })
+      const r = await deliver(makeEvent('invoice.payment_failed', failed as unknown as Record<string, unknown>, { created: pastDue.created + 1 }), db, m1)
       expect(r).toEqual({ ok: true, outcome: 'invoice_failed' })
+      expect(billingAttention(db.audit(), sub.id)).toMatchObject({ reason: 'payment_failed' })
+      const u = await deliver(makeEvent('customer.subscription.updated', pastDue as unknown as Record<string, unknown>), db, m1)
+      expect(u).toEqual({ ok: true, outcome: 'subscription_updated' })
+      expect(billingAttention(db.audit(), sub.id)).toMatchObject({ reason: 'past_due' })
+      expect(db.billing(orgId)).toEqual({ plan: 'monthly', stripe_sub_id: sub.id })
     }
-    expect(db.writes()).toBe(0)
-    record('Lifecycle', 'past_due is not mirrored in the app: invoice.payment_failed is acknowledged only, customer.subscription.updated is ignored.')
+    record('Lifecycle', 'past_due reaches the app: invoice.payment_failed and customer.subscription.updated are recorded, and the dashboard banner shows.')
 
     // Recovery: a good card, pay the open invoice.
     await setDefaultCard(stripe, customer.id, 'pm_card_visa')
     const paid = await stripe.invoices.pay(failed!.id)
     expect(paid.status).toBe('paid')
-    expect((await stripe.subscriptions.retrieve(sub.id)).status).toBe('active')
+    const recovered = await stripe.subscriptions.retrieve(sub.id)
+    expect(recovered.status).toBe('active')
+
+    // The recovery, one second later than the past_due as Stripe would send it, clears the banner.
+    const db = createMemDb()
+    db.addOrg(orgId, { plan: 'monthly', stripe_customer_id: customer.id, stripe_sub_id: sub.id })
+    const t = Math.floor(Date.now() / 1000)
+    await deliver(makeEvent('customer.subscription.updated', pastDue as unknown as Record<string, unknown>, { created: t }), db, false)
+    await deliver(makeEvent('customer.subscription.updated', recovered as unknown as Record<string, unknown>, { created: t + 1 }), db, false)
+    expect(billingAttention(db.audit(), sub.id)).toBeNull()
   })
 
   it('cancel at period end: stays active, then ends; the real deletion downgrades the org', async () => {
@@ -171,7 +187,7 @@ describe.skipIf(!RUN)('subscription lifecycle on test clocks (Stripe test mode)'
   })
 
   it('quantity change mid-cycle prorates; monthly → annual credits the unused month', async () => {
-    const { clock, sub } = await subscribed('proration')
+    const { clock, customer, sub, orgId } = await subscribed('proration')
     const start = (await stripe.testHelpers.testClocks.retrieve(clock.id)).frozen_time
     await advance(clock.id, start + 15 * DAY)
 
@@ -187,11 +203,13 @@ describe.skipIf(!RUN)('subscription lifecycle on test clocks (Stripe test mode)'
     expect(prorated.amount_paid).toBeGreaterThan(0.3 * fullDifference)
     expect(prorated.amount_paid).toBeLessThan(0.7 * fullDifference)
 
-    // The app does not see this: customer.subscription.updated is ignored.
+    // The real update through the handler: the quantity reaches doors_count.
     const db = createMemDb()
-    const r = await deliver(makeEvent('customer.subscription.updated', bigger as unknown as Record<string, unknown>), db, false)
-    expect(r).toEqual({ ok: true, outcome: 'ignored', message: 'customer.subscription.updated' })
-    expect(db.writes()).toBe(0)
+    db.addOrg(orgId, { plan: 'monthly', stripe_customer_id: customer.id, stripe_sub_id: sub.id, doors_count: 41 })
+    const t = Math.floor(Date.now() / 1000)
+    const r = await deliver(makeEvent('customer.subscription.updated', bigger as unknown as Record<string, unknown>, { created: t }), db, false)
+    expect(r).toEqual({ ok: true, outcome: 'subscription_updated' })
+    expect(db.org(orgId)!.doors_count).toBe(180)
 
     const annual = await stripe.subscriptions.update(sub.id, {
       items: [{ id: item.id, price: prices.annual.id, quantity: 180 }],
@@ -204,6 +222,24 @@ describe.skipIf(!RUN)('subscription lifecycle on test clocks (Stripe test mode)'
     expect(switchInvoice.status).toBe('paid')
     expect(switchInvoice.amount_paid).toBeLessThan(fullAnnual)
     expect(switchInvoice.amount_paid).toBeGreaterThan(fullAnnual - MONTHLY_UNIT_CENTS * 180)
-    record('Lifecycle', 'a plan or quantity change (portal or API) leaves orgs.plan unchanged: the app handles no customer.subscription.updated.')
+
+    // The suite's prices carry no lookup key (the real keys belong to the
+    // account's live-config prices), so map them the way an env-configured
+    // deployment does. Under M1 the switch reaches orgs.plan; before it,
+    // 0000's plan check would refuse 'annual', so it is recorded only.
+    vi.stubEnv('STRIPE_PRICE_PER_DOOR_ANNUAL', prices.annual.id)
+    try {
+      for (const m1 of [false, true]) {
+        const sw = createMemDb()
+        sw.addOrg(orgId, { plan: 'monthly', stripe_customer_id: customer.id, stripe_sub_id: sub.id, doors_count: 180 })
+        const u = await deliver(makeEvent('customer.subscription.updated', annual as unknown as Record<string, unknown>), sw, m1)
+        expect(u).toEqual({ ok: true, outcome: 'subscription_updated' })
+        expect(sw.billing(orgId)?.plan).toBe(m1 ? 'annual' : 'monthly')
+        expect(sw.audit(AUDIT_SUBSCRIPTION_UPDATED)[0]!.metadata).toMatchObject({ plan: 'annual', quantity: 180 })
+      }
+    } finally {
+      vi.unstubAllEnvs()
+    }
+    record('Lifecycle', 'a quantity change syncs doors_count; a monthly → annual switch reaches orgs.plan under M1 and is recorded only before it.')
   })
 })

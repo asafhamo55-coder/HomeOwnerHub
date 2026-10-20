@@ -28,6 +28,22 @@ function fakeDb(
           }
           return f as never
         },
+        // customer.subscription.updated / invoice.payment_failed read and
+        // append; their cases live in subscription-events.test.ts.
+        select() {
+          const q = {
+            eq: () => q,
+            order: () => q,
+            limit: () => q,
+            then(ok: (r: { data: never[]; error: null }) => unknown) {
+              return Promise.resolve({ data: [], error: null }).then(ok)
+            },
+          }
+          return q as never
+        },
+        insert() {
+          return Promise.resolve({ error: null })
+        },
       }
     },
     rpc(fn, args) {

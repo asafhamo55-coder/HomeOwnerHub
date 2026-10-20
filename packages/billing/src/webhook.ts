@@ -2,6 +2,16 @@ import type Stripe from 'stripe'
 import { createAdminClient } from '@homeowner-portal/db'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { getStripe } from './client'
+import { billableDoors } from './pricing'
+import {
+  AUDIT_INVOICE_PAYMENT_FAILED,
+  AUDIT_SUBSCRIPTION_UPDATED,
+  clockOf,
+  isAfter,
+  planForPrice,
+  statusEffect,
+  type EventClock,
+} from './billing-status'
 
 export interface WebhookHandleResult {
   ok: boolean
@@ -11,6 +21,7 @@ export interface WebhookHandleResult {
     | 'one_time_payment'
     | 'case_payment_recorded'
     | 'subscription_deleted'
+    | 'subscription_updated'
     | 'invoice_failed'
     | 'duplicate'
     | 'ignored'
@@ -111,9 +122,22 @@ interface Filterable extends PromiseLike<{ error: DbError }> {
   eq(col: string, value: string): Filterable
 }
 
+/** A PostgREST select. `col` may be a JSON path such as `metadata->>sub_id`. */
+export interface Selectable extends PromiseLike<{ data: Array<Record<string, unknown>> | null; error: DbError }> {
+  eq(col: string, value: string): Selectable
+  order(col: string, opts: { ascending: boolean }): Selectable
+  limit(n: number): Selectable
+}
+
+export type WebhookTable = 'orgs' | 'eviction_cases' | 'audit_log'
+
 /** The slice of the admin client this module uses (structural, so tests can fake it). */
 export interface WebhookDb {
-  from(table: 'orgs' | 'eviction_cases'): { update(patch: Record<string, unknown>): Filterable }
+  from(table: WebhookTable): {
+    update(patch: Record<string, unknown>): Filterable
+    select(columns: string): Selectable
+    insert(row: Record<string, unknown>): PromiseLike<{ error: DbError }>
+  }
   rpc<N extends keyof WebhookRpcs>(fn: N, args: WebhookRpcs[N]): PromiseLike<{ data: unknown; error: DbError }>
 }
 
@@ -167,6 +191,10 @@ function idOf(value: string | { id: string } | null | undefined): string | null 
  * processed before the replacement's checkout cannot leave a paying org on
  * free (the refuted r2 0064 kept one per-org clock and could). A failed
  * write is ok: false, so the route answers non-2xx and Stripe redelivers.
+ *
+ * customer.subscription.updated and invoice.payment_failed have no 0064
+ * function: on both paths they dedupe and order on audit_log rows instead
+ * (see the section below applyStripeEvent).
  */
 export async function applyStripeEvent(
   event: Stripe.Event,
@@ -265,11 +293,249 @@ export async function applyStripeEvent(
       return { ok: true, outcome: 'subscription_deleted' }
     }
 
+    case 'customer.subscription.updated':
+      return applySubscriptionUpdated(event, db, m1, eventCreated)
+
     case 'invoice.payment_failed':
-      // Stripe retries on its own. We just acknowledge.
-      return { ok: true, outcome: 'invoice_failed' }
+      // Stripe retries the charge on its own; we record the failure so the
+      // board sees a banner even before (or without) the
+      // customer.subscription.updated that moves it to past_due.
+      return recordInvoiceFailed(event, db, eventCreated)
 
     default:
       return { ok: true, outcome: 'ignored', message: event.type }
   }
+}
+
+// ─── customer.subscription.updated and invoice.payment_failed ─────────
+//
+// orgs has no status column and 0064 has no function for either event, so
+// (no migration) both are recorded in audit_log: ids, Stripe's status, the
+// quantity and timestamps only, never PII. Those rows do three jobs:
+//   * ORDER: an update is applied only if it is later, by (event.created,
+//     event id), than every update already applied for that subscription.
+//     Stripe does not order deliveries; a late `past_due` must not
+//     overwrite the `active` that followed it.
+//   * DEDUPE: an event id already recorded is a duplicate. The audit row is
+//     written LAST and every write before it is idempotent, so a delivery
+//     that failed part-way answers 500 and Stripe's redelivery redoes it.
+//   * BANNER: billingAttention() (billing-status.ts) reads the same rows.
+// An update applies only to the org whose stripe_sub_id IS this
+// subscription, so a late update of a replaced or deleted subscription
+// changes nothing.
+//
+// M1 gate: before 0064, orgs_plan_check rejects 'monthly' / 'annual'
+// (23514), so a plan switch is written only with M1_APPLIED (through 0064's
+// checkout function, which owns orgs.plan under M1). Without it the status
+// and quantity are still recorded and doors_count still synced, so the
+// banner works today.
+//
+// Not serialised: two deliveries for one subscription racing within the
+// same few milliseconds can both pass the check (there is no row lock
+// without a SQL function). Stripe sends a subscription's updates seconds
+// apart at the least, and the next event for it corrects the state.
+
+interface OrgBilling {
+  id: string
+  plan: string | null
+  doors_count: number | null
+}
+
+function readFailed(error: DbError): WebhookHandleResult {
+  return { ok: false, outcome: 'error', message: 'read_failed', dbCode: error?.code != null ? String(error.code) : undefined }
+}
+
+async function orgOnSubscription(db: WebhookDb, subId: string): Promise<{ org: OrgBilling | null; error: DbError }> {
+  const { data, error } = await db
+    .from('orgs')
+    .select('id, plan, doors_count')
+    .eq('stripe_sub_id', subId)
+    .order('id', { ascending: true })
+    .limit(1)
+  if (error) return { org: null, error }
+  const row = data?.[0]
+  if (!row || typeof row.id !== 'string') return { org: null, error: null }
+  return {
+    org: {
+      id: row.id,
+      plan: typeof row.plan === 'string' ? row.plan : null,
+      doors_count: typeof row.doors_count === 'number' ? row.doors_count : null,
+    },
+    error: null,
+  }
+}
+
+/** How many recent update rows the ordering check reads (ties need more than one). */
+const ORDER_WINDOW = 20
+
+/** The applied updates' clocks for (org, subscription), newest first by event time. */
+async function appliedUpdates(db: WebhookDb, orgId: string, subId: string): Promise<{ clocks: EventClock[]; error: DbError }> {
+  const { data, error } = await db
+    .from('audit_log')
+    .select('metadata')
+    .eq('org_id', orgId)
+    .eq('action', AUDIT_SUBSCRIPTION_UPDATED)
+    .eq('metadata->>sub_id', subId)
+    .order('metadata->>event_created', { ascending: false })
+    .limit(ORDER_WINDOW)
+  if (error) return { clocks: [], error }
+  const clocks = (data ?? []).map((r) => clockOf(r.metadata)).filter((c): c is EventClock => c != null)
+  return { clocks, error: null }
+}
+
+async function insertAudit(
+  db: WebhookDb,
+  orgId: string,
+  action: string,
+  entityType: string,
+  metadata: Record<string, unknown>,
+): Promise<DbError> {
+  const { error } = await db.from('audit_log').insert({
+    org_id: orgId,
+    user_id: null,
+    action,
+    entity_type: entityType,
+    metadata,
+  })
+  return error
+}
+
+/**
+ * customer.subscription.updated (BL-103): portal plan swaps, quantity
+ * changes and dunning all arrive here.
+ *
+ *   active, trialing, incomplete   keep the plan; switch it to the price's plan (M1 only)
+ *   past_due, unpaid, paused       same, and the dashboard shows the billing banner
+ *   canceled, incomplete_expired   downgrade, exactly as customer.subscription.deleted
+ *
+ * Quantity: Stripe bills billableDoors(doors_count), the minimum applied,
+ * so doors_count is synced only when the two disagree (a 10-door
+ * association billed at the 41-door minimum keeps its 10).
+ */
+async function applySubscriptionUpdated(
+  event: Stripe.Event,
+  db: WebhookDb,
+  m1: boolean,
+  eventCreated: string,
+): Promise<WebhookHandleResult> {
+  const sub = event.data.object as Stripe.Subscription
+  if (!sub.id) return { ok: true, outcome: 'ignored', message: 'subscription_missing_id' }
+  const effect = statusEffect(sub.status)
+
+  const found = await orgOnSubscription(db, sub.id)
+  if (found.error) return readFailed(found.error)
+  const org = found.org
+  if (!org) {
+    // Under M1 a terminal status still leaves its tombstone, exactly as a
+    // deletion does: a checkout for it delivered later must find it dead.
+    if (effect === 'downgrade' && m1) {
+      return callRpc(db, 'stripe_webhook_subscription_deleted', { p_event_id: event.id, p_event_created: eventCreated, p_sub_id: sub.id })
+    }
+    return { ok: true, outcome: 'ignored', message: 'not_current_subscription' }
+  }
+
+  const prior = await appliedUpdates(db, org.id, sub.id)
+  if (prior.error) return readFailed(prior.error)
+  const clock: EventClock = { created: eventCreated, eventId: event.id }
+  if (prior.clocks.some((c) => c.eventId === event.id)) return { ok: true, outcome: 'duplicate' }
+  if (prior.clocks.some((c) => !isAfter(clock, c))) return { ok: true, outcome: 'ignored', message: 'stale_event' }
+
+  const item = sub.items?.data?.[0]
+  const plan = planForPrice(item?.price)
+  const quantity = typeof item?.quantity === 'number' && Number.isInteger(item.quantity) && item.quantity > 0 ? item.quantity : null
+
+  let outcome: WebhookHandleResult['outcome']
+  if (effect === 'downgrade') {
+    if (m1) {
+      const r = await callRpc(db, 'stripe_webhook_subscription_deleted', {
+        p_event_id: event.id,
+        p_event_created: eventCreated,
+        p_sub_id: sub.id,
+      })
+      // 'duplicate' = this event's own earlier delivery got past the
+      // function but not the audit row; finish it.
+      if (!r.ok || (r.outcome !== 'subscription_deleted' && r.outcome !== 'duplicate')) return r
+    } else {
+      // Scoped to this subscription (not the customer, as the pre-M1
+      // deletion is), so a late cancel of a replaced one cannot downgrade.
+      const { error } = await db.from('orgs').update({ plan: 'free', stripe_sub_id: null }).eq('id', org.id).eq('stripe_sub_id', sub.id)
+      if (error) return persistFailed(error)
+    }
+    outcome = 'subscription_deleted'
+  } else {
+    if (m1 && plan != null && plan !== org.plan) {
+      // Under M1 orgs.plan is recomputed from stripe_subscriptions, so a
+      // direct write would be reverted by the next event. 0064's checkout
+      // function upserts this subscription's plan (started_at keeps its
+      // earliest value) and recomputes the org.
+      const r = await callRpc(db, 'stripe_webhook_checkout_subscription', {
+        p_event_id: event.id,
+        p_event_created: eventCreated,
+        p_org_id: org.id,
+        p_customer_id: idOf(sub.customer as string | { id: string } | null),
+        p_sub_id: sub.id,
+        p_plan: plan,
+      })
+      if (!r.ok || (r.outcome !== 'subscription_started' && r.outcome !== 'duplicate')) return r
+    }
+    if (quantity != null && billableDoors(org.doors_count ?? 0) !== quantity) {
+      const { error } = await db.from('orgs').update({ doors_count: quantity }).eq('id', org.id).eq('stripe_sub_id', sub.id)
+      if (error) return persistFailed(error)
+    }
+    outcome = 'subscription_updated'
+  }
+
+  const auditError = await insertAudit(db, org.id, AUDIT_SUBSCRIPTION_UPDATED, 'stripe_subscription', {
+    event_id: event.id,
+    event_created: eventCreated,
+    sub_id: sub.id,
+    status: sub.status ?? null,
+    plan,
+    quantity,
+  })
+  if (auditError) return persistFailed(auditError)
+  return { ok: true, outcome }
+}
+
+/**
+ * invoice.payment_failed (BL-103): recorded in audit_log (ids only) for
+ * the org on that subscription. Never touches the plan. Same on both
+ * paths. Deduped on the event id.
+ */
+async function recordInvoiceFailed(event: Stripe.Event, db: WebhookDb, eventCreated: string): Promise<WebhookHandleResult> {
+  // API 2025-03-31 (basil) moved the subscription under
+  // parent.subscription_details; older payloads carry it at the top level.
+  const invoice = event.data.object as unknown as {
+    id?: string
+    subscription?: string | { id: string } | null
+    attempt_count?: unknown
+    parent?: { subscription_details?: { subscription?: string | { id: string } | null } | null } | null
+  }
+  if (!invoice.id) return { ok: true, outcome: 'ignored', message: 'invoice_missing_id' }
+  const subId = idOf(invoice.parent?.subscription_details?.subscription ?? null) ?? idOf(invoice.subscription ?? null)
+  if (!subId) return { ok: true, outcome: 'ignored', message: 'invoice_without_subscription' }
+
+  const found = await orgOnSubscription(db, subId)
+  if (found.error) return readFailed(found.error)
+  if (!found.org) return { ok: true, outcome: 'ignored', message: 'not_current_subscription' }
+
+  const { data, error } = await db
+    .from('audit_log')
+    .select('id')
+    .eq('org_id', found.org.id)
+    .eq('action', AUDIT_INVOICE_PAYMENT_FAILED)
+    .eq('metadata->>event_id', event.id)
+    .limit(1)
+  if (error) return readFailed(error)
+  if (data?.length) return { ok: true, outcome: 'duplicate' }
+
+  const auditError = await insertAudit(db, found.org.id, AUDIT_INVOICE_PAYMENT_FAILED, 'stripe_invoice', {
+    event_id: event.id,
+    event_created: eventCreated,
+    invoice_id: invoice.id,
+    sub_id: subId,
+    attempt_count: typeof invoice.attempt_count === 'number' ? invoice.attempt_count : null,
+  })
+  if (auditError) return persistFailed(auditError)
+  return { ok: true, outcome: 'invoice_failed' }
 }
