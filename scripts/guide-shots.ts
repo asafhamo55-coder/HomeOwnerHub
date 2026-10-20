@@ -8,7 +8,7 @@
  * Seed data only (scripts/ui-shots-seed*.ts): reserved-TLD emails and
  * "Demo"/"Sample" addresses, never real people.
  */
-import type { Shot } from './ui-shots'
+import type { Shot } from './ui-shots-list'
 
 export interface GuideShot extends Shot {
   /** Route template the shot shows; its page dir feeds the manifest sourceHash. */

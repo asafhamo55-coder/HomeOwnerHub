@@ -11,6 +11,11 @@ title: Short, plain-language headline for this release
 #     roles: [admin, board]
 #     article: approvals-queue
 #     label: improvement
+# Optional: screens to attach from CI's UI shots (see README.md). Leave out
+# to attach up to 3 changed pages automatically.
+# shots:
+#   - route: /accounting/payment-plans
+#     caption: Choosing the charges a plan replaces
 ---
 
 ## Summary

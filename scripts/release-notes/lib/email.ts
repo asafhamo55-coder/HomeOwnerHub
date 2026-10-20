@@ -51,9 +51,13 @@ function actionBlock(md: string): string {
 </td></tr>`
 }
 
-function screenshotsBlock(images: readonly InlineImage[]): string {
-  if (!images.length) return ''
-  const rows = images
+function screenshotsBlock(images: readonly InlineImage[], notice?: string): string {
+  if (!images.length && !notice) return ''
+  const noticeRow = notice
+    ? `
+  <tr><td style="padding:0 0 18px 0;"><p class="rn-muted" style="margin:0;font-size:14px;line-height:20px;color:${BRAND.muted};">${escapeHtml(notice)}</p></td></tr>`
+    : ''
+  const rows = noticeRow + images
     .map(
       (img) => `
   <tr><td style="padding:0 0 22px 0;">
@@ -134,7 +138,7 @@ export function renderHtml(note: ReleaseNote, images: readonly InlineImage[]): s
   <h1 class="rn-fg" style="margin:0 0 10px 0;font-size:24px;line-height:31px;font-weight:700;letter-spacing:-0.015em;color:${BRAND.foreground};">${escapeHtml(note.title)}</h1>
   <p class="rn-muted" style="margin:0 0 4px 0;font-size:14px;line-height:20px;color:${BRAND.muted};">Deployed ${escapeHtml(when)} &middot; <a href="${commitUrl(note.sha)}" class="rn-link" style="color:${BRAND.primary};text-decoration:none;font-family:${BRAND.mono};">${escapeHtml(short)}</a></p>
 </td></tr>
-${summary ? sectionBlock('Summary', summary) : ''}${action}${body}${screenshotsBlock(images)}
+${summary ? sectionBlock('Summary', summary) : ''}${action}${body}${screenshotsBlock(images, note.screenshotNotice)}
 <tr><td class="rn-card" bgcolor="${BRAND.surface}" style="background-color:${BRAND.surface};border-radius:0 0 12px 12px;padding:8px 32px 24px 32px;">&nbsp;</td></tr>
 
 <!-- Footer -->
@@ -164,7 +168,14 @@ export function renderText(note: ReleaseNote, images: readonly InlineImage[]): s
     if (!md) continue
     lines.push(s.toUpperCase(), blocksToText(md), '')
   }
-  if (images.length) lines.push('SCREENSHOTS', ...images.map((i) => `  - ${i.alt}`), '')
+  if (images.length || note.screenshotNotice) {
+    lines.push(
+      'SCREENSHOTS',
+      ...(note.screenshotNotice ? [`  ${note.screenshotNotice}`] : []),
+      ...images.map((i) => `  - ${i.alt}`),
+      '',
+    )
+  }
   lines.push(`Live at ${BRAND.prodUrl}`, `Commit: ${commitUrl(note.sha)}`)
   return lines.join('\n')
 }

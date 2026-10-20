@@ -31,11 +31,21 @@ async function buildPayload(args: Args, deps: RunDeps): Promise<EmailPayload> {
   if (deployedAt && Number.isNaN(deployedAt.getTime())) {
     throw new ConfigError(`--deployed-at is not a date: ${deployedAtArg}`)
   }
-  const built = await buildEmail({ root, sha, previousSha, deployedAt, imageProcessor: deps.imageProcessor })
+  const shotsDirArg = str(args['ui-shots-dir'])
+  const uiShotsDir = shotsDirArg ? path.resolve(deps.cwd, shotsDirArg) : undefined
+  const built = await buildEmail({ root, sha, previousSha, deployedAt, imageProcessor: deps.imageProcessor, uiShotsDir })
   deps.log?.(
     `notes: ${built.note.source === 'file' ? built.note.files.map((f) => path.relative(root, f)).join(', ') : 'generated from commit subjects'}` +
       ` · sha ${sha.slice(0, 7)} · ${built.images.length} screenshot(s)`,
   )
+  if (built.ciShots) {
+    const c = built.ciShots
+    deps.log?.(
+      `ci shots (${c.mode}): requested ${c.requested.join(', ') || 'none'}` +
+        ` · attached ${c.attached.length}${c.missing.length ? ` · missing ${c.missing.join(', ')}` : ''}` +
+        (built.note.screenshotNotice ? ' · notice added' : ''),
+    )
+  }
   return toPayload(built)
 }
 
