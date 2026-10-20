@@ -37,16 +37,22 @@
 // to the same base ceilings (fail open, like the ledger).
 //
 // BL-106 (decision 2026-10-20-pricing.md, "Amendment — BL-106") —
-// `meeting_summary` and `ask_community` are `flat`: never band-scaled. Every
-// org without a tier (all of them before PRICING_V2; legacy and pre-flip
-// after) and Complete get the base ceilings (10 and 25 a day). Essentials
-// (and trials) get `perOrgByPlan.essentials` — 3 and 0 — because the §3
-// budget leaves Essentials under $0.50 a month of room; 0 means the feature
-// is not on the plan (rate-limit.ts answers 429 `plan_limit` without a read).
-// worstCaseMonthlyAiCostUsd counts them; the ≤30% test holds for Essentials.
-// Complete with 25 Copilot questions a day is over 30% (see the amendment).
-// PROVISIONAL: the per-plan values are rebalanced before PRICING_V2 is
-// switched on (BL-108).
+// `meeting_summary` and `ask_community` are `flat`: never band-multiplied and
+// never in the board_ai pool. Every org without a tier (all of them before
+// PRICING_V2; legacy and pre-flip after) gets the base ceilings (10 and 25 a
+// day), exactly as before.
+//
+// BL-108 (docs/decisions/2026-10-20-ai-spend-ceiling.md) replaces BL-106's
+// provisional per-plan values and the "every cap saturated ≤ 30%" rule:
+//   - new-plan orgs get the decision table's per-plan, per-band daily
+//     ceilings for the two flat buckets (perOrgByPlanBand);
+//   - the sizing rule is a HEAVY-USE month ≤ 20% of price
+//     (heavyUseMonthlyAiCostUsd);
+//   - a monthly org AI spend meter (lib/api/ai-spend.ts) bounds the
+//     all-caps-hit month at 30% of price (aiSpendThresholdsUsd): at 20% the
+//     board gets an FYI email, at 25% resident-facing and automatic AI stops,
+//     at 30% board AI stops too, until the 1st (UTC). Trials: $5 a month.
+// All of it reaches only orgs with a tier, i.e. only once PRICING_V2 is on.
 
 import {
   bandFor,
@@ -101,10 +107,11 @@ export interface AiRateLimit {
    */
   flat?: true
   /**
-   * BL-106: a flat bucket's per-org daily ceiling for orgs on a given new
-   * plan (tiered orgs only). Absent plan = the base perOrg. 0 = not on the plan.
+   * BL-108: a flat bucket's per-org daily ceiling for orgs on a new plan, by
+   * plan and band (tiered orgs only). Absent = the base perOrg. A 0 would
+   * mean "not on the plan" (429 plan_limit without a ledger read).
    */
-  perOrgByPlan?: Partial<Readonly<Record<HoaPlanId, number>>>
+  perOrgByPlanBand?: Readonly<Record<HoaPlanId, Readonly<Record<BandId, number>>>>
 }
 
 export const HOUR_MS = 60 * 60 * 1000
@@ -211,29 +218,36 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
   },
   // BL-106 — POST /api/ai/meeting-summary, the meeting wizard's "Summarize
   // transcript". Board-only. A board summarizes one or two meetings a month
-  // and may retry a few times, so 10 a day per community is far above real
-  // use; the per-person window stops a stuck retry loop. Essentials: 3 a day,
-  // the most that fits the §3 room at every Essentials band (51–100 has $0.26).
+  // and may retry a few times, so 10 a day per community (no tier) is far
+  // above real use; the per-person window stops a stuck retry loop.
+  // BL-108, new plans: 2 a day on Essentials, 3 on Complete, every band.
   meeting_summary: {
     perUser: { limit: 5, windowMs: HOUR_MS },
     perOrg: { limit: 10, windowMs: DAY_MS },
     noun: 'meeting summaries',
     suffix: 'You can still write the minutes yourself.',
     flat: true,
-    perOrgByPlan: { essentials: 3 },
+    perOrgByPlanBand: {
+      essentials: { '1-50': 2, '51-100': 2, '101-200': 2, '201-400': 2, '401+': 2 },
+      complete: { '1-50': 3, '51-100': 3, '101-200': 3, '201-400': 3, '401+': 3 },
+    },
   },
   // BL-106 — POST /api/ai/ask-community, the board Copilot and dashboard Ask
   // page. Board-only. Each question is a tool loop (up to 8 model steps of
   // ≤1,500 output tokens, 16 tool runs of which ≤6 docs searches with their
   // own model call), so it is the dearest call per click. 25 a day per
-  // community and 15 an hour per person cover a busy board's day. Essentials:
-  // 0 — one question a day ($0.70/mo) is already more than the §3 room.
+  // community (no tier) and 15 an hour per person cover a busy board's day.
+  // BL-108, new plans, by band: Essentials 10 / 15 / 20 / 30, Complete
+  // 25 / 40 / 60 / 100 (201–400 and 401+ share the last value).
   ask_community: {
     perUser: { limit: 15, windowMs: HOUR_MS },
     perOrg: { limit: 25, windowMs: DAY_MS },
     noun: 'Copilot questions',
     flat: true,
-    perOrgByPlan: { essentials: 0 },
+    perOrgByPlanBand: {
+      essentials: { '1-50': 10, '51-100': 15, '101-200': 20, '201-400': 30, '401+': 30 },
+      complete: { '1-50': 25, '51-100': 40, '101-200': 60, '201-400': 100, '401+': 100 },
+    },
   },
 }
 
@@ -287,7 +301,7 @@ export function aiLimitFor(bucket: AiUsageBucket, tier: AiTier | null): AiRateLi
   const base = AI_RATE_LIMITS[bucket]
   if (!tier) return base
   if (base.flat) {
-    const planLimit = base.perOrgByPlan?.[tier.plan]
+    const planLimit = base.perOrgByPlanBand?.[tier.plan][tier.band]
     return planLimit === undefined ? base : { ...base, perOrg: { ...base.perOrg, limit: planLimit } }
   }
   const limit = base.orgPool
@@ -313,10 +327,13 @@ export const AI_CALL_COST_ESTIMATE_USD: Readonly<Record<AiUsageBucket, number>> 
   resident_assistant: 0.0024, // 12k / 1k, multi-step tool loop
   compose: 0.0009,
   board_ai: 0.0009, // decision §3: ~$0.0009 per call
-  // BL-106, from the code's own budgets (decision amendment):
-  // packages/ai summarizeMeeting slices the transcript to 30,000 chars
-  // (~7.5k tokens) + ~0.2k prompt, max_tokens 2,000 →
-  // 7.7k × $0.15/M + 2k × $0.60/M ≈ $0.0024.
+  // BL-106, from the code's own budgets (decision amendment). BL-108
+  // verified which input cap binds: the route ACCEPTS a transcript up to
+  // MAX_DOCUMENT_TEXT (500,000 chars), but packages/ai summarizeMeeting
+  // sends the model only the first MEETING_TRANSCRIPT_MAX_CHARS (30,000
+  // chars, ~7.5k tokens) + ~0.2k prompt, max_tokens 2,000 →
+  // 7.7k × $0.15/M + 2k × $0.60/M ≈ $0.0024 (not the ~$0.02 a 500k-char
+  // input would cost). ai-limits.test.ts pins the derivation.
   meeting_summary: 0.0024,
   // community-qa: ≤ 8 steps re-sending a growing context (~9k tokens on
   // average → ~72k in) and ≤ 1,500 out per step (COPILOT_MAX_TOKENS_PER_STEP
@@ -365,10 +382,178 @@ export function flatCapsWorstCaseMonthlyUsd(tier: AiTier | null = null): number 
   return perDay * COST_MONTH_DAYS
 }
 
-/** The ≤30% rule's ceiling for a plan at a door count (monthly price × 0.30), USD. */
+/**
+ * 30% of a plan's monthly price at a door count, USD: the hard stop of the
+ * BL-108 spend meter for a paying org (the old BL-104 "≤ 30%" ceiling).
+ */
 export function aiCostCeilingUsd(plan: HoaPlanId, doors: number): number {
-  return (monthlyPriceCents(plan, doors) * 0.3) / 100
+  return (monthlyPriceCents(plan, doors) * AI_SPEND_TIER_SHARE.boardStop) / 100
 }
+
+// ─── BL-108: heavy-use sizing rule ────────────────────────────────────
+
+/**
+ * Decision 2026-10-20-ai-spend-ceiling §1: a heavy-use month uses this
+ * share of each bucket's daily ceiling every day. Default 25%; the board_ai
+ * pool 30%; the Copilot 50%. Meeting summaries are counted per month
+ * instead (HEAVY_USE_MONTHLY_CALLS).
+ */
+export const HEAVY_USE_DEFAULT_SHARE = 0.25
+export const HEAVY_USE_DAILY_SHARE: Readonly<Partial<Record<AiUsageBucket, number>>> = {
+  board_ai: 0.3,
+  compose: 0.3,
+  ask_community: 0.5,
+}
+/** Buckets sized by a monthly call count in the heavy-use month, not a share. */
+export const HEAVY_USE_MONTHLY_CALLS: Readonly<Partial<Record<AiUsageBucket, number>>> = {
+  meeting_summary: 8,
+}
+/** The sizing rule: a heavy-use month is at most this share of the price. */
+export const HEAVY_USE_PRICE_SHARE = 0.2
+
+/**
+ * BL-108: the heavy-use monthly AI cost for a tier (decision §1). A pooled
+ * ceiling is counted once, at its dearest member's per-call cost.
+ */
+export function heavyUseMonthlyAiCostUsd(tier: AiTier): number {
+  let month = 0
+  const pooled = new Set<AiUsageBucket>()
+  for (const bucket of Object.keys(AI_RATE_LIMITS) as AiUsageBucket[]) {
+    const cfg = aiLimitFor(bucket, tier)
+    const monthlyCalls = HEAVY_USE_MONTHLY_CALLS[bucket]
+    if (monthlyCalls !== undefined) {
+      month += monthlyCalls * AI_CALL_COST_ESTIMATE_USD[bucket]
+      continue
+    }
+    const share = HEAVY_USE_DAILY_SHARE[bucket] ?? HEAVY_USE_DEFAULT_SHARE
+    if (cfg.orgPool) {
+      if (cfg.orgPool.some((b) => pooled.has(b))) continue
+      cfg.orgPool.forEach((b) => pooled.add(b))
+      month += share * cfg.perOrg.limit * Math.max(...cfg.orgPool.map((b) => AI_CALL_COST_ESTIMATE_USD[b])) * COST_MONTH_DAYS
+    } else {
+      month += share * cfg.perOrg.limit * AI_CALL_COST_ESTIMATE_USD[bucket] * COST_MONTH_DAYS
+    }
+  }
+  return month
+}
+
+// ─── BL-108: the monthly org AI spend ceiling ─────────────────────────
+
+/** Shares of the monthly price at which each spend tier starts (decision §2). */
+export const AI_SPEND_TIER_SHARE = {
+  /** One FYI email to the board. */
+  notice: 0.2,
+  /** Tier 1: resident-facing and automatic AI stops; board banner + email. */
+  residentStop: 0.25,
+  /** Tier 2: board AI stops too, until the 1st of the month (UTC). */
+  boardStop: 0.3,
+} as const
+
+/** Trials (no card): $5 a month of AI in total (decision §2). */
+export const TRIAL_AI_SPEND_CEILING_USD = 5
+
+/** Platform-wide: alert the platform admin when a day's AI spend passes this. */
+export const PLATFORM_AI_DAILY_ALERT_USD = 50
+
+/** Who a bucket serves, for the spend tiers (decision §2). */
+export type AiBucketAudience = 'resident' | 'board'
+
+/**
+ * Tier 1 stops the `resident` buckets: resident-facing (ask_docs, help_ask,
+ * rewrite, arc_precheck, resident_assistant) and automatic (inbox_autodraft
+ * fires on open without a click). Tier 2 stops the `board` buckets too.
+ */
+export const AI_BUCKET_AUDIENCE: Readonly<Record<AiUsageBucket, AiBucketAudience>> = {
+  resident_assistant: 'resident',
+  ask_docs: 'resident',
+  help_ask: 'resident',
+  rewrite: 'resident',
+  arc_precheck: 'resident',
+  inbox_autodraft: 'resident',
+  ask_community: 'board',
+  meeting_summary: 'board',
+  board_ai: 'board',
+  compose: 'board',
+  follow_up_letter: 'board',
+  translate: 'board',
+}
+
+/** What the meter needs to know about an org: its tier, its doors, a trial or not. */
+export interface AiBudget {
+  tier: AiTier
+  /** Doors used for the price (larger of declared and on file). */
+  doors: number
+  /** On the trial footing (no subscription): the flat $5 ceiling applies. */
+  trial: boolean
+}
+
+export interface AiSpendThresholds {
+  noticeUsd: number
+  residentStopUsd: number
+  boardStopUsd: number
+}
+
+/**
+ * The spend at which each tier starts, USD. A paying org: 20 / 25 / 30% of
+ * its monthly price. A trial: the $5 total is the hard stop (tier 2) and the
+ * earlier tiers keep the same proportions ($3.33 notice, $4.17 tier 1), so a
+ * trial board still hears before AI stops.
+ */
+export function aiSpendThresholdsUsd(budget: AiBudget): AiSpendThresholds {
+  const basisUsd = budget.trial
+    ? TRIAL_AI_SPEND_CEILING_USD / AI_SPEND_TIER_SHARE.boardStop
+    : monthlyPriceCents(budget.tier.plan, budget.doors) / 100
+  return {
+    noticeUsd: basisUsd * AI_SPEND_TIER_SHARE.notice,
+    residentStopUsd: basisUsd * AI_SPEND_TIER_SHARE.residentStop,
+    boardStopUsd: basisUsd * AI_SPEND_TIER_SHARE.boardStop,
+  }
+}
+
+export type AiSpendLevel = 'normal' | 'notice' | 'resident_stop' | 'board_stop'
+
+/** The tier this month's spend is in. */
+export function aiSpendLevel(spendUsd: number, t: AiSpendThresholds): AiSpendLevel {
+  if (spendUsd >= t.boardStopUsd) return 'board_stop'
+  if (spendUsd >= t.residentStopUsd) return 'resident_stop'
+  if (spendUsd >= t.noticeUsd) return 'notice'
+  return 'normal'
+}
+
+/** Whether a spend level refuses a bucket. */
+export function spendLevelBlocks(bucket: AiUsageBucket, level: AiSpendLevel): boolean {
+  if (level === 'board_stop') return true
+  return level === 'resident_stop' && AI_BUCKET_AUDIENCE[bucket] === 'resident'
+}
+
+/** Estimated spend from per-bucket call counts × AI_CALL_COST_ESTIMATE_USD. */
+export function aiSpendFromCountsUsd(counts: Readonly<Partial<Record<AiUsageBucket, number>>>): number {
+  let usd = 0
+  for (const bucket of Object.keys(AI_CALL_COST_ESTIMATE_USD) as AiUsageBucket[]) {
+    usd += (counts[bucket] ?? 0) * AI_CALL_COST_ESTIMATE_USD[bucket]
+  }
+  return usd
+}
+
+/** Midnight UTC on the 1st of `now`'s month. */
+export function monthStartUtc(now: number): Date {
+  const d = new Date(now)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1))
+}
+
+/** Midnight UTC on the 1st of the next month: when a spend stop lifts. */
+export function nextMonthStartUtc(now: number): Date {
+  const d = new Date(now)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))
+}
+
+/** "YYYY-MM" (UTC) for a month's notices. */
+export function monthKeyUtc(now: number): string {
+  return monthStartUtc(now).toISOString().slice(0, 7)
+}
+
+/** Every bucket's usage action — the meter's and the platform alert's read set. */
+export const AI_USAGE_BUCKETS = Object.keys(AI_CALL_COST_ESTIMATE_USD) as AiUsageBucket[]
 
 /** audit_log.action for one bucket's usage rows. */
 export function aiUsageAction(bucket: AiUsageBucket): string {

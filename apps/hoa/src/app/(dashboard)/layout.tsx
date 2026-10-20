@@ -21,6 +21,7 @@ import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { BillingStatusBanner } from '@/components/billing/BillingStatusBanner'
+import { AiSpendBanner } from '@/components/billing/AiSpendBanner'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
 import { countPendingApprovals } from '@/lib/approvals-inbox/load'
@@ -122,6 +123,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 nothing when billing is fine or the read fails. */}
             <Suspense fallback={null}>
               <BillingStatusBanner orgId={org.id} role={role} className="mb-5" />
+            </Suspense>
+            {/* BL-108: AI paused by the monthly spend ceiling. Nothing (and
+                no read) before PRICING_V2 or for legacy orgs. */}
+            <Suspense fallback={null}>
+              <AiSpendBanner orgId={org.id} className="mb-5" />
             </Suspense>
             {children}
           </AppShellContent>

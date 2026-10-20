@@ -39,7 +39,17 @@ Complete 101–200 is 0.54, not the record's 0.55: at 0.55 the worst case is $68
 
 Example for a new-plan org: Complete at 40 doors gets 100 doc questions and 120 assistant messages a day. Realistic use is ~150 document questions a **month** (research §3.1). Legacy orgs keep 500 and 600 until renewal.
 
-**Not capped, pending a decision amendment (coordinator to log it):** `meeting-summary` and `ask-community` (the board Copilot) are board-only AI routes the decision record does not list. Their per-call cost is higher than the $0.0009 the board cap is priced at (long transcripts; a multi-step tool loop), so putting them in the 100/200 pool would break the 30% check at the 1–50 band. They stay unlimited until the record says how to price them.
+~~**Not capped, pending a decision amendment:** `meeting-summary` and `ask-community`.~~ Capped since BL-106 (own buckets) and sized by BL-108, below.
+
+### AI budget per plan (BL-108, implemented behind `PRICING_V2`)
+
+Decision: `docs/decisions/2026-10-20-ai-spend-ceiling.md`. Code: `apps/hoa/src/lib/api/ai-limits.ts` (caps, sizing rule, tiers), `ai-spend.ts` (meter, kill switch), `ai-spend-notice.ts` (board email), `rate-limit.ts` (`checkAndRecordAiUsage` / `requireAiQuota`, `loadAiBudget`), `components/billing/AiSpendBanner.tsx`, `packages/jobs/src/ai-spend-alert.ts`.
+
+- **Caps for new-plan orgs:** Copilot 10 / 15 / 20 / 30 a day on Essentials and 25 / 40 / 60 / 100 on Complete (1–50 / 51–100 / 101–200 / 201–400 and 401+); meeting summaries 2 a day on Essentials and 3 on Complete. Own buckets, never the `board_ai` pool. Orgs with no tier keep 10 summaries and 25 Copilot questions a day.
+- **Sizing rule:** a heavy-use month (25% of each cap, `board_ai` 30%, Copilot 50%, 8 summaries) is at most 20% of the price at every door count from 1 to 2,000 (`ai-limits.test.ts`; it lands at 13–17.5% on the closed bands).
+- **Monthly spend meter** (new-plan orgs and trials only): this calendar month's (UTC) `ai.usage.*` counts × the per-call estimates, cached 60 s per instance. 20% of the price: one FYI email to the board. 25%: resident-facing and automatic AI refused (their existing 429 message, reason `spend_ceiling`) plus a dashboard banner and an email. 30%: board AI refused too, until the 1st. Trials: $5 a month in total. If the meter read fails, the per-bucket caps still apply and the failure is logged with ids only; AI is not blocked.
+- **Platform:** `AI_PLATFORM_KILL_SWITCH=1` in Vercel production refuses every metered AI call with a friendly 503 (`upstream_unavailable`, reason `ai_paused`). Unmetered model calls (the inbox's manual "Draft a reply", background jobs, embeddings) do not pass through it. A daily Inngest job (`ai-spend-alert`, 00:30 UTC) emails `AI_SPEND_ALERT_TO` (platform admin, comma-separated, set in Vercel production) when yesterday's estimated platform spend passes $50. It is live for every org (it only emails the admin); unset recipient = log only.
+- **Index (owner, if slow):** the meter filters `audit_log` by `(org_id, action, created_at)`. The only index today is `(org_id, created_at DESC)`. Candidate SQL, not applied: `docs/specs/2026-10-20-audit-log-ai-index.sql` (the same index as item 9 of `2026-10-19-perf-indexes.sql`). Not needed until new-plan orgs exist.
 
 ## Stripe objects to create (at the cut-over, not before)
 

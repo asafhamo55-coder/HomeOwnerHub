@@ -6,6 +6,7 @@ import {
   createMonthlyBoardReportJob,
   createVendorCoiRemindersJob,
   createScheduledCommunicationsJob,
+  createAiSpendAlertJob,
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
@@ -28,6 +29,7 @@ import { duesReminderDeps } from '@/lib/dues-reminders/auto-deps'
 import { monthlyReportDeps } from '@/lib/monthly-report/deps'
 import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
 import { dispatchScheduledCommunication } from '@/lib/communications/scheduled-dispatch'
+import { AI_CALL_COST_ESTIMATE_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
@@ -56,7 +58,17 @@ const scheduledCommunicationsJob = createScheduledCommunicationsJob({
   deliver: (id) => dispatchScheduledCommunication(id),
 })
 
-// Twenty-one functions (crons and event listeners) mount in the HOA app. Inngest is a single
+// Platform AI spend alert (BL-108): once a day, yesterday's estimated AI
+// spend across every org; over $50 it emails the platform admin
+// (AI_SPEND_ALERT_TO), never a board or resident. The guarded sendEmail
+// and the per-call estimates are app-side.
+const aiSpendAlertJob = createAiSpendAlertJob({
+  sendEmail,
+  costPerCallUsd: AI_CALL_COST_ESTIMATE_USD,
+  thresholdUsd: PLATFORM_AI_DAILY_ALERT_USD,
+})
+
+// Twenty-two functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -93,6 +105,7 @@ export const { GET, POST, PUT } = serve({
     monthlyBoardReportJob,
     vendorCoiRemindersJob,
     scheduledCommunicationsJob,
+    aiSpendAlertJob,
     hoaLateFeeJob,
     pmLateFeeJob,
     evictionReminderJob,
