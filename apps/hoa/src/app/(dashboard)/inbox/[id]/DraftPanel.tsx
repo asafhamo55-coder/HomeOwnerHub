@@ -43,6 +43,8 @@ interface Props {
    * parameters so the 30-second Undo stays reachable there.
    */
   nextHref?: string | null
+  /** A fixed acknowledgement line to add to the reply once one is open (see Composer). */
+  insertOnOpen?: string | null
 }
 
 /**
@@ -71,6 +73,7 @@ export function DraftPanel({
   libraryFiles,
   autoDraftVersion = null,
   nextHref = null,
+  insertOnOpen = null,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -188,6 +191,9 @@ export function DraftPanel({
             </Button>
           ) : null}
         </div>
+        {insertOnOpen ? (
+          <p className="text-xs text-muted">Your acknowledgement line will be added to the reply once it&apos;s drafted.</p>
+        ) : null}
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
       </section>
     )
@@ -345,6 +351,8 @@ export function DraftPanel({
       attachments={attachments}
       threadFiles={threadFiles}
       libraryFiles={libraryFiles}
+      insertOnOpen={insertOnOpen}
+      threadId={threadId}
     />
   )
 }

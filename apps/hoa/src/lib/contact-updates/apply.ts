@@ -20,6 +20,7 @@ import {
   parseContactRequest,
   planContactApply,
   readMailing,
+  trustContactChannel,
   type ApplyContext,
   type ApplyOwnershipRow,
   type ApplyResidentRow,
@@ -64,6 +65,28 @@ function logFailure(step: string, error: unknown, ids: Record<string, string | n
 
 const lower = (s: string | null | undefined) => (s ?? '').trim().toLowerCase()
 
+/** Roles that may file a request from the Inbox (same as the Inbox's own gate). */
+const INBOX_FILER_ROLES = ['board', 'admin']
+
+/**
+ * Which of `userIds` are board/admin members of the org. null = the read
+ * failed (the caller fails closed rather than guess either way).
+ */
+export async function boardMembersAmong(db: Db, orgId: string, userIds: readonly string[]): Promise<Set<string> | null> {
+  const { data, error } = await db
+    .from('org_members')
+    .select('user_id, role')
+    .eq('org_id', orgId)
+    .in('user_id', [...userIds])
+    .in('role', INBOX_FILER_ROLES)
+  if (error) {
+    logFailure('org_members', error, { orgId })
+    return null
+  }
+  const rows = (data ?? []) as Array<{ user_id: string | null; role: string }>
+  return new Set(rows.filter((r) => r.user_id && INBOX_FILER_ROLES.includes(r.role)).map((r) => r.user_id as string))
+}
+
 /**
  * The home and the records behind each request, in a fixed number of
  * queries whatever the count (units, residents, ownerships, tenancies,
@@ -74,9 +97,19 @@ export async function loadContactEntries(
   orgId: string,
   tickets: readonly ContactTicketRow[],
 ): Promise<{ ok: true; entries: ContactEntry[] } | { ok: false }> {
-  const parsed = tickets.flatMap((t) => {
+  const claimed = tickets.flatMap((t) => {
     const request = parseContactRequest(t.subject, t.description)
     return request ? [{ ticket: t, request }] : []
+  })
+  // An "Emailed in by" body is honoured only from a board/admin submitter
+  // (model.ts trustContactChannel): one org_members read, and only when a
+  // body claims the Inbox channel at all.
+  const inboxSubmitters = [...new Set(claimed.filter((p) => p.request.channel === 'inbox').map((p) => p.ticket.submitted_by))]
+  const board = inboxSubmitters.length === 0 ? new Set<string>() : await boardMembersAmong(db, orgId, inboxSubmitters)
+  if (board === null) return { ok: false }
+  const parsed = claimed.flatMap(({ ticket, request }) => {
+    const trusted = trustContactChannel(request, board.has(ticket.submitted_by))
+    return trusted ? [{ ticket, request: trusted }] : []
   })
   const unitIds = [...new Set(parsed.map((p) => p.ticket.unit_id).filter((u): u is string => !!u))]
   if (unitIds.length === 0) {
@@ -274,7 +307,10 @@ export async function approveContactUpdate(db: Db, input: DecideInput): Promise<
   const loaded = await loadContactEntries(db, input.orgId, [t.ticket])
   if (!loaded.ok) return { ok: false, error: 'Couldn’t load the home’s records. Try again.' }
   const entry = loaded.entries[0]
-  if (!entry?.context || !entry.propertyId) {
+  // Dropped by trustContactChannel: a resident's "Emailed in by" body with
+  // no "Signed in as" line of their own.
+  if (!entry) return { ok: false, error: 'That request isn’t a contact update.' }
+  if (!entry.context || !entry.propertyId) {
     return { ok: false, error: 'The home this request is for couldn’t be found. Reply on the ticket instead.' }
   }
   const planned = planContactApply(entry.context)

@@ -51,6 +51,10 @@ import {
   ticketPrefillFromEmail,
 } from '@/lib/inbox/convert/model'
 import { arcAck } from '@/lib/inbox/convert/ack'
+import { insertOnOpenText } from '@/lib/inbox/reply-insert'
+import { contextStripModel } from '@/lib/inbox/mobile-strip'
+import { ContextStrip, THREAD_CONTEXT_ANCHOR } from './ContextStrip'
+import { MobileActionBar, REPLY_ANCHOR, THREAD_TOP_ANCHOR } from './MobileActionBar'
 import { appUrl } from '@/lib/app-origin'
 
 export const dynamic = 'force-dynamic'
@@ -62,7 +66,7 @@ export default async function ThreadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ filter?: string; page?: string; owner?: string; undo?: string; from?: string }>
+  searchParams: Promise<{ filter?: string; page?: string; owner?: string; undo?: string; from?: string; insert?: string }>
 }) {
   const { id } = await params
   const {
@@ -71,6 +75,7 @@ export default async function ThreadPage({
     owner: ownerParam,
     undo: undoParam,
     from: fromParam,
+    insert: insertParam,
   } = await searchParams
   const filter = (FILTER_KEYS.find((f) => f === filterParam) ?? 'needs_review') as InboxFilter
   const owner = parseOwnerFilter(ownerParam)
@@ -305,6 +310,13 @@ export default async function ThreadPage({
   )
   const afterCloseHref = nextReplyId ? threadHref(nextReplyId) : listHref
 
+  // BL-101 A7 — the phone/tablet strip above the messages.
+  const strip = contextStripModel({
+    filed: Boolean(thread.unitId),
+    context: contextLoadFailed ? null : context,
+    account: railContext?.home ? railContext.home.account : undefined,
+  })
+
   return (
     <SplitPaneFrame>
       <div className="flex min-h-0 flex-1">
@@ -345,6 +357,7 @@ export default async function ThreadPage({
         {/* pane 2 — conversation */}
         <section aria-label="Conversation" className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+            <div id={THREAD_TOP_ANCHOR} className="scroll-mt-4" aria-hidden />
             <PageHeader
               breadcrumbs={[{ label: 'Inbox', href: listHref }, { label: subject }]}
               linkAs={Link}
@@ -399,13 +412,18 @@ export default async function ThreadPage({
                     arcAck={convert.arcAck}
                     violationHref={convert.violationHref}
                   />
-                  <InboxKeyboard
-                    prevHref={prevId ? threadHref(prevId) : null}
-                    nextHref={nextId ? threadHref(nextId) : null}
-                    threadId={thread.id}
-                    afterCloseHref={afterCloseHref}
-                    showButton
-                  />
+                  {/* The shortcuts button is a keyboard affordance: hidden
+                      below lg (a phone has no keyboard to use it with),
+                      while the listener itself stays mounted. */}
+                  <span className="hidden lg:contents">
+                    <InboxKeyboard
+                      prevHref={prevId ? threadHref(prevId) : null}
+                      nextHref={nextId ? threadHref(nextId) : null}
+                      threadId={thread.id}
+                      afterCloseHref={afterCloseHref}
+                      showButton
+                    />
+                  </span>
                 </>
               }
             />
@@ -430,8 +448,11 @@ export default async function ThreadPage({
 
             <VendorRequestLinks outgoing={outgoingRequests} incoming={incomingRequest} />
 
+            {thread.vendorId ? null : <ContextStrip model={strip} />}
+
             <MessageThread messages={thread.messages} />
 
+            <div id={REPLY_ANCHOR} className="scroll-mt-4">
             <DraftPanel
               threadId={thread.id}
               draft={draft}
@@ -440,12 +461,16 @@ export default async function ThreadPage({
               libraryFiles={libraryFiles}
               autoDraftVersion={autoDraft.draft ? autoDraft.version : null}
               nextHref={afterCloseHref}
+              // A fixed key from the violation wizard's "Insert into the
+              // reply", mapped to a fixed line; never text from the URL.
+              insertOnOpen={draft?.kind === 'reply' || !draft ? insertOnOpenText(insertParam) : null}
             />
+            </div>
 
             {/* Below xl the rail has no column of its own, so it follows the
                 conversation. It used to be hidden outright, which meant a
                 phone or tablet never saw the property context at all. */}
-            <div className="overflow-hidden rounded-xl border border-border bg-surface xl:hidden">
+            <div id={THREAD_CONTEXT_ANCHOR} className="scroll-mt-4 overflow-hidden rounded-xl border border-border bg-surface xl:hidden">
               {rail}
             </div>
           </div>
@@ -459,6 +484,12 @@ export default async function ThreadPage({
           {rail}
         </aside>
       </div>
+      <MobileActionBar
+        threadId={thread.id}
+        hasDraft={draft?.status === 'draft'}
+        status={thread.status}
+        afterCloseHref={afterCloseHref}
+      />
     </SplitPaneFrame>
   )
 }

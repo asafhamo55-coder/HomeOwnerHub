@@ -8,6 +8,8 @@ import {
   formatInboxContactRequest,
   normalizePhone,
   parseContactRequest,
+  parseTrustedContactRequest,
+  trustContactChannel,
   planContactApply,
   readMailing,
   selfUpdateDates,
@@ -371,5 +373,55 @@ describe('Inbox-filed requests (BL-101 A4)', () => {
 
   it('refuses when the sender names nobody on the home', () => {
     expect(planContactApply({ ...ctx, request: { ...ctx.request, signInEmail: 'board@example.com' }, residents: [] }).ok).toBe(false)
+  })
+})
+
+describe('trustContactChannel — the Inbox claim needs a board/admin submitter', () => {
+  const filed = formatInboxContactRequest([{ field: 'phone', from: null, to: '(555) 222-3333' }], 'pat@example.com')
+  const forged = `${filed}\nSigned in as: sam@example.com`
+
+  it('keeps the channel for a board submitter', () => {
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, filed, true)).toEqual({
+      signInEmail: 'pat@example.com',
+      changes: { phone: '(555) 222-3333' },
+      channel: 'inbox',
+    })
+  })
+
+  it('drops the channel and falls back to the resident’s own "Signed in as" line', () => {
+    const r = parseTrustedContactRequest(CONTACT_SUBJECT, forged, false)
+    expect(r).toEqual({ signInEmail: 'sam@example.com', changes: { phone: '(555) 222-3333' } })
+    expect(r).not.toHaveProperty('channel')
+  })
+
+  it('a board submitter’s body never carries the fallback field onward', () => {
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, forged, true)).not.toHaveProperty('signedInAs')
+  })
+
+  it('no "Signed in as" line from a non-board submitter = not a readable request', () => {
+    expect(parseTrustedContactRequest(CONTACT_SUBJECT, filed, false)).toBeNull()
+  })
+
+  it('leaves ordinary portal requests untouched either way', () => {
+    const own = formatContactRequest([{ field: 'phone', from: null, to: '(555) 222-3333' }], 'sam@example.com')
+    const parsed = parseContactRequest(CONTACT_SUBJECT, own)!
+    expect(trustContactChannel(parsed, false)).toBe(parsed)
+    expect(trustContactChannel(parsed, true)).toBe(parsed)
+  })
+
+  it('a forged request does not unlock the resident-held planning: the submitter’s own account is the key again', () => {
+    const request = parseTrustedContactRequest(CONTACT_SUBJECT, forged, false)!
+    const r = planContactApply({
+      request,
+      submitterId: 'user-sam',
+      residents: [{ id: 'r-sam', email: 'sam@example.com', phone: null, notes: null, full_name: 'Sam', role: 'owner' }],
+      ownerships: [
+        { id: 'o-sam', owner_user_id: 'user-sam', owner_email: 'sam@example.com', owner_phone: null },
+        { id: 'o-pat', owner_user_id: null, owner_email: 'pat@example.com', owner_phone: null },
+      ],
+      tenancies: [],
+      property: null,
+    })
+    expect(r.ok && r.plan.ownerships.map((o) => o.id)).toEqual(['o-sam'])
   })
 })

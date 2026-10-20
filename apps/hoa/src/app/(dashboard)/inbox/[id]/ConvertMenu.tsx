@@ -15,6 +15,7 @@ import {
 import { TICKET_CATEGORIES, TICKET_CATEGORY_LABEL, type TicketCategory } from '@/lib/inbox/convert/ack'
 import type { ContactPrefill, LinkCandidate, TicketPrefill } from '@/lib/inbox/convert/model'
 import type { ContactField } from '@/lib/contact-updates/model'
+import { INSERT_MESSAGE, dispatchInsertIntoReply, type InsertResult } from '@/lib/inbox/reply-insert'
 
 /**
  * BL-101 A4 — "Create from this email". In the thread header, beside
@@ -24,8 +25,9 @@ import type { ContactField } from '@/lib/contact-updates/model'
  * Every prefill is computed on the server from the newest inbound message
  * (lib/inbox/convert/model.ts: fixed templates and keyword rules, no AI)
  * and the board checks it before anything is written. Nothing here sends
- * an email or SMS: the acknowledgement line is shown with a Copy button
- * for the board to paste into its reply.
+ * an email or SMS: the acknowledgement line is shown with "Insert into
+ * reply" (puts it into the open draft's body, client-side, for the board
+ * to review and approve like any edit) and a Copy button.
  */
 
 export interface ConvertMenuProps {
@@ -322,7 +324,7 @@ function ArcView({ arcAck, onBack }: { arcAck: string; onBack: () => void }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-foreground-secondary">
-        The board can&apos;t file an ARC application for a resident yet. Paste this line into your reply: the link opens
+        The board can&apos;t file an ARC application for a resident yet. Add this line to your reply: the link opens
         their own ARC form with the email&apos;s text filled in (contact details removed), and they submit it.
       </p>
       <AckBlock ack={arcAck} />
@@ -405,13 +407,25 @@ function LinkView({
 }
 
 function AckBlock({ ack }: { ack: string }) {
+  const [result, setResult] = useState<InsertResult | null>(null)
   return (
     <div className="space-y-2 rounded-lg border border-border bg-subtle p-3">
       <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">Line for your reply</p>
       <p className="whitespace-pre-wrap break-words text-sm text-foreground">{ack}</p>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={result === 'inserted'}
+          onClick={() => setResult(dispatchInsertIntoReply(ack))}
+        >
+          {result === 'inserted' ? 'Added to reply' : 'Insert into reply'}
+        </Button>
         <CopyButton value={ack} label="Copy the line for your reply" />
       </div>
+      <p className={cn('text-xs', result === 'inserted' || result === 'already' ? 'text-success' : 'text-warning')} aria-live="polite">
+        {result ? INSERT_MESSAGE[result] : null}
+      </p>
     </div>
   )
 }

@@ -60,7 +60,11 @@ vi.mock('@/lib/properties/resolve', () => ({
   resolvePropertyForUnit: vi.fn(async () => 'prop-1'),
   resolveUnitForProperty: vi.fn(async () => ({ unitIds: ['unit-1', 'unit-1b'] })),
 }))
-vi.mock('@/lib/contact-updates/apply', () => ({ OPEN_STATUSES: ['open', 'in_progress'] }))
+let boardIds: Set<string> | null = new Set(['board-user', 'board-2'])
+vi.mock('@/lib/contact-updates/apply', () => ({
+  OPEN_STATUSES: ['open', 'in_progress'],
+  boardMembersAmong: vi.fn(async (_db: unknown, _org: string, ids: string[]) => (boardIds === null ? null : new Set(ids.filter((i) => boardIds!.has(i))))),
+}))
 
 import { createTicketFromThread, fileContactUpdateFromThread, linkExistingRecord, linkViolationToThread } from './actions'
 import { CONTACT_SUBJECT, parseContactRequest } from '@/lib/contact-updates/model'
@@ -81,6 +85,7 @@ beforeEach(() => {
   upserts.length = 0
   gate = { ok: true, role: 'board', orgId: 'org-1' }
   senderVerified = true
+  boardIds = new Set(['board-user', 'board-2'])
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 afterEach(() => errorSpy.mockRestore())
@@ -243,13 +248,40 @@ describe('fileContactUpdateFromThread', () => {
   it('refuses a second waiting request for the same sender', async () => {
     tables.tickets = {
       list: {
-        data: [{ id: 'old', subject: CONTACT_SUBJECT, description: 'Phone: (555) 201-0000\nEmailed in by: pat@example.com' }],
+        data: [{ id: 'old', subject: CONTACT_SUBJECT, description: 'Phone: (555) 201-0000\nEmailed in by: pat@example.com', submitted_by: 'board-2' }],
         error: null,
       },
     }
     const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
     expect(r).toMatchObject({ ok: false })
     expect(!r.ok && r.error).toMatch(/already waiting/)
+    expect(inserts).toEqual([])
+  })
+
+  it('a resident’s hand-typed "Emailed in by" ticket does not block the filing', async () => {
+    tables.tickets = {
+      list: {
+        data: [{ id: 'forged', subject: CONTACT_SUBJECT, description: 'Phone: (555) 201-0000\nEmailed in by: pat@example.com', submitted_by: 'resident-9' }],
+        error: null,
+      },
+      insert: { data: { id: TICKET }, error: null },
+      one: { data: { id: TICKET, organization_id: 'org-1', unit_id: 'unit-1' }, error: null },
+    }
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
+    expect(r).toMatchObject({ ok: true })
+    expect(inserts.filter((i) => i.table === 'tickets')).toHaveLength(1)
+  })
+
+  it('fails closed when the submitters’ roles can’t be read', async () => {
+    boardIds = null
+    tables.tickets = {
+      list: {
+        data: [{ id: 'old', subject: CONTACT_SUBJECT, description: 'Phone: (555) 201-0000\nEmailed in by: pat@example.com', submitted_by: 'board-2' }],
+        error: null,
+      },
+    }
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
+    expect(r.ok).toBe(false)
     expect(inserts).toEqual([])
   })
 

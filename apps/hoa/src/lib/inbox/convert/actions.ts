@@ -34,8 +34,8 @@ import { requireBoardOrAdminForAction, BOARD_ONLY_DENIED } from '@/lib/accountin
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { checkSenderForUnit, latestInboundSender } from '@/lib/inbox/account-context'
 import { resolvePropertyForUnit, resolveUnitForProperty, asUnitId } from '@/lib/properties/resolve'
-import { CONTACT_CATEGORY, CONTACT_SUBJECT, checkContactForm, formatInboxContactRequest, parseContactRequest, type ContactChange, type ContactField } from '@/lib/contact-updates/model'
-import { OPEN_STATUSES } from '@/lib/contact-updates/apply'
+import { CONTACT_CATEGORY, CONTACT_SUBJECT, checkContactForm, formatInboxContactRequest, parseContactRequest, parseTrustedContactRequest, type ContactChange, type ContactField } from '@/lib/contact-updates/model'
+import { OPEN_STATUSES, boardMembersAmong } from '@/lib/contact-updates/apply'
 import { verifyLinkTarget, writeThreadLink } from '@/lib/inbox/links'
 import {
   TICKET_DESCRIPTION_MAX,
@@ -294,7 +294,7 @@ export async function fileContactUpdateFromThread(input: ContactFromThreadInput)
   // One waiting request per sender per home.
   const { data: waiting, error: waitError } = await db
     .from('tickets')
-    .select('id, subject, description')
+    .select('id, subject, description, submitted_by')
     .eq('organization_id', orgId)
     .eq('unit_id', home.unitId)
     .eq('subject', CONTACT_SUBJECT)
@@ -305,7 +305,14 @@ export async function fileContactUpdateFromThread(input: ContactFromThreadInput)
     console.error('[inbox.convert] contact tickets read failed', { orgId, threadId, code: waitError.code })
     return { ok: false, error: 'Couldn’t check for a waiting request. Try again.' }
   }
-  const dup = (waiting ?? []).find((t) => parseContactRequest(t.subject, t.description)?.signInEmail === sender)
+  // A waiting body's "Emailed in by" line counts only from a board/admin
+  // submitter (trustContactChannel): a resident can't block this filing by
+  // typing the line themselves.
+  const waitingRows = waiting ?? []
+  const claimsInbox = waitingRows.filter((t) => parseContactRequest(t.subject, t.description)?.channel === 'inbox')
+  const board = claimsInbox.length === 0 ? new Set<string>() : await boardMembersAmong(db, orgId, [...new Set(claimsInbox.map((t) => t.submitted_by))])
+  if (board === null) return { ok: false, error: 'Couldn’t check for a waiting request. Try again.' }
+  const dup = waitingRows.find((t) => parseTrustedContactRequest(t.subject, t.description, board.has(t.submitted_by))?.signInEmail === sender)
   if (dup) {
     return { ok: false, error: 'A contact update for this resident is already waiting in Approvals. Decide that one first.' }
   }
