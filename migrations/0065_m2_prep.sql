@@ -66,8 +66,10 @@ GRANT EXECUTE ON FUNCTION public.resident_meeting_notices() TO authenticated, se
 -- ── 3. SMS consent guard ──────────────────────────────────────────────
 -- Verbatim from docs/specs/2026-10-20-sms-consent.sql part 2. Refuses any
 -- authenticated (non-service-role) write that turns sms_opt_in ON for a
--- row whose user_id is not the caller, and any sms_opt_in = true on a
--- unit-only row. Turning texts OFF stays open to everyone RLS allows.
+-- row whose user_id is not the caller, any UPDATE that moves an opted-in
+-- row to a user_id other than the caller (fires on UPDATE OF sms_opt_in,
+-- user_id), and any sms_opt_in = true on a unit-only row. Turning texts
+-- OFF stays open to everyone RLS allows.
 create or replace function public.resident_sms_opt_in_self_only()
 returns trigger
 language plpgsql
@@ -79,8 +81,15 @@ declare
   v_turning_on boolean :=
     new.sms_opt_in = true
     and (tg_op = 'INSERT' or old.sms_opt_in is distinct from true);
+  -- Moving an opted-in row to another person is the same as turning texts
+  -- on for them: that person never agreed. Only they (or the service role)
+  -- may do it.
+  v_reassigning boolean :=
+    tg_op = 'UPDATE'
+    and new.sms_opt_in = true
+    and new.user_id is distinct from old.user_id;
 begin
-  if not v_turning_on then
+  if not (v_turning_on or v_reassigning) then
     return new;
   end if;
   if new.user_id is null then
@@ -97,7 +106,7 @@ $$;
 
 drop trigger if exists resident_sms_opt_in_self_only on public.resident_communication_preferences;
 create trigger resident_sms_opt_in_self_only
-  before insert or update of sms_opt_in on public.resident_communication_preferences
+  before insert or update of sms_opt_in, user_id on public.resident_communication_preferences
   for each row execute function public.resident_sms_opt_in_self_only();
 
 -- ── 4. inbox_messages.sender_auth ─────────────────────────────────────

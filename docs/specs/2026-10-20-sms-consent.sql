@@ -22,9 +22,11 @@
 -- the anon key could flip someone's sms_opt_in straight through
 -- PostgREST, bypassing the app. This trigger refuses any authenticated
 -- (non-service-role) write that turns sms_opt_in ON for a row whose
--- user_id is not the caller, and any sms_opt_in = true on a unit-only
--- row (user_id null: nobody can have agreed). Turning texts OFF stays
--- open to everyone allowed by RLS — stopping is always safe.
+-- user_id is not the caller, any UPDATE that moves an opted-in row to a
+-- different user_id other than the caller (the new person never agreed),
+-- and any sms_opt_in = true on a unit-only row (user_id null: nobody can
+-- have agreed). Turning texts OFF stays open to everyone allowed by RLS —
+-- stopping is always safe.
 --
 -- Service role (STOP webhook when one exists, jobs) and direct SQL
 -- (no JWT) are unaffected.
@@ -51,8 +53,15 @@ declare
   v_turning_on boolean :=
     new.sms_opt_in = true
     and (tg_op = 'INSERT' or old.sms_opt_in is distinct from true);
+  -- Moving an opted-in row to another person is the same as turning texts
+  -- on for them: that person never agreed. Only they (or the service role)
+  -- may do it.
+  v_reassigning boolean :=
+    tg_op = 'UPDATE'
+    and new.sms_opt_in = true
+    and new.user_id is distinct from old.user_id;
 begin
-  if not v_turning_on then
+  if not (v_turning_on or v_reassigning) then
     return new;
   end if;
   if new.user_id is null then
@@ -69,11 +78,12 @@ $$;
 
 drop trigger if exists resident_sms_opt_in_self_only on public.resident_communication_preferences;
 create trigger resident_sms_opt_in_self_only
-  before insert or update of sms_opt_in on public.resident_communication_preferences
+  before insert or update of sms_opt_in, user_id on public.resident_communication_preferences
   for each row execute function public.resident_sms_opt_in_self_only();
 
 -- ── part 3: verify (read-only) ────────────────────────────────────────
-select tgname, tgenabled
+-- covers_user_id = true: the current version (also fires on user_id).
+select tgname, tgenabled, pg_get_triggerdef(oid) like '%user_id%' as covers_user_id
 from pg_trigger
 where tgrelid = 'public.resident_communication_preferences'::regclass
   and tgname = 'resident_sms_opt_in_self_only';

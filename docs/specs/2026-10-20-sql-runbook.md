@@ -185,7 +185,8 @@ gap in 0063's rules).
 ### D2 · Add the guard (changes the database)
 
 - **Paste:** part 2 only: from `create or replace function public.resident_sms_opt_in_self_only()` down to and including the `create trigger ... ;` line. **Do not** paste the commented rollback lines.
-- **Does:** makes the database refuse any attempt by someone other than the resident to switch that resident's texts on. Switching texts off stays open.
+- **Does:** makes the database refuse any attempt by someone other than the resident to switch that resident's texts on, including by moving a row that already has texts on to a different person. Switching texts off stays open.
+- **Already ran an earlier D2?** Run this one again. It replaces the old guard with the current one (the old one did not cover moving a row to someone else).
 - **Read-only:** no (adds a function and a trigger). Safe to re-run.
 - **Time:** ~1 s.
 - **Expect:** "Success. No rows returned".
@@ -193,8 +194,8 @@ gap in 0063's rules).
 
 ### D3 · Verify (read-only)
 
-- **Paste:** part 3 (`select tgname, tgenabled ...`).
-- **Expect:** one row: `resident_sms_opt_in_self_only | O` (O means enabled).
+- **Paste:** part 3 (`select tgname, tgenabled, ...`).
+- **Expect:** one row: `resident_sms_opt_in_self_only | O | true` (O means enabled; `true` means it is the current version). `false` in the last column means an earlier D2 is in place: run D2 again.
 - **Send:** the row.
 - **Flags to flip:** none.
 
@@ -333,10 +334,12 @@ What it does, in four parts:
    new pricing cannot be switched on: a paying HOA's plan would fail to
    save, silently. All existing plan names stay allowed.
 2. The resident meetings function (same as **C1**).
-3. The text-message consent guard (same as **D2**).
+3. The text-message consent guard (same as **D2**, current version: it also
+   refuses moving a row that has texts on to a different person).
 4. The inbox sender-check column (same as **E2**).
 
-Parts 2 to 4 do nothing if C, D and E were already done. Running the whole
+Parts 2 to 4 do nothing if C, D and E were already done (part 3 upgrades an
+earlier D2 to the current version in place). Running the whole
 file is always safe, and running it twice changes nothing.
 
 ### H1 · What is already there (read-only)
@@ -347,7 +350,8 @@ file is always safe, and running it twice changes nothing.
   SELECT to_regprocedure('public.resident_meeting_notices()') IS NOT NULL AS c_done,
          EXISTS (SELECT 1 FROM pg_trigger
                   WHERE tgrelid = 'public.resident_communication_preferences'::regclass
-                    AND tgname = 'resident_sms_opt_in_self_only')       AS d_done,
+                    AND tgname = 'resident_sms_opt_in_self_only'
+                    AND pg_get_triggerdef(oid) LIKE '%user_id%')         AS d_done,
          EXISTS (SELECT 1 FROM information_schema.columns
                   WHERE table_schema = 'public' AND table_name = 'inbox_messages'
                     AND column_name = 'sender_auth')                     AS e_done,
@@ -358,7 +362,7 @@ file is always safe, and running it twice changes nothing.
 
 - **Does:** shows which of the four parts the database already has.
 - **Read-only:** yes. **Time:** ~1 s.
-- **Expect:** one row. `h_done` = false. The other three are true for each of C, D, E you completed.
+- **Expect:** one row. `h_done` = false. The other three are true for each of C, D, E you completed (`d_done` is false if an earlier D2 is in place; H2 upgrades it).
 - **Send:** the row.
 - **If every column is already true:** stop, H is done; tell Claude.
 
@@ -387,13 +391,16 @@ File: `migrations/0066_records_requests.sql`. *Needs:* nothing else in this
 runbook. It only touches the `tickets` table, which has existed since 0024.
 Order against A to H does not matter.
 
-What it does, in two parts:
+What it does, in three parts:
 
 1. **New ticket category.** Lets a ticket be saved with the category
    `records_request`. An owner's "Request association records" form files
    one. All nine existing categories stay allowed.
 2. **New column `tickets.records_due_at`.** This is the deadline set by state
    law for answering that request. It is empty for every other ticket.
+3. **Deadline guard.** Only the board, or the app's server, can set or
+   change that deadline. An owner filing a request cannot choose their own
+   (the app files the request, then sets the deadline itself).
 
 Nothing in the app uses either one until Claude turns on
 `RECORDS_REQUESTS_LIVE` after I3. Until then owners and the board see no
@@ -410,21 +417,24 @@ change.
          EXISTS (SELECT 1 FROM information_schema.columns
                   WHERE table_schema = 'public' AND table_name = 'tickets'
                     AND column_name = 'records_due_at')                     AS column_done,
+         EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgrelid = 'public.tickets'::regclass
+                    AND tgname = 'tickets_records_due_at_guard')            AS guard_done,
          (SELECT count(*) FROM pg_constraint
            WHERE conrelid = 'public.tickets'::regclass AND contype = 'c'
              AND pg_get_constraintdef(oid) ILIKE '%category%')              AS category_checks;
   ```
 
-- **Does:** shows whether the two parts are already there, and how many category checks exist.
+- **Does:** shows whether the three parts are already there, and how many category checks exist.
 - **Read-only:** yes. **Time:** ~1 s.
-- **Expect:** one row: `category_done` = false, `column_done` = false, `category_checks` = 1.
+- **Expect:** one row: `category_done` = false, `column_done` = false, `guard_done` = false, `category_checks` = 1.
 - **Send:** the row.
-- **If both `_done` columns are already true:** stop, I is done; tell Claude.
+- **If all three `_done` columns are already true:** stop, I is done; tell Claude.
 
 ### I2 · Apply 0066 (changes the database)
 
 - **Paste:** the **whole file** `migrations/0066_records_requests.sql`. Ask Claude to copy it ("copy step I2").
-- **Does:** replaces the category check with one that also allows `records_request`. It also adds the empty `records_due_at` column and a small index.
+- **Does:** replaces the category check with one that also allows `records_request`. It also adds the empty `records_due_at` column, a small index, and the deadline guard.
 - **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
 - **Time:** ~1 s. No existing row is rewritten.
 - **Expect:** "Success. No rows returned".
@@ -434,7 +444,7 @@ change.
 ### I3 · Verify (read-only)
 
 - **Paste:** the I1 query again.
-- **Expect:** one row: `category_done` = true, `column_done` = true, `category_checks` = 1.
+- **Expect:** one row: `category_done` = true, `column_done` = true, `guard_done` = true, `category_checks` = 1.
 - **Send:** the row, and the words **"0066 is applied"**.
 - **Flags Claude flips after I3:** `RECORDS_REQUESTS_LIVE` → `true` (`packages/db/src/records-requests.ts`), then deploys hoa + jobs. Claude also removes `draft: true` from the two records-request guide articles and runs `pnpm guide:build`.
 

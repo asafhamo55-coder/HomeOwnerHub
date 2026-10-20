@@ -14,10 +14,14 @@
  * A records request is a ticket (category 'records_request'), so it rides
  * the ticket conversation, the board's ticket notifications and RLS from
  * 0024. Nothing here sends anything to a resident. Logs carry codes only.
+ *
+ * records_due_at is the one column the resident's client does not write:
+ * the service role sets it after the insert (see createRecordsRequest).
  */
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from '@homeowner-portal/jobs'
 import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
 import { associationTimeZone, todayIn } from '@/lib/association-time'
@@ -102,13 +106,37 @@ export async function createRecordsRequest(
       subject,
       description,
       status: 'open',
-      records_due_at: deadline.dueDate ? dueInstant(deadline.dueDate) : null,
     } as never)
     .select('id')
     .single<{ id: string }>()
   if (error || !row) {
     console.error('[records-request] insert failed', { code: error?.code ?? null })
     return { ok: false, error: 'Couldn’t send your request. Please try again.' }
+  }
+
+  // The due day is written with the service role, never by the resident's
+  // own client: migration 0066's tickets_records_due_at_guard refuses
+  // records_due_at from an authenticated non-board caller, so a resident
+  // posting to PostgREST directly cannot pick their own deadline. Scoped to
+  // the row just inserted (id + org + submitter + category, still unset). A
+  // failure leaves the date NULL, which the board view works out itself;
+  // it never blocks the owner.
+  if (deadline.dueDate) {
+    try {
+      const { error: dueError } = await createAdminClient()
+        .from('tickets' as never)
+        .update({ records_due_at: dueInstant(deadline.dueDate) } as never)
+        .eq('id', row.id)
+        .eq('organization_id' as never, org.id)
+        .eq('submitted_by' as never, user.id)
+        .eq('category' as never, RECORDS_CATEGORY)
+        .is('records_due_at' as never, null)
+      if (dueError) console.error('[records-request] due date write failed', { code: dueError.code ?? null })
+    } catch (err) {
+      console.error(`[records-request] due date write threw for ticket ${row.id}`, {
+        name: err instanceof Error ? err.name : 'unknown',
+      })
+    }
   }
 
   // Board notification, exactly as a support ticket (board members only).

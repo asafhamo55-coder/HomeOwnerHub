@@ -8,7 +8,9 @@
  *   3. SMS consent guard (BL-110): a board member cannot turn texts ON
  *      for someone else (insert or update), nor can anyone on a unit-only
  *      row; the resident can for themselves; the service role can for a
- *      named user; turning texts OFF stays open to the board.
+ *      named user; turning texts OFF stays open to the board. Moving an
+ *      opted-in row to a different user_id is turning texts on for that
+ *      person: refused for the board, allowed for the service role.
  *   4. inbox_messages.sender_auth exists (nothing writes it until
  *      SENDER_AUTH_COLUMN_LIVE flips).
  *
@@ -124,6 +126,44 @@ describe('3. SMS consent guard (resident_sms_opt_in_self_only)', () => {
     const id = await seedPref(resident.id, false)
     const { error } = await adminDb().from(prefs).update({ sms_opt_in: true }).eq('id', id)
     expect(error).toBeNull()
+    expect(await smsOn(id)).toBe(true)
+  })
+
+  async function userOf(id: string): Promise<string | null | undefined> {
+    const { data } = await adminDb().from(prefs).select('user_id').eq('id', id).single()
+    return data?.user_id
+  }
+
+  it('a board member cannot move an opted-in row to someone else', async () => {
+    const other = await mintUser(org, 'resident')
+    const id = await seedPref(resident.id, true)
+    const { error } = await board.client.from(prefs).update({ user_id: other.id }).eq('id', id)
+    expect(error?.code).toBe('42501')
+    expect(await userOf(id)).toBe(resident.id)
+    expect(await smsOn(id)).toBe(true)
+  })
+
+  it('a board member cannot move an opted-in row to a unit-only row', async () => {
+    const id = await seedPref(resident.id, true)
+    const { error } = await board.client.from(prefs).update({ user_id: null }).eq('id', id)
+    expect(error?.code).toBe('42501')
+    expect(await userOf(id)).toBe(resident.id)
+  })
+
+  it('a board member can still move a row whose texts are off', async () => {
+    const other = await mintUser(org, 'resident')
+    const id = await seedPref(resident.id, false)
+    const { error } = await board.client.from(prefs).update({ user_id: other.id }).eq('id', id)
+    expect(error).toBeNull()
+    expect(await userOf(id)).toBe(other.id)
+  })
+
+  it('the service role can move an opted-in row to a named resident', async () => {
+    const other = await mintUser(org, 'resident')
+    const id = await seedPref(resident.id, true)
+    const { error } = await adminDb().from(prefs).update({ user_id: other.id }).eq('id', id)
+    expect(error).toBeNull()
+    expect(await userOf(id)).toBe(other.id)
     expect(await smsOn(id)).toBe(true)
   })
 

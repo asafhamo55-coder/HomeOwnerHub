@@ -70,6 +70,28 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
+// Service role: only the records_due_at write after the resident's insert
+// (0066's guard refuses it from the resident's own client).
+const admin = vi.hoisted(() => ({ calls: [] as unknown[][], error: null as { code: string } | null }))
+vi.mock('@homeowner-portal/db', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: (table: string) => {
+      const b: Record<string, unknown> = {}
+      for (const op of ['update', 'eq']) {
+        b[op] = (...args: unknown[]) => {
+          admin.calls.push([table, op, ...args])
+          return b
+        }
+      }
+      b.is = (...args: unknown[]) => {
+        admin.calls.push([table, 'is', ...args])
+        return Promise.resolve({ error: admin.error })
+      }
+      return b
+    },
+  })),
+}))
+
 const { createRecordsRequest, markRecordsRequestFulfilled } = await import('./actions')
 const { RECORDS_NOT_LIVE } = await import('./law')
 
@@ -81,6 +103,8 @@ beforeEach(() => {
   db.calls.length = 0
   db.state = 'FL'
   db.updated = [{ id: 'x' }]
+  admin.calls.length = 0
+  admin.error = null
   sent.events.length = 0
   actor.impersonating = false
   gate.value = { ok: true, role: 'board', orgId: 'org-1' }
@@ -121,8 +145,18 @@ describe('flag on', () => {
       category: 'records_request',
       subject: 'Records request: Financial records',
       status: 'open',
-      records_due_at: '2026-11-03T17:00:00.000Z',
     })
+    // The resident's own insert never carries the due day…
+    expect(insert).not.toHaveProperty('records_due_at')
+    // …the service role sets it on exactly that row, only while unset.
+    expect(admin.calls).toEqual([
+      ['tickets', 'update', { records_due_at: '2026-11-03T17:00:00.000Z' }],
+      ['tickets', 'eq', 'id', TICKET],
+      ['tickets', 'eq', 'organization_id', 'org-1'],
+      ['tickets', 'eq', 'submitted_by', ME],
+      ['tickets', 'eq', 'category', 'records_request'],
+      ['tickets', 'is', 'records_due_at', null],
+    ])
     expect(String(insert.description)).toContain('Preferred format: Electronic copies')
     expect(sent.events).toEqual([{ name: 'ticket/created', data: { ticketId: TICKET, organizationId: 'org-1' } }])
   })
@@ -131,7 +165,15 @@ describe('flag on', () => {
     db.state = 'TX'
     await createRecordsRequest(VALID)
     const insert = db.calls.find((c) => c[0] === 'tickets' && c[1] === 'insert')![2] as Record<string, unknown>
-    expect(insert.records_due_at).toBeNull()
+    expect(insert).not.toHaveProperty('records_due_at')
+    expect(admin.calls).toHaveLength(0)
+  })
+
+  it('a failed due-date write still files the request', async () => {
+    admin.error = { code: '42501' }
+    const res = await createRecordsRequest(VALID)
+    expect(res).toEqual({ ok: true, data: { ticketId: TICKET } })
+    expect(sent.events).toHaveLength(1)
   })
 
   it('refuses a home the resident does not own, and an impersonator, before writing', async () => {
