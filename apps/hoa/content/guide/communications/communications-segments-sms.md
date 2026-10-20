@@ -7,7 +7,7 @@ roles: [admin, board]
 routes: ["/communications/new", "/communications/[id]"]
 primary_route: /communications/new
 keywords: [homes list, per home, one row per home, delivery details, channel chips, texted, in portal, a street, street, homes on, owners on, all homes, all owners, renters, homes behind on dues, someone outside the HOA, more options, urgent, follow up, email again, text them, haven't opened, opted out, opt in, texting not set up, audience, segment, group, recipients, who gets it, owners only, tenants only, late on dues, delinquent, open violations, specific property, one home, board only, custom contacts, vendor, attorney, sms, text message, texting, character limit, "279 characters", long text, delivery, delivered, opened, bounced, failed, resend, not opened, notice, who opened, outside people, non-residents]
-related: [communications-send-announcement, inbox-reply-to-resident]
+related: [communications-send-announcement, communications-urgent-notice, communications-follow-up]
 reviewed: 2026-10-20
 ---
 

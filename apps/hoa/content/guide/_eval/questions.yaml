@@ -341,3 +341,12 @@ questions:
   - { id: n-ra3, role: resident, expect: resident-assistant, q: "Does the assistant send my request to the board for me?" }
   - { id: n-ra4, role: board, expect: settings-notifications, q: "How do I turn off the resident assistant for our homeowners?" }
   - { id: n-ra5, role: admin, expect: settings-notifications, q: "Where is the setting for the resident chat assistant?" }
+  # ── BL-102 A10 Messages composer (2026-10-20) ────────────────────────
+  - { id: n-m01, role: board, expect: communications-urgent-notice, q: "The water main broke. How do I send an urgent notice that also goes out as a text?" }
+  - { id: n-m02, role: admin, expect: communications-urgent-notice, q: "What does the This is urgent box do?", route: /communications/new }
+  - { id: n-m03, role: board, expect: communications-urgent-notice, q: "Why didn't every resident get a text when I sent the storm warning?" }
+  - { id: n-m04, role: board, expect: communications-follow-up, q: "How do I send a reminder only to the homes that didn't open my announcement?" }
+  - { id: n-m05, role: admin, expect: communications-follow-up, q: "Can I text the people who haven't opened the email?", route: /communications/abc123 }
+  - { id: n-m06, role: board, expect: communications-drafts, q: "I started a message and closed the tab. Where is my draft?" }
+  - { id: n-m07, role: admin, expect: communications-drafts, q: "How do I save a message and finish it later?" }
+  - { id: n-m08, role: board, expect: communications-drafts, q: "How do I delete a draft announcement I don't need anymore?", route: /communications }
