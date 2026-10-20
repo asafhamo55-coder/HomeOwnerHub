@@ -20,6 +20,7 @@ import { parseJson } from '@/lib/api/parse'
 import { zCents, zText, zUuid } from '@/lib/api/schemas'
 import { MAX_LONG_TEXT, MAX_SHORT_TEXT } from '@/lib/api/limits'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 const ROUTE = 'ai.analyze-violation'
@@ -140,6 +141,9 @@ export const POST = withRoute(ROUTE, async (request: Request) => {
   // BL-019: the association's state picks the enforcement rules. A failed
   // lookup is surfaced as a warning, never silently treated as "no rules".
   const { rules, statuteText } = await loadStateRules(supabase, orgId, warnings)
+
+  // BL-104: the shared board AI ceiling (RC-13), before the model calls.
+  await requireAiQuota('board_ai', orgId)
 
   // 1. Vision agent, on a URL this route signed for the org's own object.
   try {

@@ -10,6 +10,9 @@ import {
   checkoutErrorMessage,
   getStripe,
   stripeErrorFacts,
+  HOA_PLAN_IDS,
+  PRICING_V2,
+  planV2Checkout,
 } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -73,6 +76,102 @@ export interface BillingActionResult {
   error?: string
 }
 
+// ─── BL-104: Essentials / Complete band Prices (PRICING_V2) ──────────
+
+// Process-scoped like priceIdCache above; keyed by lookup key.
+const v2PriceIdCache: Record<string, string> = {}
+
+/**
+ * A band Price's id: the env override (STRIPE_PRICE_<PLAN>_<CADENCE>)
+ * first, then the active Price with the lookup key the rollout creates
+ * (docs/specs/2026-10-20-pricing-v2-rollout.md). null when neither exists.
+ */
+async function resolveV2PriceId(lookupKey: string, priceEnv: string): Promise<string | null> {
+  const fromEnv = process.env[priceEnv]
+  if (fromEnv) return fromEnv
+  if (v2PriceIdCache[lookupKey]) return v2PriceIdCache[lookupKey]!
+  const stripe = getStripe()
+  if (!stripe) return null
+  try {
+    // lookup_key is a module constant, never caller input.
+    const search = await stripe.prices.search({ query: `lookup_key:'${lookupKey}' AND active:'true'`, limit: 1 })
+    const id = search.data[0]?.id ?? null
+    if (id) v2PriceIdCache[lookupKey] = id
+    return id
+  } catch (err) {
+    console.warn('[billing] v2 price lookup failed', { lookupKey, ...stripeErrorFacts(err) })
+    return null
+  }
+}
+
+const V2FormSchema = z.object({ plan: z.enum(HOA_PLAN_IDS), cadence: CadenceSchema })
+
+async function startV2Checkout(formData: FormData): Promise<BillingActionResult> {
+  const parsed = V2FormSchema.safeParse({ plan: formData.get('plan'), cadence: formData.get('cadence') })
+  if (!parsed.success) return { error: 'Pick a plan and a billing cadence first.' }
+
+  const org = await getCurrentOrg()
+  if (!org) return { error: 'No HOA selected.' }
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Quantity = the homes on file, counted here — never a form field
+  // (decision §2: the band is a price cliff, so the count must be ours).
+  const [orgRes, unitsRes] = await Promise.all([
+    supabase.from('orgs').select('plan, stripe_customer_id, stripe_sub_id').eq('id', org.id).maybeSingle(),
+    supabase.from('hoa_properties').select('id', { count: 'exact', head: true }).eq('org_id', org.id),
+  ])
+  if (orgRes.error || unitsRes.error) {
+    console.error('[billing] v2 checkout read failed', { orgId: org.id, code: orgRes.error?.code ?? unitsRes.error?.code })
+    return { error: checkoutErrorMessage(null) }
+  }
+
+  const planned = planV2Checkout({
+    plan: parsed.data.plan,
+    cadence: parsed.data.cadence,
+    unitCount: unitsRes.count ?? 0,
+    currentPlan: (orgRes.data?.plan as string | null) ?? null,
+    stripeSubId: (orgRes.data?.stripe_sub_id as string | null) ?? null,
+    stripeCustomerId: (orgRes.data?.stripe_customer_id as string | null) ?? null,
+  })
+  if (!planned.ok) return { error: planned.message }
+
+  const priceId = await resolveV2PriceId(planned.lookupKey, planned.priceEnv)
+  if (!priceId) {
+    console.error('[billing] v2 checkout price not configured', { lookupKey: planned.lookupKey })
+    return { error: checkoutErrorMessage(null) }
+  }
+
+  const appUrl = appOrigin()
+  let session
+  try {
+    session = await createCheckoutSession({
+      orgId: org.id,
+      priceId,
+      plan: planned.metadataPlan,
+      quantity: planned.quantity,
+      mode: 'subscription',
+      successUrl: `${appUrl}/settings/billing`,
+      cancelUrl: `${appUrl}/settings/billing`,
+      customerId: (orgRes.data?.stripe_customer_id as string | null) ?? null,
+      customerEmail: user?.email ?? null,
+      trialPeriodDays: planned.trialPeriodDays,
+      paymentMethodCollection: planned.paymentMethodCollection,
+    })
+  } catch (err) {
+    console.error('[billing] checkout session failed', stripeErrorFacts(err))
+    return { error: checkoutErrorMessage(err) }
+  }
+  if (!session.url) {
+    console.error('[billing] checkout session has no url')
+    return { error: checkoutErrorMessage(null) }
+  }
+  redirect(session.url)
+}
+
 export async function startHoaCheckout(
   _prev: BillingActionResult,
   formData: FormData,
@@ -80,6 +179,8 @@ export async function startHoaCheckout(
   if (!isStripeConfigured()) {
     return { error: 'Stripe is not configured. Set STRIPE_SECRET_KEY in .env.local.' }
   }
+  // BL-104: off until the cut-over (packages/billing/src/pricing-flag.ts).
+  if (PRICING_V2) return startV2Checkout(formData)
 
   const parsed = CadenceSchema.safeParse(formData.get('plan'))
   if (!parsed.success) return { error: 'Pick a billing cadence first.' }

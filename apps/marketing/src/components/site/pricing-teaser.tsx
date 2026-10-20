@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { ArrowRight, Check } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
-import { HOA_PLANS, HOA_PRICE_COPY, type HoaPlan } from '@/lib/hoa-pricing'
+import { HOA_PLANS, HOA_PRICE_COPY, PRICING_V2, type HoaPlan } from '@/lib/hoa-pricing'
 
 // Homepage teaser. The plans and every price come from lib/hoa-pricing.ts,
 // the same source /pricing renders, so the two can't disagree (BL-042).
 // The bullets name shipped features only; /pricing has the full list.
-const TEASER_BULLETS: Record<HoaPlan['cadence'], string[]> = {
+// essentials / complete render only once PRICING_V2 is on (BL-104).
+const TEASER_BULLETS: Record<HoaPlan['id'], string[]> = {
   monthly: [
     'Ask your governing documents — cited answers',
     'Violation letters drafted from photos, approved in one click',
@@ -18,7 +19,19 @@ const TEASER_BULLETS: Record<HoaPlan['cadence'], string[]> = {
     'Month-end board report and resident portal',
   ],
   annual: ['Everything in HOA Monthly — same product', 'Paid once a year'],
+  essentials: [
+    'Ask your governing documents — cited answers',
+    'Violation letters drafted from photos, approved in one click',
+    'Dues, resident portal and announcements',
+  ],
+  complete: [
+    'Everything in Essentials',
+    'Accounting, bank feeds and AI bill scan',
+    'Shared inbox with AI reply drafts, vendors and RFPs',
+  ],
 }
+
+const TEASER_HEADLINE = PRICING_V2 ? HOA_PRICE_COPY.headline : 'One price per door. Every feature included.'
 
 export function PricingTeaser() {
   return (
@@ -29,7 +42,7 @@ export function PricingTeaser() {
             Pricing built for volunteers
           </p>
           <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-            One price per door. Every feature included.
+            {TEASER_HEADLINE}
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-muted">
             HOAs pay {HOA_PRICE_COPY.summary} Every pilot gets six months free.
@@ -63,7 +76,7 @@ export function PricingTeaser() {
                 <span className="text-sm text-muted">{t.period}</span>
               </div>
               <ul className="mt-6 flex-1 space-y-2.5">
-                {TEASER_BULLETS[t.cadence].map((b) => (
+                {TEASER_BULLETS[t.id].map((b) => (
                   <li key={b} className="flex gap-2 text-sm text-foreground-secondary">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                     {b}

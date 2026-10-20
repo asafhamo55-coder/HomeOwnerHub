@@ -54,7 +54,9 @@ function fakeStripe() {
   }
 }
 
-vi.mock('@homeowner-portal/billing', () => ({
+vi.mock('@homeowner-portal/billing', async (orig) => ({
+  // The real pure pricing (BL-104 tiers, PRICING_V2 = false); Stripe is faked.
+  ...(await orig<typeof import('@homeowner-portal/billing')>()),
   MONTHLY_UNIT_CENTS: 499,
   ANNUAL_UNIT_CENTS: 5388,
   isStripeConfigured: () => h.configured,
@@ -182,6 +184,8 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
           lookupKey: 'hoa_per_door_annual',
         },
       },
+      // BL-104: the band Prices are created only once PRICING_V2 is on.
+      bandPrices: [],
       nextSteps: expect.any(Array),
     })
     expect(h.productCreates).toBe(1)

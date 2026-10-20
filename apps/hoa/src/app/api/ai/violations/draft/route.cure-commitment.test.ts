@@ -52,7 +52,8 @@ vi.mock('@/lib/violation-cure-commitment', async (orig) => {
   }
 })
 
-// The BL-078 ledger: follow-up letters (letterKind) draw on it, nothing else.
+// The BL-078 ledger: follow-up letters (letterKind) draw on follow_up_letter;
+// since BL-104 every other draft draws on board_ai.
 const quota = vi.hoisted(() => ({ fn: vi.fn(), limited: false }))
 vi.mock('@/lib/api/rate-limit', async () => {
   const { ApiRouteError } = await import('@/lib/api/errors')
@@ -204,11 +205,21 @@ describe('POST /api/ai/violations/draft — follow-up letter rate limit', () => 
     expect(execute).not.toHaveBeenCalled()
   })
 
-  it('new-violation drafts (wizard, /inspect) and a bare violationId are not limited', async () => {
-    quota.limited = true
+  it('BL-104: new-violation drafts (wizard, /inspect) and a bare violationId draw on the shared board_ai bucket', async () => {
     expect((await POST(req(GOOD))).status).toBe(200)
     expect((await POST(req({ ...GOOD, violationId: VIOLATION }))).status).toBe(200)
-    expect(quota.fn).not.toHaveBeenCalled()
+    expect(quota.fn.mock.calls).toEqual([
+      ['board_ai', 'org-1'],
+      ['board_ai', 'org-1'],
+    ])
+  })
+
+  it('BL-104: over the board AI ceiling a new-violation draft is a 429 and the model is not called', async () => {
+    execute.mockClear()
+    quota.limited = true
+    const res = await POST(req(GOOD))
+    expect(res.status).toBe(429)
+    expect(execute).not.toHaveBeenCalled()
   })
 
   it('a request refused before the model (unknown violation) uses no quota', async () => {

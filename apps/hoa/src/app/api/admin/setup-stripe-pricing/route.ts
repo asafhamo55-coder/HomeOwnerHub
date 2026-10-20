@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
-import { ANNUAL_UNIT_CENTS, MONTHLY_UNIT_CENTS, getStripe, isStripeConfigured } from '@homeowner-portal/billing'
+import {
+  ANNUAL_UNIT_CENTS,
+  BILLING_CADENCES,
+  HOA_PLAN_IDS,
+  MONTHLY_UNIT_CENTS,
+  PLAN_LABEL,
+  PRICING_V2,
+  V2_LOOKUP_KEYS,
+  getStripe,
+  isStripeConfigured,
+  stripeTiers,
+  type BillingCadence,
+  type HoaPlanId,
+} from '@homeowner-portal/billing'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireRoutePlatformAdmin } from '@/lib/api/auth'
@@ -74,6 +87,34 @@ async function ensurePrice(
   })
 }
 
+/**
+ * BL-104: one band Price (billing_scheme 'tiered', tiers_mode 'volume'),
+ * on the same product, idempotent by lookup key. Created only when
+ * PRICING_V2 is on; the legacy per-door Prices are never touched (live
+ * subscriptions use them until renewal).
+ */
+async function ensureTieredPrice(
+  stripe: Stripe,
+  productId: string,
+  plan: HoaPlanId,
+  cadence: BillingCadence,
+): Promise<Stripe.Price> {
+  const lookupKey = V2_LOOKUP_KEYS[plan][cadence]
+  const existing = await stripe.prices.search({ query: `lookup_key:'${lookupKey}' AND active:'true'`, limit: 1 })
+  if (existing.data[0]) return existing.data[0]
+  return stripe.prices.create({
+    product: productId,
+    currency: 'usd',
+    recurring: { interval: cadence === 'annual' ? 'year' : 'month' },
+    billing_scheme: 'tiered',
+    tiers_mode: 'volume',
+    tiers: stripeTiers(plan, cadence),
+    lookup_key: lookupKey,
+    nickname: `HOA Hub — ${PLAN_LABEL[plan]} ${cadence === 'annual' ? 'Annual' : 'Monthly'} (size bands)`,
+    metadata: { managed_by: 'hoa_hub_setup', plan },
+  })
+}
+
 function priceView(price: Stripe.Price, interval: 'month' | 'year') {
   return {
     id: price.id,
@@ -101,10 +142,18 @@ export const POST = withRoute('admin.setup-stripe-pricing', async (request: Requ
   let product: Stripe.Product
   let monthlyPrice: Stripe.Price
   let annualPrice: Stripe.Price
+  const bandPrices: Array<{ plan: HoaPlanId; cadence: BillingCadence; price: Stripe.Price }> = []
   try {
     product = await findOrCreateProduct(stripe)
     monthlyPrice = await ensurePrice(stripe, product.id, MONTHLY_LOOKUP_KEY, MONTHLY_UNIT_CENTS, 'month')
     annualPrice = await ensurePrice(stripe, product.id, ANNUAL_LOOKUP_KEY, ANNUAL_UNIT_CENTS, 'year')
+    if (PRICING_V2) {
+      for (const plan of HOA_PLAN_IDS) {
+        for (const cadence of BILLING_CADENCES) {
+          bandPrices.push({ plan, cadence, price: await ensureTieredPrice(stripe, product.id, plan, cadence) })
+        }
+      }
+    }
   } catch (err) {
     // Code only; a Stripe message can name ids and request details.
     logRouteFailure('admin.setup-stripe-pricing.stripe', err)
@@ -118,6 +167,12 @@ export const POST = withRoute('admin.setup-stripe-pricing', async (request: Requ
       monthly: priceView(monthlyPrice, 'month'),
       annual: priceView(annualPrice, 'year'),
     },
+    bandPrices: bandPrices.map(({ plan, cadence, price }) => ({
+      plan,
+      cadence,
+      id: price.id,
+      lookupKey: price.lookup_key,
+    })),
     nextSteps: [
       `Add to Vercel env (Production + Preview + Development):`,
       `  STRIPE_PRICE_PER_DOOR_MONTHLY=${monthlyPrice.id}`,

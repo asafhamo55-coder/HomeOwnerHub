@@ -111,17 +111,40 @@ interface Row {
   entity_id?: string | null
 }
 
-function fakeDb(rows: Row[], opts: { readError?: unknown; insertError?: unknown } = {}) {
+function fakeDb(
+  rows: Row[],
+  opts: {
+    readError?: unknown
+    insertError?: unknown
+    /** BL-104: the orgs row the tier is read from; absent = not found (base ceilings). */
+    org?: { plan: string; doors_count: number | null }
+    orgError?: unknown
+    /** Homes on file (hoa_properties count). */
+    units?: number
+  } = {},
+) {
   const reads: Array<Array<[string, string, unknown]>> = []
   const updates: Array<{ patch: Record<string, unknown>; id: unknown }> = []
   let seq = 0
   const db = {
     from(table: string) {
+      if (table === 'orgs') {
+        const o = {
+          select: () => o,
+          eq: () => o,
+          maybeSingle: async () => (opts.orgError ? { data: null, error: opts.orgError } : { data: opts.org ?? null, error: null }),
+        }
+        return o
+      }
+      if (table === 'hoa_properties') {
+        return { select: () => ({ eq: async () => ({ count: opts.units ?? 0, error: null }) }) }
+      }
       expect(table).toBe('audit_log')
       const filters: Array<[string, string, unknown]> = []
       const q = {
         select: () => q,
         eq: (c: string, v: unknown) => (filters.push(['eq', c, v]), q),
+        in: (c: string, v: unknown) => (filters.push(['in', c, v]), q),
         gte: (c: string, v: unknown) => (filters.push(['gte', c, v]), q),
         order: (c: string, o: { ascending: boolean }) => (filters.push(['order', c, o.ascending]), q),
         range: async (from: number, to: number) => {
@@ -130,7 +153,13 @@ function fakeDb(rows: Row[], opts: { readError?: unknown; insertError?: unknown 
           const matching = rows
             .filter((r) =>
               filters.every(([op, c, v]) =>
-                op === 'eq' ? (r as unknown as Record<string, unknown>)[c] === v : op === 'gte' ? r.created_at >= (v as string) : true,
+                op === 'eq'
+                  ? (r as unknown as Record<string, unknown>)[c] === v
+                  : op === 'in'
+                    ? (v as unknown[]).includes((r as unknown as Record<string, unknown>)[c])
+                    : op === 'gte'
+                      ? r.created_at >= (v as string)
+                      : true,
               ),
             )
             .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -283,5 +312,59 @@ describe('resident_assistant bucket (BL-096): hourly + daily per person, daily p
   it('under every window: allowed and recorded', async () => {
     const f = fakeDb(usage(50, { org: 'org-1', user: 'user-1' }, (i) => 61 + i * 12, action))
     await expect(checkAndRecordAiUsage('resident_assistant', WHO, { db: f.db, now: clock })).resolves.toEqual({ usageId: 'usage-1' })
+  })
+})
+
+// ─── BL-104: ceilings by plan and band ─────────────────────────────────
+
+describe('BL-104 per-band ceilings (live now; Complete for every org until PRICING_V2)', () => {
+  const askRows = (n: number) => usage(n, { org: 'org-1', user: 'other' }, (i) => i, 'ai.usage.ask_docs')
+
+  it('a 40-door org (no plan change yet) is Complete 1–50: ask_docs org ceiling 100/day, not 500', async () => {
+    const f = fakeDb(askRows(100), { org: { plan: 'free', doors_count: 40 } })
+    const err = await checkAndRecordAiUsage('ask_docs', WHO, { db: f.db, now: clock }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'org_limit' } })
+    expect(err.publicMessage).toContain('limit of 100 questions a day')
+  })
+
+  it('the band comes from the larger of declared doors and homes on file (never a smaller band)', async () => {
+    // 100 used: under the 51–100 band's 150, at 1–50's 100.
+    const f = fakeDb(askRows(100), { org: { plan: 'monthly', doors_count: null }, units: 80 })
+    await expect(checkAndRecordAiUsage('ask_docs', WHO, { db: f.db, now: clock })).resolves.toEqual({ usageId: 'usage-1' })
+  })
+
+  it('an org row that cannot be read falls back to the base ceiling (fail open)', async () => {
+    const f = fakeDb(askRows(499), { orgError: { code: '57014' } })
+    await expect(checkAndRecordAiUsage('ask_docs', WHO, { db: f.db, now: clock })).resolves.toEqual({ usageId: 'usage-1' })
+  })
+
+  it('an explicit tier wins over the orgs read', async () => {
+    const f = fakeDb(askRows(50), { org: { plan: 'free', doors_count: 400 } })
+    const err = await checkAndRecordAiUsage('ask_docs', WHO, {
+      db: f.db,
+      now: clock,
+      tier: { plan: 'essentials', band: '1-50' },
+    }).catch((e) => e)
+    expect(err.publicMessage).toContain('limit of 50 questions a day')
+  })
+
+  it('board_ai and compose share one org ceiling: compose rows count against board_ai', async () => {
+    const rows = [
+      ...usage(150, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.compose'),
+      ...usage(50, { org: 'org-1', user: 'u-b' }, (i) => i, 'ai.usage.board_ai'),
+    ]
+    const f = fakeDb(rows, { org: { plan: 'annual', doors_count: 120 } })
+    const err = await checkAndRecordAiUsage('board_ai', WHO, { db: f.db, now: clock }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'org_limit' } })
+    expect(err.publicMessage).toContain('limit of 200 board AI drafts a day')
+    // The org window reads both actions; the user window only this bucket's.
+    expect(f.reads[1]).toEqual(expect.arrayContaining([['in', 'action', ['ai.usage.board_ai', 'ai.usage.compose']]]))
+    expect(f.reads[0]).toEqual(expect.arrayContaining([['eq', 'action', 'ai.usage.board_ai']]))
+  })
+
+  it('under the shared ceiling a board_ai call is recorded under its own action', async () => {
+    const f = fakeDb(usage(10, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.compose'), { org: { plan: 'free', doors_count: 10 } })
+    await checkAndRecordAiUsage('board_ai', WHO, { db: f.db, now: clock })
+    expect(f.rows.at(-1)).toMatchObject({ action: 'ai.usage.board_ai', org_id: 'org-1', user_id: 'user-1' })
   })
 })

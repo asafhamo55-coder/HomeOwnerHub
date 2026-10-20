@@ -15,6 +15,11 @@ const h = vi.hoisted(() => ({
   calls: [] as Array<[string, unknown[]]>,
 }))
 
+// BL-104: the shared board AI ceiling is tested in lib/api/rate-limit.test.ts.
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: vi.fn(async () => ({ usageId: null, userId: 'user-1' })),
+}))
 vi.mock('@/lib/accounting/guard', () => ({
   BOARD_ONLY_DENIED: 'Only board members and admins can make this change.',
   requireBoardOrAdminForAction: vi.fn(async () => h.gate),
