@@ -395,3 +395,20 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Merged and pushed for CI (81c1137):** BL-094 Ledger logo and BL-095 blue palette (#2563EB primary, AA-checked).
 - **Agents running:** BL-096 resident assistant, BL-097 hide PM/Eviction hubs, BL-098 HomeownerHub logo options.
 - **Delivered locally:** the product deck and investor deck in ~/HomeownerHub-decks/.
+
+## 2026-10-19 (20:22) — deploy 37cca17: HomeownerHub brand (logo C), blue palette, resident assistant, HOA-only
+
+- **Live:**
+  - The owner picked logo concept C (H-roof monogram). The brand name is HomeownerHub everywhere; the domain is unchanged.
+  - BL-095 blue palette (#2563EB, AA-checked).
+  - BL-096 resident assistant on /resident/ask: resident-scoped tools only, hand-offs only, 20/h and 100/day per user, board switch default ON.
+  - BL-097 PM/Eviction hidden behind `OTHER_HUBS_ENABLED = false`.
+- **Smoke:** /resident/ask 307; /login, /icon and /brand/logo-full.svg 200. The release-note email went out.
+- **Merged and pushed for CI:** 64f16a3, the marketing "HOA Hub" → HomeownerHub labels (`HOA_PRODUCT_NAME` follows the flag).
+- **Waiting on the owner:**
+  - rename the Stripe product "HOA Hub" in the dashboard, together with `PRODUCT_NAME` in setup-stripe-pricing;
+  - confirm the legal entity "HomeownerHub, Inc.";
+  - pricing compared with PayHOA;
+  - the Linda quote;
+  - key rotation before due diligence.
+- **Decks:** the product deck should be refreshed for the new brand. Its build script is in ~/HomeownerHub-decks/.

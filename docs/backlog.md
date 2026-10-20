@@ -888,12 +888,12 @@ These go beyond the design-system v2 pass:
   - Refresh it whenever a deploy changes something the deck shows. Each loop cycle checks whether it is stale.
 - **BL-093 Investor deck (PowerPoint):** researched fundraising deck: problem, solution, product, market size, business model and pricing, go-to-market, traction, competition, roadmap, team, financials and the ask.
   - Kept current over time. Saved locally outside the repo, because it holds strategy.
-- **BL-094 Company logo:** a mark plus a wordmark for HomeownerHub / Ledger, delivered as SVG and PNG in light and dark versions, with a favicon.
-- **BL-095 Platform recolour:** move the whole platform to a blue / light-blue palette in line with current SaaS design trends, through design tokens. It must keep AA contrast, dark mode and the guide screenshots working. It follows BL-094 so the palette matches the logo.
+- **BL-094 Company logo (Done 2026-10-19, superseded by BL-098 concept C):** a mark plus a wordmark for HomeownerHub / Ledger, delivered as SVG and PNG in light and dark versions, with a favicon.
+- **BL-095 Platform recolour (Done 2026-10-19):** move the whole platform to a blue / light-blue palette in line with current SaaS design trends, through design tokens. It must keep AA contrast, dark mode and the guide screenshots working. It follows BL-094 so the palette matches the logo.
 
 ## Owner request 2026-10-19
 
-- **BL-096 Resident assistant (chat with AI in the portal).** Reposition the existing board Copilot loop (`lib/community-qa/agent.ts`, tool-using) as a resident-facing assistant. It replaces today's single-shot "Ask the Docs" tab at `/resident/ask`.
+- **BL-096 Resident assistant (Done 2026-10-19) (chat with AI in the portal).** Reposition the existing board Copilot loop (`lib/community-qa/agent.ts`, tool-using) as a resident-facing assistant. It replaces today's single-shot "Ask the Docs" tab at `/resident/ask`.
   - **Tools:** a resident-scoped toolset only. Each tool runs on the resident's own RLS client. None of the board's DB tools (overdue lists, owner lookups, counts) is ever registered.
     - `search_governing_docs`: cited answers. The existing W1, reused.
     - `my_account`: the resident's own balance, next due date, payment plan, and how to pay (Zelle memo).
@@ -914,7 +914,7 @@ These go beyond the design-system v2 pass:
     - The board also gets a weekly "top questions residents asked" digest card, with counts and topics only, to show where the documents are unclear.
   - **No migration.** The setting is HMAC-signed in compliance_settings, like the other settings switches.
   - **Effort:** about 2 agent-days.
-- **BL-097 Hide the PM and Eviction hubs (owner, 2026-10-19):** remove every in-app and marketing path that switches to, or advertises, the Property Management or Eviction hubs (the hub switcher, nav, cross-links, marketing product pages and CTAs). Those products are not available. Keep apps/pm and apps/eviction compiling; don't delete them.
-- **BL-098 HomeownerHub logo options (owner, 2026-10-19):** the owner refers to the product as HomeownerHub. The BL-094 mark (blue tile, roof, ledger lines) ships with a "Ledger" wordmark, while the app says "HOA Hub" and the domain is homeownerledger.com.
+- **BL-097 Hide the PM and Eviction hubs (Done 2026-10-19) (owner, 2026-10-19):** remove every in-app and marketing path that switches to, or advertises, the Property Management or Eviction hubs (the hub switcher, nav, cross-links, marketing product pages and CTAs). Those products are not available. Keep apps/pm and apps/eviction compiling; don't delete them.
+- **BL-098 HomeownerHub logo (Done 2026-10-19, concept C) (owner, 2026-10-19):** the owner refers to the product as HomeownerHub. The BL-094 mark (blue tile, roof, ledger lines) ships with a "Ledger" wordmark, while the app says "HOA Hub" and the domain is homeownerledger.com.
   - Prepare logo options for "HomeownerHub" (2–3 concepts, wordmark plus mark) and present them for the owner to pick.
   - Then apply one brand name everywhere.
