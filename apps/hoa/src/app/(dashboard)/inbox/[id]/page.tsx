@@ -426,6 +426,10 @@ export default async function ThreadPage({
               breadcrumbs={[{ label: 'Inbox', href: listHref }, { label: subject }]}
               linkAs={Link}
               title={subject}
+              /* The thread column is ~512px at desktop: Forward, Request
+                 from vendor, Create from email and shortcuts do not fit
+                 beside the subject, so they wrap on their own row below. */
+              actionsBelow
               meta={
                 <>
                   <StatusBadge

@@ -69,6 +69,14 @@ export interface PageHeaderProps {
   /** Inline status next to the title (a StatusPill, a count). */
   meta?: React.ReactNode
   linkAs?: React.ElementType
+  /**
+   * Put the actions on their own wrapping row under the title at every
+   * width, instead of beside it from `sm` up. For headers that live in a
+   * narrow pane (the inbox thread column) with more actions than fit next
+   * to the title: side by side, the non-shrinking action row squeezed the
+   * h1 to one character wide and still overflowed the header.
+   */
+  actionsBelow?: boolean
   className?: string
 }
 
@@ -81,6 +89,7 @@ export function PageHeader({
   back,
   meta,
   linkAs: LinkAs = 'a',
+  actionsBelow = false,
   className,
 }: PageHeaderProps) {
   return (
@@ -96,7 +105,12 @@ export function PageHeader({
           {back.label ?? 'Back'}
         </LinkAs>
       ) : null}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+      <div
+        className={cn(
+          'flex flex-col gap-3',
+          !actionsBelow && 'sm:flex-row sm:items-start sm:justify-between sm:gap-6',
+        )}
+      >
         <div className="min-w-0 flex-1 space-y-1">
           {eyebrow ? (
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">{eyebrow}</p>
@@ -110,7 +124,15 @@ export function PageHeader({
           ) : null}
         </div>
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>
+          <div
+            data-page-actions
+            className={cn(
+              'flex flex-wrap items-center gap-2',
+              actionsBelow ? 'min-w-0' : 'shrink-0 sm:justify-end',
+            )}
+          >
+            {actions}
+          </div>
         ) : null}
       </div>
     </header>

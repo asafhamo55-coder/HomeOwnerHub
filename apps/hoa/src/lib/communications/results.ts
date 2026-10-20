@@ -85,6 +85,11 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
+/** The Opened KPI hint: "1 email opened (approximate)" / "3 emails opened (approximate)". */
+export function openedHint(n: number): string {
+  return `${plural(n, 'email', 'emails')} opened (approximate)`
+}
+
 /** "Reached 46 of 50 homes. 31 opened the email (approximate)." */
 export function resultsHeadline(r: HomeRollup): string {
   const parts = [`Reached ${r.reached} of ${plural(r.homes, 'home', 'homes')} by email or text.`]

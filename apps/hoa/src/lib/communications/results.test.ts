@@ -3,6 +3,7 @@ import {
   followUpAudience,
   groupRecipientsByHome,
   homeLabel,
+  openedHint,
   reminderSubject,
   resultsHeadline,
   rollupByHome,
@@ -173,5 +174,15 @@ describe('groupRecipientsByHome (A8 table)', () => {
     expect(homeLabel({ address_line1: '12 Elm St', unit_number: null })).toBe('12 Elm St')
     expect(homeLabel({ address_line1: '12 Elm St', unit_number: '3' })).toBe('12 Elm St · Unit 3')
     expect(homeLabel(undefined)).toBeNull()
+  })
+})
+
+describe('openedHint', () => {
+  it('says "1 email", not "1 emails"', () => {
+    expect(openedHint(1)).toBe('1 email opened (approximate)')
+  })
+  it('pluralizes 0 and many', () => {
+    expect(openedHint(0)).toBe('0 emails opened (approximate)')
+    expect(openedHint(3)).toBe('3 emails opened (approximate)')
   })
 })

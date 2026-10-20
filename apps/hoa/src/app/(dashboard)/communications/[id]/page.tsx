@@ -1,10 +1,9 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { CheckCircle2, Eye, Mail, MailX, MessageSquareText, Reply, Sparkles, Users } from 'lucide-react'
+import { CheckCircle2, Eye, MailX, Reply, Sparkles, Users } from 'lucide-react'
 import {
   Alert,
   Badge,
-  Button,
   Card,
   CardContent,
   CardDescription,
@@ -30,6 +29,7 @@ import {
   followUpAudience,
   groupRecipientsByHome,
   homeLabel,
+  openedHint,
   resultsHeadline,
   rollupByHome,
   type HomeChannelChip,
@@ -40,6 +40,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { smsConfigured } from '@/lib/sms'
 import { CommunicationActions } from './CommunicationActions'
+import { FollowUpActions } from './FollowUpActions'
 
 export const metadata = { title: 'Message' }
 
@@ -280,7 +281,7 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
           label="Opened"
           icon={<Eye />}
           value={emailRows.length > 0 ? pct(emailOpened, emailRows.length) : '—'}
-          hint={`${emailOpened} emails opened (approximate)`}
+          hint={openedHint(emailOpened)}
         />
         <Kpi
           label="Replied"
@@ -310,25 +311,7 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
                 {followUp.unitIds.length} {followUp.unitIds.length === 1 ? 'home hasn’t' : 'homes haven’t'} opened the
                 email. Opens are approximate: some mail apps open every email automatically, and some block the count.
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="secondary">
-                  <Link href={`/communications/new?followUp=${comm.id}&via=email`}>
-                    <Mail aria-hidden />
-                    Email again to the {followUp.unitIds.length} who haven’t opened
-                  </Link>
-                </Button>
-                {textingReady ? (
-                  <Button asChild variant="secondary">
-                    <Link
-                      href={`/communications/new?followUp=${comm.id}&via=text`}
-                      aria-label={`Text them: the ${followUp.unitIds.length} who haven’t opened`}
-                    >
-                      <MessageSquareText aria-hidden />
-                      Text them
-                    </Link>
-                  </Button>
-                ) : null}
-              </div>
+              <FollowUpActions commId={comm.id} count={followUp.unitIds.length} textingReady={textingReady} />
               <p className="text-xs text-muted">
                 Opens a new message for you to check. Nothing is sent until you press Send.
               </p>
