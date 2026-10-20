@@ -38,7 +38,7 @@ export default async function SettingsPage() {
   const supabase = await getSupabaseServerClient()
   const [membersRes, profile] = await Promise.all([
     timed('/settings', 'settings.memberCount', () =>
-      supabase.from('org_members').select('user_id', { count: 'exact', head: true }),
+      supabase.from('org_members').select('user_id', { count: 'exact', head: true }).eq('org_id', org.id),
     ),
     timed('/settings', 'settings.profile', () => getMyProfile()),
   ])
