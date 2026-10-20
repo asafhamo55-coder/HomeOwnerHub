@@ -177,7 +177,9 @@ and checkout instead of HomeownerHub.
 
 **Why it matters:** production only has Georgia's HOA law loaded. Until Florida, California and Texas are loaded, the app says "<State> state law isn't loaded yet" instead of answering law questions for those states. It never answers from memory.
 
-**Steps** (after the deploy that includes the CA/TX loaders; Claude will say when it's live):
+**Ready now:** the CA/TX loaders went live on 2026-10-20 at 12:31 ET (deploy 7b1c601b).
+
+**Steps:**
 
 1. Sign in to the production app as the platform admin.
 2. Open the browser's developer console on any app page and paste this line once each for `'FL'`, `'CA'` and `'TX'` (change the two letters):

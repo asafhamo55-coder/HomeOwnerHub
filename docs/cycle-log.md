@@ -539,3 +539,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - BL-111 SMS consent per number and inbound STOP (flagged);
   - BL-112 meter every AI call and the kill switch in the client;
   - BL-104 band-sync, renewal-notice jobs and SMS allowance (flagged).
+
+## 2026-10-20 (12:31) — deploy 7b1c601b: TX/GA resale paperwork, CA/TX law loaders, records roster, scan as a bill, Copilot state law, AI caps
+
+- **Usage limit:** a usage limit paused the session 10:15–12:20. Two agents died mid-task (BL-112, BL-104 jobs); both were resumed from their worktrees and finished.
+- **CI:** 1a00dd9f failed only on the Inngest wiring contract (BL-108 added a 22nd job; the integration test still pinned 21). Fixed; both pins (unit and integration) must move together.
+- **Live:** 7b1c601b at 12:31; release email sent. OA-9 (load FL/CA/TX law) is now runnable.
+- **Merged since (gated, pushed with the 13:35 note):**
+  - BL-111 SMS consent per number and inbound STOP/START (flagged);
+  - BL-104 band-sync and renewal-notice jobs and the SMS allowance (behind PRICING_V2);
+  - BL-112 kill switch in every AI client, with board actions metered.
+- **Mistake, fixed:** a merge was committed with conflict markers in the inngest route (`git commit -a` during an unresolved merge). Fixed in a follow-up commit before any push. Also, `pnpm install` was needed after packages/jobs gained the billing dependency.
+- **Left for the owner:** a git stash entry (`bl104b-wip-a060d61b`) the classifier wouldn't let an agent drop. It is safe to drop.
+- **Agents running:** privacy-safe analytics (BL-009), ⌘K latency (BL-060).

@@ -107,23 +107,24 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-20 10:10 ET)
+## 4. State (updated 2026-10-20 12:45 ET)
 
-- **Live in prod:** `744a492`, deployed 10:02 ET; release email sent.
-- **Integration tip (local, gating):** release note `docs/releases/2026-10-20-1053-state-law-resale-roster.md`; deploy at or after 11:02 ET. It contains:
-  - TX/GA resale paperwork and CA/TX law loaders (OA-9 to load prod);
-  - the records-request roster and "Scan as a bill";
-  - the Copilot state-law tool and BL-106 caps;
-  - BL-108 AI spend ceiling (behind PRICING_V2) and BL-109 held statuses;
-  - BL-110 resident SMS opt-in and inbox draft metrics.
-- **Backlog:** groomed 2026-10-20. Pick work from docs/backlog.md "Ranked open work (groomed 2026-10-20)".
+- **Live in prod:** `7b1c601b`, deployed 12:31 ET; release email sent. OA-9 (load FL/CA/TX law in prod) is runnable now.
+- **Integration tip:** pushed with release note `docs/releases/2026-10-20-1335-text-consent-ai-safety.md`; deploy at 13:35 ET or later if CI is green. It contains:
+  - BL-111 SMS consent per number, plus inbound STOP/START (flagged);
+  - BL-112 AI kill switch in every client;
+  - BL-104 pricing jobs and SMS allowance (behind PRICING_V2).
+- **Trap:** the Inngest job count is pinned in TWO tests: `tests/integration/contracts/inngest-wiring.test.ts` (24 now) and the unit route test. Bump both.
+- **Trap:** never `git commit -a` while a merge has unresolved conflicts; check `git diff --name-only --diff-filter=U` first.
+- **Backlog:** groomed. Pick from docs/backlog.md "Ranked open work (groomed 2026-10-20)". Open, no migration: #4 slow pages (needs Vercel logs), #8 analytics (in flight), #14 ⌘K latency (in flight), #15 CINC import (needs a sample file).
 - **Classifier limits hit this session:**
   1. Writing a "nothing stays on Asaf" rule into next.md.
   2. Probing local credentials.
   3. Restoring automatic vendor COI emails (OA-19).
+  4. An agent's `git stash drop`.
 
   None were worked around.
-- **Crons (this session):** hourly cycle `23 * * * *`, renewal one-shot on Oct 26 at 14:41, and a deploy one-shot at 10:57 (deploy only once 744a492 is 1h old, i.e. 11:02+). Recreate them per §3 in a new session.
+- **Crons (this session):** hourly cycle `23 * * * *`; renewal one-shot on Oct 26 at 14:41. Recreate them per §3 in a new session.
 
 ## 5. Manual steps for Asaf: `docs/owner-actions.md`
 
@@ -133,12 +134,11 @@ The single list is `docs/owner-actions.md` (OA-1, OA-2…). Asaf asked on 2026-1
 - Most urgent: OA-1, migrations 0063 then M1 (subscription webhook writes fail until then). Also OA-14: turn on the Stripe webhook events `customer.subscription.updated` and `invoice.payment_failed`.
 - **Asaf, 2026-10-20:** even with items pending on him, keep allocating backlog items to the team (3–4 agents always busy).
 
-## 6. Work in flight (2026-10-20 10:10 ET)
+## 6. Work in flight (2026-10-20 12:45 ET)
 
 Worktree agents. If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
-- **BL-111:** SMS consent tied to the phone number (hash match at send), plus a Vonage inbound STOP/START route behind SMS_INBOUND_ENABLED.
-- **BL-112:** meter every AI call; kill switch inside the shared AI client; job and embedding usage counted.
-- **BL-104 leftovers:** nightly band-sync, grandfathered renewal-notice job, SMS allowance (all behind PRICING_V2).
+- **BL-009:** privacy-safe analytics (Vercel Web Analytics with scrubbed paths, 8 allowlisted events, behind NEXT_PUBLIC_ANALYTICS_ENABLED).
+- **BL-060:** ⌘K search latency (perfTimer and a CI p50/p95 measurement) plus slow-path fixes.
 
 ## 7. Next up
 
