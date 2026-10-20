@@ -11,8 +11,10 @@
 //     per-subscription rows, and stripe_billing_recompute.
 //
 // planCheck reproduces orgs_plan_check: 'pre0064' is migration 0000's list
-// (no 'monthly' / 'annual'), 'post0064' is 0064's. A violating write fails
-// with 23514 and changes nothing, like Postgres.
+// (no 'monthly' / 'annual'), 'post0064' is 0064's, 'post0065' (the default)
+// is 0065's (adds the BL-104 'essentials' / 'complete' / 'pilot' /
+// 'legacy_per_door'). A violating write fails with 23514 and changes
+// nothing, like Postgres.
 //
 // memdb.test.ts runs the same scenarios as the real-Postgres integration
 // test (tests/integration/security/m1-batch.test.ts, section F), so the
@@ -63,6 +65,8 @@ interface State {
 
 const PRE_0064_PLANS = ['free', 'starter', 'standard', 'pro', 'enterprise', 'per_case', 'unlimited']
 const POST_0064_PLANS = [...PRE_0064_PLANS, 'monthly', 'annual']
+const POST_0065_PLANS = [...POST_0064_PLANS, 'essentials', 'complete', 'pilot', 'legacy_per_door']
+const PLANS_BY_CHECK = { pre0064: PRE_0064_PLANS, post0064: POST_0064_PLANS, post0065: POST_0065_PLANS } as const
 
 class CheckViolation extends Error {
   code = '23514'
@@ -89,8 +93,8 @@ function field(row: Record<string, unknown>, col: string): string | null {
 
 const minTs = (a: number | null, b: number | null) => (a == null ? b : b == null ? a : Math.min(a, b))
 
-export function createMemDb(opts: { planCheck?: 'pre0064' | 'post0064' } = {}) {
-  const allowedPlans = new Set(opts.planCheck === 'pre0064' ? PRE_0064_PLANS : POST_0064_PLANS)
+export function createMemDb(opts: { planCheck?: keyof typeof PLANS_BY_CHECK } = {}) {
+  const allowedPlans = new Set<string>(PLANS_BY_CHECK[opts.planCheck ?? 'post0065'])
   let state: State = { orgs: new Map(), cases: new Map(), subs: new Map(), events: new Map(), audit: [] }
   let writes = 0
   let failNext: string | null = null

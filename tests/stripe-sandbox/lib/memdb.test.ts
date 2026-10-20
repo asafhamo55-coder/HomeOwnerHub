@@ -146,6 +146,24 @@ describe('memdb table updates', () => {
     expect(m.writes()).toBe(0)
   })
 
+  it("the 0064 plan check rejects the BL-104 plans; 0065's (the default) accepts them", async () => {
+    for (const plan of ['essentials', 'complete', 'pilot', 'legacy_per_door']) {
+      const pre = createMemDb({ planCheck: 'post0064' })
+      pre.addOrg(ORG)
+      expect(await pre.db.from('orgs').update({ plan }).eq('id', ORG)).toEqual({ error: { code: '23514' } })
+      expect(pre.org(ORG)?.plan).toBe('free')
+
+      const post = createMemDb()
+      post.addOrg(ORG)
+      expect(await post.db.from('orgs').update({ plan }).eq('id', ORG)).toEqual({ error: null })
+      expect(post.org(ORG)?.plan).toBe(plan)
+    }
+    const post = createMemDb()
+    post.addOrg(ORG)
+    expect(await post.db.from('orgs').update({ plan: 'monthly' }).eq('id', ORG)).toEqual({ error: null })
+    expect(await post.db.from('orgs').update({ plan: 'not_a_plan' }).eq('id', ORG)).toEqual({ error: { code: '23514' } })
+  })
+
   it('failNextWrite injects one failure, then recovers', async () => {
     const m = createMemDb()
     m.addOrg(ORG)
