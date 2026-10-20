@@ -29,6 +29,19 @@ export function guideShotWidths(s: GuideShot): number[] {
   return s.widths ?? GUIDE_WIDTHS
 }
 
+/**
+ * Height of a guide clip box, cut at its content. `contentBottom` is the
+ * viewport y of the lowest visible descendant (null: none). A container
+ * that stretches past its content (`#main` has a viewport min-height) is
+ * trimmed; content can never make the box taller than it is.
+ */
+export function guideClipHeight(box: { y: number; height: number }, contentBottom: number | null): number {
+  if (contentBottom === null || !Number.isFinite(contentBottom)) return box.height
+  const content = contentBottom - box.y
+  if (content <= 0) return box.height
+  return Math.min(box.height, Math.ceil(content))
+}
+
 const MAIN = '#main'
 
 export const GUIDE_SHOTS: GuideShot[] = [

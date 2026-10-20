@@ -12,7 +12,7 @@ const NO_BOOKS_BOARD_NAME = 'Board Books Lane HOA'
  * the default (getCurrentOrg falls back to the first by joined_at, and
  * NULLs sort last). Shots reach it with the active-org cookie.
  */
-async function extraOrg(
+export async function extraOrg(
   db: SupabaseClient,
   ctx: SeedContext,
   name: string,

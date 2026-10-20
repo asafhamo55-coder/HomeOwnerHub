@@ -58,7 +58,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { chromium, errors as playwrightErrors, webkit, type Browser, type Page } from 'playwright'
 import sharp from 'sharp'
 import { seedExtras } from './ui-shots-seed'
-import { GUIDE_SHOTS, guideShotWidths, type GuideShot } from './guide-shots'
+import { GUIDE_SHOTS, guideClipHeight, guideShotWidths, type GuideShot } from './guide-shots'
 import { routeSourceHash } from './guide/fs'
 import { LIGHT, SHOTS, THEMES, WIDTHS, type App, type Shot } from './ui-shots-list'
 
@@ -360,10 +360,17 @@ interface GuideManifestEntry {
 }
 
 /**
- * Guide capture: highlight one control (brand outline over a dimmed page,
+ * Guide capture: highlight one control (a brand outline and soft halo,
  * drawn by an overlay so no stacking context can hide it), crop to an
  * element, mask volatile text, and write a webp. The page has already
  * loaded with a frozen clock.
+ *
+ * The overlay used to dim everything outside the control with a
+ * `0 0 0 9999px` box-shadow. In a guide shot the control is a button and
+ * the crop is the whole page body, so ~95% of every highlighted image came
+ * out under a grey wash ("grey overlay over most of the page"); the wash
+ * also stopped 9999px from the control on tall pages. Now only the control
+ * is marked, and the page around it keeps its real colours.
  */
 async function captureGuideShot(page: Page, shot: GuideShot, width: number): Promise<void> {
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
@@ -398,7 +405,9 @@ async function captureGuideShot(page: Page, shot: GuideShot, width: number): Pro
           height: `${h + 8}px`,
           borderRadius: '10px',
           outline: '3px solid hsl(var(--primary))',
-          boxShadow: '0 0 0 9999px rgb(15 23 42 / 0.28)',
+          outlineOffset: '0px',
+          // A halo just outside the outline, not a page-wide dimmer.
+          boxShadow: '0 0 0 6px hsl(var(--primary) / 0.22)',
           pointerEvents: 'none',
           zIndex: '2147483647',
         })
@@ -409,16 +418,22 @@ async function captureGuideShot(page: Page, shot: GuideShot, width: number): Pro
   }
   let clip: { x: number; y: number; width: number; height: number } | undefined
   if (shot.clip) {
-    const box = await page.locator(shot.clip).first().boundingBox()
+    const target = page.locator(shot.clip).first()
+    const box = await target.boundingBox()
     if (!box) throw new Error(`clip target has no box: ${shot.clip}`)
+    // `#main` stretches to the viewport (min-height), and the viewport was
+    // just grown to the document, so its box runs well past the content.
+    // Crop at the lowest visible descendant instead of the empty tail.
+    const contentBottom = await target.evaluate(contentBottomOf)
     const vp = page.viewportSize()!
     const x = Math.max(0, box.x - GUIDE_PAD)
     const y = Math.max(0, box.y - GUIDE_PAD)
+    const boxHeight = guideClipHeight(box, contentBottom)
     clip = {
       x,
       y,
       width: Math.min(vp.width - x, box.width + GUIDE_PAD * 2),
-      height: Math.min(vp.height - y, box.height + GUIDE_PAD * 2, shot.clipMaxHeight ?? Infinity),
+      height: Math.min(vp.height - y, boxHeight + GUIDE_PAD * 2, shot.clipMaxHeight ?? Infinity),
     }
   }
   const png = await page.screenshot({
@@ -432,6 +447,23 @@ async function captureGuideShot(page: Page, shot: GuideShot, width: number): Pro
   let img = sharp(png)
   if (width >= 768) img = img.resize({ width: GUIDE_DESKTOP_MAX, withoutEnlargement: true })
   await img.webp({ quality: 80 }).toFile(resolve(GUIDE_OUT, `${shot.name}--${width}.webp`))
+}
+
+/**
+ * Runs in the page: the viewport y of the lowest visible descendant of
+ * `el`, or null when it has none. Hidden and zero-size boxes (sr-only
+ * text, collapsed menus) don't count.
+ */
+function contentBottomOf(el: Element): number | null {
+  let bottom: number | null = null
+  for (const d of Array.from(el.querySelectorAll('*'))) {
+    const r = d.getBoundingClientRect()
+    if (r.width <= 1 || r.height <= 1) continue
+    const cs = getComputedStyle(d)
+    if (cs.visibility === 'hidden' || cs.display === 'none') continue
+    if (bottom === null || r.bottom > bottom) bottom = r.bottom
+  }
+  return bottom
 }
 
 function writeGuideManifest(done: GuideShot[]): void {
