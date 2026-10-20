@@ -6,6 +6,8 @@ export type { MonthlyReportDeps, BuildMonthlyReportInput, MonthlyReportContent }
 export { createDuesRemindersJob } from './dues-reminders/job'
 export type { DuesRemindersDeps, ReminderRenderInput } from './dues-reminders/run'
 export { createVendorCoiRemindersJob } from './vendor-coi-reminders/job'
+export { createScheduledCommunicationsJob } from './communications-scheduled'
+export type { ScheduledCommunicationsDeps, ScheduledDeliveryResult } from './communications-scheduled'
 export type { VendorCoiRemindersDeps } from './vendor-coi-reminders/run'
 export { hoaLateFeeJob } from './hoa-late-fees'
 export { recurringJeJob } from './recurring-jes'

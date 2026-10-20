@@ -139,3 +139,43 @@ export async function deleteCommunication(
   revalidatePath('/communications')
   return { ok: true }
 }
+
+/**
+ * BL-102 A1: stop a scheduled message before it goes out.
+ *
+ * The update is conditional on status='scheduled', the same row lock the
+ * dispatcher's claim (`scheduled → sending`) takes, so exactly one of them
+ * wins: a message the dispatcher already claimed can no longer be
+ * cancelled, and a cancelled one can no longer be claimed. Its queued
+ * recipient rows are marked suppressed so nothing reads them as pending.
+ */
+export async function cancelScheduledCommunication(commId: string): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return { ok: false, error: 'No HOA association configured.' }
+
+  const supabase = await getSupabaseServerClient()
+  const { data: cancelled, error } = await supabase
+    .from('communications')
+    .update({ status: 'cancelled' })
+    .eq('id', commId)
+    .eq('association_id', assoc.id)
+    .eq('status', 'scheduled')
+    .is('deleted_at', null)
+    .select('id')
+  if (error) return { ok: false, error: error.message }
+  if (!cancelled || cancelled.length === 0) {
+    return { ok: false, error: 'This message is no longer scheduled. It may already be going out.' }
+  }
+
+  await supabase
+    .from('communication_recipients')
+    .update({ delivery_status: 'suppressed', error_message: 'Cancelled before it was sent' })
+    .eq('communication_id', commId)
+    .eq('delivery_status', 'queued')
+
+  revalidatePath('/communications')
+  revalidatePath(`/communications/${commId}`)
+  return { ok: true }
+}

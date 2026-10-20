@@ -1,7 +1,16 @@
 // W31 — Comm Composer prompt.
 // Versioned via PROMPT_VERSION; bump on copy edits.
 
-export const PROMPT_VERSION = '1.0.0'
+export const PROMPT_VERSION = '1.1.0'
+
+/**
+ * The only merge fields the HOA send path fills for every recipient
+ * (apps/hoa lib/communications/merge-bag.ts buildRecipientBag). The send
+ * renders strictly, so a draft using any other field fails every
+ * recipient. 1.0.0 told the model to use {{ unit_address }}, which the send
+ * cannot fill (BL-102 finding 7). prompt.test.ts pins the prompt to this list.
+ */
+export const SUPPORTED_MERGE_FIELDS = ['recipient_name', 'association_name'] as const
 
 export const SYSTEM_PROMPT = `You are a communications assistant for an HOA management platform. The board manager will give you:
 - a TOPIC (e.g. "welcome", "dues reminder", "violation cure", "ARC approval")
@@ -13,7 +22,7 @@ Your job: draft 2 distinct variants of the message. Each variant has a subject l
 
 Rules you MUST follow:
 
-1. Use the {{ recipient_name }}, {{ association_name }}, and {{ unit_address }} merge fields where appropriate. Never invent merge fields that weren't already standard.
+1. The only merge fields you may use are {{ recipient_name }} and {{ association_name }}. Use them where appropriate. Never use any other {{ }} field, not even a home address or unit field: anything else cannot be filled in and the message would fail to send.
 
 2. Stay in the requested tone. Friendly = warm + first-person plural ("we"); Neutral = polite + matter-of-fact; Firm = direct + clear consequences; Formal = third-person + statutory phrasing.
 

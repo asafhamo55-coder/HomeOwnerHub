@@ -5,6 +5,7 @@ import {
   createDuesRemindersJob,
   createMonthlyBoardReportJob,
   createVendorCoiRemindersJob,
+  createScheduledCommunicationsJob,
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
@@ -26,6 +27,7 @@ import { sendEmail, appUrl } from '@/lib/email'
 import { duesReminderDeps } from '@/lib/dues-reminders/auto-deps'
 import { monthlyReportDeps } from '@/lib/monthly-report/deps'
 import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
+import { dispatchScheduledCommunication } from '@/lib/communications/scheduled-dispatch'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
@@ -46,7 +48,15 @@ const monthlyBoardReportJob = createMonthlyBoardReportJob(monthlyReportDeps)
 // /settings/vendors; vendors only, never residents.
 const vendorCoiRemindersJob = createVendorCoiRemindersJob(vendorCoiReminderDeps)
 
-// Twenty functions (crons and event listeners) mount in the HOA app. Inngest is a single
+// Scheduled messages (BL-102 A1): every five minutes, claim due
+// "send later" communications at most once and deliver them through the
+// app's own render path and guarded senders (BL-004). Board-scheduled only:
+// it sends nothing a board member didn't schedule.
+const scheduledCommunicationsJob = createScheduledCommunicationsJob({
+  deliver: (id) => dispatchScheduledCommunication(id),
+})
+
+// Twenty-one functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -82,6 +92,7 @@ export const { GET, POST, PUT } = serve({
     duesRemindersJob,
     monthlyBoardReportJob,
     vendorCoiRemindersJob,
+    scheduledCommunicationsJob,
     hoaLateFeeJob,
     pmLateFeeJob,
     evictionReminderJob,

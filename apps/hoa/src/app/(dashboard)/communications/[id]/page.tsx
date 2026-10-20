@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CheckCircle2, Eye, MailX, Reply, Sparkles, Users } from 'lucide-react'
 import {
+  Alert,
   Badge,
   Card,
   CardContent,
@@ -203,9 +204,20 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
         </>
       }
       actions={
-        <CommunicationActions commId={comm.id} subject={displaySubject.text} failedEmailCount={failedEmailCount} />
+        <CommunicationActions
+          commId={comm.id}
+          subject={displaySubject.text}
+          failedEmailCount={failedEmailCount}
+          status={comm.status}
+        />
       }
     >
+      {comm.status === 'scheduled' ? (
+        <Alert variant="info" title="Scheduled, not sent yet">
+          It goes out within 5 minutes of the scheduled time. Recipients were set when you scheduled this, so
+          someone who moved in since won’t get it. Residents who opt out before then are skipped.
+        </Alert>
+      ) : null}
       <section aria-label="Delivery summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi
           label="Delivered"

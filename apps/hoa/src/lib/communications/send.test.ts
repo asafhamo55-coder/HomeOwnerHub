@@ -19,6 +19,8 @@ const h = vi.hoisted(() => ({
   consentRows: [] as Array<{ user_id: string; granted: boolean; method: string; created_at: string }>,
   consentError: null as { code: string } | null,
   recipients: [] as unknown[],
+  prefsRows: [] as Array<{ user_id: string; email_opt_in: boolean; sms_opt_in: boolean }>,
+  prefsError: null as { code: string } | null,
 }))
 
 vi.mock('@homeowner-portal/db/m1', () => ({
@@ -84,6 +86,11 @@ function fakeClient() {
             error: null,
           }
         }
+        if (table === 'resident_communication_preferences') {
+          if (h.prefsError) return { data: null, error: h.prefsError }
+          const range = calls.find((c) => (c as [string])[0] === 'range') as [string, [number]]
+          return { data: range[1][0] === 0 ? h.prefsRows : [], error: null }
+        }
         if (table === 'member_email_consent_events') {
           if (h.consentError) return { data: null, error: h.consentError }
           const range = calls.find((c) => (c as [string])[0] === 'range') as [string, [number]]
@@ -141,6 +148,10 @@ beforeEach(() => {
   h.state = 'CA'
   h.recipients = RECIPIENTS.map((r) => ({ ...r }))
   h.consentError = null
+  // BL-102: Ana opted in to texts. Nobody else has a preference row, so
+  // they get the defaults: email on, texts off.
+  h.prefsRows = [{ user_id: 'user-a', email_opt_in: true, sms_opt_in: true }]
+  h.prefsError = null
   h.consentRows = [
     { user_id: 'user-a', granted: true, method: 'portal', created_at: '2026-10-01T00:00:00Z' },
     { user_id: 'user-b', granted: true, method: 'portal', created_at: '2026-10-01T00:00:00Z' },
@@ -167,6 +178,9 @@ const emailedTo = (trace: unknown[]) =>
     .filter((t) => (t as [string])[0] === 'sendEmailBatch')
     .flatMap((t) => ((t as [string, Array<{ to: string }>])[1]).map((p) => p.to))
 
+// BL-102 deliberately re-recorded these two snapshots: the trace gained the
+// resident_communication_preferences read, and Cy's SMS row (a phone but no
+// text opt-in) is gone. Everything else in the trace is byte-identical.
 describe('sendCommunication, M1_APPLIED false (today)', () => {
   it('send now: the full trace is unchanged from before the consent wiring', async () => {
     const { result, trace } = await run(INPUT)
@@ -207,15 +221,17 @@ describe('sendCommunication, M1_APPLIED true', () => {
     const { result, trace } = await run({ ...INPUT, officialNotice: true })
     expect(emailedTo(trace)).toEqual(['ana@example.test'])
     const rows = recipientInsert(trace).map((r) => `${r.channel}:${r.user_id ?? r.recipient_name}`)
-    // Ben (revoked) and Cy (no account) lose only the email row; SMS and portal stay.
-    expect(rows).toEqual(['email:user-a', 'sms:user-a', 'portal:user-a', 'portal:user-b', 'sms:Cy', 'portal:user-d'])
+    // Ben (revoked) and Cy (no account) lose only the email row; portal
+    // stays. Cy has a phone but no text opt-in (BL-102), so no SMS row.
+    expect(rows).toEqual(['email:user-a', 'sms:user-a', 'portal:user-a', 'portal:user-b', 'portal:user-d'])
     expect(result).toEqual({
       ok: true,
       communicationId: 'comm-1',
-      recipientCount: 6,
-      sentCount: 6,
+      recipientCount: 5,
+      sentCount: 5,
       failedCount: 0,
       skippedCount: 0,
+      optedOutCount: 1,
       paperNotice: {
         count: 3,
         recipients: [
@@ -274,5 +290,152 @@ describe('sendCommunication, M1_APPLIED true', () => {
     await run({ ...INPUT, officialNotice: true })
     for (const s of spies) expect(s).not.toHaveBeenCalled()
     for (const s of spies) s.mockRestore()
+  })
+})
+
+const textedTo = (trace: unknown[]) =>
+  trace.filter((t) => (t as [string])[0] === 'sendSms').map((t) => (t as [string, { to: string }])[1].to)
+const commInsert = (trace: unknown[]): Record<string, unknown> | undefined => {
+  for (const t of trace) {
+    const [kind, table, calls] = t as [string, string, Array<[string, unknown[]]>]
+    if (kind !== 'db' || table !== 'communications') continue
+    const ins = calls.find((c) => c[0] === 'insert')
+    if (ins) return ins[1][0] as Record<string, unknown>
+  }
+  return undefined
+}
+
+describe('resident preferences (BL-102)', () => {
+  it('an email opt-out gets no email row and no email; their other channels stay', async () => {
+    h.prefsRows = [
+      { user_id: 'user-a', email_opt_in: true, sms_opt_in: true },
+      { user_id: 'user-b', email_opt_in: false, sms_opt_in: false },
+    ]
+    const { result, trace } = await run(INPUT)
+    expect(emailedTo(trace)).toEqual(['ana@example.test', 'cy@example.test'])
+    const ben = recipientInsert(trace).filter((r) => r.user_id === 'user-b').map((r) => r.channel)
+    expect(ben).toEqual(['portal'])
+    expect(result).toMatchObject({ ok: true, optedOutCount: 2 })
+  })
+
+  it('texts go only to residents who opted in', async () => {
+    const { trace } = await run(INPUT)
+    // Ana opted in. Cy has a phone but no account, so no preference row:
+    // the default is no texts.
+    expect(textedTo(trace)).toEqual(['+15550100001'])
+    expect(recipientInsert(trace).filter((r) => r.channel === 'sms').map((r) => r.user_id)).toEqual(['user-a'])
+  })
+
+  it('with no preference rows at all, nobody is texted', async () => {
+    h.prefsRows = []
+    const { result, trace } = await run(INPUT)
+    expect(textedTo(trace)).toEqual([])
+    expect(recipientInsert(trace).some((r) => r.channel === 'sms')).toBe(false)
+    expect(result).toMatchObject({ ok: true, optedOutCount: 2 })
+  })
+
+  it('a resident who said no to texts is not texted even with a phone on file', async () => {
+    h.prefsRows = [{ user_id: 'user-a', email_opt_in: true, sms_opt_in: false }]
+    const { trace } = await run(INPUT)
+    expect(textedTo(trace)).toEqual([])
+  })
+
+  it('everyone opted out of the only channel: refuses and sends nothing', async () => {
+    h.prefsRows = []
+    const { result, trace } = await run({ ...INPUT, channels: ['sms'] })
+    expect(result).toEqual({
+      ok: false,
+      error: 'Nobody in this audience can get this message: everyone with contact details on file has opted out of the selected channels.',
+    })
+    expect(textedTo(trace)).toEqual([])
+  })
+
+  it('a failed preference read refuses before anything is written or sent', async () => {
+    h.prefsError = { code: '500' }
+    const { result, trace } = await run(INPUT)
+    expect(result).toEqual({ ok: false, error: 'Couldn’t check residents’ message preferences. Nothing was sent.' })
+    expect(tablesTouched(trace)).not.toContain('communications')
+    expect(trace.some((t) => ['sendEmailBatch', 'sendSms'].includes((t as [string])[0]))).toBe(false)
+  })
+
+  it('a scheduled send queues no rows for opted-out channels', async () => {
+    h.prefsRows = [{ user_id: 'user-b', email_opt_in: false, sms_opt_in: false }]
+    const { result, trace } = await run({ ...INPUT, scheduledFor: '2026-12-01T09:00:00.000Z' })
+    const rows = recipientInsert(trace).map((r) => `${r.channel}:${r.user_id ?? r.recipient_name}`)
+    expect(rows).toEqual(['email:user-a', 'portal:user-a', 'portal:user-b', 'email:Cy', 'portal:user-d'])
+    expect(result).toMatchObject({ ok: true, sentCount: 0, optedOutCount: 3 })
+    expect(emailedTo(trace)).toEqual([])
+  })
+
+  it('board and custom-contact audiences do not read preferences', async () => {
+    for (const kind of ['board', 'manual_emails'] as const) {
+      const { trace } = await run({ ...INPUT, audience: { kind } })
+      expect(tablesTouched(trace)).not.toContain('resident_communication_preferences')
+    }
+  })
+
+  it('CA official notice (M1): email follows e-consent, not email_opt_in; texts still need opt-in', async () => {
+    h.m1 = true
+    // Ana consented to e-notices but turned announcement email off.
+    h.prefsRows = [{ user_id: 'user-a', email_opt_in: false, sms_opt_in: false }]
+    const { trace } = await run({ ...INPUT, officialNotice: true })
+    expect(emailedTo(trace)).toEqual(['ana@example.test'])
+    expect(textedTo(trace)).toEqual([])
+  })
+
+  it('logs nothing about recipients', async () => {
+    const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((k) => vi.spyOn(console, k))
+    h.prefsRows = [{ user_id: 'user-b', email_opt_in: false, sms_opt_in: false }]
+    await run(INPUT)
+    for (const s of spies) expect(s).not.toHaveBeenCalled()
+    for (const s of spies) s.mockRestore()
+  })
+})
+
+describe('scheduling (BL-102 A1)', () => {
+  const POOL = {
+    ...INPUT,
+    category: 'announcement' as const,
+    subject: 'The pool closes {{ closing_date }}',
+    bodyHtml: '<p>Hi {{recipient_name}}, the pool closes {{ closing_date }} for {{ closing_reason }}.</p>',
+    bodyText: 'Hi {{recipient_name}}, the pool closes {{ closing_date }} for {{ closing_reason }}.',
+    scheduledFor: '2026-12-01T14:00:00.000Z',
+  }
+
+  it('bakes the template answers into the stored message and keeps per-recipient fields', async () => {
+    const { result, trace } = await run({
+      ...POOL,
+      extraFields: { closing_date: 'Monday, November 30', closing_reason: 'the season' },
+    })
+    expect(result).toMatchObject({ ok: true, sentCount: 0 })
+    const row = commInsert(trace)!
+    expect(row.status).toBe('scheduled')
+    expect(row.subject).toBe('The pool closes Monday, November 30')
+    expect(row.body_html).toBe('<p>Hi {{recipient_name}}, the pool closes Monday, November 30 for the season.</p>')
+    expect(row.body_text).toBe('Hi {{recipient_name}}, the pool closes Monday, November 30 for the season.')
+    expect(emailedTo(trace)).toEqual([])
+  })
+
+  it('refuses a message with an unanswered question, naming it, and writes nothing', async () => {
+    const { result, trace } = await run({ ...POOL, extraFields: { closing_date: 'Monday, November 30', closing_reason: '' } })
+    expect(result).toEqual({ ok: false, error: 'Answer every question before scheduling. Still blank: closing reason.' })
+    expect(tablesTouched(trace)).not.toContain('communications')
+  })
+
+  it('refuses per-home details, which cannot be stored for later', async () => {
+    const { result, trace } = await run({
+      ...POOL,
+      extraFields: { closing_date: 'x', closing_reason: 'y' },
+      extraMergeFields: { 'ana@example.test': { dues_table: '<table></table>' } },
+    })
+    expect(result).toMatchObject({ ok: false })
+    expect(tablesTouched(trace)).not.toContain('communications')
+  })
+
+  it('a time in the past sends now', async () => {
+    const { result, trace } = await run({ ...INPUT, scheduledFor: '2026-10-19T11:00:00.000Z' })
+    expect(commInsert(trace)!.status).toBe('sending')
+    expect(result).toMatchObject({ ok: true })
+    expect(emailedTo(trace).length).toBeGreaterThan(0)
   })
 })

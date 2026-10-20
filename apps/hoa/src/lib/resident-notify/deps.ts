@@ -6,17 +6,17 @@
 
 import { appUrl, sendEmail } from '@/lib/email'
 import { paySettingsSecret } from '@/lib/pay-by-zelle'
-import { sendSms } from '@/lib/sms'
+import { sendSms, smsConfigured } from '@/lib/sms'
 import type { ResidentNotifyDeps } from './run'
 
 export const residentNotifyDeps: ResidentNotifyDeps = {
   sendEmail,
   sendSms,
-  // Both senders no-op and report success without their keys (email.ts,
-  // sms.ts), so the runner checks these before claiming anything.
+  // The email sender no-ops and reports success without its key
+  // (email.ts); sendSms now fails without its keys (sms.ts). The runner
+  // checks both before claiming anything either way.
   emailConfigured: () => Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
-  smsConfigured: () =>
-    Boolean(process.env.VONAGE_API_KEY && process.env.VONAGE_API_SECRET && process.env.VONAGE_FROM_NUMBER),
+  smsConfigured,
   // The secret Settings → Resident notices signs the setting with.
   settingsSecret: paySettingsSecret,
   portalUrl: appUrl,

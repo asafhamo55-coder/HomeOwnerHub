@@ -5,7 +5,8 @@ exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace
   "communicationId": "comm-1",
   "failedCount": 0,
   "ok": true,
-  "recipientCount": 8,
+  "optedOutCount": 1,
+  "recipientCount": 7,
   "sentCount": 0,
   "skippedCount": 0,
 }
@@ -33,6 +34,46 @@ exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace
       [
         "single",
         [],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "resident_communication_preferences",
+    [
+      [
+        "select",
+        [
+          "user_id, email_opt_in, sms_opt_in",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "organization_id",
+          "org-1",
+        ],
+      ],
+      [
+        "not",
+        [
+          "user_id",
+          "is",
+          null,
+        ],
+      ],
+      [
+        "order",
+        [
+          "id",
+        ],
+      ],
+      [
+        "range",
+        [
+          0,
+          999,
+        ],
       ],
     ],
   ],
@@ -155,17 +196,6 @@ exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace
               "user_id": null,
             },
             {
-              "channel": "sms",
-              "communication_id": "comm-1",
-              "delivery_status": "queued",
-              "email": "cy@example.test",
-              "organization_id": "org-1",
-              "phone": "+15550100003",
-              "recipient_name": "Cy",
-              "unit_id": "u3",
-              "user_id": null,
-            },
-            {
               "channel": "portal",
               "communication_id": "comm-1",
               "delivery_status": "queued",
@@ -199,8 +229,9 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
   "communicationId": "comm-1",
   "failedCount": 0,
   "ok": true,
-  "recipientCount": 8,
-  "sentCount": 8,
+  "optedOutCount": 1,
+  "recipientCount": 7,
+  "sentCount": 7,
   "skippedCount": 0,
 }
 `;
@@ -227,6 +258,46 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
       [
         "single",
         [],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "resident_communication_preferences",
+    [
+      [
+        "select",
+        [
+          "user_id, email_opt_in, sms_opt_in",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "organization_id",
+          "org-1",
+        ],
+      ],
+      [
+        "not",
+        [
+          "user_id",
+          "is",
+          null,
+        ],
+      ],
+      [
+        "order",
+        [
+          "id",
+        ],
+      ],
+      [
+        "range",
+        [
+          0,
+          999,
+        ],
       ],
     ],
   ],
@@ -339,17 +410,6 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
             },
             {
               "channel": "email",
-              "communication_id": "comm-1",
-              "delivery_status": "queued",
-              "email": "cy@example.test",
-              "organization_id": "org-1",
-              "phone": "+15550100003",
-              "recipient_name": "Cy",
-              "unit_id": "u3",
-              "user_id": null,
-            },
-            {
-              "channel": "sms",
               "communication_id": "comm-1",
               "delivery_status": "queued",
               "email": "cy@example.test",
@@ -548,17 +608,6 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
     ],
   ],
   [
-    "sendSms",
-    {
-      "body": "Annual meeting, Madison Park: Hi Cy, the annual meeting is on the 30th.",
-      "to": "+15550100003",
-    },
-    {
-      "orgSandbox": false,
-      "ref": "comm-1",
-    },
-  ],
-  [
     "db",
     "communication_recipients",
     [
@@ -576,7 +625,7 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
         "eq",
         [
           "id",
-          "rec-7",
+          "rec-6",
         ],
       ],
     ],
@@ -601,30 +650,6 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
         [
           "id",
           "rec-1",
-        ],
-      ],
-    ],
-  ],
-  [
-    "db",
-    "communication_recipients",
-    [
-      [
-        "update",
-        [
-          {
-            "delivery_status": "sent",
-            "external_id": "sid-1",
-            "rendered_subject": "Annual meeting, Madison Park",
-            "sent_at": "2026-10-19T12:00:00.000Z",
-          },
-        ],
-      ],
-      [
-        "eq",
-        [
-          "id",
-          "rec-6",
         ],
       ],
     ],
