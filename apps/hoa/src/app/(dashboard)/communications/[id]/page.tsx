@@ -25,7 +25,7 @@ import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunication, type CommunicationDetail } from '@/lib/communications/queries'
 import { pickDisplaySubject, resolveHtmlForDisplay } from '@/lib/communications/display'
-import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS, DELIVERY_STATUS } from '@/lib/status/community'
+import { COMMUNICATION_CATEGORY, DELIVERY_STATUS, communicationStatusBadge } from '@/lib/status/community'
 import {
   followUpAudience,
   groupRecipientsByHome,
@@ -225,7 +225,7 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
       title={displaySubject.text}
       meta={
         <>
-          <StatusBadge status={comm.status} tones={COMMUNICATION_STATUS.tones} labels={COMMUNICATION_STATUS.labels} />
+          <StatusBadge {...communicationStatusBadge(comm)} />
           {!displaySubject.exact && displaySubject.personalizedFields.length > 0 ? (
             <Badge
               variant="neutral"

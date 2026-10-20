@@ -124,7 +124,7 @@ describe('runScheduledDispatch', () => {
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
     await runScheduledDispatch(store, { deliver: async () => ok }, NOW, logger)
     const lines = [...logger.info.mock.calls, ...logger.warn.mock.calls].map((c) => JSON.stringify(c))
-    expect(lines).toEqual(['["[communications-scheduled] x: sent 2, failed 0, skipped 0, opted out 0"]'])
+    expect(lines).toEqual(['["[communications-scheduled] x: sent 2, failed 0, skipped 0, held by safety guard 0, opted out 0"]'])
   })
 })
 

@@ -277,11 +277,26 @@ describe('neutralizeMergeSyntax', () => {
   })
 })
 
+/** Everything outside MSO conditional comments — what every client other
+ *  than Outlook's Word engine actually lays out. */
+function nonMsoHtml(html: string): string {
+  return html.replace(/<!--\[if mso\]>[\s\S]*?<!\[endif\]-->/g, '')
+}
+
+/** Every fixed pixel width the markup asks for: `width="N"` attributes and
+ *  `width:Npx` / `min-width:Npx` declarations. `max-width` caps, it never
+ *  widens, so it is not a fixed width. */
+function fixedWidths(html: string): number[] {
+  const out: number[] = []
+  for (const m of html.matchAll(/\swidth="(\d+)"/g)) out.push(Number(m[1]))
+  for (const m of html.matchAll(/(?<![\w-]|max-)(?:min-)?width:\s*(\d+)px/g)) out.push(Number(m[1]))
+  return out
+}
+
 describe('renderShellHtml — Outlook width (Bug A regression)', () => {
-  it('uses a table width attribute rather than a CSS max-width', () => {
+  it('Outlook still gets the 600 table width attribute (MSO ghost table)', () => {
     const html = renderShellHtml({ portalUrl: 'https://example.com/dues' })
-    expect(html).toContain('width="600"')
-    expect(html).not.toContain('max-width')
+    expect(html).toMatch(/<!--\[if mso\]><table role="presentation" width="600"/)
   })
 
   it('still carries both merge placeholders and the portal link', () => {
@@ -290,5 +305,42 @@ describe('renderShellHtml — Outlook width (Bug A regression)', () => {
     expect(html).toContain('{{owner_name}}')
     expect(html).toContain('{{dues_table}}')
     expect(html).toContain('https://example.com/dues')
+  })
+})
+
+// BL-044: the 600px card scrolled sideways at 375px — on a phone and in the
+// /dues preview frame. Browser-level overflow is what `pnpm ui:overflow`
+// probes; this pins the cause statically: nothing a non-Outlook client lays
+// out may demand more width than a 375px screen has.
+describe('dues reminder email at 375px (BL-044)', () => {
+  const PHONE = 375
+  const multi = packet({
+    properties: [
+      ...packet().properties,
+      { ...packet().properties[0], unitId: 'unit-b', label: '16 Oak St' },
+    ],
+    totalDue: 840,
+    pastDueTotal: 840,
+  })
+
+  for (const [name, p] of [['one property', packet()], ['two properties', multi]] as const) {
+    it(`no fixed width wider than a phone (${name})`, () => {
+      const html = renderShellHtml({ note: 'The pool assessment is due with September dues.', portalUrl: 'https://example.com/dues' })
+        .replace('{{dues_table}}', renderDuesTableHtml(p))
+      const widths = fixedWidths(nonMsoHtml(html))
+      expect(widths.filter((w) => w > PHONE)).toEqual([])
+    })
+  }
+
+  it('the card is fluid: 100% wide, capped at 600', () => {
+    const html = nonMsoHtml(renderShellHtml({ portalUrl: 'https://example.com/dues' }))
+    expect(html).toContain('style="width:100%;max-width:600px;')
+    expect(html).not.toMatch(/(?<!max-)width:600px/)
+  })
+
+  it('the helper does catch the old fixed card', () => {
+    // Guards the guard: the regex must see the pre-fix markup as too wide.
+    expect(fixedWidths('<table width="600" style="width:600px;">').filter((w) => w > PHONE)).toEqual([600, 600])
+    expect(fixedWidths('<table style="max-width:600px;">')).toEqual([])
   })
 })

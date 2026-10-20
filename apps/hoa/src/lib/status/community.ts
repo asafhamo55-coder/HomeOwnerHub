@@ -16,6 +16,7 @@
  *   neutral — inert: draft, withdrawn, dismissed, cancelled
  */
 import type { StatusTone } from '@homeowner-portal/ui'
+import { heldBySafetyGuard } from '@homeowner-portal/observability/send-status'
 
 export interface StatusVocabulary {
   tones: Record<string, StatusTone>
@@ -148,6 +149,28 @@ export const COMMUNICATION_STATUS = vocab({
   failed: ['danger', 'Failed'],
   cancelled: ['neutral', 'Cancelled'],
 })
+
+/**
+ * StatusBadge props for one communication. A message the outbound safety
+ * guard held back for every recipient is stored as `cancelled` (migration
+ * 0018 has no "held" status; see finalSendStatus) and reads
+ * "Held by safety guard (N)" — never "Failed", never "Cancelled" (BL-044).
+ */
+export function communicationStatusBadge(c: {
+  status: string
+  sentCount: number
+  failedCount: number
+  heldCount: number
+}): { status: string; tones: Record<string, StatusTone>; labels: Record<string, string> } {
+  if (heldBySafetyGuard({ status: c.status, sent: c.sentCount, failed: c.failedCount, held: c.heldCount })) {
+    return {
+      status: 'held',
+      tones: { held: 'warning' },
+      labels: { held: `Held by safety guard (${c.heldCount})` },
+    }
+  }
+  return { status: c.status, ...COMMUNICATION_STATUS }
+}
 
 export const COMMUNICATION_CATEGORY: Record<string, string> = {
   welcome: 'Welcome',

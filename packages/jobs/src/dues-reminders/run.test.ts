@@ -241,7 +241,7 @@ describe('outbound guard (BL-004) — a sandbox org reaches nobody off the allow
     vi.stubEnv('VERCEL_ENV', 'production')
     vi.stubEnv('OUTBOUND_ALLOWLIST', ALLOWED)
     const transport = vi.fn()
-    const { store, recipients } = memoryStore({
+    const { store, recipients, comms } = memoryStore({
       assessments: [assessment()],
       ownerships: [OWNER],
       sandbox: true,
@@ -252,8 +252,44 @@ describe('outbound guard (BL-004) — a sandbox org reaches nobody off the allow
 
     expect(transport).not.toHaveBeenCalled()
     expect(d.sendEmail.mock.calls[0][1]).toMatchObject({ orgSandbox: true })
-    expect(result).toMatchObject({ sent: 0, suppressed: 1 })
+    expect(result).toMatchObject({ sent: 0, suppressed: 1, failed: 0 })
     expect(recipients[0]).toMatchObject({ status: 'suppressed', error: OUTBOUND_BLOCKED_ERROR })
+    // BL-044: held for every recipient is not a failure.
+    expect(comms.get(reminderCommunicationId('as-1', 5))!.status).toBe('cancelled')
+  })
+
+  it('held for every recipient: the run is not `failed`, and the log says "held by safety guard"', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview')
+    vi.stubEnv('OUTBOUND_ALLOWLIST', '')
+    const { store, comms } = memoryStore({
+      assessments: [assessment()],
+      ownerships: [OWNER, { ...OWNER, ownerName: 'Sam', ownerEmail: 'sam@gmail.com' }],
+    })
+    const log = logger()
+    const result = await runDuesRemindersForAssociation(store, deps(guardedSender(vi.fn())), CTX, log)
+    expect(result).toMatchObject({ sent: 0, failed: 0, suppressed: 2 })
+    const status = comms.get(reminderCommunicationId('as-1', 5))!.status
+    expect(status).not.toBe('failed')
+    expect(status).toBe('cancelled')
+    const summary = String(log.info.mock.calls.at(-1)?.[0])
+    expect(summary).toContain('2 held by safety guard')
+    expect(summary).toContain('0 failed')
+  })
+
+  it('held AND a real failure, nothing delivered: still `failed` — the failure is real', async () => {
+    vi.stubEnv('VERCEL_ENV', 'preview')
+    vi.stubEnv('OUTBOUND_ALLOWLIST', ALLOWED)
+    const { store, comms, recipients } = memoryStore({
+      assessments: [assessment()],
+      ownerships: [OWNER, { ...OWNER, ownerName: 'Sam', ownerEmail: ALLOWED }],
+    })
+    // The allowlisted address passes the guard, then the provider refuses it.
+    const sender = guardedSender(vi.fn())
+    const d = deps(async (msg, opts) => (msg.to === ALLOWED ? { ok: false as const, error: 'Resend down' } : sender(msg, opts)))
+    const result = await runDuesRemindersForAssociation(store, d, CTX, logger())
+    expect(result).toMatchObject({ sent: 0, failed: 1, suppressed: 1 })
+    expect(recipients.map((r) => r.status).sort()).toEqual(['failed', 'suppressed'])
+    expect(comms.get(reminderCommunicationId('as-1', 5))!.status).toBe('failed')
   })
 
   it('in production, the same sandbox org still reaches an allowlisted address', async () => {

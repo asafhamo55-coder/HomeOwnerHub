@@ -56,9 +56,9 @@ export interface GuardLogger {
   warn: (message: string, meta?: Record<string, unknown>) => void
 }
 
-/** What a blocked send reports back to its caller. Contains no address. */
-export const OUTBOUND_BLOCKED_ERROR =
-  'Not delivered: blocked by the outbound safety guard (recipient is not on OUTBOUND_ALLOWLIST outside production).'
+// Defined in ./send-status (no imports, so screens and test mocks of this
+// module can read it); re-exported here where every sender already looks.
+export { OUTBOUND_BLOCKED_ERROR } from './send-status'
 
 const defaultLogger: GuardLogger = {
   warn: (message, meta) => console.warn(message, meta),

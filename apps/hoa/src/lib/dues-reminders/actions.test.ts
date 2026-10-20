@@ -21,7 +21,7 @@ const {
   mockSend: vi.fn(
     async (_input: SendCommunicationInput): Promise<SendCommunicationResult> => ({
       ok: true, communicationId: 'comm-1', recipientCount: 1,
-      sentCount: 1, failedCount: 0, skippedCount: 0,
+      sentCount: 1, failedCount: 0, skippedCount: 0, heldCount: 0,
     }),
   ),
   mockRevalidate: vi.fn(),
@@ -81,7 +81,7 @@ beforeEach(() => {
   mockLastReminded.mockResolvedValue({ ok: true, lastReminded: new Map() })
   mockSend.mockResolvedValue({
     ok: true, communicationId: 'comm-1', recipientCount: 1,
-    sentCount: 1, failedCount: 0, skippedCount: 0,
+    sentCount: 1, failedCount: 0, skippedCount: 0, heldCount: 0,
   })
   process.env.RESEND_API_KEY = 'test-key'
   process.env.EMAIL_FROM = 'HOA <hoa@test.com>'
@@ -306,12 +306,12 @@ describe('sendDuesReminders', () => {
   it('reports the counts the pipeline returned', async () => {
     mockSend.mockResolvedValue({
       ok: true, communicationId: 'comm-9', recipientCount: 2,
-      sentCount: 2, failedCount: 0, skippedCount: 0,
+      sentCount: 2, failedCount: 0, skippedCount: 0, heldCount: 0,
     })
 
     const result = await sendDuesReminders({ emails: ['dana@example.com'] })
 
-    expect(result).toEqual({ ok: true, communicationId: 'comm-9', sentCount: 2, failedCount: 0 })
+    expect(result).toEqual({ ok: true, communicationId: 'comm-9', sentCount: 2, failedCount: 0, heldCount: 0 })
   })
 
   it('surfaces a pipeline failure instead of claiming success', async () => {

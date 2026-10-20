@@ -7,6 +7,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { sendEmailBatch } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
+import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -45,6 +46,8 @@ export type SendCommunicationResult =
       sentCount: number
       failedCount: number
       skippedCount: number
+      /** BL-044: held back by the outbound safety guard — not failures. */
+      heldCount: number
       /** BL-102: recipients who lost at least one channel to their own
        *  preferences (email opt-out, or no text opt-in). Absent when 0. */
       optedOutCount?: number
@@ -480,6 +483,7 @@ export async function sendCommunication(
       sentCount: 0,
       failedCount: 0,
       skippedCount: 0,
+      heldCount: 0,
       ...optedOut,
       ...(paperNotice ? { paperNotice } : {}),
     }
@@ -487,7 +491,7 @@ export async function sendCommunication(
 
   // 6. Send-now: per-recipient delivery (./deliver.ts, shared with the
   //    scheduled dispatcher).
-  const { sentCount, failedCount, skippedCount } = await deliverToRecipients(supabase, {
+  const { sentCount, failedCount, skippedCount, heldCount } = await deliverToRecipients(supabase, {
     communicationId: comm.id,
     organizationId: assocRow.organization_id,
     associationName: assocRow.name,
@@ -500,14 +504,16 @@ export async function sendCommunication(
     recipients: insertedRecipients as QueuedRecipientRow[],
   })
 
-  // 7. Finalize the parent row. 'failed' only when EVERY recipient failed;
-  //    partial success stays 'sent' with per-recipient detail.
-  const finalStatus: CommInsert['status'] = sentCount > 0 ? 'sent' : 'failed'
+  // 7. Finalize the parent row. Partial success stays 'sent' with
+  //    per-recipient detail; nothing delivered is 'failed' — unless the
+  //    outbound guard held back every recipient, which is not a failure
+  //    (finalSendStatus, BL-044) and gets no sent_at because nothing went.
+  const finalStatus: CommInsert['status'] = finalSendStatus({ sent: sentCount, failed: failedCount, held: heldCount })
   await supabase
     .from('communications')
     .update({
       status: finalStatus,
-      sent_at: new Date().toISOString(),
+      sent_at: finalStatus === 'cancelled' ? null : new Date().toISOString(),
     })
     .eq('id', comm.id)
 
@@ -520,6 +526,7 @@ export async function sendCommunication(
     sentCount,
     failedCount,
     skippedCount,
+    heldCount,
     ...optedOut,
     ...(paperNotice ? { paperNotice } : {}),
   }

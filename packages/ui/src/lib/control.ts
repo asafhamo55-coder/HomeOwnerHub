@@ -10,7 +10,13 @@ export const controlBase = [
   'hover:border-foreground/40',
   'focus:outline-none focus-visible:outline-none focus:border-ring focus:ring-[3px] focus:ring-ring/25',
   'disabled:cursor-not-allowed disabled:bg-subtle disabled:text-muted disabled:shadow-none',
-  'read-only:bg-subtle',
+  // Grey only a control that really carries the readonly attribute. The
+  // `read-only:` variant is the :read-only pseudo-class, which matches EVERY
+  // element that is not user-editable — a Select trigger <button>, the
+  // prefixed Input's wrapper <div> — so it greyed all of them (BL-059).
+  // Only <input>/<textarea> can carry `readonly`; the prefixed Input greys
+  // its wrapper from the prop instead (Input.tsx).
+  '[&[readonly]]:bg-subtle',
 ].join(' ')
 
 export const controlInvalid =

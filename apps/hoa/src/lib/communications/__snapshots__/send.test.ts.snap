@@ -4,6 +4,7 @@ exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace
 {
   "communicationId": "comm-1",
   "failedCount": 0,
+  "heldCount": 0,
   "ok": true,
   "optedOutCount": 1,
   "recipientCount": 7,
@@ -228,6 +229,7 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
 {
   "communicationId": "comm-1",
   "failedCount": 0,
+  "heldCount": 0,
   "ok": true,
   "optedOutCount": 1,
   "recipientCount": 7,

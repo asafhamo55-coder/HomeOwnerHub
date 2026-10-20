@@ -1,11 +1,19 @@
 import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/send-status'
 
 type Row<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row']
 
 export type Communication = Row<'communications'>
+
+/** A recipient the outbound safety guard held back (BL-004). Distinct from
+ *  an opted-out recipient, which is `suppressed` too but with its own
+ *  error message (BL-044). */
+export function isHeldRecipient(r: { delivery_status: string; error_message: string | null }): boolean {
+  return r.delivery_status === 'suppressed' && r.error_message === OUTBOUND_BLOCKED_ERROR
+}
 export type CommunicationTemplate = Row<'communication_templates'>
 export type CommunicationRecipient = Row<'communication_recipients'>
 
@@ -29,6 +37,8 @@ export interface CommunicationSummary {
   openedCount: number
   repliedCount: number
   failedCount: number
+  /** BL-044: recipients the outbound safety guard held back — not failures. */
+  heldCount: number
 }
 
 export interface ListCommunicationsFilters {
@@ -69,7 +79,7 @@ export async function listCommunications(
     .from('communications')
     .select(
       'id, category, subject, status, channels, audience_summary, scheduled_for, sent_at, created_at, ' +
-        'recipients:communication_recipients(delivery_status, rendered_subject)',
+        'recipients:communication_recipients(delivery_status, rendered_subject, error_message)',
       { count: 'exact' },
     )
     .eq('association_id', associationId)
@@ -94,7 +104,7 @@ export async function listCommunications(
     scheduled_for: string | null
     sent_at: string | null
     created_at: string
-    recipients: { delivery_status: string; rendered_subject: string | null }[]
+    recipients: { delivery_status: string; rendered_subject: string | null; error_message: string | null }[]
   }
 
   const rows = ((data ?? []) as unknown as Shape[]).map((c) => {
@@ -120,9 +130,10 @@ export async function listCommunications(
         if (r.delivery_status === 'failed' || r.delivery_status === 'bounced') {
           acc.failed += 1
         }
+        if (isHeldRecipient(r)) acc.held += 1
         return acc
       },
-      { sent: 0, opened: 0, replied: 0, failed: 0 },
+      { sent: 0, opened: 0, replied: 0, failed: 0, held: 0 },
     )
     return {
       id: c.id,
@@ -140,6 +151,7 @@ export async function listCommunications(
       openedCount: counts.opened,
       repliedCount: counts.replied,
       failedCount: counts.failed,
+      heldCount: counts.held,
     }
   })
   return { ok: true, rows, total: result.count ?? rows.length }
@@ -241,9 +253,10 @@ export async function getCommunication(
         acc.opened += 1
       }
       if (r.delivery_status === 'failed' || r.delivery_status === 'bounced') acc.failed += 1
+      if (isHeldRecipient(r)) acc.held += 1
       return acc
     },
-    { sent: 0, opened: 0, replied: 0, failed: 0 },
+    { sent: 0, opened: 0, replied: 0, failed: 0, held: 0 },
   )
 
   return {
@@ -268,6 +281,7 @@ export async function getCommunication(
     openedCount: counts.opened,
     repliedCount: counts.replied,
     failedCount: counts.failed,
+    heldCount: counts.held,
     recipients,
     replies: d.replies ?? [],
   }

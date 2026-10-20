@@ -29,6 +29,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             'flex items-center gap-2 px-3 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/25',
             invalid && cn(controlInvalid, 'focus-within:border-danger focus-within:ring-danger/25'),
             props.disabled && 'cursor-not-allowed bg-subtle',
+            props.readOnly && !props.disabled && 'bg-subtle',
             className,
           )}
         >

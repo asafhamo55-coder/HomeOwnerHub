@@ -52,7 +52,14 @@ export type PreviewResult =
   | { ok: false; error: string }
 
 export type SendResult =
-  | { ok: true; communicationId: string; sentCount: number; failedCount: number }
+  | {
+      ok: true
+      communicationId: string
+      sentCount: number
+      failedCount: number
+      /** BL-044: held back by the outbound safety guard — not failures. */
+      heldCount: number
+    }
   | { ok: false; error: string }
 
 /** Resend no-ops and reports success when unconfigured (see email.ts).
@@ -242,5 +249,6 @@ export async function sendDuesReminders(
     communicationId: result.communicationId,
     sentCount: result.sentCount,
     failedCount: result.failedCount,
+    heldCount: result.heldCount,
   }
 }
