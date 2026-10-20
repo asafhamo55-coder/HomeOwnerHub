@@ -358,6 +358,22 @@ prices; review it before pitching.
 1. In Vercel → the `home-owner-hub-hoa` project → Settings → Environment Variables, add `AI_SPEND_ALERT_TO` for **Production** with your email address (you can list several, separated by commas).
 2. Tell Claude. It redeploys and confirms the next morning's run.
 
+### OA-23 · Let residents text STOP and START (Vonage setup)
+
+**Urgency:** Whenever (do it together with OA-11 if you turn texting on)
+
+**Why it matters:** residents can already stop texts in their portal. With this, replying STOP to a text also records the opt-out in HomeownerHub, and START turns texts back on, as US texting rules expect. The code is built but off until Vonage is set up.
+
+**Steps:**
+
+1. In the Vonage dashboard → Settings → API settings → SMS settings, switch to **Messages API**. Sending isn't affected.
+2. Copy Settings → **Signature secret** into the Vercel production env var `VONAGE_SIGNATURE_SECRET`.
+3. Create an Application with the Messages capability. Set its Inbound URL to `https://www.homeownerledger.com/api/webhooks/vonage/inbound` (POST), and link the sending number to it.
+4. Make sure the HELP and STOP auto-replies in the 10DLC campaign name the program and give a contact.
+5. Set `SMS_INBOUND_ENABLED=true` in Vercel production and tell Claude. Claude redeploys and tests STOP/START with you.
+
+**Files:** `docs/specs/2026-10-20-sms-inbound.md`
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
