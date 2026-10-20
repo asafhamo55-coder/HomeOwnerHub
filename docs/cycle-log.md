@@ -437,3 +437,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Live (app):** eb4f522, i.e. adda959 plus a release note. /login 200; the release-note email went out.
 - **Found:** the marketing Vercel project (homeownerhub.vercel.app) has not deployed in 148 days, so today's marketing changes are not public. Logged as BL-100 for an owner decision.
 - **Agents running:** BL-099 performance; resident-assistant security fixes; estoppel/collections/budget correctness fixes.
+
+## 2026-10-19 (22:05) — domain split prep merged; step 1 done
+
+- **Merged:** 4995ddc, the domain-split prep. On deploy it changes nothing: the app origin comes from an env var with www as the fallback.
+  - Marketing middleware 307s every app path to app.homeownerledger.com, keeping path and query. Links in sent emails keep working.
+  - Marketing `metadataBase` is fixed (it pointed at ledger.ai).
+- **Runbook:** docs/specs/2026-10-19-domain-split.md.
+- **Step 1:** done. app.homeownerledger.com was added to `home-owner-hub-hoa` through the Vercel API and shows verified.
+  - DNS is at Network Solutions, not Vercel. Asaf adds a CNAME: `app` → `afa3394a804e31cd.vercel-dns-017.com.`
+- **Found:** the marketing Vercel project has no git connection, which is why it hasn't deployed in 148 days.
+  - Marketing also uses ledger.ai email addresses (demo@, privacy@, security@ and others), which need replacing.
+- **Gates:** unit 5898/5898, build 4/4.
