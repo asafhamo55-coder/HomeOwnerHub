@@ -155,26 +155,27 @@ export const vendorOnboarder = defineWorkflow({
     const db = createAdminClient()
 
     // 1. Load the association's compliance settings + vendor trades.
+    // Both reads are scoped to the caller's org: the service role
+    // bypasses RLS, so these filters are the boundary — an id from
+    // another org reads as "not found" and nothing is graded or written.
     const { data: assoc, error: assocErr } = await db
       .from('associations' as never)
       .select('id, compliance_settings')
       .eq('id', input.associationId)
-      .single<{ id: string; compliance_settings: unknown }>()
+      .eq('organization_id', _ctx.organizationId)
+      .maybeSingle<{ id: string; compliance_settings: unknown }>()
     if (assocErr || !assoc) {
-      throw new Error(
-        `association_not_found: ${assocErr?.message ?? input.associationId}`,
-      )
+      throw new Error('association_not_found')
     }
 
     const { data: vendor, error: vendorErr } = await db
       .from('vendors' as never)
       .select('id, organization_id, trades')
       .eq('id', input.vendorId)
-      .single<{ id: string; organization_id: string; trades: string[] | null }>()
-    if (vendorErr || !vendor) {
-      throw new Error(
-        `vendor_not_found: ${vendorErr?.message ?? input.vendorId}`,
-      )
+      .eq('organization_id', _ctx.organizationId)
+      .maybeSingle<{ id: string; organization_id: string; trades: string[] | null }>()
+    if (vendorErr || !vendor || vendor.organization_id !== _ctx.organizationId) {
+      throw new Error('vendor_not_found')
     }
 
     const requirements = requirementsFor(assoc.id, assoc.compliance_settings)

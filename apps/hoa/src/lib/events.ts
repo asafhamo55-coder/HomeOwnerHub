@@ -394,8 +394,19 @@ export async function sendTestAlert(
     return { ok: false, error: "You don't have permission to perform this action." }
   }
 
-  const event = await getEvent(eventId)
-  if (!event) return { ok: false, error: 'Event not found.' }
+  // The event must be this org's: sendEventAlertEmail mails its audience
+  // with the service role, and RLS alone would admit an event from any
+  // other org the caller belongs to.
+  if (!z.string().uuid().safeParse(eventId).success) return { ok: false, error: 'Event not found.' }
+  const supabase = await getSupabaseServerClient()
+  const { data: row } = await supabase
+    .from('hoa_recurring_events' as never)
+    .select(SELECT_COLUMNS)
+    .eq('id', eventId)
+    .eq('organization_id', org.id)
+    .maybeSingle<RecurringEvent>()
+  if (!row) return { ok: false, error: 'Event not found.' }
+  const event = normalizeEvent(row)
 
   // The event's association day (BL-065), by the cron's rule, so a test
   // send says "in N days" exactly as the real reminder will.

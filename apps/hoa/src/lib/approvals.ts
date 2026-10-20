@@ -9,6 +9,7 @@ import {
   type DecisionResult,
 } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 
 // Server actions for the approval layer (sub-project D,
 // docs/specs/2026-10-15-approval-layer.md).
@@ -20,6 +21,10 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 // layout's resident redirect. Only the winning approval call runs the
 // executor, and that runs under service role, because users have no write
 // policy on approval_requests.
+//
+// The role gate below is defense in depth (security sweep 2026-10-20): a
+// resident is refused before any client, and before the service-role
+// client is even constructed.
 
 const ApproveSchema = z.object({ approvalRequestId: z.string().uuid() })
 const RejectSchema = z.object({
@@ -30,6 +35,8 @@ const RejectSchema = z.object({
 export async function approvePosting(input: {
   approvalRequestId: string
 }): Promise<DecisionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = ApproveSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
@@ -44,6 +51,8 @@ export async function rejectPosting(input: {
   approvalRequestId: string
   reason: string
 }): Promise<DecisionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = RejectSchema.safeParse(input)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }

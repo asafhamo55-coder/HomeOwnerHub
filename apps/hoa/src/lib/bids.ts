@@ -6,9 +6,15 @@ import {
   bidComparator,
   type BidComparatorOutput,
 } from '@homeowner-portal/workflows'
-import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { checkOrgOwned } from '@/lib/org-owned'
+
+const RFP_NOT_FOUND = 'We could not find that RFP.'
+const CHECK_FAILED = "We couldn't check that RFP. Try again."
+const COMPARISON_FAILED = 'The bid comparison failed. Try again.'
+const NEEDS_TWO_BIDS = 'At least two submitted bids are needed before comparing.'
 
 export type BidStatus =
   | 'draft'
@@ -172,6 +178,14 @@ export async function getLatestBidComparison(
 export async function getBidDocumentSignedUrl(
   storagePath: string,
 ): Promise<string | null> {
+  // Bid PDFs carry vendor pricing and the bucket's read policy is
+  // org-wide, so the board gate plus a bid row in this org that names the
+  // path are the boundary — not the caller-supplied path.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return null
+  if (typeof storagePath !== 'string' || !storagePath.startsWith(`${gate.orgId}/`)) return null
+  const owned = await checkOrgOwned('bids', storagePath, gate.orgId, { column: 'raw_document_path' })
+  if (owned !== 'owned') return null
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase.storage
     .from('hoa-documents')
@@ -184,27 +198,35 @@ export async function getBidDocumentSignedUrl(
 export async function runBidComparison(
   rfpId: string,
 ): Promise<ActionResult<{ runId: string; output: BidComparatorOutput }>> {
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
+  // H-1: role gate first, then the client-supplied rfpId must be this
+  // org's — both before the quota charge and W23's service-role reads.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
+  const owned = await checkOrgOwned('rfps', rfpId, gate.orgId)
+  if (owned === 'error') return { ok: false, error: CHECK_FAILED }
+  if (owned !== 'owned') return { ok: false, error: RFP_NOT_FOUND }
 
   // BL-112: board-initiated AI comparison (W23) → `board_ai`.
-  const quota = await chargeAiActionQuota('board_ai', org.id)
+  const quota = await chargeAiActionQuota('board_ai', gate.orgId)
   if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
     const { output, runId } = await bidComparator.execute(
       { rfpId },
-      { organizationId: org.id },
+      { organizationId: gate.orgId },
     )
     revalidatePath('/')  // dashboard rollup
     revalidatePath(`/rfps/${rfpId}`)
     revalidatePath(`/rfps/${rfpId}/comparison`)
     return { ok: true, data: { runId, output } }
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : 'Comparison failed.',
-    }
+    // Fixed strings only: workflow messages can carry ids and DB text.
+    const code = err instanceof Error ? (err.message.split(':')[0] ?? 'error') : 'error'
+    console.error('[bids] runBidComparison failed', { rfpId, code })
+    if (code === 'w23_needs_at_least_two_bids') return { ok: false, error: NEEDS_TWO_BIDS }
+    if (code === 'rfp_not_found') return { ok: false, error: RFP_NOT_FOUND }
+    return { ok: false, error: COMPARISON_FAILED }
   }
 }
 
@@ -217,6 +239,9 @@ export async function awardBid(
   rfpId: string,
   bidId: string,
 ): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const parsed = AwardSchema.safeParse({ rfp_id: rfpId, bid_id: bidId })
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }

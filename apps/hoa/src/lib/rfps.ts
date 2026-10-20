@@ -3,10 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { rfpComposer, type RfpComposerOutput } from '@homeowner-portal/workflows'
-import { getCurrentOrg } from '@/lib/orgs'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+
+const RFP_NOT_FOUND = 'We could not find that RFP.'
+const Uuid = z.string().uuid()
 
 export type RfpStatus = 'draft' | 'open' | 'evaluation' | 'awarded' | 'cancelled'
 
@@ -121,6 +124,10 @@ export interface CreateRfpDraftInput {
 export async function createRfpDraft(
   input: CreateRfpDraftInput,
 ): Promise<ActionResult<{ rfpId: string; aiRunId: string }>> {
+  // M-1: board/admin before any read or the `board_ai` quota charge.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const parsed = CreateDraftSchema.safeParse({
     free_text_need: input.freeTextNeed,
     budget_min: input.budgetMin ?? null,
@@ -137,14 +144,11 @@ export async function createRfpDraft(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
-
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No association configured for this HOA.' }
 
   // BL-112: board-initiated AI draft (W22) → `board_ai`.
-  const quota = await chargeAiActionQuota('board_ai', org.id)
+  const quota = await chargeAiActionQuota('board_ai', gate.orgId)
   if (!quota.ok) return { ok: false, error: quota.error }
 
   let output: RfpComposerOutput
@@ -158,15 +162,15 @@ export async function createRfpDraft(
         budgetMax: parsed.data.budget_max ?? null,
         submissionDeadline: parsed.data.submission_deadline,
       },
-      { organizationId: org.id },
+      { organizationId: gate.orgId },
     )
     output = result.output
     runId = result.runId
   } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : 'RFP draft failed.',
-    }
+    // Fixed string only: workflow messages can carry ids and DB text.
+    const code = err instanceof Error ? (err.message.split(':')[0] ?? 'error') : 'error'
+    console.error('[rfps] createRfpDraft failed', { code })
+    return { ok: false, error: 'The RFP draft failed. Try again.' }
   }
 
   const rfpNumber = await nextRfpNumber(supabase, assoc.id)
@@ -174,7 +178,7 @@ export async function createRfpDraft(
   const { data: rfpRow, error: insertErr } = await supabase
     .from('rfps' as never)
     .insert({
-      organization_id: org.id,
+      organization_id: gate.orgId,
       association_id: assoc.id,
       rfp_number: rfpNumber,
       title: output.title,
@@ -193,10 +197,8 @@ export async function createRfpDraft(
     .single<{ id: string }>()
 
   if (insertErr || !rfpRow) {
-    return {
-      ok: false,
-      error: insertErr?.message ?? 'Could not save RFP draft.',
-    }
+    if (insertErr) console.error('[rfps] createRfpDraft insert failed', { code: insertErr.code })
+    return { ok: false, error: 'Could not save RFP draft.' }
   }
 
   if (output.lineItems.length > 0) {
@@ -216,12 +218,12 @@ export async function createRfpDraft(
       // manager will see an actionable error rather than a silent
       // half-saved draft. Surface the underlying message so support
       // can diagnose.
-      console.error('[rfps.createRfpDraft] line items insert failed', linesErr.message)
+      console.error('[rfps.createRfpDraft] line items insert failed', { code: linesErr.code })
       return {
         ok: false,
         error: `Saved the draft, but ${output.lineItems.length} line item${
           output.lineItems.length === 1 ? '' : 's'
-        } didn't save: ${linesErr.message}. Re-open the draft and re-enter them.`,
+        } didn't save. Re-open the draft and re-enter them.`,
       }
     }
   }
@@ -248,6 +250,10 @@ export interface UpdateRfpInput {
 }
 
 export async function updateRfp(input: UpdateRfpInput): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!Uuid.safeParse(input?.rfpId).success) return { ok: false, error: RFP_NOT_FOUND }
+
   const parsed = UpdateRfpSchema.safeParse({
     title: input.title,
     scope: input.scope,
@@ -275,16 +281,37 @@ export async function updateRfp(input: UpdateRfpInput): Promise<ActionResult> {
     .from('rfps' as never)
     .update(patch as never)
     .eq('id', input.rfpId)
+    .eq('organization_id', gate.orgId)
     .eq('status', 'draft') // Edits only allowed on drafts.
 
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[rfps] updateRfp failed', { rfpId: input.rfpId, code: error.code })
+    return { ok: false, error: 'Could not save the RFP. Try again.' }
+  }
   revalidatePath(`/rfps/${input.rfpId}`)
   revalidatePath('/rfps')
   return { ok: true }
 }
 
 export async function publishRfp(rfpId: string): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!Uuid.safeParse(rfpId).success) return { ok: false, error: RFP_NOT_FOUND }
+
   const supabase = await getSupabaseServerClient()
+
+  // The RFP must be this org's before anything about it is read.
+  const { data: rfp, error: rfpErr } = await supabase
+    .from('rfps' as never)
+    .select('id')
+    .eq('id', rfpId)
+    .eq('organization_id', gate.orgId)
+    .maybeSingle<{ id: string }>()
+  if (rfpErr) {
+    console.error('[rfps] publishRfp lookup failed', { rfpId, code: rfpErr.code })
+    return { ok: false, error: 'Could not publish the RFP. Try again.' }
+  }
+  if (!rfp) return { ok: false, error: RFP_NOT_FOUND }
 
   // Sanity check: an RFP without line items is almost certainly an
   // accidental publish.
@@ -304,22 +331,34 @@ export async function publishRfp(rfpId: string): Promise<ActionResult> {
     .from('rfps' as never)
     .update({ status: 'open' } as never)
     .eq('id', rfpId)
+    .eq('organization_id', gate.orgId)
     .eq('status', 'draft')
 
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[rfps] publishRfp failed', { rfpId, code: error.code })
+    return { ok: false, error: 'Could not publish the RFP. Try again.' }
+  }
   revalidatePath(`/rfps/${rfpId}`)
   revalidatePath('/rfps')
   return { ok: true }
 }
 
 export async function cancelRfp(rfpId: string): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!Uuid.safeParse(rfpId).success) return { ok: false, error: RFP_NOT_FOUND }
+
   const supabase = await getSupabaseServerClient()
   const { error } = await supabase
     .from('rfps' as never)
     .update({ status: 'cancelled' } as never)
     .eq('id', rfpId)
+    .eq('organization_id', gate.orgId)
     .in('status', ['draft', 'open'])
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    console.error('[rfps] cancelRfp failed', { rfpId, code: error.code })
+    return { ok: false, error: 'Could not cancel the RFP. Try again.' }
+  }
   revalidatePath(`/rfps/${rfpId}`)
   revalidatePath('/rfps')
   return { ok: true }
