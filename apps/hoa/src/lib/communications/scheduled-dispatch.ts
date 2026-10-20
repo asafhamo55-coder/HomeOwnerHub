@@ -27,7 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { deliverToRecipients, type QueuedRecipientRow } from './deliver'
-import { applyPreferences, loadPreferenceMap, preferencesApply } from './preferences'
+import { SMS_NEEDS_NEW_CONSENT, applyPreferences, loadPreferenceMap, preferencesApply } from './preferences'
 
 type Db = SupabaseClient<Database>
 
@@ -93,21 +93,30 @@ async function dispatch(db: Db, communicationId: string): Promise<ScheduledDeliv
     if (!prefs.ok) throw new Error('preferences read failed')
     const policy = { map: prefs.map, officialNoticeEmail: audience.official_notice === true }
     const suppressed: string[] = []
+    // BL-111: a text whose number the resident's consent no longer covers
+    // (their number changed) is suppressed like an opt-out, with its own note.
+    const needsConsent: string[] = []
     deliverable = queued.filter((r) => {
-      const { keep } = applyPreferences(r.user_id, [r.channel], policy)
-      if (keep.length === 0) suppressed.push(r.id)
-      return keep.length > 0
+      const res = applyPreferences(r.user_id, [r.channel], policy, r.phone)
+      if (res.keep.length > 0) return true
+      if (res.needsConsent.length > 0) needsConsent.push(r.id)
+      else suppressed.push(r.id)
+      return false
     })
-    optedOutCount = suppressed.length
-    if (suppressed.length > 0) {
+    optedOutCount = suppressed.length + needsConsent.length
+    for (const [ids, note] of [
+      [suppressed, 'Opted out after this message was scheduled'],
+      [needsConsent, SMS_NEEDS_NEW_CONSENT],
+    ] as const) {
+      if (ids.length === 0) continue
       const { error } = await db
         .from('communication_recipients')
         .update({
           delivery_status: 'suppressed',
-          error_message: 'Opted out after this message was scheduled',
+          error_message: note,
           failed_at: new Date().toISOString(),
         })
-        .in('id', suppressed)
+        .in('id', ids)
         .eq('organization_id', comm.organization_id)
       if (error) throw new Error(`suppress opted-out rows: ${error.message}`)
     }

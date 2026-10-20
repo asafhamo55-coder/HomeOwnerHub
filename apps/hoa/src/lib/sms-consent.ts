@@ -23,6 +23,9 @@
 import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
+// Runtime-only use inside loadTextMessagesState; the ledger imports this
+// module's constants, so neither touches the other at load time.
+import { consentGap, loadUserSmsConsent, type ConsentGap } from './sms-consent-ledger'
 
 type Client = SupabaseClient<Database>
 
@@ -150,6 +153,14 @@ export interface TextMessagesState {
   phonesFingerprint: string
   privacyUrl: string
   otherOrg: boolean
+  /**
+   * BL-111: texts are on but some number they would go to is not covered
+   * by the resident's latest agreement — 'number_changed' (the number
+   * changed since they agreed) or 'no_record' (texts were on before
+   * BL-110 recorded agreements). Those numbers are not texted until the
+   * resident agrees again. 'none' when texts are off or fully covered.
+   */
+  consentGap: ConsentGap | 'unknown'
 }
 
 /**
@@ -161,12 +172,24 @@ export async function loadTextMessagesState(
   client: Client,
   org: { id: string; name: string },
   userId: string,
+  /**
+   * Reads this resident's consent rows in audit_log, which a resident's
+   * own client cannot (0063: board/admin only) — the service-role client,
+   * filtered here on org and user. Omitted: consentGap is 'unknown'.
+   */
+  consentReader?: Client,
 ): Promise<TextMessagesState | 'failed'> {
   const [pref, phones] = await Promise.all([
     loadMySmsPreference(client, org.id, userId),
     loadMyTextPhones(client, org.id, userId),
   ])
   if (!pref.ok || !phones.ok) return 'failed'
+  let gap: ConsentGap | 'unknown' = 'unknown'
+  if (!pref.pref.optIn || phones.phones.length === 0) gap = 'none'
+  else if (consentReader) {
+    const consent = await loadUserSmsConsent(consentReader, org.id, userId)
+    if (consent.ok) gap = consentGap(phones.phones, consent.phones)
+  }
   const disclosure = smsDisclosure(org.name)
   return {
     optIn: pref.pref.optIn,
@@ -178,6 +201,7 @@ export async function loadTextMessagesState(
     phonesFingerprint: phonesFingerprint(phones.phones),
     privacyUrl: PRIVACY_POLICY_URL,
     otherOrg: pref.pref.otherOrg,
+    consentGap: gap,
   }
 }
 

@@ -42,7 +42,7 @@ function chain(table: string) {
       return c
     }
   }
-  for (const m of ['order', 'limit']) c[m] = () => c
+  for (const m of ['order', 'limit', 'not', 'range']) c[m] = () => c
   for (const m of ['insert', 'update']) {
     c[m] = (payload: unknown) => {
       call.op = m
@@ -83,6 +83,7 @@ vi.mock('@/lib/communications/audience', () => ({
 }))
 
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
+import { sha256Hex } from '@/lib/sms-consent'
 import {
   ALERT_FAILED_NOTIFICATION_KIND,
   countFailedAlertAttempts,
@@ -165,6 +166,52 @@ describe('sendEventAlertEmail — the association day (BL-065)', () => {
     sendEmail.mockClear()
     await sendEventAlertEmail({ event, organizationId: 'org-1', today: '2026-10-20' })
     expect(sendEmail.mock.calls[0]![0]).toMatchObject({ subject: 'Reminder: Annual meeting is today' })
+  })
+})
+
+describe('sendEventAlertEmail — texts need consent for the number (BL-111)', () => {
+  const smsEvent: RecurringEvent = { ...event, notify_channels: ['email', 'sms'], notify_audience: { kind: 'everyone' } }
+  const people = [
+    // Agreed at this number.
+    { unitId: 'u-1', unitAddress: null, unitNumber: null, recipientName: 'Jane', email: 'jane@example.com', phone: '(404) 555-1234', userId: 'user-1' },
+    // Opted in, but the number changed since.
+    { unitId: 'u-2', unitAddress: null, unitNumber: null, recipientName: 'Kim', email: 'kim@example.com', phone: '+14045559999', userId: 'user-2' },
+    // Never opted in.
+    { unitId: 'u-3', unitAddress: null, unitNumber: null, recipientName: 'Lee', email: 'lee@example.com', phone: '+14045557777', userId: 'user-3' },
+  ]
+
+  beforeEach(() => {
+    resolveAudience.mockResolvedValue({ recipients: people.map((p) => ({ ...p })), summary: 'All (3)' })
+    results['resident_communication_preferences.select'] = {
+      data: [
+        { user_id: 'user-1', email_opt_in: true, sms_opt_in: true },
+        { user_id: 'user-2', email_opt_in: true, sms_opt_in: true },
+      ],
+      error: null,
+    }
+    results['audit_log.select'] = {
+      data: [
+        { id: 'g1', user_id: 'user-1', action: 'sms_consent_granted', metadata: { phone_sha256: [sha256Hex('+14045551234')] }, created_at: '2026-10-01' },
+        { id: 'g2', user_id: 'user-2', action: 'sms_consent_granted', metadata: { phone_sha256: [sha256Hex('+14045550000')] }, created_at: '2026-10-01' },
+      ],
+      error: null,
+    }
+  })
+
+  it('only the consented number gets a recipient row for sms', async () => {
+    await sendEventAlertEmail({ event: smsEvent, organizationId: 'org-1', today: TODAY })
+    const rows = calls.find((c) => c.table === 'communication_recipients' && c.op === 'insert')!.payload as Array<{ channel: string; user_id: string }>
+    expect(rows.filter((r) => r.channel === 'sms').map((r) => r.user_id)).toEqual(['user-1'])
+    expect(rows.filter((r) => r.channel === 'email')).toHaveLength(3)
+  })
+
+  it('a failed preference read texts nobody, and logs no number', async () => {
+    results['audit_log.select'] = { data: null, error: { code: 'XX', message: DB_LEAK } }
+    await sendEventAlertEmail({ event: smsEvent, organizationId: 'org-1', today: TODAY })
+    const rows = calls.find((c) => c.table === 'communication_recipients' && c.op === 'insert')!.payload as Array<{ channel: string }>
+    expect(rows.some((r) => r.channel === 'sms')).toBe(false)
+    expect(logged()).toContain('sms_consent_read')
+    expect(logged()).not.toMatch(/404|555/)
   })
 })
 

@@ -14,6 +14,7 @@ import { loadEmailConsent, type ConsentState } from '@/lib/email-consent'
 import { ElectronicNotices } from './ElectronicNotices'
 import { TextMessages } from './TextMessages'
 import { loadTextMessagesState, type TextMessagesState } from '@/lib/sms-consent'
+import { createAdminClient } from '@homeowner-portal/db'
 
 export const metadata = { title: 'Account' }
 export const dynamic = 'force-dynamic'
@@ -74,7 +75,9 @@ export default async function ResidentAccountPage() {
   if (actor.id) {
     const textOrg = await getCurrentOrg()
     if (textOrg && (!actor.impersonating || actor.orgId === textOrg.id)) {
-      texts = await loadTextMessagesState(actor.client, textOrg, actor.id)
+      // BL-111: the consent rows live in audit_log, which a resident can't
+      // read; the service role reads only this user's rows in this org.
+      texts = await loadTextMessagesState(actor.client, textOrg, actor.id, createAdminClient())
     }
   }
 

@@ -5,7 +5,8 @@
  * (lib/resident-notify/store.ts loadPreferences), so the app has one rule:
  *
  *   - email goes unless the resident set `email_opt_in = false`;
- *   - a text goes only when the resident set `sms_opt_in = true`.
+ *   - a text goes only when the resident set `sms_opt_in = true`, and
+ *     (BL-111) only to a number their latest consent covers.
  *
  * No row means the table's own defaults (0018): email on, texts off. A
  * recipient with no portal account (no user id) can't have a row, so they
@@ -24,10 +25,18 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { loadSmsConsentMap, phoneIsConsented } from '../sms-consent-ledger'
 
 export interface ChannelPrefs {
   email: boolean
   sms: boolean
+  /**
+   * BL-111: SHA-256s of the E.164 numbers the resident's latest unrevoked
+   * consent covers (../sms-consent-ledger.ts). A text goes only to a
+   * number in this set; absent or empty means no number is covered (a
+   * pre-BL-110 opt-in, or the number changed) — "needs new consent".
+   */
+  smsPhones?: ReadonlySet<string>
 }
 
 export type PreferenceMap = ReadonlyMap<string, ChannelPrefs>
@@ -80,22 +89,33 @@ export interface PreferencePolicy {
  * deliverable set (./official-notice.ts deliverableChannels), so a channel
  * appears in `optedOut` only when the resident could otherwise have
  * received it.
+ *
+ * BL-111: a text also needs `phone` — the number this recipient row would
+ * text — to be covered by the resident's consent (ChannelPrefs.smsPhones).
+ * One that isn't is skipped like an opt-out and also listed in
+ * `needsConsent` (the number changed since they agreed, or they opted in
+ * before consent was recorded). Never a failure.
  */
 export function applyPreferences<C extends string>(
   userId: string | null,
   channels: readonly C[],
   policy: PreferencePolicy,
-): { keep: C[]; optedOut: C[] } {
-  if (!policy.map) return { keep: [...channels], optedOut: [] }
+  phone?: string | null,
+): { keep: C[]; optedOut: C[]; needsConsent: C[] } {
+  if (!policy.map) return { keep: [...channels], optedOut: [], needsConsent: [] }
   const prefs = prefsFor(userId, policy.map)
   const keep: C[] = []
   const optedOut: C[] = []
+  const needsConsent: C[] = []
   for (const c of channels) {
     const off = (c === 'email' && !policy.officialNoticeEmail && !prefs.email) || (c === 'sms' && !prefs.sms)
     if (off) optedOut.push(c)
-    else keep.push(c)
+    else if (c === 'sms' && !phoneIsConsented(prefs.smsPhones, phone)) {
+      optedOut.push(c)
+      needsConsent.push(c)
+    } else keep.push(c)
   }
-  return { keep, optedOut }
+  return { keep, optedOut, needsConsent }
 }
 
 /** Whether this send needs the preference table read at all. */
@@ -131,7 +151,20 @@ export async function loadPreferenceMap(
     rows.push(...page)
     if (page.length < PAGE) break
   }
-  return { ok: true, map: foldPreferenceRows(rows) }
+  const map = foldPreferenceRows(rows)
+  // BL-111: attach each texting resident's consented numbers — one read of
+  // the org's consent rows per send, and only when someone has texts on.
+  if ([...map.values()].some((p) => p.sms)) {
+    const consent = await loadSmsConsentMap(db, organizationId)
+    if (!consent.ok) return { ok: false }
+    for (const [user, prefs] of map) {
+      if (prefs.sms) map.set(user, { ...prefs, smsPhones: consent.map.get(user) ?? new Set() })
+    }
+  }
+  return { ok: true, map }
 }
+
+/** BL-111: the note on a text skipped because the number lacks consent. */
+export const SMS_NEEDS_NEW_CONSENT = 'Needs new text consent: the number changed since the resident agreed'
 
 export const PREFERENCES_READ_FAILED = 'Couldn’t check residents’ message preferences. Nothing was sent.'

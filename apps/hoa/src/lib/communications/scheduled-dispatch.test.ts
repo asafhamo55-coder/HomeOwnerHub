@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   prefsRows: [] as Array<{ user_id: string; email_opt_in: boolean; sms_opt_in: boolean }>,
   emailFails: false,
   emailBlocked: false,
+  smsConsentRows: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient: () => fakeClient() }))
@@ -50,6 +51,10 @@ function fakeClient() {
         if (table === 'communications' && ops.includes('select') && !ops.includes('update')) return { data: h.comm, error: null }
         if (table === 'associations') return { data: { name: 'Lakeside HOA', type: 'hoa' }, error: null }
         if (table === 'communication_recipients' && ops.includes('select')) return { data: h.queued, error: null }
+        if (table === 'audit_log') {
+          const range = calls.find((c) => c[0] === 'range') as [string, [number]]
+          return { data: range[1][0] === 0 ? h.smsConsentRows : [], error: null }
+        }
         if (table === 'resident_communication_preferences') {
           const range = calls.find((c) => c[0] === 'range') as [string, [number]]
           return { data: range[1][0] === 0 ? h.prefsRows : [], error: null }
@@ -72,6 +77,7 @@ function fakeClient() {
 }
 
 const { dispatchScheduledCommunication } = await import('./scheduled-dispatch')
+const { sha256Hex } = await import('@/lib/sms-consent')
 
 const COMM = {
   id: 'comm-9',
@@ -105,9 +111,29 @@ beforeEach(() => {
   h.prefsRows = [{ user_id: 'user-a', email_opt_in: true, sms_opt_in: true }]
   h.emailFails = false
   h.emailBlocked = false
+  // BL-111: Ana agreed to texts at the queued number.
+  h.smsConsentRows = [
+    { id: 'g1', user_id: 'user-a', action: 'sms_consent_granted', metadata: { phone_sha256: [sha256Hex('+15550100001')] }, created_at: '2026-10-01T00:00:00Z' },
+  ]
 })
 
 describe('dispatchScheduledCommunication', () => {
+  it('BL-111: a text whose number lost consent since scheduling is suppressed with its own note, not sent or failed', async () => {
+    h.smsConsentRows = [
+      { id: 'g1', user_id: 'user-a', action: 'sms_consent_granted', metadata: { phone_sha256: [sha256Hex('+15550109999')] }, created_at: '2026-10-01T00:00:00Z' },
+    ]
+    const result = await dispatchScheduledCommunication('comm-9', fakeClient() as never)
+    expect(result).toEqual({ ok: true, sentCount: 3, failedCount: 0, skippedCount: 0, heldCount: 0, optedOutCount: 1 })
+    expect(h.trace.some((t) => (t as [string])[0] === 'sendSms')).toBe(false)
+    const suppress = updatesTo('communication_recipients').find((calls) =>
+      calls.some((c) => c[0] === 'update' && (c[1][0] as { delivery_status?: string }).delivery_status === 'suppressed'),
+    )!
+    expect(suppress).toContainEqual(['in', ['id', ['r2']]])
+    const note = (suppress.find((c) => c[0] === 'update')![1][0] as { error_message: string }).error_message
+    expect(note).toMatch(/new text consent/)
+    expect(note).not.toMatch(/\d{3}/)
+  })
+
   it('delivers the stored message to the queued rows through the guarded senders, then marks it sent', async () => {
     const result = await dispatchScheduledCommunication('comm-9', fakeClient() as never)
     expect(result).toEqual({ ok: true, sentCount: 4, failedCount: 0, skippedCount: 0, heldCount: 0, optedOutCount: 0 })

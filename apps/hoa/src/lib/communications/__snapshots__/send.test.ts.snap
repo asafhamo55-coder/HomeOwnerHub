@@ -80,6 +80,69 @@ exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace
   ],
   [
     "db",
+    "audit_log",
+    [
+      [
+        "select",
+        [
+          "id, user_id, action, metadata, created_at",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "org_id",
+          "org-1",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "entity_type",
+          "resident_communication_preferences",
+        ],
+      ],
+      [
+        "in",
+        [
+          "action",
+          [
+            "sms_consent_granted",
+            "sms_consent_revoked",
+          ],
+        ],
+      ],
+      [
+        "not",
+        [
+          "user_id",
+          "is",
+          null,
+        ],
+      ],
+      [
+        "order",
+        [
+          "created_at",
+        ],
+      ],
+      [
+        "order",
+        [
+          "id",
+        ],
+      ],
+      [
+        "range",
+        [
+          0,
+          999,
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
     "communications",
     [
       [
@@ -286,6 +349,69 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
           "user_id",
           "is",
           null,
+        ],
+      ],
+      [
+        "order",
+        [
+          "id",
+        ],
+      ],
+      [
+        "range",
+        [
+          0,
+          999,
+        ],
+      ],
+    ],
+  ],
+  [
+    "db",
+    "audit_log",
+    [
+      [
+        "select",
+        [
+          "id, user_id, action, metadata, created_at",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "org_id",
+          "org-1",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "entity_type",
+          "resident_communication_preferences",
+        ],
+      ],
+      [
+        "in",
+        [
+          "action",
+          [
+            "sms_consent_granted",
+            "sms_consent_revoked",
+          ],
+        ],
+      ],
+      [
+        "not",
+        [
+          "user_id",
+          "is",
+          null,
+        ],
+      ],
+      [
+        "order",
+        [
+          "created_at",
         ],
       ],
       [

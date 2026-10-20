@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runResidentNotification, type NotifyContext, type ResidentNotifyStore } from './run'
 import { RESIDENT_NOTIFY_KEY, signResidentNotifySettings } from './settings'
+import { sha256Hex } from '@/lib/sms-consent'
 
 /**
  * BL-082 × BL-004, end to end in the app: the deps the resident
@@ -57,7 +58,8 @@ function store(sandbox: boolean, email: string, sms = false) {
   const statuses: string[] = []
   const s: ResidentNotifyStore = {
     loadContext: async () => ctx(email),
-    loadPreferences: async () => ({ email: true, sms }),
+    // BL-111: consent covers the resident's number.
+    loadPreferences: async () => ({ email: true, sms, smsPhones: new Set([sha256Hex('+14045559999')]) }),
     loadPhone: async () => null,
     orgSandbox: async () => sandbox,
     claim: async () => ({ ok: true }),

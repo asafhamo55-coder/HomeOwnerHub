@@ -27,6 +27,7 @@ import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound
 import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { deterministicUuid } from '@homeowner-portal/jobs/deterministic-id'
 import { buildSenderName } from '@/lib/email/sender-name'
+import { phoneIsConsented } from '@/lib/sms-consent-ledger'
 import { renderArcDecisionEmail, renderTicketReplyEmail, type ArcNoticeKind, type RenderedNotice } from './render'
 import { residentNotificationsOn } from './settings'
 
@@ -138,7 +139,15 @@ export interface ResidentNotifyStore {
   /** null when the application / ticket is gone. */
   loadContext(event: ResidentNotifyEvent): Promise<NotifyContext | null>
   /** Defaults when the resident has no row: email on, SMS off. */
-  loadPreferences(organizationId: string, userId: string): Promise<{ email: boolean; sms: boolean }>
+  loadPreferences(
+    organizationId: string,
+    userId: string,
+  ): Promise<{
+    email: boolean
+    sms: boolean
+    /** BL-111: SHA-256s of the numbers the latest consent covers; absent = none. */
+    smsPhones?: ReadonlySet<string>
+  }>
   /** The resident's phone from their current ownership or tenancy, or null. */
   loadPhone(userId: string, unitId: string | null): Promise<string | null>
   orgSandbox(organizationId: string): Promise<boolean>
@@ -224,7 +233,9 @@ export async function runResidentNotification(
     if (prefs.sms && deps.smsConfigured() && !resident.phone) {
       resident.phone = await store.loadPhone(resident.userId, resident.unitId)
     }
-    const wantSms = prefs.sms && !!resident.phone && deps.smsConfigured()
+    // BL-111: only to a number the resident's latest consent covers; a
+    // changed number (or a pre-consent-record opt-in) gets no text.
+    const wantSms = prefs.sms && !!resident.phone && phoneIsConsented(prefs.smsPhones, resident.phone) && deps.smsConfigured()
     if (!wantEmail && !wantSms) {
       return result(resident.email && !prefs.email ? 'opted_out' : 'no_contact')
     }
