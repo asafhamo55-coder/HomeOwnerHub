@@ -412,3 +412,22 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - the Linda quote;
   - key rotation before due diligence.
 - **Decks:** the product deck should be refreshed for the new brand. Its build script is in ~/HomeownerHub-decks/.
+
+## 2026-10-19 (21:05) â€” review pass on today's features; fixes dispatched
+
+- **Security review, resident assistant:** no Critical or High findings.
+  - **SEC-001 (Medium):** tool-call fan-out in the shared loop.
+  - **SEC-002 (Medium while 0063 is unapplied):** the switch fails open.
+  - **SEC-003, SEC-004, SEC-005 (Low):** multi-association toggle; hand-off text from injected content; addresses in ai_runs.
+  - All five are being fixed now. The switch now fails closed (default OFF, board turns it on).
+- **Correctness review, estoppel / collections letters / budget notice:** the statute constants all match the official text. Bugs found:
+  1. The estoppel prints page-load figures the server never compared (stale balance).
+  2. Cmd+P gets past every print gate.
+  3. An unapplied credit still counts as delinquent, which wrongly allows the FL $150 add-on.
+  4. Payment-plan installments are mislabelled as special assessments for plans that start at month-end.
+  5. The CA delinquency period is hardcoded at 15 days.
+  6. A retry after a failed audit write records a duplicate collection event.
+  7. The approval-request read window is capped at 20.
+
+  All are being fixed now. Open question: does payment-plan creation leave the original arrears open alongside the new installments?
+- **Infra:** the Mac slept mid-response and one review agent died; its report had already been delivered.
