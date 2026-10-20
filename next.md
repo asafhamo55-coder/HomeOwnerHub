@@ -148,14 +148,23 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
    - The S-01 audit query.
    - Rotate the leaked Supabase key before any investor due diligence (owner accepted the risk earlier).
 
-## 6. Work in flight when the session closed (agents die with the session)
+## 6. Work in flight when the session closed (all agents stopped at close)
 
-Check each worktree with `git -C <path> status` / `diff`. Finish the work in place or re-dispatch it with the same brief:
+The agents were stopped on purpose before the session closed. Their uncommitted partial work is still on disk. Pick the most complete worktree per item, review it with `git -C <path> status` and `diff`, then either finish it in place in a new worktree agent ("continue from this diff") or re-dispatch. The two plans are in `docs/research/2026-10-inbox-plan.md` and `2026-10-communications-plan.md`.
 
-- `.claude/worktrees/agent-a18892f00b3cbda1b`: inbox sale window plus A4 one-click convert. It had partial edits to `lib/inbox/account-context.ts`, `draft/account-fragments.ts`, `ContextSections.tsx` and `resident-assistant/reads.ts`, plus a new `account-sale-window.test.ts`.
-- `.claude/worktrees/agent-a83082c556b01bf17`: Stripe follow-ups (handle `customer.subscription.updated`, past_due banner, friendly checkout errors, record `invoice.payment_failed`). Little or no progress.
-- `.claude/worktrees/agent-a6376bc69df5f0064`: communications A2 one-box composer plus A3 plain-text editor. Little or no progress.
-- The briefs are in `docs/research/2026-10-inbox-plan.md` and `2026-10-communications-plan.md` (Phase A).
+**Inbox: sale window plus A4 one-click convert**
+- Use: `.claude/worktrees/agent-a18892f00b3cbda1b`. 11 files, +240/-77. The most advanced worktree: the sale-window rule, its test, and the violation-wizard prefill had started.
+
+**Stripe follow-ups:** handle `customer.subscription.updated`, show a past_due banner, give friendly checkout errors, record `invoice.payment_failed`.
+- Use either `.claude/worktrees/agent-a83082c556b01bf17` (5 files, +348) or `.claude/worktrees/agent-af9fa0dd39931e9db` (4 files, +272). Pick one; they were parallel attempts.
+
+**Communications A2 one-box composer plus A3 plain-text editor**
+- Use: `.claude/worktrees/agent-a661eaac56b914f44`. 3 files, +31: early, the proposal-to-wizard mapping.
+- `.claude/worktrees/agent-a6376bc69df5f0064` (1 file) is a near-empty duplicate.
+
+**Empty:** `.claude/worktrees/agent-ab5d164f6b29270f0`. Ignore it.
+
+**Crons:** none are left running. The hourly cycle cron and the renewal one-shot were deleted at close; recreate them per §3.
 
 ## 7. Next up, after the in-flight work
 
