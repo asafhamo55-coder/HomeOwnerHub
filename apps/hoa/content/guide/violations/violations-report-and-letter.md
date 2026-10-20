@@ -6,7 +6,7 @@ topic: violations
 roles: [admin, board]
 routes: ["/violations", "/violations/new", "/violations/[id]", "/violations/approval-queue"]
 primary_route: /violations
-keywords: [violation, notice, letter, follow-up, follow up, second notice, hearing notice, fine notice, decision letter, hearing, covenant, ccr, fine, cure, cure period, compliance, report, close, resolve, financial commitment, commitment to cure, california, suspension]
+keywords: [violation, notice, letter, follow-up, follow up, second notice, hearing notice, fine notice, decision letter, hearing, covenant, ccr, fine, cure, cure period, compliance, report, close, resolve, financial commitment, commitment to cure, california, suspension, state law check, fine cap, "$100 fine", override, "5850", "720.305", "209.006", "44-3-223"]
 shots:
   - name: guide-violations-new
     alt: The Report a violation form with the state law panel and the Analyze with Covenant Brain button highlighted
@@ -41,6 +41,12 @@ Use this when the fix takes longer than the notice period and the owner commits 
 
 While the commitment is on file, HomeownerHub won't let you set **Status** to Fined, and says why. Letters drafted for that violation carry the commitment into the state-law check, so a fine or suspension letter is refused. If the owner doesn't keep the commitment, or it was recorded by mistake, select [[Withdraw commitment]] and confirm. Associations in other states don't see this card.
 
+### Levy a fine: the state law check
+1. Open the violation. Under **Update status**, set **Status** to Fined.
+2. Read the **State law check** panel. Each item names the statute section and quotes it. **Blocks this step** means the fine looks barred by the statute: California and Florida fines above $100 per violation are blocked. **Confirm** means the statute requires something HomeownerHub has no record of, such as the hearing or certified mail. Check it before you go ahead.
+3. To go ahead past a blocking item, pick the **Board’s reason to go ahead anyway** for it. For example, the board made the written health-or-safety finding at an open meeting (California § 5850(d)), or your governing documents provide a higher fine (Florida § 720.305(2)).
+4. Select [[Update status]].
+
 ## What happens next
 The violation is recorded with the notice marked as sent, and the cure period starts. Open the violation to see its history and the cure due date. When the owner fixes the problem, open it, set **Status** to Resolved and select [[Update status]].
 
@@ -48,6 +54,9 @@ The violation is recorded with the notice marked as sent, and the cure period st
 - "No parsed CC&Rs": your CC&Rs are not uploaded yet, so no section can be cited. Upload them first, or review the letter carefully.
 - "Analysis failed": try again, or write the letter yourself.
 - "California law (Civ. Code § 5855(c)(2)) forbids a fine…", or you can't set **Status** to Fined: a financial commitment to cure is recorded on this violation. Withdraw it first only if the owner did not keep it.
+- "The state law check found a problem that blocks this step": pick a reason for each blocking item, or lower the fine and try again. Nothing was changed.
+- "This violation is already fined": you raised the fine on a fined violation past the state law check. Move it back to Notice sent, change the fine, then set it to Fined again to record the board's reason.
+- "We could not record the board’s override, so the fine was not levied": try again. A fine past a blocking item is never levied without the record.
 - "The date can’t be in the future.": enter the day the owner actually gave the commitment.
 - "We could not load whether a commitment is recorded. Reload the page before fining.": reload the page, and don't fine until the card loads.
 - "State law does not allow this letter yet": your state's rules refuse the follow-up letter you picked, and no letter was drafted. Read the reason. For example, a fine needs a hearing first. Select [[Choose another letter]], such as a hearing notice.
@@ -57,6 +66,7 @@ The violation is recorded with the notice marked as sent, and the cure period st
 - Already on the property's page? [[New violation]] at the top starts the report with that home picked.
 - **Homeowner responses.** The owner or resident can open the violation from their portal and answer it, with a photo of the fix. Their response shows on the violation under **Homeowner responses** and arrives as a new support request. Select [[Open the thread to reply or see photos]] to answer. Nothing is sent to them automatically.
 - **Nothing is sent from HomeownerHub.** Approving records that the notice went out and starts the cure clock. You send the letter.
+- **What the state law check covers.** California: the $100 cap and the health-or-safety finding, the penalty schedule, no late charge or interest on a fine, and the hearing (Civ. Code §§ 5850 and 5855 as amended by AB 130). Florida: the $100-per-violation and $1,000 total limits unless your governing documents say otherwise, and the hearing committee (§ 720.305(2)). Texas: the certified-mail notice and the cure period (§ 209.006). Georgia: fines only as far as your declaration provides (§ 44-3-223). Other states show no checks; ask your attorney. The board's reason for going past a blocking item is saved in the activity log as a code, with no names or notes.
 - The **State law for this letter** panel shows your state's rules for notices and fines, such as how many days' notice an owner gets and the largest fine allowed. Florida and California are covered.
 - **Follow-up letters.** If the owner hasn't fixed the problem, open the violation and select [[Draft follow-up letter]] under **Follow-up letters**. Pick **Second notice**, **Hearing notice**, **Fine notice** or **Decision letter** (a **Fine** or a **Suspension of common-area use**). For a fine or decision, tick **The hearing was held and the board approved the penalty** only if it really happened. Select [[Draft letter]]. A California hearing notice includes the meeting date, time and place, and the owner's right to attend and to ask for executive session (Civ. Code § 5855(b)). Fill in every bracketed blank, then select [[Save to approvals]], or [[Discard draft]]. The letter goes to **Approvals** only when you save it. If you close the window without saving, the draft isn't kept. Approve it in **Approvals** under **Violation letters**. It's filed on the same violation and shows in its history. No new violation is opened, and nothing is sent.
 - Some letters are drafted for you by the AI and wait in the [[AI approval queue]] tab. Read each one and select [[Approve letter]], or [[Reject]] with a reason. Approving files it as an open violation.

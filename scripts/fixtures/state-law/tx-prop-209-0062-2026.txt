@@ -1,0 +1,32 @@
+# Texas Property Code §§ 209.0062 (alternative payment schedule) and 209.0063 (priority of payments) — full section text.
+# Source: the Texas Legislative Council's official statutes text, chapter file
+#   https://tcss.legis.texas.gov/resources/PR/htm/PR.209.htm  (the document statutes.capitol.texas.gov displays for Property Code ch. 209)
+#   sha256 of the chapter file retrieved: 76dd4acddf0d3ebbf34a550c15a506ae81df00e3eebd3c425da26c691f0b8fcd
+# Retrieved 2026-10-20. HTML reduced to text: one paragraph per line, entities decoded, runs of spaces folded to one. The trailing lines of each section are the official history.
+# § 209.0064 (third-party collections) is in tx-prop-209-2026.txt.
+# Public domain (state statute). Used by apps/hoa/src/lib/compliance/statute-drift.ts and its test (BL-130).
+
+=== Sec. 209.0062. ALTERNATIVE PAYMENT SCHEDULE FOR CERTAIN ASSESSMENTS.
+Sec. 209.0062. ALTERNATIVE PAYMENT SCHEDULE FOR CERTAIN ASSESSMENTS. (a) A property owners' association composed of more than 14 lots shall adopt reasonable guidelines to establish an alternative payment schedule by which an owner may make partial payments to the property owners' association for delinquent regular or special assessments or any other amount owed to the association without accruing additional monetary penalties. For purposes of this section, monetary penalties do not include reasonable costs associated with administering the payment plan or interest.
+(b) The minimum term for a payment plan offered by a property owners' association is three months.
+(c) A property owners' association is not required to allow a payment plan for any amount that extends more than 18 months from the date of the owner's request for a payment plan. The association is not required to enter into a payment plan with an owner who failed to honor the terms of a previous payment plan during the two years following the owner's default under the previous payment plan. The association is not required to make a payment plan available to an owner after the period for cure described by Section 209.0064(b)(3) expires. The association is not required to allow an owner to enter into a payment plan more than once in any 12-month period.
+(d) A property owners' association shall file the association's guidelines under this section in the real property records of each county in which the subdivision is located.
+(e) A property owners' association's failure to file as required by this section the association's guidelines in the real property records of each county in which the subdivision is located does not prohibit a property owner from receiving an alternative payment schedule by which the owner may make partial payments to the property owners' association for delinquent regular or special assessments or any other amount owed to the association without accruing additional monetary penalties, as defined by Subsection (a).
+Added by Acts 2011, 82nd Leg., R.S., Ch. 1282 (H.B. 1228), Sec. 2, eff. January 1, 2012.
+Amended by:
+Acts 2015, 84th Leg., R.S., Ch. 1183 (S.B. 1168), Sec. 18, eff. September 1, 2015.
+
+=== Sec. 209.0063. PRIORITY OF PAYMENTS.
+Sec. 209.0063. PRIORITY OF PAYMENTS. (a) Except as provided by Subsection (b), a payment received by a property owners' association from the owner shall be applied to the owner's debt in the following order of priority:
+(1) any delinquent assessment;
+(2) any current assessment;
+(3) any reasonable attorney's fees or reasonable third party collection costs incurred by the association associated solely with assessments or any other charge that could provide the basis for foreclosure;
+(4) any reasonable attorney's fees incurred by the association that are not subject to Subdivision (3);
+(5) any reasonable fines assessed by the association; and
+(6) any other reasonable amount owed to the association.
+(b) If, at the time the property owners' association receives a payment from a property owner, the owner is in default under a payment plan entered into with the association:
+(1) the association is not required to apply the payment in the order of priority specified by Subsection (a); and
+(2) in applying the payment, a fine assessed by the association may not be given priority over any other amount owed to the association.
+Added by Acts 2011, 82nd Leg., R.S., Ch. 1282 (H.B. 1228), Sec. 2, eff. January 1, 2012.
+Amended by:
+Acts 2021, 87th Leg., R.S., Ch. 951 (S.B. 1588), Sec. 15, eff. September 1, 2021.

@@ -7,6 +7,8 @@ import { Alert, Button, Field, Select, Textarea, useToast } from '@homeowner-por
 import { updateViolationStatus } from '@/lib/violations'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 import { VIOLATION_STATUS } from '@/lib/status/community'
+import { StateLawCheckPanel } from '@/components/compliance/StateLawCheckPanel'
+import { resolveOverrides, type DriftCheck, type DriftCode, type OverrideReason } from '@/lib/compliance/statute-drift'
 
 const STATUS_HINT: Record<ViolationStatus, string> = {
   open: 'Reported but no notice has gone out yet.',
@@ -23,9 +25,13 @@ interface Props {
   /** CA § 5855(c)(2): why moving to Fined is blocked, or null. The server
    *  action refuses it either way; this only says so up front. */
   fineBlockedReason?: string | null
+  /** BL-130: the state law check on this violation's fine, or null when it
+   *  could not be run or the violation is already fined. The server action
+   *  re-runs it and refuses a block without the board's override reason. */
+  lawCheck?: DriftCheck | null
 }
 
-export function ViolationStatusEditor({ violationId, currentStatus, currentResolutionNote, fineBlockedReason = null }: Props) {
+export function ViolationStatusEditor({ violationId, currentStatus, currentResolutionNote, fineBlockedReason = null, lawCheck = null }: Props) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -33,9 +39,12 @@ export function ViolationStatusEditor({ violationId, currentStatus, currentResol
   const [resolutionNote, setResolutionNote] = useState(currentResolutionNote ?? '')
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [lawOverrides, setLawOverrides] = useState<Partial<Record<DriftCode, OverrideReason>>>({})
 
   const closingState = status === 'resolved' || status === 'dismissed'
-  const fineBlocked = status === 'fined' && currentStatus !== 'fined' && fineBlockedReason !== null
+  const fining = status === 'fined' && currentStatus !== 'fined'
+  const fineBlocked = fining && fineBlockedReason !== null
+  const lawBlocked = fining && lawCheck !== null && !resolveOverrides(lawCheck, lawOverrides as Record<string, string>).ok
   const dirty =
     status !== currentStatus ||
     (closingState && resolutionNote.trim() !== (currentResolutionNote ?? '').trim())
@@ -49,6 +58,7 @@ export function ViolationStatusEditor({ violationId, currentStatus, currentResol
         violationId,
         status,
         resolutionNote: closingState ? resolutionNote.trim() || null : null,
+        lawOverrides: fining ? lawOverrides : undefined,
       })
       if (!result.ok) {
         if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) setFieldErrors(result.fieldErrors)
@@ -97,9 +107,26 @@ export function ViolationStatusEditor({ violationId, currentStatus, currentResol
 
       {fineBlocked ? <Alert variant="warning">{fineBlockedReason}</Alert> : null}
 
+      {fining && lawCheck ? (
+        <StateLawCheckPanel
+          check={lawCheck}
+          overrides={lawOverrides}
+          disabled={isPending}
+          onOverride={(code, reason) =>
+            setLawOverrides((prev) => {
+              const next = { ...prev }
+              if (reason) next[code as DriftCode] = reason
+              else delete next[code as DriftCode]
+              return next
+            })
+          }
+        />
+      ) : null}
+      {fieldErrors.lawOverride ? <Alert variant="error">{fieldErrors.lawOverride}</Alert> : null}
+
       {error ? <Alert variant="error">{error}</Alert> : null}
 
-      <Button type="submit" className="w-full" loading={isPending} disabled={!dirty || fineBlocked} icon={<Check aria-hidden />}>
+      <Button type="submit" className="w-full" loading={isPending} disabled={!dirty || fineBlocked || lawBlocked} icon={<Check aria-hidden />}>
         {isPending ? 'Saving…' : 'Update status'}
       </Button>
     </form>

@@ -10,6 +10,14 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
 import { letterEventNote, recordLetterAudit } from './audit'
+import {
+  DRIFT_CODES,
+  OVERRIDE_REASON_CODES,
+  blockingFindings,
+  overrideAuditRow,
+  resolveOverrides,
+  type OverrideReason,
+} from '@/lib/compliance/statute-drift'
 import { loadLetterContext, type LetterContext } from './load'
 import {
   LETTER_KINDS,
@@ -17,6 +25,7 @@ import {
   buildLetter,
   letterBlocked,
   letterChargeIds,
+  letterLawCheck,
   letterTotals,
   stageAfterPrint,
   LETTER_META,
@@ -37,12 +46,21 @@ export type LetterResult = { ok: true; message: string } | { ok: false; error: s
 
 const Values = z.record(z.string().max(64), z.string().max(1000))
 
+const LawOverrides = z.record(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]]))
+
 const SaveSchema = z.object({
   propertyId: z.string().uuid(),
   kind: z.enum(LETTER_KINDS),
   values: Values,
   verified: z.boolean(),
+  /** BL-130: finding code → the board's override reason code, per blocking state-law finding. */
+  lawOverrides: LawOverrides.optional(),
 })
+
+/** The case's letters already printed, for the state law check's waiting periods. */
+function printedRecords(ctx: LetterContext) {
+  return ctx.requests.flatMap((r) => (r.printedAt ? [{ kind: r.payload.kind, printedAt: r.printedAt }] : []))
+}
 
 async function gateAndLoad(propertyId: string) {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
@@ -95,6 +113,13 @@ export async function saveLetterToApprovals(input: z.input<typeof SaveSchema>): 
   const totals = letterTotals(letter, v.values)
   if (totals.totalCents === null || totals.enteredCents === null) return { ok: false, error: 'Fill in every BLANK first.' }
 
+  // BL-130: the state law check. A blocking finding goes to Approvals only
+  // with the board's reason for it, recorded in audit_log first.
+  const law = letterLawCheck(ctx.input, letter, v.values, ctx.events, printedRecords(ctx))
+  const resolved = resolveOverrides(law, v.lawOverrides)
+  if (!resolved.ok) return { ok: false, error: resolved.error }
+  const subjectId = randomUUID()
+
   const payload: LetterPayload = {
     version: 1,
     kind: v.kind,
@@ -108,6 +133,27 @@ export async function saveLetterToApprovals(input: z.input<typeof SaveSchema>): 
     ledgerCents: totals.ledgerCents,
     enteredCents: totals.enteredCents,
     totalCents: totals.totalCents,
+    lawFindings: law.findings.map((f) => f.code),
+    lawOverrides: resolved.applied,
+  }
+
+  if (resolved.applied.length > 0) {
+    const { error: auditErr } = await loaded.supabase.from('audit_log').insert(
+        overrideAuditRow({
+          orgId: gate.orgId,
+          userId: loaded.user.id,
+          entityType: 'collections_letter',
+          entityId: subjectId,
+          step: 'collections_letter',
+          state: law.state,
+          applied: resolved.applied,
+          extra: { collection_case_id: payload.caseId, property_id: payload.propertyId, kind: payload.kind },
+        }) as never,
+      )
+    if (auditErr) {
+      console.error('[collections.letters] statute override audit failed', { orgId: gate.orgId, code: auditErr.code ?? null })
+      return { ok: false, error: 'Couldn’t record the board’s override, so the letter wasn’t saved. Try again.' }
+    }
   }
 
   try {
@@ -116,7 +162,7 @@ export async function saveLetterToApprovals(input: z.input<typeof SaveSchema>): 
       workflowId: LETTER_WORKFLOW,
       actionType: LETTER_ACTION,
       subjectType: LETTER_SUBJECT,
-      subjectId: randomUUID(),
+      subjectId,
       payload: payload as unknown as Parameters<typeof proposeApproval>[1]['payload'],
       summary: letterSummary(v.kind, home(ctx)),
       amount: totals.totalCents / 100,
@@ -164,6 +210,19 @@ export async function recordLetterPrinted(input: z.input<typeof PrintSchema>): P
   const letter = buildLetter(ctx.input, payload.kind, ctx.today, ctx.events, payload.values)
   const blocked = letterBlocked(letter, payload.values, v.verified)
   if (blocked) return { ok: false, error: blocked }
+  // BL-130: re-run the state law check on today's date. Every blocking
+  // finding must be one the board overrode when it saved this letter.
+  const overridden = new Set((payload.lawOverrides ?? []).map((o) => o.code))
+  const lawNow = letterLawCheck(ctx.input, letter, payload.values, ctx.events, printedRecords(ctx))
+  const unresolved = blockingFindings(lawNow).filter((f) => !overridden.has(f.code))
+  if (unresolved.length > 0) {
+    return {
+      ok: false,
+      error: `The state law check now finds a problem the board didn’t decide when this letter was approved (${unresolved
+        .map((f) => f.citations[0]?.cite ?? f.code)
+        .join('; ')}). Draft a new letter so the board can review it.`,
+    }
+  }
   const totals = letterTotals(letter, payload.values)
   const ids = letterChargeIds(letter)
   if (totals.totalCents !== payload.totalCents || ids.join(',') !== payload.chargeIds.join(',')) {

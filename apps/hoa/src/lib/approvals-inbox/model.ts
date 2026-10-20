@@ -31,7 +31,7 @@
 
 import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload } from '../bill-scan/proposal'
 import { followUpLabel, followUpOfRunInput } from '../violation-follow-up'
-import { LETTER_KIND_CITATIONS, letterHref, readLetterPayload } from '../collections/letters/proposal'
+import { LETTER_KIND_CITATIONS, letterHref, letterLawNote, readLetterPayload } from '../collections/letters/proposal'
 import {
   SUGGESTION_LABEL,
   citationLabel,
@@ -409,7 +409,7 @@ export function letterItems(rows: LetterProposalRow[]): InboxItem[] {
       id: r.id,
       title: r.summary,
       detail: payload
-        ? `From the ledger ${usdFromCents(payload.ledgerCents)}${payload.enteredCents > 0 ? `, plus ${usdFromCents(payload.enteredCents)} entered by the board (interest and costs)` : ''}. Drafted ${payload.draftedOn}. Open the letter to read it in full before approving.`
+        ? `From the ledger ${usdFromCents(payload.ledgerCents)}${payload.enteredCents > 0 ? `, plus ${usdFromCents(payload.enteredCents)} entered by the board (interest and costs)` : ''}. Drafted ${payload.draftedOn}. Open the letter to read it in full before approving.${letterLawNote(payload) ? ` ${letterLawNote(payload)}` : ''}`
         : 'This letter can’t be read. Open the property to draft it again.',
       amount: num(r.amount),
       amountNote: null,
