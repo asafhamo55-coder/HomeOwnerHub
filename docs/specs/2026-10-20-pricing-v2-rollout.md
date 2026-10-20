@@ -72,6 +72,14 @@ Two ways to create them:
 
 **Customer portal (dashboard, Asaf):** turn quantity editing **off**. Allow switching Essentials ↔ Complete only if the portal accepts tiered Prices in test mode; otherwise leave plan switching off (boards switch through support until a settings-page switch exists).
 
+> **Owner action (security review 2026-10-20, Low; do it now, not at the cut-over):** the code never creates a portal configuration. `createPortalSession` (`packages/billing/src/checkout.ts`) calls `billingPortal.sessions.create` with no `configuration`, so every session uses the account's **default** portal configuration from the dashboard. If that configuration allows quantity updates, a board can lower its own door count in the portal and pay for fewer doors than it manages; the webhook then syncs `doors_count` down to match. Steps, in **both** test and live mode:
+> 1. Stripe dashboard → Settings → Billing → Customer portal.
+> 2. Under "Subscriptions", turn **off** "Customers can change quantity of their plan".
+> 3. Leave "Customers can switch plans" off unless step 3 of the flip (test mode) shows the portal accepts the tiered band Prices.
+> 4. Save. Check: open the portal for a test customer; no quantity field appears.
+>
+> Quantity stays server-side: checkout sets it from the unit count, and the nightly band sync (BL-104 item 5, not built yet) will correct drift once it ships.
+
 ## Flip steps
 
 1. **Before cut-over (ids only, no PII):** in live mode, list subscriptions whose price lookup key is `hoa_per_door_monthly` or `hoa_per_door_annual`. Record org id, cadence and term end in BL-104. Confirm whether anyone besides the Madison Park pilot pays list price.

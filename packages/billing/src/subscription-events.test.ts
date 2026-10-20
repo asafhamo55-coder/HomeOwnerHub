@@ -99,8 +99,15 @@ function stateDb(opts: { rpc?: (fn: string, args: Row) => { data: unknown; error
       }
     },
     rpc(fn, args) {
-      rpcs.push({ fn, args: args as unknown as Row })
-      return Promise.resolve(opts.rpc ? opts.rpc(fn, args as unknown as Row) : { data: 'subscription_started', error: null })
+      const a = args as unknown as Row
+      rpcs.push({ fn, args: a })
+      if (opts.rpc) return Promise.resolve(opts.rpc(fn, a))
+      // Like 0064's checkout function: the subscription's plan becomes the org's.
+      if (fn === 'stripe_webhook_checkout_subscription' && a.p_plan != null) {
+        const org = tables.orgs!.find((o) => o.id === a.p_org_id && o.stripe_sub_id === a.p_sub_id)
+        if (org) org.plan = a.p_plan
+      }
+      return Promise.resolve({ data: 'subscription_started', error: null })
     },
   }
 
@@ -392,5 +399,122 @@ describe('invoice.payment_failed', () => {
     await applyStripeEvent(invoiceFailed('evt_f', T, 'sub_1'), { db: s.db, m1: false })
     await applyStripeEvent(updated('evt_ok', T + 3600, { status: 'active' }), { db: s.db, m1: false })
     expect(billingAttention(s.audit() as never, 'sub_1')).toBeNull()
+  })
+})
+
+// ─── Concurrent deliveries (security review 2026-10-20, Low) ──────────
+//
+// No row lock: two deliveries can both pass the ordering check, and the
+// older one's write can land last. Each delivery reconciles to the newest
+// applied audit row after writing its own, so the newer state wins.
+
+/** Holds writes matching `hold` until `release()`; everything else passes through. */
+function gated(db: WebhookDb, hold: { update?: (table: string, patch: Row) => boolean; rpc?: (fn: string, args: Row) => boolean }) {
+  let release!: () => void
+  const gate = new Promise<void>((r) => (release = r))
+  const wrapped: WebhookDb = {
+    from(table) {
+      const t = db.from(table)
+      return {
+        select: (c: string) => t.select(c),
+        insert: (row: Row) => t.insert(row),
+        update(patch: Row) {
+          const inner = t.update(patch)
+          if (!hold.update?.(table, patch)) return inner
+          const f = {
+            eq(c: string, v: string) {
+              inner.eq(c, v)
+              return f
+            },
+            then(ok: (r: { error: unknown }) => unknown, bad?: (e: unknown) => unknown) {
+              return gate.then(() => inner).then(ok as never, bad)
+            },
+          }
+          return f as never
+        },
+      }
+    },
+    rpc(fn, args) {
+      if (!hold.rpc?.(fn, args as unknown as Row)) return db.rpc(fn, args)
+      return gate.then(() => db.rpc(fn, args))
+    },
+  }
+  return { db: wrapped, release }
+}
+
+const tick = () => new Promise((r) => setTimeout(r, 0))
+
+describe('customer.subscription.updated, concurrent deliveries', () => {
+  it('M1 off: an older quantity whose write lands after the newer one is reconciled to the newer', async () => {
+    const s = payingOrg()
+    // Hold the OLDER event's doors_count write until the newer one has finished.
+    const g = gated(s.db, { update: (table, patch) => table === 'orgs' && patch.doors_count === 50 })
+    const older = applyStripeEvent(updated('evt_a', T, { status: 'active', quantity: 50 }), { db: g.db, m1: false })
+    await tick() // the older delivery has passed its ordering check and is blocked on its write
+    const newer = await applyStripeEvent(updated('evt_b', T + 5, { status: 'active', quantity: 60 }), { db: s.db, m1: false })
+    expect(newer).toEqual({ ok: true, outcome: 'subscription_updated' })
+    expect(s.org(ORG)!.doors_count).toBe(60)
+    g.release()
+    // Without the reconcile, doors_count would now be the stale 50.
+    expect(await older).toEqual({ ok: true, outcome: 'subscription_updated' })
+    expect(s.org(ORG)!.doors_count).toBe(60)
+    expect(s.audit(AUDIT_SUBSCRIPTION_UPDATED)).toHaveLength(2)
+  })
+
+  it('M1 on: an older plan switch that lands last is re-applied as the newer plan', async () => {
+    const s = payingOrg()
+    // Older event: switch to annual. Newer event: back to monthly (already
+    // the org's plan, so the newer delivery calls no function).
+    const g = gated(s.db, { rpc: (_fn, args) => args.p_event_id === 'evt_a' })
+    const older = applyStripeEvent(updated('evt_a', T, { status: 'active', lookupKey: 'hoa_per_door_annual' }), { db: g.db, m1: true })
+    await tick()
+    await applyStripeEvent(updated('evt_b', T + 5, { status: 'active', lookupKey: 'hoa_per_door_monthly' }), { db: s.db, m1: true })
+    g.release()
+    expect(await older).toEqual({ ok: true, outcome: 'subscription_updated' })
+    expect(s.org(ORG)!.plan).toBe('monthly')
+    // The re-apply carries a deterministic id, so 0064's dedupe neither
+    // swallows it nor repeats it on a redelivery.
+    expect(s.rpcs.map((r) => r.args.p_event_id)).toEqual(['evt_a', 'evt_b:reconcile:evt_a'])
+    expect(s.rpcs[1]!.args).toMatchObject({ p_plan: 'monthly', p_event_created: new Date((T + 5) * 1000).toISOString() })
+  })
+
+  it('in-order deliveries reconcile to themselves and write nothing extra', async () => {
+    const s = payingOrg()
+    await applyStripeEvent(updated('evt_a', T, { status: 'active', lookupKey: 'hoa_per_door_annual', quantity: 50 }), { db: s.db, m1: true })
+    await applyStripeEvent(updated('evt_b', T + 5, { status: 'active', lookupKey: 'hoa_per_door_monthly', quantity: 60 }), { db: s.db, m1: true })
+    expect(s.rpcs.map((r) => r.args.p_event_id)).toEqual(['evt_a', 'evt_b'])
+    expect(s.org(ORG)).toMatchObject({ plan: 'monthly', doors_count: 60 })
+  })
+
+  it('a failed reconcile is a 500, and the redelivery (a duplicate) reconciles again', async () => {
+    const s = payingOrg()
+    const g = gated(s.db, { update: (table, patch) => table === 'orgs' && patch.doors_count === 50 })
+    const older = applyStripeEvent(updated('evt_a', T, { status: 'active', quantity: 50 }), { db: g.db, m1: false })
+    await tick()
+    await applyStripeEvent(updated('evt_b', T + 5, { status: 'active', quantity: 60 }), { db: s.db, m1: false })
+    // The older delivery's own (already issued, held) write succeeds; the
+    // next orgs update it issues, its reconcile write, fails.
+    const origFrom = s.db.from
+    let failed = false
+    s.db.from = ((table: Parameters<WebhookDb['from']>[0]) => {
+      const t = origFrom.call(s.db, table)
+      if (table !== 'orgs' || failed) return t
+      return {
+        ...t,
+        update(patch: Row) {
+          failed = true
+          s.failNext('update', 'orgs')
+          return t.update(patch)
+        },
+      }
+    }) as WebhookDb['from']
+    g.release()
+    const r = await older
+    expect(webhookHttpStatus(r)).toBe(500)
+    expect(s.org(ORG)!.doors_count).toBe(50)
+    s.db.from = origFrom
+    const again = await applyStripeEvent(updated('evt_a', T, { status: 'active', quantity: 50 }), { db: s.db, m1: false })
+    expect(again).toEqual({ ok: true, outcome: 'duplicate' })
+    expect(s.org(ORG)!.doors_count).toBe(60)
   })
 })

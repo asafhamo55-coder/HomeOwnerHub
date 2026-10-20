@@ -22,10 +22,64 @@ export interface PoliteGetterOptions {
   minIntervalMs?: number
   timeoutMs?: number
   userAgent?: string
+  /**
+   * Hard cap on one response body, in bytes. Reading stops and the body
+   * stream is cancelled the moment it is exceeded (a declared
+   * Content-Length over the cap is refused before reading anything), so a
+   * misbehaving or hostile source cannot make the job buffer an unbounded
+   * body. Defaults: 5 MB for HTML pages, 40 MB for CA pubinfo byte ranges.
+   */
+  maxBodyBytes?: number
   /** Injectable for tests of the throttle itself. */
   sleep?: (ms: number) => Promise<void>
   now?: () => number
   fetchImpl?: typeof fetch
+}
+
+/** FL chapter pages and TX chapter files are well under 1 MB. */
+export const DEFAULT_PAGE_MAX_BYTES = 5 * 1024 * 1024
+/** CA's largest read is the ~20 MB central directory of the pubinfo zip. */
+export const DEFAULT_RANGE_MAX_BYTES = 40 * 1024 * 1024
+
+export class ResponseTooLargeError extends SourceUnavailableError {
+  constructor(url: string, maxBytes: number) {
+    super(`${url}: response body exceeds the ${maxBytes}-byte cap`)
+    this.name = 'ResponseTooLargeError'
+  }
+}
+
+/**
+ * Reads a response body into memory, but never more than `maxBytes`.
+ * Exceeding the cap cancels the stream (which aborts the underlying
+ * request) and throws ResponseTooLargeError.
+ */
+export async function readBodyCapped(res: Response, url: string, maxBytes: number): Promise<Uint8Array> {
+  const declared = Number(res.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel().catch(() => undefined)
+    throw new ResponseTooLargeError(url, maxBytes)
+  }
+  if (!res.body) return new Uint8Array(0)
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => undefined)
+      throw new ResponseTooLargeError(url, maxBytes)
+    }
+    chunks.push(value)
+  }
+  const out = new Uint8Array(size)
+  let offset = 0
+  for (const c of chunks) {
+    out.set(c, offset)
+    offset += c.byteLength
+  }
+  return out
 }
 
 export const DEFAULT_USER_AGENT =
@@ -35,10 +89,11 @@ interface Throttled {
   fetchImpl: typeof fetch
   userAgent: string
   timeoutMs: number
+  maxBodyBytes: number
   wait(url: string): Promise<void>
 }
 
-function throttled(opts: PoliteGetterOptions): Throttled {
+function throttled(opts: PoliteGetterOptions, defaultMaxBytes: number): Throttled {
   const minIntervalMs = opts.minIntervalMs ?? 10_000
   const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
   const now = opts.now ?? (() => Date.now())
@@ -47,6 +102,7 @@ function throttled(opts: PoliteGetterOptions): Throttled {
     fetchImpl: opts.fetchImpl ?? fetch,
     userAgent: opts.userAgent ?? DEFAULT_USER_AGENT,
     timeoutMs: opts.timeoutMs ?? 30_000,
+    maxBodyBytes: opts.maxBodyBytes ?? defaultMaxBytes,
     async wait(url) {
       const host = new URL(url).host
       const last = lastRequestAt.get(host)
@@ -60,7 +116,7 @@ function throttled(opts: PoliteGetterOptions): Throttled {
 }
 
 export function createPoliteGetter(opts: PoliteGetterOptions = {}): HttpGetter {
-  const t = throttled(opts)
+  const t = throttled(opts, DEFAULT_PAGE_MAX_BYTES)
   return {
     async get(url: string): Promise<HttpResponse> {
       await t.wait(url)
@@ -69,7 +125,12 @@ export function createPoliteGetter(opts: PoliteGetterOptions = {}): HttpGetter {
         redirect: 'manual',
         signal: AbortSignal.timeout(t.timeoutMs),
       })
-      const body = res.status >= 300 && res.status < 400 ? '' : await res.text()
+      if (res.status >= 300 && res.status < 400) {
+        await res.body?.cancel().catch(() => undefined)
+        return { status: res.status, url, body: '' }
+      }
+      // UTF-8, exactly as res.text() would decode it.
+      const body = new TextDecoder().decode(await readBodyCapped(res, url, t.maxBodyBytes))
       return { status: res.status, url, body }
     },
   }
@@ -180,7 +241,7 @@ export function coalesceRanges(ranges: ByteRange[]): ByteRange[] {
  * read: that body would be the whole archive.
  */
 export function createPoliteRangeGetter(opts: PoliteGetterOptions = {}): RangeGetter {
-  const t = throttled(opts)
+  const t = throttled(opts, DEFAULT_RANGE_MAX_BYTES)
   return {
     async getRanges(url: string, ranges: ByteRange[]): Promise<RangeResponse> {
       if (ranges.length === 0) throw new Error('getRanges: no ranges requested')
@@ -195,7 +256,7 @@ export function createPoliteRangeGetter(opts: PoliteGetterOptions = {}): RangeGe
         await res.body?.cancel().catch(() => undefined)
         return { status: res.status, url, etag, totalSize: null, parts: [] }
       }
-      const body = new Uint8Array(await res.arrayBuffer())
+      const body = await readBodyCapped(res, url, t.maxBodyBytes)
       const type = res.headers.get('content-type') ?? ''
       const boundary = type.match(/boundary="?([^";]+)"?/i)?.[1]
       let pieces: Piece[]

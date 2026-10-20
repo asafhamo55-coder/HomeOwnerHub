@@ -13,6 +13,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { reportError } from '@homeowner-portal/observability/report'
+import { fetchOrgSandbox, guardRecipients } from '@homeowner-portal/observability/outbound-guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getSignedInUser } from '@/lib/orgs'
 import { sendEmail, appUrl } from '@/lib/email'
@@ -935,7 +936,7 @@ export interface CreateTenantInput {
 
 export async function createTenant(
   input: CreateTenantInput,
-): Promise<ActionResult<{ orgId: string }>> {
+): Promise<ActionResult<{ orgId: string; inviteHeld: boolean }>> {
   const { userId } = await requirePlatformAdmin()
 
   const parsed = CreateTenantSchema.safeParse({
@@ -985,9 +986,25 @@ export async function createTenant(
 
   // Optional: invite the initial admin. We create the Supabase Auth
   // user if needed and add them as `admin` of the new org.
-  let inviteResult: 'sent' | 'skipped' | 'failed' = 'skipped'
+  let inviteResult: 'sent' | 'skipped' | 'failed' | 'held' = 'skipped'
   let inviteError: string | undefined
+  // Outbound guard, the same check as inviteMember and the bulk invite
+  // (members.ts, owner-invites-actions.ts): outside production, or for a
+  // sandboxed org, only OUTBOUND_ALLOWLIST addresses are invited.
+  // inviteUserByEmail both creates the account and sends, so a held
+  // address gets neither, and no membership row. fetchOrgSandbox fails
+  // closed. The guard's log line carries counts and the org id only.
+  let inviteAllowed = false
   if (parsed.data.invite_admin_email && parsed.data.invite_admin_email !== '') {
+    const orgSandbox = await fetchOrgSandbox(db, orgRow.id)
+    const guard = guardRecipients('email', [parsed.data.invite_admin_email], (e) => e, {
+      orgSandbox,
+      ref: `invite_tenant_admin:${orgRow.id}`,
+    })
+    inviteAllowed = guard.allowed.length > 0
+    if (!inviteAllowed) inviteResult = 'held'
+  }
+  if (inviteAllowed && parsed.data.invite_admin_email) {
     const { data: invitedUser, error: inviteErr } = await db.auth.admin
       .inviteUserByEmail(parsed.data.invite_admin_email)
     if (inviteErr) {
@@ -1040,7 +1057,7 @@ export async function createTenant(
 
   revalidatePath('/admin')
   revalidatePath('/admin/tenants')
-  return { ok: true, data: { orgId: orgRow.id } }
+  return { ok: true, data: { orgId: orgRow.id, inviteHeld: inviteResult === 'held' } }
 }
 
 const UpdateTenantSchema = z.object({
@@ -1225,6 +1242,17 @@ export async function inviteOrPromotePlatformAdmin(
     userId = existing.id
     alreadyExisted = true
   } else {
+    // Outbound guard (no org: platform admins are cross-tenant, so only
+    // the environment policy applies). Outside production, only
+    // OUTBOUND_ALLOWLIST addresses get an invitation; a held address gets
+    // no account, no grant and no email. The log line carries counts only.
+    const guard = guardRecipients('email', [cleanEmail], (e) => e, { ref: 'invite_platform_admin' })
+    if (guard.allowed.length === 0) {
+      return {
+        ok: false,
+        error: 'Sending is switched off for this address (test or sandbox mode), so no invitation was sent.',
+      }
+    }
     const { data: invited, error } = await db.auth.admin.inviteUserByEmail(cleanEmail)
     if (error || !invited?.user) {
       return { ok: false, error: error?.message ?? 'Could not send invitation.' }
