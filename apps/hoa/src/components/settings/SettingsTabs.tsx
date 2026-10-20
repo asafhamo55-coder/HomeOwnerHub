@@ -12,11 +12,12 @@ type SettingsPath =
   | '/settings/data'
   | '/settings/notifications'
   | '/settings/activity'
+  | '/settings/handover'
 
 /**
  * Sub-navigation across the settings pages. Mirrors the role gating of
  * each page (and of nav.ts): General and the HOA mailbox are admin-only
- * (requireAdmin), Members, Resident payments, Dues reminders, Vendors, Billing, Your data, Notifications and Activity log are open to board and admin
+ * (requireAdmin), Members, Resident payments, Dues reminders, Vendors, Billing, Your data, Notifications, Activity log and Board handover are open to board and admin
  * (requireBoardOrAdmin). A tab is never shown to a role its page would
  * bounce.
  */
@@ -31,6 +32,7 @@ const ITEMS: Array<{ label: string; href: SettingsPath; adminOnly: boolean }> = 
   { label: 'Your data', href: '/settings/data', adminOnly: false },
   { label: 'Notifications', href: '/settings/notifications', adminOnly: false },
   { label: 'Activity log', href: '/settings/activity', adminOnly: false },
+  { label: 'Board handover', href: '/settings/handover', adminOnly: false },
 ]
 
 export function SettingsTabs({ current, role }: { current: SettingsPath; role: 'admin' | 'board' }) {
