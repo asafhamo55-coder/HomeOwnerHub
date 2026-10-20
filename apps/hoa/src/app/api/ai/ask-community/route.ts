@@ -8,6 +8,7 @@ import { requireOrgOwned, requireRouteBoardOrAdmin } from '@/lib/api/auth'
 import { parseJson } from '@/lib/api/parse'
 import { zText, zUuid } from '@/lib/api/schemas'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // POST /api/ai/ask-community
@@ -43,6 +44,11 @@ export const POST = withRoute('ai.ask-community', async (request) => {
   if (!process.env.AI_API_KEY) {
     throw new ApiRouteError('not_configured', 'The assistant is not set up yet.')
   }
+
+  // BL-106: its own flat bucket (lib/api/ai-limits.ts), after validation and
+  // the config check, before the agent's first model call (RC-13). Over the
+  // limit → 429 rate_limited.
+  await requireAiQuota('ask_community', orgId)
 
   // Board and admin both see owner contact on the property page and under
   // hoa_properties_select; the gate above admits only them.

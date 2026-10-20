@@ -395,3 +395,135 @@ describe('BL-104: band ceilings only for the new plans; today’s limits for eve
     expect(f.rows.at(-1)).toMatchObject({ action: 'ai.usage.board_ai', org_id: 'org-1', user_id: 'user-1' })
   })
 })
+
+// ─── BL-106: meeting_summary and ask_community, own flat buckets ──────
+
+describe('BL-106 meeting_summary and ask_community caps', () => {
+  const COMPLETE_SMALL = { plan: 'complete', band: '1-50' } as const
+
+  it('the 11th meeting summary in a day for one community is 429 org_limit, legacy and Complete', async () => {
+    for (const tier of [null, COMPLETE_SMALL, { plan: 'complete', band: '401+' } as const]) {
+      // 10 summaries by two board members over the last 20 hours.
+      const rows = [
+        ...usage(5, { org: 'org-1', user: 'u-a' }, (i) => 60 + i * 120, 'ai.usage.meeting_summary'),
+        ...usage(5, { org: 'org-1', user: 'u-b' }, (i) => 120 + i * 120, 'ai.usage.meeting_summary'),
+      ]
+      const f = fakeDb(rows)
+      const err = await checkAndRecordAiUsage('meeting_summary', WHO, { db: f.db, now: clock, tier }).catch((e) => e)
+      expect(err).toMatchObject({ code: 'rate_limited', status: 429, extra: { reason: 'org_limit' } })
+      expect(err.publicMessage).toMatch(/^Your community has reached its limit of 10 meeting summaries a day\./)
+      expect(err.publicMessage).toContain('You can still write the minutes yourself.')
+      expect(f.rows).toHaveLength(10) // nothing recorded for a refused call
+    }
+  })
+
+  it('the 6th meeting summary in an hour by one person is 429 user_limit', async () => {
+    const f = fakeDb(usage(5, { org: 'org-1', user: 'user-1' }, (i) => i * 10, 'ai.usage.meeting_summary'))
+    const err = await checkAndRecordAiUsage('meeting_summary', WHO, { db: f.db, now: clock, tier: null }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'user_limit', retryAfterSeconds: 20 * 60 } })
+  })
+
+  it('the 26th Copilot question in a day for one community is 429 org_limit, legacy and Complete', async () => {
+    for (const tier of [null, COMPLETE_SMALL, { plan: 'complete', band: '201-400' } as const]) {
+      const f = fakeDb(usage(25, { org: 'org-1', user: 'u-a' }, (i) => 61 + i * 30, 'ai.usage.ask_community'))
+      const err = await checkAndRecordAiUsage('ask_community', WHO, { db: f.db, now: clock, tier }).catch((e) => e)
+      expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'org_limit' } })
+      expect(err.publicMessage).toMatch(/^Your community has reached its limit of 25 Copilot questions a day\./)
+    }
+  })
+
+  it('the 16th Copilot question in an hour by one person is 429 user_limit; the 15th is allowed', async () => {
+    const full = fakeDb(usage(15, { org: 'org-1', user: 'user-1' }, (i) => i * 2, 'ai.usage.ask_community'))
+    const err = await checkAndRecordAiUsage('ask_community', WHO, { db: full.db, now: clock, tier: null }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'user_limit' } })
+    const under = fakeDb(usage(14, { org: 'org-1', user: 'user-1' }, (i) => i * 2, 'ai.usage.ask_community'))
+    await expect(
+      checkAndRecordAiUsage('ask_community', WHO, { db: under.db, now: clock, tier: null }),
+    ).resolves.toEqual({ usageId: 'usage-1' })
+    expect(under.rows.at(-1)).toMatchObject({ action: 'ai.usage.ask_community', org_id: 'org-1', user_id: 'user-1' })
+  })
+
+  it('separate buckets: each reads only its own action, never the board_ai pool', async () => {
+    for (const bucket of ['meeting_summary', 'ask_community'] as const) {
+      const f = fakeDb([])
+      await checkAndRecordAiUsage(bucket, WHO, { db: f.db, now: clock, tier: null })
+      expect(f.reads.length).toBeGreaterThan(0)
+      for (const read of f.reads) {
+        expect(read).toEqual(expect.arrayContaining([['eq', 'action', `ai.usage.${bucket}`]]))
+        expect(read.some(([op]) => op === 'in')).toBe(false)
+      }
+    }
+  })
+
+  it('a full board_ai pool does not block them, and they do not fill each other', async () => {
+    const rows = [
+      ...usage(150, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.board_ai'),
+      ...usage(50, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.compose'),
+      ...usage(25, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.ask_community'),
+    ]
+    const f = fakeDb(rows)
+    await expect(checkAndRecordAiUsage('board_ai', WHO, { db: f.db, now: clock, tier: null })).rejects.toMatchObject({
+      code: 'rate_limited',
+    })
+    await expect(checkAndRecordAiUsage('ask_community', WHO, { db: f.db, now: clock, tier: null })).rejects.toMatchObject({
+      code: 'rate_limited',
+    })
+    await expect(checkAndRecordAiUsage('meeting_summary', WHO, { db: f.db, now: clock, tier: null })).resolves.toEqual({
+      usageId: 'usage-1',
+    })
+  })
+
+  it('their usage rows do not count against board_ai', async () => {
+    const rows = [
+      ...usage(10, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.meeting_summary'),
+      ...usage(25, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.ask_community'),
+      ...usage(199, { org: 'org-1', user: 'u-b' }, (i) => i, 'ai.usage.board_ai'),
+    ]
+    const f = fakeDb(rows)
+    await expect(checkAndRecordAiUsage('board_ai', WHO, { db: f.db, now: clock, tier: null })).resolves.toEqual({
+      usageId: 'usage-1',
+    })
+  })
+})
+
+describe('BL-106 per-plan ceilings for new-plan orgs', () => {
+  it('Essentials: a Copilot question is 429 plan_limit with no ledger read and nothing recorded', async () => {
+    const f = fakeDb([])
+    const err = await checkAndRecordAiUsage('ask_community', WHO, {
+      db: f.db,
+      now: clock,
+      tier: { plan: 'essentials', band: '1-50' },
+    }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', status: 429, extra: { reason: 'plan_limit', retryAfterSeconds: 86400 } })
+    expect(err.headers).toEqual({ 'Retry-After': '86400' })
+    expect(err.publicMessage).toBe('Copilot questions aren’t included in your community’s plan.')
+    expect(f.reads).toHaveLength(0)
+    expect(f.rows).toHaveLength(0)
+  })
+
+  it('Essentials: the 4th meeting summary in a day is 429 org_limit', async () => {
+    const f = fakeDb(usage(3, { org: 'org-1', user: 'u-a' }, (i) => 120 + i * 60, 'ai.usage.meeting_summary'))
+    const err = await checkAndRecordAiUsage('meeting_summary', WHO, {
+      db: f.db,
+      now: clock,
+      tier: { plan: 'essentials', band: '101-200' },
+    }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'org_limit' } })
+    expect(err.publicMessage).toMatch(/^Your community has reached its limit of 3 meeting summaries a day\./)
+  })
+
+  it('an Essentials org read from orgs after PRICING_V2 gets the Essentials ceiling', async () => {
+    const f = fakeDb([], { org: { plan: 'essentials', doors_count: 40 } })
+    const before = await checkAndRecordAiUsage('ask_community', WHO, { db: f.db, now: clock, tier: await loadAiTier(f.db, 'org-1', false) })
+    expect(before).toEqual({ usageId: 'usage-1' }) // pre-flip: the base 25 a day
+    const after = await checkAndRecordAiUsage('ask_community', WHO, { db: f.db, now: clock, tier: await loadAiTier(f.db, 'org-1', true) }).catch((e) => e)
+    expect(after).toMatchObject({ extra: { reason: 'plan_limit' } })
+  })
+
+  it('Complete keeps 25 Copilot questions a day', async () => {
+    const under = fakeDb(usage(24, { org: 'org-1', user: 'u-a' }, (i) => 61 + i * 30, 'ai.usage.ask_community'))
+    await expect(
+      checkAndRecordAiUsage('ask_community', WHO, { db: under.db, now: clock, tier: { plan: 'complete', band: '1-50' } }),
+    ).resolves.toEqual({ usageId: 'usage-1' })
+  })
+})

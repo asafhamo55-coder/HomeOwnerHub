@@ -161,3 +161,27 @@ describe('askCommunity tool errors', () => {
     })
   })
 })
+
+describe('askCommunity cost bounds (BL-106)', () => {
+  it('matches the default budget, caps docs searches at 6 and output at 1,500 tokens a step', async () => {
+    const { DEFAULT_TOOL_BUDGET } = await import('./loop')
+    const { COPILOT_TOOL_BUDGET, COPILOT_MAX_TOKENS_PER_STEP } = await import('./copilot-budget')
+    expect(COPILOT_TOOL_BUDGET.perStep).toBe(DEFAULT_TOOL_BUDGET.perStep)
+    expect(COPILOT_TOOL_BUDGET.perRun).toBe(DEFAULT_TOOL_BUDGET.perRun)
+    expect(COPILOT_TOOL_BUDGET.perTool).toEqual({ search_governing_docs: 6 })
+    expect(COPILOT_MAX_TOKENS_PER_STEP).toBe(1500)
+
+    W1.queryGoverningDocs.mockResolvedValue({ answer: 'Rule.', confidence: 'HIGH', citations: [] })
+    const { bodies } = fakeLlm(
+      Array.from({ length: 8 }, (_, i) => ({ name: 'search_governing_docs', args: { question: `rule ${i}` } })),
+    )
+    const r = await askCommunity('What are the rules?', {
+      db: fixedDb({ data: [], error: null }),
+      orgId: 'org-1',
+      canSeeOwnerContact: false,
+    })
+    expect(W1.queryGoverningDocs).toHaveBeenCalledTimes(6)
+    expect(r.toolCalls).toHaveLength(6)
+    for (const b of bodies) expect((b as unknown as { max_tokens?: number }).max_tokens).toBe(1500)
+  })
+})

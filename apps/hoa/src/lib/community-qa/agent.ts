@@ -13,6 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { ContactVault } from './contact-placeholders'
 import { publicArgs, runToolLoop, type RawToolCall as LoopRawToolCall } from './loop'
+import { COPILOT_MAX_TOKENS_PER_STEP, COPILOT_TOOL_BUDGET } from './copilot-budget'
 import {
   TOOLS,
   isToolFailed,
@@ -99,6 +100,8 @@ export async function askCommunity(
     ctx: toolCtx,
     logTag: 'ai.ask-community.tool',
     logIds: { orgId: ctx.orgId },
+    budget: COPILOT_TOOL_BUDGET,
+    maxTokensPerStep: COPILOT_MAX_TOKENS_PER_STEP,
   })
 
   return {

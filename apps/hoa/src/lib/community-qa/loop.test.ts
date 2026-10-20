@@ -147,3 +147,28 @@ describe('runToolLoop tool budget (SEC-001)', () => {
     expect(r.answer).toBe('Done.')
   })
 })
+
+describe('runToolLoop output ceiling (BL-106)', () => {
+  it('sends max_tokens on every step when maxTokensPerStep is set', async () => {
+    const t = tools(['a'])
+    const bodies = fakeLlm([['a']])
+    await runToolLoop<null>({
+      systemPrompt: 's',
+      turns: [{ role: 'user', content: 'q' }],
+      tools: t.list,
+      ctx: null,
+      logTag: 'test.loop',
+      logIds: {},
+      maxTokensPerStep: 1000,
+    })
+    expect(bodies).toHaveLength(2)
+    for (const b of bodies) expect((b as unknown as { max_tokens?: number }).max_tokens).toBe(1000)
+  })
+
+  it('sends no max_tokens when it is not set (the resident assistant is unchanged)', async () => {
+    const t = tools(['a'])
+    const bodies = fakeLlm([['a']])
+    await run(t.list)
+    for (const b of bodies) expect('max_tokens' in (b as object)).toBe(false)
+  })
+})

@@ -97,6 +97,12 @@ export async function runToolLoop<C>(opts: {
   logIds: Record<string, string | number | boolean | null>
   maxSteps?: number
   budget?: ToolBudget
+  /**
+   * Output token ceiling per model step (sent as max_tokens). Absent = no
+   * ceiling (the provider's own). The board Copilot sets one (BL-106) so its
+   * per-question cost has a real upper bound.
+   */
+  maxTokensPerStep?: number
 }): Promise<LoopResult<C>> {
   const apiKey = process.env.AI_API_KEY
   const baseUrl = process.env.AI_BASE_URL ?? 'https://api.groq.com/openai/v1'
@@ -140,6 +146,7 @@ export async function runToolLoop<C>(opts: {
         tools,
         tool_choice: ran >= budget.perRun ? 'none' : 'auto',
         temperature: 0.1,
+        ...(opts.maxTokensPerStep ? { max_tokens: opts.maxTokensPerStep } : {}),
       }),
     })
 

@@ -8,6 +8,7 @@ import { parseJson, parseValue } from '@/lib/api/parse'
 import { zDateOnly, zText } from '@/lib/api/schemas'
 import { MAX_DOCUMENT_TEXT, MAX_JSON_BYTES } from '@/lib/api/limits'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
 // Board-only AI drafting (RC-4): the only caller is
@@ -47,6 +48,10 @@ export const POST = withRoute('ai.meeting-summary', async (request) => {
     })
   }
   const body = parseValue(Body, raw)
+
+  // BL-106: its own flat bucket (lib/api/ai-limits.ts), after validation and
+  // before the model call (RC-13). Over the limit → 429 rate_limited.
+  await requireAiQuota('meeting_summary', orgId)
 
   // The prompt needs the org's name. Read it by the gate's org id (RC-4) so
   // it is the same org the role check ran against — not a second
