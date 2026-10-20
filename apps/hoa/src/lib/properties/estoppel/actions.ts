@@ -7,7 +7,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { asPropertyId } from '../resolve'
 import { ESTOPPEL_PRINTED, recordEstoppelAudit } from './audit'
 import { loadEstoppelInput } from './load'
-import { FIGURES_CHANGED, auditFigures, buildCertificate, checkFee, requestProblem, snapshotMatches } from './model'
+import { FIGURES_CHANGED, auditFigures, buildCertificate, checkFee, requestProblem, snapshotMatches, statuteProblem } from './model'
 
 const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const Cents = z.number().int().min(-1_000_000_000).max(1_000_000_000)
@@ -25,6 +25,12 @@ const PrintSchema = z.object({
     not_yet_due_cents: Cents,
     charge_ids: z.array(z.string().max(64)).max(10_000),
   }),
+  /**
+   * GA: the board's yes/no answers to "submitted to the POA Act?" and
+   * "does the declaration provide for a fee?" (model.statuteAnswers).
+   * Booleans only, never free text.
+   */
+  statute: z.object({ poaAct: z.boolean().nullable().optional(), feeAuthorized: z.boolean().nullable().optional() }).optional(),
 })
 
 export type PrintResult = { ok: true } | { ok: false; error: string }
@@ -69,7 +75,14 @@ export async function recordEstoppelPrinted(input: z.input<typeof PrintSchema>):
   const req = { requestDate: v.requestDate, issueDate, delivery: v.delivery, expedited: v.expedited }
   const cert = buildCertificate(loaded.input, req)
   if (!snapshotMatches(cert, v.figures)) return { ok: false, error: FIGURES_CHANGED }
-  const fee = checkFee(cert.jurisdiction, cert.deadlines, cert.figures, req, v.feeCents)
+  const answers = v.statute ?? {}
+  // GA: the statement cites § 44-3-232(d), which needs a Yes to the POA Act.
+  const statute = statuteProblem(cert.jurisdiction, answers)
+  if (statute) return { ok: false, error: statute }
+  if (cert.jurisdiction === 'GA' && answers.poaAct !== true) {
+    return { ok: false, error: 'Answer whether the association is submitted to the Georgia Property Owners’ Association Act.' }
+  }
+  const fee = checkFee(cert.jurisdiction, cert.deadlines, cert.figures, req, v.feeCents, answers)
   if (fee.problem) return { ok: false, error: fee.problem }
 
   const audit = await recordEstoppelAudit(supabase, {

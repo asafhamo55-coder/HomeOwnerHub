@@ -1,0 +1,29 @@
+# O.C.G.A. § 44-3-232(d) (Georgia Property Owners' Association Act) — the statement of amounts due.
+#
+# Georgia's codified Code is published officially only through LexisNexis's public-access site, which could not be
+# read programmatically. The text below is the CURRENT subsection (d) as the General Assembly itself reproduces it in
+# two bills that revise the section, drafted by different Legislative Counsel offices in different sessions; the two
+# reproductions are identical word for word (each is recorded below, and law.test.ts checks they still match):
+#   - HB 512 (2025), LC 50 1035/a — https://www.legis.ga.gov/api/legislation/document/20252026/232916
+#     (status on legis.ga.gov: "House Withdrawn, Recommitted", 2025-04-04 — not enacted)
+#   - HB 1222 (2026), LC 62 0308/a — https://www.legis.ga.gov/api/legislation/document/20252026/241704
+#     (status on legis.ga.gov: "House Committee Favorably Reported By Substitute", 2026-02-18 — not enacted;
+#     it would have added a § 44-3-232.2 "statement of account" with a $250 cap. That section is NOT law.)
+# Retrieved 2026-10-20. PDF reduced to text; line numbers and page footers removed.
+#
+# The one 2026 enactment touching § 44-3-232 is SB 406, the "Georgia Property Owners' Bill of Rights Act" (Act 715,
+# signed 2026-05-12; effective 2027-01-01 except its Section 7). As passed (SB 406/AP, LC 49 2879S —
+# https://www.legis.ga.gov/api/legislation/document/20252026/248665) it revises only subsection (c) (foreclosure) of
+# § 44-3-232; subsection (d) is unchanged. Its Section 5 opening is recorded below.
+#
+# A board should still confirm the current text on the official Code (LexisNexis public access) before relying on it.
+# Public domain (state statute and legislative documents). Used by apps/hoa/src/lib/properties/estoppel/law.test.ts.
+
+=== HB 512 (2025) reproduction of § 44-3-232(d)
+(d) Any lot owner, mortgagee of a lot, person having executed a contract for the purchase of a lot, or lender considering the loan of funds to be secured by a lot shall be entitled upon request to a statement from the association or its management agent setting forth the amount of assessments past due and unpaid together with late charges and interest applicable thereto against that lot. Such request shall be in writing, shall be delivered to the registered office of the association, and shall state an address to which the statement is to be directed. Failure on the part of the association, within five business days from the receipt of such request, to mail or otherwise furnish such statement regarding amounts due and payable at the expiration of such five-day period with respect to the lot involved to such address as may be specified in the written request therefor shall cause the lien for assessments created by this Code section to be extinguished and of no further force or effect as to the title or interest acquired by the purchaser or lender, if any, as the case may be, and their respective successors and assigns, in the transaction contemplated in connection with such request. The information specified in such statement shall be binding upon the association and upon every lot owner. Payment of a fee not exceeding $10.00 may be required as a prerequisite to the issuance of such a statement if the instrument so provides.
+
+=== HB 1222 (2026) reproduction of § 44-3-232(d)
+(d) Any lot owner, mortgagee of a lot, person having executed a contract for the purchase of a lot, or lender considering the loan of funds to be secured by a lot shall be entitled upon request to a statement from the association or its management agent setting forth the amount of assessments past due and unpaid together with late charges and interest applicable thereto against that lot. Such request shall be in writing, shall be delivered to the registered office of the association, and shall state an address to which the statement is to be directed. Failure on the part of the association, within five business days from the receipt of such request, to mail or otherwise furnish such statement regarding amounts due and payable at the expiration of such five-day period with respect to the lot involved to such address as may be specified in the written request therefor shall cause the lien for assessments created by this Code section to be extinguished and of no further force or effect as to the title or interest acquired by the purchaser or lender, if any, as the case may be, and their respective successors and assigns, in the transaction contemplated in connection with such request. The information specified in such statement shall be binding upon the association and upon every lot owner. Payment of a fee not exceeding $10.00 may be required as a prerequisite to the issuance of such a statement if the instrument so provides.
+
+=== SB 406 (2026, as passed) Section 5, opening
+SECTION 5. Said article is further amended in Code Section 44-3-232, relating to assessments against lot owners as constituting lien in favor of association, additional charges against lot owners, procedure for foreclosing lien, and obligation to provide statement of amounts due, by revising subsection (c) as follows:

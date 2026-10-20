@@ -7,6 +7,9 @@ import {
   checkFee,
   inferFrequency,
   chargeLines,
+  jurisdictionOf,
+  statuteAnswers,
+  statuteProblem,
   parseMoneyCents,
   printSnapshot,
   requestProblem,
@@ -357,11 +360,121 @@ describe('California and other states', () => {
   })
 
   it('other states: no statutory deadline or fields', () => {
-    const c = buildCertificate(fixture({ state: 'TX' }), req())
+    const c = buildCertificate(fixture({ state: 'NV' }), req())
     expect(c.jurisdiction).toBe('generic')
     expect(c.deadlines.responseDue).toBeNull()
     expect(c.fields.map((f) => f.key)).not.toContain('parking')
     expect(c.fields.map((f) => f.key)).not.toContain('approvedChanges')
+    expect(c.fields.map((f) => f.key)).not.toContain('poaAct')
+    expect(c.fields.map((f) => f.key)).not.toContain('lawsuits')
+    expect(checkFee('generic', c.deadlines, c.figures, req(), 99_999).cap).toBeNull()
+  })
+
+  it('reads TX and GA case-insensitively', () => {
+    expect(jurisdictionOf(' tx ')).toBe('TX')
+    expect(jurisdictionOf('ga')).toBe('GA')
+  })
+})
+
+describe('Texas § 207.003 resale certificate', () => {
+  it('10 business days across a weekend and Columbus Day; no effective period', () => {
+    const d = buildCertificate(fixture({ state: 'TX' }), req()).deadlines
+    expect(d.responseDue).toBe('2026-10-26')
+    expect(d.holidaysSkipped.map((h) => h.day)).toEqual(['2026-10-12'])
+    expect(d.responseRule).toMatch(/§ 207\.003\(a\)/)
+    expect(d.effectiveThrough).toBeNull()
+    expect(d.expeditedDue).toBeNull()
+    expect(d.late).toBe(false)
+  })
+
+  it('every § 207.003(b) item the app does not hold is a BLANK; no duplicate transfer-fee line', () => {
+    const c = buildCertificate(fixture({ state: 'TX' }), req())
+    expect(c.fields.filter((f) => f.value === null).map((f) => f.key)).toEqual([
+      'requestor',
+      'parcel',
+      'fee',
+      'signer',
+      'firstRefusal',
+      'approvedSpecials',
+      'capitalExpenditures',
+      'reserves',
+      'judgments',
+      'lawsuits',
+      'knownViolations',
+      'governmentNotices',
+      'adminTransferFee',
+      'managingAgent',
+      'foreclosure',
+      'transferFees',
+    ])
+    const keys = c.fields.map((f) => f.key)
+    expect(keys).not.toContain('transferFee')
+    expect(keys).not.toContain('parking')
+    // Every TX-only BLANK names its § 207.003(b) paragraph.
+    for (const f of c.fields.filter((x) => ['firstRefusal', 'approvedSpecials', 'capitalExpenditures', 'reserves', 'judgments', 'lawsuits', 'knownViolations', 'governmentNotices', 'adminTransferFee', 'managingAgent', 'foreclosure', 'transferFees'].includes(x.key))) {
+      expect(f.hint).toMatch(/§ 207\.003\(b\)\(\d+\)/)
+    }
+    expect(blanksLeft(c.fields, { foreclosure: 'Yes' })).not.toContain('Do the restrictions allow foreclosure of the association’s lien for failure to pay assessments?')
+  })
+
+  it('caps the fee at $375 and allows none after the deadline (§ 207.003(c), (c-1))', () => {
+    const r = req()
+    const c = buildCertificate(fixture({ state: 'TX' }), r)
+    expect(checkFee('TX', c.deadlines, c.figures, r, 37_500)).toMatchObject({ cap: { totalCents: 37_500 }, problem: null })
+    expect(checkFee('TX', c.deadlines, c.figures, r, 37_501).problem).toMatch(/above the statutory cap of \$375\.00/)
+
+    const lateReq = req({ requestDate: '2026-10-01' }) // due Oct 16, issued Oct 19
+    const late = buildCertificate(fixture({ state: 'TX' }), lateReq)
+    expect(late.deadlines.late).toBe(true)
+    expect(checkFee('TX', late.deadlines, late.figures, lateReq, 100).problem).toMatch(/§ 207\.003\(c-1\)/)
+    expect(checkFee('TX', late.deadlines, late.figures, lateReq, 0).problem).toBeNull()
+  })
+})
+
+describe('Georgia § 44-3-232(d) statement of amounts due', () => {
+  it('5 business days from receipt, skipping Columbus Day', () => {
+    const d = buildCertificate(fixture({ state: 'GA' }), req()).deadlines
+    expect(d.responseDue).toBe('2026-10-19')
+    expect(d.holidaysSkipped.map((h) => h.day)).toEqual(['2026-10-12'])
+    expect(d.responseRule).toMatch(/§ 44-3-232\(d\)/)
+    expect(d.late).toBe(false)
+    expect(buildCertificate(fixture({ state: 'GA' }), req({ requestDate: '2026-10-08' })).deadlines.late).toBe(true)
+  })
+
+  it('marks charges falling due by the end of the five-business-day period', () => {
+    const input = fixture({ state: 'GA', charges: [...fixture().charges, charge('a-mid', '2026-10-21', 40, 'special')] })
+    const c = buildCertificate(input, req({ requestDate: '2026-10-15' })) // due Oct 22
+    expect(c.deadlines.responseDue).toBe('2026-10-22')
+    expect(c.figures.notYetDue.map((i) => [i.id, i.withinEffectivePeriod])).toEqual([
+      ['a-mid', true],
+      ['a-nov', false],
+      ['a-spec', false],
+    ])
+  })
+
+  it('the POA Act and the declaration’s fee are board BLANKs', () => {
+    const c = buildCertificate(fixture({ state: 'GA' }), req())
+    expect(c.fields.filter((f) => f.value === null).map((f) => f.key)).toEqual(['requestor', 'parcel', 'transferFee', 'fee', 'signer', 'poaAct', 'instrumentFee'])
+    expect(statuteAnswers('GA', { poaAct: 'Yes', instrumentFee: 'No' })).toEqual({ poaAct: true, feeAuthorized: false })
+    expect(statuteAnswers('GA', {})).toEqual({ poaAct: null, feeAuthorized: null })
+    expect(statuteAnswers('TX', { poaAct: 'Yes' })).toEqual({})
+  })
+
+  it('a No to the POA Act stops the statement', () => {
+    expect(statuteProblem('GA', { poaAct: false })).toMatch(/applies only to associations submitted/)
+    expect(statuteProblem('GA', { poaAct: true })).toBeNull()
+    expect(statuteProblem('GA', { poaAct: null })).toBeNull() // still a BLANK
+    expect(statuteProblem('TX', { poaAct: false })).toBeNull()
+  })
+
+  it('fee: $10.00 at most, and only if the declaration provides for one', () => {
+    const r = req()
+    const c = buildCertificate(fixture({ state: 'GA' }), r)
+    expect(checkFee('GA', c.deadlines, c.figures, r, 1_000, { feeAuthorized: true })).toMatchObject({ cap: { totalCents: 1_000 }, problem: null })
+    expect(checkFee('GA', c.deadlines, c.figures, r, 1_001, { feeAuthorized: true }).problem).toMatch(/\$10\.00/)
+    expect(checkFee('GA', c.deadlines, c.figures, r, 1_000, { feeAuthorized: false }).problem).toMatch(/declaration provides/)
+    expect(checkFee('GA', c.deadlines, c.figures, r, 1_000).problem).toMatch(/declaration provides/)
+    expect(checkFee('GA', c.deadlines, c.figures, r, 0, { feeAuthorized: false }).problem).toBeNull()
   })
 })
 
