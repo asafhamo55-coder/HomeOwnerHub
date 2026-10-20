@@ -552,3 +552,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Mistake, fixed:** a merge was committed with conflict markers in the inngest route (`git commit -a` during an unresolved merge). Fixed in a follow-up commit before any push. Also, `pnpm install` was needed after packages/jobs gained the billing dependency.
 - **Left for the owner:** a git stash entry (`bl104b-wip-a060d61b`) the classifier wouldn't let an agent drop. It is safe to drop.
 - **Agents running:** privacy-safe analytics (BL-009), ⌘K latency (BL-060).
+
+## 2026-10-20 (13:44) — deploy e801921c: text consent per number, AI kill switch, analytics, faster pages and search, ARC clock, activity and motion logs, 0065 file
+
+- **Live:** e801921c at 13:44; release email sent. CI on e801921c was the first run of migration 0065 and its tests: green.
+- **Merged since (local, gating):**
+  - BL-117 handover kit;
+  - BL-119 board tasks;
+  - BL-120 reserve snapshot;
+  - BL-121 year-end CPA package (1099 threshold wording softened to "may be $2,000; confirm with your accountant");
+  - BL-122 annual-meeting quorum kit.
+- **Fix:** the dues single-home filter read a non-existent column (organization_id → org_id).
+- **Agents running:** BL-118 meeting notice to owners.
