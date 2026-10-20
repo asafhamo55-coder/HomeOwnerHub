@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   FileText,
+  Gavel,
   LogOut,
   Mail,
   MessageSquare,
@@ -82,6 +83,7 @@ const RECORD_ICON: Record<RecordType, typeof User> = {
   ticket: MessageSquare,
   thread: Mail,
   meeting: CalendarDays,
+  motion: Gavel,
   document: FileText,
   vendor: Briefcase,
 }

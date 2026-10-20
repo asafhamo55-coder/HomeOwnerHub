@@ -381,6 +381,44 @@ describe('searchRecords', () => {
     ])
   })
 
+  it("finds motions in held meetings' minutes (BL-116), never on an upcoming agenda", async () => {
+    rows.hoa_meeting_minutes = [
+      {
+        id: 'm1',
+        meeting_type: 'regular',
+        meeting_date: '2026-10-03',
+        status: 'approved',
+        motions: null,
+        ai_summary: 'Decisions Made\n- Approved the fence replacement (5-0)\n- Tabled the pool budget',
+      },
+      {
+        id: 'm9',
+        meeting_type: 'regular',
+        meeting_date: '2026-11-20',
+        status: 'draft',
+        motions: null,
+        ai_summary: 'Decisions Made\n- Motion to approve the fence contract',
+      },
+    ]
+    const res = await searchRecords(client(), ORG, 'fence', OPTS)
+    const motionCall = calls.filter((c) => c.table === 'hoa_meeting_minutes')[1]
+    expect(motionCall?.ops).toContainEqual(['or', 'ai_summary.ilike.%fence%'])
+    expect(motionCall?.ops).toContainEqual(['eq', 'org_id', ORG])
+    expect(motionCall?.ops).toContainEqual(['limit', SEARCH_LIMIT_PER_TYPE])
+    const motions = res.groups.find((g) => g.type === 'motion')
+    expect(motions?.label).toBe('Motions')
+    expect(motions?.items).toEqual([
+      {
+        id: 'm1:0',
+        type: 'motion',
+        label: 'Approved the fence replacement (5-0)',
+        hint: 'Regular meeting · Oct 3',
+        detail: 'Passed',
+        href: '/meetings/m1',
+      },
+    ])
+  })
+
   it('reports documents as failed when either documents table errors, and keeps what loaded', async () => {
     rows.hoa_documents = [{ id: 'd1', name: 'Pool rules', type: 'rules', created_at: null }]
     errors.governing_documents = { code: '42501', message: 'denied' }

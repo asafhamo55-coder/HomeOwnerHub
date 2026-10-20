@@ -9,6 +9,7 @@ export type RecordType =
   | 'ticket'
   | 'thread'
   | 'meeting'
+  | 'motion'
   | 'document'
   | 'vendor'
 
@@ -48,6 +49,7 @@ export const RECORD_TYPES: readonly RecordType[] = [
   'ticket',
   'thread',
   'meeting',
+  'motion',
   'document',
   'vendor',
 ]
@@ -60,6 +62,7 @@ export const RECORD_GROUP_LABEL: Record<RecordType, string> = {
   ticket: 'Tickets',
   thread: 'Inbox',
   meeting: 'Meetings',
+  motion: 'Motions',
   document: 'Documents',
   vendor: 'Vendors',
 }

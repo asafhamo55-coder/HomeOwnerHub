@@ -1,6 +1,6 @@
 import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
-import { AlertCircle, CalendarClock, CalendarDays, CalendarPlus, FileText } from 'lucide-react'
+import { AlertCircle, CalendarClock, CalendarDays, CalendarPlus, FileText, Gavel } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Button,
@@ -147,6 +147,12 @@ export default async function MeetingsPage({
       description="Schedule board meetings, file AI-drafted minutes, and track the action items they produce."
       actions={
         <>
+          <Button asChild variant="ghost">
+            <Link href="/meetings/motions">
+              <Gavel className="size-4" aria-hidden />
+              Motion log
+            </Link>
+          </Button>
           <Button asChild variant="secondary">
             <Link href="/meetings/schedule">
               <CalendarPlus className="size-4" aria-hidden />
