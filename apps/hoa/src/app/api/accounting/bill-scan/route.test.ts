@@ -30,7 +30,9 @@ vi.mock('@/lib/auth', () => ({
 }))
 vi.mock('@/lib/platform-admin', () => ({ isPlatformAdmin: vi.fn(async () => false) }))
 vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
-vi.mock('pdf-parse', () => ({ default: vi.fn(async () => ({ text: h.pdfText })) }))
+vi.mock('@/lib/pdf/extract-text', () => ({
+  extractPdfText: vi.fn(async () => ({ text: h.pdfText, numPages: 1, truncated: false, parserVersion: 'pdfjs-dist-test' })),
+}))
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient: vi.fn(() => ({ tag: 'admin' })) }))
 vi.mock('@homeowner-portal/workflows', () => ({
   W36_AP_BILL: 'w36.ap_bill',

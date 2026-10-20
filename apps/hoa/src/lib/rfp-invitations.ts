@@ -4,11 +4,12 @@ import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
-import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
 import { ApiRouteError } from '@/lib/api/errors'
 import { logRouteFailure } from '@/lib/api/log'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { checkOrgOwned } from '@/lib/org-owned'
 import { insuranceRequirementLines, resolveVendorInsuranceSettings } from '@homeowner-portal/workflows/vendor-insurance'
 
 // rfp_invitations rows ship in migration 0007. One row per (rfp_id,
@@ -40,6 +41,9 @@ export type RfpInviteFailureReason =
   | 'email_send_failed'
 
 const LOAD_FAILED = 'We couldn’t load this RFP’s vendors right now. Nothing was sent — try again.'
+const RFP_NOT_FOUND = 'RFP not found.'
+const INVITATION_GONE = 'That invitation no longer exists.'
+const REVOKE_FAILED = 'We couldn’t revoke this invitation. Try again.'
 
 export interface RfpInvitationRow {
   id: string
@@ -64,10 +68,13 @@ export async function listInvitableVendors(
   rfpId: string,
   associationId: string,
 ): Promise<InvitableVendor[]> {
+  // Board-only page data, but an exported 'use server' function is a
+  // public POST endpoint: gate it and org-own the RFP like a write.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return []
+  if ((await checkOrgOwned('rfps', rfpId, gate.orgId)) !== 'owned') return []
+  const org = { id: gate.orgId }
   const supabase = await getSupabaseServerClient()
-
-  const org = await getCurrentOrg()
-  if (!org) return []
 
   const { data: vendorRows } = await supabase
     .from('vendors' as never)
@@ -119,6 +126,9 @@ export async function listInvitableVendors(
 export async function listRfpInvitations(
   rfpId: string,
 ): Promise<RfpInvitationRow[]> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return []
+  if ((await checkOrgOwned('rfps', rfpId, gate.orgId)) !== 'owned') return []
   const supabase = await getSupabaseServerClient()
 
   const { data: invitations } = await supabase
@@ -127,6 +137,7 @@ export async function listRfpInvitations(
       'id, vendor_id, invited_at, acknowledged_at, vendor:vendors(legal_name)',
     )
     .eq('rfp_id', rfpId)
+    .eq('organization_id', gate.orgId)
     .order('invited_at', { ascending: false })
 
   const rows = (invitations ?? []) as unknown as Array<{
@@ -184,6 +195,10 @@ export async function inviteVendorsToRfp(
     failed: Array<{ vendorId: string; reason: RfpInviteFailureReason }>
   }>
 > {
+  // Board-only: this emails vendors bid links in the org's name.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+
   const parsed = InviteSchema.safeParse({
     rfp_id: input.rfpId,
     vendor_ids: input.vendorIds,
@@ -198,8 +213,13 @@ export async function inviteVendorsToRfp(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
+  const org = { id: gate.orgId }
+
+  // The RFP must be this org's before anything about it is read (a user
+  // in two orgs would otherwise pass RLS for the other org's RFP).
+  const owned = await checkOrgOwned('rfps', parsed.data.rfp_id, org.id)
+  if (owned === 'error') return { ok: false, error: LOAD_FAILED }
+  if (owned === 'not_found') return { ok: false, error: RFP_NOT_FOUND }
 
   // Pull RFP + verify it's actually open. Sending invites for a draft
   // or cancelled RFP would let vendors see something they shouldn't.
@@ -207,6 +227,7 @@ export async function inviteVendorsToRfp(
     .from('rfps' as never)
     .select('id, title, rfp_number, status, submission_deadline, association_id')
     .eq('id', parsed.data.rfp_id)
+    .eq('organization_id', org.id)
     .maybeSingle<{
       id: string
       title: string
@@ -220,7 +241,7 @@ export async function inviteVendorsToRfp(
     logRouteFailure('rfp-invitations.invite.rfp_lookup', rfpErr, { orgId: org.id, rfpId: parsed.data.rfp_id })
     return { ok: false, error: LOAD_FAILED }
   }
-  if (!rfp) return { ok: false, error: 'RFP not found.' }
+  if (!rfp) return { ok: false, error: RFP_NOT_FOUND }
   if (rfp.status !== 'open') {
     return {
       ok: false,
@@ -233,6 +254,9 @@ export async function inviteVendorsToRfp(
     .from('vendors' as never)
     .select('id, legal_name, primary_email')
     .in('id', parsed.data.vendor_ids)
+    // Org-own every client-supplied vendor id: another org's vendor is
+    // simply not found (reported per-vendor as vendor_not_found).
+    .eq('organization_id', org.id)
   // Read failures stop before any send: a failed vendor read would report
   // every vendor as missing, a failed existing-invitation read would try to
   // re-invite vendors who already have a link.
@@ -338,6 +362,12 @@ export async function inviteVendorsToRfp(
 export async function revokeRfpInvitation(
   invitationId: string,
 ): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const owned = await checkOrgOwned('rfp_invitations', invitationId, gate.orgId)
+  if (owned === 'not_found') return { ok: false, error: INVITATION_GONE }
+  if (owned === 'error') return { ok: false, error: REVOKE_FAILED }
+
   const supabase = await getSupabaseServerClient()
 
   // Invalidate the token. We keep the row so the audit trail shows
@@ -346,14 +376,15 @@ export async function revokeRfpInvitation(
     .from('rfp_invitations' as never)
     .update({ unique_submission_token: null } as never)
     .eq('id', invitationId)
+    .eq('organization_id', gate.orgId)
     .select('rfp_id')
     .single<{ rfp_id: string }>()
 
   if (error) {
     // .single() on zero matched rows: the invitation is gone (or not ours).
-    if (error.code === 'PGRST116') return { ok: false, error: 'That invitation no longer exists.' }
+    if (error.code === 'PGRST116') return { ok: false, error: INVITATION_GONE }
     logRouteFailure('rfp-invitations.revoke', error, { invitationId })
-    return { ok: false, error: 'We couldn’t revoke this invitation. Try again.' }
+    return { ok: false, error: REVOKE_FAILED }
   }
   revalidatePath(`/rfps/${row.rfp_id}`)
   return { ok: true }

@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { ParsableAttachment } from './vendor/attachment-text'
+import { extractPdfText } from '@/lib/pdf/extract-text'
 
 /**
  * Downloads and text-extracts each attachment, skipping any that fail.
@@ -38,19 +39,6 @@ export async function readPdfTexts(
 ): Promise<Array<{ fileName: string; text: string }>> {
   if (parsable.length === 0) return []
 
-  // Dynamic import: pdf-parse pulls a heavy native chain, and every call
-  // site in this app imports it this way rather than paying for it on the
-  // cold start of unrelated routes.
-  let pdfParse: (buffer: Buffer) => Promise<{ text: string }>
-  try {
-    pdfParse = (await import('pdf-parse')).default as typeof pdfParse
-  } catch (err) {
-    console.error(
-      `readPdfTexts: pdf-parse unavailable: ${err instanceof Error ? err.name : 'UnknownError'}`,
-    )
-    return []
-  }
-
   const texts: Array<{ fileName: string; text: string }> = []
   for (const attachment of parsable) {
     try {
@@ -58,16 +46,18 @@ export async function readPdfTexts(
         .from(bucket)
         .download(attachment.storagePath)
       if (dlError || !blob) {
+        // Name only: a storage message can echo the object path.
         console.error(
-          `readPdfTexts: download failed for attachment ${attachment.id}: ${dlError?.message ?? 'no body'}`,
+          `readPdfTexts: download failed for attachment ${attachment.id}: ${dlError?.name ?? 'no body'}`,
         )
         continue
       }
-      const parsed = await pdfParse(Buffer.from(await blob.arrayBuffer()))
-      texts.push({ fileName: attachment.fileName, text: parsed.text ?? '' })
+      // Shared hardened extractor (SEC-L7): byte/page caps and a timeout.
+      const parsed = await extractPdfText(new Uint8Array(await blob.arrayBuffer()))
+      texts.push({ fileName: attachment.fileName, text: parsed.text })
     } catch (err) {
       console.error(
-        `readPdfTexts: parse failed for attachment ${attachment.id}: ${err instanceof Error ? err.name : 'UnknownError'}`,
+        `readPdfTexts: parse failed for attachment ${attachment.id}: ${err instanceof Error ? err.name : 'UnknownError'}${err && typeof err === 'object' && 'code' in err ? ` (${String((err as { code: unknown }).code)})` : ''}`,
       )
     }
   }

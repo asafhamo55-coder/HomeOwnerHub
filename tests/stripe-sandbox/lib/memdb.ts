@@ -244,9 +244,14 @@ export function createMemDb(opts: { planCheck?: keyof typeof PLANS_BY_CHECK } = 
           const filters: Array<[string, string]> = []
           let order: { col: string; asc: boolean } | null = null
           let limit = Infinity
+          const isNull: string[] = []
           const q = {
             eq(col: string, value: string) {
               filters.push([col, value])
+              return q
+            },
+            is(col: string, _value: null) {
+              isNull.push(col)
               return q
             },
             order(col: string, o: { ascending: boolean }) {
@@ -261,7 +266,7 @@ export function createMemDb(opts: { planCheck?: keyof typeof PLANS_BY_CHECK } = 
               onfulfilled?: ((v: SelectResult) => T1 | PromiseLike<T1>) | null,
               onrejected?: ((reason: unknown) => T2 | PromiseLike<T2>) | null,
             ): PromiseLike<T1 | T2> {
-              return Promise.resolve(runSelect(table, filters, order, limit)).then(onfulfilled, onrejected)
+              return Promise.resolve(runSelect(table, filters, order, limit, isNull)).then(onfulfilled, onrejected)
             },
           }
           return q
@@ -282,10 +287,18 @@ export function createMemDb(opts: { planCheck?: keyof typeof PLANS_BY_CHECK } = 
     return s.audit as unknown as Array<Record<string, unknown>>
   }
 
-  function runSelect(table: string, filters: Array<[string, string]>, order: { col: string; asc: boolean } | null, limit: number): SelectResult {
+  function runSelect(
+    table: string,
+    filters: Array<[string, string]>,
+    order: { col: string; asc: boolean } | null,
+    limit: number,
+    isNull: string[] = [],
+  ): SelectResult {
     const injected = takeInjectedFailure()
     if (injected) return { data: null, error: injected }
-    let rows = rowsOf(state, table).filter((r) => filters.every(([c, v]) => field(r, c) === v))
+    let rows = rowsOf(state, table).filter(
+      (r) => filters.every(([c, v]) => field(r, c) === v) && isNull.every((c) => (field(r, c) ?? null) === null),
+    )
     if (order) {
       const { col, asc } = order
       rows = [...rows].sort((a, b) => {

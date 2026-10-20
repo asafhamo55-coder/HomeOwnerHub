@@ -96,7 +96,10 @@ const config: NextConfig = {
   // bundled pdfkit fails at runtime trying to read Helvetica.afm. Marking
   // it as a server-external package keeps it as a runtime node_modules
   // import, which can find its own data files.
-  serverExternalPackages: ['pdfkit'],
+  // pdfjs-dist (SEC-L7 PDF text extraction): its legacy build and worker
+  // module are loaded at runtime from node_modules, not bundled; the worker
+  // is imported explicitly (lib/pdf/extract-text.ts) so tracing sees it.
+  serverExternalPackages: ['pdfkit', 'pdfjs-dist'],
   images: {
     remotePatterns: [
       // Supabase Storage signed URLs for violation photos.

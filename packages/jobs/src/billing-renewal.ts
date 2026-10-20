@@ -140,6 +140,9 @@ async function termClaimed(db: Db, orgId: string, term: string): Promise<boolean
     .eq('org_id', orgId)
     .eq('action', RENEWAL_NOTICE_AUDIT_ACTION)
     .contains('metadata', { term })
+    // Only the job's own claims (service role, user_id null): a board
+    // member can insert audit rows as themselves and pre-claim a term.
+    .is('user_id', null)
     .limit(1)
   if (error) throw Object.assign(new Error('claim_read_failed'), { code: error.code })
   return Array.isArray(data) && data.length > 0

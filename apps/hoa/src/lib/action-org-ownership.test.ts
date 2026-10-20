@@ -143,9 +143,16 @@ const { runBidComparison, getBidDocumentSignedUrl } = await import('./bids')
 const { runComplianceCheck, deleteVendorDocument, getVendorDocumentSignedUrl, deleteVendor } = await import('./vendors')
 const { createRfpDraft, publishRfp, cancelRfp } = await import('./rfps')
 const { askStateLawAction } = await import('./state-law')
-const { sendTestAlert } = await import('./events')
+const { sendTestAlert, createEvent, updateEvent } = await import('./events')
 const { BOARD_ONLY_DENIED } = await import('./accounting/guard')
 const { inviteMember } = await import('./members')
+const { inviteVendorsToRfp, revokeRfpInvitation, listRfpInvitations } = await import('./rfp-invitations')
+const { revokeInvitation } = await import('./vendor-invitations')
+const ASSOC_MINE = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+const ASSOC_THEIRS = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+const RESIDENT_THEIRS = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+const INV_MINE = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const INV_THEIRS = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 const PROPERTY_MINE = '88888888-8888-4888-8888-888888888888'
 const PROPERTY_THEIRS = '99999999-9999-4999-8999-999999999999'
 
@@ -171,10 +178,23 @@ beforeEach(() => {
     ],
     bids: [{ id: 'bid-x', organization_id: OTHER_ORG, raw_document_path: `${OTHER_ORG}/rfps/${RFP_THEIRS}/bids/v/a.pdf` }],
     rfp_line_items: [{ id: 'li-1', rfp_id: RFP_MINE }],
-    associations: [{ id: 'assoc-1', organization_id: ORG, state: 'GA' }],
+    associations: [
+      { id: 'assoc-1', organization_id: ORG, state: 'GA' },
+      { id: ASSOC_THEIRS, organization_id: OTHER_ORG, state: 'FL' },
+      { id: ASSOC_MINE, organization_id: ORG, state: 'GA' },
+    ],
+    property_residents: [{ id: RESIDENT_THEIRS, organization_id: OTHER_ORG }],
     hoa_properties: [
       { id: PROPERTY_MINE, org_id: ORG },
       { id: PROPERTY_THEIRS, org_id: OTHER_ORG },
+    ],
+    rfp_invitations: [
+      { id: INV_MINE, organization_id: ORG, rfp_id: RFP_MINE, vendor_id: VENDOR_MINE },
+      { id: INV_THEIRS, organization_id: OTHER_ORG, rfp_id: RFP_THEIRS, vendor_id: VENDOR_THEIRS },
+    ],
+    vendor_onboarding_invitations: [
+      { id: INV_MINE, organization_id: ORG },
+      { id: INV_THEIRS, organization_id: OTHER_ORG },
     ],
     hoa_recurring_events: [
       { id: EVENT_THEIRS, organization_id: OTHER_ORG, association_id: 'assoc-2', title: 'x' },
@@ -379,5 +399,89 @@ describe('inviteMember propertyId', () => {
     await expect(
       inviteMember({ email: 'new@example.com', role: 'resident', propertyId: PROPERTY_MINE } as never),
     ).rejects.toThrow('service role reached')
+  })
+})
+
+describe('RFP and vendor-onboarding invitations (security review 2026-10-20 follow-up)', () => {
+  it('resident: every invitation action is refused before any read or write', async () => {
+    h.role = 'resident'
+    expect(await inviteVendorsToRfp({ rfpId: RFP_MINE, vendorIds: [VENDOR_MINE] })).toEqual({ ok: false, error: BOARD_ONLY_DENIED })
+    expect(await revokeRfpInvitation(INV_MINE)).toEqual({ ok: false, error: BOARD_ONLY_DENIED })
+    expect(await revokeInvitation(INV_MINE)).toEqual({ ok: false, error: BOARD_ONLY_DENIED })
+    expect(await listRfpInvitations(RFP_MINE)).toEqual([])
+    expect(h.reads).toEqual([])
+    expect(h.writes).toEqual([])
+  })
+
+  it("inviteVendorsToRfp: another org's RFP is not found, nothing written", async () => {
+    expect(await inviteVendorsToRfp({ rfpId: RFP_THEIRS, vendorIds: [VENDOR_MINE] })).toEqual({ ok: false, error: 'RFP not found.' })
+    expect(h.writes).toEqual([])
+  })
+
+  it('inviteVendorsToRfp: vendor and RFP reads are filtered to the caller org', async () => {
+    h.db.rfps![0] = { ...h.db.rfps![0], status: 'open', title: 'T', rfp_number: 'R-1', submission_deadline: '2099-01-01', association_id: null }
+    await inviteVendorsToRfp({ rfpId: RFP_MINE, vendorIds: [VENDOR_THEIRS] })
+    const vendorRead = h.reads.find((r) => r.table === 'vendors')
+    expect(vendorRead?.filters.organization_id).toBe(ORG)
+    const rfpReads = h.reads.filter((r) => r.table === 'rfps')
+    expect(rfpReads.every((r) => r.filters.organization_id === ORG)).toBe(true)
+    expect(h.writes.filter((w) => w.table === 'rfp_invitations')).toEqual([])
+  })
+
+  it("revokeRfpInvitation / revokeInvitation: another org's invitation is not found, nothing written", async () => {
+    expect(await revokeRfpInvitation(INV_THEIRS)).toEqual({ ok: false, error: 'That invitation no longer exists.' })
+    expect(await revokeInvitation(INV_THEIRS)).toEqual({ ok: false, error: 'That invitation no longer exists.' })
+    expect(await revokeRfpInvitation('not-a-uuid')).toEqual({ ok: false, error: 'That invitation no longer exists.' })
+    expect(h.writes).toEqual([])
+  })
+
+  it('revokeRfpInvitation / revokeInvitation: board revokes its own, scoped to its org', async () => {
+    expect(await revokeInvitation(INV_MINE)).toEqual({ ok: true })
+    await revokeRfpInvitation(INV_MINE)
+    expect(h.writes.map((w) => [w.table, w.filters.id, w.filters.organization_id])).toEqual([
+      ['vendor_onboarding_invitations', INV_MINE, ORG],
+      ['rfp_invitations', INV_MINE, ORG],
+    ])
+  })
+
+  it("listRfpInvitations: another org's RFP returns nothing without reading its invitations", async () => {
+    expect(await listRfpInvitations(RFP_THEIRS)).toEqual([])
+    expect(h.reads.some((r) => r.table === 'rfp_invitations')).toBe(false)
+  })
+})
+
+describe('recurring events org-own their association and residents', () => {
+  const base = {
+    title: 'Annual meeting',
+    event_date: '2026-11-01',
+    recurrence: 'annual' as const,
+    alert_days_before: 7,
+    notify_channels: ['email' as const],
+    notify_audience: { kind: 'everyone' as const },
+  }
+
+  it("createEvent refuses another org's association before writing", async () => {
+    const res = await createEvent({ ...base, association_id: ASSOC_THEIRS })
+    expect(res).toEqual({ ok: false, error: 'That community was not found.' })
+    expect(h.writes).toEqual([])
+  })
+
+  it("createEvent / updateEvent refuse another org's residents before writing", async () => {
+    const audience = { kind: 'specific_residents' as const, residentIds: [RESIDENT_THEIRS] }
+    expect(await createEvent({ ...base, notify_audience: audience })).toEqual({
+      ok: false,
+      error: 'One of the chosen residents was not found.',
+    })
+    expect(await updateEvent(EVENT_MINE, { notify_audience: audience })).toEqual({
+      ok: false,
+      error: 'One of the chosen residents was not found.',
+    })
+    expect(h.writes).toEqual([])
+  })
+
+  it("createEvent with the org's own association writes", async () => {
+    const res = await createEvent({ ...base, association_id: ASSOC_MINE })
+    expect(res.ok).toBe(true)
+    expect(h.writes.map((w) => w.table)).toEqual(['hoa_recurring_events'])
   })
 })

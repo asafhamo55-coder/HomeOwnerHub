@@ -48,6 +48,8 @@ import * as stateLaw from './state-law'
 import * as approvals from './approvals'
 import * as events from './events'
 import { listBoardMembers } from './communications/actions'
+import * as rfpInvitations from './rfp-invitations'
+import * as vendorInvitations from './vendor-invitations'
 
 // Server actions are public POST endpoints: the (dashboard) layout
 // redirecting residents does not stop one calling an action id directly.
@@ -156,6 +158,12 @@ describe('board-only server actions refuse a resident before touching the databa
     ['getBidDocumentSignedUrl (bid PDFs)', () => bids.getBidDocumentSignedUrl('org-1/rfps/x/bids/y/a.pdf'), null],
     ['getVendorDocumentSignedUrl (COI / W-9)', () => getVendorDocumentSignedUrl('org-1/vendors/x/w9/a.pdf'), null],
     ['listBoardMembers (board contact details via the service role)', () => listBoardMembers(), []],
+    ['inviteVendorsToRfp (emails vendors bid links)', () => rfpInvitations.inviteVendorsToRfp({ rfpId: ID, vendorIds: [ID] }), DENIED],
+    ['revokeRfpInvitation', () => rfpInvitations.revokeRfpInvitation(ID), DENIED],
+    ['listRfpInvitations (vendor names + bid status)', () => rfpInvitations.listRfpInvitations(ID), []],
+    ['listInvitableVendors', () => rfpInvitations.listInvitableVendors(ID, ID), []],
+    ['createInvitation (vendor onboarding email)', () => vendorInvitations.createInvitation({ inviteeEmail: 'v@example.com' }), DENIED],
+    ['revokeInvitation (vendor onboarding)', () => vendorInvitations.revokeInvitation(ID), DENIED],
     ['sendTestAlert (service-role audience send)', () => events.sendTestAlert(ID), { ok: false, error: "You don't have permission to perform this action." }],
   ]
 

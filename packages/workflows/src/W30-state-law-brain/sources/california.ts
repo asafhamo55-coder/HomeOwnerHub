@@ -33,7 +33,7 @@ import { decodeEntities } from './florida'
 import { normalizeStatuteBody } from './normalize'
 import type { FetchedSections, RangeGetter, RangeResponse, StateLawAdapter, StatuteRecord } from './types'
 import { SourceUnavailableError } from './types'
-import { ZIP_TAIL_BYTES, entryRange, extractEntry, locateCentralDirectory, readCentralDirectory, type ZipEntry } from './zip'
+import { MAX_CENTRAL_DIRECTORY_BYTES, ZIP_TAIL_BYTES, entryRange, extractEntry, locateCentralDirectory, readCentralDirectory, type ZipEntry } from './zip'
 
 const BASE = 'https://downloads.leginfo.legislature.ca.gov'
 const SECTION_TABLE = 'LAW_SECTION_TBL.dat'
@@ -298,6 +298,7 @@ async function readArchive(http: RangeGetter, url: string, tail: RangeResponse):
 
   const tailBytes = tail.parts[0]
   const cdLoc = locateCentralDirectory(tailBytes, total - tailBytes.length)
+  if (cdLoc.size > MAX_CENTRAL_DIRECTORY_BYTES) throw new SourceUnavailableError('zip: central directory is too large')
   const cdStart = cdLoc.offset
   const cdEnd = cdLoc.offset + cdLoc.size - 1
   const tailStart = total - tailBytes.length

@@ -93,3 +93,41 @@ describe('stripAudienceForPersist', () => {
     expect(stripAudienceForPersist(audience)).toEqual(audience)
   })
 })
+
+describe('resolveAudience — specific_residents is org-scoped (security review 2026-10-20)', () => {
+  function scopedDb() {
+    const filters: Array<{ table: string; col: string; v: unknown }> = []
+    const from = (table: string) => {
+      const q: Record<string, unknown> = {}
+      const rows = () => {
+        if (table === 'associations') return { data: { organization_id: 'org-1' }, error: null }
+        if (table === 'property_residents') {
+          const all = [
+            { id: 'r-mine', property_id: 'p-1', organization_id: 'org-1', full_name: 'Mine', email: 'm@example.com', phone: null, role: 'owner' },
+            { id: 'r-theirs', property_id: 'p-2', organization_id: 'org-2', full_name: 'Theirs', email: 't@example.com', phone: null, role: 'owner' },
+          ]
+          const org = filters.find((f) => f.table === table && f.col === 'organization_id')?.v
+          return { data: org ? all.filter((r) => r.organization_id === org) : all, error: null }
+        }
+        return { data: [], error: null }
+      }
+      for (const m of ['select', 'in', 'is', 'order', 'limit']) q[m] = () => q
+      q.eq = (col: string, v: unknown) => {
+        filters.push({ table, col, v })
+        return q
+      }
+      q.maybeSingle = async () => rows()
+      q.then = (ok: (r: unknown) => unknown) => Promise.resolve(rows()).then(ok)
+      return q
+    }
+    return { from } as never
+  }
+
+  it("drops another org's resident ids even through a service-role client", async () => {
+    const result = await resolveAudience(scopedDb(), 'assoc-1', {
+      kind: 'specific_residents',
+      residentIds: ['r-mine', 'r-theirs'],
+    })
+    expect(result.recipients.map((r) => r.recipientName)).toEqual(['Mine'])
+  })
+})

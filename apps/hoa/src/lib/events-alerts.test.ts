@@ -420,3 +420,25 @@ describe('notifyBoardAlertGaveUp', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+describe('stored association is re-scoped to the org (security review 2026-10-20)', () => {
+  it("another org's association id is never used to resolve residents", async () => {
+    results['associations.select'] = (c) =>
+      c.filters.some(([m, col, v]) => m === 'eq' && col === 'organization_id' && v === 'org-1') &&
+      c.filters.some(([m, col, v]) => m === 'eq' && col === 'id' && v === 'assoc-foreign')
+        ? { data: null, error: null }
+        : { data: { id: 'x', name: 'Maple', type: 'hoa' }, error: null }
+    await sendEventAlertEmail({
+      event: { ...event, association_id: 'assoc-foreign', notify_audience: { kind: 'everyone' } },
+      organizationId: 'org-1',
+      today: '2026-10-13',
+    })
+    expect(resolveAudience).not.toHaveBeenCalled()
+    expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it("the org's own association still resolves", async () => {
+    await sendEventAlertEmail({ event, organizationId: 'org-1', today: '2026-10-13' })
+    expect(resolveAudience).toHaveBeenCalledWith(expect.anything(), 'assoc-1', expect.anything())
+  })
+})
