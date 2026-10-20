@@ -5,6 +5,8 @@ import { attachmentView } from '@/lib/inbox/attachment-state'
 import { formatMessageTimestamp } from '@/lib/format-datetime'
 import { AttachmentRetryButton } from './AttachmentRetryButton'
 import { SaveToDocumentsButton } from './SaveToDocumentsButton'
+import { ScanAsBillButton } from './ScanAsBillButton'
+import { looksLikeBillFile } from '@/lib/bill-scan/file-rules'
 
 type Attachment = ThreadMessage['attachments'][number]
 
@@ -20,6 +22,7 @@ export function AttachmentChip({ file }: { file: Attachment }) {
 
   if (view.kind === 'stored') {
     // BL-101 A8: a stored file can be filed into the documents library.
+    // BL-059: a stored PDF or photo can be scanned into a bill proposal.
     return (
       <span className="inline-flex max-w-full flex-wrap items-center gap-1">
         <a
@@ -34,6 +37,7 @@ export function AttachmentChip({ file }: { file: Attachment }) {
           <Download className="size-3.5 shrink-0 text-muted" aria-hidden />
         </a>
         <SaveToDocumentsButton attachmentId={file.id} fileName={file.fileName} />
+        {looksLikeBillFile(file.fileName) ? <ScanAsBillButton attachmentId={file.id} fileName={file.fileName} /> : null}
       </span>
     )
   }

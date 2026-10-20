@@ -16,7 +16,12 @@ const h = vi.hoisted(() => ({
   pdfText: 'INVOICE SL-2210 Sample Landscaping Co total 1200.00',
   scanBill: vi.fn(),
   proposeApproval: vi.fn(),
+  quota: vi.fn(),
+  linkRun: vi.fn(),
 }))
+
+// BL-059: the scan draws on the shared board_ai limit (scan-core.ts).
+vi.mock('@/lib/api/rate-limit', () => ({ checkAndRecordAiUsage: h.quota, linkAiUsageToRun: h.linkRun }))
 
 vi.mock('@/lib/auth', () => ({
   getCurrentUserRole: vi.fn(async () =>
@@ -108,6 +113,33 @@ beforeEach(() => {
   h.pdfText = 'INVOICE SL-2210 Sample Landscaping Co total 1200.00'
   h.scanBill.mockReset().mockResolvedValue(SCAN)
   h.proposeApproval.mockReset().mockResolvedValue({ id: 'req-1', status: 'proposed', created: true })
+  h.quota.mockReset().mockResolvedValue({ usageId: 'usage-1' })
+  h.linkRun.mockReset().mockResolvedValue(undefined)
+})
+
+describe('POST /api/accounting/bill-scan — AI limit (BL-059)', () => {
+  it('draws on the shared board_ai bucket once, and links the usage to the run', async () => {
+    expect((await POST(req(bill()))).status).toBe(201)
+    expect(h.quota).toHaveBeenCalledTimes(1)
+    expect(h.quota).toHaveBeenCalledWith('board_ai', { orgId: 'org-1', userId: 'user-1' })
+    expect(h.linkRun).toHaveBeenCalledWith('usage-1', 'run-1')
+  })
+
+  it('over the limit is 429 rate_limited, and nothing is uploaded or scanned', async () => {
+    const { ApiRouteError } = await import('@/lib/api/errors')
+    h.quota.mockRejectedValueOnce(new ApiRouteError('rate_limited', 'limit', { reason: 'org_limit', retryAfterSeconds: 60 }, { 'Retry-After': '60' }))
+    const res = await POST(req(bill()))
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('60')
+    expect(h.uploads).toEqual([])
+    expect(h.scanBill).not.toHaveBeenCalled()
+  })
+
+  it('a duplicate file spends no quota', async () => {
+    h.existing = [{ id: 'req-old' }]
+    await POST(req(bill()))
+    expect(h.quota).not.toHaveBeenCalled()
+  })
 })
 
 describe('POST /api/accounting/bill-scan — gate', () => {

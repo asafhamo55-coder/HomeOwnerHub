@@ -10,11 +10,13 @@ import { renderToStaticMarkup } from 'react-dom/server'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/lib/inbox/actions', () => ({ setThreadStatus: vi.fn() }))
 vi.mock('@/lib/inbox/attachment-file', () => ({ saveAttachmentToDocuments: vi.fn() }))
+vi.mock('@/lib/inbox/attachment-bill', () => ({ scanAttachmentAsBill: vi.fn() }))
 vi.mock('@/lib/inbox/saved-replies-actions', () => ({ resolveSavedReply: vi.fn() }))
 
 const { MobileActionBar } = await import('./MobileActionBar')
 const { SaveToDocumentsButton } = await import('./SaveToDocumentsButton')
 const { SavedReplyPicker } = await import('./SavedReplyPicker')
+const { ScanAsBillButton } = await import('./ScanAsBillButton')
 
 const html = (el: React.ReactElement) => renderToStaticMarkup(el).replace(/<!-- -->/g, '')
 const buttons = (markup: string) => markup.match(/<button\b[^>]*>/g) ?? []
@@ -38,6 +40,14 @@ describe('SaveToDocumentsButton', () => {
     const label = markup.match(/aria-label="([^"]+)"/)?.[1]
     expect(markup).toContain('Save to documents')
     expect(label).toBe('Save to documents: gate-quote.pdf')
+  })
+})
+
+describe('ScanAsBillButton', () => {
+  it('has an accessible name that starts with its visible label (2.5.3 Label in Name)', () => {
+    const markup = html(<ScanAsBillButton attachmentId="a1" fileName="invoice-42.pdf" />)
+    expect(markup).toContain('Scan as a bill')
+    expect(markup.match(/aria-label="([^"]+)"/)?.[1]).toBe('Scan as a bill: invoice-42.pdf')
   })
 })
 

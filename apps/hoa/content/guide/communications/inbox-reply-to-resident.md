@@ -6,7 +6,7 @@ topic: communications
 roles: [admin, board]
 routes: ["/inbox", "/inbox/[id]", "/inbox/compose"]
 primary_route: /inbox
-keywords: [messages, inbox, drafts, unsent reply, to one resident, replies to announcements, reply, save to documents, file attachment, documents library, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, overdue, keyboard shortcuts, next email]
+keywords: [messages, inbox, scan as a bill, invoice by email, emailed invoice, vendor invoice, bill attachment, drafts, unsent reply, to one resident, replies to announcements, reply, save to documents, file attachment, documents library, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, overdue, keyboard shortcuts, next email]
 related: [inbox-answer-similar-questions, inbox-connect-mailbox, communications-send-announcement, communications-segments-sms]
 reviewed: 2026-10-20
 ---
@@ -38,6 +38,8 @@ If the resident writes back to a closed conversation, it reopens in **Needs revi
 - **Sending this reply failed**: the reply may still have reached the resident. Check the thread or the mailbox's Sent folder first. [[Write a new draft]] starts a fresh draft. It does not resend the old one.
 - "This file is already in the documents library.": that attachment was filed before. Find it in **Documents**.
 - [[Save to documents]] takes PDF, Word and text files up to 50 MB, the same as uploading in **Documents**. For a photo, download it instead.
+- "This PDF has no readable text (it is probably a scan).": [[Scan as a bill]] can't read a scanned PDF. Save a photo or screenshot of the bill and use **Scan a bill** on the **Enter a bill** page, or enter it by hand.
+- A message that you or your community reached the limit of **board AI drafts**: bill scans share your community's daily board AI limit. Try again later, or enter the bill by hand.
 - An attachment on a resident's email says "couldn’t download": select [[Retry]]. It tries again on its own up to 4 times first. A file marked too large or not available can only be opened in Gmail.
 
 ## Good to know
@@ -56,6 +58,8 @@ If the resident writes back to a closed conversation, it reopens in **Needs revi
 - To write a brand-new email, select [[New message]], then [[To one resident]], then [[Start writing]]. It appears in the Inbox within a couple of minutes after it sends.
 - [[Forward]] at the top of a thread sends the resident's email on to someone else.
 - To file an attachment in your documents library, select [[Save to documents]] on it, give it a name and pick its type. A copy goes to **Documents** with "(from email, date)" added to its name. The email keeps its own copy.
+- When a vendor emails the association an invoice, select [[Scan as a bill]] on the PDF or photo, then [[Scan bill]]. AI reads only the file, not the email, and sends a bill to **Approvals** with the vendor, amount, due date and a suggested expense account filled in. Nothing is entered or paid until a board member checks it and selects [[Approve & enter]]. See [enter a vendor bill](guide:accounting-enter-pay-bills).
+- Anyone can email the association, so check the vendor and the amount on a scanned bill against what you expect before approving it. The bill's card in **Approvals** has [[Open the email it came from]].
 - CC&R, bylaws and rules documents are visible to every resident in the portal. File a resident's attachment as **Other** unless it's meant for the whole community.
 - When several residents ask the same thing, you can [answer them all at once](guide:inbox-answer-similar-questions).
 - For a message to many homes at once, select [[New message]], then [[To many homes]]. See [send an announcement](guide:communications-send-announcement).

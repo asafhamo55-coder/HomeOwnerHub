@@ -86,6 +86,39 @@ describe('editFormFrom', () => {
   })
 })
 
+describe('origin — the link back to an inbox email (BL-059)', () => {
+  const THREAD = '99999999-9999-4999-8999-999999999991'
+  const ATT = '99999999-9999-4999-8999-999999999992'
+  const fromInbox = () =>
+    buildBillProposal(scan(), {
+      associationId: ASSOC,
+      storagePath: 'org-1/bills/x.pdf',
+      contentType: 'application/pdf',
+      source: 'pdf_text',
+      vendors: VENDORS,
+      accounts: ACCOUNTS,
+      origin: { kind: 'inbox_attachment', threadId: THREAD, attachmentId: ATT },
+    }).payload
+
+  it('an upload carries no origin; a scanned attachment carries the thread and attachment ids only', () => {
+    expect(payload().origin).toBeUndefined()
+    expect(fromInbox().origin).toEqual({ kind: 'inbox_attachment', threadId: THREAD, attachmentId: ATT })
+  })
+
+  it('survives the stored round trip and a board edit', () => {
+    const p = readBillPayload(JSON.parse(JSON.stringify(fromInbox())))!
+    expect(p.origin?.threadId).toBe(THREAD)
+    const r = applyBillEdit(p, { ...same(p), invoiceNumber: 'SL-9' }, CTX)
+    if (!r.ok) throw new Error(r.error)
+    expect(r.payload.origin).toEqual(p.origin)
+  })
+
+  it('a malformed origin makes the payload unreadable rather than linking anywhere', () => {
+    const bad = { ...fromInbox(), origin: { kind: 'inbox_attachment', threadId: 'not-a-uuid', attachmentId: ATT } }
+    expect(readBillPayload(bad)).toBeNull()
+  })
+})
+
 describe('applyBillEdit — what changed', () => {
   it('records nothing when nothing changed', () => {
     const p = payload()

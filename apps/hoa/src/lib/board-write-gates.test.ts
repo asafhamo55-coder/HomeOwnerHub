@@ -21,6 +21,7 @@ import * as recordSearch from '../app/api/search/route'
 import * as billScan from '../app/api/accounting/bill-scan/route'
 import * as billScanActions from './bill-scan/actions'
 import * as coiRequest from './vendor-coi-request/actions'
+import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { approveVendor, getPrimaryAssociation } from '@/lib/vendors'
@@ -107,6 +108,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['deleteCommunication', () => commActions.deleteCommunication(ID), DENIED],
     ['sendCommunication', () => commSend.sendCommunication({} as never), DENIED],
     ['editBillProposal (BL-059: the only write path to a proposal payload)', () => billScanActions.editBillProposal({ approvalRequestId: ID }), DENIED],
+    ['scanAttachmentAsBill (BL-059: runs W36 on an inbox attachment and files a proposal with the service role)', () => attachmentBill.scanAttachmentAsBill(ID), DENIED],
     ['sendCoiRequest (BL-083: emails a vendor)', () => coiRequest.sendCoiRequest({ vendorId: ID, subject: 's', body: 'b' }), DENIED],
     ['loadCoiRequestDraft (BL-083)', () => coiRequest.loadCoiRequestDraft(ID), { ok: false, reason: 'not_found' }],
   ]

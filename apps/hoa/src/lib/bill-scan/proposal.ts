@@ -36,6 +36,22 @@ type Confidence = z.infer<typeof Confidence>
 const Str = z.string().max(500)
 const field = <T extends z.ZodTypeAny>(v: T) => z.object({ value: v.nullable(), confidence: Confidence })
 
+/**
+ * Where the bill came from when it was not uploaded on /accounting/invoices/new:
+ * "Scan as a bill" on an inbox attachment records the thread and attachment
+ * here, so /approvals can link back to the email. It lives on the proposal's
+ * payload because no column can hold it yet: inbox_thread_links has no
+ * approval-request type and hoa_documents/invoices have no source column
+ * (candidate for migration 0065, with B5's source_inbox_attachment_id).
+ * Ids only — never the subject, the sender or the file name.
+ */
+const BillOriginSchema = z.object({
+  kind: z.literal('inbox_attachment'),
+  threadId: z.string().uuid(),
+  attachmentId: z.string().uuid(),
+})
+export type BillOrigin = z.infer<typeof BillOriginSchema>
+
 const BillPayloadSchema = z.object({
   kind: z.literal(BILL_ACTION),
   version: z.literal(1),
@@ -65,6 +81,8 @@ const BillPayloadSchema = z.object({
     confidence: Confidence,
   }),
   warnings: z.array(Str).max(20),
+  /** Absent for an upload. Kept through edits (applyBillEdit spreads the parsed payload). */
+  origin: BillOriginSchema.optional(),
   /**
    * BL-059: the fields a board member corrected before approving, who did
    * it last and when. Absent until the first edit. The AI's own reading
@@ -155,6 +173,7 @@ export interface BuildContext {
   source: 'pdf_text' | 'image'
   vendors: VendorCandidate[]
   accounts: AccountCandidate[]
+  origin?: BillOrigin
 }
 
 export interface BillProposal {
@@ -203,6 +222,7 @@ export function buildBillProposal(scan: BillScanOutput & { runId: string }, ctx:
         }
       : { accountId: null, label: null, reasoning: null, confidence: 'low' },
     warnings: warnings.slice(0, 20),
+    ...(ctx.origin ? { origin: ctx.origin } : {}),
   }
 
   return { payload, summary: billSummary(payload), amount: scan.total.value }

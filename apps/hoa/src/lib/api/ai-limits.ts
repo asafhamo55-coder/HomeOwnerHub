@@ -168,7 +168,9 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
   // BL-104 — the board-only AI routes that had no limit: violation drafts
   // (wizard and the /inspect offline queue; follow-up letters keep their own
   // bucket), analyze-violation, the daily digest, parse-document,
-  // suggest-fields, meeting-summary and ask-community. One combined per-org
+  // suggest-fields, meeting-summary and ask-community. Since BL-059 also the
+  // bill scan (the "Scan a bill" upload and "Scan as a bill" on an inbox
+  // attachment, lib/bill-scan/scan-core.ts). One combined per-org
   // daily ceiling, shared with `compose`: 200 on Complete (the base here),
   // 100 on Essentials (BOARD_AI_DAILY). The per-person window is only a
   // runaway guard; an /inspect queue flushing a walkthrough fits under it.
