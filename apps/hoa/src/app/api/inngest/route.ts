@@ -31,12 +31,8 @@ import { duesReminderDeps } from '@/lib/dues-reminders/auto-deps'
 import { monthlyReportDeps } from '@/lib/monthly-report/deps'
 import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
 import { dispatchScheduledCommunication } from '@/lib/communications/scheduled-dispatch'
-<<<<<<< HEAD
-import { AI_CALL_COST_ESTIMATE_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
-import { billingStripePort } from '@/lib/billing-stripe-port'
-=======
 import { AI_SPEND_ALERT_COST_PER_CALL_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
->>>>>>> 5bb3a730
+import { billingStripePort } from '@/lib/billing-stripe-port'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
