@@ -949,3 +949,13 @@ These go beyond the design-system v2 pass:
   - official notices;
   - delivery status.
   Design it alongside BL-101 (inbox), so both sides of resident communication feel like one place. Phase 1 is a research plan, docs/research/2026-10-communications-plan.md. Phase 2 builds the pieces that need no migration.
+- **BL-103 Stripe sandbox test suite (owner, 2026-10-19):** an automated suite that runs every payment path against Stripe test mode, as a GitHub workflow.
+  - **Card:** success, decline and 3-D Secure.
+  - **ACH:** us_bank_account, including micro-deposit and instant verification.
+  - **Link:** if enabled.
+  - **Checkout:** each plan and door-count tier.
+  - **Subscription lifecycle:** using test clocks (trial, renewal, failed payment and dunning, cancel, upgrade and downgrade).
+  - **Customer portal.**
+  - **Every webhook event the app handles:** signed payloads, idempotency and out-of-order delivery.
+
+  It needs Stripe test-mode keys (`STRIPE_TEST_SECRET_KEY`, plus a test webhook secret) stored as GitHub secrets. Only Asaf can create these. The suite skips cleanly while they're missing.
