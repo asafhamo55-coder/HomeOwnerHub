@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
+import { VIOLATION_STATUSES, VIOLATION_STATUS_NOT_LIVE, isViolationStatusLive, type ViolationStatus } from '@/lib/violation-statuses'
 import { approveViolationDraftWith, rejectViolationDraftWith, saveViolationDraftEditsWith } from '@/lib/violation-drafts'
 import {
   CURE_COMMITMENT_AUDIT,
@@ -412,6 +412,11 @@ export async function updateViolationStatus(
       error: parsed.error.issues[0]?.message ?? 'Invalid input.',
       fieldErrors: fieldErrorsOf(parsed.error.issues, { status: 'status', resolutionNote: 'resolutionNote' }),
     }
+  }
+  // Fined / Dismissed are refused by the database until migration 0066
+  // part 5 is applied (VIOLATION_FINED_STATUS_LIVE). Say so, write nothing.
+  if (!isViolationStatusLive(parsed.data.status)) {
+    return { ok: false, error: VIOLATION_STATUS_NOT_LIVE, fieldErrors: { status: VIOLATION_STATUS_NOT_LIVE } }
   }
 
   const supabase = await getSupabaseServerClient()

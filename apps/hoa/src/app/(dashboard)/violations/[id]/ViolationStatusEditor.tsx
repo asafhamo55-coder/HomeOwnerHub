@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { Alert, Button, Field, Select, Textarea, useToast } from '@homeowner-portal/ui'
 import { updateViolationStatus } from '@/lib/violations'
-import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
+import { selectableViolationStatuses, type ViolationStatus } from '@/lib/violation-statuses'
 import { VIOLATION_STATUS } from '@/lib/status/community'
 import { StateLawCheckPanel } from '@/components/compliance/StateLawCheckPanel'
 import { resolveOverrides, type DriftCheck, type DriftCode, type OverrideReason } from '@/lib/compliance/statute-drift'
@@ -78,7 +78,7 @@ export function ViolationStatusEditor({ violationId, currentStatus, currentResol
           onValueChange={(v) => setStatus(v as ViolationStatus)}
           disabled={isPending}
         >
-          {VIOLATION_STATUSES.map((s) => (
+          {selectableViolationStatuses(currentStatus).map((s) => (
             <option key={s} value={s}>
               {VIOLATION_STATUS.labels[s] ?? s}
             </option>

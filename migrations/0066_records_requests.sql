@@ -3,7 +3,7 @@
 -- Apply: docs/specs/2026-10-20-sql-runbook.md, Section I. Needs 0024
 -- (tickets). Independent of 0063–0065.
 --
--- Four parts, each idempotent (safe to run any number of times):
+-- Five parts, each idempotent (safe to run any number of times):
 --
 --   1. tickets.category CHECK also allows 'records_request'. Every value
 --      0024 allowed is kept. Before this, inserting a records request
@@ -35,10 +35,20 @@
 --      functions, apps/hoa/src/lib/platform-admin.ts); no user-client
 --      code updates orgs at all. Service role and direct SQL (no JWT)
 --      are unaffected. Touches only orgs; needs no helper function.
+--   5. hoa_violations.status CHECK also allows 'fined' and 'dismissed'
+--      (live bug: the status editor offers both, apps/hoa/src/lib/
+--      violation-statuses.ts, but 0000_schema.sql's
+--      hoa_violations_status_check only allows open, notice_drafted,
+--      notice_sent, resolved, waived, so saving either fails with 23514).
+--      Every value 0000 allowed is kept. The fine flow also writes
+--      fine_start_date, resolved_at and resolution_note; all three exist
+--      since 0000, so no column is added.
 --
--- Nothing reads or writes either until RECORDS_REQUESTS_LIVE
--- (packages/db/src/records-requests.ts) is flipped; that is a separate
--- one-line change after this is applied.
+-- Nothing reads or writes parts 1-3 until RECORDS_REQUESTS_LIVE
+-- (packages/db/src/records-requests.ts) is flipped, and the app offers
+-- Fined / Dismissed only once VIOLATION_FINED_STATUS_LIVE
+-- (packages/db/src/violation-statuses.ts) is; each is a separate one-line
+-- change after this is applied.
 --
 -- No table rewrite (a nullable column with no default is metadata-only),
 -- no backfill. All-or-nothing.
@@ -169,5 +179,31 @@ DROP TRIGGER IF EXISTS orgs_billing_columns_guard ON public.orgs;
 CREATE TRIGGER orgs_billing_columns_guard
   BEFORE UPDATE ON public.orgs
   FOR EACH ROW EXECUTE FUNCTION public.orgs_billing_columns_guard();
+
+-- ── 5. hoa_violations.status CHECK ────────────────────────────────────
+-- 0000 declared it as hoa_violations_status_check. Same shape as part 1:
+-- drop every CHECK on hoa_violations that mentions status (the severity
+-- check does not), then add the widened one under the canonical name.
+-- Existing rows already satisfy the wider list, so the ADD validates
+-- instantly.
+DO $$
+DECLARE
+  c record;
+BEGIN
+  FOR c IN
+    SELECT conname
+      FROM pg_constraint
+     WHERE conrelid = 'public.hoa_violations'::regclass
+       AND contype = 'c'
+       AND pg_get_constraintdef(oid) ILIKE '%status%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.hoa_violations DROP CONSTRAINT %I', c.conname);
+  END LOOP;
+END $$;
+
+ALTER TABLE public.hoa_violations ADD CONSTRAINT hoa_violations_status_check CHECK (status IN (
+  'open', 'notice_drafted', 'notice_sent', 'resolved', 'waived',
+  'fined', 'dismissed'
+));
 
 COMMIT;

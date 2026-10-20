@@ -30,6 +30,8 @@ vi.mock('@/lib/orgs', () => ({ getCurrentOrg: vi.fn(async () => ({ id: ORG, name
 vi.mock('@/lib/collections/letters/load', () => ({ loadLetterContext: vi.fn(async () => state.ctx) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient: vi.fn() }))
+// Fined is gated behind migration 0066 part 5; BL-130 runs with it on.
+vi.mock('@homeowner-portal/db/violation-statuses', () => ({ VIOLATION_FINED_STATUS_LIVE: true }))
 vi.mock('@homeowner-portal/workflows', () => ({
   proposeApproval: vi.fn(async (_db: unknown, args: Record<string, unknown>) => {
     state.proposed.push(args)
