@@ -7,18 +7,18 @@ roles: [admin]
 routes: ["/settings/mailbox", "/inbox"]
 primary_route: /settings/mailbox
 keywords: [mailbox, gmail, google, connect, link email, hoa email, inbox setup, sync, import, reconnect, disconnect, label, scope, email account, google workspace, resident email, hook up, come into the app]
-related: [inbox-reply-to-resident, members-invite-board]
-reviewed: 2026-10-18
+related: [inbox-reply-to-resident, communications-send-announcement, members-invite-board]
+reviewed: 2026-10-20
 ---
 
-Do this once, so the email residents send to your HOA address shows up in **Inbox** next to each home's dues and ARC history.
+Do this once, so the email residents send to your HOA address shows up in **Messages**, on the **Inbox** tab, next to each home's dues and ARC history.
 
 ## Before you start
 - Only HOA admins can connect or disconnect the mailbox. Board members can read the Inbox but not change this.
 - You need the sign-in for the HOA's Google (Gmail) account.
 
 ## Steps
-1. Open **HOA mailbox** in the Account section of the sidebar. From an empty **Inbox** you can also select [[Connect mailbox]].
+1. Open **HOA mailbox** in the Account section of the sidebar. From **Messages** with no mailbox connected you can also select [[Connect mailbox]].
 2. Select [[Continue with Google]] and sign in to the HOA's Google account. Allow access when Google asks.
 3. Back on **HOA mailbox**, choose **Which mail should HomeownerHub see?**: mail sent to a specific address, only mail with a Gmail label, or everything in this inbox.
 4. Select [[Save scope]].

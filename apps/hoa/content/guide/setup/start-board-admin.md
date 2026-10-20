@@ -11,7 +11,7 @@ shots:
   - name: guide-dashboard-setup
     alt: The "Get your HOA set up" card on the dashboard, with the Invite the board step highlighted
 related: [setup-properties-residents, members-invite-board, dues-generate-monthly, documents-governing-and-ask]
-reviewed: 2026-10-17
+reviewed: 2026-10-20
 ---
 
 HomeownerHub keeps your board's work in one place: homes and residents, dues, violations, architectural requests, meetings and mail. Its AI drafts letters and answers, but nothing is posted or sent until someone on the board approves it. Start with the setup checklist at the top of your dashboard.
@@ -24,7 +24,7 @@ HomeownerHub keeps your board's work in one place: homes and residents, dues, vi
 ![[guide-dashboard-setup]]
 
 ### The six steps
-- [[Connect the HOA mailbox]]: resident email comes into the Inbox, filed under the right home.
+- [[Connect the HOA mailbox]]: resident email comes into **Messages**, filed under the right home.
 - [[Add your properties]]: every address in the community. Each home you add can be billed straight away. See [Add your properties and residents](guide:setup-properties-residents).
 - [[Add owners and residents]]: who lives where, so mail and dues match a person.
 - [[Upload governing documents]]: your CC&Rs and bylaws, so answers cite your own rules. See [Upload your governing documents](guide:documents-governing-and-ask).

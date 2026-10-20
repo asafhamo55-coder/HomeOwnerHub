@@ -6,19 +6,19 @@ topic: communications
 roles: [admin, board]
 routes: ["/inbox", "/inbox/[id]", "/inbox/compose"]
 primary_route: /inbox
-keywords: [inbox, reply, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, overdue, keyboard shortcuts, next email]
-related: [inbox-connect-mailbox, communications-send-announcement]
-reviewed: 2026-10-19
+keywords: [messages, inbox, to one resident, replies to announcements, reply, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, overdue, keyboard shortcuts, next email]
+related: [inbox-connect-mailbox, communications-send-announcement, communications-segments-sms]
+reviewed: 2026-10-20
 ---
 
-Use the Inbox to answer one resident's email. The reply goes out from your HOA mailbox.
+Use the **Inbox** tab in **Messages** to answer one resident's email. The reply goes out from your HOA mailbox.
 
 ## Before you start
 - An HOA admin must connect the HOA mailbox first. See [connect the HOA mailbox](guide:inbox-connect-mailbox).
 - Board members and admins can both read and reply.
 
 ## Steps
-1. Open **Inbox** from the sidebar and select a conversation. Use the filters, like **Needs review** or **All**, to find it. **Mine** and **Unassigned** narrow the list to conversations assigned to you, or to nobody.
+1. Open **Messages** from the sidebar. It opens on the **Inbox** tab. Select a conversation. Use the filters, like **Needs review** or **All**, to find it. **Mine** and **Unassigned** narrow the list to conversations assigned to you, or to nobody.
 2. Read the thread. The panel beside it shows who wrote, the home's balance and last payment, open violations, ARC requests and tickets, earlier conversations, and the document sections that match the email. Select any of them to open it.
 3. When the resident wrote last, AI starts a draft as soon as you open the conversation. You see **Drafting…** while it writes. If no draft appears, select [[Draft a reply]]. The draft uses your documents and this home's record, like its balance or the status of a request.
 4. Read the draft. Edit **To**, **Subject** and **Message**. Fill in or remove every highlighted blank, and check the **Sources** it quotes.
@@ -50,6 +50,7 @@ If the resident writes back to a closed conversation, it reopens in **Needs revi
 - Keyboard: **j** and **k** move between conversations, **a** approves and closes, **e** edits the draft, **c** closes, and **?** lists the shortcuts. Select [[Shortcuts]] to see them.
 - Attachments on one message can total up to 15 MB.
 - If an email isn't filed under a home yet, pick the home in the side panel and select [[File under property]].
-- To write a brand-new email, select [[New email]] on the Inbox, then [[Start writing]]. It appears in the Inbox within a couple of minutes after it sends.
+- To write a brand-new email, select [[New message]], then [[To one resident]], then [[Start writing]]. It appears in the Inbox within a couple of minutes after it sends.
 - [[Forward]] at the top of a thread sends the resident's email on to someone else.
-- For a message to many homes at once, use [Communications](guide:communications-send-announcement) instead.
+- For a message to many homes at once, select [[New message]], then [[To many homes]]. See [send an announcement](guide:communications-send-announcement).
+- Residents' replies to your announcements are under [[Replies to announcements]] on the Inbox tab. They are read-only there, with the home's dues, violations and ARC beside them, and a link to the announcement's results.

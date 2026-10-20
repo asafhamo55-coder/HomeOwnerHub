@@ -14,7 +14,7 @@ reviewed: 2026-10-20
 Use this when a message is only for some people, or should also go out as a text. The basic send is in [send an announcement](guide:communications-send-announcement).
 
 ## Steps
-1. Open **Communications** and select [[New message]].
+1. Open **Messages**, select [[New message]], then [[To many homes]].
 2. Under **Audience**, pick who gets it: **All homes**, **All owners**, **Renters**, **Homes behind on dues**, **Homes with an open violation**, **A street** or **One home**. Under **More options** are **Board** and **Someone outside the HOA** (like a vendor or your attorney). Each one shows how many people it reaches right now.
 3. For **A street**, choose the street, like "Elm St (12 homes)". Tick **Owners only** to leave out renters.
 4. For **One home**, choose the home, then tick the people living there. [[Owners]], [[Tenants]], [[All]] and [[None]] tick them for you. For **Board**, tick the board members. For **Someone outside the HOA**, type a name, email or US phone and select [[Add]].

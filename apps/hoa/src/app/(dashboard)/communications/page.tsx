@@ -26,8 +26,12 @@ import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS } from '@/lib/status/commu
 import { CategoryFilter } from './CategoryFilter'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { getCurrentUserRole } from '@/lib/auth'
+import { activeMessagesTab, canSeeInboxTab } from '@/lib/messages/tabs'
+import { MessagesTabs } from '@/components/messages/MessagesTabs'
+import { NewMessageMenu } from '@/components/messages/NewMessageMenu'
 
-export const metadata = { title: 'Communications' }
+export const metadata = { title: 'Messages' }
 export const dynamic = 'force-dynamic'
 
 /** Icon per channel, so a row is scannable without reading "Email" each time. */
@@ -43,12 +47,14 @@ const CHANNEL_LABEL: Record<string, string> = {
   portal: 'Portal',
 }
 
-/** Status chips, in the order a board thinks about them. */
-const STATUS_FILTERS = ['draft', 'scheduled', 'sent', 'failed'] as const
+/**
+ * Status chips on the "Sent to residents" tab, in the order a board thinks
+ * about them. Drafts are their own Messages tab (BL-102 A11), so they are
+ * not a chip here; A9 already keeps them out of "All".
+ */
+const STATUS_FILTERS = ['scheduled', 'sent', 'failed'] as const
 
-/** BL-102 A9: autosaved drafts get their own chip and stay out of "All". */
 const STATUS_CHIP_LABEL: Record<(typeof STATUS_FILTERS)[number], string> = {
-  draft: 'Drafts',
   scheduled: COMMUNICATION_STATUS.labels.scheduled,
   sent: COMMUNICATION_STATUS.labels.sent,
   failed: COMMUNICATION_STATUS.labels.failed,
@@ -67,7 +73,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   const assoc = await timed('/communications', 'communications.association', () => getPrimaryAssociation())
   if (!assoc) {
     return (
-      <Page title="Communications" width="narrow">
+      <Page title="Messages" width="narrow">
         <EmptyState
           icon={<MessageSquare aria-hidden />}
           title="No HOA association configured"
@@ -83,6 +89,9 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   }
 
   const sp = await searchParams
+  // Memoized per request (lib/orgs), so the Inbox-tab gate costs no query.
+  const roleCtx = await getCurrentUserRole()
+  const showInboxTab = canSeeInboxTab(roleCtx?.role)
   const category = sp.category && sp.category in COMMUNICATION_CATEGORY ? sp.category : undefined
   const status = sp.status && sp.status in COMMUNICATION_STATUS.labels ? sp.status : undefined
   const page = parsePageParam(sp.page)
@@ -239,15 +248,19 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   return (
     <Page
       width="wide"
-      title="Communications"
-      description="Every message sent to your community — welcomes, dues reminders, violation notices, ARC decisions and announcements — with who received it."
-      actions={
-        <Button asChild>
-          <Link href="/communications/new">
-            <Plus aria-hidden />
-            New message
-          </Link>
-        </Button>
+      title="Messages"
+      description={
+        showingDrafts
+          ? 'Messages to residents you started and haven’t sent yet.'
+          : 'Every message sent to your community — welcomes, dues reminders, violation notices, ARC decisions and announcements — with who received it.'
+      }
+      actions={<NewMessageMenu />}
+      tabs={
+        <MessagesTabs
+          active={activeMessagesTab('/communications', status)}
+          showInbox={showInboxTab}
+          draftCount={draftCount}
+        />
       }
     >
       {!result.ok ? (
@@ -308,24 +321,25 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
           )}
 
           <ListToolbar>
-            <FilterChips
-              label="Filter by status"
-              linkAs={Link}
-              items={[
-                { label: 'All', href: hrefFor({}), active: !status },
-                ...STATUS_FILTERS.map((s) => ({
-                  label: STATUS_CHIP_LABEL[s],
-                  href: hrefFor({ status: s }),
-                  active: status === s,
-                  ...(s === 'draft' && draftCount ? { count: draftCount } : {}),
-                })),
-              ]}
-            />
+            {showingDrafts ? null : (
+              <FilterChips
+                label="Filter by status"
+                linkAs={Link}
+                items={[
+                  { label: 'All', href: hrefFor({}), active: !status },
+                  ...STATUS_FILTERS.map((s) => ({
+                    label: STATUS_CHIP_LABEL[s],
+                    href: hrefFor({ status: s }),
+                    active: status === s,
+                  })),
+                ]}
+              />
+            )}
             <CategoryFilter category={category} status={status} />
           </ListToolbar>
 
           <DataTable
-            caption="Communications"
+            caption={showingDrafts ? 'Drafts' : 'Sent to residents'}
             columns={columns}
             rows={rows}
             rowKey={(c) => c.id}

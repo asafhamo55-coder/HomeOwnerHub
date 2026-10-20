@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Inbox, MailPlus, PenSquare, Plug } from 'lucide-react'
+import { Inbox, MailPlus, Plug } from 'lucide-react'
 import { Button, EmptyState, Page, PageHeader, Pager } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -7,9 +7,11 @@ import {
   countThreadsByStatus,
   getDraftById,
   getMailboxStatus,
+  getPropertyContext,
   listThreads,
   INBOX_PAGE_SIZE,
   type InboxFilter,
+  type PropertyContext,
 } from '@/lib/inbox/queries'
 import { SplitPaneFrame, SplitPaneHeader, SplitPanePlaceholder } from '@/components/split-pane/SplitPane'
 import { ThreadList } from './ThreadList'
@@ -27,6 +29,13 @@ import { loadInboxSlaHours } from '@/lib/inbox/waiting'
 import { listAssignees } from '@/lib/inbox/assignees'
 import { InboxKeyboard } from './InboxKeyboard'
 import { UndoSendBanner } from './[id]/UndoSendBanner'
+import { getPrimaryAssociation } from '@/lib/vendors'
+import { canSeeInboxTab } from '@/lib/messages/tabs'
+import { getAnnouncementReply, listAnnouncementReplies } from '@/lib/messages/announcement-replies'
+import { MessagesTabs } from '@/components/messages/MessagesTabs'
+import { NewMessageMenu } from '@/components/messages/NewMessageMenu'
+import { InboxSourceChips } from '@/components/messages/InboxSourceChips'
+import { AnnouncementReplies } from '@/components/messages/AnnouncementReplies'
 
 export const metadata = { title: 'Inbox' }
 export const dynamic = 'force-dynamic'
@@ -39,7 +48,7 @@ export const dynamic = 'force-dynamic'
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string; owner?: string; undo?: string; from?: string }>
+  searchParams: Promise<{ filter?: string; page?: string; owner?: string; undo?: string; from?: string; view?: string; reply?: string }>
 }) {
   const params = await searchParams
   const owner = parseOwnerFilter(params.owner)
@@ -52,6 +61,16 @@ export default async function InboxPage({
   // but must not be sent to a page that will bounce them.
   const { org, role } = await requireBoardOrAdmin()
   const canManageMailbox = role === 'admin'
+  // BL-102 A11: this page is the Messages area's Inbox tab. The tab bar
+  // reuses the gate above (canSeeInboxTab mirrors requireBoardOrAdmin).
+  const showInboxTab = canSeeInboxTab(role)
+
+  // "Replies to announcements": read-only, from communication_replies, and
+  // independent of the Gmail mailbox (they arrive through Resend), so it
+  // renders before — and regardless of — the mailbox checks below.
+  if (params.view === 'replies') {
+    return renderAnnouncementReplies(org.id, params)
+  }
 
   const filter = (INBOX_FILTERS.find((f) => f.key === params.filter)?.key ??
     'needs_review') as InboxFilter
@@ -117,7 +136,18 @@ export default async function InboxPage({
 
   if (statusRead === null) {
     return (
-      <Page title="Inbox" width="narrow" description="Resident email, matched to the homes it is about.">
+      <Page
+        title="Messages"
+        width="narrow"
+        description="Resident email, matched to the homes it is about."
+        actions={<NewMessageMenu />}
+        tabs={
+          <div className="space-y-3">
+            <MessagesTabs active="inbox" showInbox={showInboxTab} />
+            <InboxSourceChips view="email" />
+          </div>
+        }
+      >
         <EmptyState
           icon={<Plug aria-hidden />}
           title="No mailbox connected"
@@ -151,18 +181,13 @@ export default async function InboxPage({
     <SplitPaneFrame>
       <SplitPaneHeader>
         <PageHeader
-          title="Inbox"
+          title="Messages"
           description={status ? mailboxSummary(status) : 'Mailbox status unavailable'}
-          actions={
-            <Button asChild>
-              <Link href="/inbox/compose">
-          <PenSquare aria-hidden />
-          New email
-        </Link>
-            </Button>
-          }
+          actions={<NewMessageMenu />}
         />
+        <MessagesTabs active="inbox" showInbox={showInboxTab} />
         <div className="flex flex-wrap items-center gap-2">
+          <InboxSourceChips view="email" />
           <InboxFilterChips filter={filter} owner={owner} counts={counts} />
           <InboxOwnerChips filter={filter} owner={owner} />
         </div>
@@ -253,5 +278,50 @@ export default async function InboxPage({
         />
       </div>
     </SplitPaneFrame>
+  )
+}
+
+/**
+ * The Inbox tab's "Replies to announcements" view (BL-102 A11, read-only).
+ * A failed list read throws to (dashboard)/error.tsx like the thread list;
+ * a failed home read only costs the home panel.
+ */
+async function renderAnnouncementReplies(orgId: string, params: { page?: string; reply?: string }) {
+  const supabase = await getSupabaseServerClient()
+  const assoc = await getPrimaryAssociation()
+  const associationName = assoc?.name ?? 'your HOA'
+  const requested = Number.parseInt(params.page ?? '1', 10)
+  const page = Number.isFinite(requested) && requested >= 1 ? requested : 1
+  const isId = (value: string | undefined): value is string => Boolean(value && /^[0-9a-f-]{36}$/i.test(value))
+
+  const [{ rows, total }, selected] = await Promise.all([
+    listAnnouncementReplies(supabase, orgId, associationName, { page }),
+    isId(params.reply) ? getAnnouncementReply(supabase, orgId, associationName, params.reply) : Promise.resolve(null),
+  ])
+
+  let home: PropertyContext | null = null
+  let homeFailed = false
+  if (selected?.unitId) {
+    try {
+      home = await getPropertyContext(supabase, orgId, selected.unitId)
+    } catch (err) {
+      homeFailed = true
+      console.error('InboxPage: announcement reply home failed', {
+        orgId,
+        replyId: selected.id,
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  return (
+    <AnnouncementReplies
+      replies={rows}
+      total={total}
+      page={page}
+      selected={selected}
+      home={home}
+      homeFailed={homeFailed}
+    />
   )
 }

@@ -13,7 +13,7 @@ shots:
   - name: guide-meetings-packet
     alt: A board packet with the Print / Save as PDF button highlighted
 related: [approvals-queue]
-reviewed: 2026-10-17
+reviewed: 2026-10-20
 ---
 
 Schedule the meeting, bring the board packet, then file the minutes when it is over.
@@ -44,7 +44,7 @@ Upcoming meetings show under **Upcoming** on the Meetings page. Filed minutes sh
 
 ## Good to know
 - The board packet holds the agenda, last meeting's action items, the income statement, balance sheet, budget against actual, who is behind on dues, open violations and open ARC applications. It lists delinquent homes, so it is for the board only. It is never sent from the app.
-- Scheduling a meeting does not notify anyone. Send a message from Communications.
+- Scheduling a meeting does not notify anyone. Send one from **Messages** with [[New message]].
 - Filed minutes are saved as their own meeting record. They are not added to a meeting you scheduled earlier.
 - Action items are not pulled from the minutes. Add them yourself.
 - Have minutes from before you used HomeownerHub? Use [[Record minutes]] and paste them in.
