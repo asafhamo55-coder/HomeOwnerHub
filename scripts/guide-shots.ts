@@ -114,7 +114,7 @@ export const GUIDE_SHOTS: GuideShot[] = [
     clip: '[role=dialog]',
   },
   // 10. communications-send-announcement
-  { name: 'guide-communications-list', path: '/communications', route: '/communications', auth: true, clip: MAIN, highlight: 'a:has-text("New message") >> visible=true' },
+  { name: 'guide-communications-list', path: '/communications', route: '/communications', auth: true, clip: MAIN, highlight: 'button:has-text("New message") >> visible=true' },
   {
     name: 'guide-communications-new',
     path: '/communications/new',

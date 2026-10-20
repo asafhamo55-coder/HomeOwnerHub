@@ -74,7 +74,7 @@ export const BOARD_FIRST_WEEK_STEPS: readonly FirstWeekStep[] = [
     title: 'Send an announcement',
     description: 'One message to residents by email, text and the portal.',
     href: guideHref('communications-send-announcement'),
-    secondary: { href: '/communications', label: 'Open Communications' },
+    secondary: { href: '/communications', label: 'Open Messages' },
     articleId: 'communications-send-announcement',
   },
 ]

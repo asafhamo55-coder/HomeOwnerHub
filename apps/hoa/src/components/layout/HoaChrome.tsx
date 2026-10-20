@@ -117,7 +117,7 @@ export function HoaCommandPalette({ role, helpArticles = [] }: { role: 'admin' |
     })
     const create: PaletteCommand[] = HOA_CREATE.map((l) => {
       const Icon = l.icon
-      return { id: `new:${l.href}`, label: l.label, group: 'Create', href: l.href, icon: <Icon aria-hidden /> }
+      return { id: `new:${l.href}`, label: l.label, group: 'Create', href: l.href, icon: <Icon aria-hidden />, keywords: l.keywords }
     })
     const prefs: PaletteCommand[] = [
       { id: 'theme:light', label: 'Use light theme', group: 'Preferences', icon: <Sun aria-hidden />, onSelect: () => setTheme('light'), keywords: ['appearance'] },

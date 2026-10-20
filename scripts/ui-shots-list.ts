@@ -155,6 +155,19 @@ export const SHOTS: Shot[] = [
   { name: 'meeting-packet-print', path: '/meetings/:meetingId/packet', auth: true, print: true, widths: [816] },
   { name: 'tickets', path: '/tickets', auth: true },
   { name: 'communications', path: '/communications', auth: true },
+  // BL-102 A11: the Messages area — the one "New message" button opened on
+  // its two choices, the Drafts tab, and the Inbox tab's read-only
+  // "Replies to announcements".
+  {
+    name: 'messages-new-menu',
+    path: '/communications',
+    auth: true,
+    click: 'button:has-text("New message") >> visible=true',
+    clickWaitFor: '[role="menu"]',
+    themes: LIGHT,
+  },
+  { name: 'messages-drafts', path: '/communications?status=draft', auth: true, themes: LIGHT },
+  { name: 'messages-announcement-replies', path: '/inbox?view=replies', auth: true },
   // BL-102: the composer's first step with the one-box "What do you want to
   // tell residents?" composer, the results page of a sent message, and its
   // follow-up opened on the Review step's phone preview (Continue once from

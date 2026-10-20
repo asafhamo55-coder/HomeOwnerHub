@@ -15,7 +15,7 @@ import { OrgSwitcher } from '@/components/layout/OrgSwitcher'
 import { WhatsNewVersionLink } from '@/components/layout/WhatsNewVersionLink'
 import type { UserHoaOrg } from '@/lib/orgs'
 import type { AppVersion as AppVersionInfo } from '@/lib/app-version'
-import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_NAV, isActive, type HoaNavLink } from './nav'
+import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_NAV, activeNavHref, type HoaNavLink } from './nav'
 
 interface HoaSidebarProps {
   currentOrgId: string
@@ -30,20 +30,10 @@ interface HoaSidebarProps {
   whatsNewLatestId?: string | null
 }
 
-/** The single most specific nav href that matches — so /settings/members
- *  lights "Members", not also "Settings". */
-function bestMatch(pathname: string, links: HoaNavLink[]): string | null {
-  let best: string | null = null
-  for (const l of links) {
-    if (isActive(pathname, l.href) && (!best || l.href.length > best.length)) best = l.href
-  }
-  return best
-}
-
 export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges, version, whatsNewLatestId = null }: HoaSidebarProps) {
   const pathname = usePathname()
   const account = role === 'admin' ? ADMIN_ACCOUNT : BOARD_ACCOUNT
-  const active = bestMatch(pathname, [...HOA_NAV.flatMap((g) => g.items), ...account])
+  const active = activeNavHref(pathname, [...HOA_NAV.flatMap((g) => g.items), ...account])
 
   const item = (link: HoaNavLink) => {
     const Icon = link.icon

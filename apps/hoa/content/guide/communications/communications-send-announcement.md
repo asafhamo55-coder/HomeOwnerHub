@@ -6,20 +6,20 @@ topic: communications
 roles: [admin, board]
 routes: ["/communications", "/communications/new", "/communications/[id]"]
 primary_route: /communications
-keywords: [draft, drafts, saved draft, autosave, save for later, unsent, finish later, resume, delete draft, announcement, phone preview, preview, send a test, test email, urgent, is this urgent, more options, street, follow up, reminder, haven't opened, draft it for me, ai draft, compose, what do you want to tell residents, plain editor, bold, bullet, edit as html, message, email, text, sms, newsletter, notice, broadcast, residents, send, schedule, send later, cancel, scheduled, delivery, template, templates, dues reminder, meeting notice, water shutoff, pool closing, holiday, welcome, severe weather, opted out, opt out, spanish, español, translate, translation, bilingual, second language]
+keywords: [messages, sent to residents, communications, new message, to many homes, draft, drafts, saved draft, autosave, save for later, unsent, finish later, resume, delete draft, announcement, phone preview, preview, send a test, test email, urgent, is this urgent, more options, street, follow up, reminder, haven't opened, draft it for me, ai draft, compose, what do you want to tell residents, plain editor, bold, bullet, edit as html, message, email, text, sms, newsletter, notice, broadcast, residents, send, schedule, send later, cancel, scheduled, delivery, template, templates, dues reminder, meeting notice, water shutoff, pool closing, holiday, welcome, severe weather, opted out, opt out, spanish, español, translate, translation, bilingual, second language]
 shots:
   - name: guide-communications-list
-    alt: The Communications page with the New message button highlighted
+    alt: The Sent to residents tab of Messages with the New message button highlighted
   - name: guide-communications-new
     alt: The New message composer with the Audience choices highlighted
-related: [arc-review-application, meetings-schedule-and-minutes]
+related: [inbox-reply-to-resident, communications-segments-sms, arc-review-application, meetings-schedule-and-minutes]
 reviewed: 2026-10-20
 ---
 
-Use Communications for anything the whole community, or a group of homes, should hear about, like a pool closing or a board meeting. If some of your owners speak Spanish, the app can translate the announcement for them, and you check it before it goes out.
+Use **Messages** for anything the whole community, or a group of homes, should hear about, like a pool closing or a board meeting. If some of your owners speak Spanish, the app can translate the announcement for them, and you check it before it goes out.
 
 ## Steps
-1. Open **Communications** from the sidebar and select [[New message]].
+1. Open **Messages** from the sidebar, select [[New message]], then [[To many homes]].
 2. Fastest way: in **What do you want to tell residents?**, say it in your own words, like "Water will be off Thursday 9 to 2 on Elm St", and select [[Draft it for me]]. AI fills in the audience, subject, message and channels, and takes you to the message to check. It leaves out anything you didn't say and lists it for you to add. Nothing is sent until you select Send. Or write it yourself: under **Start from a template**, pick one, such as **Dues reminder**, **Meeting notice**, **Water shutoff**, **Pool closing**, **Holiday office closure**, **Welcome new owner** or **Severe weather**, or pick **Write my own**. Your HOA's own templates are under **More templates**.
 3. Pick an **Audience**, such as All homes, All owners, Homes behind on dues or **A street**. Each choice shows how many people it reaches. Board and Someone outside the HOA are under **More options**. Select [[Continue]].
 4. If you picked a template, fill in the few details it asks for. Check the **Subject** and **Body**, or write your own. Write the body as plain text: leave a blank line between paragraphs, use [[Bold]] and [[Bullet]], and add [[Resident's name]] or [[HOA name]] to fill them in for each person.
@@ -30,9 +30,9 @@ Use Communications for anything the whole community, or a group of homes, should
 ![[guide-communications-new]]
 
 ## What happens next
-You land on the message's own page. **Did people get it?** says, per home, how many were reached by email or text and how many opened the email. To follow up, select **Email again to the … who haven't opened** (or **Text them**). That opens a new message, already filled in, for you to check and send. The **Homes** list has one row per home, with a chip for each way it went, like "Email: Opened", "Texted" or "In portal". Select **Delivery details** on a home to see each person and channel. Every message you send stays on the Communications page.
+You land on the message's own page. **Did people get it?** says, per home, how many were reached by email or text and how many opened the email. To follow up, select **Email again to the … who haven't opened** (or **Text them**). That opens a new message, already filled in, for you to check and send. The **Homes** list has one row per home, with a chip for each way it went, like "Email: Opened", "Texted" or "In portal". Select **Delivery details** on a home to see each person and channel. Every message you send stays under **Sent to residents** in Messages.
 
-Not ready to send? You don't need to do anything. The message saves as a draft a moment after you stop typing, and the bottom of the page says **Draft saved**. Later, open **Communications**, select the [[Drafts]] filter, and select [[Resume]] to pick up where you left off. To throw one away, select [[Delete draft]].
+Not ready to send? You don't need to do anything. The message saves as a draft a moment after you stop typing, and the bottom of the page says **Draft saved**. Later, open **Messages**, select the [[Drafts]] tab, and select [[Resume]] to pick up where you left off. To throw one away, select [[Delete draft]].
 
 ![[guide-communications-list]]
 
@@ -65,7 +65,7 @@ Not ready to send? You don't need to do anything. The message saves as a draft a
 - A text carries both languages only if both fit in 279 characters. If they don't, the text goes out in English only, and the **Review** step tells you. The email and the portal still carry both.
 - Changed your mind? Select [[Remove]] on the **Spanish version** box before you send, and the message goes out in English only.
 - The Spanish is an AI draft. Check names, dates and amounts against the English before you send.
-- Replies to an email show in **Replies** on that message's page. They do not go to the Inbox.
+- Replies to an email show in **Replies** on that message's page, and in Messages under **Inbox** → [[Replies to announcements]], next to the resident's home. They are read-only there: to answer, select [[New message]], then [[To one resident]].
 - **Send at** uses the time on your own computer. A scheduled message goes out within 5 minutes of that time.
 - To stop a scheduled message, open it and select [[Cancel scheduled message]]. Once it has started going out, it can't be cancelled.
 - The people who get a scheduled message are worked out when you schedule it, not when it goes out.

@@ -19,6 +19,7 @@ import {
   Mail,
   Megaphone,
   MessageSquare,
+  PenSquare,
   Scale,
   Send,
   Settings,
@@ -28,6 +29,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
+import { MESSAGES_PREFIXES } from '@/lib/messages/tabs'
 
 /**
  * The board navigation, in one place: the sidebar renders it and the ⌘K
@@ -44,6 +46,11 @@ export interface HoaNavLink {
   label: string
   /** Extra palette search terms. */
   keywords?: string[]
+  /**
+   * Extra path prefixes this item lights up for, beyond `href`. Messages
+   * (BL-102 A11) covers both /inbox/** and /communications/**.
+   */
+  match?: readonly string[]
 }
 
 export interface HoaNavGroup {
@@ -67,14 +74,22 @@ export const HOA_NAV: HoaNavGroup[] = [
   {
     label: 'Community',
     items: [
-      { href: '/inbox', icon: Mail, label: 'Inbox', keywords: ['email', 'mail'] },
+      // BL-102 A11: one "Messages" item over the Inbox and Communications
+      // pages (tabs live on the pages: components/messages/MessagesTabs).
+      // The old names stay as keywords so ⌘K muscle memory still lands.
+      {
+        href: '/inbox',
+        icon: Mail,
+        label: 'Messages',
+        match: MESSAGES_PREFIXES,
+        keywords: ['inbox', 'email', 'mail', 'communications', 'announcements', 'broadcast', 'sent', 'drafts', 'replies'],
+      },
       { href: '/properties', icon: Building2, label: 'Properties', keywords: ['units', 'homes', 'residents', 'owners'] },
       { href: '/leases', icon: KeyRound, label: 'Leases', keywords: ['rentals', 'tenants'] },
       { href: '/violations', icon: AlertTriangle, label: 'Violations', keywords: ['notices', 'compliance'] },
       { href: '/arc', icon: ClipboardCheck, label: 'ARC review', keywords: ['architectural', 'applications'] },
       { href: '/meetings', icon: CalendarDays, label: 'Meetings', keywords: ['minutes', 'agenda'] },
       { href: '/events', icon: CalendarHeart, label: 'Events' },
-      { href: '/communications', icon: Megaphone, label: 'Communications', keywords: ['announcements', 'broadcast'] },
       { href: '/tickets', icon: MessageSquare, label: 'Tickets', keywords: ['requests', 'maintenance'] },
     ],
   },
@@ -130,7 +145,9 @@ export const BOARD_ACCOUNT: HoaNavLink[] = [
 export const HOA_CREATE: HoaNavLink[] = [
   { href: '/violations/new', icon: AlertTriangle, label: 'New violation' },
   { href: '/inspect', icon: Camera, label: 'Inspect homes (drive-by photos)', keywords: ['inspection', 'walk', 'drive', 'camera', 'mobile'] },
-  { href: '/communications/new', icon: Megaphone, label: 'New message to residents' },
+  // The two halves of the Messages "New message" button, same wording.
+  { href: '/inbox/compose', icon: PenSquare, label: 'Email one resident', keywords: ['new email', 'compose', 'reply'] },
+  { href: '/communications/new', icon: Megaphone, label: 'New message to residents', keywords: ['announcement', 'broadcast', 'many homes'] },
   { href: '/meetings/schedule', icon: CalendarDays, label: 'Schedule a meeting' },
   { href: '/dues/new', icon: Wallet, label: 'Add a due' },
   { href: '/properties/new', icon: Building2, label: 'Add a property' },
@@ -140,4 +157,33 @@ export const HOA_CREATE: HoaNavLink[] = [
 export function isActive(pathname: string, href: string): boolean {
   if (href === '/') return pathname === '/'
   return pathname === href || pathname.startsWith(`${href}/`)
+}
+
+/**
+ * How specifically `link` matches `pathname`: the length of the longest of
+ * its `href` and `match` prefixes that is active, or 0 for no match. The
+ * sidebar lights the single most specific item.
+ */
+export function navMatchLength(pathname: string, link: Pick<HoaNavLink, 'href' | 'match'>): number {
+  let best = 0
+  for (const prefix of [link.href, ...(link.match ?? [])]) {
+    if (isActive(pathname, prefix)) best = Math.max(best, prefix.length)
+  }
+  return best
+}
+
+/** The single most specific nav href that matches — so /settings/members
+ *  lights "Members", not also "Settings", and /communications/new lights
+ *  "Messages" through its `match` prefixes (BL-102 A11). */
+export function activeNavHref(pathname: string, links: readonly HoaNavLink[]): string | null {
+  let best: string | null = null
+  let bestLen = 0
+  for (const l of links) {
+    const len = navMatchLength(pathname, l)
+    if (len > bestLen) {
+      best = l.href
+      bestLen = len
+    }
+  }
+  return best
 }
