@@ -107,9 +107,9 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-20 ~10:15 ET)
+## 4. State (updated 2026-10-20 08:20 ET)
 
-- **Live in prod:** `d80fadf`, deployed ~10:00 ET; the release-note email was sent. On top of 05adcce it adds:
+- **Live in prod:** `d80fadf`, deployed 07:50 ET; the release-note email was sent. On top of 05adcce it adds:
   - inbox sale window plus A4 "Create from email" (ticket, violation, ARC link, contact update, link existing);
   - communications A2 one-box AI composer and A3 plain-text editor, with an SMS preview;
   - Stripe `customer.subscription.updated`, `invoice.payment_failed`, a past-due banner, friendly checkout errors, and a fix for the portal redirect;
@@ -125,7 +125,7 @@ The single list is `docs/owner-actions.md` (OA-1, OA-2…). Asaf asked on 2026-1
 - Most urgent: OA-1, migrations 0063 then M1 (subscription webhook writes fail until then). Also OA-14: turn on the Stripe webhook events `customer.subscription.updated` and `invoice.payment_failed`.
 - **Asaf, 2026-10-20:** even with items pending on him, keep allocating backlog items to the team (3–4 agents always busy).
 
-## 6. Work in flight (2026-10-20 ~10:15 ET)
+## 6. Work in flight (2026-10-20 08:20 ET)
 
 Worktree agents dispatched this session. If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
 - **Inbox follow-ups:** honour the approvals "Filed from an email" label only for board submitters; "Insert into reply" for ack lines; saved replies; mobile triage.

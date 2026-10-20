@@ -482,7 +482,7 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Inngest:** communications-scheduled-dispatch is new. Confirm it appears in the Inngest dashboard after sync.
 - **Agents running:** Stripe follow-ups (subscription.updated, friendly errors); inbox sale window plus A4 convert.
 
-## 2026-10-20 (~10:00) — deploy d80fadf: inbox convert, AI composer, Stripe follow-ups, owner-actions email
+## 2026-10-20 (07:50) — deploy d80fadf: inbox convert, AI composer, Stripe follow-ups, owner-actions email
 
 - **Resumed** from next.md: hourly cron (`23 * * * *`) and a one-shot renewal (Oct 26 14:41) recreated; the three in-flight worktrees from §6 were finished by fresh agents.
 - **Live (d80fadf):**
