@@ -34,6 +34,11 @@ export interface CommunicationSummary {
 export interface ListCommunicationsFilters {
   category?: string
   status?: string
+  /**
+   * BL-102 A9: leave autosaved drafts out (the unfiltered list and its
+   * delivery figures). Drafts are listed only under the Drafts filter.
+   */
+  excludeDrafts?: boolean
   /** 1-based page. */
   page?: number
   pageSize?: number
@@ -73,6 +78,7 @@ export async function listCommunications(
 
   if (filters.category) q = q.eq('category', filters.category)
   if (filters.status) q = q.eq('status', filters.status)
+  else if (filters.excludeDrafts) q = q.neq('status', 'draft')
 
   const result = await loadOrFail('communications', q.range(from, from + pageSize - 1))
   if (!result.ok) return { ok: false }
@@ -289,4 +295,20 @@ export async function listTemplates(
     .order('organization_id', { ascending: true, nullsFirst: false })
     .order('name')
   return data ?? []
+}
+
+/**
+ * BL-102 A9: how many unsent drafts this association has, for the Drafts
+ * filter chip. Null when the count couldn't be read (the chip then shows
+ * no number rather than a wrong one).
+ */
+export async function countDrafts(associationId: string): Promise<number | null> {
+  const supabase = await getSupabaseServerClient()
+  const { count, error } = await supabase
+    .from('communications')
+    .select('id', { count: 'exact', head: true })
+    .eq('association_id', associationId)
+    .eq('status', 'draft')
+    .is('deleted_at', null)
+  return error ? null : (count ?? 0)
 }

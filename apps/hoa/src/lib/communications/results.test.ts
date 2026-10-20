@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { followUpAudience, reminderSubject, resultsHeadline, rollupByHome, type ResultRow } from './results'
+import {
+  followUpAudience,
+  groupRecipientsByHome,
+  homeLabel,
+  reminderSubject,
+  resultsHeadline,
+  rollupByHome,
+  type ResultRow,
+} from './results'
 import { buildFollowUpDraft } from './follow-up'
 import { composeBilingualHtml } from './bilingual'
 
@@ -127,5 +135,43 @@ describe('buildFollowUpDraft', () => {
 
   it('nothing for a message that has not been sent', () => {
     expect(buildFollowUpDraft({ ...base, status: 'scheduled' }, { associationName: 'x', via: 'email' })).toBeNull()
+  })
+})
+
+describe('groupRecipientsByHome (A8 table)', () => {
+  type Row = ResultRow & { recipient_name?: string | null }
+  const rows: Row[] = [
+    { id: 'r1', unit_id: 'u1', channel: 'portal', delivery_status: 'sent', recipient_name: 'Ana' },
+    { id: 'r2', unit_id: 'u1', channel: 'email', delivery_status: 'failed', recipient_name: 'Ana' },
+    { id: 'r3', unit_id: 'u1', channel: 'email', delivery_status: 'opened', recipient_name: 'Ben' },
+    { id: 'r4', unit_id: 'u2', channel: 'sms', delivery_status: 'delivered', recipient_name: 'Cy' },
+    { id: 'r5', unit_id: null, channel: 'email', delivery_status: 'sent', recipient_name: 'Board' },
+    { id: 'r6', unit_id: null, channel: 'email', delivery_status: 'sent', recipient_name: 'Guest' },
+  ]
+
+  it('one row per home, in first-seen order, homeless rows on their own', () => {
+    const g = groupRecipientsByHome(rows)
+    expect(g.map((x) => x.unitId)).toEqual(['u1', 'u2', null, null])
+    expect(g[0].rows.map((r) => r.id)).toEqual(['r1', 'r2', 'r3'])
+    expect(g[0].names).toEqual(['Ana', 'Ben'])
+  })
+
+  it('one chip per channel, email first, showing the furthest status and the count', () => {
+    const [u1] = groupRecipientsByHome(rows)
+    expect(u1.channels).toEqual([
+      { channel: 'email', status: 'opened', count: 2 },
+      { channel: 'portal', status: 'sent', count: 1 },
+    ])
+    expect(u1.hasProblem).toBe(true)
+  })
+
+  it('counts the same homes as the headline rollup', () => {
+    expect(groupRecipientsByHome(rows)).toHaveLength(rollupByHome(rows).homes)
+  })
+
+  it('labels a home by its address', () => {
+    expect(homeLabel({ address_line1: '12 Elm St', unit_number: null })).toBe('12 Elm St')
+    expect(homeLabel({ address_line1: '12 Elm St', unit_number: '3' })).toBe('12 Elm St · Unit 3')
+    expect(homeLabel(undefined)).toBeNull()
   })
 })

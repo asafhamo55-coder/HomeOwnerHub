@@ -124,6 +124,91 @@ export function followUpAudience(audienceDefinition: unknown, rollup: HomeRollup
   }
 }
 
+// ─── BL-102 A8: the recipients table, one row per home ──────────────────
+
+/** Most-progressed first: what a home's channel chip shows. A message that
+ *  reached someone outranks a failure on the same channel. */
+const STATUS_RANK: Record<string, number> = {
+  replied: 9,
+  clicked: 8,
+  opened: 7,
+  delivered: 6,
+  sent: 5,
+  queued: 4,
+  suppressed: 3,
+  bounced: 2,
+  failed: 1,
+}
+
+const CHANNEL_ORDER = ['email', 'sms', 'portal', 'mail']
+
+export interface HomeChannelChip {
+  channel: string
+  /** The furthest any of this home's rows on the channel got. */
+  status: string
+  /** Rows on this channel (two people at one home = 2). */
+  count: number
+}
+
+export interface HomeGroup<R> {
+  /** unit_id, or a per-row key for a recipient with no home. */
+  key: string
+  unitId: string | null
+  /** Distinct recipient names at the home, in row order. */
+  names: string[]
+  channels: HomeChannelChip[]
+  /** A row to this home failed, bounced or was suppressed. */
+  hasProblem: boolean
+  rows: R[]
+}
+
+const PROBLEM = new Set(['failed', 'bounced', 'suppressed'])
+
+function channelRank(channel: string): number {
+  const i = CHANNEL_ORDER.indexOf(channel)
+  return i === -1 ? CHANNEL_ORDER.length : i
+}
+
+/**
+ * Recipient rows grouped by home, in first-seen order, each with one chip
+ * per channel. The per-row detail stays on `rows` for the expanded view.
+ * Uses the same notion of "home" as rollupByHome, so the table and the
+ * headline count the same homes.
+ */
+export function groupRecipientsByHome<R extends ResultRow & { recipient_name?: string | null }>(
+  rows: readonly R[],
+): HomeGroup<R>[] {
+  const groups = new Map<string, HomeGroup<R>>()
+  rows.forEach((r, i) => {
+    const key = homeKey(r, i)
+    let g = groups.get(key)
+    if (!g) {
+      g = { key, unitId: r.unit_id, names: [], channels: [], hasProblem: false, rows: [] }
+      groups.set(key, g)
+    }
+    g.rows.push(r)
+    const name = r.recipient_name?.trim()
+    if (name && !g.names.includes(name)) g.names.push(name)
+    if (PROBLEM.has(r.delivery_status)) g.hasProblem = true
+    const chip = g.channels.find((c) => c.channel === r.channel)
+    if (!chip) {
+      g.channels.push({ channel: r.channel, status: r.delivery_status, count: 1 })
+    } else {
+      chip.count += 1
+      if ((STATUS_RANK[r.delivery_status] ?? 0) > (STATUS_RANK[chip.status] ?? 0)) chip.status = r.delivery_status
+    }
+  })
+  const out = [...groups.values()]
+  for (const g of out) g.channels.sort((a, b) => channelRank(a.channel) - channelRank(b.channel))
+  return out
+}
+
+/** "12 Elm St · Unit 3", from the unit's address columns. */
+export function homeLabel(unit: { address_line1: string | null; unit_number: string | null } | undefined): string | null {
+  if (!unit?.address_line1) return null
+  return unit.unit_number ? `${unit.address_line1} · Unit ${unit.unit_number}` : unit.address_line1
+}
+
 /** "Reminder: Water off Thursday", never "Reminder: Reminder: …". */
 export function reminderSubject(subject: string): string {
   const trimmed = subject.trim().replace(/^(reminder:\s*)+/i, '')

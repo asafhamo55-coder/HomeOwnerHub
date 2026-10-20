@@ -6,7 +6,7 @@ topic: communications
 roles: [admin, board]
 routes: ["/communications", "/communications/new", "/communications/[id]"]
 primary_route: /communications
-keywords: [announcement, phone preview, preview, send a test, test email, urgent, is this urgent, more options, street, follow up, reminder, haven't opened, draft it for me, ai draft, compose, what do you want to tell residents, plain editor, bold, bullet, edit as html, message, email, text, sms, newsletter, notice, broadcast, residents, send, schedule, send later, cancel, scheduled, delivery, template, templates, dues reminder, meeting notice, water shutoff, pool closing, holiday, welcome, severe weather, opted out, opt out, spanish, español, translate, translation, bilingual, second language]
+keywords: [draft, drafts, saved draft, autosave, save for later, unsent, finish later, resume, delete draft, announcement, phone preview, preview, send a test, test email, urgent, is this urgent, more options, street, follow up, reminder, haven't opened, draft it for me, ai draft, compose, what do you want to tell residents, plain editor, bold, bullet, edit as html, message, email, text, sms, newsletter, notice, broadcast, residents, send, schedule, send later, cancel, scheduled, delivery, template, templates, dues reminder, meeting notice, water shutoff, pool closing, holiday, welcome, severe weather, opted out, opt out, spanish, español, translate, translation, bilingual, second language]
 shots:
   - name: guide-communications-list
     alt: The Communications page with the New message button highlighted
@@ -30,7 +30,9 @@ Use Communications for anything the whole community, or a group of homes, should
 ![[guide-communications-new]]
 
 ## What happens next
-You land on the message's own page. **Did people get it?** says, per home, how many were reached by email or text and how many opened the email. To follow up, select **Email again to the … who haven't opened** (or **Text them**). That opens a new message, already filled in, for you to check and send. The **Recipients** list shows each person's delivery status. Every message you send stays on the Communications page.
+You land on the message's own page. **Did people get it?** says, per home, how many were reached by email or text and how many opened the email. To follow up, select **Email again to the … who haven't opened** (or **Text them**). That opens a new message, already filled in, for you to check and send. The **Homes** list has one row per home, with a chip for each way it went, like "Email: Opened", "Texted" or "In portal". Select **Delivery details** on a home to see each person and channel. Every message you send stays on the Communications page.
+
+Not ready to send? You don't need to do anything. The message saves as a draft a moment after you stop typing, and the bottom of the page says **Draft saved**. Later, open **Communications**, select the [[Drafts]] filter, and select [[Resume]] to pick up where you left off. To throw one away, select [[Delete draft]].
 
 ![[guide-communications-list]]
 
@@ -39,6 +41,8 @@ You land on the message's own page. **Did people get it?** says, per home, how m
 - "Answer every question before scheduling. Still blank: …": a scheduled message is saved with your answers filled in, so every detail it asks for needs an answer. Fill in the ones named, or send it now.
 - "This message has different details for each home, so it can't be scheduled.": send it now instead.
 - "Couldn't check residents' message preferences. Nothing was sent.": try again in a moment.
+- "The draft couldn't be saved": your changes are still on the page. Keep going and it tries again, or check your connection.
+- "This draft was sent or deleted. Changes here aren't saved.": it was sent or deleted in another tab. Start a new message if you still need one.
 - "Nobody matches right now": no one in that audience has contact details on file. Pick another audience.
 - Some recipients failed: open the message to see who. If emails failed, the page offers to resend to them.
 - "Read the Spanish version and tick the box before sending.": you added a Spanish version but haven't confirmed it yet. If you change the English afterwards, the tick clears and you confirm again.
@@ -50,6 +54,7 @@ You land on the message's own page. **Did people get it?** says, per home, how m
 - "The English changed after this was translated.": select [[Translate again]], or update the Spanish yourself, then tick the box again.
 
 ## Good to know
+- A draft is never sent and nobody receives it. Drafts aren't in the main list or the delivery figures. When you send one, it leaves Drafts and becomes a sent message.
 - An AI draft flags any time, date or amount that is not in what you typed under **Check these**. Fix or remove it before sending.
 - If you name a street ("water off on Elm St"), AI picks **A street** with that street, when it's one of your homes' streets. If it isn't, AI says so and you pick the audience.
 - A designed template (with a layout the simple editor can't keep) opens as HTML. You can still change the words. [[Edit as HTML]] is there for anyone who prefers it.

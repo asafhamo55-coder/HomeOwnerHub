@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { ArrowLeft, ArrowRight, CalendarClock, Send } from 'lucide-react'
 import {
   Alert,
@@ -37,6 +37,10 @@ import {
 } from '@/lib/communications/channel-defaults'
 import { streetAudienceLabel, type StreetOption } from '@/lib/communications/streets'
 import type { FollowUpDraft } from '@/lib/communications/follow-up'
+import { DRAFT_STATE_VERSION, UNTITLED_DRAFT, draftHref, isDraftEmpty, type ComposerDraftState } from '@/lib/communications/drafts'
+import { deleteDraft, saveDraft } from '@/lib/communications/draft-actions'
+import { DraftStatus, type DraftSaveState } from './DraftStatus'
+import { DeleteDraftButton } from '../DeleteDraftButton'
 import { SMS_ENGLISH_ONLY_NOTE, composeBilingualSms, htmlToPlainText } from '@/lib/communications/bilingual'
 import {
   listPropertyResidents,
@@ -143,6 +147,9 @@ const STEPS = [
   { id: 'delivery', label: 'Review & send' },
 ] as const
 
+/** BL-102 A9: how long typing pauses before the draft saves. */
+const AUTOSAVE_DELAY_MS = 1500
+
 /** Field-level errors, keyed by field (questions as `q:<id>`). */
 type FieldErrors = Record<string, string>
 
@@ -155,7 +162,8 @@ export function NewCommunicationWizard({
   prefillFrom = null,
   smsConfigured = false,
   streets = [],
-  followUp = null,
+  followUp: followUpProp = null,
+  resumeDraft = null,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
@@ -193,43 +201,51 @@ export function NewCommunicationWizard({
    * reviews, previews and presses Send.
    */
   followUp?: FollowUpDraft | null
+  /**
+   * BL-102 A9: `?draft=<id>` — an autosaved draft to resume. Every field
+   * starts from it; nothing is sent until the board presses Send.
+   */
+  resumeDraft?: { id: string; state: ComposerDraftState } | null
 }) {
+  const r = resumeDraft?.state ?? null
+  // A resumed follow-up draft carries its own follow-up audience.
+  const followUp: FollowUpDraft | null = followUpProp ?? r?.followUp ?? null
   const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
   const router = useRouter()
   // BL-102 A4: no Topic step. A template brings its own category; a
   // message written from scratch is filed as an announcement (or, from the
   // budget notice, as financial).
-  const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>('announcement')
+  const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>(r?.baseCategory ?? 'announcement')
   const [audience, setAudience] = useState<AudienceKind>(
-    followUp ? 'follow_up' : preselect ? 'specific_property' : 'everyone',
+    r ? r.audience : followUp ? 'follow_up' : preselect ? 'specific_property' : 'everyone',
   )
-  const [templateId, setTemplateId] = useState<string>('')
-  const [answers, setAnswers] = useState<AnswerMap>({})
-  const [subject, setSubject] = useState(followUp?.subject ?? '')
-  const [bodyHtml, setBodyHtml] = useState(followUp?.bodyHtml ?? '')
+  const [templateId, setTemplateId] = useState<string>(r?.templateId ?? '')
+  const [answers, setAnswers] = useState<AnswerMap>(r?.answers ?? {})
+  const [subject, setSubject] = useState(r?.subject ?? followUp?.subject ?? '')
+  const [bodyHtml, setBodyHtml] = useState(r?.bodyHtml ?? followUp?.bodyHtml ?? '')
   // A follow-up goes only on the channel the board asked for: the original
   // is already in everyone's portal.
   const [channels, setChannels] = useState<string[]>(
-    followUp ? [followUp.via === 'text' ? 'sms' : 'email'] : ['email', 'portal'],
+    r ? r.channels : followUp ? [followUp.via === 'text' ? 'sms' : 'email'] : ['email', 'portal'],
   )
   // BL-102 A6: urgency drives the channels until the board picks channels
   // by hand; after that nothing overwrites their choice.
-  const [urgency, setUrgency] = useState<Urgency>('routine')
-  const [channelsTouched, setChannelsTouched] = useState(followUp !== null)
+  const [urgency, setUrgency] = useState<Urgency>(r?.urgency ?? 'routine')
+  const [channelsTouched, setChannelsTouched] = useState(r ? r.channelsTouched : followUp !== null)
   // BL-102 A5: the street audience.
-  const [selectedStreetKey, setSelectedStreetKey] = useState('')
-  const [streetOwnersOnly, setStreetOwnersOnly] = useState(false)
+  const [selectedStreetKey, setSelectedStreetKey] = useState(r?.selectedStreetKey ?? '')
+  const [streetOwnersOnly, setStreetOwnersOnly] = useState(r?.streetOwnersOnly ?? false)
   const selectedStreet = streets.find((st) => st.key === selectedStreetKey) ?? null
-  const [scheduledFor, setScheduledFor] = useState('')
+  const [scheduledFor, setScheduledFor] = useState(r?.scheduledFor ?? '')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
-  const [step, setStep] = useState(followUp ? 1 : 0)
+  const [step, setStep] = useState(r ? r.step : followUp ? 1 : 0)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   // BL-025: the optional, board-reviewed Spanish version.
-  const [spanish, setSpanish] = useState<SpanishDraft | null>(null)
+  const [spanish, setSpanish] = useState<SpanishDraft | null>(r?.spanish ?? null)
   // BL-020: official notice (CA Civ. Code §4040) and its Review-step preview.
-  const [officialNotice, setOfficialNotice] = useState(false)
+  const [officialNotice, setOfficialNotice] = useState(r?.officialNotice ?? false)
   const [officialPreview, setOfficialPreview] = useState<OfficialNoticePreview | null>(null)
   // BL-091: 'loaded' once the budget notice is in the composer, 'missing'
   // when the hand-off didn't arrive (storage blocked, or a new tab).
@@ -252,7 +268,7 @@ export function NewCommunicationWizard({
   // selectedPropertyId — single property at a time keeps the UI simple.
   // residents — loaded via server action when a property is picked.
   // checkedResidentIds — which named residents at that property to send to.
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(preselect ?? '')
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(r?.selectedPropertyId ?? preselect ?? '')
   const [residents, setResidents] = useState<ResidentOption[]>([])
   const [residentsLoading, setResidentsLoading] = useState(false)
   const [checkedResidentIds, setCheckedResidentIds] = useState<Set<string>>(new Set())
@@ -265,7 +281,7 @@ export function NewCommunicationWizard({
   const [checkedBoardIds, setCheckedBoardIds] = useState<Set<string>>(new Set())
 
   // Manual contacts audience state.
-  const [manualContacts, setManualContacts] = useState<ManualContact[]>([])
+  const [manualContacts, setManualContacts] = useState<ManualContact[]>(r?.manualContacts ?? [])
   const [draftEmail, setDraftEmail] = useState('')
   const [draftPhone, setDraftPhone] = useState('')
   const [draftName, setDraftName] = useState('')
@@ -293,6 +309,10 @@ export function NewCommunicationWizard({
     setManualContacts((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // BL-102 A9: picks a resumed draft restores once, after the list loads.
+  const restoreResidentIds = useRef<string[] | null>(r?.audience === 'specific_property' ? r.checkedResidentIds : null)
+  const restoreBoardIds = useRef<string[] | null>(r?.audience === 'board' ? r.checkedBoardIds : null)
+
   // Load residents whenever a property is selected. Default to ALL
   // checked — the sender opts OUT of a resident, rather than having to
   // opt every single one in.
@@ -308,7 +328,12 @@ export function NewCommunicationWizard({
       .then((rows) => {
         if (cancelled) return
         setResidents(rows)
-        setCheckedResidentIds(new Set(rows.map((r) => r.id)))
+        // A resumed draft keeps the residents it had ticked (once).
+        const restore = restoreResidentIds.current
+        restoreResidentIds.current = null
+        setCheckedResidentIds(
+          new Set(restore ? rows.filter((x) => restore.includes(x.id)).map((x) => x.id) : rows.map((x) => x.id)),
+        )
       })
       .finally(() => {
         if (!cancelled) setResidentsLoading(false)
@@ -349,9 +374,16 @@ export function NewCommunicationWizard({
         if (cancelled) return
         setBoardMembers(rows)
         // Default to the board role only — admins are listed but left
-        // unchecked, so they're opt-in per send.
+        // unchecked, so they're opt-in per send. A resumed draft keeps
+        // its own picks (once).
+        const restore = restoreBoardIds.current
+        restoreBoardIds.current = null
         setCheckedBoardIds(
-          new Set(rows.filter((r) => r.role === 'board').map((r) => r.userId)),
+          new Set(
+            restore
+              ? rows.filter((x) => restore.includes(x.userId)).map((x) => x.userId)
+              : rows.filter((x) => x.role === 'board').map((x) => x.userId),
+          ),
         )
       })
       .finally(() => {
@@ -384,6 +416,7 @@ export function NewCommunicationWizard({
   /** Fill the wizard from the AI proposal. Fills only; the board reviews
    *  every step and nothing is sent until they press Send. */
   function applyProposal(proposal: CommProposal) {
+    setEdited(true)
     const f = proposalToWizardFields(proposal, { smsConfigured, schedulingEnabled: SCHEDULING_ENABLED, streets })
     setTemplateId('')
     setBaseCategory(f.category)
@@ -425,9 +458,15 @@ export function NewCommunicationWizard({
   // clears templateId too) so a stale answer never leaks into a
   // differently-shaped template and trips buildMergeBag's "undeclared
   // question" guard.
+  const keepResumedAnswers = useRef(r !== null)
   useEffect(() => {
-    setAnswers({})
     setActiveQuestions(null)
+    // A resumed draft's answers belong to its template: keep them on mount.
+    if (keepResumedAnswers.current) {
+      keepResumedAnswers.current = false
+      return
+    }
+    setAnswers({})
   }, [templateId])
 
   // Questions still referenced by an included section. null means "no
@@ -437,6 +476,9 @@ export function NewCommunicationWizard({
   const [activeQuestions, setActiveQuestions] = useState<readonly TemplateQuestion[] | null>(null)
 
   function pickTemplate(id: string) {
+    setEdited(true)
+    // A newly picked template takes its own sections' body.
+    keepResumedBody.current = false
     setTemplateId(id)
     setDraftReview(null)
     const t = allTemplates.find((x) => x.id === id)
@@ -473,12 +515,16 @@ export function NewCommunicationWizard({
     return ids.join(',')
   }, [answers])
 
+  const keepResumedBody = useRef(r !== null)
   // useCallback so SectionToggles' effect, which intentionally omits this
   // from its dep list, is nonetheless given a stable identity.
   const handleSectionsRendered = useCallback(
-    (r: { bodyHtml: string; questions: readonly TemplateQuestion[] }) => {
-      setBodyHtml(r.bodyHtml)
-      setActiveQuestions(r.questions)
+    (rendered: { bodyHtml: string; questions: readonly TemplateQuestion[] }) => {
+      // A resumed draft keeps its saved body: the toggles' first render
+      // would otherwise replace it with the template's default sections.
+      if (keepResumedBody.current) keepResumedBody.current = false
+      else setBodyHtml(rendered.bodyHtml)
+      setActiveQuestions(rendered.questions)
     },
     [],
   )
@@ -718,6 +764,124 @@ export function NewCommunicationWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewing, audience, selectedPropertyId, selectedStreetKey, streetOwnersOnly, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels, officialNotice])
 
+  // ─── BL-102 A9: autosave to a status='draft' row ───────────────────────
+  // Saves only after the board changes something (opening a follow-up or
+  // the budget notice creates nothing), debounced, one save at a time. A
+  // draft never sends: the real send inserts its own message, then this
+  // draft is deleted.
+  const draftState: ComposerDraftState = {
+    v: DRAFT_STATE_VERSION,
+    step,
+    templateId,
+    baseCategory,
+    audience,
+    selectedPropertyId,
+    checkedResidentIds: Array.from(checkedResidentIds),
+    checkedBoardIds: Array.from(checkedBoardIds),
+    manualContacts,
+    selectedStreetKey,
+    streetOwnersOnly,
+    answers: Object.fromEntries(
+      Object.entries(answers).filter((e): e is [string, string | string[]] => e[1] !== undefined),
+    ),
+    subject,
+    bodyHtml,
+    channels,
+    urgency,
+    channelsTouched,
+    scheduledFor,
+    spanish,
+    officialNotice,
+    followUp: audience === 'follow_up' ? followUp : null,
+  }
+  const draftJson = JSON.stringify(draftState)
+  const draftEmpty = isDraftEmpty(draftState)
+  const [draftId, setDraftId] = useState<string | null>(resumeDraft?.id ?? null)
+  const [saveState, setSaveState] = useState<DraftSaveState>(resumeDraft ? { kind: 'resumed' } : { kind: 'idle' })
+  const [edited, setEdited] = useState(false)
+  const draftIdRef = useRef<string | null>(resumeDraft?.id ?? null)
+  const lastSavedJson = useRef<string>(draftJson)
+  const latestJson = useRef(draftJson)
+  latestJson.current = draftJson
+  const sendingRef = useRef(false)
+  const goneRef = useRef(false)
+  const inFlight = useRef<Promise<void> | null>(null)
+  const queuedJson = useRef<string | null>(null)
+
+  async function persistDraft(json: string): Promise<void> {
+    if (sendingRef.current || goneRef.current) return
+    if (inFlight.current) {
+      queuedJson.current = json
+      return
+    }
+    const run = (async () => {
+      setSaveState({ kind: 'saving' })
+      let res: Awaited<ReturnType<typeof saveDraft>>
+      try {
+        res = await saveDraft({ id: draftIdRef.current, state: JSON.parse(json) as unknown })
+      } catch {
+        res = { ok: false, error: 'The draft couldn’t be saved. Check your connection.' }
+      }
+      if (res.ok) {
+        const isNew = draftIdRef.current === null
+        draftIdRef.current = res.id
+        setDraftId(res.id)
+        lastSavedJson.current = json
+        setSaveState({ kind: 'saved', at: Date.now() })
+        // A reload (or a closed tab reopened from history) resumes the draft.
+        if (isNew && !sendingRef.current) window.history.replaceState(window.history.state, '', draftHref(res.id))
+      } else if (res.gone) {
+        goneRef.current = true
+        setSaveState({ kind: 'gone' })
+      } else {
+        setSaveState({ kind: 'error', message: res.error })
+      }
+    })()
+    inFlight.current = run
+    await run
+    inFlight.current = null
+    const next = queuedJson.current
+    queuedJson.current = null
+    if (next !== null && next !== lastSavedJson.current) await persistDraft(next)
+  }
+
+  useEffect(() => {
+    if (!edited || pending || sendingRef.current || goneRef.current) return
+    if (draftJson === lastSavedJson.current) return
+    if (draftIdRef.current === null && draftEmpty) return
+    const t = window.setTimeout(() => void persistDraft(draftJson), AUTOSAVE_DELAY_MS)
+    return () => window.clearTimeout(t)
+    // persistDraft reads only refs and setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftJson, draftEmpty, edited, pending])
+
+  // Leaving the tab saves at once rather than waiting out the debounce.
+  useEffect(() => {
+    if (!edited) return
+    const flush = () => {
+      if (document.visibilityState !== 'hidden') return
+      const json = latestJson.current
+      if (json === lastSavedJson.current || sendingRef.current || goneRef.current) return
+      if (draftIdRef.current === null && isDraftEmpty(JSON.parse(json) as ComposerDraftState)) return
+      void persistDraft(json)
+    }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edited])
+
+  /** After a successful send: the draft has become a real message. */
+  async function retireDraft() {
+    if (inFlight.current) await inFlight.current
+    const id = draftIdRef.current
+    if (!id) return
+    try {
+      await deleteDraft(id)
+    } catch {
+      // Left in Drafts; the board can delete it there. Never blocks the send.
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     // Enter inside an earlier step means "continue", never "send".
@@ -785,8 +949,10 @@ export function NewCommunicationWizard({
       return
     }
 
+    // No autosave from here on: a save racing the send could revive the draft.
+    sendingRef.current = true
     startTransition(async () => {
-      const result = await sendCommunication({
+      const sent = sendCommunication({
         category: sendCategory,
         subject: finalSubject,
         bodyHtml: finalBodyHtml,
@@ -808,11 +974,14 @@ export function NewCommunicationWizard({
         ...(followUp && audience === 'follow_up'
           ? { relatedResource: { type: 'follow_up', id: followUp.originalId } }
           : {}),
-      })
+      }).catch(() => ({ ok: false as const, error: 'We couldn’t confirm the send. Check Communications to see whether it went out before trying again.' }))
+      const result = await sent
       if (!result.ok) {
+        sendingRef.current = false
         setError(result.error)
         return
       }
+      await retireDraft()
       const msg = scheduledAt
         ? `Scheduled for ${scheduledAt.toLocaleString()}. ${result.recipientCount} recipient(s).`
         : `Sent. ${result.sentCount}/${result.recipientCount} delivered` +
@@ -867,7 +1036,14 @@ export function NewCommunicationWizard({
           : audienceCounts[audience]
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col">
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className="flex flex-col"
+      // BL-102 A9: the first real edit turns autosave on.
+      onInputCapture={() => setEdited(true)}
+      onChangeCapture={() => setEdited(true)}
+    >
       <div id="wizard-top" className="scroll-mt-24 border-b border-border p-5 sm:px-6">
         <WizardStepper steps={STEPS.map((s) => ({ id: s.id, label: s.label }))} currentIndex={step} vertical={false} />
       </div>
@@ -888,6 +1064,11 @@ export function NewCommunicationWizard({
             {followUp.spanishDropped ? (
               <p className="mt-1">The Spanish version isn’t copied. Add it again below if you want it.</p>
             ) : null}
+          </Alert>
+        ) : null}
+        {resumeDraft ? (
+          <Alert variant="info" title="Your draft: nothing has been sent">
+            Pick up where you left off. Changes save automatically, and nothing goes out until you press Send.
           </Alert>
         ) : null}
         {prefill === 'loaded' ? (
@@ -1209,13 +1390,25 @@ export function NewCommunicationWizard({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-3 sm:px-6">
-        {step > 0 ? (
-          <Button type="button" variant="ghost" icon={<ArrowLeft aria-hidden />} onClick={() => goTo(step - 1)} disabled={pending}>
-            Back
-          </Button>
-        ) : (
-          <span />
-        )}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          {step > 0 ? (
+            <Button type="button" variant="ghost" icon={<ArrowLeft aria-hidden />} onClick={() => goTo(step - 1)} disabled={pending}>
+              Back
+            </Button>
+          ) : null}
+          {draftId ? (
+            <DeleteDraftButton
+              draftId={draftId}
+              title={subject.trim() || UNTITLED_DRAFT}
+              size="xs"
+              disabled={pending}
+              onDeleted={() => {
+                goneRef.current = true
+              }}
+            />
+          ) : null}
+          <DraftStatus state={saveState} />
+        </div>
         {step < lastStep ? (
           <Button type="submit" iconRight={<ArrowRight aria-hidden />}>
             Continue
