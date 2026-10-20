@@ -80,7 +80,14 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
           {latest.decisionReason ? `: “${latest.decisionReason}”` : latest.error ? `: ${latest.error}` : '.'}
         </Alert>
       ) : null}
-      <CollectionsLetter input={input} today={today} events={events} pending={pending ? view(pending) : null} approved={approved ? view(approved) : null} />
+      <CollectionsLetter
+        input={input}
+        today={today}
+        events={events}
+        pending={pending ? view(pending) : null}
+        approved={approved ? view(approved) : null}
+        printed={printed.map((r) => ({ kind: r.payload.kind, printedAt: r.printedAt! }))}
+      />
       {printed.length > 0 ? (
         <Card className="print:hidden">
           <CardHeader>

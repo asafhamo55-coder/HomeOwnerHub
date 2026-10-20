@@ -16,6 +16,17 @@ import {
   loadCureCommitment,
   loadOrgStateRules,
 } from '@/lib/violation-cure-commitment'
+import {
+  DRIFT_CODES,
+  OVERRIDE_REASON_CODES,
+  checkFine,
+  fineCents,
+  overrideAuditRow,
+  resolveOverrides,
+  type DriftCheck,
+  type DriftCode,
+  type OverrideReason,
+} from '@/lib/compliance/statute-drift'
 
 const STORAGE_BUCKET = 'hoa-photos'
 
@@ -233,12 +244,16 @@ const UpdateStatusSchema = z.object({
   violationId: z.string().uuid(),
   status: z.enum(VIOLATION_STATUSES),
   resolutionNote: z.string().trim().max(2000, "Keep the note under 2,000 characters.").nullable().optional(),
+  // BL-130: the board's reason per blocking state-law finding (codes only).
+  lawOverrides: z.record(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]])).optional(),
 })
 
 export interface UpdateViolationStatusInput {
   violationId: string
   status: ViolationStatus
   resolutionNote?: string | null
+  /** BL-130: finding code → override reason code, for each blocking state-law finding. */
+  lawOverrides?: Partial<Record<DriftCode, OverrideReason>>
 }
 
 export type UpdateViolationStatusResult =
@@ -326,6 +341,32 @@ export async function updateViolation(
 
   if (Object.keys(patch).length === 0) return { ok: true }
 
+  // BL-130: a fine already levied can't be raised past the state law check
+  // from the edit form, where there is no override step. The board moves
+  // it out of Fined and back, which runs the check and records any override.
+  if (parsed.data.fine_amount !== undefined) {
+    try {
+      const { data: current, error: curErr } = await supabase
+        .from('hoa_violations')
+        .select('status')
+        .eq('id', parsed.data.violationId)
+        .eq('org_id', gate.orgId)
+        .maybeSingle()
+      if (curErr) throw curErr
+      if (current?.status === 'fined') {
+        const rules = await loadOrgStateRules(supabase, gate.orgId)
+        const law = checkFine({ state: rules.state, dailyFineCents: fineCents(parsed.data.fine_amount) })
+        const block = law.findings.find((f) => f.severity === 'block')
+        if (block) {
+          const msg = `${block.message} (${block.citations[0]?.cite ?? 'state law'}). This violation is already fined: move it back to Notice sent, change the fine, then move it to Fined to record the board’s reason.`
+          return { ok: false, error: 'Some fields need attention.', fieldErrors: { fineAmount: msg } }
+        }
+      }
+    } catch {
+      return { ok: false, error: 'We could not check state law for this fine. Try again.' }
+    }
+  }
+
   const { error } = await supabase
     .from('hoa_violations')
     .update(patch as never)
@@ -384,22 +425,24 @@ export async function updateViolationStatus(
   // that was already fined before the commitment was recorded.
   if (parsed.data.status === 'fined') {
     let block: string | null
+    // BL-130: the state law check on the fine itself, run on the move into Fined only.
+    let law: DriftCheck | null = null
     try {
       const { data: current, error: curErr } = await supabase
         .from('hoa_violations')
-        .select('status')
+        .select('status, fine_amount')
         .eq('id', parsed.data.violationId)
         .eq('org_id', gate.orgId)
         .maybeSingle()
       if (curErr) throw curErr
       if (!current) return { ok: false, error: 'We could not find that violation.' }
-      block =
-        current.status === 'fined'
-          ? null
-          : cureCommitmentPenaltyBlock(
-              await loadOrgStateRules(supabase, gate.orgId),
-              await loadCureCommitment(supabase, gate.orgId, parsed.data.violationId),
-            )
+      if (current.status === 'fined') {
+        block = null
+      } else {
+        const rules = await loadOrgStateRules(supabase, gate.orgId)
+        block = cureCommitmentPenaltyBlock(rules, await loadCureCommitment(supabase, gate.orgId, parsed.data.violationId))
+        law = checkFine({ state: rules.state, dailyFineCents: fineCents(current.fine_amount) })
+      }
     } catch {
       return { ok: false, error: 'We could not check state law for this violation. Try again.' }
     }
@@ -408,6 +451,28 @@ export async function updateViolationStatus(
         ok: false,
         error: block,
         fieldErrors: { status: `${block} Withdraw the recorded commitment first if the owner did not keep it.` },
+      }
+    }
+    if (law) {
+      const resolved = resolveOverrides(law, parsed.data.lawOverrides)
+      if (!resolved.ok) return { ok: false, error: resolved.error, fieldErrors: { lawOverride: resolved.error } }
+      if (resolved.applied.length > 0) {
+        // Recorded before the fine is levied: no record, no fine.
+        const { error: auditErr } = await supabase.from('audit_log').insert(
+          overrideAuditRow({
+            orgId: gate.orgId,
+            userId: user.id,
+            entityType: 'hoa_violation',
+            entityId: parsed.data.violationId,
+            step: 'fine',
+            state: law.state,
+            applied: resolved.applied,
+          }) as never,
+        )
+        if (auditErr) {
+          console.error('[violations] statute override audit failed', { violationId: parsed.data.violationId, code: auditErr.code ?? null })
+          return { ok: false, error: 'We could not record the board’s override, so the fine was not levied. Try again.' }
+        }
       }
     }
   }

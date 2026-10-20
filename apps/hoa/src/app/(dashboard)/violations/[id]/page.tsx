@@ -39,6 +39,7 @@ import {
   loadOrgStateRules,
   type CureCommitment,
 } from '@/lib/violation-cure-commitment'
+import { checkFine, fineCents } from '@/lib/compliance/statute-drift'
 
 export const dynamic = 'force-dynamic'
 
@@ -156,10 +157,14 @@ export default async function ViolationDetailPage({
   // other, so they run together — they used to run one after another
   // (rules, then commitment, then unit, then follow-ups).
   type CommitmentCard = { commitment: CureCommitment | null; blockReason: string | null; loadFailed: boolean }
-  const [commitmentCard, unit, followUpResult, responses] = await Promise.all([
+  // BL-130: one read of the association's state serves the commitment card
+  // and the state law check on the fine. A failed read hides both (the
+  // server action re-checks and refuses on a failed read).
+  const rulesP = org ? loadOrgStateRules(supabase, org.id).catch(() => null) : Promise.resolve(null)
+  const [commitmentCard, unit, followUpResult, responses, lawRules] = await Promise.all([
     org
       ? timed(R, 'violation.cureCommitment', async (): Promise<CommitmentCard | null> => {
-          const rules = await loadOrgStateRules(supabase, org.id).catch(() => null)
+          const rules = await rulesP
           if (!rules || !cureCommitmentApplies(rules)) return null
           try {
             const commitment = await loadCureCommitment(supabase, org.id, v.id)
@@ -200,7 +205,9 @@ export default async function ViolationDetailPage({
           loadBoardResponseThreads(supabase as unknown as Db, { orgId: org.id, violationId: v.id }).catch(() => null),
         )
       : Promise.resolve([] as BoardResponseThread[]),
+    rulesP,
   ])
+  const lawCheck = lawRules && currentStatus !== 'fined' ? checkFine({ state: lawRules.state, dailyFineCents: fineCents(v.fine_amount) }) : null
   const unitId: string | null = unit.unitId
   const unitLoadFailed = unit.failed
   const followUps = followUpResult?.ok ? ((followUpResult.data ?? []) as unknown as FollowUpRunRow[]) : []
@@ -476,6 +483,7 @@ export default async function ViolationDetailPage({
                 currentStatus={currentStatus}
                 currentResolutionNote={v.resolution_note}
                 fineBlockedReason={commitmentCard?.blockReason ?? null}
+                lawCheck={lawCheck}
               />
             </CardContent>
           </Card>

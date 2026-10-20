@@ -23,6 +23,8 @@ import {
 } from '@/lib/properties/estoppel/model'
 import { addCalendarDays } from '@/lib/properties/estoppel/business-days'
 import { buildLedger } from '@/lib/resident-ledger'
+import { dayOf } from '@/lib/association-time'
+import { checkCollectionsLetter, type DriftCheck, type PrintedLetter } from '@/lib/compliance/statute-drift'
 import { COLLECTION_STATUSES, statusImpliedBy, type CollectionEventType, type CollectionStatus } from '../statuses'
 import {
   CA_CITATION,
@@ -549,4 +551,45 @@ export function stageAfterPrint(kind: LetterKind, current: CollectionStatus): Co
   const implied = statusImpliedBy(LETTER_META[kind].eventType)
   if (!implied) return null
   return COLLECTION_STATUSES.indexOf(implied) > COLLECTION_STATUSES.indexOf(current) ? implied : null
+}
+
+// ─── the state law check (BL-130) ────────────────────────────────────
+
+/** A letter already printed on this case, as the state law check reads it. */
+export interface PrintedLetterRecord {
+  kind: LetterKind
+  /** The first print's timestamp (audit_log created_at). */
+  printedAt: string
+}
+
+/** Printed letters as association days, for the check's waiting periods. */
+export function printedLetters(records: readonly PrintedLetterRecord[], timeZone: string): PrintedLetter[] {
+  return records.flatMap((r) => {
+    const day = dayOf(r.printedAt, timeZone)
+    return day ? [{ kind: r.kind, printedOn: day }] : []
+  })
+}
+
+/**
+ * BL-130: the state law check on this letter, from the association's
+ * stored state (not the letter's jurisdiction, which folds GA into
+ * "generic"), the charge types the letter lists, and the case's history.
+ */
+export function letterLawCheck(
+  input: Pick<LetterInput, 'state' | 'timeZone'>,
+  letter: Letter,
+  values: FieldValues,
+  events: LetterEvent[],
+  printed: readonly PrintedLetterRecord[],
+): DriftCheck {
+  const f = letter.figures
+  return checkCollectionsLetter({
+    state: input.state,
+    kind: letter.kind,
+    letterDate: letter.letterDate,
+    listedChargeTypes: [...f.assessmentLines, ...f.lateFeeLines, ...f.otherLines].map((l) => l.type),
+    values,
+    events,
+    printed: printedLetters(printed, input.timeZone),
+  })
 }

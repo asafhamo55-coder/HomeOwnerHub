@@ -1249,6 +1249,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
      Cite only W30-loaded text.
    - **Files:** `apps/hoa/src/lib/compliance/statute-drift.ts` (new), `apps/hoa/src/lib/collections/`, `apps/hoa/src/lib/violations/`, `packages/workflows/src/approvals/`.
    - Effort M, score 1.4.
+   - **Done (no migration):** `apps/hoa/src/lib/compliance/statute-drift.ts` (`checkFine`, `checkCollectionsLetter`), every quote checked word for word against `scripts/fixtures/state-law` (new fixture `tx-prop-209-0062-2026.txt`). Gated in `updateViolationStatus` (move to Fined), `updateViolation` (raising a levied fine), `saveLetterToApprovals` and the `recordLetterPrinted` print gate. Blocks need a per-finding override reason code, written to `audit_log` (`statute_check.override`, codes and ids only) before the step. Rules: CA § 5850(c)/(d) cap block, (c)(1), (e), § 5855(g) warnings; FL § 720.305(2) $100 block, $1,000 aggregate and committee warnings, § 720.3085(3)(d) attorney-fee block on letters; TX § 209.0064(b) collection-fee block, § 209.0062(a) payment-plan block, § 209.006(a)/(e) fine warnings; GA SB 406 § 7 attorney-fee block (from 2026-07-01), § 44-3-223 fine warning. Omitted: GA dues-first payment order (SB 406 § 2, in force 2027-01-01, not loaded); CA/FL cure-before-hearing (needs BL-133's hearing record); TX § 209.0063 payment order.
 
 **(B) Needs a migration. Batch all four into one `migrations/0067_*.sql`** plus a runbook section. CI validates it, Asaf applies it, and each feature ships behind a flag until he confirms.
 

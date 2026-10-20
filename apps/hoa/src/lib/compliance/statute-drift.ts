@@ -1,0 +1,628 @@
+/**
+ * BL-130: the "State law check" run before the board levies a fine on a
+ * violation or approves (and prints) a collections letter. Pure,
+ * client-safe, no clock: the caller passes the association's today.
+ *
+ * Each finding names the section and carries a quote that is verbatim
+ * from the statute text kept in the repo (scripts/fixtures/state-law),
+ * which statute-drift.test.ts checks word for word. Where the text is not
+ * loaded, there is no rule — the gap is listed in NOT_LOADED instead of
+ * being filled from memory.
+ *
+ *   block — the step looks barred by the statute as the app sees the
+ *           record. It goes ahead only with an explicit board override
+ *           reason per finding (a code from OVERRIDE_REASONS), which the
+ *           caller records in audit_log (ids and codes only).
+ *   warn  — a requirement the app cannot see in its records (a hearing,
+ *           a mailing method). Shown, never blocking.
+ *
+ * Sources:
+ *   CA — ca-civ-davis-stirling-2026.txt: Civ. Code §§ 5850 and 5855 as
+ *        amended by AB 130 (Stats. 2025, ch. 22, effective June 30, 2025).
+ *   FL — flsenate-ch720-2026.html: Fla. Stat. §§ 720.305(2) and
+ *        720.3085(3)(d) (2026).
+ *   TX — tx-prop-209-2026.txt (§ 209.0064), tx-prop-209-0062-2026.txt
+ *        (§ 209.0062, added for BL-130 from the Texas Legislative
+ *        Council's chapter file, retrieved 2026-10-20), and
+ *        tcss-pr209-2026-excerpt.htm (§ 209.006).
+ *   GA — ga-ocga-44-3-art6-2026.txt: O.C.G.A. § 44-3-223 and Ga. L. 2026,
+ *        SB 406 § 7 (attorney's fees; in force July 1, 2026).
+ *
+ * No `@/` imports: the collections letter payload (proposal.ts), which the
+ * approvals inbox loads under tests/integration, reads the override codes.
+ */
+
+// ─── citations ───────────────────────────────────────────────────────
+
+export interface DriftCitation {
+  /** As printed, e.g. "Cal. Civ. Code § 5850(c)". */
+  cite: string
+  /** Verbatim from the fixture. */
+  quote: string
+  /** The fixture the quote is checked against. */
+  fixture: string
+}
+
+const CA_FILE = 'ca-civ-davis-stirling-2026.txt'
+const FL_FILE = 'flsenate-ch720-2026.html'
+const TX_0064_FILE = 'tx-prop-209-2026.txt'
+const TX_0062_FILE = 'tx-prop-209-0062-2026.txt'
+const TX_006_FILE = 'tcss-pr209-2026-excerpt.htm'
+const GA_FILE = 'ga-ocga-44-3-art6-2026.txt'
+
+export const CA_5850_CAP: DriftCitation = {
+  cite: 'Cal. Civ. Code § 5850(c)',
+  quote: 'A monetary penalty for a violation of the governing documents shall not exceed the lesser of the following:',
+  fixture: CA_FILE,
+}
+export const CA_5850_CAP_100: DriftCitation = {
+  cite: 'Cal. Civ. Code § 5850(c)(2)',
+  quote: 'One hundred dollars ($100) per violation.',
+  fixture: CA_FILE,
+}
+export const CA_5850_SCHEDULE: DriftCitation = {
+  cite: 'Cal. Civ. Code § 5850(c)(1)',
+  quote: 'The monetary penalty stated in the schedule of monetary penalties or supplement that is in effect at the time of the violation.',
+  fixture: CA_FILE,
+}
+export const CA_5850_FINDING: DriftCitation = {
+  cite: 'Cal. Civ. Code § 5850(d)(2)',
+  quote:
+    'Before imposing a penalty on a violation pursuant to this subdivision, the board shall make a written finding specifying the adverse health or safety impact in a board meeting open to the members.',
+  fixture: CA_FILE,
+}
+export const CA_5850_NO_LATE_CHARGE: DriftCitation = {
+  cite: 'Cal. Civ. Code § 5850(e)',
+  quote: 'A late charge or interest shall not be charged to a member for a monetary penalty.',
+  fixture: CA_FILE,
+}
+export const CA_5855_EFFECTIVE: DriftCitation = {
+  cite: 'Cal. Civ. Code § 5855(g)',
+  quote:
+    'A disciplinary action or the imposition of a monetary charge for damage to the common area shall not be effective against a member unless the board fulfills the requirements of this section.',
+  fixture: CA_FILE,
+}
+
+export const FL_305_CAP: DriftCitation = {
+  cite: 'Fla. Stat. § 720.305(2)',
+  quote:
+    'A fine may not exceed $100 per violation against any member or any member’s tenant, guest, or invitee for the failure of the owner of the parcel or its occupant, licensee, or invitee to comply with any provision of the declaration, the association bylaws, or reasonable rules of the association unless otherwise provided in the governing documents.',
+  fixture: FL_FILE,
+}
+export const FL_305_AGGREGATE: DriftCitation = {
+  cite: 'Fla. Stat. § 720.305(2)',
+  quote:
+    'A fine may be levied by the board for each day of a continuing violation, with a single notice and opportunity for hearing, except that the fine may not exceed $1,000 in the aggregate unless otherwise provided in the governing documents.',
+  fixture: FL_FILE,
+}
+export const FL_305_COMMITTEE: DriftCitation = {
+  cite: 'Fla. Stat. § 720.305(2)(b)',
+  quote:
+    'Such hearing must be held within 90 days after issuance of the notice before a committee of at least three members appointed by the board who are not officers, directors, or employees of the association, or the spouse, parent, child, brother, or sister of an officer, director, or employee.',
+  fixture: FL_FILE,
+}
+export const FL_305_VOTE: DriftCitation = {
+  cite: 'Fla. Stat. § 720.305(2)(c)',
+  quote: 'If the committee, by majority vote, does not approve a proposed fine or suspension, the proposed fine or suspension may not be imposed.',
+  fixture: FL_FILE,
+}
+export const FL_3085_LATE_NOTICE: DriftCitation = {
+  cite: 'Fla. Stat. § 720.3085(3)(d)',
+  quote:
+    'An association may not require payment of attorney fees related to a past due assessment without first delivering a written notice of late assessment to the parcel owner which specifies the amount owed the association and provides the parcel owner an opportunity to pay the amount owed without the assessment of attorney fees.',
+  fixture: FL_FILE,
+}
+
+export const TX_0064_NOTICE: DriftCitation = {
+  cite: 'Tex. Prop. Code § 209.0064(b)',
+  quote:
+    "A property owners' association may not hold an owner liable for fees of a collection agent retained by the association unless the association first provides written notice to the owner by certified mail that:",
+  fixture: TX_0064_FILE,
+}
+export const TX_0064_CURE: DriftCitation = {
+  cite: 'Tex. Prop. Code § 209.0064(b)(3)',
+  quote: 'provides a period of at least 45 days for the owner to cure the delinquency before further collection action is taken.',
+  fixture: TX_0064_FILE,
+}
+export const TX_0064_PLAN: DriftCitation = {
+  cite: 'Tex. Prop. Code § 209.0064(b)(2)',
+  quote:
+    "if the association is subject to Section 209.0062 or the association's dedicatory instruments contain a requirement to offer a payment plan, describes the options the owner has to avoid having the account turned over to a collection agent, including information regarding availability of a payment plan through the association;",
+  fixture: TX_0064_FILE,
+}
+export const TX_0062_PLAN: DriftCitation = {
+  cite: 'Tex. Prop. Code § 209.0062(a)',
+  quote:
+    "A property owners' association composed of more than 14 lots shall adopt reasonable guidelines to establish an alternative payment schedule by which an owner may make partial payments to the property owners' association for delinquent regular or special assessments or any other amount owed to the association without accruing additional monetary penalties.",
+  fixture: TX_0062_FILE,
+}
+export const TX_006_NOTICE: DriftCitation = {
+  cite: 'Tex. Prop. Code § 209.006(a)',
+  quote:
+    'levy a fine for a violation of the restrictions or bylaws or rules of the association, or report any delinquency of an owner to a credit reporting service, the association or its agent must give written notice to the owner by certified mail.',
+  fixture: TX_006_FILE,
+}
+export const TX_006_CURE: DriftCitation = {
+  cite: 'Tex. Prop. Code § 209.006(e)',
+  quote: 'If the owner cures the violation before the expiration of the period for cure described by Subsection (c), a fine may not be assessed for the violation.',
+  fixture: TX_006_FILE,
+}
+
+export const GA_223_FINES: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-223',
+  quote: 'If and to the extent provided in the instrument, the association shall be empowered to impose and assess fines',
+  fixture: GA_FILE,
+}
+export const GA_SB406_FEES: DriftCitation = {
+  cite: 'Ga. L. 2026, SB 406 § 7 (new subsection (f))',
+  quote:
+    'Except under circumstances necessitated by emergency conditions involving public safety or the preservation of property by the association, before an association may collect or be awarded attorney’s fees, it shall provide:',
+  fixture: GA_FILE,
+}
+export const GA_SB406_NOTICE: DriftCitation = {
+  cite: 'Ga. L. 2026, SB 406 § 7 (new subsection (f)(1)–(3))',
+  quote:
+    'An initial written notice by certified mail or statutory overnight delivery to the lot owner from the association or its agent identifying any outstanding fines or delinquent fees;',
+  fixture: GA_FILE,
+}
+export const GA_SB406_ITEMIZED: DriftCitation = {
+  cite: 'Ga. L. 2026, SB 406 § 7 (new subsection (f)(3))',
+  quote: 'An itemized list of reasonable attorney’s fees claimed.',
+  fixture: GA_FILE,
+}
+
+/** Every quote this module can show — what statute-drift.test.ts checks against the fixtures. */
+export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
+  CA_5850_CAP,
+  CA_5850_CAP_100,
+  CA_5850_SCHEDULE,
+  CA_5850_FINDING,
+  CA_5850_NO_LATE_CHARGE,
+  CA_5855_EFFECTIVE,
+  FL_305_CAP,
+  FL_305_AGGREGATE,
+  FL_305_COMMITTEE,
+  FL_305_VOTE,
+  FL_3085_LATE_NOTICE,
+  TX_0064_NOTICE,
+  TX_0064_CURE,
+  TX_0064_PLAN,
+  TX_0062_PLAN,
+  TX_006_NOTICE,
+  TX_006_CURE,
+  GA_223_FINES,
+  GA_SB406_FEES,
+  GA_SB406_NOTICE,
+  GA_SB406_ITEMIZED,
+]
+
+/** SB 406 § 9(b): § 7 is in force from this day. */
+export const GA_SB406_FEES_FROM = '2026-07-01'
+/** § 720.305(2): $100 per violation, $1,000 in the aggregate. */
+export const FL_FINE_CAP_CENTS = 10_000
+export const FL_FINE_AGGREGATE_CENTS = 100_000
+/** § 5850(c)(2): $100 per violation. */
+export const CA_FINE_CAP_CENTS = 10_000
+/** § 209.0064(b)(3): at least 45 days to cure. */
+export const TX_NOTICE_CURE_DAYS = 45
+/** § 720.3085(3)(d)'s form: further action no sooner than 30 days after the notice. */
+export const FL_LATE_NOTICE_WAIT_DAYS = 30
+
+// ─── overrides ───────────────────────────────────────────────────────
+
+export const OVERRIDE_REASONS = {
+  health_safety_finding:
+    'The board made a written finding, at a board meeting open to members, that the violation may have an adverse health or safety impact on the common area or another member’s property, and the higher penalty is on the schedule.',
+  governing_documents_allow: 'Our governing documents provide for a higher fine than the statute’s default.',
+  notice_sent_outside_app: 'The notice the statute requires was sent outside HomeownerHub, by the required method, and its waiting period has run.',
+  not_collection_agent_fees: 'These charges are not a collection agent’s fees.',
+  not_subject_to_payment_plan: 'The association has 14 lots or fewer, and its dedicatory instruments do not require a payment plan offer.',
+  payment_plan_exception: 'A § 209.0062(c) exception applies to this owner, so no payment plan has to be offered.',
+  emergency_conditions: 'The fees arise from emergency conditions involving public safety or the preservation of property.',
+  attorney_advised: 'The association’s attorney reviewed this and advised that it is permitted.',
+} as const
+export type OverrideReason = keyof typeof OVERRIDE_REASONS
+export const OVERRIDE_REASON_CODES = Object.keys(OVERRIDE_REASONS) as OverrideReason[]
+
+// ─── findings ────────────────────────────────────────────────────────
+
+export const DRIFT_CODES = [
+  'ca_fine_over_cap',
+  'ca_fine_schedule',
+  'ca_no_late_charge_on_fine',
+  'ca_hearing_not_recorded',
+  'fl_fine_over_cap',
+  'fl_fine_aggregate',
+  'fl_hearing_committee',
+  'tx_fine_certified_notice',
+  'tx_fine_cure_period',
+  'ga_fine_instrument',
+  'tx_collection_fees_without_notice',
+  'tx_payment_plan_missing',
+  'ga_attorney_fees_prerequisites',
+  'fl_attorney_fees_without_late_notice',
+  'ca_late_charge_with_fine',
+] as const
+export type DriftCode = (typeof DRIFT_CODES)[number]
+
+export type DriftSeverity = 'block' | 'warn'
+
+export interface DriftFinding {
+  code: DriftCode
+  severity: DriftSeverity
+  /** One plain sentence or two for the board. */
+  message: string
+  citations: DriftCitation[]
+  /** For a block: the reasons the board may record to go ahead anyway. Empty for a warning. */
+  overrideReasons: OverrideReason[]
+}
+
+export interface DriftCheck {
+  /** Normalised two-letter state, or null when unknown. */
+  state: string | null
+  findings: DriftFinding[]
+  /** Rules for this state the app has no loaded text for — "check with your attorney". */
+  notLoaded: string[]
+}
+
+export const CHECK_WITH_ATTORNEY =
+  'HomeownerHub has no loaded statute text for this step in your state. Check your governing documents and ask your association’s attorney.'
+
+export const NOT_LEGAL_ADVICE = 'General information from the statute text, not legal advice.'
+
+/** What BL-130 does not check, by state, because the text is not loaded or the record does not exist yet. */
+export const NOT_LOADED: Record<string, { fine: string[]; letter: string[] }> = {
+  CA: {
+    fine: ['Whether the owner cured before the hearing (§ 5855(c)(1)): the app has no hearing record yet.'],
+    letter: [],
+  },
+  FL: {
+    fine: ['Whether the violation was cured before the hearing (§ 720.305(2)(e)): the app has no hearing record yet.'],
+    letter: [],
+  },
+  TX: {
+    fine: [],
+    letter: ['§ 209.0063 order of applying payments: the app does not check how payments were applied.'],
+  },
+  GA: {
+    fine: [],
+    letter: [
+      'Applying payments to dues first: in SB 406 § 2 (new O.C.G.A. ch. 43-17A), in force January 1, 2027, and not loaded here.',
+    ],
+  },
+}
+
+export function normaliseState(state: string | null | undefined): string | null {
+  const s = (state ?? '').trim().toUpperCase()
+  if (s === 'FLORIDA') return 'FL'
+  if (s === 'CALIFORNIA') return 'CA'
+  if (s === 'TEXAS') return 'TX'
+  if (s === 'GEORGIA') return 'GA'
+  return /^[A-Z]{2}$/.test(s) ? s : null
+}
+
+const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`
+
+const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+function dayMs(day: string): number | null {
+  const m = DAY_RE.exec(day)
+  if (!m) return null
+  const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return Number.isNaN(ms) ? null : ms
+}
+/** Whole calendar days from `a` to `b`; null when either is unreadable. */
+export function daysBetween(a: string, b: string): number | null {
+  const x = dayMs(a)
+  const y = dayMs(b)
+  return x === null || y === null ? null : Math.round((y - x) / 86_400_000)
+}
+
+function finding(code: DriftCode, severity: DriftSeverity, message: string, citations: DriftCitation[], overrideReasons: OverrideReason[] = []): DriftFinding {
+  return { code, severity, message, citations, overrideReasons: severity === 'block' ? [...overrideReasons, 'attorney_advised'] : [] }
+}
+
+function notLoadedFor(state: string | null, step: 'fine' | 'letter'): string[] {
+  const own = state ? NOT_LOADED[state] : undefined
+  if (!own) return [CHECK_WITH_ATTORNEY]
+  return own[step]
+}
+
+// ─── fines ───────────────────────────────────────────────────────────
+
+/** hoa_violations.fine_amount (dollars, numeric — may arrive as a string) to cents; null when unset or unreadable. */
+export function fineCents(amount: number | string | null | undefined): number | null {
+  if (amount === null || amount === undefined || amount === '') return null
+  const n = Number(amount)
+  return Number.isFinite(n) ? Math.round(n * 100) : null
+}
+
+export interface FineCheckInput {
+  state: string | null | undefined
+  /** The violation's fine (hoa_violations.fine_amount, dollars per day), in cents; null when none is set. */
+  dailyFineCents: number | null
+}
+
+/**
+ * Before a violation moves to Fined. The app levies `fine_amount` per day
+ * from the day it is fined; what the statute says about that amount, and
+ * what it requires that the app has no record of.
+ */
+export function checkFine(input: FineCheckInput): DriftCheck {
+  const state = normaliseState(input.state)
+  const fine = input.dailyFineCents !== null && Number.isFinite(input.dailyFineCents) ? Math.max(0, Math.round(input.dailyFineCents)) : null
+  const findings: DriftFinding[] = []
+
+  if (state === 'CA') {
+    if (fine !== null && fine > CA_FINE_CAP_CENTS) {
+      findings.push(
+        finding(
+          'ca_fine_over_cap',
+          'block',
+          `The fine is ${usd(fine)} a day. A California fine may not exceed $100 per violation unless the violation may have an adverse health or safety impact and the board first made a written finding saying so at a board meeting open to members.`,
+          [CA_5850_CAP, CA_5850_CAP_100, CA_5850_FINDING],
+          ['health_safety_finding'],
+        ),
+      )
+    }
+    if (fine !== null && fine > 0) {
+      findings.push(
+        finding(
+          'ca_fine_schedule',
+          'warn',
+          `The fine also may not exceed the penalty on the schedule in effect when the violation happened. Confirm ${usd(fine)} is on it, and how your schedule treats a violation that continues day after day.`,
+          [CA_5850_CAP, CA_5850_SCHEDULE],
+        ),
+      )
+    }
+    findings.push(finding('ca_no_late_charge_on_fine', 'warn', 'Do not add a late charge or interest to this fine.', [CA_5850_NO_LATE_CHARGE]))
+    findings.push(
+      finding(
+        'ca_hearing_not_recorded',
+        'warn',
+        'HomeownerHub has no record of the § 5855 hearing (10 days’ written notice, the meeting, and the written decision within 14 days). The fine is not effective unless the board followed it.',
+        [CA_5855_EFFECTIVE],
+      ),
+    )
+  } else if (state === 'FL') {
+    if (fine !== null && fine > FL_FINE_CAP_CENTS) {
+      findings.push(
+        finding(
+          'fl_fine_over_cap',
+          'block',
+          `The fine is ${usd(fine)} a day. A Florida fine may not exceed $100 per violation unless the governing documents provide otherwise.`,
+          [FL_305_CAP],
+          ['governing_documents_allow'],
+        ),
+      )
+    }
+    if (fine !== null && fine > 0) {
+      const days = Math.ceil(FL_FINE_AGGREGATE_CENTS / fine)
+      findings.push(
+        finding(
+          'fl_fine_aggregate',
+          'warn',
+          `A daily fine for a continuing violation may not exceed $1,000 in total unless the governing documents provide otherwise. At ${usd(fine)} a day that total is reached after ${days} day${days === 1 ? '' : 's'}; stop the fine there.`,
+          [FL_305_AGGREGATE],
+        ),
+      )
+    }
+    findings.push(
+      finding(
+        'fl_hearing_committee',
+        'warn',
+        'HomeownerHub has no hearing record yet. A fine may not be imposed unless the owner got at least 14 days’ written notice of a hearing and a committee of at least three members who are not officers, directors or employees (or their relatives) approved it by majority vote.',
+        [FL_305_COMMITTEE, FL_305_VOTE],
+      ),
+    )
+  } else if (state === 'TX') {
+    findings.push(
+      finding(
+        'tx_fine_certified_notice',
+        'warn',
+        'Before levying a fine, the association must give the owner written notice by certified mail. HomeownerHub doesn’t record how the notice was mailed; confirm it went certified.',
+        [TX_006_NOTICE],
+      ),
+    )
+    findings.push(
+      finding(
+        'tx_fine_cure_period',
+        'warn',
+        'If the owner cured the violation within the cure period the notice gave, no fine may be assessed.',
+        [TX_006_CURE],
+      ),
+    )
+  } else if (state === 'GA') {
+    findings.push(
+      finding(
+        'ga_fine_instrument',
+        'warn',
+        'A Georgia association may fine only if, and as far as, its instrument (the declaration) provides. Confirm the declaration authorizes this fine.',
+        [GA_223_FINES],
+      ),
+    )
+  }
+
+  return { state, findings, notLoaded: notLoadedFor(state, 'fine') }
+}
+
+// ─── collections letters ─────────────────────────────────────────────
+
+/** Ledger charge types that are attorney's fees or collection costs (migrations/0047). */
+export const COLLECTION_FEE_TYPES = ['collection_legal', 'collection_processing'] as const
+export const ATTORNEY_FEE_TYPES = ['collection_legal'] as const
+
+export interface PrintedLetter {
+  /** The letter kind (collections/letters LETTER_KINDS). */
+  kind: string
+  /** The association day it was first printed (YYYY-MM-DD). */
+  printedOn: string
+}
+
+export interface LetterCheckInput {
+  state: string | null | undefined
+  /** collections/letters LETTER_KINDS. */
+  kind: string
+  /** The letter date, the association's today (YYYY-MM-DD). */
+  letterDate: string
+  /** The ledger charge types the letter lists (assessment_type, or 'plan_installment'). */
+  listedChargeTypes: readonly string[]
+  /** The board's BLANK entries (the payment-plan text on a TX notice). */
+  values: Readonly<Record<string, string | undefined>>
+  /** The case's recorded collections events. */
+  events: readonly { eventType: string; occurredOn: string }[]
+  /** Letters on this case already printed. */
+  printed: readonly PrintedLetter[]
+}
+
+/** A payment-plan entry that offers nothing: blank, or "Not applicable" and the like. */
+export function offersNoPlan(text: string | undefined): boolean {
+  const t = (text ?? '').trim().toLowerCase().replace(/[.\s]+$/g, '')
+  return t === '' || /^(n\/?a|none|no|not applicable|no payment plan|no plan|not offered)$/.test(t)
+}
+
+/**
+ * Before a collections letter is saved to Approvals, and again before
+ * the approved letter prints (the letter date can move).
+ */
+export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
+  const state = normaliseState(input.state)
+  const types = new Set(input.listedChargeTypes)
+  const has = (list: readonly string[]) => list.some((t) => types.has(t))
+  const findings: DriftFinding[] = []
+  const atLeast = (day: string, n: number) => {
+    const d = daysBetween(day, input.letterDate)
+    return d !== null && d >= n
+  }
+
+  if (state === 'TX') {
+    if (has(COLLECTION_FEE_TYPES)) {
+      const noticed = input.printed.some((p) => p.kind === 'tx_delinquency' && atLeast(p.printedOn, TX_NOTICE_CURE_DAYS))
+      if (!noticed) {
+        findings.push(
+          finding(
+            'tx_collection_fees_without_notice',
+            'block',
+            'This letter lists attorney or collection-processing fees. If they are a collection agent’s fees, the owner can’t be held liable for them unless a § 209.0064 notice went by certified mail at least 45 days earlier. No delinquency notice printed 45 or more days ago is recorded on this case.',
+            [TX_0064_NOTICE, TX_0064_CURE],
+            ['notice_sent_outside_app', 'not_collection_agent_fees'],
+          ),
+        )
+      }
+    }
+    if (input.kind === 'tx_delinquency' && offersNoPlan(input.values.paymentPlan) && (input.values.paymentPlan ?? '').trim() !== '') {
+      findings.push(
+        finding(
+          'tx_payment_plan_missing',
+          'block',
+          'The notice offers no payment plan. An association of more than 14 lots must have payment-plan guidelines, and then the notice must describe the plan.',
+          [TX_0062_PLAN, TX_0064_PLAN],
+          ['not_subject_to_payment_plan', 'payment_plan_exception'],
+        ),
+      )
+    }
+  } else if (state === 'GA') {
+    if (has(ATTORNEY_FEE_TYPES) && input.letterDate >= GA_SB406_FEES_FROM) {
+      findings.push(
+        finding(
+          'ga_attorney_fees_prerequisites',
+          'block',
+          'This letter lists attorney’s fees. Since July 1, 2026, before collecting attorney’s fees the association must first send a written notice by certified mail or statutory overnight delivery identifying the outstanding fines or fees, give the owner 30 days from receipt to pay, and provide an itemized list of the fees claimed. HomeownerHub has no record of that notice.',
+          [GA_SB406_FEES, GA_SB406_NOTICE, GA_SB406_ITEMIZED],
+          ['notice_sent_outside_app', 'emergency_conditions'],
+        ),
+      )
+    }
+  } else if (state === 'FL') {
+    if (has(ATTORNEY_FEE_TYPES)) {
+      const noticed = input.events.some((e) => e.eventType === 'lien_warning_sent' && atLeast(e.occurredOn, FL_LATE_NOTICE_WAIT_DAYS))
+      if (!noticed) {
+        findings.push(
+          finding(
+            'fl_attorney_fees_without_late_notice',
+            'block',
+            'This letter lists attorney’s fees. Attorney fees on a past-due assessment can’t be required until a notice of late assessment is delivered and the owner has had the chance to pay without them. No notice of late assessment recorded 30 or more days ago is on this case.',
+            [FL_3085_LATE_NOTICE],
+            ['notice_sent_outside_app'],
+          ),
+        )
+      }
+    }
+  } else if (state === 'CA') {
+    if (types.has('fine') && types.has('late_fee')) {
+      findings.push(
+        finding(
+          'ca_late_charge_with_fine',
+          'warn',
+          'This letter lists a fine and late charges. No late charge or interest may be charged on a fine: confirm none of the late charges is on the fine.',
+          [CA_5850_NO_LATE_CHARGE],
+        ),
+      )
+    }
+  }
+
+  return { state, findings, notLoaded: notLoadedFor(state, 'letter') }
+}
+
+// ─── the board's override ────────────────────────────────────────────
+
+export interface AppliedOverride {
+  code: DriftCode
+  reason: OverrideReason
+}
+
+export function blockingFindings(check: DriftCheck): DriftFinding[] {
+  return check.findings.filter((f) => f.severity === 'block')
+}
+
+/**
+ * Every blocking finding needs its own override reason, one the finding
+ * allows. Never silently allowed: a missing or unknown reason refuses.
+ */
+export function resolveOverrides(
+  check: DriftCheck,
+  overrides: Readonly<Record<string, string>> | null | undefined,
+): { ok: true; applied: AppliedOverride[] } | { ok: false; error: string; missing: DriftCode[] } {
+  const applied: AppliedOverride[] = []
+  const missing: DriftCode[] = []
+  for (const f of blockingFindings(check)) {
+    const reason = overrides?.[f.code]
+    if (reason && (f.overrideReasons as string[]).includes(reason)) applied.push({ code: f.code, reason: reason as OverrideReason })
+    else missing.push(f.code)
+  }
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      missing,
+      error: `The state law check found ${missing.length === 1 ? 'a problem' : `${missing.length} problems`} that block this step. Fix ${missing.length === 1 ? 'it' : 'them'}, or record the board’s reason for going ahead.`,
+    }
+  }
+  return { ok: true, applied }
+}
+
+/** The audit_log row for an override: ids and codes only — never a name, an address or free text. */
+export const STATUTE_OVERRIDE_ACTION = 'statute_check.override'
+
+export function overrideAuditRow(args: {
+  orgId: string
+  userId: string
+  entityType: 'hoa_violation' | 'collections_letter'
+  entityId: string
+  step: 'fine' | 'collections_letter'
+  state: string | null
+  applied: AppliedOverride[]
+  extra?: Record<string, string | null>
+}) {
+  return {
+    action: STATUTE_OVERRIDE_ACTION,
+    org_id: args.orgId,
+    user_id: args.userId,
+    entity_type: args.entityType,
+    entity_id: args.entityId,
+    metadata: {
+      step: args.step,
+      state: args.state,
+      overrides: args.applied.map((a) => ({ code: a.code, reason: a.reason })),
+      ...(args.extra ?? {}),
+    },
+  }
+}

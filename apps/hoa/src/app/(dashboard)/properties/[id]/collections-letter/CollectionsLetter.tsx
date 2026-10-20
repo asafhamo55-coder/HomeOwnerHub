@@ -22,6 +22,8 @@ import { formatDay } from '@/lib/money/format'
 import { DraftPrintBanner, usePrintGate } from '@/components/print/PrintGate'
 import { valueOf, type CertificateField, type FieldValues } from '@/lib/properties/estoppel/model'
 import { recordLetterPrinted, saveLetterToApprovals } from '@/lib/collections/letters/actions'
+import { StateLawCheckPanel } from '@/components/compliance/StateLawCheckPanel'
+import { blockingFindings, resolveOverrides, type DriftCode, type OverrideReason } from '@/lib/compliance/statute-drift'
 import {
   CA_IMPORTANT_NOTICE,
   CA_RIGHTS,
@@ -37,6 +39,7 @@ import {
   letterBlanks,
   letterBlocked,
   letterJurisdiction,
+  letterLawCheck,
   letterProblems,
   letterTotals,
   usdCents,
@@ -44,6 +47,7 @@ import {
   type LetterEvent,
   type LetterInput,
   type LetterKind,
+  type PrintedLetterRecord,
 } from '@/lib/collections/letters/model'
 import type { LetterPayload } from '@/lib/collections/letters/proposal'
 import { Blank, BlankInput } from '../estoppel/EstoppelCertificate'
@@ -75,34 +79,40 @@ export function CollectionsLetter({
   events,
   pending,
   approved,
+  printed = [],
 }: {
   input: LetterInput
   today: string
   events: LetterEvent[]
   pending: LetterRequestView | null
   approved: LetterRequestView | null
+  /** BL-130: the case's letters already printed, for the state law check. */
+  printed?: PrintedLetterRecord[]
 }) {
   const [drafting, setDrafting] = useState(false)
-  if (pending) return <Pending input={input} today={today} events={events} request={pending} />
-  if (approved && !drafting) return <Approved input={input} today={today} events={events} request={approved} onDraftNew={() => setDrafting(true)} />
-  return <Draft input={input} today={today} events={events} />
+  if (pending) return <Pending input={input} today={today} events={events} printed={printed} request={pending} />
+  if (approved && !drafting) return <Approved input={input} today={today} events={events} printed={printed} request={approved} onDraftNew={() => setDrafting(true)} />
+  return <Draft input={input} today={today} events={events} printed={printed} />
 }
 
 // ─── draft ───────────────────────────────────────────────────────────
 
-function Draft({ input, today, events }: { input: LetterInput; today: string; events: LetterEvent[] }) {
+function Draft({ input, today, events, printed }: { input: LetterInput; today: string; events: LetterEvent[]; printed: PrintedLetterRecord[] }) {
   const router = useRouter()
   const toast = useToast()
   const kinds = kindsFor(letterJurisdiction(input.state))
   const [kind, setKind] = useState<LetterKind>(kinds[0]!)
   const [values, setValues] = useState<FieldValues>({})
   const [verified, setVerified] = useState(false)
+  const [lawOverrides, setLawOverrides] = useState<Partial<Record<DriftCode, OverrideReason>>>({})
   const [isPending, startTransition] = useTransition()
 
   const letter = useMemo(() => buildLetter(input, kind, today, events, values), [input, kind, today, events, values])
+  const law = useMemo(() => letterLawCheck(input, letter, values, events, printed), [input, letter, values, events, printed])
+  const lawResolved = resolveOverrides(law, lawOverrides as Record<string, string>)
   const blanks = letterBlanks(letter, values)
   const problems = letterProblems(kind, values)
-  const blocked = letterBlocked(letter, values, verified)
+  const blocked = letterBlocked(letter, values, verified) ?? (lawResolved.ok ? null : lawResolved.error)
   const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }))
   // The CA delinquency period changes which assessments are delinquent,
   // and so whether the letter can be drafted at all: it stays on screen
@@ -113,7 +123,7 @@ function Draft({ input, today, events }: { input: LetterInput; today: string; ev
   function save() {
     if (blocked) return
     startTransition(async () => {
-      const res = await saveLetterToApprovals({ propertyId: input.propertyId, kind, values, verified })
+      const res = await saveLetterToApprovals({ propertyId: input.propertyId, kind, values, verified, lawOverrides })
       if (!res.ok) {
         toast({ tone: 'error', title: 'Couldn’t save the letter', message: res.error })
         return
@@ -146,6 +156,7 @@ function Draft({ input, today, events }: { input: LetterInput; today: string; ev
                   onChange={() => {
                     setKind(k)
                     setVerified(false)
+                    setLawOverrides({})
                   }}
                   label={LETTER_META[k].label}
                   description={`${LETTER_META[k].description}${LETTER_META[k].citation ? ` (${LETTER_META[k].citation})` : ''}`}
@@ -207,6 +218,20 @@ function Draft({ input, today, events }: { input: LetterInput; today: string; ev
 
           <LetterDocument letter={letter} input={input} values={values} printClass="print:hidden" />
 
+          <StateLawCheckPanel
+            check={law}
+            overrides={lawOverrides}
+            disabled={isPending}
+            onOverride={(code, reason) =>
+              setLawOverrides((prev) => {
+                const next = { ...prev }
+                if (reason) next[code as DriftCode] = reason
+                else delete next[code as DriftCode]
+                return next
+              })
+            }
+          />
+
           <div className="space-y-3 print:hidden">
             {blanks.length > 0 ? (
               <Alert variant="warning" title={`${blanks.length} BLANK${blanks.length === 1 ? '' : 's'} left`}>
@@ -264,8 +289,21 @@ function Facts({ letter }: { letter: Letter }) {
 
 // ─── pending / approved ──────────────────────────────────────────────
 
-function Pending({ input, today, events, request }: { input: LetterInput; today: string; events: LetterEvent[]; request: LetterRequestView }) {
+function Pending({
+  input,
+  today,
+  events,
+  printed,
+  request,
+}: {
+  input: LetterInput
+  today: string
+  events: LetterEvent[]
+  printed: PrintedLetterRecord[]
+  request: LetterRequestView
+}) {
   const letter = useMemo(() => buildLetter(input, request.payload.kind, today, events, request.payload.values), [input, request.payload, today, events])
+  const law = useMemo(() => letterLawCheck(input, letter, request.payload.values, events, printed), [input, letter, request.payload.values, events, printed])
   return (
     <div className="space-y-5">
       <Alert variant="info" title="Waiting for board approval" className="print:hidden">
@@ -274,6 +312,7 @@ function Pending({ input, today, events, request }: { input: LetterInput; today:
           Open Approvals
         </Link>
       </Alert>
+      <StateLawCheckPanel check={law} recorded={request.payload.lawOverrides ?? []} />
       <DraftPrintBanner armed={false} />
       <LetterDocument letter={letter} input={input} values={request.payload.values} printClass="print:hidden" />
     </div>
@@ -284,12 +323,14 @@ function Approved({
   input,
   today,
   events,
+  printed,
   request,
   onDraftNew,
 }: {
   input: LetterInput
   today: string
   events: LetterEvent[]
+  printed: PrintedLetterRecord[]
   request: LetterRequestView
   onDraftNew: () => void
 }) {
@@ -302,9 +343,16 @@ function Approved({
   const values = request.payload.values
   const totals = letterTotals(letter, values)
   const stale = totals.totalCents !== request.payload.totalCents
+  // BL-130: the print gate re-runs the state law check; a blocking finding
+  // the board did not override when it saved the letter stops the print.
+  const law = useMemo(() => letterLawCheck(input, letter, values, events, printed), [input, letter, values, events, printed])
+  const overridden = new Set((request.payload.lawOverrides ?? []).map((o) => o.code))
+  const lawNew = blockingFindings(law).filter((f) => !overridden.has(f.code))
   const blocked = stale
     ? 'The account has changed since this letter was approved. Draft a new letter so the figures are current.'
-    : letterBlocked(letter, values, verified)
+    : lawNew.length > 0
+      ? 'The state law check now finds a problem the board didn’t decide when this letter was approved. Draft a new letter so the board can review it.'
+      : letterBlocked(letter, values, verified)
 
   function print() {
     if (blocked) return
@@ -329,6 +377,7 @@ function Approved({
           : 'The board approved this letter. Print it or save it as a PDF, then send it as the statute requires. Nothing is emailed.'}
       </Alert>
       {!stale ? <Facts letter={letter} /> : null}
+      {!stale ? <StateLawCheckPanel check={law} recorded={request.payload.lawOverrides ?? []} /> : null}
       <DraftPrintBanner armed={gate.printArmed} />
       <LetterDocument letter={letter} input={input} values={values} printClass={gate.docClass} />
       <div className="space-y-3 print:hidden">

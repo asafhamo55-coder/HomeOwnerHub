@@ -18,6 +18,7 @@
 import { z } from 'zod'
 import { propertyHref } from '../../properties/href'
 import type { PropertyId } from '../../properties/resolve'
+import { DRIFT_CODES, OVERRIDE_REASON_CODES, OVERRIDE_REASONS, type OverrideReason } from '../../compliance/statute-drift'
 
 export const LETTER_ACTION = 'collections.letter'
 export const LETTER_WORKFLOW = 'collections_letters'
@@ -43,6 +44,13 @@ export const LetterPayloadSchema = z.object({
   ledgerCents: z.number().int(),
   enteredCents: z.number().int().min(0),
   totalCents: z.number().int().positive(),
+  /** BL-130: every state-law finding code at save time (absent on letters saved before BL-130). */
+  lawFindings: z.array(z.enum(DRIFT_CODES)).max(20).optional(),
+  /** BL-130: the board's override reason for each blocking finding, recorded at save time. */
+  lawOverrides: z
+    .array(z.object({ code: z.enum(DRIFT_CODES), reason: z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]]) }))
+    .max(20)
+    .optional(),
 })
 export type LetterPayload = z.infer<typeof LetterPayloadSchema>
 
@@ -75,4 +83,20 @@ export function letterSummary(kind: LetterPayload['kind'], home: string): string
 /** The page the letter is reviewed and printed from. */
 export function letterHref(propertyId: string): string {
   return propertyHref(propertyId as PropertyId, { collectionsLetter: true })
+}
+
+/** BL-130: the approval card's line on the state law check, or null when none was run. */
+export function letterLawNote(payload: LetterPayload): string | null {
+  if (!payload.lawFindings) return null
+  const overrides = payload.lawOverrides ?? []
+  const warnings = payload.lawFindings.length - overrides.length
+  if (payload.lawFindings.length === 0) return 'State law check: no problems found.'
+  const parts: string[] = []
+  if (overrides.length > 0) {
+    parts.push(
+      `${overrides.length} blocking problem${overrides.length === 1 ? '' : 's'} the board chose to override (${overrides.map((o) => OVERRIDE_REASONS[o.reason]).join(' ')})`,
+    )
+  }
+  if (warnings > 0) parts.push(`${warnings} item${warnings === 1 ? '' : 's'} to confirm`)
+  return `State law check: ${parts.join('; ')}. Open the letter to read them.`
 }
