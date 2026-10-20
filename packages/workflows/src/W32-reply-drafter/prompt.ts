@@ -6,7 +6,7 @@
 // scrutiny than a blank page — so the dangerous content must never be
 // drafted at all.
 
-export const PROMPT_VERSION = '1.2.0'
+export const PROMPT_VERSION = '1.3.0'
 
 export const REPLY_DRAFTER_SYSTEM = `You draft replies to residents on behalf of a homeowners association.
 
@@ -55,6 +55,18 @@ RULES
      happens if the resident does not comply. You MAY quote a document
      verbatim with a citation. You MAY NOT say what it means.
    - other_resident: naming or describing any other household
+5a. ACCOUNT fragments (refIds starting "acct:", labelled "Account — …",
+   "Violation record", "ARC application" or "Maintenance request") are this
+   home's own records. They are only present because the sender was
+   verified as a resident of the home. You MAY state a figure, date or
+   status from one, quoted exactly with its citation. You may NOT offer,
+   waive, change, extend or promise anything about it (rule 5 still
+   applies), and you may NOT explain what a status means for the resident.
+5b. If an ACCOUNT DETAILS WITHHELD section is present, never state any
+   balance, charge, payment, plan, violation, ARC or request status for
+   this home, even one you think you know. Where the resident asks for
+   one, write [[BLANK: money]] (or [[BLANK: enforcement]] for a violation
+   or ARC status) and put the withheld reason in that blank's prompt.
 6. If no fragment is relevant to what the resident asked, write only a brief
    acknowledgement confirming receipt and committing to follow up, set
    grounded=false, and cite nothing.
@@ -80,6 +92,8 @@ export interface ReplyDrafterUserContext {
   voiceExamples: Array<{ subject: string | null; body: string }>
   degraded: string[]
   aiContext: { governingDocs: string | null; stateLaw: string | null }
+  /** BL-101 A2: why this home's account facts were withheld, if they were. */
+  accountNote?: string | null
 }
 
 export function buildReplyDrafterUserPrompt(input: ReplyDrafterUserContext): string {
@@ -134,5 +148,10 @@ export function buildReplyDrafterUserPrompt(input: ReplyDrafterUserContext): str
           .join('\n\n---\n\n')}`
       : ''
 
-  return `SUBJECT: ${input.threadSubject ?? '(none)'}\n\nCONVERSATION:\n${conversation}\n\nSOURCES:\n${sources}${background}${voice}${missing}`
+  // Rule 5b. Fixed text from retrieval; never a figure or an address.
+  const withheld = input.accountNote
+    ? `\n\nACCOUNT DETAILS WITHHELD (see rule 5b): ${input.accountNote}`
+    : ''
+
+  return `SUBJECT: ${input.threadSubject ?? '(none)'}\n\nCONVERSATION:\n${conversation}\n\nSOURCES:\n${sources}${background}${voice}${withheld}${missing}`
 }

@@ -60,6 +60,12 @@ export const ReplyDrafterInputSchema = z.object({
     governingDocs: z.string().nullable(),
     stateLaw: z.string().nullable(),
   }),
+  // BL-101 A2: set when this home's account facts were WITHHELD (the
+  // sender is not a verified resident of it). Fixed, PII-free text from
+  // retrieve.ts. The prompt tells the model to blank any account answer,
+  // and `withAccountNote` stamps the reason onto every money blank so the
+  // board sees why the figure is missing. Optional so older callers parse.
+  accountNote: z.string().max(500).nullable().optional(),
 })
 
 export type ReplyDrafterInput = z.infer<typeof ReplyDrafterInputSchema>
@@ -106,7 +112,8 @@ export const replyDrafter = defineWorkflow({
   // Bumped for the corrective-retry behavior change below (defineWorkflow's
   // own docstring: bump `version` when prompt OR tool surface changes
   // meaningfully — this changes how run() behaves on a citation failure).
-  version: '1.1.0',
+  // 1.2.0: accountNote input (BL-101 A2).
+  version: '1.2.0',
   promptVersion: PROMPT_VERSION,
   model: resolveModel(),
   // Declared, not merely enforced in the UI. A draft is a proposal; only a
@@ -165,7 +172,8 @@ export async function generateReplyDraft(
     api.setModel(completion.model)
   }
 
-  function finalize(output: ReplyDrafterOutput): ReplyDrafterOutput {
+  function finalize(raw: ReplyDrafterOutput): ReplyDrafterOutput {
+    const output = withAccountNote(raw, input.accountNote ?? null)
     api.addCitations(output.citations.map((c) => c.refId))
     api.setConfidence(output.grounded ? 0.8 : 0.2)
     return output
@@ -273,6 +281,22 @@ export async function draftReply(
 export { InvalidCitationError, UnsupportedQuoteError }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * BL-101 A2: when account facts were withheld, every money blank carries
+ * the reason, so the board knows the figure is missing on purpose (and
+ * must not be looked up and pasted for a sender who isn't the resident).
+ * Deterministic, not left to the model. Exported for the unit test.
+ */
+export function withAccountNote(output: ReplyDrafterOutput, note: string | null): ReplyDrafterOutput {
+  if (!note) return output
+  return {
+    ...output,
+    blanks: output.blanks.map((b) =>
+      b.kind === 'money' && !b.prompt.includes(note) ? { ...b, prompt: `${b.prompt} — ${note}` } : b,
+    ),
+  }
+}
 
 function parseModelJson(raw: string): unknown {
   try {

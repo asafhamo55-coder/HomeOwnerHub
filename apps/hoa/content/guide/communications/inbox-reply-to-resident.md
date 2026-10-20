@@ -6,9 +6,9 @@ topic: communications
 roles: [admin, board]
 routes: ["/inbox", "/inbox/[id]", "/inbox/compose"]
 primary_route: /inbox
-keywords: [inbox, reply, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property]
+keywords: [inbox, reply, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property]
 related: [inbox-connect-mailbox, communications-send-announcement]
-reviewed: 2026-10-18
+reviewed: 2026-10-19
 ---
 
 Use the Inbox to answer one resident's email. The reply goes out from your HOA mailbox.
@@ -19,8 +19,8 @@ Use the Inbox to answer one resident's email. The reply goes out from your HOA m
 
 ## Steps
 1. Open **Inbox** from the sidebar and select a conversation. Use the filters, like **Needs review** or **All**, to find it.
-2. Read the thread. The panel beside it shows the home's dues, open violations and ARC requests.
-3. Select [[Draft a reply]]. AI writes a draft from your documents and this home's record.
+2. Read the thread. The panel beside it shows who wrote, the home's balance and last payment, open violations, ARC requests and tickets, earlier conversations, and the document sections that match the email. Select any of them to open it.
+3. Select [[Draft a reply]]. AI writes a draft from your documents and this home's record, like its balance or the status of a request.
 4. Read the draft. Edit **To**, **Subject** and **Message**. Fill in or remove every highlighted blank, and check the **Sources** it quotes.
 5. To attach files, like a PDF from your documents, select [[Upload a file]], [[From this thread]] or [[From documents]].
 6. Select [[Approve and send]].
@@ -37,6 +37,9 @@ The reply waits 30 seconds before it sends. If you sent it by mistake, select [[
 
 ## Good to know
 - Nothing sends until someone selects [[Approve and send]].
+- AI only puts a balance or a request status in a draft when the sender's email is on file for a resident of that home. Otherwise the panel says **Sender is not a resident of this home**, and the draft leaves a blank that says why. Check who you're writing to before you fill it in.
+- Every figure AI uses is listed under **Sources**, like **Account — balance**, so you can check it against the panel.
+- **Matching documents** appears once a reply is drafted.
 - Attachments on one message can total up to 15 MB.
 - If an email isn't filed under a home yet, pick the home in the side panel and select [[File under property]].
 - To write a brand-new email, select [[New email]] on the Inbox, then [[Start writing]]. It appears in the Inbox within a couple of minutes after it sends.

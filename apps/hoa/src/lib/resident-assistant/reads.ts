@@ -55,6 +55,41 @@ export interface ResidentScope {
   userId: string | null
   email: string | null
   units: AssistantUnit[]
+  /**
+   * Which tickets and ARC applications readMyRequests returns. Omitted (the
+   * resident assistant) means the ones this user submitted. 'unit' is the
+   * board's inbox drafter (BL-101 A2): every one filed against the scope's
+   * units, whoever submitted it, read on the BOARD's RLS client. Build
+   * that scope with unitScope(), never by hand.
+   */
+  requestsBy?: 'submitter' | 'unit'
+}
+
+/**
+ * A one-home scope for board-side callers (the inbox drafter and context
+ * rail). `db` must be the board member's own RLS client, never service
+ * role. No user id or email: nothing here is read "as" a resident, and
+ * reported concerns (keyed on the reporter) are left out.
+ */
+export function unitScope(input: {
+  db: SupabaseClient<Database>
+  orgId: string
+  unitIds: string[]
+  timeZone: string
+}): ResidentScope {
+  return {
+    db: input.db,
+    orgId: input.orgId,
+    userId: null,
+    email: null,
+    units: input.unitIds.map((unit_id) => ({
+      unit_id,
+      association_id: null,
+      association_time_zone: input.timeZone,
+      charges_from: null,
+    })),
+    requestsBy: 'unit',
+  }
 }
 
 /** A read failed: the answer is UNKNOWN, never empty. Carries a code only. */
@@ -236,6 +271,7 @@ export interface MyRequests {
 type Loose = { from: (t: string) => any }
 
 export async function readMyRequests(scope: ResidentScope): Promise<MyRequests> {
+  if (scope.requestsBy === 'unit') return readUnitRequests(scope)
   const db = scope.db as unknown as Loose
   const userId = scope.userId
   const unitIds = unitIdsOf(scope)
@@ -307,6 +343,68 @@ export async function readMyRequests(scope: ResidentScope): Promise<MyRequests> 
       status: r.status,
       submittedAt: r.submitted_at,
     })),
+  }
+}
+
+/**
+ * Board side (scope.requestsBy === 'unit'): tickets and ARC applications
+ * filed against the scope's units, whoever submitted them. Same shapes and
+ * the same belt-and-braces re-check as the resident path, keyed on unit_id
+ * instead of submitted_by. Reported concerns are keyed on the reporter, so
+ * they are not part of a home's record and come back empty.
+ */
+async function readUnitRequests(scope: ResidentScope): Promise<MyRequests> {
+  const db = scope.db as unknown as Loose
+  const unitIds = unitIdsOf(scope)
+  if (unitIds.length === 0) return { tickets: [], arcApplications: [], violationsOnMyHome: [], reportedConcerns: [] }
+
+  const [tickets, arc, violations] = await Promise.all([
+    db
+      .from('tickets')
+      .select('id, unit_id, category, subject, status, created_at, organization_id')
+      .in('unit_id', unitIds)
+      .eq('organization_id', scope.orgId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(LIST_LIMIT),
+    db
+      .from('arc_requests')
+      .select('id, unit_id, category, summary, status, board_response_at, submitted_at, organization_id')
+      .in('unit_id', unitIds)
+      .eq('organization_id', scope.orgId)
+      .is('deleted_at', null)
+      .order('submitted_at', { ascending: false })
+      .limit(LIST_LIMIT),
+    readViolationsOnMyHomes(scope, unitIds),
+  ])
+  if (tickets.error) throw new ScopeReadFailed('tickets', codeOf(tickets.error))
+  if (arc.error) throw new ScopeReadFailed('arc', codeOf(arc.error))
+
+  type TicketRow = { id: string; unit_id: string | null; category: string; subject: string; status: string; created_at: string; organization_id: string }
+  type ArcRow = { id: string; unit_id: string | null; category: string; summary: string; status: string; board_response_at: string | null; submitted_at: string; organization_id: string }
+  const mine = new Set(unitIds)
+  const onMyUnits = <T extends { organization_id: string; unit_id: string | null }>(rows: unknown): T[] =>
+    ((rows ?? []) as T[]).filter((r) => r.organization_id === scope.orgId && r.unit_id !== null && mine.has(r.unit_id))
+
+  return {
+    tickets: onMyUnits<TicketRow>(tickets.data).map((t) => ({
+      id: t.id,
+      subject: t.subject,
+      category: t.category,
+      status: t.status,
+      createdAt: t.created_at,
+      home: unitLabel(scope, t.unit_id),
+    })),
+    arcApplications: onMyUnits<ArcRow>(arc.data).map((a) => ({
+      id: a.id,
+      summary: a.summary,
+      category: a.category,
+      status: a.status,
+      submittedAt: a.submitted_at,
+      decidedAt: a.board_response_at,
+    })),
+    violationsOnMyHome: violations,
+    reportedConcerns: [],
   }
 }
 

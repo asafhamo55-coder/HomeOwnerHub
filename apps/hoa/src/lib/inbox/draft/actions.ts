@@ -72,6 +72,8 @@ export async function createDraft(
         voiceExamples: retrieval.voiceExamples,
         degraded: retrieval.degraded,
         aiContext: retrieval.aiContext,
+        // BL-101 A2: why account facts were withheld, if they were.
+        accountNote: retrieval.accountNote,
       },
       { organizationId: org.id },
     )

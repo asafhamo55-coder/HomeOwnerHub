@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import type OpenAI from 'openai'
-import { processReplyDrafterResponse, generateReplyDraft, type ModelCaller } from './index'
+import { processReplyDrafterResponse, generateReplyDraft, withAccountNote, type ModelCaller } from './index'
 import { buildReplyDrafterUserPrompt } from './prompt'
 import { InvalidCitationError, UnsupportedQuoteError } from './tools'
 import type { WorkflowExecuteApi } from '@homeowner-portal/ai'
@@ -476,5 +476,125 @@ describe('generateReplyDraft — corrective retry on citation failure', () => {
 
     // Two attempts of 10 prompt / 5 completion tokens each.
     expect(api.setTokens).toHaveBeenLastCalledWith(20, 10)
+  })
+})
+
+// ─── BL-101 A2: withheld account details ─────────────────────────────
+
+describe('withAccountNote — the reason rides on every money blank', () => {
+  const out = {
+    subject: 'Re: balance',
+    body: 'Thanks.\n[[BLANK: money]]',
+    citations: [],
+    blanks: [
+      { kind: 'money' as const, prompt: 'Current balance' },
+      { kind: 'legal' as const, prompt: 'What the CC&Rs require' },
+    ],
+    grounded: false,
+    groundingNote: null,
+  }
+  const note = "The sender's address is not on file for a resident of this home, so account details were withheld."
+
+  it('appends the reason to money blanks only, once', () => {
+    const stamped = withAccountNote(out, note)
+    expect(stamped.blanks[0]!.prompt).toBe(`Current balance — ${note}`)
+    expect(stamped.blanks[1]!.prompt).toBe('What the CC&Rs require')
+    expect(withAccountNote(stamped, note).blanks[0]!.prompt).toBe(stamped.blanks[0]!.prompt)
+  })
+
+  it('changes nothing when account details were included', () => {
+    expect(withAccountNote(out, null)).toBe(out)
+  })
+
+  it('renders an ACCOUNT DETAILS WITHHELD section only when a note is given', () => {
+    const base = {
+      threadSubject: 'x',
+      messages: [{ direction: 'inbound' as const, from: 'Resident', text: 'What do I owe?' }],
+      fragments: [],
+      voiceExamples: [],
+      degraded: [],
+      aiContext: { governingDocs: null, stateLaw: null },
+    }
+    expect(buildReplyDrafterUserPrompt({ ...base, accountNote: note })).toContain(`ACCOUNT DETAILS WITHHELD (see rule 5b): ${note}`)
+    expect(buildReplyDrafterUserPrompt(base)).not.toContain('ACCOUNT DETAILS WITHHELD')
+  })
+})
+
+describe('generateReplyDraft — account-grounded drafts (mocked model)', () => {
+  const api: WorkflowExecuteApi = {
+    requireHumanApproval: vi.fn(),
+    addCitations: vi.fn(),
+    setConfidence: vi.fn(),
+    setReasoning: vi.fn(),
+    setTokens: vi.fn(),
+    setModel: vi.fn(),
+  }
+  const reply = (o: object) => ({
+    completion: { model: 'test-model' } as unknown as OpenAI.Chat.ChatCompletion,
+    raw: JSON.stringify(o),
+  })
+  const base = {
+    threadSubject: 'Balance',
+    messages: [{ direction: 'inbound' as const, from: 'Resident', text: 'What do I owe?' }],
+    voiceExamples: [],
+    degraded: [],
+    aiContext: { governingDocs: null, stateLaw: null },
+  }
+
+  it('lets a verified draft cite a ledger figure exactly, like a CC&R quote', async () => {
+    const fragments = [
+      {
+        refId: 'acct:balance',
+        sourceType: 'property' as const,
+        label: 'Account — balance',
+        text: 'Balance owed: $412.50 across 1 open charge, 1 of them past due, as of 2026-10-19.',
+      },
+    ]
+    const callModel: ModelCaller = vi.fn(async () =>
+      reply({
+        subject: 'Re: Balance',
+        body: 'Your balance is $412.50.',
+        citations: [{ refId: 'acct:balance', quote: 'Balance owed: $412.50', label: 'x' }],
+        blanks: [],
+        grounded: true,
+        groundingNote: null,
+      }),
+    )
+    const out = await generateReplyDraft({ ...base, fragments }, api, callModel)
+    expect(out.citations).toEqual([{ refId: 'acct:balance', quote: 'Balance owed: $412.50', label: 'Account — balance' }])
+  })
+
+  it('a figure quoted against a fragment that does not carry it fails the gate', async () => {
+    const fragments = [
+      { refId: 'acct:balance', sourceType: 'property' as const, label: 'Account — balance', text: 'Balance owed: $412.50.' },
+    ]
+    const wrong = reply({
+      subject: 'Re: Balance',
+      body: 'Your balance is $41.25.',
+      citations: [{ refId: 'acct:balance', quote: 'Balance owed: $41.25', label: 'x' }],
+      blanks: [],
+      grounded: true,
+      groundingNote: null,
+    })
+    await expect(generateReplyDraft({ ...base, fragments }, api, vi.fn(async () => wrong))).rejects.toThrow(
+      UnsupportedQuoteError,
+    )
+  })
+
+  it('stamps the withheld reason on the money blank end to end', async () => {
+    const note = 'withheld because reasons'
+    const callModel: ModelCaller = vi.fn(async () =>
+      reply({
+        subject: 'Re: Balance',
+        body: 'Thanks.\n[[BLANK: money]]',
+        citations: [],
+        blanks: [{ kind: 'money', prompt: 'Balance' }],
+        grounded: false,
+        groundingNote: null,
+      }),
+    )
+    const out = await generateReplyDraft({ ...base, fragments: [], accountNote: note }, api, callModel)
+    expect(out.blanks[0]!.prompt).toBe(`Balance — ${note}`)
+    expect(JSON.stringify(vi.mocked(callModel).mock.calls[0])).toContain('ACCOUNT DETAILS WITHHELD')
   })
 })
