@@ -65,6 +65,11 @@ import { QuestionStep } from './QuestionStep'
 import { SectionToggles } from './SectionToggles'
 import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
 import { PhonePreview } from './PhonePreview'
+import { NoticeLawAlert } from '@/components/meetings/NoticeLawAlert'
+import type { NoticeCheck } from '@/lib/meetings/notice-law'
+import { calendarParagraphHtml, type MeetingNoticePrefill } from '@/lib/meetings/notice-prefill'
+import { recordMeetingNoticeSent } from '@/lib/meetings/notice-actions'
+import { appOrigin } from '@/lib/app-origin'
 
 interface TemplateOption {
   id: string
@@ -165,6 +170,7 @@ export function NewCommunicationWizard({
   streets = [],
   followUp: followUpProp = null,
   resumeDraft = null,
+  meetingNotice: meetingNoticeProp = null,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
@@ -207,8 +213,19 @@ export function NewCommunicationWizard({
    * starts from it; nothing is sent until the board presses Send.
    */
   resumeDraft?: { id: string; state: ComposerDraftState } | null
+  /**
+   * BL-118: `?meeting=<id>` — a notice for a scheduled meeting. Opens on
+   * the built-in Meeting notice template, answered from the meeting, to
+   * all owners. The send links the message to the meeting and adds an
+   * add-to-calendar link; nothing goes out until the board presses Send.
+   */
+  meetingNotice?: { prefill: MeetingNoticePrefill; check: NoticeCheck | null } | null
 }) {
   const r = resumeDraft?.state ?? null
+  // BL-118: a fresh meeting notice (a resumed draft carries its own link).
+  const meetingPrefill = r ? null : (meetingNoticeProp?.prefill ?? null)
+  const meetingNoticeId = r?.meetingNotice?.meetingId ?? meetingPrefill?.meetingId ?? null
+  const meetingTemplate = meetingPrefill ? BUILT_IN_OPTIONS.find((t) => t.id === meetingPrefill.templateId) ?? null : null
   // A resumed follow-up draft carries its own follow-up audience.
   const followUp: FollowUpDraft | null = followUpProp ?? r?.followUp ?? null
   const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
@@ -216,14 +233,14 @@ export function NewCommunicationWizard({
   // BL-102 A4: no Topic step. A template brings its own category; a
   // message written from scratch is filed as an announcement (or, from the
   // budget notice, as financial).
-  const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>(r?.baseCategory ?? 'announcement')
+  const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>(r?.baseCategory ?? (meetingPrefill ? meetingPrefill.baseCategory : 'announcement'))
   const [audience, setAudience] = useState<AudienceKind>(
-    r ? r.audience : followUp ? 'follow_up' : preselect ? 'specific_property' : 'everyone',
+    r ? r.audience : followUp ? 'follow_up' : preselect ? 'specific_property' : meetingPrefill ? meetingPrefill.audience : 'everyone',
   )
-  const [templateId, setTemplateId] = useState<string>(r?.templateId ?? '')
-  const [answers, setAnswers] = useState<AnswerMap>(r?.answers ?? {})
-  const [subject, setSubject] = useState(r?.subject ?? followUp?.subject ?? '')
-  const [bodyHtml, setBodyHtml] = useState(r?.bodyHtml ?? followUp?.bodyHtml ?? '')
+  const [templateId, setTemplateId] = useState<string>(r?.templateId ?? (meetingTemplate ? meetingTemplate.id : ''))
+  const [answers, setAnswers] = useState<AnswerMap>(r?.answers ?? (meetingTemplate ? { ...meetingPrefill?.answers } : {}))
+  const [subject, setSubject] = useState(r?.subject ?? followUp?.subject ?? meetingTemplate?.subject ?? '')
+  const [bodyHtml, setBodyHtml] = useState(r?.bodyHtml ?? followUp?.bodyHtml ?? meetingTemplate?.bodyHtml ?? '')
   // A follow-up goes only on the channel the board asked for: the original
   // is already in everyone's portal.
   const [channels, setChannels] = useState<string[]>(
@@ -459,7 +476,8 @@ export function NewCommunicationWizard({
   // clears templateId too) so a stale answer never leaks into a
   // differently-shaped template and trips buildMergeBag's "undeclared
   // question" guard.
-  const keepResumedAnswers = useRef(r !== null)
+  // A meeting notice's prefilled answers are kept on mount the same way.
+  const keepResumedAnswers = useRef(r !== null || meetingTemplate !== null)
   useEffect(() => {
     setActiveQuestions(null)
     // A resumed draft's answers belong to its template: keep them on mount.
@@ -794,6 +812,7 @@ export function NewCommunicationWizard({
     spanish,
     officialNotice,
     followUp: audience === 'follow_up' ? followUp : null,
+    meetingNotice: meetingNoticeId ? { meetingId: meetingNoticeId } : null,
   }
   const draftJson = JSON.stringify(draftState)
   const draftEmpty = isDraftEmpty(draftState)
@@ -921,7 +940,11 @@ export function NewCommunicationWizard({
     // {{association_name}} and {{recipient_name}} before send.ts ever
     // sees them.
     const finalSubject = subject.trim()
-    const finalBodyHtml = bodyHtml
+    // BL-118: a meeting notice gets the calendar invite and agenda links
+    // under the board's message — plain links, built from the answers.
+    const finalBodyHtml = meetingNoticeId
+      ? `${bodyHtml}\n${calendarParagraphHtml(appOrigin(), meetingNoticeId, { time: answers.meeting_time, where: answers.meeting_location })}`
+      : bodyHtml
     let extraFields: ReturnType<typeof buildMergeBag> | undefined
     if (effectiveQuestions.length) {
       try {
@@ -974,7 +997,9 @@ export function NewCommunicationWizard({
         // BL-102 A8: a follow-up is a new message linked to the original.
         ...(followUp && audience === 'follow_up'
           ? { relatedResource: { type: 'follow_up', id: followUp.originalId } }
-          : {}),
+          : meetingNoticeId
+            ? { relatedResource: { type: 'meeting', id: meetingNoticeId } }
+            : {}),
       }).catch(() => ({ ok: false as const, error: 'We couldn’t confirm the send. Check Communications to see whether it went out before trying again.' }))
       const result = await sent
       if (!result.ok) {
@@ -989,6 +1014,12 @@ export function NewCommunicationWizard({
         sms: sentChannels.includes('sms'),
       })
       await retireDraft()
+      // BL-118: the communication is the record; notice_posted_at is
+      // filled too only once M1 is applied (server-side check). Never
+      // blocks the send's success.
+      if (meetingNoticeId && !scheduledAt) {
+        await recordMeetingNoticeSent(meetingNoticeId, result.communicationId).catch(() => null)
+      }
       const msg = scheduledAt
         ? `Scheduled for ${scheduledAt.toLocaleString()}. ${result.recipientCount} recipient(s).`
         : `Sent. ${result.sentCount}/${result.recipientCount} delivered` +
@@ -1073,6 +1104,15 @@ export function NewCommunicationWizard({
             ) : null}
           </Alert>
         ) : null}
+        {meetingNoticeId ? (
+          <Alert variant="info" title="Meeting notice: nothing has been sent">
+            <p>
+              Addressed to all owners. Enter the start time and the place on the Message step. A link to add the
+              meeting to a calendar, and one to the agenda in the resident portal, go under your message.
+            </p>
+          </Alert>
+        ) : null}
+        {meetingNoticeProp?.check && meetingPrefill ? <NoticeLawAlert check={meetingNoticeProp.check} /> : null}
         {resumeDraft ? (
           <Alert variant="info" title="Your draft: nothing has been sent">
             Pick up where you left off. Changes save automatically, and nothing goes out until you press Send.

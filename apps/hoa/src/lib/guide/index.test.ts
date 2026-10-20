@@ -108,7 +108,9 @@ describe('search over the real corpus', () => {
   it('says nothing rather than guessing for an unknown topic', () => {
     // Was "clubhouse booking calendar": since BL-072 the dues articles say
     // "Open the books", and the suffix stripper folds booking and books
-    // into one stem. Still a topic the guide does not cover.
-    expect(searchSections('clubhouse reservation calendar', 'board')).toEqual([])
+    // into one stem. Then "clubhouse reservation calendar": since BL-118
+    // the meeting notice adds a calendar invite, so "calendar" is covered.
+    // Clubhouse reservations are still a topic the guide does not cover.
+    expect(searchSections('clubhouse reservation', 'board')).toEqual([])
   })
 })
