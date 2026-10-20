@@ -124,7 +124,7 @@ describe('MappingStep', () => {
     expect(out).toContain('This looks like a CINC Systems export.')
     expect(out).toContain('e.g. 12 Example Way')
     expect(out).toContain('e.g. jordan@example.test')
-    expect(out).toContain('Balances are never posted')
+    expect(out).toContain('The import never posts balances')
     expect(out).toMatch(/<button[^>]*>Check rows<\/button>/)
   })
 
@@ -169,6 +169,9 @@ describe('PreviewStep (dry run)', () => {
     expect(out).toContain('Balances are for reference only')
     expect(out).toContain('$1,285.00')
     expect(out).toContain('Import does not post them')
+    // BL-126: the copy links to the screen that does, instead of naming one that didn't exist.
+    expect(out).toContain('href="/accounting/opening-balances"')
+    expect(out).toContain('Enter opening balances')
   })
 
   it("'update' turns matched homes into updates", () => {

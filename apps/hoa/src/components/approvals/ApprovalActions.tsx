@@ -63,6 +63,16 @@ const COPY: Record<ApprovalTarget['kind'], Copy> = {
     rejectConfirm: 'Reject letter',
     rejectPlaceholder: 'The owner paid on Friday; the check hasn’t posted yet.',
   },
+  opening: {
+    approveButton: 'Approve & post',
+    approveTitle: 'Approve and post these opening balances?',
+    approveDescription: (title, amount) =>
+      `${title}${amount ? ` (${amount})` : ''}. This posts one journal entry, balanced in every fund, and adds each home’s opening balance as a charge on its account. Check the figures on the opening balances page first.`,
+    approveConfirm: 'Approve & post',
+    rejectTitle: 'Reject these opening balances?',
+    rejectConfirm: 'Reject',
+    rejectPlaceholder: 'The reserve balance should be as of the statement date.',
+  },
   contact: {
     approveButton: 'Approve & update',
     approveTitle: 'Update these contact details?',

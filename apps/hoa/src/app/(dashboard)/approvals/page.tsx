@@ -23,7 +23,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadArcSection, loadBillSection, loadContactSection, loadLetterSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadArcSection, loadBillSection, loadContactSection, loadLetterSection, loadOpeningSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -74,6 +74,7 @@ const SOURCE_LOADERS: Record<ApprovalSource, (orgId: string, orgName: string) =>
         .then((s) => withBillEditOptions(supabase, orgId, s))
     }),
   ),
+  opening: cache((orgId: string) => timed(R, 'approvals.opening', async () => loadOpeningSection(await db(), orgId))),
   w3: cache((orgId: string) => timed(R, 'approvals.w3', async () => loadW3Section(await db(), orgId))),
   collections: cache((orgId: string) => timed(R, 'approvals.collections', async () => loadLetterSection(await db(), orgId))),
   arc: cache((orgId: string, orgName: string) =>

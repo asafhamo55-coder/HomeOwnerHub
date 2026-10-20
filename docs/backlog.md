@@ -1311,3 +1311,4 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 - A second approver when a vendor's remit-to details change (with BL-039).
 - FL condo 30-day website posting (with BL-038).
 - **BL-135 Single-member invite through the outbound guard:** `inviteMember` (one at a time) still sends the Supabase invite without the outbound guard. The bulk path (BL-128) uses the guard. Route the single path through it too. **Done:** `inviteMember` now checks `fetchOrgSandbox` + `guardRecipients` before `inviteUserByEmail`; a held address gets no account, email or membership (`members-invite-guard.test.ts`).
+- **BL-136 Exempt opening-balance charges from late fees:** opening charges get a "due on" date (default today + 30 days) so the nightly 5% late-fee job doesn't hit carried-over balances on day one. The cleaner fix is a marker column (e.g. `assessments.source = 'opening_balance'`) that the late-fee job skips. Batch it into the next migration.

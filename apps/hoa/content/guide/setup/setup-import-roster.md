@@ -41,5 +41,5 @@ Each new home can be billed the same as one added by hand: as soon as your HOA h
 - Homes are matched by address and unit number, so "12 Oak Street" and "12 oak st." are the same home.
 - A second row for the same home with a different owner adds that owner. A row that repeats a home and owner is skipped.
 - **Update them** never changes a tenure the board already set, and it doesn't replace an owner. To record a sale, open the home instead.
-- Balances in the file are shown for reference only. They are never posted. Enter opening balances in Accounting.
+- Balances in the file are shown for reference only. The import never posts them. To carry them into the books, select [[Enter opening balances]] after the import: [the opening-balance wizard](guide:accounting-opening-balances) fills them in for you, and a board member approves them before anything posts.
 - Formulas in the spreadsheet are never run. The import reads the values your spreadsheet saved.

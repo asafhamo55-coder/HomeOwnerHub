@@ -14,6 +14,10 @@
 //          status 'proposed') — collections letters built in code from
 //          the ledger and the state rule (BL-089). Approving sends nothing;
 //          the board prints the approved letter from the property page.
+//   opening approval_requests rows (action_type
+//          'accounting.opening_balances', status 'proposed') — the
+//          opening-balance wizard (BL-126). Approving posts one journal
+//          entry and the homes' opening charges.
 //   arc    ai_runs rows (workflow_id 'W37', status 'pending_human_approval')
 //          — the AI's review draft for a submitted ARC application
 //          (BL-027). Decided by the existing ARC actions, never here.
@@ -31,7 +35,12 @@
 
 import { billMissing, billNeedsCheck, readBillPayload, type BillProposalPayload } from '../bill-scan/proposal'
 import { followUpLabel, followUpOfRunInput } from '../violation-follow-up'
+<<<<<<< HEAD
 import { LETTER_KIND_CITATIONS, letterHref, letterLawNote, readLetterPayload } from '../collections/letters/proposal'
+=======
+import { LETTER_KIND_CITATIONS, letterHref, readLetterPayload } from '../collections/letters/proposal'
+import { OPENING_HREF, openingDetail, readOpeningPayload } from '../accounting/opening-balances/proposal'
+>>>>>>> 6ca4bd79
 import {
   SUGGESTION_LABEL,
   citationLabel,
@@ -44,7 +53,7 @@ import {
 import { FIELD_LABEL, HELD_REASON, planContactApply } from '../contact-updates/model'
 import type { ContactEntry, ContactTicketRow } from '../contact-updates/apply'
 
-export const APPROVAL_SOURCES = ['w18', 'bill', 'w3', 'collections', 'arc', 'contact', 'vendor'] as const
+export const APPROVAL_SOURCES = ['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -80,6 +89,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueHref: '/accounting/invoices/new',
     queueLabel: 'Scan or enter a bill',
     what: 'scanned bills',
+  },
+  opening: {
+    title: 'Opening balances',
+    tab: 'Opening balances',
+    description:
+      'Starting balances entered with the opening-balance wizard. Nothing is posted until a board member approves: approving posts one journal entry, balanced in every fund, and adds each home’s opening charge.',
+    queueHref: OPENING_HREF,
+    queueLabel: 'Open opening balances',
+    what: 'opening balances',
   },
   w3: {
     title: 'Violation letters',
@@ -135,6 +153,8 @@ export type InboxDecisionTarget =
   | { kind: 'w3'; runId: string }
   /** BL-089: approve marks the letter approved for printing (lib/collections/letters/executor.ts); reject records why. */
   | { kind: 'collections'; approvalRequestId: string }
+  /** BL-126: approve posts the opening journal entry and the homes' charges (lib/accounting/opening-balances/executor.ts). */
+  | { kind: 'opening'; approvalRequestId: string }
   /** A prospect: rejectable always; approvable only when compliance is green (approveVendor's gate). */
   | { kind: 'vendor'; vendorId: string; canApprove: boolean }
   /** BL-027: decided by the ARC actions (respondToArcRequest / requestArcInfo), not decideApproval. */
@@ -144,7 +164,7 @@ export type InboxDecisionTarget =
 
 /** The id the decision endpoint takes for a target. */
 export function decisionId(d: InboxDecisionTarget): string {
-  if (d.kind === 'w18' || d.kind === 'bill' || d.kind === 'collections') return d.approvalRequestId
+  if (d.kind === 'w18' || d.kind === 'bill' || d.kind === 'collections' || d.kind === 'opening') return d.approvalRequestId
   if (d.kind === 'w3' || d.kind === 'arc') return d.runId
   if (d.kind === 'contact') return d.ticketId
   return d.vendorId
@@ -419,6 +439,39 @@ export function letterItems(rows: LetterProposalRow[]): InboxItem[] {
       confidenceLabel: null,
       href: payload ? letterHref(payload.propertyId) : '/properties',
       decision: payload ? { kind: 'collections', approvalRequestId: r.id } : null,
+    }
+  })
+}
+
+export interface OpeningProposalRow {
+  id: string
+  summary: string
+  amount: number | string | null
+  proposed_at: string
+  payload: unknown
+}
+
+/**
+ * BL-126 opening balances. The figures are the board's own, from the
+ * wizard; the card says what approving posts. An unreadable payload gets
+ * no one-click decision.
+ */
+export function openingItems(rows: OpeningProposalRow[]): InboxItem[] {
+  return rows.map((r) => {
+    const payload = readOpeningPayload(r.payload)
+    return {
+      source: 'opening' as const,
+      id: r.id,
+      title: r.summary,
+      detail: payload ? openingDetail(payload) : 'These opening balances can’t be read. Reject them and enter them again.',
+      amount: num(r.amount),
+      amountNote: payload ? 'total debits' : null,
+      createdAt: r.proposed_at,
+      reasoning: null,
+      citations: [],
+      confidenceLabel: null,
+      href: OPENING_HREF,
+      decision: payload ? { kind: 'opening' as const, approvalRequestId: r.id } : null,
     }
   })
 }
