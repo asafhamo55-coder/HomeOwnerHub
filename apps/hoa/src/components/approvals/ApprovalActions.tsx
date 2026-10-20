@@ -7,6 +7,7 @@ import { Check, ChevronRight, X } from 'lucide-react'
 import { Button, ConfirmDialog, Dialog, DialogContent, Field, Textarea, useToast } from '@homeowner-portal/ui'
 import { decideApproval } from '@/lib/approvals-inbox/actions'
 import { decisionId, type InboxDecisionTarget } from '@/lib/approvals-inbox/model'
+import { trackEvent } from '@/lib/analytics/track'
 
 interface Copy {
   approveButton: string
@@ -127,6 +128,7 @@ export function ApprovalActions({
     if (!r.ok) {
       toast({ tone: 'error', title: 'Couldn’t approve it', message: r.error })
     } else {
+      trackEvent('approval.decided', { kind, decision: 'approve' })
       toast({ tone: 'success', message: r.message })
     }
     router.refresh()
@@ -145,6 +147,7 @@ export function ApprovalActions({
         return
       }
       setRejecting(false)
+      trackEvent('approval.decided', { kind, decision: 'reject' })
       toast({ tone: 'success', message: r.message })
       router.refresh()
     })

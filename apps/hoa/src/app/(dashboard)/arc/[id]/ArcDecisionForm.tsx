@@ -6,6 +6,7 @@ import { Eye, ThumbsUp, X } from 'lucide-react'
 import { Alert, Button, Field, Textarea, useToast } from '@homeowner-portal/ui'
 import { respondToArcRequest, type ArcStatus } from '@/lib/board-review'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { trackEvent } from '@/lib/analytics/track'
 
 type Decision = 'in_review' | 'approved' | 'denied'
 
@@ -45,6 +46,7 @@ export function ArcDecisionForm({
         setError(result.error)
         return
       }
+      trackEvent('arc.decided', { decision })
       toast({ tone: 'success', message: DECISION_DONE[decision] })
       router.refresh()
     })

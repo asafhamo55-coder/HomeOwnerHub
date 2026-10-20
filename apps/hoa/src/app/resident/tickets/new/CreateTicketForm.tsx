@@ -7,6 +7,7 @@ import { Alert, Button, Field, Input, Select, Textarea, useToast } from '@homeow
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createTicket, type TicketCategory } from '@/lib/resident-tickets'
 import type { ResidentUnit } from '@/lib/resident'
+import { trackEvent } from '@/lib/analytics/track'
 
 const CATEGORIES: Array<{ value: TicketCategory; label: string }> = [
   { value: 'maintenance', label: 'Maintenance request' },
@@ -55,6 +56,7 @@ export function CreateTicketForm({
         }
         return
       }
+      trackEvent('resident.request_submitted', { type: 'ticket' })
       toast({ tone: 'success', message: 'Request sent. The board will reply here.' })
       router.push(`/resident/tickets/${result.data.ticketId}`)
     })

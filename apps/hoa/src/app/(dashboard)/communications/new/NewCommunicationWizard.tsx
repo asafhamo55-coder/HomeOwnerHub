@@ -38,6 +38,7 @@ import {
 import { streetAudienceLabel, type StreetOption } from '@/lib/communications/streets'
 import type { FollowUpDraft } from '@/lib/communications/follow-up'
 import { DRAFT_STATE_VERSION, UNTITLED_DRAFT, draftHref, isDraftEmpty, type ComposerDraftState } from '@/lib/communications/drafts'
+import { trackEvent } from '@/lib/analytics/track'
 import { deleteDraft, saveDraft } from '@/lib/communications/draft-actions'
 import { DraftStatus, type DraftSaveState } from './DraftStatus'
 import { DeleteDraftButton } from '../DeleteDraftButton'
@@ -981,6 +982,12 @@ export function NewCommunicationWizard({
         setError(result.error)
         return
       }
+      const sentChannels = channels.filter((c) => c !== 'sms' || smsConfigured)
+      trackEvent('communication.sent', {
+        scheduled: scheduledAt !== null,
+        channelCount: Math.min(4, Math.max(1, sentChannels.length)),
+        sms: sentChannels.includes('sms'),
+      })
       await retireDraft()
       const msg = scheduledAt
         ? `Scheduled for ${scheduledAt.toLocaleString()}. ${result.recipientCount} recipient(s).`

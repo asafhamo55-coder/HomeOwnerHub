@@ -42,6 +42,7 @@ import {
 import { linkViolationToThread } from '@/lib/inbox/convert/actions'
 import { VIOLATION_ACK } from '@/lib/inbox/convert/ack'
 import { CopyButton } from '@/components/resident/CopyButton'
+import { trackEvent } from '@/lib/analytics/track'
 
 interface WizardProperty {
   id: string
@@ -381,6 +382,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
         return
       }
       setCreatedId(result.violationId)
+      trackEvent('violation.created', { severity: analysis.severity ?? 'none', fromThread: Boolean(fromThreadId) })
       // The violation is recorded either way; a failed link only means the
       // email doesn't list it yet, and the done step says so.
       if (fromThreadId) {

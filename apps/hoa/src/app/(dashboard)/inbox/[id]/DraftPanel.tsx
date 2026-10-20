@@ -10,6 +10,7 @@ import { UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
 import { Composer, type ApproveInput, type ApproveOptions } from './Composer'
 import { AMBER_BOX } from './draft-ui'
+import { trackEvent } from '@/lib/analytics/track'
 
 /**
  * All three kinds, named for what they are. This used to be a two-way
@@ -91,7 +92,9 @@ export function DraftPanel({
     setActionError(null)
     autoDraftOnOpen(threadId)
       .then((result) => {
-        if (live && 'error' in result) setActionError(result.error)
+        if (!live) return
+        if ('error' in result) setActionError(result.error)
+        else if ('ok' in result) trackEvent('inbox.draft_created', { trigger: 'auto' })
       })
       .catch(() => {
         if (live) setActionError('Could not draft a reply right now.')
@@ -110,6 +113,7 @@ export function DraftPanel({
     startTransition(async () => {
       const result = await createDraft(threadId)
       if ('error' in result) setActionError(result.error)
+      else trackEvent('inbox.draft_created', { trigger: 'button' })
     })
   }
 
@@ -127,6 +131,12 @@ export function DraftPanel({
         setActionError(result.error)
         return
       }
+      // Only booleans leave the browser: whether the text was changed, never the text.
+      trackEvent('inbox.draft_approved', {
+        kind: draft.kind,
+        edited: input.body.trim() !== draft.bodyText.trim() || input.subject.trim() !== draft.subject.trim(),
+        closeThread: options.closeThread,
+      })
       // "Next": the reply is queued and the thread closed, so move on.
       // The undo parameters keep this reply's Undo on the next page.
       if (result.threadClosed && nextHref && threadId) {

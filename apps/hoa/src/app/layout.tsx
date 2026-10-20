@@ -35,6 +35,10 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  // BL-009: send only our origin as the referrer, even to our own pages, so
+  // a record URL (`/inbox/<id>?q=…`) never rides along as `document.referrer`
+  // into analytics or anywhere else.
+  referrer: 'strict-origin',
   // HomeownerHub mark (BL-098). app/favicon.ico, app/icon.tsx and
   // app/apple-icon.tsx are picked up by file convention; the scalable SVG
   // favicon for modern browsers is added here (`other`, so the file-based

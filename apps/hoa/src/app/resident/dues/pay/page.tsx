@@ -7,6 +7,7 @@ import { payLinesFor, type ZelleReadResult } from '@/lib/pay-by-zelle'
 import type { ResidentUnit } from '@/lib/resident'
 import { ZellePayInstructions } from '@/components/resident/ZellePayInstructions'
 import { Hero, Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
+import { TrackOnMount } from '@/components/analytics/ProductAnalytics'
 
 export const metadata = { title: 'Pay dues' }
 export const dynamic = 'force-dynamic'
@@ -72,6 +73,8 @@ export default async function ResidentPayPage() {
 
   return (
     <div className="space-y-8">
+      {/* BL-009 "pay sheet opened": one boolean, no amount, no unit. */}
+      <TrackOnMount event="resident.pay_opened" props={{ zelleConfigured: anyConfigured }} />
       <ScreenHeader
         title="Pay dues"
         back={BACK}
