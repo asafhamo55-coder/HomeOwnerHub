@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { getCurrentOrg } from '@/lib/orgs'
+import { getResidentUnits } from '@/lib/resident'
+import { timed } from '@/lib/perf/timing'
 import { format } from 'date-fns'
 import {
   AlertTriangle,
@@ -58,7 +61,16 @@ const serverDateLabel = new Date().toLocaleDateString(undefined, {
 })
 
 export default async function ResidentDashboard() {
-  const data = await getResidentDashboard()
+  // The next meeting needs only the org and the units' zone — both
+  // memoized reads the dashboard makes too — so it runs alongside the
+  // dashboard instead of after it (BL-099).
+  const [data, nextMeeting] = await Promise.all([
+    timed('/resident', 'resident.dashboard', () => getResidentDashboard()),
+    timed('/resident', 'resident.nextMeeting', async () => {
+      const [org, units] = await Promise.all([getCurrentOrg(), getResidentUnits()])
+      return org ? loadNextMeeting(org.id, residentTimeZone(units)) : null
+    }),
+  ])
 
   const hasUnit = data.units.length > 0
   const actionItems = data.openViolations.length + (data.dues.balance > 0 ? 1 : 0)
@@ -66,7 +78,6 @@ export default async function ResidentDashboard() {
   // A failed dues or violations read leaves those empty, which would render
   // as "You're all caught up" — a wrong answer about someone's account.
   const standingUnknown = data.failed.dues || data.failed.violations
-  const nextMeeting = data.orgId ? await loadNextMeeting(data.orgId, residentTimeZone(data.units)) : null
 
   return (
     <div className="space-y-8">

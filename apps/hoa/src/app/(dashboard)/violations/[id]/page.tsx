@@ -21,6 +21,7 @@ import {
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { timed } from '@/lib/perf/timing'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { ViolationStatusEditor } from './ViolationStatusEditor'
@@ -38,6 +39,8 @@ import {
 } from '@/lib/violation-cure-commitment'
 
 export const dynamic = 'force-dynamic'
+
+const R = '/violations/[id]'
 
 interface ViolationDetail {
   id: string
@@ -92,17 +95,24 @@ export default async function ViolationDetailPage({
   const { id } = await params
   const supabase = await getSupabaseServerClient()
 
-  const result = await loadOrFail(
-    'this violation',
-    supabase
-      .from('hoa_violations')
-      .select(
-        'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, resolved_at, resolution_note, fine_start_date, property_id, property:hoa_properties(address, unit_number, owner_name)',
-      )
-      .eq('id', id)
-      .is('deleted_at', null)
-      .maybeSingle(),
-  )
+  // The org (memoized; the layout already resolved it) is read alongside
+  // the violation rather than after it (BL-099).
+  const [result, org] = await Promise.all([
+    timed(R, 'violation.row', () =>
+      loadOrFail(
+        'this violation',
+        supabase
+          .from('hoa_violations')
+          .select(
+            'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, resolved_at, resolution_note, fine_start_date, property_id, property:hoa_properties(address, unit_number, owner_name)',
+          )
+          .eq('id', id)
+          .is('deleted_at', null)
+          .maybeSingle(),
+      ),
+    ),
+    getCurrentOrg(),
+  ])
 
   if (!result.ok) {
     return (
@@ -135,47 +145,56 @@ export default async function ViolationDetailPage({
   // states never see the control. A failed state read hides it (the server
   // actions re-check the state); a failed commitment read says so, because
   // "none recorded" would wrongly unblock a fine.
-  let commitmentCard: { commitment: CureCommitment | null; blockReason: string | null; loadFailed: boolean } | null = null
-  const org = await getCurrentOrg()
-  if (org) {
-    const rules = await loadOrgStateRules(supabase, org.id).catch(() => null)
-    if (rules && cureCommitmentApplies(rules)) {
-      try {
-        const commitment = await loadCureCommitment(supabase, org.id, v.id)
-        commitmentCard = { commitment, blockReason: cureCommitmentPenaltyBlock(rules, commitment), loadFailed: false }
-      } catch {
-        commitmentCard = { commitment: null, blockReason: null, loadFailed: true }
-      }
-    }
-  }
-
+  //
   // Follow-up letters (second notice, hearing, fine, decision) drafted from
   // this page: W3 runs carrying this violation as `followUp`. Pending ones
   // wait in Approvals; approved ones are the letter of record for that step.
-  let unitId: string | null = null
-  let unitLoadFailed = false
-  if (org && v.property_id) {
-    try {
-      unitId = (await resolveUnitForProperty(supabase, org.id, asPropertyId(v.property_id))).unitId
-    } catch {
-      unitLoadFailed = true
-    }
-  }
-  const followUpResult = org
-    ? await loadOrFail(
-        'follow-up letters',
-        supabase
-          .from('ai_runs' as never)
-          .select('id, status, human_approved, approved_at, created_at, input, output')
-          .eq('organization_id' as never, org.id)
-          .eq('workflow_id' as never, 'W3')
-          .eq('input->followUp->>violationId' as never, v.id)
-          // Unsaved dialog drafts are the board's working copy, not letters.
-          .is(FOLLOW_UP_AWAITING_SAVE_PATH as never, null)
-          .order('created_at' as never, { ascending: false })
-          .range(0, 49),
-      )
-    : null
+  //
+  // BL-099: these three need only the violation and the org, not each
+  // other, so they run together — they used to run one after another
+  // (rules, then commitment, then unit, then follow-ups).
+  type CommitmentCard = { commitment: CureCommitment | null; blockReason: string | null; loadFailed: boolean }
+  const [commitmentCard, unit, followUpResult] = await Promise.all([
+    org
+      ? timed(R, 'violation.cureCommitment', async (): Promise<CommitmentCard | null> => {
+          const rules = await loadOrgStateRules(supabase, org.id).catch(() => null)
+          if (!rules || !cureCommitmentApplies(rules)) return null
+          try {
+            const commitment = await loadCureCommitment(supabase, org.id, v.id)
+            return { commitment, blockReason: cureCommitmentPenaltyBlock(rules, commitment), loadFailed: false }
+          } catch {
+            return { commitment: null, blockReason: null, loadFailed: true }
+          }
+        })
+      : Promise.resolve(null),
+    org && v.property_id
+      ? timed(R, 'violation.unit', () =>
+          resolveUnitForProperty(supabase, org.id, asPropertyId(v.property_id!)).then(
+            (r) => ({ unitId: r.unitId as string | null, failed: false }),
+            () => ({ unitId: null, failed: true }),
+          ),
+        )
+      : Promise.resolve({ unitId: null, failed: false }),
+    org
+      ? timed(R, 'violation.followUps', () =>
+          loadOrFail(
+            'follow-up letters',
+            supabase
+              .from('ai_runs' as never)
+              .select('id, status, human_approved, approved_at, created_at, input, output')
+              .eq('organization_id' as never, org.id)
+              .eq('workflow_id' as never, 'W3')
+              .eq('input->followUp->>violationId' as never, v.id)
+              // Unsaved dialog drafts are the board's working copy, not letters.
+              .is(FOLLOW_UP_AWAITING_SAVE_PATH as never, null)
+              .order('created_at' as never, { ascending: false })
+              .range(0, 49),
+          ),
+        )
+      : Promise.resolve(null),
+  ])
+  const unitId: string | null = unit.unitId
+  const unitLoadFailed = unit.failed
   const followUps = followUpResult?.ok ? ((followUpResult.data ?? []) as unknown as FollowUpRunRow[]) : []
   const canDraftFollowUp = Boolean(org) && !NO_FOLLOW_UP.has(v.status)
 

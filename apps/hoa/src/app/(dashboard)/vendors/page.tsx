@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { Briefcase, Download, Mail, Plus, Search } from 'lucide-react'
 import {
@@ -33,7 +34,7 @@ export default async function VendorsListPage({
   const rawSearch = (qParam ?? '').trim()
   const search = rawSearch.toLowerCase()
 
-  const res = await listVendorsResult()
+  const res = await timed('/vendors', 'vendors.list', () => listVendorsResult())
   const allVendors = res.ok ? res.data : []
   const vendors = search
     ? allVendors.filter((v) => {

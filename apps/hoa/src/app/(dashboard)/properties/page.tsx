@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import { Alert, LoadFailed, NoOrgSelected, Page } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -26,7 +27,9 @@ export default async function PropertiesPage({
   const params = parsePropertyListParams(await searchParams)
   const supabase = await getSupabaseServerClient()
 
-  const { list, counts, allCount, searchMatches } = await loadPropertyListPane(supabase, org.id, params)
+  const { list, counts, allCount, searchMatches } = await timed('/properties', 'properties.list', () =>
+    loadPropertyListPane(supabase, org.id, params),
+  )
 
   return (
     <Page

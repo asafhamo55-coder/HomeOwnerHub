@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, ArrowRight, CheckCircle2, FileText, Landmark, ScrollText, Sparkles } from 'lucide-react'
 import {
@@ -11,6 +12,7 @@ import {
   Kpi,
   LoadFailed,
   Page,
+  Skeleton,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
 import {
@@ -22,9 +24,11 @@ import {
   listJournalEntries,
   pageBankTransactions,
   summarizeUnpaidInvoices,
+  type AccountingContext,
   type JournalEntrySummary,
 } from '@/lib/accounting/queries'
-import { tryLoad } from '@/lib/load-or-fail'
+import { tryLoad, type LoadResult } from '@/lib/load-or-fail'
+import { timed } from '@/lib/perf/timing'
 import { formatDay, periodLabel, plural, todayIso, usd } from '@/lib/money/format'
 import { JOURNAL_STATUS, PERIOD_STATUS, sourceLabel, statusOf } from '@/lib/money/status'
 import { AccountingTabs } from './AccountingTabs'
@@ -33,8 +37,10 @@ import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from './_compon
 export const metadata = { title: 'Accounting' }
 export const dynamic = 'force-dynamic'
 
+const R = '/accounting'
+
 export default async function AccountingIndexPage() {
-  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  const ctxRes = await timed(R, 'accounting.context', () => tryLoad('accounting context', getAccountingContext))
   if (!ctxRes.ok) return <AccountingLoadFailed title="Accounting" what="accounting" width="wide" />
   const ctx = ctxRes.data
   if (!ctx) return <AccountingNotSetUp returnTo="/accounting" />
@@ -44,22 +50,26 @@ export default async function AccountingIndexPage() {
   const aid = ctx.associationId
 
   // Each figure loads on its own: one failed query greys out one tile
-  // ("Couldn't load"), never the page, and never reads as $0.
-  const [bs, inc, recent, unpaid, unmatched, proposals, drafts] = await Promise.all([
-    tryLoad('balance sheet', () => computeBalanceSheet(aid, today)),
-    period ? tryLoad('income statement', () => computeIncomeStatement(aid, period.id)) : Promise.resolve(null),
+  // ("Couldn't load"), never the page, and never reads as $0. BL-099: the
+  // reads start together here, but are not awaited — each part of the page
+  // streams in when its own reads are done. The balance sheet reads every
+  // posted entry since inception and is by far the slowest; it no longer
+  // holds up the attention list or the recent entries.
+  const bsP = timed(R, 'accounting.balanceSheet', () => tryLoad('balance sheet', () => computeBalanceSheet(aid, today)))
+  const incP = period
+    ? timed(R, 'accounting.incomeStatement', () => tryLoad('income statement', () => computeIncomeStatement(aid, period.id)))
+    : Promise.resolve(null)
+  const recentP = timed(R, 'accounting.recentEntries', () =>
     tryLoad('recent journal entries', () => listJournalEntries(aid, { limit: 8 })),
-    tryLoad('unpaid invoices', () => summarizeUnpaidInvoices(aid, today)),
-    tryLoad('unmatched bank transactions', () => pageBankTransactions(aid, { matched: 'unmatched' }, { from: 0, to: 0 })),
-    tryLoad('pending postings', () => countPendingProposals(ctx.organizationId, aid)),
-    tryLoad('draft entries', () => countDraftJournalEntries(aid)),
+  )
+  const attentionP = Promise.all([
+    timed(R, 'accounting.unpaidInvoices', () => tryLoad('unpaid invoices', () => summarizeUnpaidInvoices(aid, today))),
+    timed(R, 'accounting.unmatchedBank', () =>
+      tryLoad('unmatched bank transactions', () => pageBankTransactions(aid, { matched: 'unmatched' }, { from: 0, to: 0 })),
+    ),
+    timed(R, 'accounting.pendingProposals', () => tryLoad('pending postings', () => countPendingProposals(ctx.organizationId, aid))),
+    timed(R, 'accounting.draftEntries', () => tryLoad('draft entries', () => countDraftJournalEntries(aid))),
   ])
-
-  const balanceOf = (number: string): number | null => {
-    if (!bs.ok) return null
-    const all = [...bs.data.assets, ...bs.data.liabilities, ...bs.data.equity]
-    return all.find((r) => r.accountNumber === number)?.balance ?? 0
-  }
 
   const periodStatus = period ? statusOf(PERIOD_STATUS, period.status).label.toLowerCase() : null
 
@@ -82,40 +92,9 @@ export default async function AccountingIndexPage() {
         </Button>
       }
     >
-      <section aria-label="Key figures" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi
-          label="Operating cash"
-          value={usd(balanceOf('1010'), { whole: true })}
-          hint="Ledger balance, today"
-          href="/accounting/bank"
-          linkAs={Link}
-          state={bs.ok ? 'ready' : 'failed'}
-        />
-        <Kpi
-          label="Reserve cash"
-          value={usd(balanceOf('1020'), { whole: true })}
-          hint="Ledger balance, today"
-          href="/accounting/bank"
-          linkAs={Link}
-          state={bs.ok ? 'ready' : 'failed'}
-        />
-        <Kpi
-          label="Owed by owners"
-          value={usd(balanceOf('1100'), { whole: true })}
-          hint="Accounts receivable"
-          href="/dues"
-          linkAs={Link}
-          state={bs.ok ? 'ready' : 'failed'}
-        />
-        <Kpi
-          label={period ? `Net income · ${periodLabel(period)}` : 'Net income'}
-          value={inc && inc.ok ? usd(inc.data.netIncome, { whole: true }) : '—'}
-          hint={inc && inc.ok ? `${usd(inc.data.totalIncome, { whole: true })} in · ${usd(inc.data.totalExpenses, { whole: true })} out` : 'No open period'}
-          href="/accounting/reports/income-statement"
-          linkAs={Link}
-          state={inc === null ? 'ready' : inc.ok ? 'ready' : 'failed'}
-        />
-      </section>
+      <Suspense fallback={<KeyFiguresSkeleton netIncomeLabel={period ? `Net income · ${periodLabel(period)}` : 'Net income'} />}>
+        <KeyFigures bs={bsP} inc={incP} period={period} />
+      </Suspense>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1 lg:self-start">
@@ -123,60 +102,9 @@ export default async function AccountingIndexPage() {
             <CardTitle as="h2">Needs attention</CardTitle>
             <CardDescription>Work waiting on the board or treasurer.</CardDescription>
           </CardHeader>
-          <AttentionList
-            items={[
-              {
-                key: 'proposals',
-                name: 'AI matches',
-                res: proposals,
-                count: proposals.ok ? proposals.data : 0,
-                icon: <Sparkles aria-hidden />,
-                label: (n) => `${plural(n, 'deposit')} matched by AI, awaiting approval`,
-                href: '/accounting/bank/queue#proposed-postings',
-                tone: 'ai',
-              },
-              {
-                key: 'unmatched',
-                name: 'bank transactions',
-                res: unmatched,
-                count: unmatched.ok ? unmatched.data.total : 0,
-                icon: <Landmark aria-hidden />,
-                label: (n) => `${plural(n, 'bank transaction')} to match`,
-                href: '/accounting/bank/queue',
-                tone: 'warning',
-              },
-              {
-                key: 'overdue',
-                name: 'bills',
-                res: unpaid,
-                count: unpaid.ok ? unpaid.data.overdueCount : 0,
-                icon: <AlertTriangle aria-hidden />,
-                label: (n) => `${plural(n, 'bill')} past due · ${unpaid.ok ? usd(unpaid.data.overdueTotal) : ''}`,
-                href: '/accounting/invoices?status=approved',
-                tone: 'danger',
-              },
-              {
-                key: 'unpaid',
-                name: 'bills',
-                res: unpaid,
-                count: unpaid.ok ? unpaid.data.count - unpaid.data.overdueCount : 0,
-                icon: <FileText aria-hidden />,
-                label: (n) => `${plural(n, 'bill')} unpaid, not yet due`,
-                href: '/accounting/invoices',
-                tone: 'neutral',
-              },
-              {
-                key: 'drafts',
-                name: 'draft entries',
-                res: drafts,
-                count: drafts.ok ? drafts.data : 0,
-                icon: <ScrollText aria-hidden />,
-                label: (n) => `${plural(n, 'draft entry', 'draft entries')} not yet posted`,
-                href: '/accounting/ledger?status=draft',
-                tone: 'neutral',
-              },
-            ]}
-          />
+          <Suspense fallback={<AttentionSkeleton />}>
+            <StreamedAttention attention={attentionP} />
+          </Suspense>
         </Card>
 
         <Card className="overflow-hidden lg:col-span-2">
@@ -193,32 +121,196 @@ export default async function AccountingIndexPage() {
             <CardTitle as="h2">Recent journal entries</CardTitle>
             <CardDescription>The latest activity across every fund.</CardDescription>
           </CardHeader>
-          {recent.ok ? (
-            <DataTable
-              framed={false}
-              density="compact"
-              mobile="cards"
-              caption="Recent journal entries"
-              columns={RECENT_COLUMNS}
-              rows={recent.data}
-              rowKey={(r) => r.id}
-              empty={
-                <EmptyState
-                  variant="compact"
-                  icon={<ScrollText aria-hidden />}
-                  title="No journal entries yet"
-                  description="Entries post automatically when dues are generated, owners pay, or you enter a bill."
-                />
-              }
-            />
-          ) : (
-            <div className="px-5 pb-5">
-              <LoadFailed what="recent journal entries" />
-            </div>
-          )}
+          <Suspense fallback={<RecentSkeleton />}>
+            <StreamedRecent recent={recentP} />
+          </Suspense>
         </Card>
       </div>
     </Page>
+  )
+}
+
+type Loaded<T> = LoadResult<T>
+
+async function KeyFigures({
+  bs: bsP,
+  inc: incP,
+  period,
+}: {
+  bs: Promise<Loaded<Awaited<ReturnType<typeof computeBalanceSheet>>>>
+  inc: Promise<Loaded<Awaited<ReturnType<typeof computeIncomeStatement>>> | null>
+  period: AccountingContext['currentPeriod']
+}) {
+  const [bs, inc] = await Promise.all([bsP, incP])
+  const balanceOf = (number: string): number | null => {
+    if (!bs.ok) return null
+    const all = [...bs.data.assets, ...bs.data.liabilities, ...bs.data.equity]
+    return all.find((r) => r.accountNumber === number)?.balance ?? 0
+  }
+  return (
+    <section aria-label="Key figures" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <Kpi
+        label="Operating cash"
+        value={usd(balanceOf('1010'), { whole: true })}
+        hint="Ledger balance, today"
+        href="/accounting/bank"
+        linkAs={Link}
+        state={bs.ok ? 'ready' : 'failed'}
+      />
+      <Kpi
+        label="Reserve cash"
+        value={usd(balanceOf('1020'), { whole: true })}
+        hint="Ledger balance, today"
+        href="/accounting/bank"
+        linkAs={Link}
+        state={bs.ok ? 'ready' : 'failed'}
+      />
+      <Kpi
+        label="Owed by owners"
+        value={usd(balanceOf('1100'), { whole: true })}
+        hint="Accounts receivable"
+        href="/dues"
+        linkAs={Link}
+        state={bs.ok ? 'ready' : 'failed'}
+      />
+      <Kpi
+        label={period ? `Net income · ${periodLabel(period)}` : 'Net income'}
+        value={inc && inc.ok ? usd(inc.data.netIncome, { whole: true }) : '—'}
+        hint={inc && inc.ok ? `${usd(inc.data.totalIncome, { whole: true })} in · ${usd(inc.data.totalExpenses, { whole: true })} out` : 'No open period'}
+        href="/accounting/reports/income-statement"
+        linkAs={Link}
+        state={inc === null ? 'ready' : inc.ok ? 'ready' : 'failed'}
+      />
+    </section>
+  )
+}
+
+function KeyFiguresSkeleton({ netIncomeLabel }: { netIncomeLabel: string }) {
+  return (
+    <section aria-label="Key figures" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      {['Operating cash', 'Reserve cash', 'Owed by owners', netIncomeLabel].map((label) => (
+        <Kpi key={label} label={label} state="loading" />
+      ))}
+    </section>
+  )
+}
+
+async function StreamedAttention({
+  attention,
+}: {
+  attention: Promise<
+    [
+      Loaded<Awaited<ReturnType<typeof summarizeUnpaidInvoices>>>,
+      Loaded<Awaited<ReturnType<typeof pageBankTransactions>>>,
+      Loaded<number>,
+      Loaded<number>,
+    ]
+  >
+}) {
+  const [unpaid, unmatched, proposals, drafts] = await attention
+  return (
+    <AttentionList
+      items={[
+        {
+          key: 'proposals',
+          name: 'AI matches',
+          res: proposals,
+          count: proposals.ok ? proposals.data : 0,
+          icon: <Sparkles aria-hidden />,
+          label: (n) => `${plural(n, 'deposit')} matched by AI, awaiting approval`,
+          href: '/accounting/bank/queue#proposed-postings',
+          tone: 'ai',
+        },
+        {
+          key: 'unmatched',
+          name: 'bank transactions',
+          res: unmatched,
+          count: unmatched.ok ? unmatched.data.total : 0,
+          icon: <Landmark aria-hidden />,
+          label: (n) => `${plural(n, 'bank transaction')} to match`,
+          href: '/accounting/bank/queue',
+          tone: 'warning',
+        },
+        {
+          key: 'overdue',
+          name: 'bills',
+          res: unpaid,
+          count: unpaid.ok ? unpaid.data.overdueCount : 0,
+          icon: <AlertTriangle aria-hidden />,
+          label: (n) => `${plural(n, 'bill')} past due · ${unpaid.ok ? usd(unpaid.data.overdueTotal) : ''}`,
+          href: '/accounting/invoices?status=approved',
+          tone: 'danger',
+        },
+        {
+          key: 'unpaid',
+          name: 'bills',
+          res: unpaid,
+          count: unpaid.ok ? unpaid.data.count - unpaid.data.overdueCount : 0,
+          icon: <FileText aria-hidden />,
+          label: (n) => `${plural(n, 'bill')} unpaid, not yet due`,
+          href: '/accounting/invoices',
+          tone: 'neutral',
+        },
+        {
+          key: 'drafts',
+          name: 'draft entries',
+          res: drafts,
+          count: drafts.ok ? drafts.data : 0,
+          icon: <ScrollText aria-hidden />,
+          label: (n) => `${plural(n, 'draft entry', 'draft entries')} not yet posted`,
+          href: '/accounting/ledger?status=draft',
+          tone: 'neutral',
+        },
+      ]}
+    />
+  )
+}
+
+function AttentionSkeleton() {
+  return (
+    <div className="space-y-3 border-t border-border px-5 py-4" aria-busy="true">
+      <span className="sr-only">Loading what needs attention</span>
+      <Skeleton className="h-8 w-full" />
+      <Skeleton className="h-8 w-4/5" />
+    </div>
+  )
+}
+
+async function StreamedRecent({ recent: recentP }: { recent: Promise<Loaded<JournalEntrySummary[]>> }) {
+  const recent = await recentP
+  return recent.ok ? (
+    <DataTable
+      framed={false}
+      density="compact"
+      mobile="cards"
+      caption="Recent journal entries"
+      columns={RECENT_COLUMNS}
+      rows={recent.data}
+      rowKey={(r) => r.id}
+      empty={
+        <EmptyState
+          variant="compact"
+          icon={<ScrollText aria-hidden />}
+          title="No journal entries yet"
+          description="Entries post automatically when dues are generated, owners pay, or you enter a bill."
+        />
+      }
+    />
+  ) : (
+    <div className="px-5 pb-5">
+      <LoadFailed what="recent journal entries" />
+    </div>
+  )
+}
+
+function RecentSkeleton() {
+  return (
+    <div className="space-y-3 border-t border-border px-5 py-4" aria-busy="true">
+      <span className="sr-only">Loading recent journal entries</span>
+      {Array.from({ length: 6 }, (_, i) => (
+        <Skeleton key={i} className="h-5 w-full" />
+      ))}
+    </div>
   )
 }
 

@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { AlertTriangle, Bell, Eye, Mail, MessageSquare, Plus, Reply, Send, SearchX } from 'lucide-react'
 import {
@@ -53,7 +54,7 @@ const PAGE_SIZE = 100
 type Row = CommunicationSummary & { displaySubject: ReturnType<typeof pickDisplaySubject> }
 
 export default async function CommunicationsPage({ searchParams }: PageProps) {
-  const assoc = await getPrimaryAssociation()
+  const assoc = await timed('/communications', 'communications.association', () => getPrimaryAssociation())
   if (!assoc) {
     return (
       <Page title="Communications" width="narrow">
@@ -75,12 +76,14 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   const category = sp.category && sp.category in COMMUNICATION_CATEGORY ? sp.category : undefined
   const status = sp.status && sp.status in COMMUNICATION_STATUS.labels ? sp.status : undefined
   const page = parsePageParam(sp.page)
-  const result = await listCommunications(assoc.id, {
-    category,
-    status,
-    page,
-    pageSize: PAGE_SIZE,
-  })
+  const result = await timed('/communications', 'communications.list', () =>
+    listCommunications(assoc.id, {
+      category,
+      status,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+  )
   const comms = result.ok ? result.rows : []
   const total = result.ok ? result.total : 0
   const filtered = Boolean(category || status)

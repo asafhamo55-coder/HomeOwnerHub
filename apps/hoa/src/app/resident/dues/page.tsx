@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { timed } from '@/lib/perf/timing'
 import { AlertTriangle, CheckCircle2, CreditCard, FileText, Home, Send, Wallet } from 'lucide-react'
 import { Badge, Button, LoadFailed, StatusPill } from '@homeowner-portal/ui'
 import { getResidentDues, type ResidentCharge } from '@/lib/resident-dashboard'
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic'
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export default async function ResidentDuesPage() {
-  const { units, dues, failed } = await getResidentDues()
+  const { units, dues, failed } = await timed('/resident/dues', 'resident.dues', () => getResidentDues())
 
   if (units.length === 0) {
     return (

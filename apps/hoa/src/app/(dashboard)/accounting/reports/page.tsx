@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { ArrowDownUp, ArrowRight, BarChart3, PieChart, TrendingUp } from 'lucide-react'
 import { Alert, Card, Page } from '@homeowner-portal/ui'
@@ -44,13 +45,15 @@ const REPORTS = [
 /** The month-end board report card's data (BL-073); null = couldn't load. */
 async function monthlyReportStatus(orgId: string): Promise<MonthlyReportCardProps['status'] | 'no-association'> {
   const supabase = await getSupabaseServerClient()
-  const assoc = await readPrimaryAssociation(supabase, orgId)
+  const assoc = await timed('/accounting/reports', 'reports.association', () => readPrimaryAssociation(supabase, orgId))
   if (!assoc.ok) return null
   // No association yet: nothing to report on, so no card (the page's own
   // setup prompts cover it) rather than a misleading "couldn't load".
   if (!assoc.data) return 'no-association'
   const timeZone = assoc.data.timeZone
-  const res = await tryLoad('monthly board report status', () => loadMonthlyReportStatus(supabase, orgId, timeZone))
+  const res = await timed('/accounting/reports', 'reports.monthlyStatus', () =>
+    tryLoad('monthly board report status', () => loadMonthlyReportStatus(supabase, orgId, timeZone)),
+  )
   if (!res.ok) return null
   const { last, pending, pendingDone } = res.data
   return {

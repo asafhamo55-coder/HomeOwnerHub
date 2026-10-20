@@ -16,6 +16,7 @@ import { parseSection } from '@/lib/properties/sections'
 import { PropertyDetailView } from './PropertyDetailView'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { loadEmailConsent } from '@/lib/email-consent'
+import { timed } from '@/lib/perf/timing'
 
 export const metadata = { title: 'Property' }
 export const dynamic = 'force-dynamic'
@@ -48,11 +49,21 @@ export default async function PropertyDetailPage({
   const listParams = parsePropertyListParams({ filter: one('filter'), sort: one('sort'), dir: one('dir'), q: one('q'), page: one('page') })
   const incoming = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === 'string'))
 
-  const [target, loaded, assocInfo] = await Promise.all([
-    resolvePropertyUrl(supabase, ctx.org.id, rawId, incoming),
+  // BL-020 (M1): owners' consent to official notices by email — board only,
+  // and not read at all until M1_APPLIED. It needs nothing but the org, so
+  // it runs alongside the 360 instead of after it (BL-099).
+  const canManage = ctx.role === 'admin' || ctx.role === 'board'
+  const R = '/properties/[id]'
+  const [target, loaded, assocInfo, consentRes] = await Promise.all([
+    timed(R, 'property.resolveUrl', () => resolvePropertyUrl(supabase, ctx.org.id, rawId, incoming)),
     // Not for a malformed id: resolvePropertyUrl 404s it, and the reads would only error.
-    UUID.test(rawId) ? loadProperty360(supabase, { orgId: ctx.org.id, propertyId: asPropertyId(rawId) }) : Promise.resolve({ kind: 'not_found' } as const),
-    getPrimaryAssociation().then(async (assoc) => ({ assoc, cap: assoc ? await getLeaseCap(assoc.id) : null })),
+    UUID.test(rawId)
+      ? timed(R, 'property.360', () => loadProperty360(supabase, { orgId: ctx.org.id, propertyId: asPropertyId(rawId) }))
+      : Promise.resolve({ kind: 'not_found' } as const),
+    timed(R, 'property.assocAndCap', () =>
+      getPrimaryAssociation().then(async (assoc) => ({ assoc, cap: assoc ? await getLeaseCap(assoc.id) : null })),
+    ),
+    M1_APPLIED && canManage ? timed(R, 'property.consent', () => loadEmailConsent(supabase, ctx.org.id)) : Promise.resolve(null),
   ])
   if (target.kind === 'redirect') redirect(target.href)
   if (target.kind === 'not_found' || loaded.kind === 'not_found') notFound()
@@ -74,22 +85,22 @@ export default async function PropertyDetailPage({
   const plans = loaded.data.plans?.ok ? loaded.data.plans.data : []
   const assoc = assocInfo.assoc
   const standingPlans = plans.filter((p): p is typeof p & { unit_id: string } => typeof p.unit_id === 'string')
-  const standings =
+  // A third round trip (it needs wave 2's plans), so it is not awaited: the
+  // page streams, and only the Payment plan tile waits for it (BL-099).
+  const planStandings =
     assoc && standingPlans.some((p) => p.status === 'active' || p.status === 'completed')
-      ? await tryLoad('payment plan progress', () =>
-          loadPlanStandings(supabase, { organizationId: ctx.org.id, associationId: assoc.id }, standingPlans, today),
-        )
+      ? timed(R, 'property.planStandings', () =>
+          tryLoad('payment plan progress', () =>
+            loadPlanStandings(supabase, { organizationId: ctx.org.id, associationId: assoc.id }, standingPlans, today),
+          ),
+        ).then((s) => (s.ok ? { ok: true as const, data: s.data } : { ok: false as const }))
       : null
-  // BL-020 (M1): owners' consent to official notices by email — board only,
-  // and not read at all until M1_APPLIED.
-  const canManage = ctx.role === 'admin' || ctx.role === 'board'
-  const consentRes = M1_APPLIED && canManage ? await loadEmailConsent(supabase, ctx.org.id) : null
   const consent = !consentRes ? undefined : !consentRes.ok ? ('failed' as const) : consentRes.available ? consentRes.consent : undefined
-  const data = standings ? { ...loaded.data, planStandings: standings.ok ? { ok: true as const, data: standings.data } : { ok: false as const } } : loaded.data
 
   return (
     <PropertyDetailView
-      data={data}
+      data={loaded.data}
+      planStandings={planStandings}
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}

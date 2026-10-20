@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { clearAuthCookies, updateSession } from '@/lib/supabase/middleware'
 import { apiError } from '@/lib/api/errors'
+import { perfTimer } from '@/lib/perf/timing'
 
 // Routes a signed-out user is allowed to hit. The /onboarding page handles
 // its own "already onboarded? bounce home" check, so we don't gate on
@@ -44,7 +45,14 @@ export async function middleware(request: NextRequest) {
   // session is confirmed with the auth server; everywhere else it is
   // verified locally (lib/supabase/middleware.ts, BL-074).
   const isSignInPage = path === '/login' || path === '/signup'
-  const { user, response, sessionExpired } = await updateSession(request, { strict: isSignInPage })
+  // BL-099: the session check is the middleware's whole cost (getClaims,
+  // local, on every request; getUser on the two sign-in pages only). Its
+  // duration rides on the response as `Server-Timing: mw.session;dur=N`
+  // (browser network panel) and is logged when slow — route + ms, no ids.
+  const perf = perfTimer('middleware')
+  const { user, response, sessionExpired } = await perf.time(isSignInPage ? 'mw.session.strict' : 'mw.session', () =>
+    updateSession(request, { strict: isSignInPage }),
+  )
 
   const isPublic = PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
   // API callers are fetch(), not a browser tab: a 307 to /login is followed
@@ -84,7 +92,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return response
+  return perf.apply(response)
 }
 
 export const config = {
