@@ -107,70 +107,38 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State at handoff (2026-10-20 ~07:00 ET)
+## 4. State (updated 2026-10-20 ~10:15 ET)
 
-- **Live in prod:** `05adcce`, deployed 01:46 ET. It includes:
-  - the HomeownerHub brand and blue palette;
-  - the resident assistant, off until a board turns it on;
-  - estoppel, collections letters and the budget notice, with print gates;
-  - the payment-plan double-count fix;
-  - BL-099 streaming and skeletons;
-  - inbox A1–A3/A6;
-  - communications fixes: scheduled sends now actually send, honest SMS status, opt-outs respected, 7 built-in templates;
-  - the Stripe sandbox suite and webhook error fixes.
-- **Integration tip:** `56003e1`, CI green. The only change beyond prod is a release-note screenshot rule fix (test-only and CI-only commits now count as screen-neutral). It goes out with the next feature deploy.
-- **Recent decisions:** see `docs/decisions/2026-10-19-*.md`, especially owner-delegated-defaults, brand-logo-palette, resident-assistant-default and hide-pm-eviction.
+- **Live in prod:** `d80fadf`, deployed ~10:00 ET; the release-note email was sent. On top of 05adcce it adds:
+  - inbox sale window plus A4 "Create from email" (ticket, violation, ARC link, contact update, link existing);
+  - communications A2 one-box AI composer and A3 plain-text editor, with an SMS preview;
+  - Stripe `customer.subscription.updated`, `invoice.payment_failed`, a past-due banner, friendly checkout errors, and a fix for the portal redirect;
+  - the owner action items email (`docs/owner-actions.md`, `.github/workflows/owner-actions.yml`). The first email was sent 2026-10-20.
+- **Integration tip:** local merge of the pricing docs (analysis plus `docs/decisions/2026-10-20-pricing.md`, BL-104), pushed after the deploy.
+- **Crons (this session):** hourly cycle `23 * * * *` and a one-shot renewal on Oct 26 at 14:41. Both die with the session; recreate them per §3.
 
-## 5. Waiting on Asaf (manual steps; list them, don't ask)
+## 5. Manual steps for Asaf: `docs/owner-actions.md`
 
-1. **Migrations, in order:**
-   1. `0063`: `docs/specs/2026-10-16-rls-sweep-apply.sql`, starting with Part 1a.
-   2. **M1**: `docs/specs/2026-10-18-m1-apply.sql`. Then flip `M1_APPLIED` in `packages/db/src/m1.ts`.
-   - **Urgent:** before 0064 (M1), HOA subscription webhook writes fail, so paying orgs stay on Free. Stripe now retries for 3 days.
-2. **Payment-plan correction:** run `docs/specs/2026-10-19-payment-plan-double-count.sql`. Parts 1–2 are read-only; Part 3 ends in ROLLBACK, so review it before you change that to COMMIT.
-3. **Performance indexes:** `docs/specs/2026-10-19-perf-indexes.sql`. Run the 12 CONCURRENTLY statements one at a time.
-4. **Resident meetings page:** `docs/specs/2026-10-19-resident-meeting-notices.sql`, after 0063 and M1.
-5. **Domain split:** runbook `docs/specs/2026-10-19-domain-split.md`. Step 1 is done (app.homeownerledger.com was added to the Vercel project). Asaf's steps:
-   - DNS at Network Solutions: CNAME `app` → `afa3394a804e31cd.vercel-dns-017.com.`
-   - Supabase Auth: add `https://app.homeownerledger.com/**` to Redirect URLs.
-   - Google OAuth: add the redirect `https://app.homeownerledger.com/api/oauth/google/callback`.
-   - Webhooks: move Stripe, Resend and Plaid to app; re-sync Inngest.
-   - Vercel: connect the `homeownerhub-marketing` project to git (prod branch, root `apps/marketing`). It has no git link, which is why it hasn't deployed in 148 days.
+The single list is `docs/owner-actions.md` (OA-1, OA-2…). Asaf asked on 2026-10-20 to get these **by email** so he doesn't miss them: the owner-actions workflow emails him whenever the open items change, and every Monday at 09:07 ET.
+- When a new manual step appears, add it there with the next OA id (never reuse one). When he says it's done, move it to Done.
+- Never put secrets or leaked-key details in it; the repo is public.
+- Most urgent: OA-1, migrations 0063 then M1 (subscription webhook writes fail until then). Also OA-14: turn on the Stripe webhook events `customer.subscription.updated` and `invoice.payment_failed`.
+- **Asaf, 2026-10-20:** even with items pending on him, keep allocating backlog items to the team (3–4 agents always busy).
 
-   After those, Claude runs runbook steps 3–7.
-6. **Stripe test keys:** `gh secret set STRIPE_TEST_SECRET_KEY` and `gh secret set STRIPE_TEST_WEBHOOK_SECRET`, and save the test-mode Customer Portal settings once. See `docs/specs/2026-10-19-stripe-sandbox.md`. Also confirm live vs test mode: a checkout URL with `cs_live_` means live.
-7. **Stripe product name:** rename "HOA Hub" in the Stripe dashboard. Then change `PRODUCT_NAME` in setup-stripe-pricing in the same step.
-8. **Inngest:** confirm `communications-scheduled-dispatch` appears after sync. Scheduled messages need it.
-9. **Other:**
-   - Vonage keys and 10DLC, if texting is wanted.
-   - Is support@homeownerledger.com a real inbox?
-   - The FL state-law refresh (`fetch('/api/admin/refresh-state-law',{method:'POST'})` as platform admin).
-   - The S-01 audit query.
-   - Rotate the leaked Supabase key before any investor due diligence (owner accepted the risk earlier).
+## 6. Work in flight (2026-10-20 ~10:15 ET)
 
-## 6. Work in flight when the session closed (all agents stopped at close)
+Worktree agents dispatched this session. If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
+- **Inbox follow-ups:** honour the approvals "Filed from an email" label only for board submitters; "Insert into reply" for ack lines; saved replies; mobile triage.
+- **Communications Phase A rest:** A6 channel auto-pick, A7 phone preview, A9 "More options", and A5 street audience / A8 results and resend only if no migration is needed.
+- **BL-104 pricing v2:** band pricing behind `PRICING_V2` (off) plus per-band AI caps (on). Add its Stripe steps to owner-actions when it lands.
+- **Decks:** refresh ~/HomeownerHub-decks/ for the brand, features and new pricing.
+- Old partial worktrees from the 0dcfc485 session are done (merged) and can be pruned.
 
-The agents were stopped on purpose before the session closed. Their uncommitted partial work is still on disk. Pick the most complete worktree per item, review it with `git -C <path> status` and `diff`, then either finish it in place in a new worktree agent ("continue from this diff") or re-dispatch. The two plans are in `docs/research/2026-10-inbox-plan.md` and `2026-10-communications-plan.md`.
+## 7. Next up
 
-**Inbox: sale window plus A4 one-click convert**
-- Use: `.claude/worktrees/agent-a18892f00b3cbda1b`. 11 files, +240/-77. The most advanced worktree: the sale-window rule, its test, and the violation-wizard prefill had started.
-
-**Stripe follow-ups:** handle `customer.subscription.updated`, show a past_due banner, give friendly checkout errors, record `invoice.payment_failed`.
-- Use either `.claude/worktrees/agent-a83082c556b01bf17` (5 files, +348) or `.claude/worktrees/agent-af9fa0dd39931e9db` (4 files, +272). Pick one; they were parallel attempts.
-
-**Communications A2 one-box composer plus A3 plain-text editor**
-- Use: `.claude/worktrees/agent-a661eaac56b914f44`. 3 files, +31: early, the proposal-to-wizard mapping.
-- `.claude/worktrees/agent-a6376bc69df5f0064` (1 file) is a near-empty duplicate.
-
-**Empty:** `.claude/worktrees/agent-ab5d164f6b29270f0`. Ignore it.
-
-**Crons:** none are left running. The hourly cycle cron and the renewal one-shot were deleted at close; recreate them per §3.
-
-## 7. Next up, after the in-flight work
-
-- **Inbox Phase A, the rest:** saved replies, mobile triage, attachments to the documents library, and batch replies. Phase B needs SQL (migration 0065 in the plan).
-- **Communications Phase A, the rest:** A5 plain-language audiences (street), A7 phone preview, A6 channel auto-pick, A8 results page with resend, A9 hiding advanced options, A10 guide rewrite, A11 a unified "Messages" area.
-- **Review the `[perf]` logs** in Vercel after real traffic, then fix the slowest pages.
-- **Pricing:** an advisor-reviewed pricing analysis. $4.99/door is about 3–4× PayHOA for small HOAs (BL-001 refresh, BL-068 module pricing).
+- **Inbox:** attachments to the documents library, batch replies. Phase B needs SQL (migration 0065).
+- **Communications:** A10 guide rewrite, A11 a unified "Messages" area.
+- **Review the `[perf]` logs** in Vercel, then fix the slowest pages.
+- **Browser check:** the new inbox convert menu, composer and billing banner have not been viewed in a browser (Asaf uses Safari only; ask in the release note).
 - **Keep the decks current** in `~/HomeownerHub-decks/`.
 - **Backlog items needing migrations, by batch:** M-P1/M-P2 (people), M2 (BL-068 modules, BL-069 law sync, BL-023 polls), BL-085 columns.

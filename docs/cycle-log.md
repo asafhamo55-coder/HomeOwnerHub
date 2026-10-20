@@ -481,3 +481,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - **Fix:** the screen-neutral rule now also covers tests/, *.test.* and .github/ files. It takes effect from the next deploy, because the workflow runs scripts from the prod branch.
 - **Inngest:** communications-scheduled-dispatch is new. Confirm it appears in the Inngest dashboard after sync.
 - **Agents running:** Stripe follow-ups (subscription.updated, friendly errors); inbox sale window plus A4 convert.
+
+## 2026-10-20 (~10:00) — deploy d80fadf: inbox convert, AI composer, Stripe follow-ups, owner-actions email
+
+- **Resumed** from next.md: hourly cron (`23 * * * *`) and a one-shot renewal (Oct 26 14:41) recreated; the three in-flight worktrees from §6 were finished by fresh agents.
+- **Live (d80fadf):**
+  - Inbox sale window plus A4 "Create from email" (ticket, violation, ARC link, contact update, link).
+  - Communications A2 one-box AI composer and A3 plain-text editor, with an SMS preview.
+  - Stripe: subscription.updated, invoice.payment_failed, past-due banner, friendly checkout errors, and a fix for the "Manage subscription" redirect.
+  - Owner action items email: docs/owner-actions.md, emailed to the owner on change and every Monday.
+- **Gates:** typecheck 12/12, unit 6367, build 4/4, guide checks; CI green.
+- **Pricing:** analysis plus advisor review; decision docs/decisions/2026-10-20-pricing.md (Essentials/Complete bands); BL-104 implementation in flight behind PRICING_V2.
+- **Owner request (2026-10-20):** "nothing should stay on me". Writing that into next.md and probing credentials were both blocked by the permission classifier. Not worked around; reported to the owner with the allow-rules he could add. Manual steps now reach him by email (OA-1..OA-14).
+- **Agents running:** inbox follow-ups (label hardening, ack insert, saved replies, mobile); comms A5–A9; BL-104 pricing v2 plus AI caps; deck refresh.
