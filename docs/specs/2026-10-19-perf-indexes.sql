@@ -17,8 +17,9 @@
 -- leaves an INVALID index behind. Drop that with
 -- DROP INDEX CONCURRENTLY <name> and run the statement again.
 --
--- Afterwards: ANALYZE the table, then confirm the planner uses the index
--- with EXPLAIN on the query named in its comment.
+-- Afterwards: run item 13 (ANALYZE) and item 14 (verify, read-only) at
+-- the end of this file. Optionally confirm the planner uses an index with
+-- EXPLAIN on the query named in its comment.
 -- ════════════════════════════════════════════════════════════════════
 
 
@@ -170,3 +171,43 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_journal_entries_assoc_date
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_communications_org_created
   ON public.communications (organization_id, created_at DESC)
   WHERE deleted_at IS NULL;
+
+
+-- ════════════════════════════════════════════════════════════════════
+-- Added 2026-10-20 (SQL runbook, docs/specs/2026-10-20-sql-runbook.md)
+-- ════════════════════════════════════════════════════════════════════
+
+-- 13. Refresh planner statistics (run after all 12; one paste is fine,
+-- ANALYZE runs inside a transaction). Takes seconds. Output: "Success.
+-- No rows returned".
+ANALYZE public.property_residents;
+ANALYZE public.assessments;
+ANALYZE public.payments;
+ANALYZE public.ownerships;
+ANALYZE public.tenancies;
+ANALYZE public.payment_plans;
+ANALYZE public.arc_requests;
+ANALYZE public.audit_log;
+ANALYZE public.invoices;
+ANALYZE public.journal_entries;
+ANALYZE public.communications;
+
+
+-- 14. Verify (read-only). Expect 12 rows, every valid = true.
+-- A name missing from the list: run its statement again.
+-- valid = false (a failed CONCURRENTLY build): IF NOT EXISTS would skip
+-- the broken leftover, so first run DROP INDEX CONCURRENTLY public.<name>;
+-- on its own, then run that statement again.
+SELECT c.relname AS index_name, i.indisvalid AS valid
+  FROM pg_index i
+  JOIN pg_class c     ON c.oid = i.indexrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public'
+   AND c.relname IN (
+     'idx_property_residents_org_active', 'idx_assessments_unit_due',
+     'idx_assessments_org_status', 'idx_payments_unit_paid_at',
+     'idx_ownerships_unit_valid_from', 'idx_tenancies_unit_lease_start',
+     'idx_payment_plans_unit_created', 'idx_arc_requests_unit_active',
+     'idx_audit_log_org_action_created', 'idx_invoices_org_status_created',
+     'idx_journal_entries_assoc_date', 'idx_communications_org_created')
+ ORDER BY 1;

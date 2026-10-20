@@ -41,7 +41,7 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-1 · Apply database migrations 0063, then M1
+### OA-1 · Run the database steps in the SQL runbook (start here)
 
 **Urgency:** Urgent
 
@@ -50,18 +50,18 @@ easier. Never paste a key or password into a file in this repo; it is public.
 the Free plan. Stripe retries each message for 3 days, so customers who pay
 in the meantime can still be fixed, but only for those 3 days. 0063 must go
 first: it closes the security gaps in who can see which records, and M1
-refuses to run without it.
+refuses to run without it. Every other pending SQL step (OA-2, OA-21,
+OA-17, OA-4, OA-3) is in the same runbook, in a safe order, so this is the
+single place to start.
 
 **Steps:**
 
-1. Open `docs/specs/2026-10-16-rls-sweep-apply.sql` (migration 0063).
-2. Run **PART 1a** on its own. Save the result (copy as CSV or screenshot) and send it to Claude. It is the undo reference.
-3. Run **PART 1b**, then **PART 2** (one block, paste it whole), then **PART 3**, one at a time. Use the parts as they are in the file now, not an older copy.
-4. Open `docs/specs/2026-10-18-m1-apply.sql` (M1, migration 0064).
-5. Run **PART 1**, then **PART 2** (one block, paste it whole), then **PART 3**. If anything in PART 2 fails, the whole thing undoes itself; send Claude the error.
-6. Tell Claude "M1 is applied". Claude switches the new features on (`M1_APPLIED` in `packages/db/src/m1.ts`) and deploys.
+1. Open `docs/specs/2026-10-20-sql-runbook.md`. It lists 37 small steps in sections A to G, each with the exact file part to paste, what it does, whether it only reads, what you should see, and what to send Claude.
+2. Do **Section A** (0063) and **Section B** (M1) today; they are the urgent part. After step B5, tell Claude "M1 is applied". Claude switches the new features on (`M1_APPLIED` in `packages/db/src/m1.ts`) and deploys.
+3. Continue with Sections C to G when you have time. Each section also closes one item below (C = OA-2, D = OA-21, E = OA-17, F = OA-4, G = OA-3).
+4. Ask Claude to copy any step to your clipboard ("copy step B4"). If any step errors, stop and send Claude the error and the step number.
 
-**Files:** `docs/specs/2026-10-16-rls-sweep-apply.sql`, `docs/specs/2026-10-18-m1-apply.sql`
+**Files:** `docs/specs/2026-10-20-sql-runbook.md`, `docs/specs/2026-10-16-rls-sweep-apply.sql`, `docs/specs/2026-10-18-m1-apply.sql`
 
 ### OA-2 · Show the resident "Meetings and notices" page
 

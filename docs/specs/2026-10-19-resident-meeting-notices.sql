@@ -20,3 +20,11 @@ $$;
 REVOKE ALL ON FUNCTION public.resident_meeting_notices() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.resident_meeting_notices() TO authenticated, service_role;
 NOTIFY pgrst, 'reload schema';
+
+-- Verify (read-only; added 2026-10-20 for the SQL runbook). Being the
+-- last statement, this is the result the SQL editor shows after a
+-- whole-file run. Expect: installed = true, anon_blocked = true,
+-- residents_can_call = true.
+SELECT to_regprocedure('public.resident_meeting_notices()') IS NOT NULL                       AS installed,
+       NOT has_function_privilege('anon', 'public.resident_meeting_notices()', 'EXECUTE')          AS anon_blocked,
+       has_function_privilege('authenticated', 'public.resident_meeting_notices()', 'EXECUTE')     AS residents_can_call;
