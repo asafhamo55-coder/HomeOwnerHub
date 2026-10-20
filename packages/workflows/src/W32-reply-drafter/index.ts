@@ -66,6 +66,16 @@ export const ReplyDrafterInputSchema = z.object({
   // and `withAccountNote` stamps the reason onto every money blank so the
   // board sees why the figure is missing. Optional so older callers parse.
   accountNote: z.string().max(500).nullable().optional(),
+  // BL-101 A8: short excerpts from the resident's own attachments, present
+  // only when the sender is verified. UNTRUSTED, uncitable context: never a
+  // fragment, no refId, so `validateCitations` cannot resolve a quote from
+  // it. The prompt fences and sanitizes it (prompt.ts rule 7). W32 has no
+  // tools and no recipient field, so nothing in it can trigger an action or
+  // redirect the reply — recipients are set by createDraft, not the model.
+  attachmentContext: z
+    .array(z.object({ label: z.string().max(200), excerpt: z.string().max(4000) }))
+    .max(10)
+    .optional(),
 })
 
 export type ReplyDrafterInput = z.infer<typeof ReplyDrafterInputSchema>
@@ -113,7 +123,8 @@ export const replyDrafter = defineWorkflow({
   // own docstring: bump `version` when prompt OR tool surface changes
   // meaningfully — this changes how run() behaves on a citation failure).
   // 1.2.0: accountNote input (BL-101 A2).
-  version: '1.2.0',
+  // 1.3.0: attachmentContext input (BL-101 A8).
+  version: '1.3.0',
   promptVersion: PROMPT_VERSION,
   model: resolveModel(),
   // Declared, not merely enforced in the UI. A draft is a proposal; only a
