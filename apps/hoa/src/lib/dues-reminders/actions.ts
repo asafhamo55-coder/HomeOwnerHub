@@ -18,6 +18,7 @@ import {
   renderShellText,
 } from './render'
 import type { ReminderPacket, SkippedOwner } from './types'
+import { appUrl } from '@/lib/app-origin'
 
 const DENIED = "You don't have permission to perform this action."
 
@@ -62,8 +63,7 @@ function emailConfigured(): boolean {
 }
 
 function portalUrl(): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  return `${base.replace(/\/$/, '')}/resident/dues`
+  return appUrl('/resident/dues')
 }
 
 async function loadContext(): Promise<

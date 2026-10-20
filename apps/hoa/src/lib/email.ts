@@ -112,10 +112,9 @@ export async function sendEmail(
   return { ok: true, messageId: result.data?.id ?? null }
 }
 
-export function appUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  return `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`
-}
+// Absolute app links. Lives in app-origin.ts (no server deps, so client
+// components can use it too); re-exported here for existing callers.
+export { appUrl } from './app-origin'
 
 /** Resend accepts at most 100 emails per batch call. */
 const BATCH_MAX = 100

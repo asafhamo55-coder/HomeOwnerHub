@@ -15,7 +15,9 @@ export const BRAND = {
   // (rn-link lifts it to #60A5FA in dark mode, the logo's dark accent).
   wordmark: { lead: 'Homeowner', accent: 'Hub' },
   appName: 'HomeownerHub',
-  prodUrl: 'https://www.homeownerledger.com',
+  // The app's public origin (APP_ORIGIN, set by release-notes.yml from the
+  // repo variable); the pre-split host until then.
+  prodUrl: process.env.APP_ORIGIN || 'https://www.homeownerledger.com',
   repoUrl: 'https://github.com/asafhamo55-coder/HomeOwnerHub',
   primary: '#2563EB',
   primaryFg: '#FFFFFF',

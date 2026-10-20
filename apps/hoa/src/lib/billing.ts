@@ -11,6 +11,7 @@ import {
 } from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { appOrigin } from '@/lib/app-origin'
 
 // Per-door billing — two Stripe Prices (one monthly, one annual) with
 // the 10% annual discount baked into the annual Price's unit_amount.
@@ -109,7 +110,7 @@ export async function startHoaCheckout(
   const doors = Number(orgRow?.doors_count ?? formData.get('doors') ?? 0)
   const quantity = billableDoors(doors)
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const appUrl = appOrigin()
 
   let session
   try {
@@ -151,7 +152,7 @@ export async function openHoaPortal(): Promise<void> {
   const customerId = orgRow?.stripe_customer_id as string | null
   if (!customerId) return
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const appUrl = appOrigin()
 
   try {
     const url = await createPortalSession({

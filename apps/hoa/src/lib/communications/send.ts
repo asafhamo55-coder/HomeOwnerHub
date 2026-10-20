@@ -25,6 +25,7 @@ import { normalizeSuppliedFields } from './supplied-fields'
 import { composeSmsBody } from './sms-body'
 import { composeBilingualHtml, composeBilingualSms, htmlToPlainText, splitBilingualHtml } from './bilingual'
 import { extractMergeFields, renderTemplateStrict, type MergeBag } from './templates'
+import { appUrl } from '@/lib/app-origin'
 
 type CommInsert = Database['public']['Tables']['communications']['Insert']
 type RecipientInsert = Database['public']['Tables']['communication_recipients']['Insert']
@@ -503,8 +504,7 @@ export async function sendCommunication(
       // characters; a longer one is shortened and links to the full
       // message in the portal (composeSmsBody, which the wizard's hint
       // describes).
-      const PORTAL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.homeownerledger.com'
-      const portalLink = `${PORTAL.replace(/\/$/, '')}/communications/${commId}`
+      const portalLink = appUrl(`/communications/${commId}`)
       // BL-025: a bilingual body sends both languages only when both fit
       // whole in one text; otherwise English only (the portal link carries
       // the Spanish). The wizard warns the board when that will happen.

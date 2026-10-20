@@ -1,5 +1,6 @@
 import { HubSwitcher, OTHER_HUBS_ENABLED, type Hub } from '@homeowner-portal/ui'
 import type { UserHub } from '@/lib/orgs'
+import { appOrigin } from '@/lib/app-origin'
 
 interface Props {
   userHubs: UserHub[]
@@ -17,7 +18,7 @@ export function HoaHubSwitcher({ userHubs }: Props) {
     {
       type: 'hoa',
       label: 'HOA Hub',
-      url: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+      url: appOrigin(),
       orgName: userHubs.find((h) => h.type === 'hoa')?.orgName,
     },
     {

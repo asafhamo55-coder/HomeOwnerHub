@@ -18,6 +18,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { requireBoardOrAdmin, type Role } from '@/lib/auth'
+import { appUrl } from '@/lib/app-origin'
 
 export type MemberRole = Role
 
@@ -232,9 +233,8 @@ export async function inviteMember(
   // data: the trigger handle_new_user reads raw_user_meta_data->>full_name
   // to seed profiles.full_name. Passing the invited name here means the
   // user shows up with a real name even before they complete sign-in.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.homeownerledger.com'
   const inviteOptions = {
-    redirectTo: `${appUrl}/auth/callback`,
+    redirectTo: appUrl('/auth/callback'),
     data: parsed.data.full_name
       ? { full_name: parsed.data.full_name }
       : undefined,
