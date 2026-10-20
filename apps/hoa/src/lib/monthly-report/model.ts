@@ -17,6 +17,7 @@ import type { BalanceSheet, IncomeStatement } from '@/lib/accounting/queries'
 import type { PacketBudget } from '@/lib/board-packet/financials'
 import type { PacketPeriod } from '@/lib/board-packet/period'
 import type { DelinquencySummary } from '@/lib/board-packet/delinquency'
+import { reserveDisclosureHint, type ReserveSnapshotLoad, type ReserveSnapshotResult } from '@/lib/accounting/reserves'
 import { cureBy, isClosedViolation } from '@/lib/violation-cure'
 
 export type Section<T> = { ok: true; data: T } | { ok: false }
@@ -196,6 +197,18 @@ export function approvalsWaiting(counts: Record<string, number | null>): Section
   return { ok: true, data: values.reduce<number>((s, v) => s + (v ?? 0), 0) }
 }
 
+// ─── reserves (BL-120) ──────────────────────────────────────────────
+
+export interface ReserveReport {
+  result: ReserveSnapshotResult
+  /** A statute restatement for FL / CA only (lib/accounting/reserves.ts); null elsewhere. */
+  hint: { cite: string; text: string } | null
+}
+
+export function reserveReport(load: ReserveSnapshotLoad): ReserveReport {
+  return { result: load.result, hint: load.result.kind === 'ready' ? reserveDisclosureHint(load.state) : null }
+}
+
 // ─── the whole report ───────────────────────────────────────────────
 
 export interface UpcomingMeeting {
@@ -208,6 +221,8 @@ export interface MonthlyReportData {
   associationName: string
   period: PacketPeriod
   cash: Section<CashPosition>
+  /** BL-120. */
+  reserves: Section<ReserveReport>
   income: Section<IncomeSummary>
   collections: Section<Collections>
   delinquency: Section<DelinquencyHeadline>

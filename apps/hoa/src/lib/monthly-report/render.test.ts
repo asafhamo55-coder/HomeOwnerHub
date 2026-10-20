@@ -59,6 +59,7 @@ describe('renderMonthlyReportEmail', () => {
     const { html } = renderMonthlyReportEmail(
       reportFixture({
         cash: failed,
+        reserves: failed,
         income: failed,
         collections: failed,
         delinquency: failed,
@@ -70,8 +71,69 @@ describe('renderMonthlyReportEmail', () => {
       }),
       links,
     )
-    expect(html.match(/We couldn’t/g)).toHaveLength(9)
+    expect(html.match(/We couldn’t/g)).toHaveLength(10)
     expect(html).not.toMatch(/\$0\.00/)
+  })
+
+  describe('reserves (BL-120)', () => {
+    const ready = reportFixture().reserves
+    if (!ready.ok || ready.data.result.kind !== 'ready') throw new Error('fixture')
+    const snap = ready.data.result.snapshot
+
+    it('shows the balance, contributions against the budget so far, and draws', () => {
+      const { html, text } = renderMonthlyReportEmail(reportFixture(), links)
+      expect(html).toContain('Reserves as of Sep 30, 2026')
+      expect(text).toContain('RESERVES AS OF SEP 30, 2026')
+      for (const out of [html, text]) {
+        expect(out).toContain('$121,480.40')
+        expect(out).toContain('$13,500.00 of $17,950.68 budgeted so far')
+        expect(out).toContain('Contributions trail the budget by more than 10%')
+        expect(out).toContain('$210.40') // interest
+        expect(out).toContain('$6,000.00') // drawn
+        expect(out).toContain('runs from Jan 1, 2026')
+      }
+      expect(text).toContain('Open the balance sheet: https://app.example.test/accounting/reports/balance-sheet')
+    })
+
+    it('no warning when contributions are on track, and says when nothing is budgeted', () => {
+      const onTrack = renderMonthlyReportEmail(
+        reportFixture({ reserves: { ok: true, data: { result: { kind: 'ready', snapshot: { ...snap, behindBudget: false } }, hint: null } } }),
+        links,
+      ).text
+      expect(onTrack).not.toContain('Behind budget')
+      const unbudgeted = renderMonthlyReportEmail(
+        reportFixture({
+          reserves: { ok: true, data: { result: { kind: 'ready', snapshot: { ...snap, budget: null, behindBudget: false } }, hint: null } },
+        }),
+        links,
+      ).text
+      expect(unbudgeted).toContain('$13,500.00 (no contribution budgeted)')
+    })
+
+    it('no reserve fund: a gentle set-up prompt, not zeros', () => {
+      const { html, text } = renderMonthlyReportEmail(
+        reportFixture({ reserves: { ok: true, data: { result: { kind: 'no_reserve_fund' }, hint: null } } }),
+        links,
+      )
+      expect(text).toContain('No reserve fund is set up yet')
+      expect(text).toContain('Set up a reserve fund: https://app.example.test/accounting/coa#funds')
+      expect(html).toContain('href="https://app.example.test/accounting/coa#funds"')
+      expect(text).not.toContain('Reserve balance')
+    })
+
+    it('a state hint only when one is given, with its citation', () => {
+      const fl = renderMonthlyReportEmail(
+        reportFixture({
+          reserves: {
+            ok: true,
+            data: { result: { kind: 'ready', snapshot: snap }, hint: { cite: 'Fla. Stat. § 720.303(6)(h)', text: 'Reserve funds stay in the reserve account.' } },
+          },
+        }),
+        links,
+      ).text
+      expect(fl).toContain('Fla. Stat. § 720.303(6)(h): Reserve funds stay in the reserve account.')
+      expect(renderMonthlyReportEmail(reportFixture(), links).text).not.toContain('Stat.')
+    })
   })
 
   it('says "no budget" and "nothing overdue" in words when that is the truth', () => {

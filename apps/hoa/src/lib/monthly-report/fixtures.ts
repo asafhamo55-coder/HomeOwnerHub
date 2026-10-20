@@ -9,6 +9,26 @@ export function reportFixture(over: Partial<MonthlyReportData> = {}): MonthlyRep
     associationName: 'Maple Creek HOA',
     period: SEPT_PERIOD,
     cash: { ok: true, data: { operating: 48_210.5, reserve: 120_000 } },
+    reserves: {
+      ok: true,
+      data: {
+        result: {
+          kind: 'ready',
+          snapshot: {
+            funds: [{ id: 'fund-res', name: 'Reserve Fund' }],
+            asOf: '2026-09-30',
+            year: { start: '2026-01-01', end: '2026-12-31' },
+            balance: 121_480.4,
+            contributionsYtd: 13_500,
+            interestYtd: 210.4,
+            drawsYtd: 6_000,
+            budget: { annual: 24_000, ytd: 17_950.68, source: 'reserve_fund' },
+            behindBudget: true,
+          },
+        },
+        hint: null,
+      },
+    },
     income: { ok: true, data: { totalIncome: 31_500, totalExpenses: 27_940.12, netIncome: 3_559.88 } },
     collections: { ok: true, data: { billed: 30_000, collected: 27_450 } },
     delinquency: { ok: true, data: { total: 6_420, units: 7, over90: 2_100 } },

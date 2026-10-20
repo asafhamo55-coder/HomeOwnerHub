@@ -7,8 +7,8 @@ roles: [admin, board]
 routes: ["/accounting", "/accounting/reports", "/accounting/reports/income-statement", "/accounting/reports/budget-vs-actual", "/accounting/reports/balance-sheet", "/accounting/reports/cash-flow", "/accounting/trial-balance", "/accounting/ledger", "/accounting/ledger/[id]", "/accounting/coa"]
 primary_route: /accounting/reports
 keywords: [reports, financial reports, financial statements, financials, balance sheet, income statement, profit and loss, p&l, profit loss, net income, net loss, cash flow, budget vs actual, budget versus actual, variance, over budget, under budget, trial balance, debits, credits, general ledger, ledger, journal entries, journal entry, chart of accounts, accounts, operating cash, reserve cash, reserves, owed by owners, accounts receivable, accrual, cash basis, modified accrual, treasurer report, how much money, bank balance, fund balance, equity, accounting overview, reverse entry, right now, pull up, as of date, year end, december 31, finances]
-related: [accounting-monthly-board-report, accounting-draft-budget, accounting-bank-reconcile, accounting-enter-pay-bills]
-reviewed: 2026-10-18
+related: [accounting-reserves, accounting-monthly-board-report, accounting-draft-budget, accounting-bank-reconcile, accounting-enter-pay-bills]
+reviewed: 2026-10-20
 ---
 
 Use this when you want to know where the association's money stands, or you need numbers for a board meeting. Every report is worked out live from the books each time you open it.
@@ -44,4 +44,5 @@ Nothing changes when you read a report. Numbers update on their own as dues are 
 - Cash flow covers operating and reserve cash, grouped by where each movement came from, from opening to closing balance.
 - You can't download these reports from their pages. For a PDF board packet with the balance sheet, income statement and cash flow, open the **Periods** tab. For a monthly email to the board, see [the monthly board report](guide:accounting-monthly-board-report).
 - A posted entry can't be edited or deleted. On the entry's page, [[Reverse]] posts an equal and opposite entry dated today, and the original stays on the books marked reversed.
+- For the reserve balance, contributions against the budget and draws in one place, see [check your reserves](guide:accounting-reserves).
 - The [[Accounts]] tab lists your chart of accounts. You can read it, but you can't add or change accounts there.

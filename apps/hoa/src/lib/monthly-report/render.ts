@@ -13,10 +13,13 @@
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { formatDay, plural, usd } from '@/lib/money/format'
 import { MEETING_TYPE } from '@/lib/status/community'
-import type { MonthlyReportData, Section, Variance } from './model'
+import type { MonthlyReportData, ReserveReport, Section, Variance } from './model'
 
 /** Band accent — inside the dark-mode-safe window (email/palette.ts; render.test.ts asserts it). */
 export const REPORT_ACCENT = '#2F5D8A'
+
+/** Where "Set up a reserve fund" goes: the chart of accounts' Funds card (BL-120). */
+export const RESERVE_SETUP_PATH = '/accounting/coa#funds'
 
 const TEXT = '#1A1D21'
 const MUTED = '#5B6570'
@@ -75,6 +78,45 @@ function varianceLine(v: Variance): Line {
   }
 }
 
+/** BL-120. No reserve fund: a gentle "set one up", never a row of zeros. */
+function reserveBlock(res: Section<ReserveReport>, asOf: string, links: MonthlyReportLinks): Block {
+  const title = `Reserves as of ${asOf}`
+  const failed = 'We couldn’t load the reserve fund, so reserves aren’t shown.'
+  if (res.ok && res.data.result.kind === 'no_reserve_fund') {
+    return {
+      title,
+      lines: [{ label: 'Reserve fund', value: 'No reserve fund is set up yet' }],
+      failed,
+      link: { label: 'Set up a reserve fund', href: links.appUrl(RESERVE_SETUP_PATH) },
+    }
+  }
+  const ready = res.ok && res.data.result.kind === 'ready' ? res.data.result.snapshot : null
+  const hint = res.ok ? res.data.hint : null
+  return {
+    title,
+    lines: ready
+      ? [
+          { label: 'Reserve balance', value: usd(ready.balance) },
+          {
+            label: 'Contributed this year',
+            value: ready.budget
+              ? `${usd(ready.contributionsYtd)} of ${usd(ready.budget.ytd)} budgeted so far`
+              : `${usd(ready.contributionsYtd)} (no contribution budgeted)`,
+            ...(ready.behindBudget ? { tone: 'danger' as const } : {}),
+          },
+          ...(ready.behindBudget
+            ? [{ label: 'Behind budget', value: 'Contributions trail the budget by more than 10%', tone: 'danger' as const }]
+            : []),
+          ...(ready.interestYtd !== 0 ? [{ label: 'Interest earned this year', value: usd(ready.interestYtd) }] : []),
+          { label: 'Drawn this year', value: usd(ready.drawsYtd) },
+        ]
+      : null,
+    failed,
+    ...(ready ? { note: `“This year” runs from ${formatDay(ready.year.start)}.${hint ? ` ${hint.cite}: ${hint.text}` : ''}` } : {}),
+    link: { label: 'Open the balance sheet', href: links.appUrl('/accounting/reports/balance-sheet') },
+  }
+}
+
 function lines<T>(res: Section<T>, fn: (t: T) => Line[]): Line[] | null {
   return res.ok ? fn(res.data) : null
 }
@@ -93,6 +135,7 @@ function blocks(d: MonthlyReportData, links: MonthlyReportLinks): Block[] {
       ]),
       failed: 'We couldn’t load the balance sheet, so cash balances aren’t shown.',
     },
+    reserveBlock(d.reserves, asOf, links),
     {
       title: `Dues collected in ${d.period.label}`,
       lines: lines(d.collections, (c) => {
@@ -239,7 +282,7 @@ ${bs.map(blockHtml).join('\n')}`
     // Reads on a phone without zooming (the ghost-table hybrid, shell.ts).
     fluid: true,
     band: { text: 'Month-end board report', color: REPORT_ACCENT },
-    previewText: `${d.period.label}: cash, collections, overdue dues and what’s waiting on the board.`,
+    previewText: `${d.period.label}: cash, reserves, collections, overdue dues and what’s waiting on the board.`,
     bodyHtml,
     footerHtml: `Sent by HomeownerHub to board members of ${escapeHtml(d.associationName)}. Board only — please don’t forward to residents. <a href="${escapeHtml(settingsUrl)}" style="color:${MUTED};">Turn off the monthly board report</a>.`,
   })

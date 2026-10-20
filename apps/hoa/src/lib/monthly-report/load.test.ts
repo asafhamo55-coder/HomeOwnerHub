@@ -7,6 +7,7 @@ const m = vi.hoisted(() => ({
   loadBudgetsVsActual: vi.fn(),
   loadDelinquency: vi.fn(),
   countPendingApprovals: vi.fn(),
+  loadReserveSnapshot: vi.fn(),
 }))
 vi.mock('@homeowner-portal/observability/report', () => ({ reportError: m.reportError }))
 vi.mock('@/lib/board-packet/financials', () => ({
@@ -16,6 +17,10 @@ vi.mock('@/lib/board-packet/financials', () => ({
 }))
 vi.mock('@/lib/board-packet/queries', () => ({ loadDelinquency: m.loadDelinquency }))
 vi.mock('@/lib/approvals-inbox/load', () => ({ countPendingApprovals: m.countPendingApprovals }))
+vi.mock('@/lib/accounting/reserves', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/accounting/reserves')>()),
+  loadReserveSnapshot: m.loadReserveSnapshot,
+}))
 
 import { loadMonthlyReportData, periodForMonth } from './load'
 import type { AccountingDb } from '@/lib/accounting/queries'
@@ -61,6 +66,7 @@ beforeEach(() => {
   m.loadBudgetsVsActual.mockResolvedValue([])
   m.loadDelinquency.mockResolvedValue({ totalOverdue: 900, unitCount: 2, aging: { d90_plus: 300 } })
   m.countPendingApprovals.mockResolvedValue({ w18: 1, bill: 0, w3: 0, arc: 0, contact: 0, vendor: 2 })
+  m.loadReserveSnapshot.mockResolvedValue({ result: { kind: 'no_reserve_fund' }, state: 'FL' })
 })
 
 describe('loadMonthlyReportData', () => {
@@ -74,11 +80,15 @@ describe('loadMonthlyReportData', () => {
     expect(m.loadIncomeStatement).toHaveBeenCalledWith('assoc-1', CTX.period, db)
     expect(m.loadBalanceSheet).toHaveBeenCalledWith('assoc-1', CTX.period, db)
     expect(m.loadBudgetsVsActual).toHaveBeenCalledWith('assoc-1', CTX.period, db)
+    // Reserves as of the last day of the month (BL-120).
+    expect(m.loadReserveSnapshot).toHaveBeenCalledWith(db, 'assoc-1', '2026-09-30')
     // Delinquency at the start of the 1st after the month (BL-051).
     expect(m.loadDelinquency).toHaveBeenCalledWith(db, 'assoc-1', '2026-10-01', 'America/New_York')
     expect(d).toMatchObject({
       period: { start: '2026-09-01', end: '2026-09-30', label: 'September 2026' },
       cash: { ok: true, data: { operating: 500, reserve: null } },
+      // No reserve fund: no statute hint either.
+      reserves: { ok: true, data: { result: { kind: 'no_reserve_fund' }, hint: null } },
       collections: { ok: true, data: { billed: 300, collected: 200 } },
       delinquency: { ok: true, data: { total: 900, units: 2, over90: 300 } },
       budget: { ok: true, data: { hasBudget: false, top: [] } },
@@ -93,6 +103,7 @@ describe('loadMonthlyReportData', () => {
     const { db } = fakeDb({ hoa_violations: 'error' })
     const d = await loadMonthlyReportData(db, CTX)
     expect(d.cash).toEqual({ ok: false })
+    expect(d.reserves.ok).toBe(true)
     expect(d.violations).toEqual({ ok: false })
     expect(d.approvals).toEqual({ ok: false })
     expect(d.income.ok).toBe(true)

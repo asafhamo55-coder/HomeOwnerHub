@@ -24,7 +24,7 @@ import { MAX_INSIGHTS } from '@homeowner-portal/ai'
 import { kpiDelta } from '@/lib/dashboard/kpi-delta'
 import { loadSetupChecklist, setupDismissedCookie } from '@/lib/dashboard/setup-checklist'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { loadOrFail } from '@/lib/load-or-fail'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
 import { timed } from '@/lib/perf/timing'
 import { buildBullets, formatNextMeeting } from '@/lib/dashboard/digest-facts'
 import { MailTriageCard } from '@/components/dashboard/MailTriageCard'
@@ -43,6 +43,9 @@ import { MyTasksCard } from '@/components/dashboard/MyTasksCard'
 import { loadMyTaskCounts } from '@/lib/tasks/queries'
 import { currentTimeZone } from '@/lib/association-time-current'
 import { todayIn } from '@/lib/association-time'
+import { ReserveSnapshotCard } from '@/components/dashboard/ReserveSnapshotCard'
+import { loadReserveSnapshot, reserveDisclosureHint } from '@/lib/accounting/reserves'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -202,6 +205,9 @@ function DashboardSections({ orgId }: { orgId: string }) {
           </Suspense>
           <Suspense fallback={<CardSkeleton body="h-16" />}>
             <LeaseSection orgId={orgId} />
+          </Suspense>
+          <Suspense fallback={<CardSkeleton body="h-16" />}>
+            <ReservesSection />
           </Suspense>
         </div>
       </div>
@@ -403,6 +409,22 @@ async function MailTriageSection({ orgId }: { orgId: string }) {
 
 async function LeaseSection({ orgId }: { orgId: string }) {
   return <LeaseSummaryCard summary={await load.leaseSummary(orgId)} />
+}
+
+// BL-120: the primary association's reserve fund as of its today. No
+// association yet: no card (the setup checklist covers that).
+async function ReservesSection() {
+  const assoc = await getPrimaryAssociationResult()
+  if (!assoc.ok) return <ReserveSnapshotCard result={null} />
+  if (!assoc.data) return null
+  const { id, timeZone } = assoc.data
+  const supabase = await getSupabaseServerClient()
+  const res = await timed('/', 'dashboard.reserves', () =>
+    tryLoad('reserve snapshot', () => loadReserveSnapshot(supabase, id, todayIn(timeZone))),
+  )
+  if (!res.ok) return <ReserveSnapshotCard result={null} />
+  const { result, state } = res.data
+  return <ReserveSnapshotCard result={result} hint={result.kind === 'ready' ? reserveDisclosureHint(state) : null} />
 }
 
 async function OpenWorkKpis({ orgId }: { orgId: string }) {

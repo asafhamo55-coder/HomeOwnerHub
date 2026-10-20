@@ -6,12 +6,12 @@ topic: accounting
 roles: [admin, board]
 routes: ["/accounting/reports/monthly-report", "/accounting/reports", "/settings/notifications"]
 primary_route: /accounting/reports/monthly-report
-keywords: [monthly report, board report, monthly board report, month end, month-end report, treasurer report, financial summary, email report, board email, report email, send report, send now, preview report, 1st of the month, first of the month, stop emails, unsubscribe, turn off report, opt out, email settings, notifications, collections, overdue dues, cash summary, board update, finances, monthly email]
-related: [accounting-reports-overview, settings-notifications, accounting-bank-reconcile]
-reviewed: 2026-10-18
+keywords: [monthly report, board report, monthly board report, month end, month-end report, treasurer report, financial summary, email report, board email, report email, send report, send now, preview report, 1st of the month, first of the month, stop emails, unsubscribe, turn off report, opt out, email settings, notifications, collections, overdue dues, cash summary, reserves, reserve fund, board update, finances, monthly email]
+related: [accounting-reports-overview, accounting-reserves, settings-notifications, accounting-bank-reconcile]
+reviewed: 2026-10-20
 ---
 
-The app emails every board member a short report on the 1st of each month. It covers last month's cash, collections, overdue dues, income and expenses, budget, violations, architectural requests, what's waiting on the board and the next meeting. You don't have to do anything for it to go out.
+The app emails every board member a short report on the 1st of each month. It covers last month's cash, reserves, collections, overdue dues, income and expenses, budget, violations, architectural requests, what's waiting on the board and the next meeting. You don't have to do anything for it to go out.
 
 ## Before you start
 - Board admins and board members can preview the report. Only board admins can send it early.
@@ -40,4 +40,5 @@ The app emails every board member a short report on the 1st of each month. It co
 - If part of the report can't load, that section says so in the email rather than showing a wrong number.
 - Turning the email off only affects you. It applies to every association you're on the board of, and other board members still get it.
 - If every board member turns it off, no report is sent that month.
+- The **Reserves** section shows the reserve balance at month end, contributions so far this year against the budget, and draws. If the association has no reserve fund, it says so and links to [[Set up a reserve fund]] instead of showing zeros. See [how reserves are counted](guide:accounting-reserves).
 - Residents never get this email.
