@@ -252,6 +252,16 @@ describe('fileContactUpdateFromThread', () => {
     expect(inserts).toEqual([])
   })
 
+  it('BL-105: refuses a sender whose email failed authentication, saying why, and checks this thread', async () => {
+    const { checkSenderForUnit } = await import('@/lib/inbox/account-context')
+    vi.mocked(checkSenderForUnit).mockResolvedValueOnce({ verified: false, reason: 'sender_unauthenticated' })
+    const r = await fileContactUpdateFromThread({ threadId: THREAD, phone: '555-201-3344', email: '', mailing: '' })
+    expect(r).toMatchObject({ ok: false })
+    expect(!r.ok && r.error).toMatch(/failed the sender authentication check/)
+    expect(vi.mocked(checkSenderForUnit).mock.calls.at(-1)![4]).toEqual({ threadId: THREAD })
+    expect(inserts).toEqual([])
+  })
+
   it('refuses a second waiting request for the same sender', async () => {
     tables.tickets = {
       list: {

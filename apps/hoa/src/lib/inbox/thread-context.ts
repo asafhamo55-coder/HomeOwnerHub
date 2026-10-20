@@ -83,7 +83,7 @@ export async function getThreadRailContext(
 ): Promise<ThreadRailContext> {
   const senderEmail = latestInboundSender(thread.messages)
   const [check, home, linked, pastThreads, docs, threadResidentId] = await Promise.all([
-    checkSenderForUnit(db, orgId, thread.unitId, senderEmail),
+    checkSenderForUnit(db, orgId, thread.unitId, senderEmail, { threadId: thread.id }),
     thread.unitId ? loadHomeAccount(db, orgId, thread.unitId) : Promise.resolve(null),
     readLinkedRecords(db, orgId, thread.id),
     readPastThreads(db, orgId, thread.id, thread.unitId, senderEmail),

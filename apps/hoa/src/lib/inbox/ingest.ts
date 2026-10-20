@@ -153,9 +153,26 @@ import type {
 // Value imports, permitted by the cross-package constraint above:
 // packages/jobs already depends on @homeowner-portal/mailbox, so these
 // resolve under its tsconfig as well as the hoa app's.
-import { messageStateFromLabels, threadStateFromMessages } from '@homeowner-portal/mailbox'
+import { messageStateFromLabels, threadStateFromMessages, SENDER_AUTH_COLUMN_LIVE } from '@homeowner-portal/mailbox'
 
 type Db = SupabaseClient<Database>
+type InboxMessageInsert = Database['public']['Tables']['inbox_messages']['Insert']
+type InboxMessageUpdate = Database['public']['Tables']['inbox_messages']['Update']
+
+/**
+ * BL-105: `sender_auth` (pass | fail | none) — written only once the
+ * column exists (SENDER_AUTH_COLUMN_LIVE, see
+ * docs/specs/2026-10-20-inbound-auth.sql). Until then this is `{}` and
+ * the row is exactly what it was before. The column is not in the
+ * generated types yet, hence the casts at the two call sites; a
+ * `gen:types` after the migration makes them redundant, not wrong.
+ */
+export function senderAuthColumn(
+  message: Pick<ParsedMessage, 'senderAuth'>,
+  live: boolean = SENDER_AUTH_COLUMN_LIVE,
+): { sender_auth?: string } {
+  return live ? { sender_auth: message.senderAuth ?? 'none' } : {}
+}
 
 /** Inline images at or below this size are signature logos, not content. */
 const INLINE_SKIP_BYTES = 100 * 1024
@@ -687,7 +704,8 @@ async function ingestMessage(
         gmail_labels: message.labelIds,
         gmail_state: messageStateFromLabels(message.labelIds),
         gmail_state_at: observedAt,
-      },
+        ...senderAuthColumn(message),
+      } as InboxMessageInsert,
       // Conflict target = inbox_messages_org_gmail_uniq from 0048.
       // Org-scoped, NOT account-scoped (a reconnect mints a new
       // mailbox_accounts row and would re-import everything) and NOT
@@ -768,7 +786,10 @@ async function ingestMessage(
         gmail_labels: message.labelIds,
         gmail_state: messageStateFromLabels(message.labelIds),
         gmail_state_at: observedAt,
-      })
+        // Same headers, same verdict: harmless on a re-observe, and lets a
+        // reconnect backfill fill the column for mail stored before it existed.
+        ...senderAuthColumn(message),
+      } as InboxMessageUpdate)
       .eq('id', messageId)
 
     if (labelError) {

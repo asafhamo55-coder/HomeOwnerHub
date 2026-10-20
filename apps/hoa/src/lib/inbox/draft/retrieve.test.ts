@@ -596,7 +596,7 @@ describe('retrieveForThread — account facts only for a verified resident of th
 
     const result = await retrieveForThread(buildCallerDb({}) as never, 'org-1', 'thread-1')
 
-    expect(vi.mocked(checkSenderForUnit).mock.calls.at(-1)!.slice(2)).toEqual(['unit-12', 'owner@example.test'])
+    expect(vi.mocked(checkSenderForUnit).mock.calls.at(-1)!.slice(2)).toEqual(['unit-12', 'owner@example.test', { threadId: 'thread-1' }])
     expect(result.accountDisclosure).toBe('included')
     expect(result.accountNote).toBeNull()
     const balance = result.fragments.find((f) => f.refId === 'acct:balance')

@@ -14,6 +14,7 @@
 import type { ParsedAttachment, ParsedMessage } from './types'
 import { htmlToText } from './html'
 import { stripQuotedReply } from './quote'
+import { senderAuthVerdict } from './auth-results'
 
 export interface GmailHeader {
   name: string
@@ -213,5 +214,6 @@ export function parseGmailMessage(raw: GmailApiMessage): ParsedMessage {
     attachments: state.attachments,
     sentAt: sentAtMs !== null ? new Date(sentAtMs).toISOString() : null,
     labelIds: raw.labelIds ?? [],
+    senderAuth: senderAuthVerdict(headerAll(headers, 'Authentication-Results'), from.email),
   }
 }

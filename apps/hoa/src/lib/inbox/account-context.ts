@@ -22,11 +22,24 @@
  * `thread_continuity` or `address_in_body` match, or a manual filing, says
  * which home the email is ABOUT, not that the writer lives there.
  *
+ * BL-105: an address can be forged. When the thread's newest inbound
+ * message carries the receiving server's verdict (inbox_messages.sender_auth,
+ * from its Authentication-Results header — packages/mailbox auth-results.ts),
+ * a `fail` makes the sender `sender_unauthenticated` whatever the address
+ * matches; `pass` / `none` keep the address check and ride along on a
+ * verified result as `auth` so the rail can say how sure it is. Read only
+ * while SENDER_AUTH_COLUMN_LIVE is on.
+ *
  * Logs carry ids and error codes only — never an address or a figure.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import {
+  SENDER_AUTH_COLUMN_LIVE,
+  toSenderAuthVerdict,
+  type SenderAuthVerdict,
+} from '@homeowner-portal/mailbox'
 import { escapeLikePattern, resolvePropertyByEmail } from '@/lib/properties/resolve'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { chargesFromForOwnership } from '@/lib/resident-sale-window'
@@ -44,8 +57,21 @@ type Db = SupabaseClient<Database>
 // ─── The disclosure gate ────────────────────────────────────────────
 
 export type SenderCheck =
-  | { verified: true; residentId: string | null; via: 'resident_email' | 'sender_alias' }
-  | { verified: false; reason: 'not_filed' | 'no_sender' | 'not_a_resident' | 'check_failed' }
+  | {
+      verified: true
+      residentId: string | null
+      via: 'resident_email' | 'sender_alias'
+      /**
+       * BL-105: the newest inbound message's SPF/DKIM/DMARC verdict, when it
+       * was read (`pass` or `none` — a `fail` is never verified). Absent =
+       * not read (flag off, or no thread given).
+       */
+      auth?: Exclude<SenderAuthVerdict, 'fail'>
+    }
+  | {
+      verified: false
+      reason: 'not_filed' | 'no_sender' | 'not_a_resident' | 'check_failed' | 'sender_unauthenticated'
+    }
 
 /**
  * Why account details were left out, in words the board reads on the
@@ -57,6 +83,21 @@ export const WITHHELD_REASON: Record<Extract<SenderCheck, { verified: false }>['
   not_a_resident:
     "The sender's address is not on file for a resident of this home, so account details were withheld.",
   check_failed: "The sender couldn't be checked against this home's residents, so account details were withheld.",
+  sender_unauthenticated:
+    "This email failed the sender authentication check (SPF/DKIM/DMARC), so the From address can't be trusted and account details were withheld.",
+}
+
+/**
+ * BL-105, pure: fold the newest inbound message's verdict into the address
+ * check. `fail` overrides any address match (a forged From matches by
+ * design); `not_filed` / `no_sender` stay as they are because they say
+ * something more basic. `null` = verdict not read: the check is unchanged.
+ */
+export function applySenderAuth(check: SenderCheck, auth: SenderAuthVerdict | null): SenderCheck {
+  if (auth === null) return check
+  if (!check.verified && (check.reason === 'not_filed' || check.reason === 'no_sender')) return check
+  if (auth === 'fail') return { verified: false, reason: 'sender_unauthenticated' }
+  return check.verified ? { ...check, auth } : check
 }
 
 /**
@@ -93,6 +134,38 @@ export function latestInboundSender(
 }
 
 /**
+ * The newest inbound message's verdict for a thread. Throws on a read
+ * error so the caller fails closed. A row stored before the column was
+ * filled reads as `none`.
+ */
+async function readLatestInboundAuth(db: Db, orgId: string, threadId: string): Promise<SenderAuthVerdict> {
+  // `sender_auth` is not in the generated types until the migration is
+  // applied and the types regenerated; read it through a loose handle.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const loose = db as unknown as { from: (table: string) => any }
+  const { data, error } = (await loose
+    .from('inbox_messages')
+    .select('sender_auth')
+    .eq('organization_id', orgId)
+    .eq('thread_id', threadId)
+    .eq('direction', 'inbound')
+    // The message latestInboundSender picks: newest by sent_at, where a
+    // missing sent_at sorts last ascending, so first here.
+    .order('sent_at', { ascending: false, nullsFirst: true })
+    .limit(1)
+    .maybeSingle()) as { data: { sender_auth: unknown } | null; error: { code?: string } | null }
+  if (error) throw error
+  return toSenderAuthVerdict(data?.sender_auth ?? null)
+}
+
+export interface SenderCheckOptions {
+  /** The thread whose newest inbound message's verdict applies (BL-105). */
+  threadId?: string | null
+  /** Defaults to SENDER_AUTH_COLUMN_LIVE; tests pass it explicitly. */
+  authColumnLive?: boolean
+}
+
+/**
  * Run the gate against the database. Fails CLOSED: any read error is
  * `check_failed`, which withholds, exactly like "not a resident".
  */
@@ -101,10 +174,29 @@ export async function checkSenderForUnit(
   orgId: string,
   unitId: string | null,
   senderEmail: string | null,
+  options: SenderCheckOptions = {},
 ): Promise<SenderCheck> {
   const pre = decideSenderCheck({ unitId, senderEmail, emailMatches: [], aliasMatches: [] })
   if (!pre.verified && pre.reason !== 'not_a_resident') return pre
   const email = senderEmail!.trim().toLowerCase()
+  const live = options.authColumnLive ?? SENDER_AUTH_COLUMN_LIVE
+
+  let auth: SenderAuthVerdict | null = null
+  if (live && options.threadId) {
+    try {
+      auth = await readLatestInboundAuth(db, orgId, options.threadId)
+    } catch (error) {
+      console.error('checkSenderForUnit: sender auth read failed', {
+        orgId,
+        unitId,
+        threadId: options.threadId,
+        code: (error as { code?: unknown } | null)?.code ?? null,
+      })
+      return { verified: false, reason: 'check_failed' }
+    }
+    // A forged From is not worth looking up.
+    if (auth === 'fail') return { verified: false, reason: 'sender_unauthenticated' }
+  }
 
   try {
     const [matches, aliasRes] = await Promise.all([
@@ -120,12 +212,13 @@ export async function checkSenderForUnit(
       console.error('checkSenderForUnit: alias read failed', { orgId, unitId, code: aliasRes.error.code })
       return { verified: false, reason: 'check_failed' }
     }
-    return decideSenderCheck({
+    const check = decideSenderCheck({
       unitId,
       senderEmail: email,
       emailMatches: matches.map((m) => ({ unitId: m.ref.unitId, residentId: m.residentId })),
       aliasMatches: (aliasRes.data ?? []).map((a) => ({ unitId: a.unit_id, residentId: a.resident_id })),
     })
+    return applySenderAuth(check, auth)
   } catch (error) {
     console.error('checkSenderForUnit: resident lookup failed', {
       orgId,

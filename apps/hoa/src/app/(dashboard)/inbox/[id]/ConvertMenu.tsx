@@ -36,6 +36,8 @@ export interface ConvertMenuProps {
   filed: boolean
   /** The sender is verified for that home (contact updates need it). */
   senderVerified: boolean
+  /** BL-105: the email failed SPF/DKIM/DMARC, so its From can't be trusted. */
+  senderUnauthenticated?: boolean
   ticket: TicketPrefill
   contact: ContactPrefill
   /** The reply line carrying the absolute link to the resident's prefilled ARC form. */
@@ -161,7 +163,13 @@ function Option({
   )
 }
 
-function MenuView({ filed, senderVerified, violationHref, onPick }: ConvertMenuProps & { onPick: (v: View) => void }) {
+function MenuView({
+  filed,
+  senderVerified,
+  senderUnauthenticated,
+  violationHref,
+  onPick,
+}: ConvertMenuProps & { onPick: (v: View) => void }) {
   const needsHome = filed ? null : 'File this email under a home first.'
   return (
     <div className="space-y-2">
@@ -188,7 +196,14 @@ function MenuView({ filed, senderVerified, violationHref, onPick }: ConvertMenuP
         icon={<UserCog aria-hidden />}
         title="Update contact details"
         hint="Files the change for approval in Approvals → Contact updates."
-        blocked={needsHome ?? (senderVerified ? null : 'The sender isn’t on file for this home.')}
+        blocked={
+          needsHome ??
+          (senderVerified
+            ? null
+            : senderUnauthenticated
+              ? 'This email failed its sender authentication check.'
+              : 'The sender isn’t on file for this home.')
+        }
         onClick={() => onPick('contact')}
       />
       <Option

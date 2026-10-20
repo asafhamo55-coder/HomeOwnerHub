@@ -23,6 +23,8 @@ export interface OutboundAttachment {
   bytes: Buffer
 }
 
+import type { SenderAuthVerdict } from './auth-results'
+
 export interface ParsedMessage {
   gmailMessageId: string
   gmailThreadId: string
@@ -45,6 +47,12 @@ export interface ParsedMessage {
   attachments: ParsedAttachment[]
   sentAt: string | null
   labelIds: string[]
+  /**
+   * BL-105: the receiving server's SPF/DKIM/DMARC verdict for the From
+   * address (auth-results.ts). Optional so hand-built test messages stay
+   * valid; parseGmailMessage always sets it.
+   */
+  senderAuth?: SenderAuthVerdict
 }
 
 export type ScopeMode = 'address' | 'label' | 'all'

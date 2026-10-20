@@ -262,9 +262,15 @@ export default async function ThreadPage({
   // message only. Pure text rules (lib/inbox/convert/model.ts), no AI;
   // the board checks each one before anything is written.
   const inboundText = lastInbound?.strippedText || lastInbound?.bodyText || ''
+  // BL-105: a sender whose email failed SPF/DKIM/DMARC gets no contact
+  // prefill (the option is blocked too, and the server action refuses).
+  const senderCheck = railContext?.sender.check
+  const senderUnauthenticated = senderCheck?.verified === false && senderCheck.reason === 'sender_unauthenticated'
   const convert = {
     ticket: ticketPrefillFromEmail(thread.subject, inboundText),
-    contact: contactPrefillFromEmail(inboundText, lastInbound?.fromEmail ?? null),
+    contact: senderUnauthenticated
+      ? { phone: '', email: '', mailing: '' }
+      : contactPrefillFromEmail(inboundText, lastInbound?.fromEmail ?? null),
     arcAck: arcAck(appUrl(boardArcHref(arcPrefillFromEmail(thread.subject, inboundText)))),
     violationHref: `/violations/new?from_thread=${thread.id}`,
   }
@@ -407,6 +413,7 @@ export default async function ThreadPage({
                     threadId={thread.id}
                     filed={Boolean(thread.unitId)}
                     senderVerified={railContext?.sender.check.verified === true}
+                    senderUnauthenticated={senderUnauthenticated}
                     ticket={convert.ticket}
                     contact={convert.contact}
                     arcAck={convert.arcAck}
