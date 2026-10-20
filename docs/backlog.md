@@ -1262,6 +1262,10 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
    - **Schema:** new `compliance_obligations` (code, citation, due_on, recurrence, status CHECK, evidence_document_id, completed_at/by; board-only RLS).
    - **Files:** `apps/hoa/src/app/(dashboard)/compliance/` (new), `apps/hoa/src/lib/compliance/` (new), `packages/jobs/src/daily-digest.ts`, `packages/jobs/src/monthly-board-report/run.ts`.
    - **Stopgap:** if 0067 isn't applied by November, ship a no-migration GA registration digest warning.
+   - **Stopgap shipped (2026-10-20, no migration):** `apps/hoa/src/lib/compliance/deadlines.ts`, a dashboard "State law deadlines" card, a daily-digest countdown line, and a "Mark as done" acknowledgment HMAC-signed under `compliance_settings.compliance_deadline_acks`. Guide: `state-law-deadlines`.
+     - **Included, from fixtures:** GA O.C.G.A. § 43-17A-2 (SB 406 § 2, effective 2027-01-01 per § 9(a); `scripts/fixtures/state-law/ga-sb406-2026-registration.txt`). Correction to the pain line above: registration applies to every GA owners' association (§ 43-17A-1(6)), not only those that fine. The Secretary of State says filing opens *on or after* 2027-01-01. Also TX Prop. Code § 209.004, a standing obligation with no date, so it is on the card only (`tx-prop-209-004-2026.txt`).
+     - **Omitted:** FL milestone and SIRS, because § 553.899(3)(a) covers condominium and cooperative buildings only (ch. 718/719, not ch. 720). CA § 5551 balconies, because the section text isn't in our fixtures (leginfo is behind a bot challenge) and the research's date (2026-01-01) has already passed.
+     - The full BL-131 (0067 table, `/compliance`, evidence, board report) is still open. When it lands, migrate these acknowledgments into rows.
    - Effort M, score 1.6.
 8. **BL-132 Insurance and fidelity-bond tracker.**
    - **Pain:** premiums are up nearly 3× with new exclusions (LA Business Journal, 2026-10-12). CA § 5806 requires fidelity coverage of at least reserves plus 3 months, including funds-transfer fraud.

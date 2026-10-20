@@ -46,6 +46,9 @@ import { todayIn } from '@/lib/association-time'
 import { ReserveSnapshotCard } from '@/components/dashboard/ReserveSnapshotCard'
 import { loadReserveSnapshot, reserveDisclosureHint } from '@/lib/accounting/reserves'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
+import { ComplianceDeadlinesCard } from '@/components/dashboard/ComplianceDeadlinesCard'
+import { complianceAckSecret, pendingComplianceItems } from '@/lib/compliance/deadlines'
+import { getCurrentUserRole } from '@/lib/auth'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -156,6 +159,12 @@ async function SetupChecklistSection({ orgId, dismissed }: { orgId: string; dism
 function DashboardSections({ orgId }: { orgId: string }) {
   return (
     <div className="cq space-y-8">
+      {/* BL-131: statutory deadlines for the board's state (GA registration,
+          TX management certificate). Nothing renders when none apply. */}
+      <Suspense fallback={null}>
+        <ComplianceDeadlinesSection orgId={orgId} />
+      </Suspense>
+
       {/* ── Needs attention ─────────────────────────────────────────────
           Four counts, each a decision waiting on the board, each linking
           to where it is acted on. A failed source shows "—" and says so. */}
@@ -425,6 +434,44 @@ async function ReservesSection() {
   if (!res.ok) return <ReserveSnapshotCard result={null} />
   const { result, state } = res.data
   return <ReserveSnapshotCard result={result} hint={result.kind === 'ready' ? reserveDisclosureHint(state) : null} />
+}
+
+// BL-131: deadlines that apply to the org's associations by state and that
+// no board member has marked done (signed acknowledgment). Board/admin only,
+// re-checked here although the layout already sends residents away.
+async function ComplianceDeadlinesSection({ orgId }: { orgId: string }) {
+  const ctx = await getCurrentUserRole()
+  if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return null
+  const [supabase, timeZone] = await Promise.all([getSupabaseServerClient(), currentTimeZone()])
+  const res = await timed('/', 'dashboard.complianceDeadlines', () =>
+    loadOrFail(
+      'compliance deadlines',
+      supabase
+        .from('associations')
+        .select('id, name, state, governing_law_state, compliance_settings')
+        .eq('organization_id', orgId),
+    ),
+  )
+  if (!res.ok) return <ComplianceDeadlinesCard items={null} />
+  const rows = (res.data ?? []) as Array<{
+    id: string
+    name: string
+    state: string | null
+    governing_law_state: string | null
+    compliance_settings: unknown
+  }>
+  const items = pendingComplianceItems(
+    rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      state: r.state,
+      governingLawState: r.governing_law_state,
+      complianceSettings: r.compliance_settings,
+    })),
+    todayIn(timeZone),
+    complianceAckSecret(),
+  )
+  return <ComplianceDeadlinesCard items={items} multipleAssociations={rows.length > 1} />
 }
 
 async function OpenWorkKpis({ orgId }: { orgId: string }) {
