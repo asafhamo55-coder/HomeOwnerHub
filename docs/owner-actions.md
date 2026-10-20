@@ -347,6 +347,17 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-sms-consent.sql`
 
+### OA-22 · Choose who gets the daily AI-cost alert
+
+**Urgency:** Whenever
+
+**Why it matters:** a new daily check emails a warning if the whole platform's estimated AI spend passes $50 in a day, so a runaway bug or abuse is caught within a day. It needs an address to send to; until then it only writes a log line.
+
+**Steps:**
+
+1. In Vercel → the `home-owner-hub-hoa` project → Settings → Environment Variables, add `AI_SPEND_ALERT_TO` for **Production** with your email address (you can list several, separated by commas).
+2. Tell Claude. It redeploys and confirms the next morning's run.
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._

@@ -1132,3 +1132,4 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
     - **Re-derive estimates.** Re-derive the per-call estimates from `ai_runs` within 30 days of launch.
     - **Marketing.** Publish the real caps.
 - **BL-109 Guard-held sends everywhere:** apply `finalSendStatus` (packages/observability/src/send-status.ts) to the resident-notify and vendor-COI flows and the resend path in communications send.ts, so a send the outbound guard holds for every recipient reads "held by safety guard", not "failed".
+- **BL-112 Meter every AI call:** model calls that skip `requireAiQuota` aren't counted, aren't capped and ignore `AI_PLATFORM_KILL_SWITCH`: the inbox's manual "Draft a reply", background jobs and embeddings (about 19 OpenAI client sites). Route them all through a single metered and kill-switchable client wrapper. User-triggered calls count against the right bucket; jobs and embeddings get their own platform-level counters.
