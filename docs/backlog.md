@@ -1180,3 +1180,128 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 - **SEC-L2/L3/L5/L6 (Low, fixing):** START overrides a portal revoke; the calendar LOCATION came from query params; email bodies were unfenced in W32; the analytics referrer was unscrubbed.
 - **SEC-L7 (Low, open):** `pdf-parse` 1.1.4 bundles unmaintained pdf.js 1.10 and now parses PDFs from anyone. Move to maintained `pdfjs-dist` with `isEvalSupported:false` and a timeout.
 - **Not reviewed in this pass:** the billing/Stripe webhook diff, the W30 adapters and zip parser, the jobs package, `communications/audience.ts` `specific_units` scoping.
+## Ranked open work — round 3 (2026-10-20)
+
+**Source:** `docs/research/2026-10-20-round3.md`. That file has:
+- the 2026 pain points, with URLs;
+- inbox and communications Phase B;
+- the re-checked "Partly done" items;
+- the resident-side gaps;
+- the new-HOA first-week walk-through.
+
+**Do first: BL-114 (payment receipt to the owner).** It is the only round-2 item still open. It needs no migration and takes about a day.
+
+**(A) No migration.** Each is sized for one worktree agent. Highest value first.
+
+1. **BL-125 Homes added before the association exists are never billed (bug).**
+   - **Pain:** `/onboarding` creates no association, so `/properties/new` and the import write `units.association_id = NULL`. `setUpAssociationCore` never adopts those units, and dues generation filters on `association_id`, so the homes are silently skipped. The guide says they "can be billed straight away".
+   - **Build:**
+     - Create the association during onboarding.
+     - Adopt null-association units when the org's first association is created.
+     - An integration test: add a home, set up dues, generate; the home is billed.
+   - **Files:** `apps/hoa/src/app/onboarding/actions.ts`, `apps/hoa/src/lib/association-setup.ts`, `apps/hoa/src/lib/properties/lot.ts`, `tests/integration/`.
+   - Effort S, value very high, score 6.0.
+2. **BL-127 One setup checklist that tells the truth.**
+   - **Pain:** the two checklists (4 steps and 6 steps) disagree. "Invite the board" is ticked by inviting a resident. Association and books, Zelle, bank, budget and reminders are missing. `start-board-admin.md` still says "contact support" to import.
+   - **Build:**
+     - One shared model, with board roles only for the invite step.
+     - The missing steps, each linked to its page.
+     - Optional steps don't block dismissing the card.
+     - Guide fixes.
+   - **Files:** `apps/hoa/src/lib/dashboard/setup-checklist.ts`, `apps/hoa/src/lib/inbox/queries.ts`, `apps/hoa/src/app/onboarding/setup/`, `apps/hoa/content/guide/setup/*.md`.
+   - Effort S, score 3.6.
+3. **BL-126 Opening-balance cutover wizard.**
+   - **Pain:** the import screen says "enter opening balances in Accounting", but there is no screen to enter them. Treasurers taking over from a manager can't make the books match the bank.
+   - **Build:** `/accounting/opening-balances`:
+     - cutover date;
+     - bank and reserve balances per fund;
+     - a per-home balance CSV with a dry run;
+     - equity as the plug;
+     - one opening JE plus per-home charges, **proposed through /approvals**, idempotent per date.
+
+     The generic CSV covers most of what BL-031's CINC aging import wanted.
+   - **Files:** `apps/hoa/src/app/(dashboard)/accounting/opening-balances/` (new), `apps/hoa/src/lib/accounting/opening-balances.ts` (new), `packages/workflows/src/approvals/`, `properties/import/RosterImportSteps.tsx`.
+   - **Verify first:** the approvals executor takes a multi-line JE.
+   - Effort M–L, score 1.5.
+4. **BL-129 Residents see and answer violations on their own home.**
+   - **Pain:** own-home violations are read-only rows that don't link anywhere (`resident/page.tsx:353-355`). Disputes go to email, and selective-enforcement claims follow.
+   - **Build:** a detail page (rule, letters, cure-by date, photos the board marked shareable), a reply thread, and "I've fixed it — board to confirm".
+   - **Files:** `apps/hoa/src/app/resident/violations/[id]/`, `apps/hoa/src/lib/resident-dashboard.ts`, `apps/hoa/src/app/(dashboard)/violations/[id]/`.
+   - **No migration:** 0063's `hoa_violations_select` already covers own-property reads. **Verify first** which thread table the reporter view uses.
+   - Effort S–M, score 1.6.
+5. **BL-128 Invite every owner at once, and see who hasn't joined.**
+   - **Pain:** invites go out one at a time, with no pending list and no resend (`members-invite-board.md`). Imported owners never get access, and unlinked accounts hit a dead end.
+   - **Build:**
+     - Bulk "Invite owners to the portal": dry-run counts, guarded and throttled, and each account is linked to its unit on accept.
+     - A pending list with resend.
+     - Audited as `members.invite_bulk`.
+   - **Files:** `apps/hoa/src/lib/members.ts`, `apps/hoa/src/app/(dashboard)/settings/members/`, `apps/hoa/src/app/(dashboard)/properties/`.
+   - **Verify first:** where a pending invite is recorded.
+   - Effort S–M, score 1.6.
+6. **BL-130 Statute-drift guard on fines and collection letters.**
+   - **Pain:** newer statutes void board rules, so fines and fees collapse.
+   - **Build:** a pure per-state check on the approval card and in the letter preview. It runs before a fine or collection letter is approved and returns blocking or warning findings with the citation:
+     - **CA AB 130:** the $100 cap without a health-or-safety finding; no late fees or interest on fines; no fine after a cure before the hearing.
+     - **TX § 209.0064 and § 209.0062:** the 45-day certified notice before collection fees; the payment-plan offer.
+     - **GA SB 406:** itemized notice before attorney fees, from 2026-07-01; dues are paid first.
+     - **FL § 720.305:** a warning when a fine has no hearing recorded.
+
+     Cite only W30-loaded text.
+   - **Files:** `apps/hoa/src/lib/compliance/statute-drift.ts` (new), `apps/hoa/src/lib/collections/`, `apps/hoa/src/lib/violations/`, `packages/workflows/src/approvals/`.
+   - Effort M, score 1.4.
+
+**(B) Needs a migration. Batch all four into one `migrations/0067_*.sql`** plus a runbook section. CI validates it, Asaf applies it, and each feature ships behind a flag until he confirms.
+
+7. **BL-131 Compliance calendar for statutory deadlines.**
+   - **Pain:** fixed-date obligations that a volunteer board doesn't track:
+     - GA SB 406: an association that fines must register with the Secretary of State by **2027-01-01**, or it can't fine, lien or foreclose.
+     - FL: the SIRS and milestone backstop on 2026-12-31.
+     - CA SB 326 balcony inspections.
+     - TX: the TREC management certificate.
+   - **Build:** `/compliance` with per-state seeded obligations the board confirms, plus evidence document, acknowledger, digest and board-report lines, and an overdue banner.
+   - **Schema:** new `compliance_obligations` (code, citation, due_on, recurrence, status CHECK, evidence_document_id, completed_at/by; board-only RLS).
+   - **Files:** `apps/hoa/src/app/(dashboard)/compliance/` (new), `apps/hoa/src/lib/compliance/` (new), `packages/jobs/src/daily-digest.ts`, `packages/jobs/src/monthly-board-report/run.ts`.
+   - **Stopgap:** if 0067 isn't applied by November, ship a no-migration GA registration digest warning.
+   - Effort M, score 1.6.
+8. **BL-132 Insurance and fidelity-bond tracker.**
+   - **Pain:** premiums are up nearly 3× with new exclusions (LA Business Journal, 2026-10-12). CA § 5806 requires fidelity coverage of at least reserves plus 3 months, including funds-transfer fraud.
+   - **Build:**
+     - Policies with term, premium, deductible and exclusions.
+     - A renewal comparison with last year, and reminders at 90, 60 and 30 days.
+     - A CA fidelity check against the BL-120 reserve balance.
+     - An owner-facing summary, and an optional HO-6 loss-assessment notice through the composer.
+   - **Schema:** new `insurance_policies`.
+   - **Files:** `apps/hoa/src/app/(dashboard)/insurance/` (new), `apps/hoa/src/lib/insurance/` (new), `apps/hoa/src/lib/accounting/reserves.ts`, `packages/jobs/src/daily-digest.ts`, the BL-117 handover.
+   - Effort M–L, score 1.2.
+9. **BL-133 Fine hearing workflow (FL § 720.305 and CA AB 130), with a resident hearing request.**
+   - This is the first slice of BL-030. The product blocks levying a fine until these steps are recorded:
+     1. notice at least 14 days ahead;
+     2. a committee of at least 3 non-directors, with a conflict check;
+     3. the hearing and decision;
+     4. findings within 7 days;
+     5. payment due no earlier than 30 days later.
+   - Each step has a timer in the digest. The resident can request a hearing or submit a statement from the BL-129 page.
+   - **Schema:** new `violation_hearings`. Residents can read their own and insert a request.
+   - **Files:** `apps/hoa/src/lib/violations/hearing/` (new, per-state rules with full tests), `apps/hoa/src/app/(dashboard)/violations/[id]/`, `apps/hoa/src/app/resident/violations/[id]/`.
+   - Effort L, score 0.88; value very high (the named differentiator).
+10. **BL-134 Inbox Phase B core.**
+    - **Build:**
+      - B1: `first_response_at` and SLA due, snooze, category routing, and a "waiting on us > 3 days" digest line.
+      - B3: harden `inbox_thread_links`. A same-org existence trigger closes today's any-UUID hole, plus `source_message_id`.
+      - B5: `hoa_documents.source_inbox_attachment_id`, with "Filed to library" on the email.
+    - **Note:** 0065 did **not** include inbox Phase B, despite the groomed table above and the comments in `apps/hoa/src/lib/inbox/attachment-file-rules.ts:6` and `apps/hoa/src/lib/bill-scan/proposal.ts:45`; fix those comments.
+    - **Flag:** `INBOX_0067_APPLIED`.
+    - Effort M–L, score 0.80.
+
+**Below the line:**
+- Election planner and e-ballots: TX SB 2629, CA AB 2159, the FL petition (BL-023 and beyond; L, legal risk).
+- Comms Phase B B1/B2 (`merge_values` and urgency columns), a 0067 ride-along if there is room.
+- BL-060 inbox participant search RPC.
+- Resident preferences UI (mail, language, quiet hours; the columns exist).
+- Household or tenant add as an approval request.
+- Board and emergency contacts on the portal.
+- Manual bank account and statement CSV.
+- Per-home dues rates (migration).
+- Outlook mailbox (Azure keys).
+- A second approver when a vendor's remit-to details change (with BL-039).
+- FL condo 30-day website posting (with BL-038).
