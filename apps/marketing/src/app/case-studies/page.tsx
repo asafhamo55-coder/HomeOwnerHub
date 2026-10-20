@@ -3,11 +3,13 @@ import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Case studies',
   description: 'HomeownerHub case studies will be published once a customer approves them.',
-}
+  path: '/case-studies',
+})
 
 // Truth rule (BL-042, BL-090, 2026-10-19 owner-delegated defaults): no
 // customer quote is verified and no customer has approved a published case

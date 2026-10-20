@@ -2,11 +2,13 @@ import type { Metadata } from 'next'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Terms of service',
   description: 'The terms under which you use HomeownerHub.',
-}
+  path: '/terms',
+})
 
 export default function TermsPage() {
   return (

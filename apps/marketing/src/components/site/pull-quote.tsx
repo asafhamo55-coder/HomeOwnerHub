@@ -1,5 +1,6 @@
 // Editorial pull quote between sections. No card frame, no shadow, no
 // avatar circle. Just type — Linear's pattern.
+// Round 4: no unsourced door count and no "only platform" superlative.
 
 export function PullQuote() {
   return (
@@ -10,9 +11,9 @@ export function PullQuote() {
             From the founder
           </p>
           <blockquote className="mt-6 text-balance text-2xl font-medium leading-snug tracking-tight text-foreground md:text-[40px] md:leading-[1.15]">
-            "Volunteer boards are running 180-home HOAs on Tuesday nights in
+            "Volunteer boards are running whole HOAs on Tuesday nights in
             their kitchens. The work AI was made for is sitting in their inboxes.
-            We're the only platform built around that — not around a management
+            We built HomeownerHub around that — not around a management
             company's billing schedule."
           </blockquote>
           <figcaption className="mt-8 flex items-center gap-3 border-t border-border/70 pt-5 text-sm text-foreground-secondary">

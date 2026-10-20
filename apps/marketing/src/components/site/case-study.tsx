@@ -7,9 +7,12 @@ import { motion } from 'framer-motion'
 // repo behind them, and the app has no reserve module. The customer quote
 // went too (2026-10-19 owner-delegated defaults: no customer quote is
 // verified). What's left: facts about the product, not customer results.
+// Round 4: "180 doors" went too. The repo's own Madison Park runbook says
+// 49 (docs/MADISON_PARK_DEMO.md), so no door count is printed until the
+// board confirms one.
 const facts = [
   { label: 'Every document answer', value: 'Cited', sub: 'Covenant Brain names the section, or says your documents don’t cover it' },
-  { label: 'Every AI draft', value: 'Approvals', sub: 'Letters, bills and minutes wait for the board' },
+  { label: 'Every AI draft', value: 'Approvals', sub: 'Letters, bills and minutes wait for the board; announcements send only when you press Send' },
   { label: 'Roster import', value: 'Self-serve', sub: 'CSV or Excel, CINC exports included' },
 ]
 
@@ -25,7 +28,7 @@ export function CaseStudy() {
             transition={{ duration: 0.5 }}
           >
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Built with Madison Park HOA · 180 doors
+              Built with Madison Park HOA
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-[44px] md:leading-[1.05]">
               Built with a real volunteer board, <span className="text-success">not a demo deck.</span>

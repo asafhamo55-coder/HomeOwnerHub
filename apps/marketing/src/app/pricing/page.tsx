@@ -7,14 +7,16 @@ import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING, PRICING_V2 } from '@/lib/hoa-pricing'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: `Pricing — ${HOA_PRICE_COPY.title}`,
   // BL-097: PM and Eviction are not offered right now.
   description: OTHER_HUBS_ENABLED
     ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
     : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary}`,
-}
+  path: '/pricing',
+})
 
 // HOA per-door plan. One product; cadence (monthly vs annual) drives the
 // price. Once PRICING_V2 is on (BL-104) the two cards are Essentials and
@@ -35,13 +37,17 @@ const HOA_FEATURE_LIST: Array<{ text: string; complete?: true }> = [
   { text: 'Violation letters drafted from photos — approve or reject in one click' }, // /violations/new, /approvals, W3
   { text: 'Meeting minutes drafted from your transcript; board packet as of month end' }, // /meetings, /meetings/[id]/packet
   { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073, /accounting/reports/monthly-report
-  { text: 'Shared Gmail inbox with AI reply drafts', complete: true }, // /inbox, W32
+  { text: 'Shared Gmail inbox with AI reply drafts, saved replies and Create from email', complete: true }, // /inbox, /inbox/[id], W32
   { text: 'Accounting: general ledger, bank feeds, reconciliation', complete: true }, // /accounting
+  { text: 'Collections letters (FL, CA, TX), estoppel certificates and the owner budget notice', complete: true }, // /properties/[id]/collections-letter, /properties/[id]/estoppel, /accounting/budget/[id]/notice
   { text: 'AI bill scan into the approvals queue', complete: true }, // /accounting/invoices/new, W36
   { text: 'Vendor onboarding, RFPs and AI bid comparison', complete: true }, // /vendors, /rfps, W21–W23
   { text: 'AI ARC review: resident pre-check, cited board review, decision letters' }, // /arc, /resident/arc/new, BL-024/027/079
   { text: 'Spanish version of announcements, reviewed by the board before sending' }, // /communications/new, BL-025
+  { text: 'Announcements drafted from a sentence, phone preview, street audiences, scheduled sends and templates' }, // /communications/new, /api/ai/compose-communication
+  { text: 'Message results by home, with a reminder to those who haven’t opened' }, // /communications/[id]
   { text: 'Resident portal — dues balance, ARC, requests, documents' }, // /resident
+  { text: 'Resident assistant that answers from the resident’s account and your documents, cited' }, // /resident/ask, /api/ai/resident-assistant
   { text: 'Roster import from CSV or Excel, CINC exports included' }, // /properties/import
   { text: '⌘K record search, built-in user guide and Ask the guide' }, // /api/search, /help, /api/help/ask
   { text: 'Download all your data any time, as spreadsheets' }, // /settings/data, BL-011
@@ -162,7 +168,7 @@ const allFaqs = [
   },
   {
     q: 'What if my HOA is in a state you don\'t support yet?',
-    a: 'Dues, violations, documents, accounting and the inbox work for an HOA in any state. The state-law assistant is the state-specific part: it covers Georgia today, and Florida (Chapter 720) is being added now. If you want yours next, get on a demo and tell us.',
+    a: 'Dues, violations, documents, accounting, announcements and the inbox work for an HOA in any state. The state-specific parts: the state-law assistant covers Georgia today, and Florida (Chapter 720) is being added now. Estoppel certificates, collections letters and the owner budget notice follow Florida and California law, and collections letters Texas law too. If you want yours next, get on a demo and tell us.',
   },
   {
     // Eviction Hub only — dropped below while it is not offered (BL-097).

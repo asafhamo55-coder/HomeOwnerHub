@@ -9,9 +9,10 @@ export { OTHER_HUBS_ENABLED }
 /**
  * What the marketing site calls the HOA product. With the other hubs hidden
  * it is simply the brand, HomeownerHub; next to "PM Hub" and "Eviction Hub"
- * it keeps its product-line name.
+ * it gets a product-line suffix. The retired pre-rebrand product name is
+ * never used (2026-10-19 brand release; marketing-truth.test.ts bans it).
  */
-export const HOA_PRODUCT_NAME = OTHER_HUBS_ENABLED ? 'HOA Hub' : 'HomeownerHub'
+export const HOA_PRODUCT_NAME = OTHER_HUBS_ENABLED ? 'HomeownerHub for HOAs' : 'HomeownerHub'
 
 /** Marketing routes that exist only to sell the PM / Eviction hubs. */
 export const OTHER_HUB_PATHS = ['/landlords', '/eviction'] as const

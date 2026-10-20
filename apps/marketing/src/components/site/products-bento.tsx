@@ -52,11 +52,12 @@ export function ProductsBento() {
             <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-foreground-secondary">
               AI workflows boards use today — Covenant Brain, Violation Drafter,
               AI meeting minutes, bill scan, Board Copilot, inbox reply drafts,
-              vendor bids, state-law answers and the resident portal.
+              the message drafter, vendor bids, state-law answers and the
+              resident assistant.
             </p>
 
             <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-              <Feature Icon={FileText} label="Covenant Brain · cited answers in seconds" />
+              <Feature Icon={FileText} label="Covenant Brain · cited answers" />
               <Feature Icon={Calendar} label="AI minutes · drafted from your transcript" />
               <Feature Icon={ShieldCheck} label="Citations on every legal answer" />
               <Feature Icon={AlertCircle} label="Violation drafter · tap to approve" />

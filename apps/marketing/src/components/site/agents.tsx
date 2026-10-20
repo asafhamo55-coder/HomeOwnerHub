@@ -12,6 +12,8 @@ import { cn } from '@/lib/cn'
 // Truth rule (BL-090): every agent here is a shipped HOA workflow in
 // lib/workflows.ts. The unbuilt Delinquency Coach (PM) and Court Filing
 // (Eviction) cards were replaced by AI ARC review and Spanish announcements.
+// Round 4: Resident Portal became the Resident Assistant, and the Spanish
+// translator folded into the Message Drafter (both shipped workflows).
 
 interface Agent {
   name: string
@@ -36,7 +38,7 @@ const AGENTS: Agent[] = [
     fill: 'bg-primary-subtle',
     pulse: 'bg-success-solid',
     bar: 'C',
-    blurb: 'Answers any rule question in seconds, cited to the CC&R section.',
+    blurb: 'Answers any rule question, cited to the CC&R section.',
   },
   {
     name: 'Violation Drafter',
@@ -89,24 +91,24 @@ const AGENTS: Agent[] = [
     blurb: 'Drafts replies in your shared HOA inbox. A person edits and sends.',
   },
   {
-    name: 'Resident Portal',
+    name: 'Resident Assistant',
     role: 'Front desk',
     Icon: MessageSquare,
     ring: 'from-danger-solid to-danger-solid',
     fill: 'bg-danger-subtle',
     pulse: 'bg-success-solid',
     bar: 'C',
-    blurb: 'Residents ask the AI before they email the board.',
+    blurb: 'Answers residents about their balance, requests and the rules, citing your documents. It never acts for the board.',
   },
   {
-    name: 'Translator',
-    role: 'Spanish version',
+    name: 'Message Drafter',
+    role: 'Announcements',
     Icon: Languages,
     ring: 'from-muted to-foreground/90',
     fill: 'bg-subtle',
     pulse: 'bg-warning-solid',
     bar: 'B',
-    blurb: 'Drafts a Spanish version of an announcement. The board reads and confirms it before sending.',
+    blurb: 'Drafts an announcement from a sentence, with an optional Spanish version. The board reviews it and presses Send.',
   },
 ]
 

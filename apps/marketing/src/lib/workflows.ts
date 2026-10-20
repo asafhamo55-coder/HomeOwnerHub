@@ -46,7 +46,7 @@ export const ALL_WORKFLOWS: Workflow[] = [
   { id: 16, name: 'Board Copilot', hub: 'HOA', bar: 'B', status: 'shipped', month: 'M2', route: '/api/ai/ask-community',
     description: 'Ask about your community (who is overdue, open violations, an owner\'s contact, recent meetings) and get answers from your records and documents.' },
   { id: 19, name: 'Inbox reply drafts', hub: 'HOA', bar: 'B', status: 'shipped', month: 'M2', route: '/inbox',
-    description: 'Your HOA\'s Gmail as one shared inbox. AI drafts each reply after contact details are removed; a person edits and sends.' },
+    description: 'Your HOA\'s Gmail as one shared inbox. A reply starts drafting when you open an email, with the home\'s balance and open items alongside; contact details are removed before the AI reads it. Saved replies, and Create from email turns a message into a ticket, violation report or ARC link. A person edits and sends.' },
   { id: 21, name: 'State-law answers', hub: 'HOA', bar: 'C', status: 'shipped', month: 'M2', route: '/legal/ask',
     description: 'HOA-law questions answered with citations to the state statute. Georgia today; Florida is being added.' },
   { id: 14, name: 'Ask the guide', hub: 'HOA', bar: 'C', status: 'shipped', month: 'M2', route: '/api/help/ask',
@@ -59,8 +59,15 @@ export const ALL_WORKFLOWS: Workflow[] = [
     description: 'Residents can check a request against your guidelines before they submit. The board sees a cited review, findings from the photos and editable decision letters. The board decides; nothing is sent until it does.' },
   { id: 5, name: 'Spanish announcements', hub: 'HOA', bar: 'B', status: 'shipped', month: 'M3', route: '/communications/new',
     description: 'Add an AI-drafted Spanish version to an announcement. The board reads and can edit it, and must confirm it before sending; the email carries both languages.' },
+  // Marketing truth round 4: the announcement drafter (release
+  // 2026-10-20-0900) and the resident assistant (2026-10-19-1927, off by
+  // default since 2026-10-19-2151) shipped.
+  { id: 23, name: 'Message drafter', hub: 'HOA', bar: 'B', status: 'shipped', month: 'M3', route: '/api/ai/compose-communication',
+    description: 'Say in a sentence or two what you want to tell residents. The AI fills in the audience, subject, message and timing, and points out missing facts and any numbers you didn\'t type. Nothing is sent until the board presses Send.' },
+  { id: 24, name: 'Resident assistant', hub: 'HOA', bar: 'C', status: 'shipped', month: 'M3', route: '/api/ai/resident-assistant',
+    description: 'Residents ask about their own balance, their requests, announcements and the community rules on the portal\'s Ask tab. Rules answers cite the document section. It never acts for the board, and stays off until the board turns it on.' },
   { id: 8, name: 'Lease & Document Q&A', hub: 'PM', bar: 'C', status: 'planned', month: 'M3',
-    description: '"What does Section 4.2 say about pet deposits?" Answered in 3 seconds with lease section cited.' },
+    description: '"What does Section 4.2 say about pet deposits?" Answered with the lease section cited.' },
   { id: 10, name: 'Delinquency Coach (day 5–30)', hub: 'PM', bar: 'B', status: 'planned', month: 'M3',
     description: 'Notices, follow-ups, payment-plan offers. Calibrated by tenant history.' },
   { id: 11, name: 'Tenant Risk Score', hub: 'PM', bar: 'A', status: 'planned', month: 'M3',
@@ -88,8 +95,10 @@ export const WORKFLOWS: Workflow[] = OTHER_HUBS_ENABLED
 /** HOA workflows a board can use today. Counts on the site derive from this. */
 export const SHIPPED_HOA_WORKFLOWS = WORKFLOWS.filter((w) => w.hub === 'HOA' && w.status === 'shipped')
 
+// No accuracy percentages: nothing measures them (marketing truth round 4).
+// These are the rules /honesty-bars describes.
 export const BAR_TARGETS = {
-  C: { name: 'Production', threshold: '>95% accuracy · no human gate required · audit logged' },
-  B: { name: 'Human-reviewed', threshold: '>90% accuracy · mandatory human review before send' },
+  C: { name: 'Production', threshold: 'Cited answers · says when it doesn’t know · no human gate · run logged' },
+  B: { name: 'Human-reviewed', threshold: 'Drafts only · the board approves before anything is sent' },
   A: { name: 'Demo only', threshold: 'Sandbox / watermarked · not safe for live use' },
 }

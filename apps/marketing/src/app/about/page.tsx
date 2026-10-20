@@ -6,19 +6,24 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { HomeImage } from '@/components/site/home-image'
 import { PHOTOS } from '@/lib/photos'
+import { pageMetadata } from '@/lib/site'
 
-export const metadata: Metadata = {
-  title: 'About — AI for the people who run residential property',
+// BL-097: HOA only. The "three products, one identity" story (PM Hub and
+// Eviction Hub) is gone while those hubs are not offered, and so is the
+// city roll-out timeline, whose dates had passed with nothing behind them.
+export const metadata: Metadata = pageMetadata({
+  title: 'About — AI for volunteer HOA boards',
   description:
-    'Why HomeownerHub exists, what we believe, and how we work. Built in Atlanta for the people doing the unpaid hours.',
-}
+    'Why HomeownerHub exists, what we believe, and how we work. Built in Atlanta for the volunteer board members doing the unpaid hours.',
+  path: '/about',
+})
 
 const beliefs = [
   {
     Icon: Compass,
-    title: 'Same buyer, three life stages.',
+    title: 'Built for the board, not the management firm.',
     body:
-      'The HOA board member who serves a notice on Tuesday is the same person who manages a rental on the side and may one day need eviction help. We\'re the only platform that follows them through the whole arc — not three SKUs sold by three sales teams.',
+      'Most HOA software is sold to management companies. HomeownerHub is built for the self-managed board: the treasurer, the secretary and the president who do this after work, with no operations team behind them.',
   },
   {
     Icon: Shield,
@@ -34,9 +39,9 @@ const beliefs = [
   },
   {
     Icon: MapPin,
-    title: 'Local before national.',
+    title: 'State law, not generic templates.',
     body:
-      'Atlanta-metro first. Charlotte, Raleigh, Nashville, Tampa, Orlando next. The volunteer treasurer wants someone who knows her county\'s rules and her neighborhood\'s neighborhood — not a chatbot in San Francisco.',
+      'Associations live under state statutes. Estoppel certificates, collections letters and the owner budget notice follow the Florida and California rules (collections letters Texas too), and state-law answers cite the Georgia statute. Where the app doesn\'t know a figure, it leaves a blank for the board to fill.',
   },
 ]
 
@@ -66,9 +71,9 @@ export default function AboutPage() {
               AI for the people doing the unpaid hours.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-foreground-secondary">
-              Volunteer board members. Side-hustle landlords. First-time
-              evictors. The people running residential property in America don't
-              have an IT department. We built HomeownerHub for them.
+              Volunteer board members run their neighborhoods after work, with
+              no IT department and no management company. We built
+              HomeownerHub for them.
             </p>
           </div>
 
@@ -91,29 +96,23 @@ export default function AboutPage() {
         <div className="container-page">
           <div className="mx-auto max-w-3xl rounded-2xl border border-border/70 bg-surface p-8 ring-card md:p-12">
             <p className="text-sm font-semibold uppercase tracking-wider text-primary">
-              The wedge
+              Why we exist
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground">
-              Three products. One identity.
+              The paperwork is the job nobody volunteered for.
             </h2>
             <div className="prose prose-ink mt-6 max-w-none text-base leading-relaxed text-foreground-secondary">
               <p>
-                Most of residential property life happens on volunteer time. The
-                HOA treasurer doing rule research at 10pm. The micro-landlord
-                chasing rent on Venmo. The first-time evictor terrified she'll
-                serve the wrong notice and reset the clock.
+                Most of a self-managed HOA runs on volunteer time. The treasurer
+                doing rule research at 10pm. The secretary writing up minutes.
+                The board member answering the same resident question for the
+                third time this month.
               </p>
               <p>
-                These look like three markets. They're actually one buyer at
-                different life stages. A 38-year-old who serves on her HOA board
-                is also renting out her starter home. When the tenancy goes
-                sideways, she's the first-time evictor too. Three SKUs.
-                One identity.
-              </p>
-              <p>
-                HomeownerHub is the AI-native operating system that follows that
-                buyer through every stage — with vertical AI workflows that
-                automate the work today's incumbents leave to volunteers.
+                HomeownerHub drafts that paperwork: cited answers from your
+                governing documents, violation and collections letters,
+                announcements, inbox replies and the month-end report. The
+                board reviews and approves every draft before anything goes out.
               </p>
             </div>
           </div>
@@ -157,19 +156,18 @@ export default function AboutPage() {
               Where we are
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight md:text-5xl">
-              Atlanta first. Southeast next. National after that.
+              Built in Atlanta. Ready for your state&apos;s rules.
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-background/70">
-              HomeownerHub is built and run from Atlanta, GA. Our v1 customer
-              base is Atlanta-metro HOAs. We add geographies as we onboard
-              customers there — not before.
+              HomeownerHub is built and run from Atlanta, GA, and works for an
+              HOA in any state. These parts follow a specific state&apos;s law today:
             </p>
 
             <div className="mt-12 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-              <Geo label="Atlanta, GA" status="Live" />
-              <Geo label="Charlotte / Raleigh" status="Q3 2026" />
-              <Geo label="Nashville" status="Q3 2026" />
-              <Geo label="Tampa / Orlando" status="Q4 2026" />
+              <Geo label="Georgia" status="State-law answers" />
+              <Geo label="Florida" status="Estoppel, collections, budget notice" />
+              <Geo label="California" status="Estoppel, collections, budget notice, violation rules" />
+              <Geo label="Texas" status="Collections letters" />
             </div>
           </div>
         </div>
@@ -200,12 +198,11 @@ export default function AboutPage() {
 }
 
 function Geo({ label, status }: { label: string; status: string }) {
-  const live = status === 'Live'
   return (
     <div className="rounded-xl border border-background/10 bg-surface/[0.04] p-4 text-left">
       <p className="text-sm font-semibold">{label}</p>
-      <p className={`mt-1 text-xs ${live ? 'text-success' : 'text-muted'}`}>
-        {live ? '● ' : '○ '}
+      <p className="mt-1 text-xs text-success">
+        {'● '}
         {status}
       </p>
     </div>
