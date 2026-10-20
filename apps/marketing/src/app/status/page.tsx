@@ -3,6 +3,7 @@ import { Activity } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
+import { HOA_PRODUCT_NAME } from '@/lib/hubs'
 
 export const metadata: Metadata = {
   title: 'Status',
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 // a live status page we don't have. Until a real monitor exists, it says so.
 const services = [
   'Marketing site',
-  'HOA Hub app',
+  `${HOA_PRODUCT_NAME} app`,
   'AI inference (Groq)',
   'Document ingestion',
   'Communications',

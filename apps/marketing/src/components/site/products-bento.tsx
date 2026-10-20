@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowUpRight, Building2, Home, Scale, ShieldCheck, FileText, Calendar, Wallet, AlertCircle } from 'lucide-react'
-import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
+import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { cn } from '@/lib/cn'
 
 // Asymmetric bento: HOA gets a wide hero card spanning both rows on the left,
@@ -13,7 +13,7 @@ export function ProductsBento() {
         <header className="mb-12 md:mb-16 md:flex md:items-end md:justify-between md:gap-12">
           <div className="max-w-2xl">
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              {OTHER_HUBS_ENABLED ? 'Three products · one platform' : 'HOA Hub'}
+              {OTHER_HUBS_ENABLED ? 'Three products · one platform' : HOA_PRODUCT_NAME}
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-4xl">
               {OTHER_HUBS_ENABLED
@@ -42,7 +42,7 @@ export function ProductsBento() {
                 <Building2 className="h-5 w-5" />
               </div>
               <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-success">
-                HOA Hub
+                {HOA_PRODUCT_NAME}
               </span>
             </div>
 
@@ -63,7 +63,7 @@ export function ProductsBento() {
             </ul>
 
             <span className="mt-auto inline-flex items-center gap-1.5 pt-10 text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
-              Tour HOA Hub
+              Tour {HOA_PRODUCT_NAME}
               <ArrowUpRight className="h-4 w-4" />
             </span>
           </Link>

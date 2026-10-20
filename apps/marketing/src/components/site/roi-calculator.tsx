@@ -4,12 +4,13 @@ import { useMemo, useState } from 'react'
 import { Calculator, ArrowRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/cn'
+import { HOA_PRODUCT_NAME } from '@/lib/hubs'
 import { MIN_BILLABLE_DOORS, annualBillUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
 
 // Prices come from lib/hoa-pricing.ts, which a unit test pins to what
 // Stripe checkout charges (BL-042). The "annual" figure is the annual plan.
 function selectTier(doors: number): { name: string; monthly: number; annual: number } {
-  const name = doors < MIN_BILLABLE_DOORS ? 'HOA Hub (minimum)' : 'HOA Hub'
+  const name = doors < MIN_BILLABLE_DOORS ? `${HOA_PRODUCT_NAME} (minimum)` : HOA_PRODUCT_NAME
   return { name, monthly: monthlyBillUsd(doors), annual: annualBillUsd(doors) }
 }
 

@@ -10,9 +10,12 @@ import { HUBS } from '@/components/hub/hub-theme'
 import { HoaDashboardVisual } from '@/components/hub/visuals/hoa-dashboard'
 import { ViolationDrafterLive } from '@/components/hub/widgets/violation-drafter-live'
 import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
+import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 
 export const metadata: Metadata = {
-  title: 'HOA Hub — AI for volunteer boards',
+  // The root layout's template appends " · HomeownerHub", so with the other
+  // hubs hidden the product name would just repeat.
+  title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME} — AI for volunteer boards` : 'AI for volunteer boards',
   description:
     'Run a self-managed HOA without a management company. Covenant Brain, violation letters, AI minutes, bill scan, accounting and a month-end board report — all in one place.',
 }
@@ -52,7 +55,7 @@ export default function HoaPage() {
 
       <HubHero
         theme={theme}
-        eyebrow="HOA Hub · for volunteer boards"
+        eyebrow={`${HOA_PRODUCT_NAME} · for volunteer boards`}
         title="Run your HOA without a management company."
         subtitle="Covenant questions, violation letters, minutes, bills and the month-end report — drafted by AI, approved by the board, cited to the document. Built with Madison Park HOA."
         primaryCta={{ label: 'Book a 10-min board demo', href: '/demo' }}
@@ -74,7 +77,7 @@ export default function HoaPage() {
         theme={theme}
         eyebrow="The volunteer treasurer"
         title="Built for the treasurer who runs the HOA after work."
-        description="Volunteer board members have day jobs. HOA Hub drafts the paperwork; the board reviews, approves and governs."
+        description={`Volunteer board members have day jobs. ${HOA_PRODUCT_NAME} drafts the paperwork; the board reviews, approves and governs.`}
         persona={{
           name: 'Linda',
           role: 'Treasurer, Madison Park HOA',

@@ -46,7 +46,7 @@ const pillars = [
     Icon: ShieldCheck,
     title: 'Operating + reserve fund separation',
     body:
-      'For HOA Hub: operating and reserve are separate funds in the general ledger, and a database trigger rejects any journal entry that doesn’t balance within each fund. Moving money between funds has to be an explicit transfer.',
+      'For HOA boards: operating and reserve are separate funds in the general ledger, and a database trigger rejects any journal entry that doesn’t balance within each fund. Moving money between funds has to be an explicit transfer.',
   },
 ]
 

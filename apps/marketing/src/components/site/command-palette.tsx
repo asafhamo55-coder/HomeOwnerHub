@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, ArrowRight, FileText, Building2, Home, Scale, BookOpen, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react'
 import { WORKFLOWS } from '@/lib/workflows'
 import { cn } from '@/lib/cn'
-import { isOfferedHref } from '@/lib/hubs'
+import { HOA_PRODUCT_NAME, isOfferedHref } from '@/lib/hubs'
 
 interface PaletteItem {
   label: string
@@ -16,7 +16,7 @@ interface PaletteItem {
 }
 
 const ALL_PAGES: PaletteItem[] = [
-  { label: 'HOA Hub', href: '/hoa', category: 'Product', Icon: Building2, hint: 'For volunteer boards' },
+  { label: HOA_PRODUCT_NAME, href: '/hoa', category: 'Product', Icon: Building2, hint: 'For volunteer boards' },
   { label: 'PM Hub', href: '/landlords', category: 'Product', Icon: Home, hint: 'For small landlords' },
   { label: 'Eviction Hub', href: '/eviction', category: 'Product', Icon: Scale, hint: 'Attorney-reviewed' },
   { label: 'Pricing', href: '/pricing', category: 'Page', Icon: FileText },

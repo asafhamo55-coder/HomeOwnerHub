@@ -6,6 +6,8 @@
 //   Eviction: violet (`eviction`)
 // Status colours (success/warning/danger) stay reserved for status.
 
+import { HOA_PRODUCT_NAME } from '@/lib/hubs'
+
 export type HubKey = 'hoa' | 'pm' | 'eviction'
 
 export interface HubTheme {
@@ -27,7 +29,7 @@ export interface HubTheme {
 export const HUBS: Record<HubKey, HubTheme> = {
   hoa: {
     key: 'hoa',
-    name: 'HOA Hub',
+    name: HOA_PRODUCT_NAME,
     tagline: 'For volunteer boards.',
     audience: 'Built for self-managed HOAs',
     bgGradient: 'from-primary-subtle/80 via-surface to-accent-subtle/40',

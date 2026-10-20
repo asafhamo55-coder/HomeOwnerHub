@@ -5,14 +5,14 @@ import { useEffect, useRef, useState } from 'react'
 import { Menu, X, ChevronDown, Search, ArrowRight } from 'lucide-react'
 import { CommandPalette } from './command-palette'
 import { cn } from '@/lib/cn'
-import { isOfferedHref } from '@/lib/hubs'
+import { HOA_PRODUCT_NAME, isOfferedHref } from '@/lib/hubs'
 import { Logo, SIGN_IN_URL } from './brand'
 
 
 const allProducts = [
   {
     href: '/hoa',
-    name: 'HOA Hub',
+    name: HOA_PRODUCT_NAME,
     blurb: 'For volunteer boards. AI does the paperwork.',
     dot: 'bg-primary',
   },

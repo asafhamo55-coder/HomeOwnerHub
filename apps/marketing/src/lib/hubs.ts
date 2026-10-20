@@ -6,6 +6,13 @@ import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 
 export { OTHER_HUBS_ENABLED }
 
+/**
+ * What the marketing site calls the HOA product. With the other hubs hidden
+ * it is simply the brand, HomeownerHub; next to "PM Hub" and "Eviction Hub"
+ * it keeps its product-line name.
+ */
+export const HOA_PRODUCT_NAME = OTHER_HUBS_ENABLED ? 'HOA Hub' : 'HomeownerHub'
+
 /** Marketing routes that exist only to sell the PM / Eviction hubs. */
 export const OTHER_HUB_PATHS = ['/landlords', '/eviction'] as const
 

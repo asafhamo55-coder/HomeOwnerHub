@@ -5,15 +5,15 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
-import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
+import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING } from '@/lib/hoa-pricing'
 
 export const metadata: Metadata = {
   title: `Pricing — ${HOA_PRICE_COPY.title}`,
   // BL-097: PM and Eviction are not offered right now.
   description: OTHER_HUBS_ENABLED
-    ? `HOA Hub: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
-    : `HOA Hub: ${HOA_PRICE_COPY.summary}`,
+    ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
+    : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary}`,
 }
 
 // HOA per-door plan. One product; cadence (monthly vs annual) drives the
@@ -188,7 +188,7 @@ export default function PricingPage() {
       </section>
 
       <PricingBlock
-        eyebrow="HOA Hub"
+        eyebrow={HOA_PRODUCT_NAME}
         title="Built for volunteer boards"
         accent="emerald"
         tiers={hoaTiers}

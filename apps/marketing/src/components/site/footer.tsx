@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { Logo, SIGN_IN_URL } from './brand'
-import { isOfferedHref } from '@/lib/hubs'
+import { HOA_PRODUCT_NAME, isOfferedHref } from '@/lib/hubs'
 
 // Three-column editorial footer. Confidence over density: no padding
 // columns, the manifesto line carries the weight.
 
 const allProduct = [
-  { label: 'HOA Hub', href: '/hoa' },
+  { label: HOA_PRODUCT_NAME, href: '/hoa' },
   { label: 'PM Hub', href: '/landlords' },
   { label: 'Eviction Hub', href: '/eviction' },
   { label: 'Pricing', href: '/pricing' },
