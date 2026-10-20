@@ -22,7 +22,7 @@ export async function dismissSetupChecklist(): Promise<{ ok: boolean; error?: st
   const supabase = await getSupabaseServerClient()
   const checklist = await loadSetupChecklist(supabase, org.id)
   if (!isChecklistDismissible(checklist)) {
-    return { ok: false, error: 'Finish every step before hiding the checklist.' }
+    return { ok: false, error: 'Finish every required step before hiding the checklist.' }
   }
 
   const store = await cookies()

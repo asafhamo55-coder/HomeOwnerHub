@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getCurrentUserRole } from '@/lib/auth'
+import { getSignedInUser } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   parseNewAssociation,
@@ -37,9 +38,13 @@ export async function setUpAssociation(
   })
   if (!parsed.ok) return { error: 'Check the highlighted fields.', fieldErrors: parsed.fieldErrors }
 
+  const user = await getSignedInUser()
+  if (!user) return { error: 'Sign in to your HOA first.' }
+
   const supabase = await getSupabaseServerClient()
   const res = await setUpAssociationCore(supabase, {
     orgId: ctx.org.id,
+    userId: user.id,
     input: parsed.data,
     year: new Date().getFullYear(),
   })
@@ -70,6 +75,9 @@ export async function openBooks(_prev: OpenBooksState, formData: FormData): Prom
   if (!ctx) return { error: 'Sign in to your HOA first.' }
   if (ctx.role !== 'admin') return { error: 'Only an admin of your HOA can open the books.' }
 
+  const user = await getSignedInUser()
+  if (!user) return { error: 'Sign in to your HOA first.' }
+
   const supabase = await getSupabaseServerClient()
   const assoc = await readPrimaryAssociation(supabase, ctx.org.id)
   if (!assoc.ok) return { error: 'We couldn’t check your association just now. Try again.' }
@@ -78,6 +86,7 @@ export async function openBooks(_prev: OpenBooksState, formData: FormData): Prom
   const res = await setUpAssociationCore(supabase, {
     orgId: ctx.org.id,
     associationId: assoc.data.id,
+    userId: user.id,
     year: new Date().getFullYear(),
   })
   // A part-way failure may have added some rows; refresh either way.

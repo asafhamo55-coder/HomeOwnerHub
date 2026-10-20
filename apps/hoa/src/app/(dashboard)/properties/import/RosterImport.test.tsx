@@ -210,7 +210,7 @@ describe('entry points', () => {
 
   it('the setup checklist’s properties step links to the import as its own link', () => {
     const out = html(
-      <SetupChecklistCard checklist={buildSetupChecklist({ mailbox: [1], properties: [0, 0], residents: [0, 0], governingDocs: [0], dues: [0], board: [1] })} />,
+      <SetupChecklistCard checklist={buildSetupChecklist({ mailbox: [1], properties: [0, 0], residents: [0, 0], governingDocs: [0], dues: [0], board: [1], association: [0], books: [0], payments: [0], bank: [0] })} />,
     )
     expect(out).toContain('href="/properties/import"')
     expect(out).toContain('Import a spreadsheet')
@@ -238,7 +238,7 @@ const PREVIEWS: Record<string, { title: string; body: React.ReactElement }> = {
   'properties-header': { title: 'Properties header with Import', body: <PropertiesHeader orgName="Example HOA" filter="all" total={3} allCount={3} search="" /> },
   'setup-checklist': {
     title: 'Setup checklist — properties step with Import a spreadsheet',
-    body: <SetupChecklistCard checklist={buildSetupChecklist({ mailbox: [1], properties: [0, 0], residents: [0, 0], governingDocs: [0], dues: [0], board: [1] })} />,
+    body: <SetupChecklistCard checklist={buildSetupChecklist({ mailbox: [1], properties: [0, 0], residents: [0, 0], governingDocs: [0], dues: [0], board: [1], association: [0], books: [0], payments: [0], bank: [0] })} />,
   },
 }
 

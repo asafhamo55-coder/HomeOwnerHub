@@ -13,7 +13,7 @@ shots:
   - name: guide-properties-new
     alt: The Add a property form with the Add property button highlighted
 related: [setup-import-roster, properties-record-a-sale, start-board-admin, dues-generate-monthly, members-invite-board]
-reviewed: 2026-10-17
+reviewed: 2026-10-20
 ---
 
 Every home in the community is a property. Dues, owners, residents, violations and mail all hang off a property, so add them first.
@@ -35,12 +35,13 @@ Every home in the community is a property. Dues, owners, residents, violations a
 ![[guide-properties-new]]
 
 ## What happens next
-The home is ready to bill straight away: it gets its dues record, and the owner you entered is recorded as its current owner. It appears on the Properties list. Its page shows everything about the home in one place: **People**, **Money**, **Compliance**, **Leases**, **Communications** and **Activity**. When something needs doing (a violation past its cure date, an overdue balance, an ARC request or an email waiting on you), a **Needs action** box at the top links straight to it.
+The home is ready to bill as soon as your HOA has an association. A home added before the association exists is attached to it automatically when an admin sets it up; if your HOA has several associations, the board picks one from the "homes aren't assigned to an association" notice on this page. The owner you entered is recorded as its current owner. It appears on the Properties list. Its page shows everything about the home in one place: **People**, **Money**, **Compliance**, **Leases**, **Communications** and **Activity**. When something needs doing (a violation past its cure date, an overdue balance, an ARC request or an email waiting on you), a **Needs action** box at the top links straight to it.
 
 ## If something goes wrong
 - "Address is required.": the address is the only field you must fill in.
 - "Owner email must be a valid email.": check the email, or leave it blank.
 - "Choose a community from the list.": your HOA has several communities, so pick one.
+- "homes aren't assigned to an association" at the top of Properties or the dashboard: those homes won't be billed yet. Someone on the board picks the association and selects [[Assign them]]. With no association yet, an admin sets one up and they are attached then.
 - "Enter the resident’s name.": a resident needs a full name.
 
 ## Good to know

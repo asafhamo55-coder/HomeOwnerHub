@@ -22,6 +22,8 @@ import {
 } from '@homeowner-portal/ui'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { AssociationNotSetUp } from '../_components/AssociationNotSetUp'
+import { UnassignedHomesNotice } from '@/components/properties/UnassignedHomesNotice'
+import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
 import { loadOverdueHeadline } from '@/lib/dues/overdue-headline'
@@ -91,7 +93,7 @@ export default async function DuesPage({
     )
   }
 
-  const sp = await searchParams
+  const [sp, org] = await Promise.all([searchParams, getCurrentOrg()])
   const page = parsePageParam(sp.page)
   const { from, to } = pageRange(page, PAGE_SIZE)
 
@@ -204,6 +206,12 @@ export default async function DuesPage({
         </>
       }
     >
+      {/* BL-125: homes with no association are skipped by Generate dues. Hidden when there are none. */}
+      {org ? (
+        <Suspense fallback={null}>
+          <UnassignedHomesNotice orgId={org.id} />
+        </Suspense>
+      ) : null}
       <section aria-label="Overdue" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <Kpi
           label="Overdue"

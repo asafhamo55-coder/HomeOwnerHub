@@ -17,14 +17,14 @@ const { guideHref } = await import('@/lib/guide')
 const { buildSetupChecklist } = await import('@/lib/dashboard/setup-checklist')
 const { OPEN_HELP_EVENT } = await import('@/lib/guide/open-help')
 
-const NOTHING = { mailbox: [0], properties: [0, 0], residents: [0, 0], governingDocs: [0], dues: [0], board: [1] }
+const NOTHING = { mailbox: [0], properties: [0, 0], residents: [0, 0], governingDocs: [0], dues: [0], board: [1], association: [0], books: [0], payments: [0], bank: [0] }
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('setup checklist "How?" links (BL-070)', () => {
   it('every step keeps its own deep link and gains a separate How? link to its article', () => {
     const html = renderToStaticMarkup(<SetupChecklistCard checklist={buildSetupChecklist(NOTHING)} />)
-    expect(html.match(/>How\?</g)).toHaveLength(6)
+    expect(html.match(/>How\?</g)).toHaveLength(9)
     expect(html).toContain('href="/help/setup-properties-residents"')
     expect(html).toContain('href="/help/dues-generate-monthly"')
     expect(html).toContain('href="/help/members-invite-board"')
@@ -38,7 +38,7 @@ describe('setup checklist "How?" links (BL-070)', () => {
 
   it('completion still comes from data: done steps say Done', () => {
     const html = renderToStaticMarkup(<SetupChecklistCard checklist={buildSetupChecklist({ ...NOTHING, dues: [3] })} />)
-    expect(html).toContain('1 of 6 done')
+    expect(html).toContain('1 of 9 done')
   })
 })
 

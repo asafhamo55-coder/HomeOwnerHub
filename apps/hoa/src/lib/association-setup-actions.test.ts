@@ -12,10 +12,11 @@ vi.mock('@/lib/auth', () => ({
     h.role === null ? null : { role: h.role, org: { id: 'org-1', name: 'Willow Creek HOA' } },
   ),
 }))
+vi.mock('@/lib/orgs', () => ({ getSignedInUser: vi.fn(async () => ({ id: 'user-1' })) }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: vi.fn(async () => ({ fake: true })) }))
 vi.mock('./association-setup', async (orig) => ({
   ...(await orig<typeof import('./association-setup')>()),
-  setUpAssociationCore: vi.fn(async () => ({ ok: true, associationId: 'a1', created: true })),
+  setUpAssociationCore: vi.fn(async () => ({ ok: true, associationId: 'a1', created: true, adoptedHomes: 0 })),
   readPrimaryAssociation: vi.fn(async () => ({
     ok: true,
     data: { id: 'a1', name: 'Willow Creek', timeZone: 'America/New_York' },
@@ -66,7 +67,8 @@ describe('setUpAssociation', () => {
     await expect(setUpAssociation({}, form(good))).rejects.toThrow('redirect:/accounting/coa')
     expect(setUpAssociationCore).toHaveBeenCalledWith(
       { fake: true },
-      expect.objectContaining({ orgId: 'org-1', input: { name: 'Willow Creek', state: 'FL', type: 'hoa' } }),
+      // userId: the audit row for adopted homes is written as the admin (BL-125).
+      expect.objectContaining({ orgId: 'org-1', userId: 'user-1', input: { name: 'Willow Creek', state: 'FL', type: 'hoa' } }),
     )
     expect(revalidatePath).toHaveBeenCalled()
     expect(redirect).toHaveBeenCalledWith('/accounting/coa')

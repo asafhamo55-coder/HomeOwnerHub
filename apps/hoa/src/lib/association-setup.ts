@@ -3,6 +3,7 @@ import type { Database } from '@homeowner-portal/db/types'
 import { isUsStateCode } from '@/lib/us-states'
 import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
+import { adoptUnassignedHomesIfSingle } from '@/lib/properties/unassigned-homes'
 
 /**
  * In-app association setup (BL-046).
@@ -145,7 +146,18 @@ export const DEFAULT_CHART_OF_ACCOUNTS: readonly DefaultAccount[] = [
 ]
 
 export type SetUpResult =
-  | { ok: true; associationId: string; created: boolean }
+  | {
+      ok: true
+      associationId: string
+      created: boolean
+      /**
+       * Homes added before the association existed, attached to it now
+       * (BL-125). 0 when there were none or the org has several
+       * associations; null when attaching failed (the board's "homes
+       * aren't assigned" notice then offers it again).
+       */
+      adoptedHomes: number | null
+    }
   | { ok: false; error: string; associationId?: string }
 
 function logFailure(step: string, error: { code?: string } | null): void {
@@ -166,7 +178,12 @@ const READ_FAILED = 'We couldn’t check your association just now. Try again.'
  *     exists — it must belong to `orgId` — and only its funds, chart and
  *     fiscal period are filled in. This path never creates an association.
  */
-export type SetUpAssociationArgs = { orgId: string; year: number } & (
+export type SetUpAssociationArgs = {
+  orgId: string
+  year: number
+  /** The signed-in admin: the audit row for adopted homes is written as them. */
+  userId: string
+} & (
   | { input: NewAssociation; associationId?: never }
   | { associationId: string; input?: never }
 )
@@ -287,5 +304,20 @@ export async function setUpAssociationCore(db: Db, args: SetUpAssociationArgs): 
     if (periodIns.error) return failBooks('create fiscal period', periodIns.error)
   }
 
-  return { ok: true, associationId, created }
+  // 5. Homes added before the association existed (BL-125): /onboarding
+  // makes no association, so /properties wrote them with no
+  // association_id and dues would never bill them. Attach them when this
+  // is the org's only association; with several, the board picks.
+  // Idempotent (only still-unassigned rows), so every run — create or
+  // "Open the books" — catches stragglers. A failure here does not undo
+  // the books; it reads as null and the notice offers it again.
+  let adoptedHomes: number | null = null
+  try {
+    const adopt = await adoptUnassignedHomesIfSingle(db, { orgId, associationId, userId: args.userId })
+    adoptedHomes = adopt.ok ? adopt.assigned : null
+  } catch {
+    logFailure('adopt unassigned homes', null)
+  }
+
+  return { ok: true, associationId, created, adoptedHomes }
 }
