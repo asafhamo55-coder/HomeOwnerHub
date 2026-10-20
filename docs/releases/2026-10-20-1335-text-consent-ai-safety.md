@@ -23,6 +23,12 @@ Text messages now go only to the exact phone number a resident agreed for. If th
 - **Fair use everywhere:** "Draft a reply" in the inbox and eight board tools (vendor drafts and checks, state-law questions, bids and requests for proposal, budget summary, bank reconciliation) now count toward the same daily board AI limit as the rest. That limit is far above normal use, and nothing changes for typical boards.
 - **Cost visibility:** AI use by background jobs is now counted in the daily cost check.
 
+### Faster search
+- **⌘K search is quicker:** lookups that don't depend on each other now run at the same time, cutting a search to two database round-trips. Each search now reports its timings so slow spots show up.
+
+### Usage analytics (off until you turn it on)
+- **Privacy-safe usage numbers:** page views and 8 named actions (such as "approval decided"), with no cookies, no names, no emails and no text. Record ids are stripped from addresses, and Do Not Track is honoured. It records nothing until you switch it on (owner action OA-24).
+
 ### Behind the scenes (not visible yet)
 - **New pricing plans:** the nightly door-count check, the 30-day renewal notice for current subscribers, and a monthly text allowance per plan are built. They stay off until the new pricing is switched on.
 
