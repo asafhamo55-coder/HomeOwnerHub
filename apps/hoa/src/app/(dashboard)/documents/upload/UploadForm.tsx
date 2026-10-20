@@ -6,15 +6,11 @@ import { Upload } from 'lucide-react'
 import { Alert, Button, Field, Input, Select, Textarea } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { uploadDocument, type UploadActionState } from '@/lib/documents'
+import { DOCUMENT_ACCEPT, DOCUMENT_TYPE_OPTIONS } from '@/lib/documents-rules'
 
 const initial: UploadActionState = {}
 
-const DOC_TYPES = [
-  { value: 'ccr', label: 'CC&R' },
-  { value: 'bylaws', label: 'Bylaws' },
-  { value: 'rules', label: 'Rules & regulations' },
-  { value: 'other', label: 'Other' },
-]
+const DOC_TYPES = DOCUMENT_TYPE_OPTIONS
 
 export function UploadForm() {
   const [state, action, pending] = useActionState(uploadDocument, initial)
@@ -54,7 +50,7 @@ export function UploadForm() {
               type="file"
               required
               className="sr-only"
-              accept=".pdf,.docx,.doc,.txt,.md"
+              accept={DOCUMENT_ACCEPT}
               onChange={handleFileChange}
             />
           </label>

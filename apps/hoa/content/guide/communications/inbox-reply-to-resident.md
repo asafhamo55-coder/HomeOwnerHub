@@ -6,9 +6,9 @@ topic: communications
 roles: [admin, board]
 routes: ["/inbox", "/inbox/[id]", "/inbox/compose"]
 primary_route: /inbox
-keywords: [inbox, reply, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, overdue, keyboard shortcuts, next email]
-related: [inbox-connect-mailbox, communications-send-announcement]
-reviewed: 2026-10-19
+keywords: [inbox, reply, save to documents, file attachment, documents library, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, overdue, keyboard shortcuts, next email]
+related: [inbox-answer-similar-questions, inbox-connect-mailbox, communications-send-announcement]
+reviewed: 2026-10-20
 ---
 
 Use the Inbox to answer one resident's email. The reply goes out from your HOA mailbox.
@@ -36,6 +36,8 @@ If the resident writes back to a closed conversation, it reopens in **Needs revi
 - "Fill in or remove every highlighted blank before sending.": the draft still has a blank AI was not allowed to fill, like a money amount or a rule decision. You decide it.
 - [[Approve and send]] is greyed out: the draft still has a highlighted blank, or nobody is in **To**. Fill in or remove every blank and add at least one recipient.
 - **Sending this reply failed**: the reply may still have reached the resident. Check the thread or the mailbox's Sent folder first. [[Write a new draft]] starts a fresh draft. It does not resend the old one.
+- "This file is already in the documents library.": that attachment was filed before. Find it in **Documents**.
+- [[Save to documents]] takes PDF, Word and text files up to 50 MB, the same as uploading in **Documents**. For a photo, download it instead.
 - An attachment on a resident's email says "couldn’t download": select [[Retry]]. It tries again on its own up to 4 times first. A file marked too large or not available can only be opened in Gmail.
 
 ## Good to know
@@ -52,4 +54,7 @@ If the resident writes back to a closed conversation, it reopens in **Needs revi
 - If an email isn't filed under a home yet, pick the home in the side panel and select [[File under property]].
 - To write a brand-new email, select [[New email]] on the Inbox, then [[Start writing]]. It appears in the Inbox within a couple of minutes after it sends.
 - [[Forward]] at the top of a thread sends the resident's email on to someone else.
+- To file an attachment in your documents library, select [[Save to documents]] on it, give it a name and pick its type. A copy goes to **Documents** with "(from email, date)" added to its name. The email keeps its own copy.
+- CC&R, bylaws and rules documents are visible to every resident in the portal. File a resident's attachment as **Other** unless it's meant for the whole community.
+- When several residents ask the same thing, you can [answer them all at once](guide:inbox-answer-similar-questions).
 - For a message to many homes at once, use [Communications](guide:communications-send-announcement) instead.

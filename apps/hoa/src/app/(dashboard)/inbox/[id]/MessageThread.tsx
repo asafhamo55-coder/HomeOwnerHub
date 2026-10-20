@@ -4,6 +4,7 @@ import type { ThreadMessage } from '@/lib/inbox/queries'
 import { attachmentView } from '@/lib/inbox/attachment-state'
 import { formatMessageTimestamp } from '@/lib/format-datetime'
 import { AttachmentRetryButton } from './AttachmentRetryButton'
+import { SaveToDocumentsButton } from './SaveToDocumentsButton'
 
 type Attachment = ThreadMessage['attachments'][number]
 
@@ -18,18 +19,22 @@ export function AttachmentChip({ file }: { file: Attachment }) {
   const view = attachmentView(file)
 
   if (view.kind === 'stored') {
+    // BL-101 A8: a stored file can be filed into the documents library.
     return (
-      <a
-        href={`/inbox/attachment/${file.id}`}
-        className={cn(
-          CHIP,
-          'border-border bg-subtle font-medium text-foreground no-underline transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        )}
-      >
-        <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
-        <span className="truncate">{file.fileName}</span>
-        <Download className="size-3.5 shrink-0 text-muted" aria-hidden />
-      </a>
+      <span className="inline-flex max-w-full flex-wrap items-center gap-1">
+        <a
+          href={`/inbox/attachment/${file.id}`}
+          className={cn(
+            CHIP,
+            'border-border bg-subtle font-medium text-foreground no-underline transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+        >
+          <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
+          <span className="truncate">{file.fileName}</span>
+          <Download className="size-3.5 shrink-0 text-muted" aria-hidden />
+        </a>
+        <SaveToDocumentsButton attachmentId={file.id} fileName={file.fileName} />
+      </span>
     )
   }
 

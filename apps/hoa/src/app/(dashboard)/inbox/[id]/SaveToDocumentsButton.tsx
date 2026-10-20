@@ -1,0 +1,80 @@
+'use client'
+
+import { useActionState, useState } from 'react'
+import Link from 'next/link'
+import { FolderInput } from 'lucide-react'
+import { Alert, Button, Dialog, DialogContent, DialogTrigger, Field, Input, Select } from '@homeowner-portal/ui'
+import { saveAttachmentToDocuments, type SaveAttachmentState } from '@/lib/inbox/attachment-file'
+import { suggestedDocumentName } from '@/lib/inbox/attachment-file-rules'
+import { DOCUMENT_TYPE_OPTIONS, isResidentVisibleType } from '@/lib/documents-rules'
+
+const initial: SaveAttachmentState = {}
+
+/**
+ * BL-101 A8 — "Save to documents" on a stored attachment. Files a copy in
+ * the documents library under the type the board picks. The action gates
+ * and validates again; this is only the form.
+ */
+export function SaveToDocumentsButton({
+  attachmentId,
+  fileName,
+}: {
+  attachmentId: string
+  /** Display and default name only — never logged. */
+  fileName: string
+}) {
+  const [state, action, pending] = useActionState(saveAttachmentToDocuments, initial)
+  const [type, setType] = useState<string>('other')
+  const f = state.fieldErrors ?? {}
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          icon={<FolderInput aria-hidden />}
+          aria-label={`Save ${fileName} to documents`}
+        >
+          Save to documents
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title="Save to documents"
+        description="Files a copy of this attachment in the documents library. The email keeps its own copy."
+      >
+        {state.ok && state.documentId ? (
+          <Alert variant="success">
+            Saved to the documents library.{' '}
+            <Link href={`/documents/${state.documentId}`} className="font-medium underline">
+              Open document
+            </Link>
+          </Alert>
+        ) : (
+          <form action={action} className="space-y-4">
+            <input type="hidden" name="attachmentId" value={attachmentId} />
+            <Field label="Display name" required error={f.name} hint="“(from email, date)” is added to the name.">
+              <Input name="name" required defaultValue={suggestedDocumentName(fileName)} disabled={pending} />
+            </Field>
+            <Field label="Type" required error={f.type}>
+              <Select name="type" value={type} onValueChange={setType} disabled={pending} options={[...DOCUMENT_TYPE_OPTIONS]} />
+            </Field>
+            {isResidentVisibleType(type) ? (
+              <Alert variant="warning">
+                Every resident can open CC&R, bylaws and rules documents in the portal. Only file it as this type if
+                it’s meant for the whole community.
+              </Alert>
+            ) : null}
+            {state.error ? <Alert variant="error">{state.error}</Alert> : null}
+            <div className="flex justify-end">
+              <Button type="submit" loading={pending} icon={<FolderInput aria-hidden />}>
+                Save to documents
+              </Button>
+            </div>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
