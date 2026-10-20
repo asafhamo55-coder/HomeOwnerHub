@@ -8,6 +8,7 @@ import { selectStateRules } from '@homeowner-portal/workflows/W3-state-rules'
 import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 import { Wizard } from './Wizard'
 import { parsePropertyParam } from '@/lib/property-scope'
+import { loadViolationPrefill } from '@/lib/inbox/convert/load'
 
 export const metadata = { title: 'New violation' }
 
@@ -21,6 +22,8 @@ interface SearchParams {
   draft?: string
   /** A property page's "New violation here". */
   property?: string
+  /** BL-101 A4: an Inbox thread's "Report a violation". */
+  from_thread?: string
 }
 
 export default async function NewViolationPage({
@@ -31,9 +34,9 @@ export default async function NewViolationPage({
   const supabase = await getSupabaseServerClient()
   const org = await getCurrentOrg()
   if (!org) return <NoOrgSelected />
-  const { draft: draftId, property: propertyParam } = await searchParams
+  const { draft: draftId, property: propertyParam, from_thread: fromThreadParam } = await searchParams
 
-  const [propsRes, ccrRes, initialDraft, assocRes] = await Promise.all([
+  const [propsRes, ccrRes, initialDraft, assocRes, fromThread] = await Promise.all([
     supabase
       .from('hoa_properties')
       .select('id, address, unit_number')
@@ -62,6 +65,9 @@ export default async function NewViolationPage({
         .range(0, 0)
         .returns<Array<{ state: string | null }>>(),
     ),
+    // Starting from an email: its home and its (redacted) text. Only the
+    // thread id is in the URL; a foreign or unknown id is ignored.
+    draftId ? Promise.resolve(null) : loadViolationPrefill(supabase, org.id, fromThreadParam),
   ])
   const stateRules = assocRes.ok ? selectStateRules(assocRes.data?.[0]?.state ?? null) : null
 
@@ -69,7 +75,7 @@ export default async function NewViolationPage({
   // wizard would tell the board to add one).
   const propertiesFailed = Boolean(propsRes.error)
   const properties = (propsRes.data ?? []) as PropertyOption[]
-  const wanted = parsePropertyParam(propertyParam)
+  const wanted = parsePropertyParam(propertyParam) ?? fromThread?.propertyId ?? null
   const initialPropertyId = wanted && properties.some((p) => p.id === wanted) ? wanted : null
   const hasParsedCCR = (ccrRes.count ?? 0) > 0
 
@@ -97,6 +103,13 @@ export default async function NewViolationPage({
         </Alert>
       ) : null}
 
+      {fromThread && !usableDraft ? (
+        <Alert variant="info" title="Started from an email">
+          The home and the email&apos;s text are filled in, with contact details removed. Add a photo,
+          then check everything. The violation is linked to the email when you record it.
+        </Alert>
+      ) : null}
+
       {stateRules ? (
         <StateRulesPanel
           title={stateRules.title}
@@ -121,6 +134,7 @@ export default async function NewViolationPage({
               hasParsedCCR={hasParsedCCR}
               initialDraft={usableDraft}
               initialPropertyId={initialPropertyId}
+              fromThread={usableDraft ? null : fromThread ? { threadId: fromThread.threadId, notes: fromThread.notes } : null}
             />
           </CardContent>
         </Card>

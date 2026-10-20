@@ -547,7 +547,10 @@ export function contactItems(tickets: readonly ContactTicketRow[], entries: read
     return {
       ...base,
       title: `Contact details — ${e.home ?? 'home not found'}`,
-      detail: names.length > 0 ? `From ${names.join(' and ')}` : null,
+      detail:
+        [names.length > 0 ? `From ${names.join(' and ')}` : null, e.request.channel === 'inbox' ? 'Filed from an email in the Inbox' : null]
+          .filter(Boolean)
+          .join(' · ') || null,
       decision: { kind: 'contact' as const, ticketId: t.id, canApprove: problem === null },
       contact: { ticketId: t.id, home: e.home, changes, names, held, problem },
     }

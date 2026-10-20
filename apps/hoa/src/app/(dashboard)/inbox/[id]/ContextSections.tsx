@@ -109,6 +109,12 @@ export function MoneyCard({ home, ledgerHref }: { home: HomeAccount; ledgerHref:
               This ledger is very long; totals may be incomplete. Open the ledger to check.
             </p>
           ) : null}
+          {home.chargesFrom ? (
+            <p className="bg-surface px-3 py-2 text-xs text-muted">
+              Since the sale on {formatDay(home.chargesFrom)}. The seller&apos;s earlier charges are left out of
+              replies. Open the ledger to see the full history.
+            </p>
+          ) : null}
         </dl>
       )}
     </div>

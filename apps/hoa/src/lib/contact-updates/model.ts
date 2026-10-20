@@ -151,11 +151,41 @@ export function formatContactRequest(changes: readonly ContactChange[], signInEm
   ].join('\n')
 }
 
+// BL-101 A4 — a board member files the same request from a resident's
+// email in the Inbox. The ticket's submitter is then the BOARD MEMBER, so
+// the person is named by the address the email came from ("Emailed in
+// by"), and the submitter's own account must never select rows: see
+// planContactApply. Present only on these requests.
+const EMAILED_BY = 'Emailed in by'
+
+/**
+ * The request a board member files from a verified resident's email. Same
+ * subject, same Approvals queue, same apply; only the identity line and
+ * the footer differ. Values only, never removals: an email asks for a new
+ * detail, it does not ask the board to delete one.
+ */
+export function formatInboxContactRequest(changes: readonly ContactChange[], senderEmail: string): string {
+  const lines = changes.filter((c) => c.to !== null).map((c) => `${FIELD_LABEL[c.field]}: ${c.to}`)
+  return [
+    'Please update the contact details on file, as asked by email.',
+    '',
+    ...lines,
+    '',
+    `${EMAILED_BY}: ${lower(senderEmail)}`,
+    'Filed from the Inbox by a board member. The board applies it from Approvals.',
+  ].join('\n')
+}
+
 export interface ContactRequest {
-  /** The submitter's sign-in email when they asked (lowercase). */
+  /**
+   * Who the change is for, lowercase: the submitter's sign-in email, or —
+   * for `channel: 'inbox'` — the address the resident emailed from.
+   */
   signInEmail: string
   /** Only the fields asked for; null = remove / same as the home. */
   changes: Partial<Record<ContactField, string | null>>
+  /** 'inbox' = filed by a board member from an email (BL-101 A4). */
+  channel?: 'inbox'
 }
 
 const LABEL_FIELD = new Map(CONTACT_FIELDS.map((f) => [FIELD_LABEL[f].toLowerCase(), f]))
@@ -169,6 +199,7 @@ const LABEL_FIELD = new Map(CONTACT_FIELDS.map((f) => [FIELD_LABEL[f].toLowerCas
 export function parseContactRequest(subject: string, description: string): ContactRequest | null {
   if (subject.trim() !== CONTACT_SUBJECT) return null
   let signInEmail: string | null = null
+  let emailedBy: string | null = null
   const changes: Partial<Record<ContactField, string | null>> = {}
   for (const line of description.split(/\r?\n/)) {
     const m = line.match(/^([A-Za-z ]+):\s?(.*)$/)
@@ -178,6 +209,11 @@ export function parseContactRequest(subject: string, description: string): Conta
     if (label === SIGNED_IN.toLowerCase()) {
       const e = normalizeEmail(value)
       if (e.ok && e.value) signInEmail = e.value
+      continue
+    }
+    if (label === EMAILED_BY.toLowerCase()) {
+      const e = normalizeEmail(value)
+      if (e.ok && e.value) emailedBy = e.value
       continue
     }
     const field = LABEL_FIELD.get(label)
@@ -197,7 +233,12 @@ export function parseContactRequest(subject: string, description: string): Conta
       if (a.ok && a.value) changes.mailing = a.value
     }
   }
-  if (!signInEmail || Object.keys(changes).length === 0) return null
+  if (Object.keys(changes).length === 0) return null
+  // An "Emailed in by" line wins over a "Signed in as" one: it switches the
+  // submitter's own account off as a key (planContactApply), the narrower
+  // reading of a body that is input, never trusted.
+  if (emailedBy) return { signInEmail: emailedBy, changes, channel: 'inbox' }
+  if (!signInEmail) return null
   return { signInEmail, changes }
 }
 
@@ -391,16 +432,23 @@ function only<P extends Record<string, unknown>>(patch: P, row: Record<string, u
 }
 
 export function planContactApply(ctx: ApplyContext): { ok: true; plan: ApplyPlan } | { ok: false; error: string } {
-  const { request, submitterId } = ctx
+  const { request } = ctx
+  // An Inbox-filed request's submitter is the board member who filed it,
+  // not the resident: their account never selects a row. Only unlinked
+  // rows on the address the email came from do, and an email change is
+  // always held (no linked access to keep it safe), like an unlinked
+  // resident's own request.
+  const submitterId = request.channel === 'inbox' ? null : ctx.submitterId
+  const isSubmitter = (id: string | null) => submitterId !== null && id === submitterId
   const ch = request.changes
-  const linkedOwn = ctx.ownerships.filter((o) => o.owner_user_id === submitterId)
-  const linkedTen = ctx.tenancies.filter((t) => t.tenant_user_id === submitterId)
+  const linkedOwn = ctx.ownerships.filter((o) => isSubmitter(o.owner_user_id))
+  const linkedTen = ctx.tenancies.filter((t) => isSubmitter(t.tenant_user_id))
   const linked = linkedOwn.length > 0 || linkedTen.length > 0
   const keys = new Set([request.signInEmail, ...linkedOwn.map((o) => lower(o.owner_email)), ...linkedTen.map((t) => lower(t.tenant_email))].filter(Boolean))
 
   const mineResidents = ctx.residents.filter((r) => keys.has(lower(r.email)))
-  const mineOwn = ctx.ownerships.filter((o) => o.owner_user_id === submitterId || (o.owner_user_id === null && keys.has(lower(o.owner_email))))
-  const mineTen = ctx.tenancies.filter((t) => t.tenant_user_id === submitterId || (t.tenant_user_id === null && keys.has(lower(t.tenant_email))))
+  const mineOwn = ctx.ownerships.filter((o) => isSubmitter(o.owner_user_id) || (o.owner_user_id === null && keys.has(lower(o.owner_email))))
+  const mineTen = ctx.tenancies.filter((t) => isSubmitter(t.tenant_user_id) || (t.tenant_user_id === null && keys.has(lower(t.tenant_email))))
   const propertyMine = ctx.property !== null && keys.has(lower(ctx.property.owner_email))
 
   if (mineResidents.length === 0 && mineOwn.length === 0 && mineTen.length === 0 && !propertyMine) {
