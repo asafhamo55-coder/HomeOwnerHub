@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+// BL-104: the shared board AI ceiling is tested in lib/api/rate-limit.test.ts.
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: vi.fn(async () => ({ usageId: null, userId: 'user-1' })),
+}))
 vi.mock('@/lib/orgs', () => ({
   getCurrentOrg: vi.fn(async () => ({ id: 'org-1', name: 'Madison Park' })),
 }))

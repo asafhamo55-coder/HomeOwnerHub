@@ -121,9 +121,12 @@ export const POST = withRoute('ai.violations.draft', async (request) => {
     }
   }
 
-  // Follow-up letters only (BL-078 ledger, lib/api/ai-limits.ts): after
-  // auth, validation and ownership, before the model call.
-  if (letterKind) await requireAiQuota('follow_up_letter', orgId)
+  // BL-078 ledger (lib/api/ai-limits.ts): after auth, validation, ownership
+  // and the idempotent replay (a retried /inspect upload is not counted
+  // twice), before the model call. Follow-up letters keep their own bucket;
+  // new-violation drafts (wizard, /inspect queue) draw on the shared board
+  // AI ceiling (BL-104).
+  await requireAiQuota(letterKind ? 'follow_up_letter' : 'board_ai', orgId)
 
   try {
     const result = await violationInspector.execute(

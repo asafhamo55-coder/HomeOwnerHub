@@ -8,6 +8,8 @@
 // The same rows are the webhook's ordering clock (see webhook.ts) and the
 // source of the "payment failed" banner board members see.
 
+import { HOA_PLAN_IDS, V2_LOOKUP_KEYS, V2_PRICE_ENV } from './pricing-v2'
+
 /** audit_log.action for an applied customer.subscription.updated. */
 export const AUDIT_SUBSCRIPTION_UPDATED = 'billing.subscription_updated'
 /** audit_log.action for a recorded invoice.payment_failed. */
@@ -38,10 +40,19 @@ export function statusEffect(status: string | null | undefined): SubscriptionSta
 }
 
 /** The Stripe Price lookup keys set by /api/admin/setup-stripe-pricing. */
-export const PLAN_FOR_LOOKUP_KEY: Readonly<Record<string, 'monthly' | 'annual'>> = {
+export const PLAN_FOR_LOOKUP_KEY: Readonly<Record<string, OrgPlanFromPrice>> = {
   hoa_per_door_monthly: 'monthly',
   hoa_per_door_annual: 'annual',
+  // BL-104 band Prices (created only at the PRICING_V2 cut-over). Knowing
+  // them early is harmless: no subscription uses them until then.
+  [V2_LOOKUP_KEYS.essentials.monthly]: 'essentials',
+  [V2_LOOKUP_KEYS.essentials.annual]: 'essentials',
+  [V2_LOOKUP_KEYS.complete.monthly]: 'complete',
+  [V2_LOOKUP_KEYS.complete.annual]: 'complete',
 }
+
+/** orgs.plan for a known Price: the legacy cadence, or a BL-104 plan. */
+export type OrgPlanFromPrice = 'monthly' | 'annual' | 'essentials' | 'complete'
 
 /**
  * orgs.plan for a subscription's price. The lookup key first; then the
@@ -53,7 +64,7 @@ export const PLAN_FOR_LOOKUP_KEY: Readonly<Record<string, 'monthly' | 'annual'>>
 export function planForPrice(
   price: { id?: string | null; lookup_key?: string | null } | null | undefined,
   env: Record<string, string | undefined> = process.env,
-): 'monthly' | 'annual' | null {
+): OrgPlanFromPrice | null {
   if (!price) return null
   if (price.lookup_key && Object.prototype.hasOwnProperty.call(PLAN_FOR_LOOKUP_KEY, price.lookup_key)) {
     return PLAN_FOR_LOOKUP_KEY[price.lookup_key]!
@@ -61,6 +72,12 @@ export function planForPrice(
   if (price.id) {
     if (price.id === env.STRIPE_PRICE_PER_DOOR_MONTHLY || price.id === env.STRIPE_PRICE_STANDARD) return 'monthly'
     if (price.id === env.STRIPE_PRICE_PER_DOOR_ANNUAL) return 'annual'
+    for (const plan of HOA_PLAN_IDS) {
+      for (const cadence of ['monthly', 'annual'] as const) {
+        const id = env[V2_PRICE_ENV[plan][cadence]]
+        if (id && price.id === id) return plan
+      }
+    }
   }
   return null
 }

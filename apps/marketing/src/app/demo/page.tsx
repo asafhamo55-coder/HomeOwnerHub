@@ -260,7 +260,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'What does it cost after the six-month pilot?',
-    a: `Pricing is per door with no per-feature add-ons: ${HOA_PRICE_COPY.summary} It is published on /pricing so the board sees the full picture before the demo. No auto-conversion — you opt in.`,
+    a: `${HOA_PRICE_COPY.model} ${HOA_PRICE_COPY.summary} It is published on /pricing so the board sees the full picture before the demo. No auto-conversion — you opt in.`,
   },
   {
     q: 'How long until our community is live?',

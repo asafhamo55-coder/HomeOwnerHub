@@ -24,6 +24,16 @@ export interface CheckoutSessionInput {
    * is 1 — set for per-door / per-seat plans.
    */
   quantity?: number
+  /**
+   * BL-104: free trial length for a first subscription (PRICING_V2 only).
+   * Omitted = no trial, exactly as before.
+   */
+  trialPeriodDays?: number
+  /**
+   * BL-104: 'if_required' lets a trial start without a card (card at
+   * conversion). Omitted = Stripe's default ('always'), as before.
+   */
+  paymentMethodCollection?: 'always' | 'if_required'
 }
 
 export async function createCheckoutSession(
@@ -50,8 +60,12 @@ export async function createCheckoutSession(
       ? {
           subscription_data: {
             metadata: { org_id: input.orgId, plan: input.plan },
+            ...(input.trialPeriodDays ? { trial_period_days: input.trialPeriodDays } : {}),
           },
         }
+      : {}),
+    ...(input.mode === 'subscription' && input.paymentMethodCollection
+      ? { payment_method_collection: input.paymentMethodCollection }
       : {}),
     ...(input.customerId ? { customer: input.customerId } : {}),
     ...(input.customerEmail && !input.customerId

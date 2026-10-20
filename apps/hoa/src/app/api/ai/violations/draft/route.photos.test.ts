@@ -7,6 +7,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const ORG = '0f0f0f0f-0000-4000-8000-000000000001'
 const OTHER_ORG = '0f0f0f0f-0000-4000-8000-000000000002'
 
+// BL-104: the shared board AI ceiling is tested in lib/api/rate-limit.test.ts.
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: vi.fn(async () => ({ usageId: null, userId: 'user-1' })),
+}))
 vi.mock('@/lib/auth', () => ({
   getCurrentUserRole: vi.fn(async () => ({ role: 'board', org: { id: ORG, name: 'Test HOA', hub_type: 'hoa', plan: 'pro', doors_count: 1 } })),
 }))

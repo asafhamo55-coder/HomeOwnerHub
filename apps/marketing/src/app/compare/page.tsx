@@ -5,7 +5,7 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { cn } from '@/lib/cn'
-import { HOA_PRICING, annualBillUsd, formatUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
+import { HOA_PRICE_COPY, annualBillUsd, formatUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
 
 export const metadata: Metadata = {
   title: 'HomeownerHub vs management companies, Vantaca, and DIY',
@@ -59,7 +59,7 @@ const sections: { title: string; rows: Row[] }[] = [
       { label: 'Setup', hh: 'Self-serve: create the HOA, import the roster, open the books', mgmt: 'Onboarded by the firm', vantaca: 'Implementation project', diy: 'Always ongoing' },
       { label: 'Setup fee', hh: '$0', mgmt: 'Varies', vantaca: 'Not public', diy: '$0' },
       { label: 'Free pilot or trial', hh: '6 months', mgmt: 'Varies', vantaca: false, diy: 'n/a' },
-      { label: 'Contract term', hh: `First ${HOA_PRICING.COMMIT_MONTHS} months, after the pilot`, mgmt: 'Varies', vantaca: 'Not public', diy: 'None' },
+      { label: 'Contract term', hh: HOA_PRICE_COPY.contractShort, mgmt: 'Varies', vantaca: 'Not public', diy: 'None' },
     ],
   },
   {

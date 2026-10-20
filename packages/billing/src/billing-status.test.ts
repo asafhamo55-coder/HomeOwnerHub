@@ -40,6 +40,15 @@ describe('planForPrice', () => {
     expect(planForPrice(null, env)).toBeNull()
     expect(planForPrice({ id: 'price_m' }, {})).toBeNull()
   })
+
+  it('BL-104: the four band Prices map to essentials / complete, by lookup key or env id', () => {
+    expect(planForPrice({ id: 'x', lookup_key: 'hoa_essentials_monthly' }, {})).toBe('essentials')
+    expect(planForPrice({ id: 'x', lookup_key: 'hoa_essentials_annual' }, {})).toBe('essentials')
+    expect(planForPrice({ id: 'x', lookup_key: 'hoa_complete_monthly' }, {})).toBe('complete')
+    expect(planForPrice({ id: 'x', lookup_key: 'hoa_complete_annual' }, {})).toBe('complete')
+    expect(planForPrice({ id: 'price_ca' }, { STRIPE_PRICE_COMPLETE_ANNUAL: 'price_ca' })).toBe('complete')
+    expect(planForPrice({ id: 'price_em' }, { STRIPE_PRICE_ESSENTIALS_MONTHLY: 'price_em' })).toBe('essentials')
+  })
 })
 
 describe('isAfter / clockOf', () => {

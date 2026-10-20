@@ -10,6 +10,7 @@ import { zText, zUuid } from '@/lib/api/schemas'
 import { MAX_ARRAY_ITEMS, MAX_DOCUMENT_TEXT, MAX_LONG_TEXT, MAX_SHORT_TEXT } from '@/lib/api/limits'
 import { checkWrite } from '@/lib/api/db'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 
 const TOO_LONG = `The document text is over the ${MAX_DOCUMENT_TEXT.toLocaleString('en-US')} character limit.`
 
@@ -78,6 +79,8 @@ export const POST = withRoute('ai.parse-document', async (request) => {
 
   // The document must belong to the caller's org (RC-4), not just be visible under RLS.
   await requireOrgOwned('hoa_documents', body.documentId, orgId, { orgColumn: 'org_id' })
+  // BL-104: the shared board AI ceiling (RC-13), before the model call.
+  await requireAiQuota('board_ai', orgId)
 
   let raw: unknown
   try {

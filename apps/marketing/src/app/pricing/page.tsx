@@ -6,7 +6,7 @@ import { Footer } from '@/components/site/footer'
 import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
-import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING } from '@/lib/hoa-pricing'
+import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING, PRICING_V2 } from '@/lib/hoa-pricing'
 
 export const metadata: Metadata = {
   title: `Pricing — ${HOA_PRICE_COPY.title}`,
@@ -17,7 +17,8 @@ export const metadata: Metadata = {
 }
 
 // HOA per-door plan. One product; cadence (monthly vs annual) drives the
-// price. Every number comes from lib/hoa-pricing.ts, which a unit test pins
+// price. Once PRICING_V2 is on (BL-104) the two cards are Essentials and
+// Complete in size bands instead. Every number comes from lib/hoa-pricing.ts, which a unit test pins
 // to what Stripe checkout charges, and which the homepage teaser also
 // renders (BL-042).
 //
@@ -26,23 +27,28 @@ export const metadata: Metadata = {
 // "Roadmap" label — and only if it is on docs/backlog.md. Monthly and
 // annual are the SAME product; the annual card must not imply extra
 // features.
-const HOA_FEATURES = [
-  'AI Daily Digest + Compliance Heat Map', // (dashboard)/page.tsx
-  'Ask your governing documents — cited answers', // /ai/ask, W1
-  'Violation letters drafted from photos — approve or reject in one click', // /violations/new, /approvals, W3
-  'Meeting minutes drafted from your transcript; board packet as of month end', // /meetings, /meetings/[id]/packet
-  'Month-end board report, emailed on the 1st', // BL-073, /accounting/reports/monthly-report
-  'Shared Gmail inbox with AI reply drafts', // /inbox, W32
-  'Accounting: general ledger, bank feeds, reconciliation', // /accounting
-  'AI bill scan into the approvals queue', // /accounting/invoices/new, W36
-  'Vendor onboarding, RFPs and AI bid comparison', // /vendors, /rfps, W21–W23
-  'AI ARC review: resident pre-check, cited board review, decision letters', // /arc, /resident/arc/new, BL-024/027/079
-  'Spanish version of announcements, reviewed by the board before sending', // /communications/new, BL-025
-  'Resident portal — dues balance, ARC, requests, documents', // /resident
-  'Roster import from CSV or Excel, CINC exports included', // /properties/import
-  '⌘K record search, built-in user guide and Ask the guide', // /api/search, /help, /api/help/ask
-  'Download all your data any time, as spreadsheets', // /settings/data, BL-011
+// `complete: true` = only on Complete once the BL-104 band pricing is live
+// (Accounting, Mailbox, Vendors & RFPs: docs/decisions/2026-10-20-pricing.md §1).
+const HOA_FEATURE_LIST: Array<{ text: string; complete?: true }> = [
+  { text: 'AI Daily Digest + Compliance Heat Map' }, // (dashboard)/page.tsx
+  { text: 'Ask your governing documents — cited answers' }, // /ai/ask, W1
+  { text: 'Violation letters drafted from photos — approve or reject in one click' }, // /violations/new, /approvals, W3
+  { text: 'Meeting minutes drafted from your transcript; board packet as of month end' }, // /meetings, /meetings/[id]/packet
+  { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073, /accounting/reports/monthly-report
+  { text: 'Shared Gmail inbox with AI reply drafts', complete: true }, // /inbox, W32
+  { text: 'Accounting: general ledger, bank feeds, reconciliation', complete: true }, // /accounting
+  { text: 'AI bill scan into the approvals queue', complete: true }, // /accounting/invoices/new, W36
+  { text: 'Vendor onboarding, RFPs and AI bid comparison', complete: true }, // /vendors, /rfps, W21–W23
+  { text: 'AI ARC review: resident pre-check, cited board review, decision letters' }, // /arc, /resident/arc/new, BL-024/027/079
+  { text: 'Spanish version of announcements, reviewed by the board before sending' }, // /communications/new, BL-025
+  { text: 'Resident portal — dues balance, ARC, requests, documents' }, // /resident
+  { text: 'Roster import from CSV or Excel, CINC exports included' }, // /properties/import
+  { text: '⌘K record search, built-in user guide and Ask the guide' }, // /api/search, /help, /api/help/ask
+  { text: 'Download all your data any time, as spreadsheets' }, // /settings/data, BL-011
 ]
+const HOA_FEATURES = HOA_FEATURE_LIST.map((f) => f.text)
+const ESSENTIALS_FEATURES = HOA_FEATURE_LIST.filter((f) => !f.complete).map((f) => f.text)
+const COMPLETE_FEATURES = ['Everything in Essentials, plus:', ...HOA_FEATURE_LIST.filter((f) => f.complete).map((f) => f.text)]
 
 // Each item is a backlog entry (docs/backlog.md). Not available today.
 // Spanish (BL-025) and AI ARC review (BL-024/027/079) shipped: they are in
@@ -56,11 +62,14 @@ const ANNUAL_BULLETS = [
   `${HOA_PRICING.ANNUAL_DISCOUNT_PCT}% off for paying a year up front`,
 ]
 
-const hoaTiers = HOA_PLANS.map((p) =>
-  p.cadence === 'monthly'
-    ? { ...p, bullets: HOA_FEATURES, roadmap: HOA_ROADMAP }
-    : { ...p, bullets: ANNUAL_BULLETS },
-)
+const BULLETS_FOR: Record<(typeof HOA_PLANS)[number]['id'], { bullets: string[]; roadmap?: string[] }> = {
+  monthly: { bullets: HOA_FEATURES, roadmap: HOA_ROADMAP },
+  annual: { bullets: ANNUAL_BULLETS },
+  essentials: { bullets: ESSENTIALS_FEATURES },
+  complete: { bullets: COMPLETE_FEATURES, roadmap: HOA_ROADMAP },
+}
+
+const hoaTiers = HOA_PLANS.map((p) => ({ ...p, ...BULLETS_FOR[p.id] }))
 
 const pmTiers = [
   {
@@ -133,11 +142,11 @@ const evictionTiers = [
 const allFaqs = [
   {
     q: 'What\'s the six-month free pilot for HOAs?',
-    a: 'Every HOA gets six months free to actually use the product. No data migration, no auto-conversion. After six months, we walk through usage, share metrics, and let the board decide. A board that continues moves to the per-door plan above.',
+    a: `Every HOA gets six months free to actually use the product. No data migration, no auto-conversion. After six months, we walk through usage, share metrics, and let the board decide. A board that continues moves to ${PRICING_V2 ? 'one of the plans above' : 'the per-door plan above'}.`,
   },
   {
     q: 'Is there a contract?',
-    a: `Both plans start with a ${HOA_PRICING.COMMIT_MONTHS}-month first year that can't be cancelled. From month ${HOA_PRICING.COMMIT_MONTHS + 1} you can cancel any time from Settings → Billing. The six-month pilot comes before that and never converts on its own.`,
+    a: HOA_PRICE_COPY.contract,
   },
   {
     q: 'Can we bring our homeowner roster?',
@@ -176,12 +185,11 @@ export default function PricingPage() {
             Pricing
           </p>
           <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">
-            One price per door. No tiers, no add-ons.
+            {HOA_PRICE_COPY.headline}
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            {OTHER_HUBS_ENABLED
-              ? 'HOAs pay per door. Landlords start free. Evictions are per-case.'
-              : 'HOAs pay per door.'}{' '}
+            {PRICING_V2 ? 'HOAs pay one flat price for their size.' : 'HOAs pay per door.'}
+            {OTHER_HUBS_ENABLED ? ' Landlords start free. Evictions are per-case.' : ''}{' '}
             Every workflow is labeled by its quality bar.
           </p>
         </div>

@@ -6,6 +6,7 @@ import {
   decideWindow,
   describeWait,
   linkAiUsageToRun,
+  loadAiTier,
   rateLimitedError,
 } from './rate-limit'
 import { AI_RATE_LIMITS, DAY_MS, HOUR_MS } from './ai-limits'
@@ -111,17 +112,40 @@ interface Row {
   entity_id?: string | null
 }
 
-function fakeDb(rows: Row[], opts: { readError?: unknown; insertError?: unknown } = {}) {
+function fakeDb(
+  rows: Row[],
+  opts: {
+    readError?: unknown
+    insertError?: unknown
+    /** BL-104: the orgs row the tier is read from; absent = not found (base ceilings). */
+    org?: { plan: string; doors_count: number | null }
+    orgError?: unknown
+    /** Homes on file (hoa_properties count). */
+    units?: number
+  } = {},
+) {
   const reads: Array<Array<[string, string, unknown]>> = []
   const updates: Array<{ patch: Record<string, unknown>; id: unknown }> = []
   let seq = 0
   const db = {
     from(table: string) {
+      if (table === 'orgs') {
+        const o = {
+          select: () => o,
+          eq: () => o,
+          maybeSingle: async () => (opts.orgError ? { data: null, error: opts.orgError } : { data: opts.org ?? null, error: null }),
+        }
+        return o
+      }
+      if (table === 'hoa_properties') {
+        return { select: () => ({ eq: async () => ({ count: opts.units ?? 0, error: null }) }) }
+      }
       expect(table).toBe('audit_log')
       const filters: Array<[string, string, unknown]> = []
       const q = {
         select: () => q,
         eq: (c: string, v: unknown) => (filters.push(['eq', c, v]), q),
+        in: (c: string, v: unknown) => (filters.push(['in', c, v]), q),
         gte: (c: string, v: unknown) => (filters.push(['gte', c, v]), q),
         order: (c: string, o: { ascending: boolean }) => (filters.push(['order', c, o.ascending]), q),
         range: async (from: number, to: number) => {
@@ -130,7 +154,13 @@ function fakeDb(rows: Row[], opts: { readError?: unknown; insertError?: unknown 
           const matching = rows
             .filter((r) =>
               filters.every(([op, c, v]) =>
-                op === 'eq' ? (r as unknown as Record<string, unknown>)[c] === v : op === 'gte' ? r.created_at >= (v as string) : true,
+                op === 'eq'
+                  ? (r as unknown as Record<string, unknown>)[c] === v
+                  : op === 'in'
+                    ? (v as unknown[]).includes((r as unknown as Record<string, unknown>)[c])
+                    : op === 'gte'
+                      ? r.created_at >= (v as string)
+                      : true,
               ),
             )
             .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -283,5 +313,85 @@ describe('resident_assistant bucket (BL-096): hourly + daily per person, daily p
   it('under every window: allowed and recorded', async () => {
     const f = fakeDb(usage(50, { org: 'org-1', user: 'user-1' }, (i) => 61 + i * 12, action))
     await expect(checkAndRecordAiUsage('resident_assistant', WHO, { db: f.db, now: clock })).resolves.toEqual({ usageId: 'usage-1' })
+  })
+})
+
+// ─── BL-104: ceilings by plan and band ─────────────────────────────────
+
+describe('BL-104: band ceilings only for the new plans; today’s limits for everyone else', () => {
+  const askRows = (n: number) => usage(n, { org: 'org-1', user: 'other' }, (i) => i, 'ai.usage.ask_docs')
+
+  it('PRICING_V2 off: a 40-door org keeps today’s 500 doc questions a day', async () => {
+    const f = fakeDb(askRows(499), { org: { plan: 'free', doors_count: 40 } })
+    await expect(checkAndRecordAiUsage('ask_docs', WHO, { db: f.db, now: clock })).resolves.toEqual({ usageId: 'usage-1' })
+    const g = fakeDb(askRows(500), { org: { plan: 'free', doors_count: 40 } })
+    const err = await checkAndRecordAiUsage('ask_docs', WHO, { db: g.db, now: clock }).catch((e) => e)
+    expect(err.publicMessage).toContain('limit of 500 questions a day')
+  })
+
+  it('PRICING_V2 off: no orgs read at all (null tier, today’s limits)', async () => {
+    const f = fakeDb([], { orgError: { code: 'should_not_be_read' } })
+    await expect(loadAiTier(f.db, 'org-1', false)).resolves.toBeNull()
+  })
+
+  it('after the flip: a new-plan org gets its band, from the larger of declared doors and homes on file', async () => {
+    const f = fakeDb([], { org: { plan: 'complete', doors_count: null }, units: 80 })
+    await expect(loadAiTier(f.db, 'org-1', true)).resolves.toEqual({ plan: 'complete', band: '51-100' })
+    const g = fakeDb([], { org: { plan: 'essentials', doors_count: 250 }, units: 10 })
+    await expect(loadAiTier(g.db, 'org-1', true)).resolves.toEqual({ plan: 'essentials', band: '201-400' })
+  })
+
+  it('after the flip: grandfathered $4.99/door and pre-flip orgs keep today’s limits (null tier)', async () => {
+    for (const plan of ['monthly', 'annual', 'legacy_per_door', 'pilot']) {
+      const f = fakeDb([], { org: { plan, doors_count: 40 } })
+      await expect(loadAiTier(f.db, 'org-1', true)).resolves.toBeNull()
+    }
+  })
+
+  it('after the flip: an org with no subscription is on the trial footing', async () => {
+    const f = fakeDb([], { org: { plan: 'free', doors_count: 300 } })
+    await expect(loadAiTier(f.db, 'org-1', true)).resolves.toEqual({ plan: 'essentials', band: '1-50' })
+  })
+
+  it('an org row that cannot be read is null: today’s limits (fail open)', async () => {
+    const f = fakeDb([], { orgError: { code: '57014' } })
+    await expect(loadAiTier(f.db, 'org-1', true)).resolves.toBeNull()
+  })
+
+  it('a new-plan tier lowers the ceiling: Complete 1–50 ask_docs is 100/day', async () => {
+    const f = fakeDb(askRows(100))
+    const err = await checkAndRecordAiUsage('ask_docs', WHO, { db: f.db, now: clock, tier: { plan: 'complete', band: '1-50' } }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'org_limit' } })
+    expect(err.publicMessage).toContain('limit of 100 questions a day')
+  })
+
+  it('an explicit tier wins over the orgs read', async () => {
+    const f = fakeDb(askRows(50), { org: { plan: 'free', doors_count: 400 } })
+    const err = await checkAndRecordAiUsage('ask_docs', WHO, {
+      db: f.db,
+      now: clock,
+      tier: { plan: 'essentials', band: '1-50' },
+    }).catch((e) => e)
+    expect(err.publicMessage).toContain('limit of 50 questions a day')
+  })
+
+  it('board_ai and compose share one org ceiling, at the Complete level (200) for a legacy org', async () => {
+    const rows = [
+      ...usage(150, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.compose'),
+      ...usage(50, { org: 'org-1', user: 'u-b' }, (i) => i, 'ai.usage.board_ai'),
+    ]
+    const f = fakeDb(rows, { org: { plan: 'annual', doors_count: 120 } })
+    const err = await checkAndRecordAiUsage('board_ai', WHO, { db: f.db, now: clock }).catch((e) => e)
+    expect(err).toMatchObject({ code: 'rate_limited', extra: { reason: 'org_limit' } })
+    expect(err.publicMessage).toContain('limit of 200 board AI drafts a day')
+    // The org window reads both actions; the user window only this bucket's.
+    expect(f.reads[1]).toEqual(expect.arrayContaining([['in', 'action', ['ai.usage.board_ai', 'ai.usage.compose']]]))
+    expect(f.reads[0]).toEqual(expect.arrayContaining([['eq', 'action', 'ai.usage.board_ai']]))
+  })
+
+  it('under the shared ceiling a board_ai call is recorded under its own action', async () => {
+    const f = fakeDb(usage(10, { org: 'org-1', user: 'u-a' }, (i) => i, 'ai.usage.compose'), { org: { plan: 'free', doors_count: 10 } })
+    await checkAndRecordAiUsage('board_ai', WHO, { db: f.db, now: clock })
+    expect(f.rows.at(-1)).toMatchObject({ action: 'ai.usage.board_ai', org_id: 'org-1', user_id: 'user-1' })
   })
 })

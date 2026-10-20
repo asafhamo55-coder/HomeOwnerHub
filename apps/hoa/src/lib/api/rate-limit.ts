@@ -31,7 +31,17 @@ import { createAdminClient, type Database } from '@homeowner-portal/db'
 import { ApiRouteError } from './errors'
 import { requireRouteUser } from './auth'
 import { logRouteFailure } from './log'
-import { AI_RATE_LIMITS, aiUsageAction, type AiRateLimit, type AiUsageBucket, type RateWindow } from './ai-limits'
+import { PRICING_V2 } from '@homeowner-portal/billing'
+import {
+  AI_RATE_LIMITS,
+  aiLimitFor,
+  aiTierFor,
+  aiUsageAction,
+  type AiRateLimit,
+  type AiTier,
+  type AiUsageBucket,
+  type RateWindow,
+} from './ai-limits'
 
 type Db = SupabaseClient<Database>
 
@@ -108,13 +118,17 @@ export function rateLimitMessage(
   const head =
     scope === 'user'
       ? `You’ve reached the limit of ${userWindow.limit} ${cfg.noun} ${windowPhrase(userWindow.windowMs)}. Try again in ${wait}.`
-      : `Your community has reached its limit of ${cfg.perOrg.limit} ${cfg.noun} ${windowPhrase(cfg.perOrg.windowMs)}. Try again in ${wait}.`
+      : `Your community has reached its limit of ${cfg.perOrg.limit} ${cfg.orgNoun ?? cfg.noun} ${windowPhrase(cfg.perOrg.windowMs)}. Try again in ${wait}.`
   return cfg.suffix ? `${head} ${cfg.suffix}` : head
 }
 
 /** The 429 envelope: code rate_limited, reason, retryAfterSeconds, and a Retry-After header. */
-export function rateLimitedError(bucket: AiUsageBucket, decision: Extract<RateDecision, { ok: false }>): ApiRouteError {
-  const cfg = AI_RATE_LIMITS[bucket]
+export function rateLimitedError(
+  bucket: AiUsageBucket,
+  decision: Extract<RateDecision, { ok: false }>,
+  /** The org's own limits (aiLimitFor); defaults to the base ceilings. */
+  cfg: AiRateLimit = AI_RATE_LIMITS[bucket],
+): ApiRouteError {
   return new ApiRouteError(
     'rate_limited',
     rateLimitMessage(cfg, decision.scope, decision.retryAfterSeconds, decision.window),
@@ -125,16 +139,13 @@ export function rateLimitedError(bucket: AiUsageBucket, decision: Extract<RateDe
 
 async function limitThNewest(
   db: Db,
-  action: string,
+  action: string | readonly string[],
   window: RateWindow,
   scope: { orgId: string; userId?: string },
   now: number,
 ): Promise<number | null> {
-  let q = db
-    .from('audit_log')
-    .select('created_at')
-    .eq('action', action)
-    .eq('org_id', scope.orgId)
+  const base = db.from('audit_log').select('created_at')
+  let q = (typeof action === 'string' ? base.eq('action', action) : base.in('action', [...action])).eq('org_id', scope.orgId)
   if (scope.userId) q = q.eq('user_id', scope.userId)
   const { data, error } = await q
     .gte('created_at', new Date(now - window.windowMs).toISOString())
@@ -143,6 +154,25 @@ async function limitThNewest(
   if (error) throw error
   const at = data?.[0]?.created_at
   return at ? Date.parse(at) : null
+}
+
+/**
+ * BL-104: the plan and band an org's AI ceilings come from. Doors = the
+ * larger of the declared doors_count and the homes on file, so an org is
+ * never put in a smaller band than either says. null = today's limits:
+ * every org before PRICING_V2 (no read at all), grandfathered and pre-flip
+ * orgs after it (aiTierFor), or an orgs row that can't be read (fail open).
+ */
+export async function loadAiTier(db: Db, orgId: string, pricingV2: boolean = PRICING_V2): Promise<AiTier | null> {
+  if (!pricingV2) return null
+  const [orgRes, countRes] = await Promise.all([
+    db.from('orgs').select('plan, doors_count').eq('id', orgId).maybeSingle(),
+    db.from('hoa_properties').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
+  ])
+  if (orgRes.error || !orgRes.data) return null
+  const declared = orgRes.data.doors_count ?? 0
+  const onFile = countRes.error ? 0 : (countRes.count ?? 0)
+  return aiTierFor({ plan: orgRes.data.plan, doors: Math.max(declared, onFile) }, pricingV2)
 }
 
 export interface UsageGrant {
@@ -157,18 +187,33 @@ export interface UsageGrant {
 export async function checkAndRecordAiUsage(
   bucket: AiUsageBucket,
   who: { orgId: string; userId: string },
-  deps: { db?: Db; now?: () => number } = {},
+  /**
+   * `tier`: the org's plan and band (BL-104). Omitted = read from orgs;
+   * null = the base ceilings.
+   */
+  deps: { db?: Db; now?: () => number; tier?: AiTier | null } = {},
 ): Promise<UsageGrant> {
   const db = deps.db ?? createAdminClient()
   const now = (deps.now ?? Date.now)()
-  const cfg = AI_RATE_LIMITS[bucket]
   const action = aiUsageAction(bucket)
+  let cfg: AiRateLimit = AI_RATE_LIMITS[bucket]
 
   try {
+    let tier: AiTier | null = null
+    if (deps.tier !== undefined) tier = deps.tier
+    else {
+      try {
+        tier = await loadAiTier(db, who.orgId)
+      } catch (err) {
+        logRouteFailure(`ai.rate-limit.tier.${bucket}`, err, { orgId: who.orgId })
+      }
+    }
+    cfg = aiLimitFor(bucket, tier)
+    const orgActions = cfg.orgPool ? cfg.orgPool.map(aiUsageAction) : action
     const daily = cfg.perUserDaily
     const [userAt, orgAt, userDayAt] = await Promise.all([
       limitThNewest(db, action, cfg.perUser, who, now),
-      limitThNewest(db, action, cfg.perOrg, { orgId: who.orgId }, now),
+      limitThNewest(db, orgActions, cfg.perOrg, { orgId: who.orgId }, now),
       daily ? limitThNewest(db, action, daily, who, now) : Promise.resolve(null),
     ])
     const user = combineUserWindows(
@@ -178,7 +223,7 @@ export async function checkAndRecordAiUsage(
     const combined = combineDecisions(user, decideWindow(cfg.perOrg, orgAt, now))
     const decision: RateDecision =
       !combined.ok && combined.scope === 'user' && !user.ok && user.daily ? { ...combined, window: 'daily' } : combined
-    if (!decision.ok) throw rateLimitedError(bucket, decision)
+    if (!decision.ok) throw rateLimitedError(bucket, decision, cfg)
   } catch (err) {
     if (err instanceof ApiRouteError) throw err
     logRouteFailure(`ai.rate-limit.read.${bucket}`, err, { orgId: who.orgId })

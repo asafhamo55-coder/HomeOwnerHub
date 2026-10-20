@@ -8,6 +8,7 @@ import { parseJson } from '@/lib/api/parse'
 import { zText } from '@/lib/api/schemas'
 import { MAX_LONG_TEXT } from '@/lib/api/limits'
 import { logRouteFailure } from '@/lib/api/log'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 
 // Board-only (RC-4): both callers are (dashboard) wizards —
 // violations/new/Wizard.tsx and meetings/MeetingWizard.tsx.
@@ -30,6 +31,8 @@ const Schema = z.object({
 export const POST = withRoute('ai.suggest-fields', async (request) => {
   const { orgId } = await requireRouteBoardOrAdmin()
   const body = await parseJson(request, Schema)
+  // BL-104: the shared board AI ceiling (RC-13), before the model call.
+  await requireAiQuota('board_ai', orgId)
 
   let suggestions
   try {

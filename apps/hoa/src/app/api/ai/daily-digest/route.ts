@@ -11,6 +11,7 @@ import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireRouteBoardOrAdmin } from '@/lib/api/auth'
 import { checkWrite } from '@/lib/api/db'
+import { requireAiQuota } from '@/lib/api/rate-limit'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
 import {
@@ -64,6 +65,9 @@ export const POST = withRoute('ai.daily-digest', async () => {
       reason: 'no_org',
     })
   }
+  // BL-104: the shared board AI ceiling (RC-13). Over it, the card keeps
+  // the server-rendered briefing and only a manual Refresh shows the 429.
+  await requireAiQuota('board_ai', orgId)
 
   const supabase = await getSupabaseServerClient()
   const [triage, approvals, nextMeeting, atRisk, lease, residentQueues, kpis, staleApprovals] =

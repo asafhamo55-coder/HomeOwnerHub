@@ -9,6 +9,11 @@ const h = vi.hoisted(() => ({
   suggest: vi.fn(),
 }))
 
+// BL-104: the shared board AI ceiling is tested in lib/api/rate-limit.test.ts.
+vi.mock('@/lib/api/rate-limit', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/rate-limit')>()),
+  requireAiQuota: vi.fn(async () => ({ usageId: null, userId: 'user-1' })),
+}))
 vi.mock('@/lib/auth', () => ({
   getCurrentUserRole: vi.fn(async () =>
     h.role === null
@@ -66,6 +71,22 @@ describe('POST /api/ai/suggest-fields', () => {
       partialState: VALID.partialState,
       fields: VALID.fields,
     })
+  })
+
+  it('BL-104: draws on the shared board_ai ceiling; over it, a 429 and no model call', async () => {
+    const { requireAiQuota, rateLimitedError } = await import('@/lib/api/rate-limit')
+    const quota = vi.mocked(requireAiQuota)
+    quota.mockClear()
+    await POST(req(VALID))
+    expect(quota).toHaveBeenCalledWith('board_ai', 'org-1')
+
+    quota.mockRejectedValueOnce(rateLimitedError('board_ai', { ok: false, scope: 'org', retryAfterSeconds: 3600 }))
+    h.suggest.mockClear()
+    const res = await POST(req(VALID))
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('3600')
+    expect((await json(res)).error?.message).toContain('board AI drafts a day')
+    expect(h.suggest).not.toHaveBeenCalled()
   })
 
   it('refuses a resident with 403 before reading the body or calling the model', async () => {
