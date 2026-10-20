@@ -332,9 +332,20 @@ export async function applyStripeEvent(
 // banner works today.
 //
 // Not serialised: two deliveries for one subscription racing within the
-// same few milliseconds can both pass the check (there is no row lock
-// without a SQL function). Stripe sends a subscription's updates seconds
-// apart at the least, and the next event for it corrects the state.
+// same few milliseconds can both pass the ORDER check (there is no row
+// lock without a SQL function), and the older one's writes can land after
+// the newer one's. Mitigation without a migration: after its audit row is
+// written, every delivery RECONCILES (reconcileToNewest): it re-reads the
+// newest applied audit row for the subscription and the org, and re-applies
+// that newest state (plan under M1, doors_count) wherever the org
+// disagrees. Each delivery's writes precede its audit row, so whichever
+// delivery reconciles last sees both audit rows and both sets of writes,
+// and leaves the newer state. Re-applying is idempotent. A redelivery that
+// dedupes as 'duplicate' reconciles too, so a failed reconcile (answered
+// 500) is retried by Stripe. Residual window: a reconcile's own write
+// racing the other delivery's reconcile read; the next event for the
+// subscription corrects that, and Stripe sends a subscription's updates
+// seconds apart at the least.
 
 interface OrgBilling {
   id: string
@@ -369,8 +380,19 @@ async function orgOnSubscription(db: WebhookDb, subId: string): Promise<{ org: O
 /** How many recent update rows the ordering check reads (ties need more than one). */
 const ORDER_WINDOW = 20
 
+interface AppliedUpdate {
+  clock: EventClock
+  metadata: Record<string, unknown>
+}
+
 /** The applied updates' clocks for (org, subscription), newest first by event time. */
 async function appliedUpdates(db: WebhookDb, orgId: string, subId: string): Promise<{ clocks: EventClock[]; error: DbError }> {
+  const r = await appliedUpdateRows(db, orgId, subId)
+  return { clocks: r.rows.map((x) => x.clock), error: r.error }
+}
+
+/** The applied update rows (clock + metadata) for (org, subscription). */
+async function appliedUpdateRows(db: WebhookDb, orgId: string, subId: string): Promise<{ rows: AppliedUpdate[]; error: DbError }> {
   const { data, error } = await db
     .from('audit_log')
     .select('metadata')
@@ -383,9 +405,68 @@ async function appliedUpdates(db: WebhookDb, orgId: string, subId: string): Prom
     .is('user_id', null)
     .order('metadata->>event_created', { ascending: false })
     .limit(ORDER_WINDOW)
-  if (error) return { clocks: [], error }
-  const clocks = (data ?? []).map((r) => clockOf(r.metadata)).filter((c): c is EventClock => c != null)
-  return { clocks, error: null }
+  if (error) return { rows: [], error }
+  const rows: AppliedUpdate[] = []
+  for (const r of data ?? []) {
+    const clock = clockOf(r.metadata)
+    if (clock) rows.push({ clock, metadata: r.metadata as Record<string, unknown> })
+  }
+  return { rows, error: null }
+}
+
+/**
+ * Re-applies the newest applied update's state for this subscription
+ * wherever the org disagrees with it (see "Not serialised" above). Returns
+ * null when nothing needed doing or the writes succeeded; a failed result
+ * otherwise, so the route answers 500 and Stripe redelivers (the
+ * redelivery dedupes and reconciles again).
+ */
+async function reconcileToNewest(
+  db: WebhookDb,
+  m1: boolean,
+  orgId: string,
+  sub: Stripe.Subscription,
+  eventId: string,
+): Promise<WebhookHandleResult | null> {
+  const applied = await appliedUpdateRows(db, orgId, sub.id)
+  if (applied.error) return readFailed(applied.error)
+  let newest: AppliedUpdate | null = null
+  for (const row of applied.rows) if (!newest || isAfter(row.clock, newest.clock)) newest = row
+  if (!newest) return null
+
+  const status = typeof newest.metadata.status === 'string' ? newest.metadata.status : null
+  // A terminal status is already order-safe: the downgrade clears
+  // stripe_sub_id (pre-M1) or tombstones the subscription (M1), and every
+  // later write for it is scoped to the live subscription.
+  if (statusEffect(status) === 'downgrade') return null
+
+  const found = await orgOnSubscription(db, sub.id)
+  if (found.error) return readFailed(found.error)
+  const org = found.org
+  if (!org || org.id !== orgId) return null
+
+  const plan = typeof newest.metadata.plan === 'string' ? newest.metadata.plan : null
+  const q = newest.metadata.quantity
+  const quantity = typeof q === 'number' && Number.isInteger(q) && q > 0 ? q : null
+
+  if (m1 && plan != null && plan !== org.plan) {
+    // A deterministic id per (newest event, reconciling event): unique, so
+    // 0064's dedupe does not swallow it, and a redelivery is a no-op.
+    const r = await callRpc(db, 'stripe_webhook_checkout_subscription', {
+      p_event_id: `${newest.clock.eventId}:reconcile:${eventId}`,
+      p_event_created: newest.clock.created,
+      p_org_id: org.id,
+      p_customer_id: idOf(sub.customer as string | { id: string } | null),
+      p_sub_id: sub.id,
+      p_plan: plan,
+    })
+    if (!r.ok) return r
+  }
+  if (quantity != null && billableDoors(org.doors_count ?? 0) !== quantity) {
+    const { error } = await db.from('orgs').update({ doors_count: quantity }).eq('id', org.id).eq('stripe_sub_id', sub.id)
+    if (error) return persistFailed(error)
+  }
+  return null
 }
 
 async function insertAudit(
@@ -442,7 +523,11 @@ async function applySubscriptionUpdated(
   const prior = await appliedUpdates(db, org.id, sub.id)
   if (prior.error) return readFailed(prior.error)
   const clock: EventClock = { created: eventCreated, eventId: event.id }
-  if (prior.clocks.some((c) => c.eventId === event.id)) return { ok: true, outcome: 'duplicate' }
+  if (prior.clocks.some((c) => c.eventId === event.id)) {
+    // A redelivery of an applied event: reconcile again, in case this
+    // event's first delivery raced another and its reconcile failed.
+    return (await reconcileToNewest(db, m1, org.id, sub, event.id)) ?? { ok: true, outcome: 'duplicate' }
+  }
   if (prior.clocks.some((c) => !isAfter(clock, c))) return { ok: true, outcome: 'ignored', message: 'stale_event' }
 
   const item = sub.items?.data?.[0]
@@ -499,6 +584,10 @@ async function applySubscriptionUpdated(
     quantity,
   })
   if (auditError) return persistFailed(auditError)
+  if (outcome === 'subscription_updated') {
+    const reconciled = await reconcileToNewest(db, m1, org.id, sub, event.id)
+    if (reconciled) return reconciled
+  }
   return { ok: true, outcome }
 }
 

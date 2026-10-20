@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_PAGE_MAX_BYTES,
+  DEFAULT_RANGE_MAX_BYTES,
   DEFAULT_USER_AGENT,
+  ResponseTooLargeError,
+  readBodyCapped,
   coalesceRanges,
   createPoliteGetter,
   createPoliteRangeGetter,
@@ -164,5 +168,72 @@ describe('range helpers', () => {
   it('a multipart part that is cut short is an error, not a short read', () => {
     const body = new TextEncoder().encode('--B\r\nContent-Range: bytes 0-9/36\r\n\r\n01234')
     expect(() => parseMultipartByteranges(body, 'B')).toThrow(/truncated/)
+  })
+})
+
+// ─── Body-size caps ──────────────────────────────────────────────────
+
+/** A fake body that never ends: 1 KB chunks until cancelled. */
+function endlessBody() {
+  const state = { pulled: 0, cancelled: false }
+  const chunk = new Uint8Array(1024).fill(0x61)
+  const stream = new ReadableStream<Uint8Array>({
+    pull(c) {
+      state.pulled += chunk.byteLength
+      c.enqueue(chunk)
+    },
+    cancel() {
+      state.cancelled = true
+    },
+  })
+  return { stream, state }
+}
+
+describe('body-size caps', () => {
+  it('readBodyCapped returns a body at the cap intact', async () => {
+    const res = new Response(new Uint8Array(100).fill(0x62))
+    const out = await readBodyCapped(res, 'https://x.test/a', 100)
+    expect(out.byteLength).toBe(100)
+  })
+
+  it('page getter aborts an endless stream at the per-getter cap', async () => {
+    const { stream, state } = endlessBody()
+    const fetchImpl = (async () => new Response(stream, { status: 200 })) as unknown as typeof fetch
+    const getter = createPoliteGetter({ fetchImpl, minIntervalMs: 0, maxBodyBytes: 10 * 1024 })
+    await expect(getter.get('https://www.flsenate.gov/a')).rejects.toBeInstanceOf(ResponseTooLargeError)
+    expect(state.cancelled).toBe(true)
+    // Stopped within a chunk or two of the cap, never buffered past it.
+    expect(state.pulled).toBeLessThanOrEqual(10 * 1024 + 2 * 1024)
+  })
+
+  it('page getter refuses a declared Content-Length over the cap without reading', async () => {
+    const { stream, state } = endlessBody()
+    const fetchImpl = (async () =>
+      new Response(stream, {
+        status: 200,
+        headers: { 'Content-Length': String(DEFAULT_PAGE_MAX_BYTES + 1) },
+      })) as unknown as typeof fetch
+    const getter = createPoliteGetter({ fetchImpl, minIntervalMs: 0 })
+    await expect(getter.get('https://www.flsenate.gov/a')).rejects.toThrow(/exceeds the 5242880-byte cap/)
+    expect(state.cancelled).toBe(true)
+  })
+
+  it('range getter aborts an oversized 206 body at its cap', async () => {
+    const { stream, state } = endlessBody()
+    const fetchImpl = (async () =>
+      new Response(stream, {
+        status: 206,
+        headers: { 'Content-Range': 'bytes 0-99/5000000000' },
+      })) as unknown as typeof fetch
+    const getter = createPoliteRangeGetter({ fetchImpl, minIntervalMs: 0, maxBodyBytes: 8 * 1024 })
+    await expect(
+      getter.getRanges('https://downloads.example.test/a.zip', [{ start: 0, end: 99 }]),
+    ).rejects.toBeInstanceOf(ResponseTooLargeError)
+    expect(state.cancelled).toBe(true)
+  })
+
+  it('defaults: 5 MB per page, 40 MB per range response', () => {
+    expect(DEFAULT_PAGE_MAX_BYTES).toBe(5 * 1024 * 1024)
+    expect(DEFAULT_RANGE_MAX_BYTES).toBe(40 * 1024 * 1024)
   })
 })
