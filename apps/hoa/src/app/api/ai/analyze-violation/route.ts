@@ -22,6 +22,7 @@ import { MAX_LONG_TEXT, MAX_SHORT_TEXT } from '@/lib/api/limits'
 import { logRouteFailure } from '@/lib/api/log'
 import { requireAiQuota } from '@/lib/api/rate-limit'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { AI_ELIGIBLE_DOCUMENT_FILTER } from '@/lib/documents-rules'
 
 const ROUTE = 'ai.analyze-violation'
 const PHOTO_BUCKET = 'hoa-photos'
@@ -125,13 +126,16 @@ export const POST = withRoute(ROUTE, async (request: Request) => {
     stateRules: null,
   }
 
-  // Find the most-recent CC&R doc with parsed text, if any.
+  // Find the most-recent CC&R doc with parsed text, if any (never an
+  // unconfirmed file from the inbox, M-3).
   const { data: ccrDoc, error: ccrErr } = await supabase
     .from('hoa_documents')
     .select('parsed_text')
     .eq('org_id', orgId)
     .eq('type', 'ccr')
     .not('parsed_text', 'is', null)
+    // M-3: a file emailed in is cited only once the board confirmed it.
+    .or(AI_ELIGIBLE_DOCUMENT_FILTER)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()

@@ -17,9 +17,14 @@
  * the exact shape the attachments job mints before the copy runs.
  *
  * Provenance has no column yet (B5, migration 0065), so it goes in the
- * name; see attachment-file-rules.ts. Nothing is made resident-visible here
- * beyond what the chosen type already implies (visible_to_owners keeps its
- * default, false).
+ * name; see attachment-file-rules.ts. Nothing is made resident-visible
+ * here beyond what the chosen type already implies (visible_to_owners
+ * keeps its default, false).
+ *
+ * M-3: the type defaults to Other. CC&R / bylaws / rules need the board's
+ * "I confirm this is our official governing document" tick, checked here
+ * server-side; only then is the PDF's text stored (parsed_text) and the
+ * copy filed under the confirmed-governing path AI retrieval accepts.
  *
  * Logs carry ids and codes only — never a file name, a path or text.
  */
@@ -29,10 +34,11 @@ import { z } from 'zod'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
-import { DOCUMENT_UPLOAD_TYPES, documentFileProblem } from '@/lib/documents-rules'
+import { DOCUMENT_UPLOAD_TYPES, documentFileProblem, isGoverningUploadType } from '@/lib/documents-rules'
 import { readPdfTexts } from './attachment-pdf'
 import { selectParsableAttachments } from './vendor/attachment-text'
 import {
+  GOVERNING_CONFIRM_REQUIRED,
   filedDocumentName,
   filedStoragePath,
   inboxAttachmentPathOk,
@@ -52,6 +58,8 @@ const Input = z.object({
   attachmentId: z.string().uuid('Invalid attachment.'),
   name: z.string().trim().min(2, 'Give the document a name.').max(160, 'Keep the name under 160 characters.'),
   type: z.enum(DOCUMENT_UPLOAD_TYPES, { message: 'Pick a document type.' }),
+  // An HTML checkbox posts "on" when ticked and nothing when not.
+  confirmGoverning: z.literal('on').nullable(),
 })
 
 export async function saveAttachmentToDocuments(
@@ -66,6 +74,7 @@ export async function saveAttachmentToDocuments(
     attachmentId: formData.get('attachmentId'),
     name: formData.get('name'),
     type: formData.get('type'),
+    confirmGoverning: formData.get('confirmGoverning') === 'on' ? 'on' : null,
   })
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {}
@@ -77,6 +86,13 @@ export async function saveAttachmentToDocuments(
     return { fieldErrors }
   }
   const { attachmentId, name, type } = parsed.data
+  // M-3: anyone can email the board a PDF. Filing it as a governing type
+  // publishes it to every resident and lets the AI cite it, so that needs
+  // the board's explicit confirmation — enforced here, not just in the form.
+  const confirmedGoverning = isGoverningUploadType(type) && parsed.data.confirmGoverning === 'on'
+  if (isGoverningUploadType(type) && !confirmedGoverning) {
+    return { fieldErrors: { confirmGoverning: GOVERNING_CONFIRM_REQUIRED } }
+  }
 
   const supabase = await getSupabaseServerClient()
   const { data: row, error: readError } = await supabase
@@ -114,7 +130,7 @@ export async function saveAttachmentToDocuments(
     console.error('saveAttachmentToDocuments: message date read failed', { orgId, attachmentId, code: messageError.code })
   }
 
-  const destination = filedStoragePath(orgId, row.id, row.storage_path)
+  const destination = filedStoragePath(orgId, row.id, row.storage_path, { confirmedGoverning })
   const { error: copyError } = await supabase.storage.from(BUCKET).copy(row.storage_path, destination)
   if (copyError) {
     if (isAlreadyExistsError(copyError as { message?: string; statusCode?: string | number })) {
@@ -124,12 +140,13 @@ export async function saveAttachmentToDocuments(
     return { error: 'Couldn’t copy the file into the library. Try again.' }
   }
 
-  // Text for the library's search and AI features, PDFs only, under the
-  // same 5 MB cap the inbox already uses for reading attachments. A file
-  // that yields nothing is filed without text ("Needs text"), like an
-  // upload whose text was never pasted.
+  // Text for the library's AI features, PDFs only, under the same 5 MB cap
+  // the inbox already uses for reading attachments — and only for a
+  // confirmed governing document (M-3). Anything else from the inbox is
+  // filed without text, so no AI feature can quote a stranger's file; the
+  // path also keeps it out of AI retrieval (isAiEligibleDocumentPath).
   let parsedText: string | null = null
-  const parsable = selectParsableAttachments([
+  const parsable = !confirmedGoverning ? [] : selectParsableAttachments([
     {
       id: row.id,
       file_name: row.file_name,

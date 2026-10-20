@@ -51,6 +51,14 @@ const PHONE_RE = /(?:\+?1[\s.-]?)?(?:\(\d{3}\)\s?|\b\d{3}[\s.-]?)\d{3}[\s.-]?\d{
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)*\.[A-Z]{2,}/gi
 const MAILING_RE = /^\s*(?:my\s+)?(?:new\s+)?mailing address(?:\s+is)?\s*[:-]?\s*(.+)$/im
 
+/**
+ * M-2: while BL-105's sender-auth column is off (SENDER_AUTH_COLUMN_LIVE),
+ * a forged From can name a resident's address and pass the sender check,
+ * so a contact update filed from an inbox thread may not change the email
+ * on file. Phone and mailing changes still go to board approval.
+ */
+export const INBOX_EMAIL_CHANGE_REFUSED = 'Ask the resident to change their email in the portal.'
+
 export interface ContactPrefill {
   phone: string
   email: string

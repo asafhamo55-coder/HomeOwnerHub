@@ -59,6 +59,7 @@ const readPdfTexts = vi.fn()
 vi.mock('./attachment-pdf', () => ({ readPdfTexts: (...a: unknown[]) => readPdfTexts(...a) }))
 
 import { saveAttachmentToDocuments } from './attachment-file'
+import { isAiEligibleDocumentPath } from '@/lib/documents-rules'
 
 function form(over: Record<string, string> = {}) {
   const f = new FormData()
@@ -102,9 +103,38 @@ describe('saveAttachmentToDocuments', () => {
       type: 'other',
       storage_path: `${ORG}/from-inbox/${ATT}/coi.pdf`,
       file_size: 120_000,
-      parsed_text: 'Certificate of insurance',
+      // M-3: a file filed as Other is never read for AI text.
+      parsed_text: null,
+      parsed_at: null,
     })
+    expect(readPdfTexts).not.toHaveBeenCalled()
     expect(inserted).not.toHaveProperty('visible_to_owners')
+  })
+
+  it('M-3: refuses a governing type without the confirmation tick, server-side', async () => {
+    for (const type of ['ccr', 'bylaws', 'rules']) {
+      const r = await saveAttachmentToDocuments({}, form({ type }))
+      expect(r.fieldErrors?.confirmGoverning).toMatch(/official governing document/)
+    }
+    // A forged value is not a tick either.
+    expect((await saveAttachmentToDocuments({}, form({ type: 'ccr', confirmGoverning: 'yes' }))).fieldErrors?.confirmGoverning).toBeTruthy()
+    expect(copies).toEqual([])
+    expect(inserted).toBeNull()
+  })
+
+  it('M-3: a confirmed governing document is stored under the confirmed path, with its text', async () => {
+    const r = await saveAttachmentToDocuments({}, form({ type: 'ccr', name: 'Declaration', confirmGoverning: 'on' }))
+    expect(r).toEqual({ ok: true, documentId: 'doc-1' })
+    const dest = `${ORG}/from-inbox/${ATT}/governing/coi.pdf`
+    expect(copies).toEqual([[SRC, dest]])
+    expect(inserted).toMatchObject({ type: 'ccr', storage_path: dest, parsed_text: 'Certificate of insurance' })
+    expect(isAiEligibleDocumentPath(dest)).toBe(true)
+  })
+
+  it('M-3: the tick does nothing for Other (still no text, not AI-eligible)', async () => {
+    await saveAttachmentToDocuments({}, form({ confirmGoverning: 'on' }))
+    expect(inserted).toMatchObject({ type: 'other', storage_path: `${ORG}/from-inbox/${ATT}/coi.pdf`, parsed_text: null })
+    expect(isAiEligibleDocumentPath(`${ORG}/from-inbox/${ATT}/coi.pdf`)).toBe(false)
   })
 
   it('a denied caller never gets a database client', async () => {

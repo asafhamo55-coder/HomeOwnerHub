@@ -12,6 +12,8 @@ import { todayIn } from '@/lib/association-time'
 import { primaryAssociationZone } from '@/lib/association-time-server'
 import { buildMeetingIcs, meetingIcsFilename } from '@/lib/meetings/meeting-ics'
 import { CALENDAR_TIME_RE, MAX_CALENDAR_WHERE } from '@/lib/meetings/notice-prefill'
+import { verifyCalendarLink } from '@/lib/meetings/calendar-link-sign'
+import { paySettingsSecret } from '@/lib/pay-by-zelle'
 
 /**
  * GET /resident/meetings/<id>/calendar?start=HH:MM&where=<place>
@@ -36,11 +38,19 @@ import { CALENDAR_TIME_RE, MAX_CALENDAR_WHERE } from '@/lib/meetings/notice-pref
  *
  * NO PII in the file (lib/meetings/meeting-ics.ts). `start` and `where`
  * are the time and place the board typed into the notice; both bounded.
+ *
+ * L-3: they are honoured only with `sig`, the server's HMAC over this org,
+ * this meeting and exactly those values (lib/meetings/calendar-link-sign.ts),
+ * minted when the board's notice is sent. A missing or tampered signature
+ * drops both: the invite still downloads, with the meeting's date only, so
+ * a re-shared link can't plant a different time or address.
  */
 
 const Query = z.object({
   start: z.string().regex(CALENDAR_TIME_RE).optional(),
   where: zText(MAX_CALENDAR_WHERE).optional(),
+  // Checked below; a malformed one is just "unsigned", not a 400.
+  sig: z.string().max(256).optional(),
 })
 
 export const GET = withRoute('meetings.calendar', async (request: Request, ctx: { params: Promise<{ id: string }> }) => {
@@ -78,6 +88,12 @@ export const GET = withRoute('meetings.calendar', async (request: Request, ctx: 
     const upcoming = meeting.status === 'draft' && meeting.meeting_date >= todayIn(timeZone)
     if (!upcoming) throw new ApiRouteError('not_found')
   }
+  const start = query.start ?? null
+  const where = query.where || null
+  const signed =
+    (start !== null || where !== null) &&
+    verifyCalendarLink(paySettingsSecret(), { orgId, meetingId: meeting.id, start, where, sig: query.sig })
+
   const associationName =
     [...assocRows].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))[0]?.name?.trim() || 'Your association'
 
@@ -87,8 +103,8 @@ export const GET = withRoute('meetings.calendar', async (request: Request, ctx: 
     meetingType: meeting.meeting_type,
     associationName,
     timeZone,
-    start: query.start ?? null,
-    where: query.where ?? null,
+    start: signed ? start : null,
+    where: signed ? where : null,
     origin: appOrigin(),
   })
 

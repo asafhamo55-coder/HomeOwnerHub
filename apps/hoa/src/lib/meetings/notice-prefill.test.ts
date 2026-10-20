@@ -7,6 +7,7 @@ import {
   MEETING_NOTICE_TEMPLATE_ID,
   TEMPLATE_MEETING_TYPE,
   buildMeetingNoticePrefill,
+  calendarLinkParams,
   calendarLinkPath,
   calendarParagraphHtml,
   parseMeetingParam,
@@ -66,17 +67,30 @@ describe('parseMeetingParam', () => {
 })
 
 describe('calendar link', () => {
-  it('carries start and place, bounded; drops a malformed time', () => {
-    expect(calendarLinkPath(ID, { time: '19:30', where: 'Clubhouse, 100 Elm St' })).toBe(
-      `/resident/meetings/${ID}/calendar?start=19%3A30&where=Clubhouse%2C+100+Elm+St`,
+  const SIG = 'a'.repeat(64)
+  it('carries start and place, bounded, with the signature; drops a malformed time', () => {
+    expect(calendarLinkPath(ID, { time: '19:30', where: 'Clubhouse, 100 Elm St' }, SIG)).toBe(
+      `/resident/meetings/${ID}/calendar?start=19%3A30&where=Clubhouse%2C+100+Elm+St&sig=${SIG}`,
     )
-    expect(calendarLinkPath(ID, { time: '7pm', where: '' })).toBe(`/resident/meetings/${ID}/calendar`)
-    const where = new URL(`https://x${calendarLinkPath(ID, { where: 'a'.repeat(500) })}`).searchParams.get('where')!
+    expect(calendarLinkPath(ID, { time: '7pm', where: '' }, SIG)).toBe(`/resident/meetings/${ID}/calendar`)
+    const where = new URL(`https://x${calendarLinkPath(ID, { where: 'a'.repeat(500) }, SIG)}`).searchParams.get('where')!
     expect(where).toHaveLength(MAX_CALENDAR_WHERE)
   })
 
+  it('L-3: without a signature the link carries the date only', () => {
+    expect(calendarLinkPath(ID, { time: '19:30', where: 'Clubhouse' })).toBe(`/resident/meetings/${ID}/calendar`)
+    expect(calendarLinkPath(ID, { time: '19:30', where: 'Clubhouse' }, null)).toBe(`/resident/meetings/${ID}/calendar`)
+  })
+
+  it('L-3: params are normalised exactly as signed (collapsed, trimmed, capped)', () => {
+    expect(calendarLinkParams({ time: '18:00', where: '  Hall \n  B  ' })).toEqual({ start: '18:00', where: 'Hall B' })
+    expect(calendarLinkParams({ time: '7pm', where: '   ' })).toEqual({ start: null, where: null })
+    const capped = calendarLinkParams({ where: `${'a'.repeat(199)} b` }).where!
+    expect(capped).toBe('a'.repeat(199))
+  })
+
   it('the paragraph escapes HTML and has no merge fields', () => {
-    const html = calendarParagraphHtml('https://app.example.com', ID, { time: '18:00', where: '<b>"Hall"</b> & co' })
+    const html = calendarParagraphHtml('https://app.example.com', ID, { time: '18:00', where: '<b>"Hall"</b> & co' }, SIG)
     expect(html).not.toContain('{{')
     expect(html).not.toContain('<b>')
     expect(html).toContain(`href="https://app.example.com/resident/meetings/${ID}/calendar?start=18%3A00&amp;where=`)

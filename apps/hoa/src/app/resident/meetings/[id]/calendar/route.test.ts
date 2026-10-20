@@ -43,6 +43,17 @@ vi.mock('@homeowner-portal/db', () => ({
 }))
 
 import { GET } from './route'
+import { signCalendarLink } from '@/lib/meetings/calendar-link-sign'
+
+const SECRET = 'test-settings-secret'
+process.env.PAY_SETTINGS_SECRET = SECRET
+function signedQs(start: string | null, where: string | null, orgId = 'org-1', meetingId = MEETING): string {
+  const q = new URLSearchParams()
+  if (start) q.set('start', start)
+  if (where) q.set('where', where)
+  q.set('sig', signCalendarLink(SECRET, { orgId, meetingId, start, where }))
+  return `?${q.toString()}`
+}
 
 function call(id: string, qs = '') {
   return GET(new Request(`https://app.example.com/resident/meetings/${id}/calendar${qs}`), {
@@ -63,7 +74,7 @@ beforeEach(() => {
 
 describe('GET /resident/meetings/[id]/calendar', () => {
   it('a resident gets an .ics for an upcoming scheduled meeting, org-scoped', async () => {
-    const res = await call(MEETING, '?start=19%3A00&where=Clubhouse')
+    const res = await call(MEETING, signedQs('19:00', 'Clubhouse'))
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('text/calendar; charset=utf-8')
     expect(res.headers.get('content-disposition')).toContain('attachment; filename="meeting-')
@@ -71,8 +82,33 @@ describe('GET /resident/meetings/[id]/calendar', () => {
     const body = await res.text()
     expect(body).toContain('BEGIN:VCALENDAR')
     expect(body).toContain('LOCATION:Clubhouse')
+    expect(body).not.toContain('DTSTART;VALUE=DATE:') // the signed time is honoured
     expect(body).toContain('SUMMARY:Maple Grove HOA: Board meeting')
     expect(h.orgFilters).toContainEqual(['org_id', 'org-1'])
+  })
+
+  it('L-3: an unsigned time and place are dropped; the invite keeps the date', async () => {
+    const res = await call(MEETING, '?start=19%3A00&where=Evil+Lane')
+    expect(res.status).toBe(200)
+    const body = await res.text()
+    expect(body).toContain('BEGIN:VCALENDAR')
+    expect(body).not.toContain('Evil Lane')
+    expect(body).not.toContain('LOCATION:')
+    expect(body).toContain('DTSTART;VALUE=DATE:')
+  })
+
+  it('L-3: a tampered place, time, or a signature for another meeting or org is refused', async () => {
+    const good = signedQs('19:00', 'Clubhouse')
+    const tamperedWhere = good.replace('where=Clubhouse', 'where=Evil+Lane')
+    const tamperedStart = good.replace('start=19%3A00', 'start=03%3A00')
+    const otherMeeting = signedQs('19:00', 'Evil Lane', 'org-1', '11111111-1111-4111-8111-111111111111')
+    const otherOrg = signedQs('19:00', 'Evil Lane', 'org-2')
+    const junk = '?start=19%3A00&where=Evil+Lane&sig=not-hex'
+    for (const qs of [tamperedWhere, tamperedStart, otherMeeting, otherOrg, junk]) {
+      const body = await (await call(MEETING, qs)).text()
+      expect(body).not.toContain('LOCATION:')
+      expect(body).toContain('DTSTART;VALUE=DATE:')
+    }
   })
 
   it('signed out: 401 envelope', async () => {

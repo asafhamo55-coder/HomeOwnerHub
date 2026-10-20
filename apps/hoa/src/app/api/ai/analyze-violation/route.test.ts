@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   role: 'board' as 'admin' | 'board' | 'resident' | null,
   tables: {} as Record<string, { data: unknown; error: unknown }>,
   eqCalls: [] as Array<[string, string, unknown]>,
+  orCalls: [] as Array<[string, string]>,
   signed: { data: { signedUrl: 'https://storage.example/signed/abc' }, error: null } as {
     data: { signedUrl: string } | null
     error: unknown
@@ -32,6 +33,10 @@ function builder(table: string) {
   const result = () => h.tables[table] ?? { data: null, error: null }
   const b: Record<string, unknown> = {}
   for (const m of ['select', 'not', 'order', 'limit', 'is']) b[m] = vi.fn(() => b)
+  b.or = vi.fn((filter: string) => {
+    h.orCalls.push([table, filter])
+    return b
+  })
   b.eq = vi.fn((col: string, val: unknown) => {
     h.eqCalls.push([table, col, val])
     return b
@@ -79,6 +84,7 @@ vi.mock('@homeowner-portal/workflows/W3-state-rules', async (importOriginal) => 
 })
 
 import { POST } from './route'
+import { AI_ELIGIBLE_DOCUMENT_FILTER } from '@/lib/documents-rules'
 
 const PROPERTY = '11111111-1111-4111-8111-111111111111'
 const PATH = 'org-1/1700000000000-abc123.jpg'
@@ -176,6 +182,12 @@ describe('POST /api/ai/analyze-violation', () => {
     expect(body.description).toBe('Trailer parked on lawn. Seen twice')
     expect(typeof body.letterDraft).toBe('string')
     expect(ai.draftViolationLetter).toHaveBeenCalledWith(expect.objectContaining({ fineAmount: 25, hoaName: 'Test HOA' }))
+  })
+
+  it('M-3: never cites an unconfirmed file filed from the inbox as the CC&R', async () => {
+    const res = await POST(req(valid))
+    expect(res.status).toBe(200)
+    expect(h.orCalls).toContainEqual(['hoa_documents', AI_ELIGIBLE_DOCUMENT_FILTER])
   })
 
   it('scopes the property lookup to the caller org and 404s a foreign or missing id', async () => {

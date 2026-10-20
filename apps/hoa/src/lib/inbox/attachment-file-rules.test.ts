@@ -41,6 +41,10 @@ describe('filing names and paths', () => {
     expect(filedStoragePath(ORG, ATT, ok)).toBe(`${ORG}/from-inbox/${ATT}/quote.pdf`)
   })
 
+  it('M-3: a confirmed governing filing goes one level deeper', () => {
+    expect(filedStoragePath(ORG, ATT, ok, { confirmedGoverning: true })).toBe(`${ORG}/from-inbox/${ATT}/governing/quote.pdf`)
+  })
+
   it('puts provenance in the name (no column until migration 0065)', () => {
     expect(filedDocumentName('Insurance certificate', '2026-10-20T14:03:00Z')).toBe(
       'Insurance certificate (from email, 2026-10-20)',
