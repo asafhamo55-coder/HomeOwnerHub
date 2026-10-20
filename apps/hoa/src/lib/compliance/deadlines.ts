@@ -29,6 +29,14 @@
  * anything else reads as "not done", so a forged value can't hide a
  * warning.
  *
+ * BL-131 FULL (migration 0067, behind M3_APPLIED): "done" lives in the
+ * compliance_deadlines_done table, one row per (association, code), board
+ * RLS. Callers pass the rows in (`done`) when the flag is on; a verified
+ * signed acknowledgment still counts too, so nothing a board already marked
+ * reappears, and `acksToMigrate` lists the acknowledgments that have no row
+ * yet so the dashboard can copy them across lazily. With the flag off the
+ * table is never read and only the signed acknowledgments count.
+ *
  * Pure and dependency-free (node:crypto only) on purpose: packages/jobs
  * (the daily digest) imports this file by relative path, so it must not use
  * the `@/` alias.
@@ -224,6 +232,78 @@ export function withComplianceAck(
   return { ...settings, [COMPLIANCE_ACK_KEY]: { ...acks, [code]: stored } }
 }
 
+// ─── compliance_deadlines_done rows (migration 0067, M3_APPLIED) ─────
+
+export const COMPLIANCE_DONE_TABLE = 'compliance_deadlines_done'
+
+/** One compliance_deadlines_done row, as the app reads and writes it. */
+export interface ComplianceDoneRow {
+  organization_id: string
+  association_id: string
+  code: string
+  done_at: string
+  done_by: string | null
+}
+
+/** association id → code → when and by whom. */
+export type ComplianceDoneByAssociation = Map<string, Map<string, ComplianceAck>>
+
+/** Rows from the table, keyed for lookup. Malformed rows and unknown codes are left out. */
+export function doneRowsByAssociation(rows: readonly unknown[]): ComplianceDoneByAssociation {
+  const out: ComplianceDoneByAssociation = new Map()
+  for (const raw of rows) {
+    const r = asObject(raw)
+    if (!r || typeof r.association_id !== 'string' || !isKnownDeadlineCode(r.code) || typeof r.done_at !== 'string') continue
+    const byCode = out.get(r.association_id) ?? new Map<string, ComplianceAck>()
+    byCode.set(r.code, { doneAt: r.done_at, doneBy: typeof r.done_by === 'string' ? r.done_by : null })
+    out.set(r.association_id, byCode)
+  }
+  return out
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LooseDb = { from: (table: string) => any }
+
+/**
+ * Every done row for the org's associations, or null when the read failed
+ * (the caller then falls back to the signed acknowledgments alone, and
+ * says nothing is wrong — a deadline shown that was done beats a deadline
+ * hidden that was not). Ids and codes only in the log.
+ */
+export async function loadComplianceDone(db: LooseDb, orgId: string): Promise<ComplianceDoneByAssociation | null> {
+  const { data, error } = (await db
+    .from(COMPLIANCE_DONE_TABLE)
+    .select('association_id, code, done_at, done_by')
+    .eq('organization_id', orgId)) as { data: unknown[] | null; error: { code?: string } | null }
+  if (error) {
+    console.error('[compliance-deadlines] done rows read failed', { orgId, code: error.code ?? null })
+    return null
+  }
+  return doneRowsByAssociation(data ?? [])
+}
+
+/**
+ * The verified signed acknowledgments that have no row yet: what the lazy
+ * migration copies into compliance_deadlines_done. Only codes that apply to
+ * the association's state, so a stray acknowledgment never becomes a row.
+ */
+export function acksToMigrate(
+  orgId: string,
+  associations: readonly ComplianceAssociationInput[],
+  secret: string | null,
+  done: ComplianceDoneByAssociation,
+): ComplianceDoneRow[] {
+  const out: ComplianceDoneRow[] = []
+  for (const a of associations) {
+    const applicable = new Set(deadlinesForState(complianceState(a.governingLawState, a.state)).map((d) => d.code))
+    for (const [code, ack] of readComplianceAcks(a.id, a.complianceSettings, secret)) {
+      if (!applicable.has(code) || done.get(a.id)?.has(code)) continue
+      out.push({ organization_id: orgId, association_id: a.id, code, done_at: ack.doneAt, done_by: ack.doneBy })
+    }
+  }
+  return out
+}
+
 // ─── Day math ───────────────────────────────────────────────────────
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -289,21 +369,24 @@ export interface PendingComplianceItem {
 
 /**
  * Every deadline that applies to these associations by state and has not
- * been marked done with a verified acknowledgment. Dated ones first,
- * soonest first; then standing ones.
+ * been marked done — by a verified acknowledgment, or (M3_APPLIED, the
+ * caller passes `done`) by a compliance_deadlines_done row. Dated ones
+ * first, soonest first; then standing ones.
  */
 export function pendingComplianceItems(
   associations: readonly ComplianceAssociationInput[],
   todayYmd: string,
   secret: string | null,
+  done: ComplianceDoneByAssociation | null = null,
 ): PendingComplianceItem[] {
   const out: PendingComplianceItem[] = []
   for (const a of associations) {
     const applicable = deadlinesForState(complianceState(a.governingLawState, a.state))
     if (applicable.length === 0) continue
     const acks = readComplianceAcks(a.id, a.complianceSettings, secret)
+    const rows = done?.get(a.id)
     for (const d of applicable) {
-      if (acks.has(d.code)) continue
+      if (acks.has(d.code) || rows?.has(d.code)) continue
       const daysLeft = d.dueOn ? daysUntil(todayYmd, d.dueOn) : null
       out.push({
         associationId: a.id,

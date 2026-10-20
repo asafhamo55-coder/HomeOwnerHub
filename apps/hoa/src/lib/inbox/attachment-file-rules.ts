@@ -2,8 +2,9 @@
  * BL-101 A8 — the pure half of "Save to documents" on an inbox attachment
  * (the action is lib/inbox/attachment-file.ts).
  *
- * No provenance column exists on hoa_documents yet (plan item B5, migration
- * 0065 adds `source_inbox_attachment_id`). Until then:
+ * Provenance column: `hoa_documents.source_inbox_attachment_id` (plan item
+ * B5) is in migration 0067 (not 0065, which never included inbox Phase B)
+ * and is written only once M3_APPLIED. Independently of it:
  *   - the "from email, <date>" provenance goes in the document NAME, the
  *     only free-text field the table has;
  *   - the copy lands at a path derived from the attachment id, so filing

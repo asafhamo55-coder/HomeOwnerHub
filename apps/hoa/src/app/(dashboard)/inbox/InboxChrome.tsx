@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { Alert, FilterChips } from '@homeowner-portal/ui'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import type { InboxFilter, InboxOwnerFilter, MailboxStatus } from '@/lib/inbox/queries'
 import { INBOX_OWNER_FILTERS, inboxQuery } from '@/lib/inbox/navigation'
 import { backfillBanner, type MailboxStatusRead } from '@/lib/inbox/backfill-banner'
@@ -12,6 +13,9 @@ export const INBOX_FILTERS: Array<{ key: InboxFilter; label: string }> = [
   { key: 'waiting', label: 'Waiting' },
   { key: 'closed', label: 'Closed' },
   { key: 'all', label: 'All' },
+  // BL-134 (migration 0067): threads snoozed into the future. Offered only
+  // once M3_APPLIED; before that nothing can be snoozed.
+  ...(M3_APPLIED ? [{ key: 'snoozed' as const, label: 'Snoozed' }] : []),
   // No "Filed in Gmail" chip. Mail the board filed or trashed in Gmail is
   // hidden and stays hidden: the count was noise in a work queue — it only
   // grows, and sitting beside "Needs review" it read as comparable work.

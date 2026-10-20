@@ -37,9 +37,11 @@ import {
   complianceAckSecret,
   complianceDigestItems,
   complianceDigestLine,
+  loadComplianceDone,
   pendingComplianceItems,
   type PendingComplianceItem,
 } from '../../../apps/hoa/src/lib/compliance/deadlines'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -493,8 +495,12 @@ export function buildRecordsBlock(args: { overdue: number; dueSoon: number; reco
 /**
  * The digest's statutory-deadline items for one org: each association's
  * applicable deadlines (by state) not marked done with a verified
- * acknowledgment, dated, and within the digest window. null on a failed
- * read (logged by code) so a failure never reads as "nothing is due".
+ * acknowledgment (or, once M3_APPLIED, a compliance_deadlines_done row),
+ * dated, and within the digest window. null on a failed associations read
+ * (logged by code) so a failure never reads as "nothing is due". A failed
+ * done-rows read falls back to the acknowledgments alone: a line for a
+ * deadline already done beats silence about one that is not. The digest
+ * never writes rows; the dashboard copies acknowledgments across.
  */
 export async function loadComplianceDeadlines(
   db: Db,
@@ -502,6 +508,7 @@ export async function loadComplianceDeadlines(
   today: string,
   logger: DigestLogger,
   secret: string | null = complianceAckSecret(),
+  live: boolean = M3_APPLIED,
 ): Promise<PendingComplianceItem[] | null> {
   const { data, error } = await db
     .from('associations')
@@ -531,6 +538,7 @@ export async function loadComplianceDeadlines(
         })),
       today,
       secret,
+      live ? await loadComplianceDone(db, orgId) : null,
     ),
   )
 }

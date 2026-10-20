@@ -45,6 +45,7 @@ interface FakeOpts {
   arcRequests?: Row
   tasks?: Row
   tickets?: Row
+  done?: Row
 }
 
 /** Records every filter so tests can assert what was queried. */
@@ -73,6 +74,7 @@ function fakeDb(opts: FakeOpts) {
     arc_requests: opts.arcRequests ?? { data: [], error: null },
     meeting_action_items: opts.tasks ?? { data: [], error: null },
     tickets: opts.tickets ?? { data: [], error: null },
+    compliance_deadlines_done: opts.done ?? { data: [], error: null },
   }
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {}
@@ -688,6 +690,30 @@ describe('runDailyDigest — statutory deadlines (BL-131)', () => {
       'other-secret',
     )
     expect(other).toHaveLength(1)
+  })
+
+  it('M3 off: never reads compliance_deadlines_done (the table may not exist)', async () => {
+    const { db, calls } = fakeDb({ associations: { data: [gaRow()], error: null } })
+    await loadComplianceDeadlines(db as never, ORG, '2026-10-20', logger(), SECRET, false)
+    expect(calls.some((c) => c.table === 'compliance_deadlines_done')).toBe(false)
+  })
+
+  it('M3 on: a compliance_deadlines_done row marks the deadline done, scoped to the org', async () => {
+    const doneRow = { association_id: GA, code: 'ga-sos-registration-2027', done_at: '2026-10-20T12:00:00Z', done_by: 'u-board' }
+    const { db, calls } = fakeDb({ associations: { data: [gaRow()], error: null }, done: { data: [doneRow], error: null } })
+    expect(await loadComplianceDeadlines(db as never, ORG, '2026-10-20', logger(), SECRET, true)).toEqual([])
+    expect(calls).toContainEqual({ table: 'compliance_deadlines_done', method: 'eq', args: ['organization_id', ORG] })
+    // Another association's row does not count for this one.
+    const other = fakeDb({
+      associations: { data: [gaRow()], error: null },
+      done: { data: [{ ...doneRow, association_id: '22222222-2222-4222-8222-222222222222' }], error: null },
+    })
+    expect(await loadComplianceDeadlines(other.db as never, ORG, '2026-10-20', logger(), SECRET, true)).toHaveLength(1)
+  })
+
+  it('M3 on: a failed done-rows read falls back to the signed acknowledgments, never to silence', async () => {
+    const { db } = fakeDb({ associations: { data: [gaRow()], error: null }, done: { data: null, error: { code: '42P01' } } })
+    expect(await loadComplianceDeadlines(db as never, ORG, '2026-10-20', logger(), SECRET, true)).toHaveLength(1)
   })
 
   it('a failed read is logged by code and returns null, not "nothing due"', async () => {

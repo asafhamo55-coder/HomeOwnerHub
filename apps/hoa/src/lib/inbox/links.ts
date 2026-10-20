@@ -14,6 +14,13 @@
  * on the way out, so a row written before these checks still can't show
  * another org's record.
  *
+ * BL-134 (inbox plan B3): migration 0067 adds the same check in the
+ * database (inbox_thread_links_validate, BEFORE INSERT OR UPDATE), so a
+ * write that skips this module (PostgREST directly, a future caller) is
+ * refused too, with 23503. Once M3_APPLIED, that refusal is reported as
+ * "record not found" (a target deleted or moved between our check and
+ * the insert), not as a generic failure.
+ *
  * No 'use server': the server actions that call this live in
  * lib/inbox/actions.ts and lib/inbox/convert/actions.ts. Board RLS client
  * only. Logs carry ids and error codes only.
@@ -21,6 +28,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
 
 type Db = SupabaseClient<Database>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -113,7 +121,16 @@ export async function writeThreadLink(
   )
   if (error) {
     console.error('writeThreadLink: insert failed', { orgId, threadId, type, code: error.code })
-    return { ok: false, error: LINK_ERRORS.failed }
+    return { ok: false, error: linkWriteError(error.code) }
   }
   return { ok: true }
+}
+
+/**
+ * The message for a failed link insert. 23503 is 0067's validation trigger
+ * (or the thread FK): the thread or the record is not in this org. Only
+ * distinguished once M3_APPLIED; before that every failure is generic.
+ */
+export function linkWriteError(code: string | undefined, live: boolean = M3_APPLIED): string {
+  return live && code === '23503' ? LINK_ERRORS.target : LINK_ERRORS.failed
 }

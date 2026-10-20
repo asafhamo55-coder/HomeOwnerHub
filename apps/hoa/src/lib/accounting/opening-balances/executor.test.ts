@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const m = vi.hoisted(() => ({ postJournalEntry: vi.fn() }))
+const m = vi.hoisted(() => ({ postJournalEntry: vi.fn(), m3: false }))
+vi.mock('@homeowner-portal/db/m3', () => ({
+  get M3_APPLIED() {
+    return m.m3
+  },
+}))
 vi.mock('@homeowner-portal/db', () => ({ postJournalEntry: m.postJournalEntry }))
 vi.mock('@homeowner-portal/workflows', () => ({ memoCodeFor: () => 'OAK-0001-DUES' }))
 
@@ -112,6 +117,29 @@ const request = (payload: unknown = PAYLOAD) =>
 
 beforeEach(() => {
   m.postJournalEntry.mockReset()
+  m.m3 = false
+})
+
+describe('BL-136: opening charges marked for the late-fee job (M3_APPLIED)', () => {
+  async function insertedRows() {
+    m.postJournalEntry.mockResolvedValue({ ok: true, journalEntryId: 'je-1', entryNumber: 'JE-2026-00001' })
+    const { db, calls } = fakeDb(healthy())
+    expect(await openingExecutor(db, request())).toEqual({ ok: true, resultRef: 'je-1' })
+    const insert = calls.find((c) => c.table === 'assessments' && has(c.ops, 'insert'))!
+    return insert.ops.find(([op]) => op === 'insert')![1][0] as Array<Record<string, unknown>>
+  }
+
+  it('flag off: writes no source column (it may not exist yet)', async () => {
+    const rows = await insertedRows()
+    expect(rows[0]).not.toHaveProperty('source')
+  })
+
+  it("flag on: every opening charge carries source = 'opening_balance'", async () => {
+    m.m3 = true
+    const rows = await insertedRows()
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) expect(row.source).toBe('opening_balance')
+  })
 })
 
 describe('openingExecutor', () => {
