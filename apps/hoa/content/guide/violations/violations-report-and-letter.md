@@ -13,7 +13,7 @@ shots:
   - name: guide-violations-approval-queue
     alt: The AI approval queue with a drafted letter and the Approve letter button highlighted
 related: [approvals-queue, documents-governing-and-ask]
-reviewed: 2026-10-19
+reviewed: 2026-10-20
 ---
 
 A violation goes from report, to notice, to cure period, to closed. HomeownerHub drafts the notice for you, but the board approves every word.
@@ -55,6 +55,7 @@ The violation is recorded with the notice marked as sent, and the cure period st
 
 ## Good to know
 - Already on the property's page? [[New violation]] at the top starts the report with that home picked.
+- **Homeowner responses.** The owner or resident can open the violation from their portal and answer it, with a photo of the fix. Their response shows on the violation under **Homeowner responses** and arrives as a new support request. Select [[Open the thread to reply or see photos]] to answer. Nothing is sent to them automatically.
 - **Nothing is sent from HomeownerHub.** Approving records that the notice went out and starts the cure clock. You send the letter.
 - The **State law for this letter** panel shows your state's rules for notices and fines, such as how many days' notice an owner gets and the largest fine allowed. Florida and California are covered.
 - **Follow-up letters.** If the owner hasn't fixed the problem, open the violation and select [[Draft follow-up letter]] under **Follow-up letters**. Pick **Second notice**, **Hearing notice**, **Fine notice** or **Decision letter** (a **Fine** or a **Suspension of common-area use**). For a fine or decision, tick **The hearing was held and the board approved the penalty** only if it really happened. Select [[Draft letter]]. A California hearing notice includes the meeting date, time and place, and the owner's right to attend and to ask for executive session (Civ. Code § 5855(b)). Fill in every bracketed blank, then select [[Save to approvals]], or [[Discard draft]]. The letter goes to **Approvals** only when you save it. If you close the window without saving, the draft isn't kept. Approve it in **Approvals** under **Violation letters**. It's filed on the same violation and shows in its history. No new violation is opened, and nothing is sent.

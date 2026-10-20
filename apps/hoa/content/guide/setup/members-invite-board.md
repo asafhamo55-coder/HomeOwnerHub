@@ -10,7 +10,7 @@ keywords: [invite, member, board, login, access, role, admin, add user, add admi
 shots:
   - name: guide-members-invite
     alt: The Invite a member form with the Send invitation button highlighted
-related: [start-board-admin, setup-properties-residents]
+related: [start-board-admin, setup-properties-residents, members-invite-owners]
 reviewed: 2026-10-20
 ---
 
@@ -40,5 +40,5 @@ They get an email with a sign-in link. If they already have a HomeownerHub login
 - **Change a role:** in the Members list, pick a new role from the dropdown on their row. It saves as soon as you pick. Only admins can do this.
 - **Remove someone:** use the trash button on their row and confirm. You can't remove yourself or the last admin.
 - The setup checklist's [[Invite the board]] step is done once someone besides you is on the Members list as an Admin or Board member. Inviting a resident doesn't count.
-- There is no list of pending invitations, and invitations can't be resent from this page. Send a new invitation instead.
+- Invitations nobody has accepted yet are listed under **Pending invitations**, where you can resend or revoke them. To invite every owner on your roster at once, see [Invite every owner to the portal at once](guide:members-invite-owners).
 - Managers who look after several HOAs switch between them with [[Switch HOA]] at the top of the sidebar, under the HomeownerHub name.

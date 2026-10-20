@@ -18,6 +18,8 @@ import { EnablePushButton } from '@/components/notifications/EnablePushButton'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { InviteMemberForm } from './InviteMemberForm'
 import { MemberRow } from './MemberRow'
+import { InviteAllOwners, PendingInvitations } from './OwnerInvites'
+import { listPendingInvitations, previewOwnerInvites } from '@/lib/owner-invites-actions'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { loadEmailConsent } from '@/lib/email-consent'
 
@@ -31,7 +33,7 @@ export default async function MembersPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [membersResult, properties, pushDevices, consentResult] = await Promise.all([
+  const [membersResult, properties, pushDevices, consentResult, ownerPreview, pending] = await Promise.all([
     tryLoad('members', () => listMembers()),
     listOrgProperties(),
     // Board members are the people ticket notifications go to, and this
@@ -42,6 +44,10 @@ export default async function MembersPage() {
     // BL-020 (M1): each member's consent to official notices by email.
     // Not read at all until M1_APPLIED.
     M1_APPLIED ? loadEmailConsent(supabase, org.id) : Promise.resolve(null),
+    // BL-128: owners on the roster with no account, and invitations
+    // nobody has accepted yet.
+    previewOwnerInvites(),
+    listPendingInvitations(),
   ])
   const consent = consentResult?.ok && consentResult.available ? consentResult.consent : null
 
@@ -68,6 +74,45 @@ export default async function MembersPage() {
         </CardHeader>
         <CardContent>
           <InviteMemberForm properties={properties} role={role} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle as="h2">Invite owners to the portal</CardTitle>
+          <CardDescription>
+            Sends the invitation email to every owner on your roster who has an email address and no account yet, a
+            batch at a time. You confirm the count first. Each account is linked to the home the owner holds.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InviteAllOwners
+            total={ownerPreview.ok ? ownerPreview.data.total : null}
+            held={ownerPreview.ok ? ownerPreview.data.held : 0}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader
+          className="pb-3"
+          actions={
+            pending && pending.length > 0 ? (
+              <Badge variant="neutral" className="num">
+                {pending.length}
+              </Badge>
+            ) : null
+          }
+        >
+          <CardTitle as="h2">Pending invitations</CardTitle>
+          <CardDescription>Invited but not signed in yet. Resend the email, or revoke an invitation sent by mistake.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pending ? (
+            <PendingInvitations invitations={pending} viewerRole={role} />
+          ) : (
+            <LoadFailed what="pending invitations" retryHref="/settings/members" />
+          )}
         </CardContent>
       </Card>
 
