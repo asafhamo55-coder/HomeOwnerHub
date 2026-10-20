@@ -113,6 +113,10 @@ vi.mock('@/lib/auth', () => ({
     h.role === null ? null : { role: h.role, org: { id: ORG, name: 'Test HOA', hub_type: 'hoa', plan: 'pro', doors_count: 1 } },
   ),
   getCurrentUserRoleInOrg: vi.fn(async () => h.role),
+  requireBoardOrAdmin: vi.fn(async () => {
+    if (h.role !== 'admin' && h.role !== 'board') throw new Error('redirected')
+    return { role: h.role, org: { id: ORG, name: 'Test HOA' } }
+  }),
 }))
 vi.mock('@/lib/orgs', () => ({ getCurrentOrg: vi.fn(async () => ({ id: ORG, name: 'Test HOA' })) }))
 vi.mock('@/lib/primary-association', () => ({
@@ -141,6 +145,9 @@ const { createRfpDraft, publishRfp, cancelRfp } = await import('./rfps')
 const { askStateLawAction } = await import('./state-law')
 const { sendTestAlert } = await import('./events')
 const { BOARD_ONLY_DENIED } = await import('./accounting/guard')
+const { inviteMember } = await import('./members')
+const PROPERTY_MINE = '88888888-8888-4888-8888-888888888888'
+const PROPERTY_THEIRS = '99999999-9999-4999-8999-999999999999'
 
 const MANUAL = { coi: null, w9: null, license: null }
 
@@ -165,6 +172,10 @@ beforeEach(() => {
     bids: [{ id: 'bid-x', organization_id: OTHER_ORG, raw_document_path: `${OTHER_ORG}/rfps/${RFP_THEIRS}/bids/v/a.pdf` }],
     rfp_line_items: [{ id: 'li-1', rfp_id: RFP_MINE }],
     associations: [{ id: 'assoc-1', organization_id: ORG, state: 'GA' }],
+    hoa_properties: [
+      { id: PROPERTY_MINE, org_id: ORG },
+      { id: PROPERTY_THEIRS, org_id: OTHER_ORG },
+    ],
     hoa_recurring_events: [
       { id: EVENT_THEIRS, organization_id: OTHER_ORG, association_id: 'assoc-2', title: 'x' },
       { id: EVENT_MINE, organization_id: ORG, association_id: 'assoc-1', title: 'y', notify_channels: ['email'] },
@@ -352,5 +363,21 @@ describe('sendTestAlert', () => {
     const res = await sendTestAlert(EVENT_MINE)
     expect(res.ok).toBe(true)
     expect(h.sendEventAlertEmail).toHaveBeenCalledWith(expect.objectContaining({ organizationId: ORG }))
+  })
+})
+
+describe('inviteMember propertyId', () => {
+  it("refuses another org's property before the service role is reached", async () => {
+    h.role = 'admin'
+    const res = await inviteMember({ email: 'new@example.com', role: 'resident', propertyId: PROPERTY_THEIRS } as never)
+    expect(res).toEqual({ ok: false, error: 'We could not find that home.' })
+    expect(h.createAdminClient).not.toHaveBeenCalled()
+  })
+
+  it('an own-org property passes the check and reaches the invite', async () => {
+    h.role = 'admin'
+    await expect(
+      inviteMember({ email: 'new@example.com', role: 'resident', propertyId: PROPERTY_MINE } as never),
+    ).rejects.toThrow('service role reached')
   })
 })
