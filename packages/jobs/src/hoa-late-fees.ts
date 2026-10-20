@@ -3,11 +3,15 @@ import {
   loadAccountingRefs,
   postJournalEntry,
 } from '@homeowner-portal/db'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import { inngest } from './client'
 import { readAll } from './read-all'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn } from './association-time'
 
 const HOA_LATE_FEE_RATE = 0.05 // 5% — typical default; per-row override later.
+
+/** assessments.source the opening-balances executor writes (migration 0067, BL-136). */
+export const OPENING_BALANCE_SOURCE = 'opening_balance'
 
 /** memo_code `.in()` lists are chunked so the request URL stays small. */
 const MEMO_CHUNK = 150
@@ -45,18 +49,26 @@ export async function findUnchargedDefaults(
   db: Db,
   associationId: string,
   today: string,
+  skipOpeningBalances: boolean = M3_APPLIED,
 ): Promise<{ defaulted: DefaultedAssessment[]; uncharged: DefaultedAssessment[] }> {
   const defaulted = await readAll<DefaultedAssessment>(
-    (from, to) =>
-      db
+    (from, to) => {
+      let q = db
         .from('assessments')
         .select('id, unit_id, fiscal_period_id, amount, assessment_type')
         .eq('association_id', associationId)
         .in('status', ['open', 'partial'])
         .lt('due_date', today)
         .neq('assessment_type', 'late_fee')
+      // BL-136 (migration 0067): a balance carried over by the opening-
+      // balances approval was late at the previous manager, not here, so it
+      // never earns a late fee. `source` is NULL for every other charge, and
+      // NULL <> 'opening_balance' is NULL in SQL, hence the explicit is.null.
+      if (skipOpeningBalances) q = q.or(`source.is.null,source.neq.${OPENING_BALANCE_SOURCE}`)
+      return q
         .order('id', { ascending: true })
-        .range(from, to) as unknown as PromiseLike<{ data: DefaultedAssessment[] | null; error: QueryError | null }>,
+        .range(from, to) as unknown as PromiseLike<{ data: DefaultedAssessment[] | null; error: QueryError | null }>
+    },
     (e) => readFailed('defaulted assessments', e),
   )
 

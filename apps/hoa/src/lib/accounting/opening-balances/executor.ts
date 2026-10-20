@@ -12,15 +12,23 @@
 // The charges go in first so a failed entry can delete them: nothing is
 // left half-posted. The entry's source_id is the approval request.
 //
+// BL-136: once M3_APPLIED (migration 0067), each charge is marked
+// assessments.source = 'opening_balance', which the nightly late-fee job
+// skips. With the flag off the column may not exist, so it is not written.
+//
 // Relative imports only (the approvals inbox composes this and
 // tests/integration loads it).
 
 import { postJournalEntry } from '@homeowner-portal/db'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import { memoCodeFor, type ApprovalExecutor } from '@homeowner-portal/workflows'
 import { entryBalances } from './model'
 import { OPENING_ACTION, readOpeningPayload, type OpeningPayload } from './proposal'
 
 const CHUNK = 200
+
+/** assessments.source for a carried-over charge (migration 0067, BL-136). */
+export const OPENING_BALANCE_SOURCE = 'opening_balance'
 
 type Db = Parameters<ApprovalExecutor>[0]
 type Fail = { ok: false; error: string }
@@ -133,8 +141,11 @@ export const openingExecutor: ApprovalExecutor = async (db, request) => {
         unitId: c.unitId,
         assessmentType: 'regular',
       }),
+      ...(M3_APPLIED ? { source: OPENING_BALANCE_SOURCE } : {}),
     }))
-    const { data, error } = await db.from('assessments').insert(rows).select('id')
+    // assessments.source is not in the generated types until gen:types runs
+    // after prod has 0067 (CLAUDE.md footgun 3), hence the cast.
+    const { data, error } = await db.from('assessments').insert(rows as never).select('id')
     if (error || !data || data.length !== rows.length) {
       inserted.push(...(data ?? []).map((r) => r.id))
       await removeCharges(db, inserted)

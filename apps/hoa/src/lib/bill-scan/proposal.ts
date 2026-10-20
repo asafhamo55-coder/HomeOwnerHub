@@ -41,8 +41,9 @@ const field = <T extends z.ZodTypeAny>(v: T) => z.object({ value: v.nullable(), 
  * "Scan as a bill" on an inbox attachment records the thread and attachment
  * here, so /approvals can link back to the email. It lives on the proposal's
  * payload because no column can hold it yet: inbox_thread_links has no
- * approval-request type and hoa_documents/invoices have no source column
- * (candidate for migration 0065, with B5's source_inbox_attachment_id).
+ * approval-request type and invoices have no source column. (Migration
+ * 0067, not 0065, added B5's hoa_documents.source_inbox_attachment_id;
+ * a bill's origin still has no column.)
  * Ids only — never the subject, the sender or the file name.
  */
 const BillOriginSchema = z.object({

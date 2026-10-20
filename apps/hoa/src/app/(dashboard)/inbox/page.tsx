@@ -263,7 +263,8 @@ export default async function InboxPage({
         >
           <BatchBanner groups={batchGroups} />
           {threads.length === 0 ? (
-            counts.all > 0 ? (
+            // Snoozed threads (BL-134) are outside `all`, but the inbox is not empty.
+            counts.all + (counts.snoozed ?? 0) > 0 ? (
               <EmptyState
                 variant="compact"
                 icon={<Inbox aria-hidden />}

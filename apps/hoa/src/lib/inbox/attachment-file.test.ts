@@ -48,6 +48,12 @@ function fakeDb() {
 }
 
 let gate: { ok: true; role: 'board'; orgId: string } | { ok: false; error: string }
+const m3 = vi.hoisted(() => ({ on: false }))
+vi.mock('@homeowner-portal/db/m3', () => ({
+  get M3_APPLIED() {
+    return m3.on
+  },
+}))
 vi.mock('@/lib/accounting/guard', () => ({
   BOARD_ONLY_DENIED: 'Only board members and admins can make this change.',
   requireBoardOrAdminForAction: vi.fn(async () => gate),
@@ -70,6 +76,7 @@ function form(over: Record<string, string> = {}) {
 
 let errorSpy: ReturnType<typeof vi.spyOn>
 beforeEach(() => {
+  m3.on = false
   gate = { ok: true, role: 'board', orgId: ORG }
   attachmentRow = {
     id: ATT,
@@ -109,6 +116,17 @@ describe('saveAttachmentToDocuments', () => {
     })
     expect(readPdfTexts).not.toHaveBeenCalled()
     expect(inserted).not.toHaveProperty('visible_to_owners')
+  })
+
+  it('BL-134 B5, M3 off: no source_inbox_attachment_id (the column may not exist)', async () => {
+    expect(await saveAttachmentToDocuments({}, form())).toEqual({ ok: true, documentId: 'doc-1' })
+    expect(inserted).not.toHaveProperty('source_inbox_attachment_id')
+  })
+
+  it('BL-134 B5, M3 on: the library row points back at the attachment it was filed from', async () => {
+    m3.on = true
+    expect(await saveAttachmentToDocuments({}, form())).toEqual({ ok: true, documentId: 'doc-1' })
+    expect(inserted).toMatchObject({ org_id: ORG, source_inbox_attachment_id: ATT })
   })
 
   it('M-3: refuses a governing type without the confirmation tick, server-side', async () => {

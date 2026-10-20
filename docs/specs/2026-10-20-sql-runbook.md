@@ -52,8 +52,9 @@ database.
 | G | Payment-plan double count correction | OA-3 | G1–G5 | Yes (G4, money records) | none; do last |
 | H | Migration 0065: new plan names, plus anything from C, D, E not yet done | BL-123 | H1–H3 | Yes (H2) | A, B; ideally C, D, E |
 | I | Migration 0066: owner records requests, the billing-columns guard on orgs, and the Fined / Dismissed violation statuses | BL-123 (3), security finding (orgs_update), live bug (violation status check) | I1–I3 | Yes (I2, widens two checks, adds a column and two guards) | none |
+| J | Migration 0067 (batch M3): no late fees on opening balances, inbox snooze and reply clock, link and filing checks, compliance "done" table | BL-136, BL-134, BL-131 | J1–J4 | Yes (J3, adds columns, a table and three automatic rules) | none |
 
-43 steps in total. Sections A and B are **Urgent**. If you only have ten
+47 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
 
 ---
@@ -477,6 +478,131 @@ Fined and Dismissed are hidden instead of failing on save).
 
 ---
 
+## Section J · Migration 0067, batch M3 (round 3)
+
+File: `migrations/0067_m3_batch.sql`. *Needs:* nothing else in this runbook
+(it uses the board/admin check from migration 0012 and the inbox
+tables from 0029, both live). Order against A to I does not matter.
+
+What it does, in five parts:
+
+1. **No late fee on opening balances (BL-136).** Adds an empty column
+   `assessments.source`. When the board approves opening balances, each
+   carried-over charge is marked `opening_balance`, and the nightly 5% late
+   fee skips those charges. Every existing charge stays as it is (empty).
+2. **Inbox snooze and reply clock (BL-134).** Adds three empty columns to
+   inbox conversations: when the first resident email arrived, when the
+   board first replied, and "snoozed until". A small automatic rule keeps
+   the first two up to date as mail arrives, and a new email from the
+   resident un-snoozes the conversation. It fills the first two in once
+   for existing conversations.
+3. **Link check (BL-134, security).** Today a conversation can be linked to
+   any made-up id. After this, a link must point at a real ticket,
+   architectural request, violation or message thread **of the same HOA**,
+   or the database refuses it.
+4. **Filed-from-email link (BL-134).** Adds an empty column on documents
+   recording which email attachment a document was filed from, and refuses
+   an attachment from another HOA.
+5. **Compliance "done" table (BL-131).** A new table holding which state-law
+   deadlines the board marked done. Only the board and admins of that HOA
+   can see or change it; owners cannot. The "done" marks saved so far stay
+   where they are and the app copies them into the table the first time a
+   board member opens the dashboard after the switch below.
+
+Nothing in the app reads or writes parts 1, 2, 4 or 5 until Claude turns on
+`M3_APPLIED` after J4. Part 3 works as soon as it exists: the app already
+checks links the same way, so nobody sees a change.
+
+### J1 · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'assessments'
+                    AND column_name = 'source')                              AS source_done,
+         (SELECT count(*) FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'inbox_threads'
+             AND column_name IN ('first_inbound_at', 'first_response_at', 'snoozed_until')) AS thread_columns,
+         EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgrelid = 'public.inbox_messages'::regclass
+                    AND tgname = 'inbox_messages_reply_clock')               AS clock_done,
+         EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgrelid = 'public.inbox_thread_links'::regclass
+                    AND tgname = 'inbox_thread_links_validate')              AS link_check_done,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'hoa_documents'
+                    AND column_name = 'source_inbox_attachment_id')          AS provenance_done,
+         to_regclass('public.compliance_deadlines_done') IS NOT NULL          AS done_table_done,
+         (SELECT count(*) FROM public.inbox_threads)                          AS threads,
+         (SELECT count(*) FROM public.inbox_thread_links l
+           WHERE NOT EXISTS (SELECT 1 FROM public.inbox_threads t
+                              WHERE t.id = l.thread_id AND t.organization_id = l.organization_id)
+              OR (l.resource_type = 'ticket' AND NOT EXISTS (SELECT 1 FROM public.tickets x
+                    WHERE x.id = l.resource_id AND x.organization_id = l.organization_id))
+              OR (l.resource_type = 'arc_request' AND NOT EXISTS (SELECT 1 FROM public.arc_requests x
+                    WHERE x.id = l.resource_id AND x.organization_id = l.organization_id))
+              OR (l.resource_type = 'violation' AND NOT EXISTS (SELECT 1 FROM public.hoa_violations x
+                    WHERE x.id = l.resource_id AND x.org_id = l.organization_id))
+              OR (l.resource_type = 'communication_thread' AND NOT EXISTS (SELECT 1 FROM public.communication_threads x
+                    WHERE x.id = l.resource_id AND x.organization_id = l.organization_id))
+         )                                                                    AS bad_links;
+  ```
+
+- **Does:** shows whether each part is already there, how many inbox conversations exist, and how many existing links would fail the new link check.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `source_done` = false, `thread_columns` = 0, `clock_done` = false, `link_check_done` = false, `provenance_done` = false, `done_table_done` = false, `threads` = some number, `bad_links` = 0.
+- **Send:** the row.
+- **If `bad_links` is more than 0:** still fine to continue. The check only applies to new or changed links; existing ones are left alone and the app already hides a bad one. Tell Claude the number.
+- **If every `_done` column is true and `thread_columns` = 3:** stop, J is done; tell Claude.
+
+### J2 · Existing "done" marks (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT count(*)                                                        AS associations,
+         count(*) FILTER (WHERE compliance_settings ? 'compliance_deadline_acks') AS with_done_marks
+    FROM public.associations;
+  ```
+
+- **Does:** counts associations, and how many have state-law deadlines marked done the old way (these are copied into the new table later, by the app).
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row with two numbers; `with_done_marks` is 0 or small.
+- **Send:** the row.
+
+### J3 · Apply 0067 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0067_m3_batch.sql`. Ask Claude to copy it ("copy step J3").
+- **Does:** adds the empty columns, the reply-clock rule (and fills it in once for existing conversations), the link check, the filed-from-email check, and the compliance "done" table with its board-only rules.
+- **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
+- **Time:** a few seconds (the one-time fill touches each inbox conversation once).
+- **Expect:** "Success. No rows returned".
+- **Send:** "J3 done", or the error.
+- **If it errors:** nothing was changed. Send the error.
+
+### J4 · Verify (read-only)
+
+- **Paste:** the J1 query again.
+- **Expect:** one row: `source_done` = true, `thread_columns` = 3, `clock_done` = true, `link_check_done` = true, `provenance_done` = true, `done_table_done` = true, `threads` and `bad_links` the same numbers as in J1.
+- **Then paste, on its own:**
+
+  ```sql
+  SELECT count(*)                                         AS threads,
+         count(*) FILTER (WHERE first_inbound_at IS NOT NULL)  AS clocked,
+         count(*) FILTER (WHERE first_response_at IS NOT NULL) AS answered,
+         count(*) FILTER (WHERE snoozed_until IS NOT NULL)     AS snoozed,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'compliance_deadlines_done') AS done_table_rules
+    FROM public.inbox_threads;
+  ```
+
+- **Expect:** `clocked` close to `threads` (a conversation the board started has no resident email, so it stays empty), `answered` ≤ `clocked`, `snoozed` = 0, `done_table_rules` = 4.
+- **Send:** both rows, and the words **"0067 is applied"**.
+- **Flag Claude flips after J4:** `M3_APPLIED` → `true` (`packages/db/src/m3.ts`), then deploys hoa + jobs. That turns on, together: the opening-balance mark and the late-fee skip, the inbox Snooze control, "Snoozed" list and reply time, "Filed to library" on emails and "filed from an email" on documents, and the compliance "done" table (with the lazy copy of the old marks). `tests/integration/security/m3-batch.test.ts` covers all five parts, including the security rules, in CI.
+
+---
+
 ## App switches after each section
 
 | After | Switch | Where | Who / how |
@@ -490,6 +616,7 @@ Fined and Dismissed are hidden instead of failing on save).
 | G5 | none | — | — |
 | H3 | `SENDER_AUTH_COLUMN_LIVE = true` if not done after E5; `PRICING_V2` stays off until OA-16 | `packages/mailbox/src/auth-results.ts` | Claude, then deploy hoa + jobs |
 | I3 | `RECORDS_REQUESTS_LIVE = true`; `VIOLATION_FINED_STATUS_LIVE = true`; un-draft `resident-records-request` and `tickets-records-requests` | `packages/db/src/records-requests.ts`, `packages/db/src/violation-statuses.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
+| J4 | `M3_APPLIED = true` (one flag for all of 0067: BL-136, BL-134, BL-131) | `packages/db/src/m3.ts` | Claude, then deploy hoa + jobs |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs

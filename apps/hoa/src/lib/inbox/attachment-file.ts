@@ -16,8 +16,11 @@
  * the inbox object must not go with it). The source path is checked against
  * the exact shape the attachments job mints before the copy runs.
  *
- * Provenance has no column yet (B5, migration 0065), so it goes in the
- * name; see attachment-file-rules.ts. Nothing is made resident-visible
+ * Provenance goes in the name ("from email, <date>"; see
+ * attachment-file-rules.ts) and, once M3_APPLIED (migration 0067, inbox
+ * plan B5), also in hoa_documents.source_inbox_attachment_id, which the
+ * thread view ("Filed to library") and the document page (link back to
+ * the email) read through provenance.ts. Nothing is made resident-visible
  * here beyond what the chosen type already implies (visible_to_owners
  * keeps its default, false).
  *
@@ -31,6 +34,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
@@ -172,7 +176,10 @@ export async function saveAttachmentToDocuments(
       file_size: row.size_bytes,
       parsed_text: parsedText,
       parsed_at: parsedText ? new Date().toISOString() : null,
-    })
+      // BL-134 B5 (0067). Not in the generated types until gen:types runs
+      // after prod has 0067 (CLAUDE.md footgun 3), hence the cast below.
+      ...(M3_APPLIED ? { source_inbox_attachment_id: row.id } : {}),
+    } as never)
     .select('id')
     .single()
   if (insertError || !doc) {

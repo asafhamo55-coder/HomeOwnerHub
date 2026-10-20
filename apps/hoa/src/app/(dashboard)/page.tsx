@@ -49,6 +49,7 @@ import { loadReserveSnapshot, reserveDisclosureHint } from '@/lib/accounting/res
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { ComplianceDeadlinesCard } from '@/components/dashboard/ComplianceDeadlinesCard'
 import { complianceAckSecret, pendingComplianceItems } from '@/lib/compliance/deadlines'
+import { loadComplianceDoneAndMigrate } from '@/lib/compliance/done'
 import { getCurrentUserRole } from '@/lib/auth'
 
 export const metadata = { title: 'Dashboard' }
@@ -442,7 +443,8 @@ async function ReservesSection() {
 }
 
 // BL-131: deadlines that apply to the org's associations by state and that
-// no board member has marked done (signed acknowledgment). Board/admin only,
+// no board member has marked done (signed acknowledgment, or a
+// compliance_deadlines_done row once M3_APPLIED). Board/admin only,
 // re-checked here although the layout already sends residents away.
 async function ComplianceDeadlinesSection({ orgId }: { orgId: string }) {
   const ctx = await getCurrentUserRole()
@@ -465,17 +467,19 @@ async function ComplianceDeadlinesSection({ orgId }: { orgId: string }) {
     governing_law_state: string | null
     compliance_settings: unknown
   }>
-  const items = pendingComplianceItems(
-    rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      state: r.state,
-      governingLawState: r.governing_law_state,
-      complianceSettings: r.compliance_settings,
-    })),
-    todayIn(timeZone),
-    complianceAckSecret(),
-  )
+  const associations = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    state: r.state,
+    governingLawState: r.governing_law_state,
+    complianceSettings: r.compliance_settings,
+  }))
+  const secret = complianceAckSecret()
+  // M3_APPLIED (0067): also the compliance_deadlines_done rows, copying any
+  // signed acknowledgment that has no row yet. Null (flag off or a failed
+  // read): the signed acknowledgments alone.
+  const done = await loadComplianceDoneAndMigrate(supabase, orgId, associations, secret)
+  const items = pendingComplianceItems(associations, todayIn(timeZone), secret, done)
   return <ComplianceDeadlinesCard items={items} multipleAssociations={rows.length > 1} />
 }
 

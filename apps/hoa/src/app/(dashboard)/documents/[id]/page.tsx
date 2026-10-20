@@ -25,6 +25,9 @@ import {
 import { ParsedTextEditor } from './ParsedTextEditor'
 import { DocumentActions } from './DocumentActions'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
+import { getCurrentOrg } from '@/lib/orgs'
+import { documentEmailSource } from '@/lib/inbox/provenance'
 import { docDetailColumns, ownerVisibilityControl } from '@/lib/resident-documents/owner-control'
 import { OwnerVisibilitySwitch } from '@/components/documents/OwnerVisibilitySwitch'
 
@@ -102,6 +105,15 @@ export default async function DocumentDetailPage({
 
   const parse = documentParseStatus(doc.parsed_at)
 
+  // BL-134 B5 (0067): the email this document was filed from. Skipped
+  // entirely (no org read, no query) until M3_APPLIED; a failure just
+  // hides the link.
+  const emailSource = M3_APPLIED
+    ? await getCurrentOrg()
+        .then((org) => (org ? documentEmailSource(supabase, org.id, doc.id) : null))
+        .catch(() => null)
+    : null
+
   return (
     <Page
       title={doc.name}
@@ -110,6 +122,12 @@ export default async function DocumentDetailPage({
         <>
           {DOCUMENT_TYPE_LABELS[doc.type] ?? doc.type}
           {doc.created_at ? ` · uploaded ${format(new Date(doc.created_at), 'PP')}` : ''}
+          {emailSource ? (
+            <>
+              {' · '}
+              <Link href={`/inbox/${emailSource.threadId}`}>filed from an email</Link>
+            </>
+          ) : null}
         </>
       }
       breadcrumbs={[...crumbsBase, { label: doc.name }]}

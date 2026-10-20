@@ -1,4 +1,5 @@
-import { AlertTriangle, Download, Loader2, Paperclip, RotateCw } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, Download, FileCheck, Loader2, Paperclip, RotateCw } from 'lucide-react'
 import { Avatar, Badge, cn } from '@homeowner-portal/ui'
 import type { ThreadMessage } from '@/lib/inbox/queries'
 import { attachmentView } from '@/lib/inbox/attachment-state'
@@ -17,7 +18,7 @@ const CHIP = 'inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2
  * downloading, retrying (attempt n of 4), failed with a Retry, or failed
  * for good (too large / not available — open it in Gmail).
  */
-export function AttachmentChip({ file }: { file: Attachment }) {
+export function AttachmentChip({ file, filedDocumentId = null }: { file: Attachment; filedDocumentId?: string | null }) {
   const view = attachmentView(file)
 
   if (view.kind === 'stored') {
@@ -36,7 +37,19 @@ export function AttachmentChip({ file }: { file: Attachment }) {
           <span className="truncate">{file.fileName}</span>
           <Download className="size-3.5 shrink-0 text-muted" aria-hidden />
         </a>
-        <SaveToDocumentsButton attachmentId={file.id} fileName={file.fileName} />
+        {/* BL-134 B5 (0067): once filed, link to the library copy instead of
+            offering to file it again. Only ever set once M3_APPLIED. */}
+        {filedDocumentId ? (
+          <Link
+            href={`/documents/${filedDocumentId}`}
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            <FileCheck className="size-3.5" aria-hidden />
+            Filed to library
+          </Link>
+        ) : (
+          <SaveToDocumentsButton attachmentId={file.id} fileName={file.fileName} />
+        )}
         {looksLikeBillFile(file.fileName) ? <ScanAsBillButton attachmentId={file.id} fileName={file.fileName} /> : null}
       </span>
     )
@@ -78,7 +91,14 @@ export function AttachmentChip({ file }: { file: Attachment }) {
   )
 }
 
-export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
+export function MessageThread({
+  messages,
+  filedDocuments,
+}: {
+  messages: ThreadMessage[]
+  /** BL-134 B5: attachment id → the library document filed from it (M3_APPLIED only). */
+  filedDocuments?: ReadonlyMap<string, string>
+}) {
   return (
     <ol aria-label="Messages" className="space-y-3">
       {messages.map((message) => {
@@ -141,7 +161,7 @@ export function MessageThread({ messages }: { messages: ThreadMessage[] }) {
                 <ul aria-label="Attachments" className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
                   {message.attachments.map((file) => (
                     <li key={file.id} className="min-w-0 max-w-full">
-                      <AttachmentChip file={file} />
+                      <AttachmentChip file={file} filedDocumentId={filedDocuments?.get(file.id) ?? null} />
                     </li>
                   ))}
                 </ul>

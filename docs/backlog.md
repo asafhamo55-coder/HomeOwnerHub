@@ -1267,6 +1267,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
      - **Included, from fixtures:** GA O.C.G.A. § 43-17A-2 (SB 406 § 2, effective 2027-01-01 per § 9(a); `scripts/fixtures/state-law/ga-sb406-2026-registration.txt`). Correction to the pain line above: registration applies to every GA owners' association (§ 43-17A-1(6)), not only those that fine. The Secretary of State says filing opens *on or after* 2027-01-01. Also TX Prop. Code § 209.004, a standing obligation with no date, so it is on the card only (`tx-prop-209-004-2026.txt`).
      - **Omitted:** FL milestone and SIRS, because § 553.899(3)(a) covers condominium and cooperative buildings only (ch. 718/719, not ch. 720). CA § 5551 balconies, because the section text isn't in our fixtures (leginfo is behind a bot challenge) and the research's date (2026-01-01) has already passed.
      - The full BL-131 (0067 table, `/compliance`, evidence, board report) is still open. When it lands, migrate these acknowledgments into rows.
+   - **Built behind `M3_APPLIED` (2026-10-20, `migrations/0067_m3_batch.sql` part 5):** `compliance_deadlines_done` (org, association, code, done_at, done_by; board/admin RLS, one row per association + code). With the flag on, "Mark as done" writes a row, the dashboard and digest read rows plus any verified signed acknowledgment, and the dashboard copies acknowledgments into rows lazily (`apps/hoa/src/lib/compliance/done.ts`). `/compliance`, evidence and the board-report line are still open.
    - Effort M, score 1.6.
 8. **BL-132 Insurance and fidelity-bond tracker.**
    - **Pain:** premiums are up nearly 3× with new exclusions (LA Business Journal, 2026-10-12). CA § 5806 requires fidelity coverage of at least reserves plus 3 months, including funds-transfer fraud.
@@ -1295,7 +1296,8 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
       - B3: harden `inbox_thread_links`. A same-org existence trigger closes today's any-UUID hole, plus `source_message_id`.
       - B5: `hoa_documents.source_inbox_attachment_id`, with "Filed to library" on the email.
     - **Note:** 0065 did **not** include inbox Phase B, despite the groomed table above and the comments in `apps/hoa/src/lib/inbox/attachment-file-rules.ts:6` and `apps/hoa/src/lib/bill-scan/proposal.ts:45`; fix those comments.
-    - **Flag:** `INBOX_0067_APPLIED`.
+    - **Flag:** `M3_APPLIED` (one flag for all of 0067; replaces the planned `INBOX_0067_APPLIED`).
+    - **Core built behind `M3_APPLIED` (2026-10-20, `migrations/0067_m3_batch.sql` parts 2–4):** `first_inbound_at` / `first_response_at` (trigger-maintained reply clock, shown on the thread), `snoozed_until` (Snooze control, "Snoozed" chip; a new inbound email wakes the thread), the `inbox_thread_links` same-org existence trigger (23503), and `hoa_documents.source_inbox_attachment_id` ("Filed to library" on the email, "filed from an email" on the document). Stale "0065" comments fixed. Still open: `sla_due_at`, category / priority / classifier routing, `source_message_id`, the "waiting on us > 3 days" digest line.
     - Effort M–L, score 0.80.
 
 **Below the line:**
@@ -1311,4 +1313,4 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 - A second approver when a vendor's remit-to details change (with BL-039).
 - FL condo 30-day website posting (with BL-038).
 - **BL-135 Single-member invite through the outbound guard:** `inviteMember` (one at a time) still sends the Supabase invite without the outbound guard. The bulk path (BL-128) uses the guard. Route the single path through it too. **Done:** `inviteMember` now checks `fetchOrgSandbox` + `guardRecipients` before `inviteUserByEmail`; a held address gets no account, email or membership (`members-invite-guard.test.ts`).
-- **BL-136 Exempt opening-balance charges from late fees:** opening charges get a "due on" date (default today + 30 days) so the nightly 5% late-fee job doesn't hit carried-over balances on day one. The cleaner fix is a marker column (e.g. `assessments.source = 'opening_balance'`) that the late-fee job skips. Batch it into the next migration.
+- **BL-136 Exempt opening-balance charges from late fees:** opening charges get a "due on" date (default today + 30 days) so the nightly 5% late-fee job doesn't hit carried-over balances on day one. The cleaner fix is a marker column (e.g. `assessments.source = 'opening_balance'`) that the late-fee job skips. Batch it into the next migration. **Built behind `M3_APPLIED`** (`migrations/0067_m3_batch.sql` part 1): the executor marks its charges and `findUnchargedDefaults` skips them once the flag is on.

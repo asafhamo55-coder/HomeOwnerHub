@@ -41,6 +41,7 @@
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import type { GmailThreadState } from '@homeowner-portal/mailbox'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import { resolveForDisplay } from '@/lib/communications/display'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
@@ -247,9 +248,11 @@ export type InboxFilter =
   | 'waiting'
   | 'closed'
   | 'all'
+  /** BL-134 (0067, M3_APPLIED): threads snoozed into the future, any status. */
+  | 'snoozed'
 
-/** Status filters, i.e. everything except the catch-all `all`. */
-export type StatusFilter = Exclude<InboxFilter, 'all'>
+/** Status filters, i.e. everything except the catch-all `all` and the `snoozed` view. */
+export type StatusFilter = Exclude<InboxFilter, 'all' | 'snoozed'>
 
 /**
  * Thread states that have left the Gmail inbox, as a PostgREST `in` list.
@@ -351,10 +354,33 @@ function applyInboxFilter<
     in: (...args: any[]) => Q
     not: (...args: any[]) => Q
     is: (...args: any[]) => Q
+    gt: (...args: any[]) => Q
   },
->(query: Q, filter: InboxFilter, owner?: InboxOwnerScope): Q {
+>(query: Q, filter: InboxFilter, owner?: InboxOwnerScope, snooze: SnoozeScope = defaultSnoozeScope()): Q {
   const visible = applyOwnerScope(applyGmailVisibility(query, true), owner)
-  return filter === 'all' ? visible : applyStatusFilter(visible, filter)
+  if (filter === 'snoozed') {
+    // Flag off: the column may not exist and nothing is snoozed, so the
+    // view is empty (id is never NULL) rather than a query error.
+    return snooze.live ? visible.gt('snoozed_until', snooze.nowIso) : visible.is('id', null)
+  }
+  // BL-134: a thread snoozed into the future is in no queue until then.
+  // NULL-safe like needs_review's split: NULL > now is NULL in SQL.
+  const awake = snooze.live ? visible.or(`snoozed_until.is.null,snoozed_until.lte.${snooze.nowIso}`) : visible
+  return filter === 'all' ? awake : applyStatusFilter(awake, filter)
+}
+
+/**
+ * Whether the snooze split applies (M3_APPLIED, migration 0067) and the
+ * instant it is measured against. One instant per request so the counts
+ * and the list agree.
+ */
+export interface SnoozeScope {
+  live: boolean
+  nowIso: string
+}
+
+export function defaultSnoozeScope(now: Date = new Date()): SnoozeScope {
+  return { live: M3_APPLIED, nowIso: now.toISOString() }
 }
 
 /**
@@ -432,6 +458,7 @@ export async function countThreadsByStatus(
   db: Db,
   orgId: string,
   owner?: InboxOwnerScope,
+  snooze: SnoozeScope = defaultSnoozeScope(),
 ): Promise<Record<InboxFilter, number>> {
   const statusFilters: StatusFilter[] = [
     'needs_review',
@@ -441,7 +468,9 @@ export async function countThreadsByStatus(
     'closed',
   ]
 
-  const filters: InboxFilter[] = [...statusFilters]
+  // The Snoozed chip's count, only once snoozing exists (M3_APPLIED). Not
+  // part of `all`: a snoozed thread is in no queue until it wakes.
+  const filters: InboxFilter[] = snooze.live ? [...statusFilters, 'snoozed'] : [...statusFilters]
 
   const counts = await Promise.all(
     filters.map((filter) =>
@@ -452,10 +481,13 @@ export async function countThreadsByStatus(
           .eq('organization_id', orgId),
         filter,
         owner,
+        snooze,
       ),
     ),
   )
 
+  // `snoozed` is present only once M3_APPLIED (flag off: exactly the old
+  // shape); readers default a missing count to 0.
   const result = {} as Record<InboxFilter, number>
   filters.forEach((filter, index) => {
     const { count, error } = counts[index]
@@ -495,6 +527,7 @@ export async function listThreads(
   limit = INBOX_PAGE_SIZE,
   offset = 0,
   owner?: InboxOwnerScope,
+  snooze: SnoozeScope = defaultSnoozeScope(),
 ): Promise<ThreadListItem[]> {
   const query = applyInboxFilter(
     db
@@ -507,6 +540,7 @@ export async function listThreads(
       .range(offset, offset + limit - 1),
     filter,
     owner,
+    snooze,
   )
 
   const { data: threads, error: threadsError } = await query

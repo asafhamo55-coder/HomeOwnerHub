@@ -44,6 +44,10 @@ import { inboxQuery, neighbours, nextNeedingReply, parseOwnerFilter } from '@/li
 import { loadInboxSlaHours, waitingInfo } from '@/lib/inbox/waiting'
 import { InboxKeyboard } from '../InboxKeyboard'
 import { ThreadTriageControls } from './ThreadTriageControls'
+import { SnoozeControl } from './SnoozeControl'
+import { M3_APPLIED } from '@homeowner-portal/db/m3'
+import { loadThreadClock, replyClockLabel } from '@/lib/inbox/thread-clock'
+import { filedAttachmentDocuments } from '@/lib/inbox/provenance'
 import { UndoSendBanner } from './UndoSendBanner'
 import { ConvertMenu } from './ConvertMenu'
 import { SENDER_AUTH_COLUMN_LIVE } from '@homeowner-portal/mailbox'
@@ -122,6 +126,16 @@ export default async function ThreadPage({
   const countsP = early(timed(R, 'inbox.counts', () => countThreadsByStatus(supabase, org.id, ownerScope)))
   const thread = await threadP
   if (!thread) notFound()
+
+  // BL-134 (0067, M3_APPLIED): reply clock + snooze, and which attachments
+  // were already filed to the library. Both return empty without a query
+  // while the flag is off; enrichment only, never page-defining.
+  const clockP = loadThreadClock(supabase, org.id, id).catch(() => null)
+  const filedP = filedAttachmentDocuments(
+    supabase,
+    org.id,
+    thread.messages.flatMap((m) => m.attachments.map((a) => a.id)),
+  ).catch(() => new Map<string, string>())
 
   // Reads that need only the thread or the org. Started here and awaited
   // where they were before, so none of them waits for the reads above it.
@@ -274,6 +288,8 @@ export default async function ThreadPage({
   const draftAttachments = draft ? await listDraftAttachments(supabase, org.id, draft.id) : []
 
   const libraryFiles = await libraryFilesP
+  const [clock, filedDocuments] = await Promise.all([clockP, filedP])
+  const replyClock = replyClockLabel(clock, now)
 
   const threadFiles = thread.messages.flatMap((message) =>
     message.attachments
@@ -513,6 +529,13 @@ export default async function ThreadPage({
               afterCloseHref={afterCloseHref}
             />
 
+            {M3_APPLIED ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <SnoozeControl threadId={thread.id} snoozedUntil={clock?.snoozedUntil ?? null} />
+                {replyClock ? <p className="text-xs text-muted">{replyClock}</p> : null}
+              </div>
+            ) : null}
+
             {undoDraft && undoDraft.status === 'queued' && undoDraft.sendAfter ? (
               <UndoSendBanner
                 draftId={undoDraft.id}
@@ -526,7 +549,7 @@ export default async function ThreadPage({
 
             {thread.vendorId ? null : <ContextStrip model={strip} />}
 
-            <MessageThread messages={thread.messages} />
+            <MessageThread messages={thread.messages} filedDocuments={filedDocuments} />
 
             <div id={REPLY_ANCHOR} className="scroll-mt-4">
             <DraftPanel
