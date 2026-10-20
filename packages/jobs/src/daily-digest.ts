@@ -5,6 +5,16 @@ import { inngest } from './client'
 // digest's "waiting" means exactly what the badge means. Same relative-path
 // pattern as mailbox-attachments.ts -> attachment-state.ts.
 import { loadInboxSlaHours, waitingCutoffIso } from '../../../apps/hoa/src/lib/inbox/waiting'
+// BL-113: the ARC decision clock. Same dependency-free, relative-path rule.
+import {
+  ARC_DEEMED_APPROVAL_NOTE,
+  ARC_DIGEST_DUE_DAYS,
+  ARC_OPEN_STATUSES,
+  arcClockSecret,
+  arcDigestCounts,
+  pickArcClockSettings,
+  readArcClockSettings,
+} from '../../../apps/hoa/src/lib/arc-review/clock'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -39,6 +49,10 @@ import { loadInboxSlaHours, waitingCutoffIso } from '../../../apps/hoa/src/lib/i
  * reply, and how many of those are assigned to the recipient. Counts only,
  * no subjects or names, and board members only; residents get nothing. A
  * board with nothing waiting and a healthy mailbox gets no email at all.
+ *
+ * BL-113: and how many ARC applications are past the board's "decide
+ * within N days" deadline or due within 3 days, linking to /arc. Counts
+ * only, board members only.
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -88,6 +102,10 @@ export interface DailyDigestResult {
   brokenMailboxes: number
   /** Threads waiting past the warn threshold, summed across orgs. */
   waitingThreads: number
+  /** ARC applications past their decision deadline, summed across orgs (BL-113). */
+  arcOverdue: number
+  /** ARC applications due within ARC_DIGEST_DUE_DAYS, summed across orgs. */
+  arcDueSoon: number
   emailed: number
   failed: number
 }
@@ -224,6 +242,87 @@ export function buildWaitingBlock(args: {
   return { line, text, html }
 }
 
+// ─── ARC decision clock (BL-113) ───────────────────────────────────
+
+export interface ArcDigestSummary {
+  overdue: number
+  dueSoon: number
+}
+
+/**
+ * Open ARC applications (submitted / in review) for one org, timed against
+ * each association's signed "decide within N days" setting (default 30
+ * calendar days). Returns null on a failed read (logged by code) so a
+ * failure never reads as "nothing is due".
+ */
+export async function loadArcDeadlines(
+  db: Db,
+  orgId: string,
+  now: number,
+  logger: DigestLogger,
+  secret: string | null = arcClockSecret(),
+): Promise<ArcDigestSummary | null> {
+  const { data: assocs, error: assocError } = await db
+    .from('associations')
+    .select('id, compliance_settings')
+    .eq('organization_id', orgId)
+  if (assocError) {
+    logger.error(`[daily-digest] ${orgId}: failed to load ARC deadline settings`, { code: assocError.code })
+    return null
+  }
+  const byAssociation = ((assocs ?? []) as Array<{ id?: string; compliance_settings: unknown }>)
+    .filter((a): a is { id: string; compliance_settings: unknown } => typeof a.id === 'string')
+    .map((a) => {
+      const read = readArcClockSettings(a.id, a.compliance_settings, secret)
+      return { associationId: a.id, settings: { days: read.days, dayKind: read.dayKind } }
+    })
+
+  const { data, error } = await db
+    .from('arc_requests')
+    .select('id, association_id, status, submitted_at')
+    .eq('organization_id', orgId)
+    .in('status', [...ARC_OPEN_STATUSES])
+    .is('deleted_at', null)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load open ARC applications`, { code: error.code })
+    return null
+  }
+  const rows = (data ?? []) as Array<{ association_id: string | null; status: string; submitted_at: string }>
+  return arcDigestCounts(
+    rows.map((r) => ({
+      status: r.status,
+      submittedAt: r.submitted_at,
+      settings: pickArcClockSettings(byAssociation, r.association_id),
+    })),
+    now,
+  )
+}
+
+function arcCount(n: number): string {
+  return n === 1 ? '1 ARC application' : `${n} ARC applications`
+}
+
+/** The ARC block: overdue and due-soon lines, the deemed-approval note, a link to /arc. */
+export function buildArcBlock(args: { overdue: number; dueSoon: number; arcUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines: string[] = []
+  if (args.overdue > 0) lines.push(`${arcCount(args.overdue)} past the board's decision deadline`)
+  if (args.dueSoon > 0) lines.push(`${arcCount(args.dueSoon)} due for a decision within ${ARC_DIGEST_DUE_DAYS} days`)
+  const note = args.overdue > 0 ? ARC_DEEMED_APPROVAL_NOTE : null
+  const text = [...lines, ...(note ? [note] : []), `Open ARC review: ${args.arcUrl}`].join('\n')
+  const border = args.overdue > 0 ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
+    ${note ? `<p style="margin:0 0 12px">${escapeHtml(note)}</p>` : ''}
+    <a href="${escapeHtml(args.arcUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open ARC review</a>
+  </div>`
+  return { lines, text, html }
+}
+
 /**
  * One recipient's morning email: the mailbox alert when a mailbox is
  * broken, the waiting block when residents are waiting, or both.
@@ -233,27 +332,38 @@ export function buildDigestEmail(args: {
   mailboxes: BrokenMailbox[]
   reconnectUrl: string
   waiting: { total: number; mine: number; hours: number; inboxUrl: string } | null
+  /** BL-113: ARC deadlines. Omitted or all-zero adds nothing. */
+  arc?: { overdue: number; dueSoon: number; arcUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
+  const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
+  const extras: Array<{ text: string; html: string }> = []
+  if (block) extras.push(block)
+  if (arcBlock) extras.push(arcBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
-    if (!block) return alert
+    if (extras.length === 0) return alert
     return {
       subject: alert.subject,
-      text: `${alert.text}\n\n${block.text}`,
-      html: alert.html.replace(/<\/div>\s*$/, `${block.html}\n</div>`),
+      text: [alert.text, ...extras.map((b) => b.text)].join('\n\n'),
+      html: alert.html.replace(/<\/div>\s*$/, `${extras.map((b) => b.html).join('')}\n</div>`),
     }
   }
   const who = args.waiting && args.waiting.total === 1 ? '1 resident' : `${args.waiting?.total ?? 0} residents`
   const text = [
     `Good morning. This is your daily check from HomeownerHub for ${args.orgName}.`,
     '',
-    block ? block.text : '',
+    extras.map((b) => b.text).join('\n\n'),
   ].join('\n')
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.5;color:#111827">
-  <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(args.orgName)}.</p>${block ? block.html : ''}
+  <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(args.orgName)}.</p>${extras.map((b) => b.html).join('')}
 </div>`
-  return { subject: `${who} waiting for a reply — ${args.orgName}`, html, text }
+  const subject = block
+    ? `${who} waiting for a reply — ${args.orgName}`
+    : args.arc && args.arc.overdue > 0
+      ? `${arcCount(args.arc.overdue)} past the decision deadline — ${args.orgName}`
+      : `${arcCount(args.arc?.dueSoon ?? 0)} due for a decision soon — ${args.orgName}`
+  return { subject, html, text }
 }
 
 // ─── Recipients ─────────────────────────────────────────────────────
@@ -352,6 +462,8 @@ export async function runDailyDigest(
 
   let brokenTotal = 0
   let waitingTotal = 0
+  let arcOverdueTotal = 0
+  let arcDueSoonTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -389,10 +501,28 @@ export async function runDailyDigest(
     }
     const waitingCount = waiting?.threads.length ?? 0
     waitingTotal += waitingCount
-    if (broken.length === 0 && waitingCount === 0) continue
+
+    let arc: ArcDigestSummary | null = null
+    try {
+      arc = await loadArcDeadlines(db, orgId, now, logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: ARC deadline check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const arcOverdue = arc?.overdue ?? 0
+    const arcDueSoon = arc?.dueSoon ?? 0
+    arcOverdueTotal += arcOverdue
+    arcDueSoonTotal += arcDueSoon
+
+    if (broken.length === 0 && waitingCount === 0 && arcOverdue === 0 && arcDueSoon === 0) continue
     if (waitingCount > 0) {
       // A count, never which residents.
       logger.info(`[daily-digest] ${orgId}: ${waitingCount} thread(s) waiting past the threshold`)
+    }
+    if (arcOverdue > 0 || arcDueSoon > 0) {
+      // Counts only, never which application or who submitted it.
+      logger.info(`[daily-digest] ${orgId}: ${arcOverdue} ARC overdue, ${arcDueSoon} ARC due soon`)
     }
 
     for (const mailbox of broken) {
@@ -427,6 +557,7 @@ export async function runDailyDigest(
                   inboxUrl: deps.appUrl('/inbox?filter=all'),
                 }
               : null,
+          arc: arcOverdue > 0 || arcDueSoon > 0 ? { overdue: arcOverdue, dueSoon: arcDueSoon, arcUrl: deps.appUrl('/arc') } : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -453,6 +584,8 @@ export async function runDailyDigest(
     processed: (orgs ?? []).length,
     brokenMailboxes: brokenTotal,
     waitingThreads: waitingTotal,
+    arcOverdue: arcOverdueTotal,
+    arcDueSoon: arcDueSoonTotal,
     emailed,
     failed,
   }

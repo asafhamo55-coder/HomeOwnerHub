@@ -83,6 +83,8 @@ export type ArcCategory =
 
 export interface ArcRequestBoardRow {
   id: string
+  /** Picks the association's ARC decision clock (BL-113). */
+  association_id: string | null
   unit_id: string | null
   unit_number: string | null
   submitted_by: string
@@ -106,7 +108,7 @@ export interface ArcRequestBoardDetail extends ArcRequestBoardRow {
 }
 
 export async function listArcRequestsForBoard(
-  opts?: BoardListOptions<ArcStatus>,
+  opts?: BoardListOptions<ArcStatus> & { oldestFirst?: boolean },
 ): Promise<BoardList<ArcRequestBoardRow>> {
   await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
@@ -114,11 +116,12 @@ export async function listArcRequestsForBoard(
   let query = supabase
     .from('arc_requests' as never)
     .select(
-      'id, unit_id, submitted_by, category, summary, status, submitted_at, board_response_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
+      'id, association_id, unit_id, submitted_by, category, summary, status, submitted_at, board_response_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
       { count: 'exact' },
     )
     .is('deleted_at', null)
-    .order('submitted_at', { ascending: false })
+    // Oldest first is most urgent on the decision clock (BL-113).
+    .order('submitted_at', { ascending: opts?.oldestFirst === true })
     .range(opts?.from ?? 0, opts?.to ?? 99)
   if (typeof opts?.status === 'string') query = query.eq('status', opts.status)
   else if (opts?.status) query = query.in('status', [...opts.status])
@@ -127,6 +130,7 @@ export async function listArcRequestsForBoard(
 
   const rows = (res.data ?? []) as unknown as Array<{
     id: string
+    association_id: string | null
     unit_id: string | null
     submitted_by: string
     category: ArcCategory
@@ -143,6 +147,7 @@ export async function listArcRequestsForBoard(
     total: res.count ?? rows.length,
     rows: rows.map((r) => ({
       id: r.id,
+      association_id: r.association_id ?? null,
       unit_id: r.unit_id,
       unit_number: r.unit?.unit_number ?? null,
       submitted_by: r.submitted_by,
@@ -175,7 +180,7 @@ export async function getArcRequestForBoard(
   const { data, error } = await supabase
     .from('arc_requests' as never)
     .select(
-      'id, unit_id, submitted_by, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, contractor_license, status, board_response, board_response_at, board_response_by, submitted_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
+      'id, association_id, unit_id, submitted_by, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, contractor_license, status, board_response, board_response_at, board_response_by, submitted_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
     )
     .eq('id', id)
     .is('deleted_at', null)
@@ -192,6 +197,7 @@ export async function getArcRequestForBoard(
 
   return {
     id: r.id,
+    association_id: r.association_id ?? null,
     unit_id: r.unit_id,
     unit_number: r.unit?.unit_number ?? null,
     submitted_by: r.submitted_by,

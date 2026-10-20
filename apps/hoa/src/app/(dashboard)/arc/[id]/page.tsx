@@ -26,6 +26,9 @@ import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
 import { BoardConversation } from '@/components/board-review/BoardConversation'
 import { ARC_CATEGORY, ARC_STATUS } from '@/lib/status/community'
+import { ArcClockChip, ArcOverdueBanner } from '@/components/arc-review/ArcClockChip'
+import { getArcClockSettings } from '@/lib/arc-review/clock-actions'
+import { arcClock, pickArcClockSettings } from '@/lib/arc-review/clock'
 import { ArcDecisionForm } from './ArcDecisionForm'
 import { ArcBoardReplyForm } from './ArcBoardReplyForm'
 import { ArcActions } from './ArcActions'
@@ -51,13 +54,28 @@ export default async function ArcReviewDetailPage({
   const arc = await getArcRequestForBoard(id)
   if (!arc) notFound()
   const supabase = await getSupabaseServerClient()
-  const [messages, attachments, aiReview] = await Promise.all([
+  const [messages, attachments, aiReview, clockLoad] = await Promise.all([
     getArcMessagesForBoard(id),
     listSubmissionAttachments('arc', id),
     // BL-027: the W37 draft (and the resident's BL-024 pre-check). A failed
     // read is its own state on the card; the application still renders.
     loadArcReview(supabase, org.id, id),
+    // BL-113: the decision clock. A failed read falls back to the default
+    // 30 calendar days rather than hiding the deadline.
+    getArcClockSettings(),
   ])
+  const clockAssociations = clockLoad.ok ? clockLoad.associations : []
+  const clock = arcClock({
+    status: arc.status,
+    submittedAt: arc.submitted_at,
+    settings: pickArcClockSettings(
+      clockAssociations.map((a) => ({ associationId: a.association.id, settings: a.settings })),
+      arc.association_id,
+    ),
+  })
+  const arcAssociation =
+    clockAssociations.find((a) => a.association.id === arc.association_id) ??
+    (clockAssociations.length === 1 ? clockAssociations[0] : undefined)
 
   const decided = arc.status === 'approved' || arc.status === 'denied'
   // BL-079: name and link each photo finding, and offer a re-run when the
@@ -77,6 +95,7 @@ export default async function ArcReviewDetailPage({
         <>
           <StatusBadge status={arc.status} tones={ARC_STATUS.tones} labels={ARC_STATUS.labels} />
           <Badge variant="neutral">{ARC_CATEGORY[arc.category] ?? arc.category}</Badge>
+          <ArcClockChip clock={clock} />
         </>
       }
       description={
@@ -88,6 +107,8 @@ export default async function ArcReviewDetailPage({
       }
       actions={<ArcActions arcId={arc.id} />}
     >
+      <div className="space-y-6">
+      <ArcOverdueBanner clock={clock} state={arcAssociation?.association.state ?? null} />
       <div className="grid items-start gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Card>
@@ -172,6 +193,7 @@ export default async function ArcReviewDetailPage({
             </Card>
           )}
         </div>
+      </div>
       </div>
     </Page>
   )
