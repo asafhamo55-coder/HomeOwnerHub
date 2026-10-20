@@ -505,9 +505,13 @@ async function ingestThread(
   // Each message is isolated: a throw here is caught, counted, and does
   // not stop the rest of this thread's messages from being attempted.
   const stored: ParsedMessage[] = []
+  // gmail_message_ids this run actually INSERTED (not re-observed). Only
+  // genuinely new mail may reopen a closed thread — see
+  // `reopensClosedThread`.
+  const newlyInserted = new Set<string>()
   for (const message of sorted) {
     try {
-      await ingestMessage(
+      const inserted = await ingestMessage(
         db,
         orgId,
         mailboxAccountId,
@@ -517,6 +521,7 @@ async function ingestThread(
         result,
       )
       stored.push(message)
+      if (inserted) newlyInserted.add(message.gmailMessageId)
     } catch (messageError) {
       result.messagesFailed++
       logDbError(
@@ -543,7 +548,8 @@ async function ingestThread(
 
   // Only advance the activity fields. Never touch unit_id, status, or
   // match_* — a manager's manual assignment must survive new mail
-  // arriving on the thread.
+  // arriving on the thread. (The single status exception, a closed thread
+  // reopening on a resident's reply, is the conditional update below.)
   const { error: updateError } = await db
     .from('inbox_threads')
     .update({
@@ -557,6 +563,26 @@ async function ingestThread(
   if (updateError) {
     logDbError('ingestMessages', 'inbox_threads', { orgId, mailboxAccountId, threadId }, updateError)
     throw updateError
+  }
+
+  // ── Reopen on resident reply (BL-101 A3) ─────────────────────────────
+  // The one deliberate exception to "ingest never touches status". A
+  // thread the board CLOSED goes back to 'needs_review' when the resident
+  // writes again — otherwise "Approve and close" would silently bury the
+  // follow-up question. Only 'closed' is reopened (open/waiting are
+  // already in a work queue, and the conditional `.eq('status', 'closed')`
+  // makes the transition atomic). Assignment, filing and match state are
+  // untouched. Not fatal: the message is stored either way.
+  if (reopensClosedThread(newest, newlyInserted, mailboxEmailAddress)) {
+    const { error: reopenError } = await db
+      .from('inbox_threads')
+      .update({ status: 'needs_review' })
+      .eq('id', threadId)
+      .eq('status', 'closed')
+
+    if (reopenError) {
+      logDbError('ingestMessages', 'inbox_threads', { orgId, mailboxAccountId, threadId }, reopenError)
+    }
   }
 
   // ── Gmail filing state ───────────────────────────────────────────────
@@ -595,8 +621,33 @@ async function ingestThread(
 }
 
 /**
+ * Whether a batch should reopen a closed thread (BL-101 A3). All three:
+ *
+ *   - the thread's NEWEST stored message is inbound — if the board's own
+ *     reply came after it, the resident has been answered;
+ *   - that message was inserted by THIS run, not re-observed by a
+ *     backfill, reconnect or history fallback (re-importing old mail must
+ *     never undo a close);
+ *   - it carries Gmail's INBOX label. Mail a Gmail filter skipped the
+ *     inbox for, or that the board filed or trashed in Gmail, does not
+ *     reopen anything.
+ */
+export function reopensClosedThread(
+  newest: Pick<ParsedMessage, 'gmailMessageId' | 'fromEmail' | 'labelIds'>,
+  newlyInserted: ReadonlySet<string>,
+  mailboxEmailAddress: string,
+): boolean {
+  return (
+    newlyInserted.has(newest.gmailMessageId) &&
+    computeDirection(newest.fromEmail, mailboxEmailAddress) === 'inbound' &&
+    messageStateFromLabels(newest.labelIds) === 'inbox'
+  )
+}
+
+/**
  * Store one message and its attachments. Throws on a message-level
- * failure (caught by the caller's per-message try/catch).
+ * failure (caught by the caller's per-message try/catch). Resolves true
+ * when this call inserted the row, false when it already existed.
  */
 async function ingestMessage(
   db: Db,
@@ -606,7 +657,7 @@ async function ingestMessage(
   threadId: string,
   message: ParsedMessage,
   result: IngestResult,
-): Promise<void> {
+): Promise<boolean> {
   // Stamped once and reused on both the insert and the already-present
   // branch below, so a row's labels and the time they were observed can
   // never disagree.
@@ -657,6 +708,7 @@ async function ingestMessage(
   // doc comment), so we still run the attachment loop below in both
   // branches — fetching the existing id when this call didn't insert it.
   let messageId = inserted?.[0]?.id
+  const wasInserted = Boolean(messageId)
 
   if (messageId) {
     result.messagesInserted++
@@ -725,6 +777,7 @@ async function ingestMessage(
   }
 
   await ingestAttachments(db, orgId, mailboxAccountId, threadId, messageId, message, result)
+  return wasInserted
 }
 
 /**

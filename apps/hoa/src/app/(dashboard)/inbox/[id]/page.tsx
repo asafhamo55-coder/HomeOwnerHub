@@ -6,6 +6,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   countThreadsByStatus,
+  getDraftById,
   getLatestDraft,
   getPropertyContext,
   getThreadDetail,
@@ -35,6 +36,13 @@ import {
   getIncomingVendorRequest,
 } from '@/lib/inbox/vendor-request-links'
 import { isVendorIncomplete } from '@/lib/inbox/vendor/schema'
+import { loadAutoDraftDecision } from '@/lib/inbox/autodraft'
+import { listAssignees, type Assignee } from '@/lib/inbox/assignees'
+import { inboxQuery, neighbours, nextNeedingReply, parseOwnerFilter } from '@/lib/inbox/navigation'
+import { loadInboxSlaHours, waitingInfo } from '@/lib/inbox/waiting'
+import { InboxKeyboard } from '../InboxKeyboard'
+import { ThreadTriageControls } from './ThreadTriageControls'
+import { UndoSendBanner } from './UndoSendBanner'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,11 +53,18 @@ export default async function ThreadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ filter?: string; page?: string }>
+  searchParams: Promise<{ filter?: string; page?: string; owner?: string; undo?: string; from?: string }>
 }) {
   const { id } = await params
-  const { filter: filterParam, page: pageParam } = await searchParams
+  const {
+    filter: filterParam,
+    page: pageParam,
+    owner: ownerParam,
+    undo: undoParam,
+    from: fromParam,
+  } = await searchParams
   const filter = (FILTER_KEYS.find((f) => f === filterParam) ?? 'needs_review') as InboxFilter
+  const owner = parseOwnerFilter(ownerParam)
 
   // Inbox tables are gated by auth_is_board_or_admin at the RLS layer
   // (migration 0029 + the inbox migrations); requireBoardOrAdmin matches
@@ -61,11 +76,19 @@ export default async function ThreadPage({
   const thread = await getThreadDetail(supabase, org.id, id)
   if (!thread) notFound()
 
+  // Mine / Unassigned / All (BL-101 A6) needs the signed-in member's id;
+  // requireBoardOrAdmin returns only { role, org }.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const currentUserId = user?.id ?? null
+  const ownerScope = { owner, userId: currentUserId }
+
   // Same pagination math as /inbox/page.tsx — counts land first so the
   // page/offset this list paginates over can never disagree with the
   // filter-chip counts, and deep-linking into a thread with `?page=N`
   // still resolves the same list page ThreadList's own links carry.
-  const counts = await countThreadsByStatus(supabase, org.id)
+  const counts = await countThreadsByStatus(supabase, org.id, ownerScope)
   const total = counts[filter] ?? 0
   const totalPages = Math.max(1, Math.ceil(total / INBOX_PAGE_SIZE))
   const requestedPage = Number.parseInt(pageParam ?? '1', 10)
@@ -76,7 +99,7 @@ export default async function ThreadPage({
   const suggestedUnitId = (thread.matchReason?.candidate_unit_ids as string[] | undefined)?.[0]
 
   const [threads, contextOutcome, suggestedProperty, draft] = await Promise.all([
-    listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset),
+    listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope),
     thread.unitId
       ? getPropertyContext(supabase, org.id, thread.unitId).catch((error: unknown) => {
           // getPropertyContext throws on a failed unit lookup (see its
@@ -102,6 +125,32 @@ export default async function ThreadPage({
     // `.catch` the way the enrichment-only lookups above are.
     getLatestDraft(supabase, org.id, id),
   ])
+
+  // BL-101 A3/A6 — the queue around this thread. All enrichment: a failure
+  // degrades to "no auto-draft", "back to the list" or "no names", never
+  // a blank thread page.
+  const [needsReply, autoDraft, assignees, sla, undoDraft] = await Promise.all([
+    // "Next" walks the needs-reply queue (in the same Mine/Unassigned
+    // scope), whichever chip the list pane shows.
+    filter === 'needs_review'
+      ? Promise.resolve(threads)
+      : listThreads(supabase, org.id, 'needs_review', INBOX_PAGE_SIZE, 0, ownerScope).catch(() => []),
+    loadAutoDraftDecision(supabase, org.id, id),
+    listAssignees(org.id).catch((): Assignee[] => []),
+    loadInboxSlaHours(supabase, org.id),
+    // The reply "Approve and send" just queued on the previous thread, so
+    // its Undo survives the move here. Org-scoped like every read.
+    undoParam && /^[0-9a-f-]{36}$/i.test(undoParam)
+      ? getDraftById(supabase, org.id, undoParam).catch(() => null)
+      : Promise.resolve(null),
+  ])
+  const now = Date.now()
+  const assigneeNames = Object.fromEntries(assignees.map((a) => [a.userId, a.name]))
+  const waiting = waitingInfo(
+    { status: thread.status, lastDirection: thread.lastDirection ?? null, lastMessageAt: thread.lastMessageAt ?? null },
+    now,
+    sla,
+  )
 
   const contextLoadFailed = contextOutcome === 'error'
   const context: PropertyContext | null = contextLoadFailed ? null : contextOutcome
@@ -221,8 +270,20 @@ export default async function ThreadPage({
     </>
   )
 
-  const listHref = `/inbox?filter=${filter}${page > 1 ? `&page=${page}` : ''}`
+  const qs = inboxQuery({ filter, owner, page })
+  const listHref = `/inbox${qs}`
   const subject = thread.subject ?? '(no subject)'
+  const threadHref = (threadId: string) => `/inbox/${threadId}${qs}`
+
+  const { prevId, nextId } = neighbours(
+    threads.map((t) => t.id),
+    thread.id,
+  )
+  const nextReplyId = nextNeedingReply(
+    needsReply.map((t) => t.id),
+    thread.id,
+  )
+  const afterCloseHref = nextReplyId ? threadHref(nextReplyId) : listHref
 
   return (
     <SplitPaneFrame>
@@ -246,7 +307,17 @@ export default async function ThreadPage({
             {threads.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-muted">No other conversations in this view.</p>
             ) : (
-              <ThreadList threads={threads} selectedId={thread.id} filter={filter} page={page} />
+              <ThreadList
+                threads={threads}
+                selectedId={thread.id}
+                filter={filter}
+                owner={owner}
+                page={page}
+                now={now}
+                sla={sla}
+                assigneeNames={assigneeNames}
+                currentUserId={currentUserId}
+              />
             )}
           </div>
         </aside>
@@ -259,11 +330,26 @@ export default async function ThreadPage({
               linkAs={Link}
               title={subject}
               meta={
-                <StatusBadge
-                  status={thread.status}
-                  tones={INBOX_THREAD_STATUS.tones}
-                  labels={INBOX_THREAD_STATUS.labels}
-                />
+                <>
+                  <StatusBadge
+                    status={thread.status}
+                    tones={INBOX_THREAD_STATUS.tones}
+                    labels={INBOX_THREAD_STATUS.labels}
+                  />
+                  {waiting ? (
+                    <span
+                      className={
+                        waiting.tone === 'overdue'
+                          ? 'num rounded bg-danger-subtle px-1.5 py-0.5 text-xs font-medium text-danger'
+                          : waiting.tone === 'warn'
+                            ? 'num rounded bg-warning-subtle px-1.5 py-0.5 text-xs font-medium text-warning'
+                            : 'num rounded bg-subtle px-1.5 py-0.5 text-xs font-medium text-foreground-secondary'
+                      }
+                    >
+                      {waiting.label}
+                    </span>
+                  ) : null}
+                </>
               }
               description={`${thread.messages.length} message${thread.messages.length === 1 ? '' : 's'}`}
               actions={
@@ -284,9 +370,34 @@ export default async function ThreadPage({
                     vendorEmail={vendorEmail}
                     draftStatus={draft?.status ?? null}
                   />
+                  <InboxKeyboard
+                    prevHref={prevId ? threadHref(prevId) : null}
+                    nextHref={nextId ? threadHref(nextId) : null}
+                    threadId={thread.id}
+                    afterCloseHref={afterCloseHref}
+                    showButton
+                  />
                 </>
               }
             />
+
+            <ThreadTriageControls
+              threadId={thread.id}
+              status={thread.status}
+              assignedTo={thread.assignedTo ?? null}
+              assignees={assignees}
+              currentUserId={currentUserId}
+              afterCloseHref={afterCloseHref}
+            />
+
+            {undoDraft && undoDraft.status === 'queued' && undoDraft.sendAfter ? (
+              <UndoSendBanner
+                draftId={undoDraft.id}
+                sendAfter={undoDraft.sendAfter}
+                subject={undoDraft.subject}
+                threadHref={fromParam && /^[0-9a-f-]{36}$/i.test(fromParam) ? threadHref(fromParam) : null}
+              />
+            ) : null}
 
             <VendorRequestLinks outgoing={outgoingRequests} incoming={incomingRequest} />
 
@@ -298,6 +409,8 @@ export default async function ThreadPage({
               attachments={draftAttachments}
               threadFiles={threadFiles}
               libraryFiles={libraryFiles}
+              autoDraftVersion={autoDraft.draft ? autoDraft.version : null}
+              nextHref={afterCloseHref}
             />
 
             {/* Below xl the rail has no column of its own, so it follows the

@@ -28,6 +28,7 @@ interface FakeOpts {
   members?: Row
   profiles?: Row
   associations?: Row
+  threads?: Row
 }
 
 /** Records every filter so tests can assert what was queried. */
@@ -52,10 +53,11 @@ function fakeDb(opts: FakeOpts) {
       error: null,
     },
     associations: opts.associations ?? { data: [{ compliance_settings: {} }], error: null },
+    inbox_threads: opts.threads ?? { data: [], error: null },
   }
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {}
-    for (const method of ['select', 'eq', 'neq', 'is', 'in']) {
+    for (const method of ['select', 'eq', 'neq', 'is', 'in', 'not', 'lt', 'order', 'limit']) {
       chain[method] = (...args: unknown[]) => {
         calls.push({ table, method, args })
         return chain
@@ -250,5 +252,112 @@ describe('buildMailboxAlert', () => {
     })
     expect(alert.html).not.toContain('<script>')
     expect(alert.html).toContain('a&amp;b@example.test')
+  })
+})
+
+/* BL-101 A6 — the same morning email says how many residents have waited
+ * more than 48h for a reply, and how many of those are the recipient's.
+ * Board members only; counts only. */
+describe('runDailyDigest — residents waiting more than 48h', () => {
+  const WAITING: Row = {
+    data: [
+      { id: 't-1', assigned_to: 'u-board' },
+      { id: 't-2', assigned_to: null },
+      { id: 't-3', assigned_to: 'u-admin' },
+    ],
+    error: null,
+  }
+
+  it('emails each board member the total and their own share, with a link to the inbox', async () => {
+    const { db } = fakeDb({ threads: WAITING })
+    const d = deps()
+
+    const result = await runDailyDigest(db, d, logger())
+
+    expect(result).toMatchObject({ brokenMailboxes: 0, waitingThreads: 3, emailed: 2 })
+    const byRecipient = Object.fromEntries(d.sendEmail.mock.calls.map((c) => [c[0].to, c[0]]))
+    expect(byRecipient[BOARD_EMAIL].text).toContain('3 residents waiting more than 48h (1 assigned to you)')
+    expect(byRecipient[ADMIN_EMAIL].text).toContain('3 residents waiting more than 48h (1 assigned to you)')
+    expect(byRecipient[BOARD_EMAIL].text).toContain('https://app.test/inbox?filter=all')
+    expect(byRecipient[BOARD_EMAIL].html).toContain('href="https://app.test/inbox?filter=all"')
+    expect(byRecipient[BOARD_EMAIL].subject).toContain('3 residents waiting for a reply')
+  })
+
+  it('counts only threads the badge would call waiting: inbound last, not closed, still in Gmail, past the cutoff', async () => {
+    const { db, calls } = fakeDb({ threads: WAITING })
+    await runDailyDigest(db, deps(), logger())
+    const q = calls.filter((c) => c.table === 'inbox_threads')
+    expect(q).toContainEqual({ table: 'inbox_threads', method: 'eq', args: ['organization_id', ORG] })
+    expect(q).toContainEqual({ table: 'inbox_threads', method: 'eq', args: ['last_direction', 'inbound'] })
+    expect(q).toContainEqual({ table: 'inbox_threads', method: 'neq', args: ['status', 'closed'] })
+    expect(q).toContainEqual({
+      table: 'inbox_threads',
+      method: 'not',
+      args: ['gmail_state', 'in', '("archived","trashed")'],
+    })
+    const cutoff = q.find((c) => c.method === 'lt')
+    expect(cutoff?.args[0]).toBe('last_message_at')
+    const ageMs = Date.now() - Date.parse(cutoff?.args[1] as string)
+    expect(Math.round(ageMs / 3_600_000)).toBe(48)
+  })
+
+  it("uses the org's own warn threshold when compliance_settings sets one", async () => {
+    const { db, calls } = fakeDb({
+      threads: WAITING,
+      associations: { data: [{ compliance_settings: { inbox_sla_hours: { warn: 24, overdue: 72 } } }], error: null },
+    })
+    const d = deps()
+    await runDailyDigest(db, d, logger())
+    expect(d.sendEmail.mock.calls[0][0].text).toContain('waiting more than 24h')
+    const cutoff = calls.find((c) => c.table === 'inbox_threads' && c.method === 'lt')
+    expect(Math.round((Date.now() - Date.parse(cutoff?.args[1] as string)) / 3_600_000)).toBe(24)
+  })
+
+  it('puts both blocks in one email when a mailbox is also broken', async () => {
+    const { db } = fakeDb({ threads: WAITING, mailboxes: BROKEN })
+    const d = deps()
+    await runDailyDigest(db, d, logger())
+    expect(d.sendEmail).toHaveBeenCalledTimes(2)
+    const email = d.sendEmail.mock.calls[0][0]
+    expect(email.subject).toMatch(/mailbox/i)
+    expect(email.text).toContain('Mailbox disconnected since')
+    expect(email.text).toContain('3 residents waiting more than 48h')
+    expect(email.html).toContain('Open the Inbox')
+  })
+
+  it('still sends the reminder when the mailbox check fails', async () => {
+    const { db } = fakeDb({ threads: WAITING, mailboxes: { data: null, error: { code: 'XX', message: 'boom' } } })
+    const d = deps()
+    await runDailyDigest(db, d, logger())
+    expect(d.sendEmail).toHaveBeenCalledTimes(2)
+  })
+
+  it('sends nothing when the waiting check fails and no mailbox is broken', async () => {
+    const { db } = fakeDb({ threads: { data: null, error: { code: 'XX', message: 'boom' } } })
+    const d = deps()
+    const log = logger()
+    await runDailyDigest(db, d, log)
+    expect(d.sendEmail).not.toHaveBeenCalled()
+    expect(log.error).toHaveBeenCalled()
+  })
+
+  it('never emails a resident, and logs counts only', async () => {
+    const { db } = fakeDb({
+      threads: WAITING,
+      members: {
+        data: [
+          { user_id: 'u-board', role: 'board' },
+          { user_id: 'u-res', role: 'resident' },
+        ],
+        error: null,
+      },
+    })
+    const d = deps()
+    const log = logger()
+    await runDailyDigest(db, d, log)
+    expect(d.sendEmail.mock.calls.map((c) => c[0].to)).toEqual([BOARD_EMAIL])
+    const everything = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
+    expect(everything).not.toContain('@')
+    expect(everything).not.toContain('t-1')
   })
 })

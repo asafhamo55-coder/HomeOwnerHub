@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeDirection, ingestMessages } from './ingest'
+import { computeDirection, ingestMessages, reopensClosedThread } from './ingest'
 import type { ParsedMessage } from '@homeowner-portal/mailbox'
 
 /**
@@ -374,5 +374,90 @@ describe('ingestMessages — a re-import never resets board-owned triage state',
     expect(tables.inbox_threads[0]).toMatchObject(TRIAGE)
     expect(tables.inbox_threads[0].subject).toBe('Re: Gate remote not working')
     expect(tables.inbox_threads[0].last_message_at).toBe('2026-07-09T10:00:00.000Z')
+  })
+})
+
+/* ────────────────────────────────────────────────────────────────────────
+ * BL-101 A3 — a closed thread reopens when the resident writes back.
+ *
+ * The deliberate exception to "ingest never touches status". Pinned from
+ * both sides: it fires on genuinely new inbound inbox mail, and on nothing
+ * else — a re-import, the board's own reply, or mail filed/trashed in
+ * Gmail must leave a close alone.
+ * ──────────────────────────────────────────────────────────────────────── */
+describe('ingestMessages — a closed thread reopens on a resident reply', () => {
+  async function closedThread() {
+    const { db, tables } = fakeDb()
+    await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [parsed()])
+    Object.assign(tables.inbox_threads[0], {
+      status: 'closed',
+      assigned_to: 'user-board-1',
+      unit_id: 'unit-214',
+    })
+    return { db, tables }
+  }
+
+  it('sets status back to needs_review when a NEW inbound message lands in the inbox', async () => {
+    const { db, tables } = await closedThread()
+    await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [
+      parsed({ gmailMessageId: 'gmail-msg-followup', sentAt: '2026-07-05T10:00:00.000Z' }),
+    ])
+    expect(tables.inbox_threads[0].status).toBe('needs_review')
+    // Only the status moves — assignment and filing survive.
+    expect(tables.inbox_threads[0].assigned_to).toBe('user-board-1')
+    expect(tables.inbox_threads[0].unit_id).toBe('unit-214')
+  })
+
+  it('does not reopen when the same mail is merely re-imported', async () => {
+    const { db, tables } = await closedThread()
+    await ingestMessages(db, ORG, ACCOUNT_AFTER, MAILBOX, [parsed()])
+    expect(tables.inbox_threads[0].status).toBe('closed')
+  })
+
+  it("does not reopen on the board's own outbound message", async () => {
+    const { db, tables } = await closedThread()
+    await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [
+      parsed({ gmailMessageId: 'gmail-msg-ours', fromEmail: MAILBOX, sentAt: '2026-07-05T10:00:00.000Z' }),
+    ])
+    expect(tables.inbox_threads[0].status).toBe('closed')
+  })
+
+  it('does not reopen on new mail that skipped the inbox or was trashed in Gmail', async () => {
+    for (const labelIds of [['Label_HOA_Filed'], ['TRASH'], ['SPAM', 'INBOX']]) {
+      const { db, tables } = await closedThread()
+      await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [
+        parsed({ gmailMessageId: `gmail-msg-${labelIds[0]}`, labelIds, sentAt: '2026-07-05T10:00:00.000Z' }),
+      ])
+      expect(tables.inbox_threads[0].status).toBe('closed')
+    }
+  })
+
+  it('does not reopen when the board replied after the resident in the same batch', async () => {
+    const { db, tables } = await closedThread()
+    await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [
+      parsed({ gmailMessageId: 'gmail-msg-q', sentAt: '2026-07-05T10:00:00.000Z' }),
+      parsed({ gmailMessageId: 'gmail-msg-a', fromEmail: MAILBOX, sentAt: '2026-07-05T11:00:00.000Z' }),
+    ])
+    expect(tables.inbox_threads[0].status).toBe('closed')
+  })
+
+  it('leaves open, waiting and needs_review threads exactly as they were', async () => {
+    for (const status of ['open', 'waiting', 'needs_review']) {
+      const { db, tables } = fakeDb()
+      await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [parsed()])
+      tables.inbox_threads[0].status = status
+      await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [
+        parsed({ gmailMessageId: `gmail-msg-${status}`, sentAt: '2026-07-05T10:00:00.000Z' }),
+      ])
+      expect(tables.inbox_threads[0].status).toBe(status)
+    }
+  })
+
+  it('reopensClosedThread requires all three conditions', () => {
+    const msg = { gmailMessageId: 'm1', fromEmail: 'resident@gmail.com', labelIds: ['INBOX'] }
+    expect(reopensClosedThread(msg, new Set(['m1']), MAILBOX)).toBe(true)
+    expect(reopensClosedThread(msg, new Set(), MAILBOX)).toBe(false)
+    expect(reopensClosedThread({ ...msg, fromEmail: MAILBOX }, new Set(['m1']), MAILBOX)).toBe(false)
+    expect(reopensClosedThread({ ...msg, labelIds: [] }, new Set(['m1']), MAILBOX)).toBe(false)
   })
 })

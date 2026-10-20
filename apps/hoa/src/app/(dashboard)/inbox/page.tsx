@@ -5,6 +5,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   countThreadsByStatus,
+  getDraftById,
   getMailboxStatus,
   listThreads,
   INBOX_PAGE_SIZE,
@@ -12,8 +13,20 @@ import {
 } from '@/lib/inbox/queries'
 import { SplitPaneFrame, SplitPaneHeader, SplitPanePlaceholder } from '@/components/split-pane/SplitPane'
 import { ThreadList } from './ThreadList'
-import { BackfillAlert, INBOX_FILTERS, InboxFilterChips, MailboxSyncAlert, mailboxSummary } from './InboxChrome'
+import {
+  BackfillAlert,
+  INBOX_FILTERS,
+  InboxFilterChips,
+  InboxOwnerChips,
+  MailboxSyncAlert,
+  mailboxSummary,
+} from './InboxChrome'
 import type { MailboxStatusRead } from '@/lib/inbox/backfill-banner'
+import { inboxQuery, parseOwnerFilter } from '@/lib/inbox/navigation'
+import { loadInboxSlaHours } from '@/lib/inbox/waiting'
+import { listAssignees } from '@/lib/inbox/assignees'
+import { InboxKeyboard } from './InboxKeyboard'
+import { UndoSendBanner } from './[id]/UndoSendBanner'
 
 export const metadata = { title: 'Inbox' }
 export const dynamic = 'force-dynamic'
@@ -26,9 +39,10 @@ export const dynamic = 'force-dynamic'
 export default async function InboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; page?: string }>
+  searchParams: Promise<{ filter?: string; page?: string; owner?: string; undo?: string; from?: string }>
 }) {
   const params = await searchParams
+  const owner = parseOwnerFilter(params.owner)
   // Inbox tables are gated by auth_is_board_or_admin at the RLS layer
   // (migration 0012 + the inbox migrations); requireBoardOrAdmin matches
   // that bar exactly. Mailbox *management* is deliberately narrower —
@@ -43,6 +57,12 @@ export default async function InboxPage({
     'needs_review') as InboxFilter
 
   const supabase = await getSupabaseServerClient()
+  // Mine / Unassigned / All (BL-101 A6). The user id comes from a separate
+  // getUser() because requireBoardOrAdmin returns only { role, org }.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const ownerScope = { owner, userId: user?.id ?? null }
 
   // Counts must land before the page/offset math below — `counts[filter]`
   // IS the total this page paginates over, so the count and the list can
@@ -64,7 +84,7 @@ export default async function InboxPage({
         return { kind: 'failed' }
       },
     ),
-    countThreadsByStatus(supabase, org.id),
+    countThreadsByStatus(supabase, org.id, ownerScope),
   ])
   const status = statusRead?.kind === 'loaded' ? statusRead.status : null
 
@@ -77,7 +97,23 @@ export default async function InboxPage({
       : 1
   const offset = (page - 1) * INBOX_PAGE_SIZE
 
-  const threads = await listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset)
+  const [threads, sla, assigneeNames] = await Promise.all([
+    listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope),
+    loadInboxSlaHours(supabase, org.id),
+    // Enrichment only: a failed read shows "Assigned" instead of a name.
+    listAssignees(org.id).then(
+      (rows) => Object.fromEntries(rows.map((row) => [row.userId, row.name])),
+      () => ({}) as Record<string, string>,
+    ),
+  ])
+  const now = Date.now()
+
+  // "Approve and send" on the last thread in the queue lands here; the
+  // reply's 30-second Undo comes along (see UndoSendBanner).
+  const isId = (value: string | undefined): value is string => Boolean(value && /^[0-9a-f-]{36}$/i.test(value))
+  const undoDraft = isId(params.undo)
+    ? await getDraftById(supabase, org.id, params.undo).catch(() => null)
+    : null
 
   if (statusRead === null) {
     return (
@@ -126,13 +162,30 @@ export default async function InboxPage({
             </Button>
           }
         />
-        <InboxFilterChips filter={filter} counts={counts} />
+        <div className="flex flex-wrap items-center gap-2">
+          <InboxFilterChips filter={filter} owner={owner} counts={counts} />
+          <InboxOwnerChips filter={filter} owner={owner} />
+        </div>
       </SplitPaneHeader>
+      <InboxKeyboard
+        prevHref={null}
+        nextHref={threads[0] ? `/inbox/${threads[0].id}${inboxQuery({ filter, owner, page })}` : null}
+      />
 
       {status ? (
         <MailboxSyncAlert status={status} canManageMailbox={canManageMailbox} className="m-3 shrink-0 sm:mx-6" />
       ) : null}
       <BackfillAlert read={statusRead} canManageMailbox={canManageMailbox} className="m-3 shrink-0 sm:mx-6" />
+      {undoDraft && undoDraft.status === 'queued' && undoDraft.sendAfter ? (
+        <div className="m-3 shrink-0 sm:mx-6">
+          <UndoSendBanner
+            draftId={undoDraft.id}
+            sendAfter={undoDraft.sendAfter}
+            subject={undoDraft.subject}
+            threadHref={isId(params.from) ? `/inbox/${params.from}${inboxQuery({ filter, owner })}` : null}
+          />
+        </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1">
         <aside
@@ -170,14 +223,23 @@ export default async function InboxPage({
               />
             )
           ) : (
-            <ThreadList threads={threads} filter={filter} page={page} />
+            <ThreadList
+              threads={threads}
+              filter={filter}
+              owner={owner}
+              page={page}
+              now={now}
+              sla={sla}
+              assigneeNames={assigneeNames}
+              currentUserId={user?.id ?? null}
+            />
           )}
           <Pager
             page={page}
             pageSize={INBOX_PAGE_SIZE}
             total={total}
             rowCount={threads.length}
-            hrefFor={(p) => `/inbox?filter=${filter}&page=${p}`}
+            hrefFor={(p) => `/inbox${inboxQuery({ filter, owner, page: p })}`}
             linkAs={Link}
             noun="conversations"
             className="mt-auto border-t border-border"
