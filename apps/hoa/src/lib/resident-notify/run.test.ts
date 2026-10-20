@@ -232,12 +232,36 @@ describe('runResidentNotification', () => {
     expect(finished[0][1]).toBe('failed')
   })
 
-  it('blocked by the outbound guard: suppressed on the row, failed to the board', async () => {
-    const { store, recipients } = fakeStore(context())
-    const d = deps({ sendEmail: vi.fn(async () => ({ ok: false as const, error: OUTBOUND_BLOCKED_ERROR })) })
+  it('BL-109: every channel held by the outbound guard — suppressed rows, cancelled (held) parent, never failed', async () => {
+    const { store, recipients, finished } = fakeStore(context({ phone: '+14045551234' }), { email: true, sms: true })
+    const d = deps({
+      sendEmail: vi.fn(async () => ({ ok: false as const, error: OUTBOUND_BLOCKED_ERROR })),
+      sendSms: vi.fn(async () => ({ ok: false as const, error: OUTBOUND_BLOCKED_ERROR })),
+    })
     const r = await runResidentNotification(store, d, decision, logger)
-    expect(r.status).toBe('failed')
-    expect(recipients[0].status).toBe('suppressed')
+    expect(r).toMatchObject({ status: 'held', sent: 0, failed: 0, held: 2 })
+    expect(recipients.map((x) => x.status)).toEqual(['suppressed', 'suppressed'])
+    expect(finished[0][1]).toBe('cancelled')
+  })
+
+  it('BL-109: one channel held, one delivered — sent, with the held channel counted apart', async () => {
+    const { store, recipients, finished } = fakeStore(context({ phone: '+14045551234' }), { email: true, sms: true })
+    const d = deps({ sendSms: vi.fn(async () => ({ ok: false as const, error: OUTBOUND_BLOCKED_ERROR })) })
+    const r = await runResidentNotification(store, d, decision, logger)
+    expect(r).toMatchObject({ status: 'sent', sent: 1, failed: 0, held: 1 })
+    expect(recipients.map((x) => x.status)).toEqual(['sent', 'suppressed'])
+    expect(finished[0][1]).toBe('sent')
+  })
+
+  it('BL-109: held plus a real failure, nothing delivered — still failed', async () => {
+    const { store, finished } = fakeStore(context({ phone: '+14045551234' }), { email: true, sms: true })
+    const d = deps({
+      sendEmail: vi.fn(async () => ({ ok: false as const, error: OUTBOUND_BLOCKED_ERROR })),
+      sendSms: vi.fn(async () => ({ ok: false as const, error: 'Twilio 500' })),
+    })
+    const r = await runResidentNotification(store, d, decision, logger)
+    expect(r).toMatchObject({ status: 'failed', sent: 0, failed: 1, held: 1 })
+    expect(finished[0][1]).toBe('failed')
   })
 
   it('a store or sender that throws becomes failed', async () => {

@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { insuranceRequirementLines, resolveVendorInsuranceSettings } from '@homeowner-portal/workflows/vendor-insurance'
 import { coiDaysLeft, coiExpiryState, draftCoiRequest, coiRequestHtml, type CoiExpiryState } from '@homeowner-portal/workflows/vendor-coi'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
+import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { COI_REQUEST_BODY_MAX, COI_REQUEST_SUBJECT_MAX } from './limits'
 
 /** communications.related_resource.type for these rows. */
@@ -68,7 +69,9 @@ export interface CoiRequestStore {
     text: string
   }): Promise<{ communicationId: string; recipientId: string }>
   markRecipient(recipientId: string, outcome: CoiRecipientOutcome): Promise<void>
-  finish(communicationId: string, status: 'sent' | 'failed'): Promise<void>
+  /** `cancelled` = the outbound guard held the email back (finalSendStatus):
+   *  the communications screens read it as "Held by safety guard (1)". */
+  finish(communicationId: string, status: 'sent' | 'failed' | 'cancelled'): Promise<void>
 }
 
 export type CoiSender = (
@@ -198,7 +201,16 @@ export async function sendCoiRequestCore(
 
   try {
     await store.markRecipient(ids.recipientId, outcome)
-    await store.finish(ids.communicationId, outcome.status === 'sent' ? 'sent' : 'failed')
+    // `suppressed` here is only ever the guard's hold. A held request is
+    // not a failure (BL-109): it finishes `cancelled`, never `failed`.
+    await store.finish(
+      ids.communicationId,
+      finalSendStatus({
+        sent: outcome.status === 'sent' ? 1 : 0,
+        failed: outcome.status === 'failed' ? 1 : 0,
+        held: outcome.status === 'suppressed' ? 1 : 0,
+      }),
+    )
   } catch (err) {
     // The email's fate is already decided; a bookkeeping miss is logged,
     // not reported as a failed send (a retry would email the vendor twice).

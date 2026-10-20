@@ -386,7 +386,7 @@ export async function toggleEventActive(
 
 export async function sendTestAlert(
   eventId: string,
-): Promise<ActionResult<{ sent: number; failed: number }>> {
+): Promise<ActionResult<{ sent: number; failed: number; held: number }>> {
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
   const role = await getCurrentUserRoleInOrg(org.id)
@@ -410,6 +410,6 @@ export async function sendTestAlert(
   revalidatePath(`/events/${eventId}`)
   return {
     ok: true,
-    data: { sent: result.sent, failed: result.failed.length },
+    data: { sent: result.sent, failed: result.failed.length, held: result.held },
   }
 }

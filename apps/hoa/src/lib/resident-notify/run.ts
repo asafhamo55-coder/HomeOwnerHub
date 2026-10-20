@@ -24,6 +24,7 @@
 
 import { createHash } from 'node:crypto'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
+import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { deterministicUuid } from '@homeowner-portal/jobs/deterministic-id'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { renderArcDecisionEmail, renderTicketReplyEmail, type ArcNoticeKind, type RenderedNotice } from './render'
@@ -42,14 +43,18 @@ export type ResidentNotifyEvent =
   | { kind: 'arc_info_request'; arcId: string; messageId: string; message: string }
   | { kind: 'ticket_reply'; ticketId: string; messageId: string; reply: string }
 
-/** What the board is told. Only 'failed' is a problem. */
-export type ResidentNotifyStatus = 'off' | 'sent' | 'already_sent' | 'failed' | 'opted_out' | 'no_contact'
+/** What the board is told. Only 'failed' is a problem; 'held' means the
+ *  outbound safety guard held back every channel (BL-109) — nothing went
+ *  out, nothing broke. */
+export type ResidentNotifyStatus = 'off' | 'sent' | 'already_sent' | 'failed' | 'held' | 'opted_out' | 'no_contact'
 
 export interface ResidentNotifyResult {
   status: ResidentNotifyStatus
   communicationId: string | null
   sent: number
   failed: number
+  /** Channels the outbound guard held back — recorded `suppressed`, not failed. */
+  held: number
 }
 
 /** communications.related_resource.type for these rows. */
@@ -151,7 +156,8 @@ export interface ResidentNotifyStore {
     },
   ): Promise<{ id: string }>
   markRecipient(id: string, outcome: ResidentRecipientOutcome, renderedSubject: string): Promise<void>
-  finish(communicationId: string, status: 'sent' | 'failed'): Promise<void>
+  /** `cancelled` = the outbound guard held back every channel (finalSendStatus). */
+  finish(communicationId: string, status: 'sent' | 'failed' | 'cancelled'): Promise<void>
 }
 
 export interface NotifyLogger {
@@ -183,8 +189,14 @@ function render(event: ResidentNotifyEvent, ctx: NotifyContext, deps: ResidentNo
 
 const errName = (err: unknown) => (err instanceof Error ? err.name : 'unknown')
 
-function result(status: ResidentNotifyStatus, communicationId: string | null = null, sent = 0, failed = 0): ResidentNotifyResult {
-  return { status, communicationId, sent, failed }
+function result(
+  status: ResidentNotifyStatus,
+  communicationId: string | null = null,
+  sent = 0,
+  failed = 0,
+  held = 0,
+): ResidentNotifyResult {
+  return { status, communicationId, sent, failed, held }
 }
 
 export async function runResidentNotification(
@@ -252,6 +264,7 @@ export async function runResidentNotification(
 
     let sent = 0
     let failed = 0
+    let held = 0
     try {
       const orgSandbox = await store.orgSandbox(association.organizationId)
       const opts = { orgSandbox, ref: communicationId }
@@ -287,17 +300,23 @@ export async function runResidentNotification(
           outcome = { status: 'failed', error: errName(err) }
         }
         if (outcome.status === 'sent') sent += 1
+        else if (outcome.status === 'suppressed') held += 1
         else failed += 1
         await store.markRecipient(row.id, outcome, notice.subject)
       }
     } finally {
-      await store.finish(communicationId, sent > 0 ? 'sent' : 'failed').catch((err) => {
+      // `suppressed` here is only ever the guard's hold (failure()). All
+      // held → `cancelled`, which the communications screens read as "Held
+      // by safety guard (N)" — not a failure (BL-109, finalSendStatus).
+      await store.finish(communicationId, finalSendStatus({ sent, failed, held })).catch((err) => {
         logger.error(`${tag}: ${communicationId} status update failed`, { error: errName(err) })
       })
     }
 
-    logger.info(`${tag}: ${communicationId} ${sent} sent, ${failed} failed`, { channels: channels.length })
-    return result(failed === 0 && sent > 0 ? 'sent' : 'failed', communicationId, sent, failed)
+    logger.info(`${tag}: ${communicationId} ${sent} sent, ${held} held, ${failed} failed`, { channels: channels.length })
+    const status: ResidentNotifyStatus =
+      failed > 0 ? 'failed' : sent > 0 ? 'sent' : held > 0 ? 'held' : 'failed'
+    return result(status, communicationId, sent, failed, held)
   } catch (err) {
     logger.error(`${tag}: ${communicationId} failed`, { error: errName(err) })
     return result('failed', communicationId)

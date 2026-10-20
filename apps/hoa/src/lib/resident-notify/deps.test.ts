@@ -101,7 +101,8 @@ describe('residentNotifyDeps — the guarded senders the notification runs with'
     expect(send).not.toHaveBeenCalled()
     expect(smsSend).not.toHaveBeenCalled()
     expect(statuses).toEqual(['suppressed', 'suppressed'])
-    expect(r.status).toBe('failed')
+    // Held by the guard, not a failure (BL-109).
+    expect(r.status).toBe('held')
   })
 
   it('a sandbox org in production sends nothing to a non-allowlisted resident', async () => {

@@ -37,13 +37,16 @@ export function EventActions({ eventId, isActive }: { eventId: string; isActive:
         toast({ tone: 'error', message: result.error })
         return
       }
-      const { sent, failed } = result.data
+      const { sent, failed, held } = result.data
+      const heldNote = held > 0 ? `held by safety guard (${held})` : ''
       toast({
         tone: sent > 0 ? 'success' : 'info',
         message:
           sent > 0
-            ? `Sent ${sent} alert${sent === 1 ? '' : 's'}${failed > 0 ? ` (${failed} failed)` : ''}.`
-            : 'No recipients available to alert. Check the event audience has contact info on file.',
+            ? `Sent ${sent} alert${sent === 1 ? '' : 's'}${failed > 0 || held > 0 ? ` (${[failed > 0 ? `${failed} failed` : '', heldNote].filter(Boolean).join(', ')})` : ''}.`
+            : held > 0 && failed === 0
+              ? `Nothing was sent: ${heldNote}.`
+              : 'No recipients available to alert. Check the event audience has contact info on file.',
       })
       router.refresh()
     })
