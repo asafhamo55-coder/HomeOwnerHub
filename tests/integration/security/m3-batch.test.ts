@@ -74,16 +74,26 @@ async function makeThread(f: OrgFixture): Promise<string> {
     organization_id: f.orgId,
     email_address: `board-${randomUUID().slice(0, 8)}@example.test`,
   })
-  return insertOne('inbox_threads', {
+  const threadId = await insertOne('inbox_threads', {
     organization_id: f.orgId,
     mailbox_account_id: mailbox,
     gmail_thread_id: `t-${randomUUID()}`,
   })
+  mailboxOf.set(threadId, mailbox)
+  return threadId
 }
+
+/**
+ * inbox_messages.mailbox_account_id is NOT NULL with no default (0030 sets
+ * it after backfilling from the thread); ingest copies the thread's, so
+ * the seed does too.
+ */
+const mailboxOf = new Map<string, string>()
 
 async function addMessage(f: OrgFixture, threadId: string, direction: 'inbound' | 'outbound', sentAt: string): Promise<string> {
   return insertOne('inbox_messages', {
     organization_id: f.orgId,
+    mailbox_account_id: mailboxOf.get(threadId) ?? (() => { throw new Error('seed inbox_messages: thread not made by makeThread') })(),
     thread_id: threadId,
     gmail_message_id: `m-${randomUUID()}`,
     direction,
