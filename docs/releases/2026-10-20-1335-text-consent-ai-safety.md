@@ -23,6 +23,10 @@ Text messages now go only to the exact phone number a resident agreed for. If th
 - **Fair use everywhere:** "Draft a reply" in the inbox and eight board tools (vendor drafts and checks, state-law questions, bids and requests for proposal, budget summary, bank reconciliation) now count toward the same daily board AI limit as the rest. That limit is far above normal use, and nothing changes for typical boards.
 - **Cost visibility:** AI use by background jobs is now counted in the daily cost check.
 
+### Faster pages
+- **Dashboard, inbox, accounting, dues and resident pages** load faster: data that doesn't depend on other data now loads at the same time, and a few repeated lookups were removed. Nothing shown on the pages changed.
+- **Fixed:** opening Dues for a single home always showed no charges. It now shows that home's charges.
+
 ### Faster search
 - **⌘K search is quicker:** lookups that don't depend on each other now run at the same time, cutting a search to two database round-trips. Each search now reports its timings so slow spots show up.
 
