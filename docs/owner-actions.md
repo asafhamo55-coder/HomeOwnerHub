@@ -219,19 +219,34 @@ support@homeownerledger.com. If no one reads that inbox, their emails are lost.
 1. Send a test email to support@homeownerledger.com and check it arrives somewhere you read.
 2. Tell Claude yes or no.
 
-### OA-13 · Rotate the old leaked Supabase key
+### OA-13 · Rotate the Supabase service-role key
 
 **Urgency:** Whenever
 
-**Why it matters:** an old production Supabase admin key is visible in the
-public repo's history. You accepted that risk for now; rotate it before any
-investor due diligence.
+**Why it matters:** routine security hygiene before any investor due
+diligence. Claude has the background.
 
 **Steps:**
 
 1. In the Supabase dashboard, open **Project Settings → API** and rotate the service-role key.
 2. Put the new key in Vercel (production environment) and GitHub secrets where the old one was. Never in a file.
 3. Tell Claude, so it can check the app still works.
+
+### OA-14 · Turn on two more Stripe webhook events
+
+**Urgency:** Soon
+
+**Why it matters:** the app now handles subscription changes (cancellations,
+door-count changes) and failed card payments, and shows boards a "payment
+past due" banner. Stripe only sends these events if the webhook asks for them.
+
+**Steps:**
+
+1. In the Stripe dashboard (live mode), open **Developers → Webhooks** and click the app's endpoint.
+2. Click **Edit destination / Select events** and add `customer.subscription.updated` and `invoice.payment_failed`. Keep the events already selected.
+3. Save, and tell Claude it's done.
+
+**Files:** `docs/specs/2026-10-19-stripe-sandbox.md`
 
 ## Done
 
