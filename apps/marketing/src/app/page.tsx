@@ -7,7 +7,6 @@ import { ProductsBento } from '@/components/site/products-bento'
 import { Agents } from '@/components/site/agents'
 import { PullQuote } from '@/components/site/pull-quote'
 import { Communities } from '@/components/site/communities'
-import { TestimonialsMarquee } from '@/components/site/testimonials-marquee'
 import { WorkflowsGrid } from '@/components/site/workflows-grid'
 import { CaseStudy } from '@/components/site/case-study'
 import { MidCta } from '@/components/site/mid-cta'
@@ -26,7 +25,6 @@ export default function HomePage() {
       <Agents />
       <PullQuote />
       <Communities />
-      <TestimonialsMarquee />
       <WorkflowsGrid />
       <CaseStudy />
       <MidCta />

@@ -46,7 +46,8 @@ export async function submitDemoRequest(
 
   const apiKey = process.env.RESEND_API_KEY
   const to = process.env.DEMO_INBOX_EMAIL || 'asafhamo55@gmail.com'
-  const from = process.env.DEMO_FROM_EMAIL || 'HomeownerHub <demo@ledger.ai>'
+  const from =
+    process.env.DEMO_FROM_EMAIL || process.env.EMAIL_FROM || 'HomeownerHub <support@homeownerledger.com>'
 
   const summary = `
 New demo request — HomeownerHub
@@ -89,7 +90,7 @@ Submitted at ${new Date().toISOString()}
       console.error('[demo-request] Resend error:', error)
       return {
         status: 'error',
-        message: 'We couldn\'t send your request. Please email demo@ledger.ai directly.',
+        message: 'We couldn\'t send your request. Please email support@homeownerledger.com directly.',
       }
     }
 
@@ -98,7 +99,7 @@ Submitted at ${new Date().toISOString()}
     console.error('[demo-request] unexpected error:', err)
     return {
       status: 'error',
-      message: 'Something went wrong. Please email demo@ledger.ai directly.',
+      message: 'Something went wrong. Please email support@homeownerledger.com directly.',
     }
   }
 }

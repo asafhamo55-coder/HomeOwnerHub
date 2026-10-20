@@ -85,10 +85,10 @@ export default function DocsPage() {
               Email us with the workflow or topic and we'll prioritize it.
             </p>
             <Link
-              href="mailto:docs@ledger.ai?subject=Doc%20request"
+              href="mailto:support@homeownerledger.com?subject=Doc%20request"
               className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover"
             >
-              docs@ledger.ai
+              support@homeownerledger.com
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

@@ -77,10 +77,10 @@ export default function BlogPage() {
               </div>
             </div>
             <Link
-              href="mailto:hello@ledger.ai?subject=Add%20me%20to%20the%20blog%20launch%20list"
+              href="mailto:support@homeownerledger.com?subject=Add%20me%20to%20the%20blog%20launch%20list"
               className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover"
             >
-              hello@ledger.ai
+              support@homeownerledger.com
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

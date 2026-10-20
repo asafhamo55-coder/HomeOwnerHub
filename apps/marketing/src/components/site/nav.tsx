@@ -225,7 +225,7 @@ export function Nav() {
               </Link>
             ))}
             <div className="my-3 h-px bg-border" />
-            {[...links, { href: '/case-studies/madison-park', label: 'Case study' }].map((l) => (
+            {[...links, { href: '/case-studies', label: 'Case studies' }].map((l) => (
               <Link
                 key={l.href}
                 href={l.href}

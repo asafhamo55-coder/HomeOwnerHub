@@ -177,7 +177,7 @@ export function AuditLogLive() {
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-success-solid" />
               </span>
               <span className="font-mono text-xs text-background/80">
-                <span className="text-background/40">stream</span> ledger.aieventlog
+                <span className="text-background/40">stream</span> homeownerhub.eventlog
               </span>
             </div>
             <div className="flex items-center gap-3 font-mono text-[11px] text-background/50">

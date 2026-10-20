@@ -37,7 +37,7 @@ export const PHOTOS = {
     credit: 'Ty Dennis · Unsplash',
   },
 
-  // Single-family homes — for PM Hub / Madison Park case study
+  // Single-family homes — for PM Hub and the homepage
   grayWoodenHouse: {
     src: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be',
     alt: 'Gray wooden single-family home with classic American styling.',
@@ -68,49 +68,3 @@ export const PHOTOS = {
 } as const satisfies Record<string, Photo>
 
 export type PhotoKey = keyof typeof PHOTOS
-
-// Portrait photos for the testimonials marquee. Illustrative — these are
-// real Unsplash photos used as stand-ins while we onboard named-reference
-// customers. Each maps to the first-name persona in TestimonialsMarquee.
-export const PORTRAITS = {
-  linda: {
-    src: 'https://images.unsplash.com/photo-1617746167432-b3709f7e94d8',
-    alt: 'Warm portrait of a woman in her late 50s, the persona Linda represents.',
-    credit: 'Unsplash',
-  },
-  jon: {
-    src: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde',
-    alt: 'Professional portrait of a man, the persona Jon represents.',
-    credit: 'Alex Suprun · Unsplash',
-  },
-  adam: {
-    src: 'https://images.unsplash.com/photo-1600603406200-5b2a104684ac',
-    alt: 'Portrait of a man in a white crew neck, the persona Adam represents.',
-    credit: 'Vicky Hladynets · Unsplash',
-  },
-  maria: {
-    src: 'https://images.unsplash.com/photo-1615538786254-ad8b50de17dc',
-    alt: 'Portrait of a woman, the persona Maria represents.',
-    credit: 'Maria Lupan · Unsplash',
-  },
-  marcus: {
-    src: 'https://images.unsplash.com/photo-1583264277168-58ceba4b84e7',
-    alt: 'Portrait of a man, the persona Marcus represents.',
-    credit: 'Nathan Dumlao · Unsplash',
-  },
-  patricia: {
-    src: 'https://images.unsplash.com/photo-1562337404-3044c84ac061',
-    alt: 'Portrait of a woman, the persona Patricia represents.',
-    credit: 'Kate Kozyrka · Unsplash',
-  },
-  james: {
-    src: 'https://images.unsplash.com/photo-1648817976768-a2fdcba20f9a',
-    alt: 'Portrait of a bearded man, the persona James represents.',
-    credit: 'ARTISTIC FRAMES · Unsplash',
-  },
-  sarah: {
-    src: 'https://images.unsplash.com/photo-1564564244660-5d73c057f2d2',
-    alt: 'Portrait of a woman, the persona Sarah represents.',
-    credit: 'Irene Strong · Unsplash',
-  },
-} as const satisfies Record<string, Photo>

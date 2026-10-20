@@ -59,3 +59,7 @@ The composite "typical feedback" testimonials (Jon, James and Sarah) were remove
 - **Open, waiting on Asaf:**
   - Is "Linda, Madison Park" a real person who gave the marquee quote? The repo's design docs use Linda as a buyer persona. If she isn't real, remove the quote everywhere.
   - Eviction/PM pages still claim "attorney-reviewed". That's out of HOA scope; it was left as is.
+
+## 2026-10-19 update: Linda quote removed
+
+Resolved under the owner-delegated defaults (`2026-10-19-owner-delegated-defaults.md`): no customer quote is verified, so Linda's quote has been removed everywhere on the marketing site. That covers the homepage marquee and case-study section, the /hoa persona card (now a product-facts list), /demo and /case-studies. `/case-studies/madison-park` redirects to `/case-studies`, which says case studies will be published once a customer approves them. No replacement testimonial was written.
