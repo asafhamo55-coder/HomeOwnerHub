@@ -38,6 +38,9 @@ import { MessagesTabs } from '@/components/messages/MessagesTabs'
 import { NewMessageMenu } from '@/components/messages/NewMessageMenu'
 import { InboxSourceChips } from '@/components/messages/InboxSourceChips'
 import { AnnouncementReplies } from '@/components/messages/AnnouncementReplies'
+import { loadDraftQuality } from '@/lib/inbox/draft/metrics-store'
+import type { DraftQualitySummary } from '@/lib/inbox/draft/metrics'
+import { DraftQualityCard } from './DraftQualityCard'
 
 export const metadata = { title: 'Inbox' }
 export const dynamic = 'force-dynamic'
@@ -118,13 +121,24 @@ export default async function InboxPage({
       : 1
   const offset = (page - 1) * INBOX_PAGE_SIZE
 
-  const [threads, sla, assigneeNames] = await Promise.all([
+  const [threads, sla, assigneeNames, draftQuality] = await Promise.all([
     listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope),
     loadInboxSlaHours(supabase, org.id),
     // Enrichment only: a failed read shows "Assigned" instead of a name.
     listAssignees(org.id).then(
       (rows) => Object.fromEntries(rows.map((row) => [row.userId, row.name])),
       () => ({}) as Record<string, string>,
+    ),
+    // BL-101 A10. Enrichment only: a failed read hides the card.
+    loadDraftQuality(supabase, { orgId: org.id }).then(
+      (q): DraftQualitySummary | null => q.summary,
+      (err: unknown) => {
+        console.error('InboxPage: draft quality read failed', {
+          orgId: org.id,
+          message: err instanceof Error ? err.message : String(err),
+        })
+        return null
+      },
     ),
   ])
   const now = Date.now()
@@ -210,6 +224,7 @@ export default async function InboxPage({
           <InboxFilterChips filter={filter} owner={owner} counts={counts} />
           <InboxOwnerChips filter={filter} owner={owner} />
         </div>
+        <DraftQualityCard summary={draftQuality} />
       </SplitPaneHeader>
       <InboxKeyboard
         prevHref={null}

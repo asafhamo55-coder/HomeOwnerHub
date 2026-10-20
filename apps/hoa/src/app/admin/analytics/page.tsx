@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { Building2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, EmptyState, Kpi, Page, type SortDirection } from '@homeowner-portal/ui'
-import { getAnalyticsData } from '@/lib/platform-admin'
+import { getAnalyticsData, getPlatformDraftQuality } from '@/lib/platform-admin'
+import { formatApproveTime, formatPercent, LIGHT_EDIT_RATIO } from '@/lib/inbox/draft/metrics'
 import {
   FeatureAdoptionChart,
   GrowthChart,
@@ -23,7 +24,16 @@ export default async function AnalyticsPage({
   searchParams: Promise<{ sort?: string; dir?: string }>
 }) {
   const sp = await searchParams
-  const data = await getAnalyticsData()
+  const [data, draftQuality] = await Promise.all([
+    getAnalyticsData(),
+    // BL-101 A10. A failed read hides the section rather than the page.
+    getPlatformDraftQuality().catch((err: unknown) => {
+      console.error('AnalyticsPage: draft quality read failed', {
+        message: err instanceof Error ? err.message : String(err),
+      })
+      return null
+    }),
+  ])
 
   const sortKey: HealthSortKey = (HEALTH_SORT_KEYS as readonly string[]).includes(sp.sort ?? '')
     ? (sp.sort as HealthSortKey)
@@ -67,6 +77,26 @@ export default async function AnalyticsPage({
           hint={`${data.vendor_compliance.red} non-compliant · ${data.vendor_compliance.yellow} expiring`}
         />
       </section>
+
+      {draftQuality ? (
+        <section aria-labelledby="draft-quality" className="space-y-3">
+          <div>
+            <h2 id="draft-quality" className="text-lg">
+              Inbox AI drafts (30 days)
+            </h2>
+            <p className="text-sm text-muted">
+              Approved AI reply drafts across {draftQuality.orgs} tenant{draftQuality.orgs === 1 ? '' : 's'}. Light edits = at most{' '}
+              {Math.round(LIGHT_EDIT_RATIO * 100)}% of words changed.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Kpi label="Drafts sent" value={draftQuality.summary.drafts.toLocaleString()} hint={`${formatPercent(draftQuality.summary.unchangedShare)} unedited`} />
+            <Kpi label="Sent with light edits" value={formatPercent(draftQuality.summary.lightEditShare)} hint={`Median edit ${formatPercent(draftQuality.summary.medianEditRatio)} of words`} />
+            <Kpi label="Median time to approve" value={formatApproveTime(draftQuality.summary.medianSecondsToApprove)} hint={`Median blanks per draft: ${draftQuality.summary.medianBlanks ?? '—'}`} />
+            <Kpi label="Citations kept" value={formatPercent(draftQuality.summary.citationsKeptShare)} hint="Drafts that kept every quoted citation" />
+          </div>
+        </section>
+      ) : null}
 
       <GrowthChart tenants={data.tenants_over_time} members={data.members_over_time} />
 

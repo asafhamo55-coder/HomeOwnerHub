@@ -44,6 +44,8 @@ import { attachmentNameProblem, MAX_ATTACHMENT_BYTES } from './attachments'
 import { buildForwardSubject, buildForwardBody } from './forward'
 import { addDraftAttachment } from './attachment-actions'
 import { setThreadStatus } from '@/lib/inbox/actions'
+import { computeDraftMetrics } from './metrics'
+import { recordDraftMetrics } from './metrics-store'
 
 export async function createDraft(
   threadId: string,
@@ -431,7 +433,13 @@ export async function approveDraft(
     }
   }
 
-  const sendAfter = new Date(Date.now() + UNDO_WINDOW_SECONDS * 1000).toISOString()
+  // BL-101 A10: the generated text is about to be overwritten by the
+  // approved text, so snapshot it first. Measurement only — a failed read
+  // costs one metrics row, never the approval.
+  const generatedDraft = await readGeneratedDraft(supabase, org.id, draftId)
+
+  const approvedAt = new Date()
+  const sendAfter = new Date(approvedAt.getTime() + UNDO_WINDOW_SECONDS * 1000).toISOString()
 
   // Conditional: only a row still in 'draft' can be approved. Guards against
   // a double submit queueing the same reply twice. `status`, `approved_by`,
@@ -447,7 +455,7 @@ export async function approveDraft(
       to_emails: recipients.to,
       cc_emails: recipients.cc,
       approved_by: user.id,
-      approved_at: new Date().toISOString(),
+      approved_at: approvedAt.toISOString(),
       send_after: sendAfter,
     })
     .eq('id', draftId)
@@ -481,6 +489,25 @@ export async function approveDraft(
       .eq('organization_id', org.id)
       .eq('status', 'queued')
     return { error: 'Could not schedule the send. The draft is still here — try again.' }
+  }
+
+  if (generatedDraft) {
+    await recordDraftMetrics(supabase, {
+      orgId: org.id,
+      userId: user.id,
+      metrics: computeDraftMetrics({
+        draftId,
+        threadId: data.thread_id,
+        aiRunId: generatedDraft.ai_run_id,
+        draftSubject: generatedDraft.subject,
+        draftBody: generatedDraft.body_text,
+        sentSubject: subject,
+        sentBody: body,
+        citations: generatedDraft.citations,
+        createdAt: generatedDraft.created_at,
+        approvedAt,
+      }),
+    })
   }
 
   const threadClosed = data.thread_id
@@ -539,6 +566,45 @@ async function afterApproveThreadEffects(
     return false
   }
   return true
+}
+
+/**
+ * BL-101 A10: the AI-generated subject/body/citations of a reply draft as
+ * it stands before approval, or null when it is not a measurable AI reply
+ * (a forward, compose or vendor request, no ai_run_id) or the read failed.
+ * Never throws and never logs anything but the draft id and a code.
+ */
+async function readGeneratedDraft(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  orgId: string,
+  draftId: string,
+): Promise<{
+  subject: string
+  body_text: string
+  citations: unknown
+  created_at: string
+  ai_run_id: string | null
+} | null> {
+  try {
+    const { data, error } = await supabase
+      .from('inbox_drafts')
+      .select('kind, status, subject, body_text, citations, created_at, ai_run_id')
+      .eq('id', draftId)
+      .eq('organization_id', orgId)
+      .maybeSingle()
+    if (error) {
+      console.error(`approveDraft: metrics snapshot read failed for draft ${draftId}: ${error.code}`)
+      return null
+    }
+    if (!data || data.kind !== 'reply' || data.status !== 'draft' || !data.ai_run_id) return null
+    if (typeof data.body_text !== 'string' || typeof data.subject !== 'string') return null
+    return data
+  } catch (error) {
+    console.error(
+      `approveDraft: metrics snapshot threw for draft ${draftId}: ${error instanceof Error ? error.name : 'UnknownError'}`,
+    )
+    return null
+  }
 }
 
 export async function cancelDraft(draftId: string): Promise<{ ok: true } | { error: string }> {
