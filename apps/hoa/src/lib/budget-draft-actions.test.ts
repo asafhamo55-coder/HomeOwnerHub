@@ -11,12 +11,15 @@ const h = vi.hoisted(() => ({
   saveBudgetLineItems: vi.fn(),
   generateBudgetNarrative: vi.fn(),
   getClient: vi.fn(),
+  quota: vi.fn(),
 }))
 
 vi.mock('@/lib/accounting/guard', () => ({ requireBoardOrAdminForAction: async () => h.gate }))
 vi.mock('@/lib/budgets', () => ({ createBudget: h.createBudget, saveBudgetLineItems: h.saveBudgetLineItems }))
 vi.mock('@homeowner-portal/ai', () => ({ generateBudgetNarrative: h.generateBudgetNarrative }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: h.getClient }))
+// BL-112: the summary draws on `board_ai` before the model call.
+vi.mock('@/lib/api/ai-action-quota', () => ({ chargeAiActionQuota: h.quota }))
 
 const { saveDraftBudget, summarizeDraftBudget } = await import('./budget-draft-actions')
 
@@ -37,6 +40,7 @@ beforeEach(() => {
   h.saveBudgetLineItems.mockReset().mockResolvedValue({ ok: true, budgetId: BUDGET })
   h.generateBudgetNarrative.mockReset()
   h.getClient.mockReset()
+  h.quota.mockReset().mockResolvedValue({ ok: true, userId: 'user-1', usageId: 'u-1' })
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -149,5 +153,27 @@ describe('summarizeDraftBudget', () => {
     const r = await summarizeDraftBudget(input)
     expect(r).toEqual({ ok: false, error: 'The AI summary isn’t available right now. The list of changes below is complete without it.' })
     expect(console.error).toHaveBeenCalledWith('[budget-draft] summary failed', 'Error')
+  })
+})
+
+describe('summarizeDraftBudget — BL-112 AI quota', () => {
+  const input = {
+    yearLabel: 'FY2027',
+    fundName: 'Operating',
+    inflationPct: 3,
+    lines: [{ accountName: 'Landscaping', accountType: 'expense' as const, priorBudget: 1000, amount: 1100 }],
+  }
+
+  it('draws on the board_ai bucket for this org before the model call', async () => {
+    h.generateBudgetNarrative.mockResolvedValue('Short summary.')
+    await summarizeDraftBudget(input)
+    expect(h.quota).toHaveBeenCalledWith('board_ai', 'org-1')
+  })
+
+  it('a refused quota (limit or AI paused) returns its message and never calls the model', async () => {
+    h.quota.mockResolvedValue({ ok: false, error: 'AI features are paused for a short while.', rateLimited: true })
+    const r = await summarizeDraftBudget(input)
+    expect(r).toEqual({ ok: false, error: 'AI features are paused for a short while.' })
+    expect(h.generateBudgetNarrative).not.toHaveBeenCalled()
   })
 })

@@ -6,6 +6,7 @@ import { askStateLaw, type StateLawBrainOutput } from '@homeowner-portal/workflo
 import { getCurrentOrg } from '@/lib/orgs'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 
 export type SupportedState = 'GA' | 'FL' | 'CA' | 'TX'
 
@@ -417,6 +418,10 @@ export async function askStateLawAction(
 
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  // BL-112: the board's State Law Q&A (W30) → `board_ai`.
+  const quota = await chargeAiActionQuota('board_ai', org.id)
+  if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
     const result = await askStateLaw(trimmed, state, { organizationId: org.id })

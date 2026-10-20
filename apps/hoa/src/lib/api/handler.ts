@@ -5,6 +5,8 @@
 // - Anything else becomes a generic JSON 500 `internal`: logged with the
 //   route name and error code only, and reported to Sentry. Never the
 //   framework's HTML 500, never the error's text (R-20, R-05).
+// - An AiPausedError (BL-112: AI_PLATFORM_KILL_SWITCH stopped a model call
+//   at the client layer) becomes BL-108's friendly 503 `ai_paused`.
 // - Next's own control-flow throws (redirect(), notFound(), dynamic-usage
 //   bailouts) are rethrown untouched so the framework can handle them.
 //
@@ -14,6 +16,8 @@
 import * as Sentry from '@sentry/nextjs'
 import { ApiRouteError, apiError } from './errors'
 import { errorCode, logRouteFailure } from './log'
+import { isAiPausedError } from '@homeowner-portal/ai/guard'
+import { aiPausedError } from './ai-spend'
 
 function isNextControlFlow(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false
@@ -44,6 +48,10 @@ export function withRoute<R extends Request, C>(
     } catch (err) {
       if (err instanceof ApiRouteError) return err.toResponse()
       if (isNextControlFlow(err)) throw err
+      // BL-112: the kill switch stopped a model or embedding call at the
+      // client layer (a route with no requireAiQuota in front of it, or one
+      // already past it). Same friendly 503 the quota gate gives, not a 500.
+      if (isAiPausedError(err)) return aiPausedError().toResponse()
       logRouteFailure(name, err, { stage: 'unhandled' })
       Sentry.captureException(err, { tags: { where: `api:${name}`, code: errorCode(err) ?? 'none' } })
       return apiError('internal')

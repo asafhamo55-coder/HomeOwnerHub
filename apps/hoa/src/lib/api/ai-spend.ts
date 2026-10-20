@@ -103,13 +103,11 @@ export function secondsUntilNextMonth(now: number): number {
 
 // ─── Platform kill switch ─────────────────────────────────────────────
 
-/** Vercel env flag: set to 1 / true / on / yes to refuse every AI call. */
-export const AI_KILL_SWITCH_ENV = 'AI_PLATFORM_KILL_SWITCH'
-
-export function aiKillSwitchOn(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
-  const v = env[AI_KILL_SWITCH_ENV]?.trim().toLowerCase()
-  return v === '1' || v === 'true' || v === 'on' || v === 'yes'
-}
+// BL-112: the flag and its parser live in the shared AI client layer
+// (packages/ai/src/guard.ts), which also stops every model and embedding
+// call at the client — jobs included. Re-exported so BL-108 callers keep
+// their import path and there is one definition of "on".
+export { AI_KILL_SWITCH_ENV, aiKillSwitchOn } from '@homeowner-portal/ai/guard'
 
 export const AI_PAUSED_MESSAGE =
   'AI features are paused for a short while. Everything else works as usual. Please try again later.'

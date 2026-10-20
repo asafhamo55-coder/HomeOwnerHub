@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { guardAiClient } from '../guard'
 import { resolveVisionModel } from '../model'
 
 /**
@@ -38,10 +39,10 @@ export function resolveVisionBaseUrl(): string | undefined {
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: resolveVisionBaseUrl(),
     apiKey: process.env.AI_API_KEY || 'local',
-  })
+  }))
   return _client
 }
 

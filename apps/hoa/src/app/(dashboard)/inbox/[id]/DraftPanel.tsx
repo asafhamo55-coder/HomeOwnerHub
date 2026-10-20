@@ -81,7 +81,7 @@ export function DraftPanel({
   const [autoDrafting, setAutoDrafting] = useState(false)
 
   // Draft-on-open. The server re-checks eligibility and the AI rate limit
-  // (autoDraftOnOpen), then calls the same createDraft as the button. Its
+  // (autoDraftOnOpen), then runs the same generation as the button. Its
   // revalidatePath re-renders the page with the new draft in place.
   useEffect(() => {
     if (!threadId || !autoDraftVersion) return

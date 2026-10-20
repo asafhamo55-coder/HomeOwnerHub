@@ -20,6 +20,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
+import { guardAiClient, isAiPausedError } from '@homeowner-portal/ai/guard'
 import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import { proposeApproval } from '../approvals'
@@ -40,10 +41,10 @@ import {
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY ?? 'local',
-  })
+  }))
   return _client
 }
 
@@ -349,6 +350,10 @@ async function runStepD(
       }
     }
   } catch (err) {
+    // BL-112: a platform pause is NOT a model failure. Falling back to the
+    // placeholder would let plaid-sync stamp the row as attempted and the
+    // suggestion would never be made; propagate so callers defer instead.
+    if (isAiPausedError(err)) throw err
     // LLM call failure is non-fatal — fall back to placeholder.
     input.api.setReasoning(
       `LLM call failed: ${err instanceof Error ? err.message : String(err)}`,

@@ -62,6 +62,7 @@ import {
   type BandId,
   type HoaPlanId,
 } from '@homeowner-portal/billing'
+import type { PlatformAiUsageLabel } from '@homeowner-portal/ai/guard'
 
 export type AiUsageBucket =
   | 'arc_precheck'
@@ -340,6 +341,34 @@ export const AI_CALL_COST_ESTIMATE_USD: Readonly<Record<AiUsageBucket, number>> 
   // → 12k) ≈ $0.018, plus ≤ 6 docs searches (COPILOT_TOOL_BUDGET) at
   // ~$0.0009 each ($0.0054) → ≈ $0.0234.
   ask_community: 0.0234,
+}
+
+/**
+ * BL-112: per-call estimates for the PLATFORM usage labels — calls no
+ * org bucket pays for, written by the shared AI client layer
+ * (packages/ai/src/guard.ts, packages/jobs/src/ai-usage.ts) as
+ * `ai.usage.<label>`. Read only by the daily platform spend alert
+ * (AI_SPEND_ALERT_COST_PER_CALL_USD); never by an org's meter or caps, so
+ * jobs and embeddings are not capped per org.
+ */
+export const PLATFORM_AI_CALL_COST_ESTIMATE_USD: Readonly<Record<PlatformAiUsageLabel, number>> = {
+  // One embedding HTTP request: ≤ 32 inputs (DEFAULT_BATCH_SIZE) of ~800
+  // tokens ≈ 25.6k tokens × text-embedding-3-small $0.02/M ≈ $0.0005.
+  embed: 0.0005,
+  // W18 Step D (the only model step): one JSON-mode gpt-oss-120b call with
+  // the chart of accounts, funds and vendors in the prompt (~4k in / 0.5k
+  // out), the same shape as board_ai's ~$0.0009.
+  'job.plaid_sync': 0.0009,
+  'job.plaid_webhook': 0.0009,
+}
+
+/**
+ * Everything the daily platform spend alert prices: every org bucket plus
+ * every platform label. Keys are the `ai.usage.<key>` suffixes.
+ */
+export const AI_SPEND_ALERT_COST_PER_CALL_USD: Readonly<Record<string, number>> = {
+  ...AI_CALL_COST_ESTIMATE_USD,
+  ...PLATFORM_AI_CALL_COST_ESTIMATE_USD,
 }
 
 /** Days in the worst-case month. */

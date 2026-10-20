@@ -7,9 +7,10 @@
  * Re-decides on the server instead of trusting the page: the page render
  * and this call are separate requests, and a second board member may have
  * drafted in between. Then it draws on the `inbox_autodraft` AI rate-limit
- * bucket (lib/api/ai-limits.ts) and calls the existing `createDraft`
- * unchanged, so citation validation, blanks and the approval gate are all
- * exactly what the manual "Draft a reply" button gets.
+ * bucket (lib/api/ai-limits.ts) and calls the same generation core as
+ * the manual "Draft a reply" button (`generateReplyDraft`), so citation
+ * validation, blanks and the approval gate are all exactly what the button
+ * gets. The button itself draws on `board_ai` (BL-112).
  *
  * Two board members opening the same thread in the same second can both
  * pass the re-check (it is read-then-act, like the rate limiter). The cost
@@ -22,7 +23,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ApiRouteError } from '@/lib/api/errors'
 import { checkAndRecordAiUsage } from '@/lib/api/rate-limit'
-import { createDraft } from '@/lib/inbox/draft/actions'
+import { generateReplyDraft } from '@/lib/inbox/draft/generate-reply'
 import { loadAutoDraftDecision, type AutoDraftSkip } from './autodraft'
 
 export type AutoDraftResult =
@@ -56,5 +57,8 @@ export async function autoDraftOnOpen(threadId: string): Promise<AutoDraftResult
     throw error
   }
 
-  return createDraft(threadId)
+  // BL-112: the unmetered core, not the createDraft action — createDraft
+  // now draws on `board_ai` itself, and this call has already been
+  // charged to `inbox_autodraft` above.
+  return generateReplyDraft(threadId)
 }

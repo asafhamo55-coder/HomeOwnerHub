@@ -20,7 +20,16 @@ const decision = vi.fn()
 vi.mock('./autodraft', () => ({ loadAutoDraftDecision: (...args: unknown[]) => decision(...args) }))
 
 const createDraft = vi.fn(async () => ({ ok: true as const, draftId: 'draft-9' }))
-vi.mock('@/lib/inbox/draft/actions', () => ({ createDraft: (...args: unknown[]) => createDraft(...(args as [])) }))
+// BL-112: draft-on-open calls the unmetered core (createDraft, the button,
+// now draws on board_ai itself — calling it here would charge twice).
+vi.mock('@/lib/inbox/draft/generate-reply', () => ({
+  generateReplyDraft: (...args: unknown[]) => createDraft(...(args as [])),
+}))
+vi.mock('@/lib/inbox/draft/actions', () => ({
+  createDraft: () => {
+    throw new Error('autoDraftOnOpen must not call the metered createDraft action')
+  },
+}))
 
 const checkAndRecordAiUsage = vi.fn(async () => ({ usageId: 'usage-1' }))
 vi.mock('@/lib/api/rate-limit', () => ({

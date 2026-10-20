@@ -6,6 +6,7 @@ import { rfpComposer, type RfpComposerOutput } from '@homeowner-portal/workflows
 import { getCurrentOrg } from '@/lib/orgs'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 
 export type RfpStatus = 'draft' | 'open' | 'evaluation' | 'awarded' | 'cancelled'
 
@@ -141,6 +142,10 @@ export async function createRfpDraft(
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No association configured for this HOA.' }
+
+  // BL-112: board-initiated AI draft (W22) → `board_ai`.
+  const quota = await chargeAiActionQuota('board_ai', org.id)
+  if (!quota.ok) return { ok: false, error: quota.error }
 
   let output: RfpComposerOutput
   let runId: string

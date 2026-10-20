@@ -22,6 +22,7 @@ const ATTACHMENT_BUCKET = 'hoa-documents'
 import { extractVendor, type VendorExtractorOutput } from '@homeowner-portal/workflows'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { QuickCreateVendorSchema, isVendorIncomplete } from './schema'
 import {
   selectParsableAttachments,
@@ -288,6 +289,10 @@ export async function extractVendorFromThread(
   // fall back to the full body for older rows where it is null.
   const bodyText = message.stripped_text ?? message.body_text ?? ''
   if (!bodyText.trim()) return { error: 'This message has no body to read.' }
+
+  // BL-112: board-initiated AI extraction (W33) → `board_ai`.
+  const quota = await chargeAiActionQuota('board_ai', org.id)
+  if (!quota.ok) return { error: quota.error }
 
   const attachmentText = await readAttachmentText(supabase, org.id, message.id)
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { HOA_PLAN_IDS, bandFor, monthlyPriceCents } from '@homeowner-portal/billing'
 import { MEETING_SUMMARY_MAX_TOKENS, MEETING_TRANSCRIPT_MAX_CHARS } from '@homeowner-portal/ai'
 import {
@@ -420,5 +420,56 @@ describe('BL-106: meeting_summary and ask_community (decision amendment)', () =>
   it('normal work fits for current orgs: several meetings a month and dozens of Copilot questions a day', () => {
     expect(AI_RATE_LIMITS.meeting_summary.perOrg.limit).toBeGreaterThanOrEqual(5)
     expect(AI_RATE_LIMITS.ask_community.perOrg.limit).toBeGreaterThanOrEqual(24)
+  })
+})
+
+// ─── BL-112: platform usage (jobs, embeddings) in the daily spend alert ──
+
+describe('BL-112 platform AI usage pricing', () => {
+  it('prices every platform usage label the client layer can write', async () => {
+    const { PLATFORM_AI_USAGE_LABELS } = await import('@homeowner-portal/ai/guard')
+    const { PLATFORM_AI_CALL_COST_ESTIMATE_USD, AI_SPEND_ALERT_COST_PER_CALL_USD, AI_USAGE_BUCKETS } = await import('./ai-limits')
+    expect(Object.keys(PLATFORM_AI_CALL_COST_ESTIMATE_USD).sort()).toEqual([...PLATFORM_AI_USAGE_LABELS].sort())
+    for (const label of PLATFORM_AI_USAGE_LABELS) {
+      expect(AI_SPEND_ALERT_COST_PER_CALL_USD[label]).toBeGreaterThan(0)
+      // Never an org bucket: jobs and embeddings are not capped per org.
+      expect(AI_USAGE_BUCKETS as readonly string[]).not.toContain(label)
+    }
+  })
+
+  it('the daily spend alert counts job and embedding rows alongside the org buckets', async () => {
+    const { runAiSpendAlert } = await import('@homeowner-portal/jobs/ai-spend-alert')
+    const { AI_SPEND_ALERT_COST_PER_CALL_USD } = await import('./ai-limits')
+    const counts: Record<string, number> = {
+      'ai.usage.ask_docs': 1000, // $0.90
+      'ai.usage.embed': 2000, // $1.00
+      'ai.usage.job.plaid_sync': 1000, // $0.90
+      'ai.usage.job.plaid_webhook': 1000, // $0.90
+    }
+    const actions: string[] = []
+    const db = {
+      from: () => {
+        let action = ''
+        const q = {
+          select: () => q,
+          eq: (_c: string, v: string) => ((action = v), q),
+          gte: () => q,
+          lt: async () => {
+            actions.push(action)
+            return { count: counts[action] ?? 0, error: null }
+          },
+        }
+        return q
+      },
+    }
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const r = await runAiSpendAlert(
+      db as never,
+      { sendEmail: vi.fn(), costPerCallUsd: AI_SPEND_ALERT_COST_PER_CALL_USD, thresholdUsd: 50 },
+      { now: Date.parse('2026-10-20T00:30:00.000Z'), env: {} },
+    )
+    expect(actions).toEqual(expect.arrayContaining(['ai.usage.embed', 'ai.usage.job.plaid_sync', 'ai.usage.job.plaid_webhook']))
+    expect(r.calls).toBe(5000)
+    expect(r.spendUsd).toBeCloseTo(3.7, 6)
   })
 })

@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
+import { guardAiClient } from '@homeowner-portal/ai/guard'
 import { defineWorkflow, type WorkflowExecuteApi, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
 import { PROMPT_VERSION, REPLY_DRAFTER_SYSTEM, buildReplyDrafterUserPrompt } from './prompt'
 import { validateCitations, InvalidCitationError, UnsupportedQuoteError } from './tools'
@@ -107,10 +108,10 @@ export type ReplyDrafterOutput = z.infer<typeof ReplyDrafterOutputSchema>
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY ?? 'local',
-  })
+  }))
   return _client
 }
 

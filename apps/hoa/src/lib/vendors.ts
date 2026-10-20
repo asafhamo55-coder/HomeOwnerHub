@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { vendorOnboarder } from '@homeowner-portal/workflows'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { removeStorageObjects } from '@/lib/storage-remove'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
@@ -452,6 +453,10 @@ export async function runComplianceCheck(
 
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No association configured for this HOA.' }
+
+  // BL-112: board-initiated AI compliance check (W21) → `board_ai`.
+  const quota = await chargeAiActionQuota('board_ai', org.id)
+  if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
     const { output, runId } = await vendorOnboarder.execute(

@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./agents/*": "./src/agents/*.ts",
     "./tasks/*": "./src/tasks/*.ts",
-    "./pii": "./src/pii.ts"
+    "./pii": "./src/pii.ts",
+    "./guard": "./src/guard.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

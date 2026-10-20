@@ -29,7 +29,7 @@ import { duesReminderDeps } from '@/lib/dues-reminders/auto-deps'
 import { monthlyReportDeps } from '@/lib/monthly-report/deps'
 import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
 import { dispatchScheduledCommunication } from '@/lib/communications/scheduled-dispatch'
-import { AI_CALL_COST_ESTIMATE_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
+import { AI_SPEND_ALERT_COST_PER_CALL_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
@@ -61,10 +61,11 @@ const scheduledCommunicationsJob = createScheduledCommunicationsJob({
 // Platform AI spend alert (BL-108): once a day, yesterday's estimated AI
 // spend across every org; over $50 it emails the platform admin
 // (AI_SPEND_ALERT_TO), never a board or resident. The guarded sendEmail
-// and the per-call estimates are app-side.
+// and the per-call estimates are app-side. BL-112: the estimates include the
+// platform labels (embeddings, `job.*` model calls), not just org buckets.
 const aiSpendAlertJob = createAiSpendAlertJob({
   sendEmail,
-  costPerCallUsd: AI_CALL_COST_ESTIMATE_USD,
+  costPerCallUsd: AI_SPEND_ALERT_COST_PER_CALL_USD,
   thresholdUsd: PLATFORM_AI_DAILY_ALERT_USD,
 })
 

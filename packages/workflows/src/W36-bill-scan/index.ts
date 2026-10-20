@@ -23,6 +23,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
+import { guardAiClient } from '@homeowner-portal/ai/guard'
 import {
   analyzeImages,
   defineWorkflow,
@@ -213,7 +214,7 @@ export interface BillScanModel {
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({ baseURL: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY ?? 'local' })
+  _client = guardAiClient(new OpenAI({ baseURL: process.env.AI_BASE_URL, apiKey: process.env.AI_API_KEY ?? 'local' }))
   return _client
 }
 

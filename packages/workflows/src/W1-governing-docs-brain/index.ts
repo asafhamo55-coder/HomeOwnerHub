@@ -9,6 +9,7 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
+import { guardAiClient } from '@homeowner-portal/ai/guard'
 import { JSON_MODE_PARAMS, defineWorkflow, resolveModel } from '@homeowner-portal/ai'
 import { createAdminClient } from '@homeowner-portal/db'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
@@ -83,10 +84,10 @@ export type GoverningDocsBrainOutput = z.infer<
 let _client: OpenAI | null = null
 function getClient(): OpenAI {
   if (_client) return _client
-  _client = new OpenAI({
+  _client = guardAiClient(new OpenAI({
     baseURL: process.env.AI_BASE_URL,
     apiKey: process.env.AI_API_KEY ?? 'local',
-  })
+  }))
   return _client
 }
 

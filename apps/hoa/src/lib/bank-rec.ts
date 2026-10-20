@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { bankReconciliationAgent } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { todayIn } from '@/lib/association-time'
@@ -53,6 +54,10 @@ export async function reRunBankMatch(input: {
   if (!bankAcct || bankAcct.association_id !== assoc.id) {
     return { ok: false, error: 'transaction does not belong to this association' }
   }
+
+  // BL-112: a board re-run may reach W18's Step D model call → `board_ai`.
+  const quota = await chargeAiActionQuota('board_ai', row.organization_id)
+  if (!quota.ok) return { ok: false, error: quota.error }
 
   try {
     const result = await bankReconciliationAgent.execute(
