@@ -23,8 +23,8 @@ topics:
     label: Accounting
     description: The books, invoices, bank reconciliation and reports.
   - id: communications
-    label: Communications
-    description: Announcements and messages to residents.
+    label: Messages
+    description: Announcements to many homes, urgent texts, drafts and the inbox.
   - id: people
     label: Properties & people
     description: Homes, owners, residents, members and roles.

@@ -26,7 +26,7 @@ Use this when a vendor's certificate of insurance (COI) is about to expire or al
 5. Select [[Send to vendor]].
 
 ## What happens next
-The email goes to that vendor's email on file, from your association, asking them to reply with the certificate attached. It's recorded under **Communications**.
+The email goes to that vendor's email on file, from your association, asking them to reply with the certificate attached. It's recorded in **Messages**, on the **Sent to residents** tab.
 
 When the new certificate arrives, open the vendor, upload it and enter the new dates and amounts, then select [[Run compliance check]]. The expiring notice clears once the new date is more than 30 days away.
 

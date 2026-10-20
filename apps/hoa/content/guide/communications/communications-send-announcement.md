@@ -12,7 +12,7 @@ shots:
     alt: The Sent to residents tab of Messages with the New message button highlighted
   - name: guide-communications-new
     alt: The New message composer with the Audience choices highlighted
-related: [inbox-reply-to-resident, communications-segments-sms, arc-review-application, meetings-schedule-and-minutes]
+related: [communications-urgent-notice, communications-follow-up, communications-drafts, communications-segments-sms, inbox-reply-to-resident]
 reviewed: 2026-10-20
 ---
 
@@ -24,15 +24,15 @@ Use **Messages** for anything the whole community, or a group of homes, should h
 3. Pick an **Audience**, such as All homes, All owners, Homes behind on dues or **A street**. Each choice shows how many people it reaches. Board and Someone outside the HOA are under **More options**. Select [[Continue]].
 4. If you picked a template, fill in the few details it asks for. Check the **Subject** and **Body**, or write your own. Write the body as plain text: leave a blank line between paragraphs, use [[Bold]] and [[Bullet]], and add [[Resident's name]] or [[HOA name]] to fill them in for each person.
 5. To send it in Spanish too, select [[Add Spanish version]]. AI drafts a Spanish subject and body. Read them, fix anything, then tick **I've read the Spanish version**. Select [[Continue]].
-6. Under **How should it go out?**, tick **This is urgent** for anything happening soon, like a water shutoff. Routine messages go by email and the portal. Urgent ones also go by text, if texting is set up. You can still tick Email or Text yourself; once you do, the app keeps your choice.
+6. Under **How should it go out?**, tick **This is urgent** for anything happening soon, like a water shutoff (see [send an urgent notice](guide:communications-urgent-notice)). Routine messages go by email and the portal. Urgent ones also go by text, if texting is set up. You can still tick Email or Text yourself; once you do, the app keeps your choice.
 7. Check **What residents get**: a phone showing the email, the text and the portal copy one home will get. Select [[Send a test to me]] to email it to yourself first. Then leave **Send at** blank and select [[Send now]], or pick a date and time and select [[Schedule]].
 
 ![[guide-communications-new]]
 
 ## What happens next
-You land on the message's own page. **Did people get it?** says, per home, how many were reached by email or text and how many opened the email. To follow up, select **Email again to the … who haven't opened** (or **Text them**). That opens a new message, already filled in, for you to check and send. The **Homes** list has one row per home, with a chip for each way it went, like "Email: Opened", "Texted" or "In portal". Select **Delivery details** on a home to see each person and channel. Every message you send stays under **Sent to residents** in Messages.
+You land on the message's own page. **Did people get it?** says, per home, how many were reached by email or text and how many opened the email. To follow up, select **Email again to the … who haven't opened** (or **Text them**). That opens a new message, already filled in, for you to check and send. See [follow up with residents who didn't open](guide:communications-follow-up). The **Homes** list has one row per home, with a chip for each way it went, like "Email: Opened", "Texted" or "In portal". Select **Delivery details** on a home to see each person and channel. Every message you send stays under **Sent to residents** in Messages.
 
-Not ready to send? You don't need to do anything. The message saves as a draft a moment after you stop typing, and the bottom of the page says **Draft saved**. Later, open **Messages** and select the [[Drafts]] tab. Your draft is marked **Message to many homes**. Select [[Resume]] to pick up where you left off. To throw one away, select [[Delete draft]].
+Not ready to send? You don't need to do anything. The message saves as a draft a moment after you stop typing, and the bottom of the page says **Draft saved**. Later, open **Messages** and select the [[Drafts]] tab. Your draft is marked **Message to many homes**. Select [[Resume]] to pick up where you left off. To throw one away, select [[Delete draft]]. More in [save a message as a draft](guide:communications-drafts).
 
 ![[guide-communications-list]]
 
