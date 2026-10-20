@@ -45,6 +45,8 @@ function toInput(s: MemPlanStore): EstoppelInput {
     payments,
     violations: [],
     plans,
+    // load.ts links installments through their journal-entry memo; mirror that.
+    planInstallmentIds: s.entries.filter((e) => e.memo.startsWith('Payment plan installment') && e.sourceId).map((e) => e.sourceId as string),
     collectionCase: null,
     timeZone: 'America/New_York',
   }
@@ -99,6 +101,8 @@ describe('a payment plan on the estoppel and the collections letter', () => {
     seedCharge(s, { id: 'i1', unitId: UNIT, assessmentType: 'special', dueDate: '2026-01-31', amountCents: 10_000 })
     seedCharge(s, { id: 'i2', unitId: UNIT, assessmentType: 'special', dueDate: '2026-03-03', amountCents: 10_000 })
     s.plans.push({ id: 'p-old', unitId: UNIT, totalCents: 20_000, installmentCount: 2, installmentCents: 10_000, startDate: '2026-01-31' })
+    // Old plans carry the same installment memo links (BL-080); the estoppel reads those, not the dates.
+    for (const [i, id] of ['i1', 'i2'].entries()) s.entries.push({ id: `je-${id}`, memo: `Payment plan installment ${i + 1}/2 (plan p-old)`, source: 'ar_payment', sourceId: id, status: 'posted', lines: [] } as never)
     const f = computeFigures(toInput(s), TODAY, null)
     expect(f.owedItems.map((l) => l.type)).toEqual(['plan_installment', 'plan_installment'])
   })
