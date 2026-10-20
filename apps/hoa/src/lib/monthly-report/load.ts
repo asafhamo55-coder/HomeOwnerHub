@@ -18,6 +18,7 @@ import { loadDelinquency } from '@/lib/board-packet/queries'
 import { packetPeriod, type PacketPeriod } from '@/lib/board-packet/period'
 import { loadPacketSections } from '@/lib/board-packet/sections'
 import { countPendingApprovals } from '@/lib/approvals-inbox/load'
+import { loadReserveSnapshot } from '@/lib/accounting/reserves'
 import { renderMonthlyReportEmail, type RenderedReport } from './render'
 import {
   approvalsWaiting,
@@ -25,6 +26,7 @@ import {
   delinquencyHeadline,
   incomeSummary,
   mapSection,
+  reserveReport,
   summarizeArc,
   summarizeCollections,
   summarizeViolations,
@@ -162,6 +164,7 @@ export async function loadMonthlyReportData(db: AccountingDb, ctx: MonthlyReport
   const s = await loadPacketSections({
     income: () => loadIncomeStatement(assocId, period, db),
     balance: () => loadBalanceSheet(assocId, period, db),
+    reserves: () => loadReserveSnapshot(db, assocId, period.end),
     budgets: () => loadBudgetsVsActual(assocId, period, db),
     delinquency: () => loadDelinquency(db, assocId, period.after, timeZone),
     collections: () => loadCollections(db, assocId, period, timeZone),
@@ -175,6 +178,7 @@ export async function loadMonthlyReportData(db: AccountingDb, ctx: MonthlyReport
     associationName: ctx.associationName,
     period,
     cash: mapSection(ok(s.balance), cashPosition),
+    reserves: mapSection(ok(s.reserves), reserveReport),
     income: mapSection(ok(s.income), incomeSummary),
     collections: mapSection(ok(s.collections), (c) => c),
     delinquency: mapSection(ok(s.delinquency), delinquencyHeadline),

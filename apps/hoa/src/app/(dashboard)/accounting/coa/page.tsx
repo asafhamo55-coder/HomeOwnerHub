@@ -15,6 +15,8 @@ import { tryLoad } from '@/lib/load-or-fail'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
 import { BooksNotOpen } from '../../_components/BooksNotOpen'
+import { getCurrentUserRole } from '@/lib/auth'
+import { FundsCard } from './FundsCard'
 
 export const metadata = { title: 'Chart of Accounts' }
 export const dynamic = 'force-dynamic'
@@ -34,9 +36,10 @@ export default async function ChartOfAccountsPage() {
   const ctx = ctxRes.data
   if (!ctx) return <AccountingNotSetUp title="Chart of accounts" returnTo="/accounting/coa" />
 
-  const [accounts, funds] = await Promise.all([
+  const [accounts, funds, roleCtx] = await Promise.all([
     tryLoad('chart of accounts', () => listAccounts(ctx.associationId)),
     tryLoad('funds', () => listFunds(ctx.associationId)),
+    getCurrentUserRole(),
   ])
   const fundName = new Map((funds.ok ? funds.data : []).map((f) => [f.id, f.name]))
 
@@ -82,6 +85,10 @@ export default async function ChartOfAccountsPage() {
       }
       tabs={<AccountingTabs />}
     >
+      {/* BL-120: where "Set up a reserve fund" lands. */}
+      {funds.ok && (funds.data.length > 0 || (accounts.ok && accounts.data.length > 0)) ? (
+        <FundsCard funds={funds.data} isAdmin={roleCtx?.role === 'admin'} />
+      ) : null}
       {!accounts.ok ? (
         <LoadFailed what="the chart of accounts" />
       ) : accounts.data.length === 0 ? (
