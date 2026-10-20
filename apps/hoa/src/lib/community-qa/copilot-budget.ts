@@ -14,5 +14,8 @@ export const COPILOT_TOOL_BUDGET: ToolBudget = {
   perTool: { search_governing_docs: 6 },
 }
 
-/** Output tokens per model step (sent as max_tokens). */
-export const COPILOT_MAX_TOKENS_PER_STEP = 1000
+/**
+ * Output tokens per model step (sent as max_tokens). gpt-oss counts its
+ * reasoning against this, so 1,500 leaves room for a full answer.
+ */
+export const COPILOT_MAX_TOKENS_PER_STEP = 1500

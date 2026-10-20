@@ -202,7 +202,7 @@ describe('BL-106: meeting_summary and ask_community (decision amendment)', () =>
     expect(worstCaseMonthlyAiCostUsd(tier)).toBeCloseTo(perDay * 30 + flatCapsWorstCaseMonthlyUsd(tier), 6)
   })
 
-  it('per-call estimates follow the code budgets: summary ≈ $0.0024, Copilot ≈ $0.021', () => {
+  it('per-call estimates follow the code budgets: summary ≈ $0.0024, Copilot ≈ $0.0234', () => {
     // 7.7k in × $0.15/M + 2k out × $0.60/M
     expect(AI_CALL_COST_ESTIMATE_USD.meeting_summary).toBeCloseTo(7700 * 0.15e-6 + 2000 * 0.6e-6, 4)
     // 72k in + 8 steps × COPILOT_MAX_TOKENS_PER_STEP out + 6 docs searches at $0.0009
@@ -215,10 +215,10 @@ describe('BL-106: meeting_summary and ask_community (decision amendment)', () =>
     )
   })
 
-  it('worst cases: base (legacy, Complete) $16.47/mo; Essentials $0.22/mo', () => {
-    expect(flatCapsWorstCaseMonthlyUsd()).toBeCloseTo((10 * 0.0024 + 25 * 0.021) * 30, 6)
-    expect(flatCapsWorstCaseMonthlyUsd()).toBeCloseTo(16.47, 2)
-    expect(flatCapsWorstCaseMonthlyUsd({ plan: 'complete', band: '1-50' })).toBeCloseTo(16.47, 2)
+  it('worst cases: base (legacy, Complete) $18.27/mo; Essentials $0.22/mo', () => {
+    expect(flatCapsWorstCaseMonthlyUsd()).toBeCloseTo((10 * 0.0024 + 25 * 0.0234) * 30, 6)
+    expect(flatCapsWorstCaseMonthlyUsd()).toBeCloseTo(18.27, 2)
+    expect(flatCapsWorstCaseMonthlyUsd({ plan: 'complete', band: '1-50' })).toBeCloseTo(18.27, 2)
     expect(flatCapsWorstCaseMonthlyUsd({ plan: 'essentials', band: '1-50' })).toBeCloseTo(0.216, 3)
   })
 
@@ -230,7 +230,7 @@ describe('BL-106: meeting_summary and ask_community (decision amendment)', () =>
 
   it('known gap (amendment): Complete with 25 Copilot questions a day is over 30% at 1–50', () => {
     const cost = worstCaseMonthlyAiCostUsd({ plan: 'complete', band: '1-50' })
-    expect(cost).toBeCloseTo(28.44 + 16.47, 1)
+    expect(cost).toBeCloseTo(28.44 + 18.27, 1)
     expect(cost).toBeGreaterThan(aiCostCeilingUsd('complete', 1))
   })
 

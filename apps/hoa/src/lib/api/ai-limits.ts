@@ -45,6 +45,8 @@
 // is not on the plan (rate-limit.ts answers 429 `plan_limit` without a read).
 // worstCaseMonthlyAiCostUsd counts them; the ≤30% test holds for Essentials.
 // Complete with 25 Copilot questions a day is over 30% (see the amendment).
+// PROVISIONAL: the per-plan values are rebalanced before PRICING_V2 is
+// switched on (BL-108).
 
 import {
   bandFor,
@@ -221,10 +223,10 @@ export const AI_RATE_LIMITS: Record<AiUsageBucket, AiRateLimit> = {
   },
   // BL-106 — POST /api/ai/ask-community, the board Copilot and dashboard Ask
   // page. Board-only. Each question is a tool loop (up to 8 model steps of
-  // ≤1,000 output tokens, 16 tool runs of which ≤6 docs searches with their
+  // ≤1,500 output tokens, 16 tool runs of which ≤6 docs searches with their
   // own model call), so it is the dearest call per click. 25 a day per
   // community and 15 an hour per person cover a busy board's day. Essentials:
-  // 0 — one question a day ($0.63/mo) is already more than the §3 room.
+  // 0 — one question a day ($0.70/mo) is already more than the §3 room.
   ask_community: {
     perUser: { limit: 15, windowMs: HOUR_MS },
     perOrg: { limit: 25, windowMs: DAY_MS },
@@ -316,10 +318,10 @@ export const AI_CALL_COST_ESTIMATE_USD: Readonly<Record<AiUsageBucket, number>> 
   // 7.7k × $0.15/M + 2k × $0.60/M ≈ $0.0024.
   meeting_summary: 0.0024,
   // community-qa: ≤ 8 steps re-sending a growing context (~9k tokens on
-  // average → ~72k in) and ≤ 1,000 out per step (COPILOT_MAX_TOKENS_PER_STEP
-  // → 8k) ≈ $0.0156, plus ≤ 6 docs searches (COPILOT_TOOL_BUDGET) at
-  // ~$0.0009 each ($0.0054) → ≈ $0.021.
-  ask_community: 0.021,
+  // average → ~72k in) and ≤ 1,500 out per step (COPILOT_MAX_TOKENS_PER_STEP
+  // → 12k) ≈ $0.018, plus ≤ 6 docs searches (COPILOT_TOOL_BUDGET) at
+  // ~$0.0009 each ($0.0054) → ≈ $0.0234.
+  ask_community: 0.0234,
 }
 
 /** Days in the worst-case month. */
