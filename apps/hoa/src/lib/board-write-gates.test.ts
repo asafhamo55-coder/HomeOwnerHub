@@ -21,6 +21,7 @@ import * as recordSearch from '../app/api/search/route'
 import * as billScan from '../app/api/accounting/bill-scan/route'
 import * as billScanActions from './bill-scan/actions'
 import * as coiRequest from './vendor-coi-request/actions'
+import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { approveVendor, getPrimaryAssociation } from '@/lib/vendors'
 
@@ -258,6 +259,29 @@ describe('board-only routes return 403 to a resident', () => {
       }),
     )
     expect(res.status).toBe(403)
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+})
+
+// Board-only reads of owner data. The roster export lives outside /api
+// and answers 404 (the page doesn't exist for a resident), decided before
+// any database client is made.
+describe('board-only owner-data exports hide from a resident', () => {
+  for (const kind of ['owners', 'voters', 'records']) {
+    it(`GET /properties/roster/export?kind=${kind} (P5 statutory roster)`, async () => {
+      vi.mocked(getSupabaseServerClient).mockClear()
+      const res = await rosterExport.GET(new Request(`http://x/properties/roster/export?kind=${kind}&asOf=2026-10-18`) as never)
+      expect(res.status).toBe(404)
+      expect((await res.json()).error.code).toBe('not_found')
+      expect(getSupabaseServerClient).not.toHaveBeenCalled()
+    })
+  }
+
+  it('signed out gets the same 404', async () => {
+    h.role = null
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const res = await rosterExport.GET(new Request('http://x/properties/roster/export?kind=records') as never)
+    expect(res.status).toBe(404)
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
   })
 })

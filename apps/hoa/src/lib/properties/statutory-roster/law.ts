@@ -65,6 +65,64 @@ export function ownerRosterLaw(state: string | null): LawNote | null {
   }
 }
 
+export const RECORDS_COPY_NOTICE =
+  'This copy is for giving to an owner who asked for the membership roster. It has names, property and mailing addresses only — no phone numbers, no balances. Email is left out unless your state’s records rules include it and the owner has not opted out.'
+
+/** California § 5220, while no opt-out is stored (SHARING_OPT_OUT_STORED). */
+export const CA_OPT_OUT_CHECK =
+  'HomeownerHub doesn’t record California § 5220 opt-outs yet. Before you release this copy, check the written opt-outs your association has received and remove every member who opted out — their name, property address and mailing address must not be shared. No email addresses are included for that reason.'
+
+/**
+ * What the records-request copy says per state. FL and CA lines come from
+ * the verified texts above. TX and GA have no verified records-access text
+ * in the app (scripts/fixtures/state-law holds none), so their notes are
+ * marked unverified, quote nothing, and the copy leaves out email.
+ */
+export function recordsCopyLaw(state: string | null): LawNote | null {
+  switch (state?.toUpperCase()) {
+    case 'FL':
+      return {
+        state: 'FL',
+        title: 'Florida — Fla. Stat. § 720.303',
+        verified: true,
+        lines: [
+          '§ 720.303(4)(a)7: the official records include a current roster of all members with their designated mailing addresses and parcel identifications. This copy shows the lot as the parcel; add the county parcel number if your roster uses it.',
+          '§ 720.303(5) keeps e-mail addresses and telephone numbers out of the records members may inspect, unless the owner consented in writing. This copy leaves both out.',
+        ],
+      }
+    case 'CA':
+      return {
+        state: 'CA',
+        title: 'California — Civ. Code §§ 5200, 5220',
+        verified: true,
+        lines: [
+          '§ 5200(a)(9): the membership list — name, property address, mailing address and email address — is an association record, not including information for members who opted out under § 5220.',
+          '§ 5220: a member may opt out, in writing, of sharing their name, property address, email address and mailing address. The opt-out stays in effect until the member changes it.',
+        ],
+      }
+    case 'TX':
+      return {
+        state: 'TX',
+        title: 'Texas — Tex. Prop. Code § 209.005',
+        verified: false,
+        lines: [
+          'Texas Property Code § 209.005 covers owners’ access to association books and records. HomeownerHub doesn’t hold verified text of it yet, so this copy leaves out email addresses. Check the statute and your dedicatory instruments before releasing owner information.',
+        ],
+      }
+    case 'GA':
+      return {
+        state: 'GA',
+        title: 'Georgia — O.C.G.A. Title 44, Ch. 3',
+        verified: false,
+        lines: [
+          'HomeownerHub doesn’t hold verified Georgia records-access text yet, so this copy leaves out email addresses. Check the Georgia Property Owners’ Association Act or Condominium Act and your governing documents before releasing owner information.',
+        ],
+      }
+    default:
+      return null
+  }
+}
+
 export function voterListLaw(state: string | null): LawNote | null {
   switch (state?.toUpperCase()) {
     case 'FL':

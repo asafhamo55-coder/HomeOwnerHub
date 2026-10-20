@@ -82,7 +82,7 @@ describe('GET /properties/roster/export', () => {
   it('an unknown kind or a fake date is 400 validation_failed', async () => {
     const a = await call('?kind=everyone&asOf=2026-10-18')
     expect(a.status).toBe(400)
-    expect((await a.json()).error.issues).toEqual([{ path: 'kind', message: 'Use owners or voters.' }])
+    expect((await a.json()).error.issues).toEqual([{ path: 'kind', message: 'Use owners, voters or records.' }])
     expect((await call('?kind=owners&asOf=2026-02-30')).status).toBe(400)
     expect(inserts).toHaveLength(0)
   })
@@ -109,6 +109,39 @@ describe('GET /properties/roster/export', () => {
     const text = await res.text()
     expect(text).toContain('may be suspended only if the board voted the suspension')
     expect(inserts[0]?.metadata).toEqual({ kind: 'voters', as_of: '2026-10-18', format: 'csv', counts: { homes: 1, noOwner: 0, mayBeSuspended: 1 } })
+  })
+
+  it('records-request copy: no phone, no balance, no email in Florida; counts-only audit row', async () => {
+    tableRows.hoa_properties = [{ id: 'p1', address: '12 Oak Lane', unit_number: null, owner_name: 'Pat Owner', owner_email: 'pat@example.test', owner_phone: '555-0199' }]
+    const res = await call('?kind=records&asOf=2026-10-18')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-disposition')).toBe('attachment; filename="owner-roster-records-copy-as-of-2026-10-18.csv"')
+    const text = await res.text()
+    expect(text).toContain('Pat Owner')
+    expect(text).toContain('12 Oak Lane')
+    expect(text).not.toContain('555-0199')
+    expect(text).not.toContain('pat@example.test')
+    expect(text).not.toContain('250')
+    expect(text).not.toMatch(/phone|past due/i)
+    expect(inserts).toEqual([
+      expect.objectContaining({
+        action: 'statutory_roster_export',
+        metadata: {
+          kind: 'records',
+          as_of: '2026-10-18',
+          format: 'csv',
+          counts: { homes: 1, owners: 1, noOwner: 0, emailsIncluded: 0, ownersWithheld: 0, homesWithheld: 0 },
+        },
+      }),
+    ])
+    expect(JSON.stringify(inserts)).not.toMatch(/Oak|Pat|example\.test/)
+  })
+
+  it('records-request copy: a resident gets 404 before any client', async () => {
+    role = { role: 'resident', org: { id: 'org-1' } }
+    expect((await call('?kind=records&asOf=2026-10-18')).status).toBe(404)
+    expect(created).not.toHaveBeenCalled()
+    expect(inserts).toHaveLength(0)
   })
 
   it('a failed audit write refuses the export (generic 500)', async () => {

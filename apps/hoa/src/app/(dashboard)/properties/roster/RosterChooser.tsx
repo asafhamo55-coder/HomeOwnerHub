@@ -17,7 +17,7 @@ export function RosterChooser({ kind, asOf, today, dateError }: { kind: RosterKi
               <Radio
                 name="kind"
                 value="owners"
-                defaultChecked={kind !== 'voters'}
+                defaultChecked={kind !== 'voters' && kind !== 'records'}
                 label="Owner roster"
                 description="One row per home: owners and their shares, mailing address, email and phone."
               />
@@ -27,6 +27,13 @@ export function RosterChooser({ kind, asOf, today, dateError }: { kind: RosterKi
                 defaultChecked={kind === 'voters'}
                 label="Voter list"
                 description="One vote per home, the owners eligible on the date, and homes far behind on dues."
+              />
+              <Radio
+                name="kind"
+                value="records"
+                defaultChecked={kind === 'records'}
+                label="Copy for an owner’s records request"
+                description="Owner names, property and mailing addresses. No phone numbers or balances; email only where your state allows it."
               />
             </ChoiceGroup>
           </Fieldset>

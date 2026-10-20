@@ -7,7 +7,7 @@ roles: [admin, board]
 routes: ["/properties/roster", "/properties", "/legal/compliance"]
 primary_route: /properties/roster
 keywords: [roster, owner roster, member roster, membership list, voter list, voters, voting, eligible voters, annual meeting, election, quorum, record date, as of, mailing address, records request, official records, delinquent, suspended, suspension, "720.303", "720.305", "720.306", csv, print, pdf]
-related: [setup-properties-residents, properties-record-a-sale, dues-record-payment]
+related: [properties-records-request-roster, setup-properties-residents, properties-record-a-sale, dues-record-payment]
 reviewed: 2026-10-18
 ---
 
@@ -16,7 +16,7 @@ The roster page builds two board documents from your homes and owners: the **Own
 ## Before you start
 - Board admins and board members can make a roster. Residents can't open the page.
 - The roster reads the owners recorded on each home. Record sales with [[Record a sale]] so owners change on the right date.
-- The owner roster holds owners' email addresses and phone numbers. It's for the board. It must not be shared with residents unless state law requires it.
+- The owner roster holds owners' email addresses and phone numbers. It's for the board. It must not be shared with residents unless state law requires it. To answer an owner's records request, make the records-request copy instead (see "Give an owner a copy of the member roster").
 
 ## Steps
 1. Open **Properties**, select the **⋯** menu next to [[Add property]], then [[Owner roster & voter list]]. Florida boards can also open it from the records check under **State law**.

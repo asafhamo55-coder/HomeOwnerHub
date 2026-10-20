@@ -1,8 +1,25 @@
 import { Download } from 'lucide-react'
 import { Alert, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, DataTable, StatusPill, type DataTableColumn } from '@homeowner-portal/ui'
 import { formatDay, plural, usd } from '@/lib/money/format'
-import { CONTACT_WARNING, ownerRosterLaw, voterListLaw, type LawNote } from '@/lib/properties/statutory-roster/law'
-import { MAILING_SOURCE_LABEL, rosterCsvHref, type OwnerRosterRow, type RosterReport, type VoterRow } from '@/lib/properties/statutory-roster/model'
+import {
+  CA_OPT_OUT_CHECK,
+  CONTACT_WARNING,
+  RECORDS_COPY_NOTICE,
+  ownerRosterLaw,
+  recordsCopyLaw,
+  voterListLaw,
+  type LawNote,
+} from '@/lib/properties/statutory-roster/law'
+import {
+  MAILING_SOURCE_LABEL,
+  SHARING_OPT_OUT_STORED,
+  reportAsOf,
+  rosterCsvHref,
+  type OwnerRosterRow,
+  type RecordsRow,
+  type RosterReport,
+  type VoterRow,
+} from '@/lib/properties/statutory-roster/model'
 import { PrintRosterButton } from './PrintRosterButton'
 
 /**
@@ -23,10 +40,11 @@ export function RosterReportView({
   /** The association's today, printed on the page. */
   generatedOn: string
 }) {
-  const asOf = report.kind === 'owners' ? report.roster.asOf : report.list.asOf
-  const title = report.kind === 'owners' ? 'Owner roster' : 'Voter list'
-  const homes = report.kind === 'owners' ? report.roster.counts.homes : report.list.counts.homes
-  const notes = states.map((s) => (report.kind === 'owners' ? ownerRosterLaw(s) : voterListLaw(s))).filter((n): n is LawNote => n !== null)
+  const asOf = reportAsOf(report)
+  const title = report.kind === 'owners' ? 'Owner roster' : report.kind === 'voters' ? 'Voter list' : 'Owner roster — records-request copy'
+  const homes = report.kind === 'owners' ? report.roster.counts.homes : report.kind === 'voters' ? report.list.counts.homes : report.copy.counts.homes
+  const lawFor = report.kind === 'owners' ? ownerRosterLaw : report.kind === 'voters' ? voterListLaw : recordsCopyLaw
+  const notes = states.map(lawFor).filter((n): n is LawNote => n !== null)
 
   return (
     <section aria-labelledby="roster-heading" className="space-y-4 print:space-y-3">
@@ -56,16 +74,30 @@ export function RosterReportView({
         <Alert variant="warning" title="Board only: personal contact information">
           {CONTACT_WARNING}
         </Alert>
-      ) : (
+      ) : report.kind === 'voters' ? (
         <Alert variant="warning" title="Board only: past-due balances">
           This list shows which homes are behind on dues. Keep it with the board. To post a list of voters, leave out
           the past-due columns.
         </Alert>
+      ) : (
+        <RecordsAlerts report={report} />
       )}
 
-      {report.kind === 'owners' ? <OwnerSummary report={report} /> : <VoterSummary report={report} />}
+      {report.kind === 'owners' ? (
+        <OwnerSummary report={report} />
+      ) : report.kind === 'voters' ? (
+        <VoterSummary report={report} />
+      ) : (
+        <RecordsSummary report={report} />
+      )}
 
-      {report.kind === 'owners' ? <OwnerTable rows={report.roster.rows} /> : <VoterTable rows={report.list.rows} />}
+      {report.kind === 'owners' ? (
+        <OwnerTable rows={report.roster.rows} />
+      ) : report.kind === 'voters' ? (
+        <VoterTable rows={report.list.rows} />
+      ) : (
+        <RecordsTable rows={report.copy.rows} />
+      )}
 
       {notes.length > 0 ? (
         <Card>
@@ -173,7 +205,7 @@ function VoterSummary({ report }: { report: Extract<RosterReport, { kind: 'voter
   )
 }
 
-function PropertyCell({ row }: { row: OwnerRosterRow }) {
+function PropertyCell({ row }: { row: Pick<OwnerRosterRow, 'address' | 'unitNumber' | 'lotNumber'> }) {
   return (
     <div className="min-w-0">
       <p className="break-words font-medium text-foreground">{row.address}</p>
@@ -275,4 +307,108 @@ function VoterTable({ rows }: { rows: VoterRow[] }) {
     },
   ]
   return <DataTable columns={columns} rows={rows} rowKey={(r) => r.propertyId} caption="Voter list" mobile="cards" density="compact" empty={<p className="p-5 text-sm text-muted">No homes on file yet.</p>} />
+}
+
+// ─── Records-request copy ──────────────────────────────────────────────
+
+function RecordsAlerts({ report }: { report: Extract<RosterReport, { kind: 'records' }> }) {
+  const needsOptOutCheck = !SHARING_OPT_OUT_STORED && report.copy.counts.caHomes > 0
+  return (
+    // Board guidance, not part of the copy handed over: never printed.
+    <div className="space-y-3 print:hidden">
+      <Alert variant="info" title="Copy for an owner’s records request">
+        {RECORDS_COPY_NOTICE}
+      </Alert>
+      {needsOptOutCheck ? (
+        <Alert variant="warning" title="Check California opt-outs before you release this">
+          {CA_OPT_OUT_CHECK}
+        </Alert>
+      ) : null}
+    </div>
+  )
+}
+
+function RecordsSummary({ report }: { report: Extract<RosterReport, { kind: 'records' }> }) {
+  const c = report.copy.counts
+  return (
+    <ul className="space-y-1 text-sm text-foreground-secondary print:hidden">
+      <li className="num">
+        {plural(c.owners, 'owner')} across {plural(c.homes, 'home')}.
+      </li>
+      {c.noOwner > 0 ? (
+        <li className="num text-warning">
+          {plural(c.noOwner, 'home has', 'homes have')} no owner on record on this date.
+        </li>
+      ) : null}
+      {c.emailsLeftOut > 0 ? (
+        <li className="num">
+          {plural(c.emailsLeftOut, 'email address on file is', 'email addresses on file are')} left out of this copy.
+        </li>
+      ) : null}
+      {c.ownersWithheld > 0 ? (
+        <li className="num">
+          {plural(c.ownersWithheld, 'owner who opted out is', 'owners who opted out are')} left off (Civ. Code § 5220).
+        </li>
+      ) : null}
+    </ul>
+  )
+}
+
+function RecordsTable({ rows }: { rows: RecordsRow[] }) {
+  const columns: DataTableColumn<RecordsRow>[] = [
+    { key: 'home', header: 'Property', cell: (r) => <PropertyCell row={r} />, mobilePrimary: true },
+    {
+      key: 'owners',
+      header: 'Owners',
+      cell: (r) =>
+        r.ownerNames.length === 0 ? (
+          <span className="text-warning">No owner on record on this date</span>
+        ) : (
+          <ul className="space-y-0.5">
+            {r.ownerNames.map((n, i) => (
+              <li key={`${n}-${i}`} className="break-words text-foreground">
+                {n}
+              </li>
+            ))}
+          </ul>
+        ),
+    },
+    {
+      key: 'mailing',
+      header: 'Mailing address',
+      cell: (r) => (
+        <div className="min-w-0">
+          <p className="break-words">{r.mailing.text}</p>
+          {r.mailing.source === 'property_address' ? <p className="text-xs text-muted">{MAILING_SOURCE_LABEL.property_address}</p> : null}
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      cell: (r) =>
+        r.emails.length > 0 ? (
+          <ul className="space-y-0.5">
+            {r.emails.map((e) => (
+              <li key={e} className="break-all">
+                {e}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-muted">{r.emailNote ? 'Not shared' : '—'}</span>
+        ),
+    },
+  ]
+  return (
+    <DataTable
+      columns={columns}
+      rows={rows}
+      rowKey={(r) => r.propertyId}
+      caption="Owner roster — records-request copy"
+      mobile="cards"
+      density="compact"
+      empty={<p className="p-5 text-sm text-muted">No homes on file yet.</p>}
+    />
+  )
 }

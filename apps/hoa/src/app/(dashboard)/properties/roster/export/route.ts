@@ -9,8 +9,10 @@ import { csvDocument } from '@/lib/csv'
 import { buildReport, parseRosterParams, reportCounts, reportTable, rosterFilename } from '@/lib/properties/statutory-roster/model'
 
 /**
- * GET /properties/roster/export?kind=owners|voters&asOf=YYYY-MM-DD —
- * the statutory owner roster or voter list as CSV (Properties P5).
+ * GET /properties/roster/export?kind=owners|voters|records&asOf=YYYY-MM-DD —
+ * the statutory owner roster, voter list, or records-request copy (the
+ * roster an owner may be given: no phones, no balances, email only where
+ * the state allows and the owner hasn't opted out) as CSV (Properties P5).
  *
  * Board/admin only, checked before any client is made. Anyone else —
  * a resident included — gets 404: the page and this file don't exist
@@ -36,7 +38,7 @@ export const GET = withRoute('properties.roster-export', async (request) => {
   if (!params.kind || params.dateError) {
     throw new ApiRouteError('validation_failed', 'Choose a roster and a real as-of date.', {
       issues: [
-        ...(params.kind ? [] : [{ path: 'kind', message: 'Use owners or voters.' }]),
+        ...(params.kind ? [] : [{ path: 'kind', message: 'Use owners, voters or records.' }]),
         ...(params.dateError ? [{ path: 'asOf', message: 'Use a real YYYY-MM-DD date.' }] : []),
       ],
     })

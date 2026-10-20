@@ -15,8 +15,15 @@ import {
   rosterFilename,
   shareLabel,
   voterListCsv,
+  buildRecordsCopy,
+  recordsCopyCsv,
+  recordsEmailRule,
+  reportAsOf,
+  SHARING_OPT_OUT_STORED,
   type RosterInput,
+  type RosterOwnership,
 } from './model'
+import { recordsCopyLaw } from './law'
 
 // Fixture names and addresses are invented.
 const ZONE = 'America/New_York'
@@ -346,5 +353,126 @@ describe('parseRosterParams', () => {
   })
   it('ignores an unknown kind', () => {
     expect(parseRosterParams({ kind: 'everyone' }, '2026-10-18').kind).toBeNull()
+  })
+  it('accepts the records-request copy', () => {
+    expect(parseRosterParams({ kind: 'records', asOf: '2026-03-01' }, '2026-10-18').kind).toBe('records')
+  })
+})
+
+describe('buildRecordsCopy — the roster an owner may be given', () => {
+  const own = (over: Partial<RosterOwnership>): RosterOwnership => ({
+    unitId: 'u1',
+    ownerName: 'Ann Able',
+    ownerEmail: 'ann@example.test',
+    ownerPhone: '555-0100',
+    ownershipPct: 50,
+    validFrom: '2020-01-01',
+    validTo: null,
+    ...over,
+  })
+  const withState = (state: string, ownerships: RosterOwnership[]) => {
+    const i = input({ ownerships, charges: [{ id: 'c1', unitId: 'u1', amount: 900, dueDate: '2025-01-01', status: 'open' }] })
+    i.homes[0].state = state
+    return i
+  }
+  const two = [own({}), own({ ownerName: 'Bo Baker', ownerEmail: 'bo@example.test', ownerPhone: '555-0101' })]
+
+  it('nothing stores a § 5220 opt-out yet', () => expect(SHARING_OPT_OUT_STORED).toBe(false))
+
+  it('email rule per state: only California can include email; FL, TX, GA and unknown omit it', () => {
+    expect(recordsEmailRule('CA')).toBe('unless_opted_out')
+    expect(recordsEmailRule('ca')).toBe('unless_opted_out')
+    for (const s of ['FL', 'TX', 'GA', 'NY', null]) expect(recordsEmailRule(s)).toBe('omit')
+  })
+
+  it('FL: names, property and mailing address, never email (§ 720.303(5))', () => {
+    const c = buildRecordsCopy(withState('FL', two), '2026-10-18')
+    expect(c.rows[0]).toMatchObject({ ownerNames: ['Ann Able', 'Bo Baker'], emails: [], emailNote: 'state_excludes', lotNumber: '7' })
+    expect(c.counts).toMatchObject({ homes: 1, owners: 2, emailsIncluded: 0, emailsLeftOut: 2, ownersWithheld: 0 })
+  })
+
+  it('TX and GA: email left out (no verified records text in the app)', () => {
+    for (const s of ['TX', 'GA']) {
+      const c = buildRecordsCopy(withState(s, two), '2026-10-18')
+      expect(c.rows[0].emails).toEqual([])
+      expect(c.rows[0].emailNote).toBe('state_excludes')
+    }
+  })
+
+  it('CA with no opt-out recorded (today): email left out, owners kept, flagged for the board check', () => {
+    const c = buildRecordsCopy(withState('CA', two), '2026-10-18')
+    expect(c.rows[0].ownerNames).toEqual(['Ann Able', 'Bo Baker'])
+    expect(c.rows[0].emails).toEqual([])
+    expect(c.rows[0].emailNote).toBe('opt_out_unknown')
+    expect(c.counts.caHomes).toBe(1)
+  })
+
+  it('CA: an owner recorded as not opted out has their email; one who opted out is left off', () => {
+    const c = buildRecordsCopy(withState('CA', [own({ sharingOptOut: false }), own({ ownerName: 'Bo Baker', ownerEmail: 'bo@example.test', sharingOptOut: true })]), '2026-10-18')
+    expect(c.rows[0].ownerNames).toEqual(['Ann Able'])
+    expect(c.rows[0].emails).toEqual(['ann@example.test'])
+    expect(c.counts).toMatchObject({ owners: 1, emailsIncluded: 1, ownersWithheld: 1, homesWithheld: 0 })
+  })
+
+  it('CA: a home whose every owner opted out is left off entirely (§ 5220 covers the property address)', () => {
+    const c = buildRecordsCopy(withState('CA', [own({ sharingOptOut: true })]), '2026-10-18')
+    expect(c.rows).toEqual([])
+    expect(c.counts).toMatchObject({ homes: 0, ownersWithheld: 1, homesWithheld: 1 })
+  })
+
+  it('FL: a recorded opt-out does not remove an owner from the official roster', () => {
+    const c = buildRecordsCopy(withState('FL', [own({ sharingOptOut: true })]), '2026-10-18')
+    expect(c.rows[0].ownerNames).toEqual(['Ann Able'])
+    expect(c.counts.ownersWithheld).toBe(0)
+  })
+
+  it('a home with no owner on the date stays on the copy, labelled', () => {
+    const i = withState('FL', [])
+    i.homes[0].recordOwner = null
+    const c = buildRecordsCopy(i, '2026-10-18')
+    expect(c.rows[0].ownerNames).toEqual([])
+    expect(c.counts.noOwner).toBe(1)
+    expect(recordsCopyCsv(c).rows[0][0]).toBe('No owner on record on this date')
+  })
+
+  it('CSV: no phone, share or balance column — and no phone or amount anywhere in the file', () => {
+    const report = buildReport('records', withState('CA', [own({ sharingOptOut: false }), own({ ownerName: 'Bo Baker', ownerEmail: 'bo@example.test' })]), '2026-10-18')
+    const { header, rows } = reportTable(report)
+    expect(header).toEqual(['Owner names', 'Property address', 'Unit', 'Lot / parcel', 'Mailing address', 'Mailing address source', 'Email'])
+    expect(rows[0]).toEqual([
+      'Ann Able; Bo Baker',
+      '12 Oak Lane',
+      '',
+      '7',
+      '12 Oak Lane',
+      'Property address (no other mailing address on file)',
+      'ann@example.test',
+    ])
+    const csv = csvDocument(header, rows)
+    expect(csv).not.toMatch(/555-01|900|50%|bo@example/)
+  })
+
+  it('audit counts are numbers only, and the copy has its own file name and as-of', () => {
+    const report = buildReport('records', withState('FL', two), '2026-10-18')
+    const counts = reportCounts(report)
+    expect(counts).toEqual({ homes: 1, owners: 2, noOwner: 0, emailsIncluded: 0, ownersWithheld: 0, homesWithheld: 0 })
+    expect(Object.values(counts).every((v) => typeof v === 'number')).toBe(true)
+    expect(reportAsOf(report)).toBe('2026-10-18')
+    expect(rosterFilename('records', '2026-10-18')).toBe('owner-roster-records-copy-as-of-2026-10-18.csv')
+  })
+})
+
+describe('recordsCopyLaw — citations only from verified text', () => {
+  it('FL and CA are verified; TX and GA are marked unverified', () => {
+    expect(recordsCopyLaw('FL')?.verified).toBe(true)
+    expect(recordsCopyLaw('CA')?.verified).toBe(true)
+    expect(recordsCopyLaw('TX')?.verified).toBe(false)
+    expect(recordsCopyLaw('GA')?.verified).toBe(false)
+    expect(recordsCopyLaw('NY')).toBeNull()
+  })
+  it('CA cites § 5200(a)(9) and § 5220', () => {
+    const text = recordsCopyLaw('CA')!.lines.join(' ')
+    expect(text).toContain('§ 5200(a)(9)')
+    expect(text).toContain('§ 5220')
   })
 })
