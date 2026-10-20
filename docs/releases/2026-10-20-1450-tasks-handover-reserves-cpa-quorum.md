@@ -39,5 +39,8 @@ Five tools for running the board well: one list of every task from your meetings
 - **For annual meetings** (and special meetings where owners vote): a live quorum counter, a check-in list, proxy tracking, a list of homes with no proxy yet, a printable sign-in sheet, and printable proxy forms with Florida and California wording where the law is on file.
 - **Nothing is sent to residents.** The board follows up itself.
 
+### Georgia law
+- **Georgia's HOA law** (the Property Owners' Association Act) can now be loaded the same way as Florida, California and Texas, from a checked copy of the state's official code with the 2024 and 2026 changes already in force. It loads after the owner's one-time step (OA-9).
+
 ## Good to know
 - No one has checked these screens in a browser yet. Please open Tasks and the annual meeting kit once and tell us if anything looks off.
