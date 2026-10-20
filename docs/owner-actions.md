@@ -171,17 +171,21 @@ and checkout instead of HomeownerHub.
 1. In the Stripe dashboard, open **Products** and rename "HOA Hub" to "HomeownerHub".
 2. Tell Claude in the same sitting, so it changes `PRODUCT_NAME` in `apps/hoa/src/app/api/admin/setup-stripe-pricing/route.ts` to match.
 
-### OA-9 · Turn on the first Florida state-law refresh
+### OA-9 · Load Florida, California and Texas law into the app
 
-**Urgency:** Whenever
+**Urgency:** Soon
 
-**Why it matters:** production has no Florida statutes loaded yet, so the AI
-cannot cite Florida law until this runs once.
+**Why it matters:** production only has Georgia's HOA law loaded. Until Florida, California and Texas are loaded, the app says "<State> state law isn't loaded yet" instead of answering law questions for those states. It never answers from memory.
 
-**Steps:**
+**Steps** (after the deploy that includes the CA/TX loaders; Claude will say when it's live):
 
-1. Sign in to the app as the platform admin.
-2. Open the browser's developer console on any app page and run `fetch('/api/admin/refresh-state-law',{method:'POST'})`.
+1. Sign in to the production app as the platform admin.
+2. Open the browser's developer console on any app page and paste this line once each for `'FL'`, `'CA'` and `'TX'` (change the two letters):
+   `fetch('/api/admin/refresh-state-law',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:'FL'})}).then(r=>r.json()).then(console.log)`
+   Each should print `queued`.
+3. A few minutes later, tell Claude. It checks the counts (expected: FL 36, CA 234, TX 61 sections). After the Inngest sync (OA-7), a weekly job keeps them current on its own.
+
+**Files:** `docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md` §11
 
 ### OA-10 · Run the S-01 audit query
 
