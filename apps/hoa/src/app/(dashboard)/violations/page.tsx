@@ -23,6 +23,7 @@ import {
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { timed } from '@/lib/perf/timing'
 import { readViolationStatusRows } from '@/lib/violation-status-rows'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
@@ -119,8 +120,10 @@ export default async function ViolationsListPage({
   // violation), independent of paging, and read to the END — a single read
   // stopped at PostgREST's 1000-row cap (BL-047). A failure hides the counts.
   const [result, statusRes] = await Promise.all([
-    loadOrFail('violations', query.range(from, to)),
-    loadOrFail('violation status counts', readViolationStatusRows(supabase as unknown as SupabaseClient, org.id, scope?.id ?? null)),
+    timed('/violations', 'violations.list', () => loadOrFail('violations', query.range(from, to))),
+    timed('/violations', 'violations.statusCounts', () =>
+      loadOrFail('violation status counts', readViolationStatusRows(supabase as unknown as SupabaseClient, org.id, scope?.id ?? null)),
+    ),
   ])
 
   const rows = result.ok ? ((result.data ?? []) as unknown as ViolationRow[]) : []

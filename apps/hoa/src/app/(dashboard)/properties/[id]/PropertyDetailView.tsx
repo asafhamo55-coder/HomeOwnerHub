@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import {
   AlertTriangle,
@@ -39,7 +40,7 @@ import {
   type TimelineItem,
 } from '@homeowner-portal/ui'
 import { formatDay, formatStamp, usd } from '@/lib/money/format'
-import { describePlanStanding } from '@/lib/money/plan-standing'
+import { describePlanStanding, type PlanStandingView } from '@/lib/money/plan-standing'
 import { ARC_CATEGORY, ARC_STATUS, INBOX_THREAD_STATUS, TENURE, VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { cureBy, cureState, sortByUrgency } from '@/lib/violation-cure'
 import { collectionStatusLabel } from '@/lib/collections/statuses'
@@ -118,10 +119,17 @@ export interface PropertyDetailViewProps {
    * section is then exactly as before.
    */
   consent?: ReadonlyMap<string, ConsentState> | 'failed'
+  /**
+   * BL-099: the plan standings, still being read. The page passes the
+   * read's promise instead of awaiting it (it is a third round trip, after
+   * both of the loader's waves), and only the Payment plan tile waits for
+   * it. Ignored when `data.planStandings` is already set (the previews).
+   */
+  planStandings?: Promise<Part<Record<string, PlanStandingView>>> | null
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent, planStandings } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -256,7 +264,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
               </Button>
             }
           >
-            <MoneySection data={data} aging={aging} today={today} unitId={unitId} duesHref={scoped('/dues')} letterHref={canManage ? propertyHref(pid, { collectionsLetter: true }) : null} />
+            <MoneySection data={data} planStandings={planStandings ?? null} aging={aging} today={today} unitId={unitId} duesHref={scoped('/dues')} letterHref={canManage ? propertyHref(pid, { collectionsLetter: true }) : null} />
           </Section>
 
           <Section
@@ -669,8 +677,47 @@ const PLAN_STATUS = {
 }
 const AGING_ORDER: AgingBucket[] = ['current', '1-30', '31-60', '61-90', '90+']
 
+type PlanRow = Extract<Property360['plans'], { ok: true }>['data'][number]
+type Standings = Part<Record<string, PlanStandingView>>
+
+/** The Payment plan tile, given the standings read (or none). */
+function PlanKpi({ plan, standings, failed }: { plan: PlanRow | null; standings: Standings | undefined; failed: boolean }) {
+  // BL-080: behind / on track / completed on a day — only when it was read.
+  const planStanding = plan && standings?.ok ? describePlanStanding(standings.data[plan.id], plan) : null
+  return (
+    <Kpi
+      label="Payment plan"
+      state={failed ? 'failed' : 'ready'}
+      value={
+        planStanding && plan?.status === 'active' ? (
+          <span className={planStanding.tone === 'danger' ? 'text-danger' : undefined}>{planStanding.label}</span>
+        ) : plan ? (
+          PLAN_STATUS.labels[plan.status as keyof typeof PLAN_STATUS.labels] ?? plan.status
+        ) : (
+          'None'
+        )
+      }
+      hint={
+        planStanding
+          ? planStanding.detail
+          : plan
+            ? `${plan.installment_count} × ${usd(Number(plan.installment_amount))} from ${formatDay(plan.start_date)}`
+            : 'No plan on file'
+      }
+      href={plan ? '/accounting/payment-plans' : undefined}
+      linkAs={plan ? Link : undefined}
+    />
+  )
+}
+
+/** BL-099: the same tile once the page's standings read resolves. */
+async function StreamedPlanKpi({ plan, standings }: { plan: PlanRow; standings: Promise<Standings> }) {
+  return <PlanKpi plan={plan} standings={await standings} failed={false} />
+}
+
 function MoneySection({
   data,
+  planStandings,
   aging,
   today,
   unitId,
@@ -678,6 +725,7 @@ function MoneySection({
   letterHref,
 }: {
   data: Property360
+  planStandings: Promise<Standings> | null
   aging: ReturnType<typeof agingBuckets> | null
   today: string
   unitId: string | null
@@ -688,8 +736,6 @@ function MoneySection({
   const stats = data.stats
   const lastPayment = data.payments?.ok ? (data.payments.data[0] ?? null) : null
   const plan = data.plans?.ok ? (data.plans.data.find((x) => x.status === 'active' || x.status === 'proposed') ?? data.plans.data[0] ?? null) : null
-  // BL-080: behind / on track / completed on a day — only when it was read.
-  const planStanding = plan && data.planStandings?.ok ? describePlanStanding(data.planStandings.data[plan.id], plan) : null
   const openCase = data.collections?.ok ? data.collections.data.openCase : null
   const unlinked = data.unit.ok && data.unit.data.unitId === null
 
@@ -719,28 +765,13 @@ function MoneySection({
           value={lastPayment ? usd(Number(lastPayment.amount)) : 'None'}
           hint={lastPayment ? formatStamp(lastPayment.paid_at) : 'No payment on file'}
         />
-        <Kpi
-          label="Payment plan"
-          state={data.plans === null || data.plans.ok ? 'ready' : 'failed'}
-          value={
-            planStanding && plan?.status === 'active' ? (
-              <span className={planStanding.tone === 'danger' ? 'text-danger' : undefined}>{planStanding.label}</span>
-            ) : plan ? (
-              PLAN_STATUS.labels[plan.status as keyof typeof PLAN_STATUS.labels] ?? plan.status
-            ) : (
-              'None'
-            )
-          }
-          hint={
-            planStanding
-              ? planStanding.detail
-              : plan
-                ? `${plan.installment_count} × ${usd(Number(plan.installment_amount))} from ${formatDay(plan.start_date)}`
-                : 'No plan on file'
-          }
-          href={plan ? '/accounting/payment-plans' : undefined}
-          linkAs={plan ? Link : undefined}
-        />
+        {plan && data.planStandings === undefined && planStandings ? (
+          <Suspense fallback={<Kpi label="Payment plan" state="loading" />}>
+            <StreamedPlanKpi plan={plan} standings={planStandings} />
+          </Suspense>
+        ) : (
+          <PlanKpi plan={plan} standings={data.planStandings} failed={!(data.plans === null || data.plans.ok)} />
+        )}
         <Kpi
           label="Collections"
           state={data.collections === null || data.collections.ok ? 'ready' : 'failed'}

@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { AlertCircle, CalendarClock, CalendarDays, CalendarPlus, FileText } from 'lucide-react'
 import { format } from 'date-fns'
@@ -73,27 +74,31 @@ export default async function MeetingsPage({
 
   const supabase = await getSupabaseServerClient()
   const [upcomingRes, pastRes] = await Promise.all([
-    loadOrFail(
-      'upcoming meetings',
-      supabase
-        .from('hoa_meeting_minutes')
-        .select(SELECT, { count: 'exact' })
-        .eq('org_id', org.id)
-        .is('deleted_at', null)
-        .gte('meeting_date', today)
-        .order('meeting_date', { ascending: true })
-        .range(0, UPCOMING_MAX - 1),
+    timed('/meetings', 'meetings.upcoming', () =>
+      loadOrFail(
+        'upcoming meetings',
+        supabase
+          .from('hoa_meeting_minutes')
+          .select(SELECT, { count: 'exact' })
+          .eq('org_id', org.id)
+          .is('deleted_at', null)
+          .gte('meeting_date', today)
+          .order('meeting_date', { ascending: true })
+          .range(0, UPCOMING_MAX - 1),
+      ),
     ),
-    loadOrFail(
-      'meetings',
-      supabase
-        .from('hoa_meeting_minutes')
-        .select(SELECT, { count: 'exact' })
-        .eq('org_id', org.id)
-        .is('deleted_at', null)
-        .lt('meeting_date', today)
-        .order('meeting_date', { ascending: false })
-        .range(from, to),
+    timed('/meetings', 'meetings.past', () =>
+      loadOrFail(
+        'meetings',
+        supabase
+          .from('hoa_meeting_minutes')
+          .select(SELECT, { count: 'exact' })
+          .eq('org_id', org.id)
+          .is('deleted_at', null)
+          .lt('meeting_date', today)
+          .order('meeting_date', { ascending: false })
+          .range(from, to),
+      ),
     ),
   ])
 
@@ -108,12 +113,14 @@ export default async function MeetingsPage({
   let counts = new Map<string, Counts>()
   const ids = [...upcoming, ...past].map((m) => m.id)
   if (ids.length > 0) {
-    const aggResult = await loadOrFail(
-      'meeting action items',
-      supabase
-        .from('meeting_action_items' as never)
-        .select('meeting_id, status, due_date')
-        .in('meeting_id' as never, ids),
+    const aggResult = await timed('/meetings', 'meetings.actionItems', () =>
+      loadOrFail(
+        'meeting action items',
+        supabase
+          .from('meeting_action_items' as never)
+          .select('meeting_id, status, due_date')
+          .in('meeting_id' as never, ids),
+      ),
     )
     actionItemsFailed = !aggResult.ok
     const agg = aggResult.ok ? ((aggResult.data ?? []) as unknown as ActionItemAgg[]) : []

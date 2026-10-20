@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { ClipboardList, SearchX } from 'lucide-react'
 import { format } from 'date-fns'
@@ -53,8 +54,8 @@ export default async function ArcReviewListPage({
   const statuses = FILTERS[filter].statuses
 
   const [list, counts] = await Promise.all([
-    listArcRequestsForBoard({ status: statuses ?? undefined, from, to }),
-    countArcRequestsByStatus(),
+    timed('/arc', 'arc.list', () => listArcRequestsForBoard({ status: statuses ?? undefined, from, to })),
+    timed('/arc', 'arc.statusCounts', () => countArcRequestsByStatus()),
   ])
 
   const countFor = (key: Filter): number | null => {

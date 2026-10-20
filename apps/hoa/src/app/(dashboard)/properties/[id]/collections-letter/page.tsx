@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Alert, Card, CardContent, CardHeader, CardTitle, LoadFailed, Page } from '@homeowner-portal/ui'
@@ -45,7 +46,9 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
   )
 
   const supabase = await getSupabaseServerClient()
-  const loaded = await tryLoad('collections letter', () => loadLetterContext(supabase, ctx.org.id, propertyId))
+  const loaded = await timed('/properties/[id]/collections-letter', 'collections.letterContext', () =>
+    tryLoad('collections letter', () => loadLetterContext(supabase, ctx.org.id, propertyId)),
+  )
   if (!loaded.ok) return page(<LoadFailed what="this home’s account" hint="No letter was drafted." />)
   if (!loaded.data) notFound()
   const { input, today, collectionCase, events, requests } = loaded.data

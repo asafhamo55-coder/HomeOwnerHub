@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentOrg, getSignedInUser } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
 import { getResidentActor, getImpersonationTarget } from '@/lib/impersonation'
 import { ResidentTopBar } from '@/components/resident/ResidentTopBar'
@@ -25,16 +24,24 @@ export default async function ResidentLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Memoized (lib/orgs.ts): getCurrentOrg below asks for the same user,
+  // and used to make a second auth round trip for it (BL-099).
+  const user = await getSignedInUser()
   if (!user) redirect('/login?redirect=/resident')
 
-  const org = await getCurrentOrg()
+  // The org and the actor are independent reads, so they run together.
+  // The actor's outcome is only looked at after the org check, so a
+  // missing org still redirects first, exactly as before.
+  const [org, actorResult] = await Promise.all([
+    getCurrentOrg(),
+    getResidentActor().then(
+      (actor) => ({ ok: true as const, actor }),
+      (error: unknown) => ({ ok: false as const, error }),
+    ),
+  ])
   if (!org) redirect('/onboarding')
-
-  const actor = await getResidentActor()
+  if (!actorResult.ok) throw actorResult.error
+  const actor = actorResult.actor
 
   if (!actor.impersonating) {
     const effectiveRole = await getEffectiveRoleInOrg(org.id)

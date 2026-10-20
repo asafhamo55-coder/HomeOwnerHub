@@ -1,3 +1,4 @@
+import { Suspense, cache } from 'react'
 import Link from 'next/link'
 import { CheckCircle2, Inbox as InboxIcon, Sparkles } from 'lucide-react'
 import {
@@ -12,10 +13,12 @@ import {
   EmptyState,
   LoadFailed,
   Page,
+  Skeleton,
   StatusPill,
   Tabs,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
+import { timed } from '@/lib/perf/timing'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listVendorsResult } from '@/lib/vendors'
@@ -27,7 +30,9 @@ import {
   parseApprovalFilter,
   vendorSection,
   type ApprovalFilter,
+  type ApprovalSource,
   type AssociationVendorCount,
+  type Inbox,
   type InboxItem,
   type InboxSection,
 } from '@/lib/approvals-inbox/model'
@@ -49,68 +54,176 @@ export const dynamic = 'force-dynamic'
 // module's own action (lib/approvals-inbox). A source that fails to load
 // shows "Couldn't load" in its own section; the others still render.
 
+// ── Per-source loaders (BL-099) ────────────────────────────────────────
+// Each source is read once per request (React cache()) and timed. The
+// page streams: a section renders as soon as ITS source is in, and only
+// the parts that genuinely need every source — the tab badges, the
+// "N waiting" pill, inbox zero — wait for all of them.
+const R = '/approvals'
+type Db = Awaited<ReturnType<typeof getSupabaseServerClient>>
+const db = (): Promise<Db> => getSupabaseServerClient()
+
+const SOURCE_LOADERS: Record<ApprovalSource, (orgId: string, orgName: string) => Promise<InboxSection>> = {
+  w18: cache((orgId: string) => timed(R, 'approvals.w18', async () => loadW18Section(await db(), orgId))),
+  bill: cache((orgId: string) =>
+    timed(R, 'approvals.bill', async () => {
+      const supabase = await db()
+      return loadBillSection(supabase, orgId)
+        .then((s) => withBillLinks(supabase, s))
+        .then((s) => withBillEditOptions(supabase, orgId, s))
+    }),
+  ),
+  w3: cache((orgId: string) => timed(R, 'approvals.w3', async () => loadW3Section(await db(), orgId))),
+  collections: cache((orgId: string) => timed(R, 'approvals.collections', async () => loadLetterSection(await db(), orgId))),
+  arc: cache((orgId: string, orgName: string) =>
+    timed(R, 'approvals.arc', async () => loadArcSection(await db(), orgId, { associationName: orgName })),
+  ),
+  contact: cache((orgId: string) => timed(R, 'approvals.contact', async () => loadContactSection(await db(), orgId))),
+  vendor: cache(() =>
+    timed(R, 'approvals.vendor', () =>
+      listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
+    ),
+  ),
+}
+
+const vendorCountsByAssociation = cache((orgId: string) =>
+  timed(R, 'approvals.vendorCountsByAssociation', async () => loadVendorCountsByAssociation(await db(), orgId)),
+)
+
+/** Every source, for what needs them all. Same memoized reads as the sections. */
+const allSections = cache((orgId: string, orgName: string) =>
+  Promise.all(APPROVAL_SOURCES.map((s) => SOURCE_LOADERS[s](orgId, orgName))),
+)
+
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   // Board/admin only. The dashboard layout already sends residents away;
   // this keeps the page safe if it is ever mounted elsewhere.
   const { org } = await requireBoardOrAdmin()
   const filter = parseApprovalFilter((await searchParams).type)
-  const supabase = await getSupabaseServerClient()
+  const shown = filter === 'all' ? APPROVAL_SOURCES : APPROVAL_SOURCES.filter((s) => s === filter)
 
-  const [w18, bills, w3, letters, arc, contact, vendors, byAssociation] = await Promise.all([
-    loadW18Section(supabase, org.id),
-    loadBillSection(supabase, org.id)
-      .then((s) => withBillLinks(supabase, s))
-      .then((s) => withBillEditOptions(supabase, org.id, s)),
-    loadW3Section(supabase, org.id),
-    loadLetterSection(supabase, org.id),
-    loadArcSection(supabase, org.id, { associationName: org.name }),
-    loadContactSection(supabase, org.id),
-    listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
-    loadVendorCountsByAssociation(supabase, org.id),
-  ])
-  const inbox = buildInbox([w18, bills, w3, letters, arc, contact, vendors], filter)
-
-  const tabs = [
-    { label: 'All', href: '/approvals', active: filter === 'all', badge: inbox.total || null },
-    ...APPROVAL_SOURCES.map((s) => ({
-      label: SOURCE_META[s].tab,
-      href: `/approvals?type=${s}`,
-      active: filter === s,
-      badge: inbox.counts[s] || null,
-    })),
-  ]
+  // Start every read now, so the tabs, the pill and the sections all wait
+  // on reads that are already in flight.
+  // (.catch only keeps a rejection from being "unhandled" before a
+  // component awaits it; each component still sees the same outcome.)
+  allSections(org.id, org.name).catch(() => {})
+  vendorCountsByAssociation(org.id).catch(() => {})
 
   return (
     <Page
       title="Approvals"
       description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
-      meta={inbox.total ? <StatusPill tone="ai" label={`${inbox.total} waiting`} /> : undefined}
-      tabs={<Tabs items={tabs} aria-label="Approval types" linkAs={Link} />}
+      meta={
+        <Suspense fallback={null}>
+          <WaitingPill orgId={org.id} orgName={org.name} />
+        </Suspense>
+      }
+      tabs={
+        <Suspense fallback={<ApprovalTabs filter={filter} inbox={null} />}>
+          <StreamedTabs orgId={org.id} orgName={org.name} filter={filter} />
+        </Suspense>
+      }
     >
-      {inbox.allClear ? (
-        <EmptyState
-          icon={<CheckCircle2 aria-hidden />}
-          title="Nothing waiting on the board"
-          secondaryAction={<HowThisWorks href={guideHref('approvals-queue')} />}
-          description="New AI proposals — deposit matches, scanned bills, violation drafts, ARC reviews, vendor results — land here for a decision."
-          action={
-            <Button asChild variant="secondary">
-              <Link href="/">Back to the dashboard</Link>
-            </Button>
-          }
-        />
-      ) : (
-        inbox.sections.map((section) => (
-          <SourceSection
-            key={section.source}
-            section={section}
-            filter={filter}
-            byAssociation={section.source === 'vendor' ? byAssociation : undefined}
-          />
-        ))
-      )}
+      <Suspense fallback={null}>
+        <InboxZero orgId={org.id} orgName={org.name} />
+      </Suspense>
+      {shown.map((source) => (
+        <Suspense key={source} fallback={<SourceSectionSkeleton source={source} />}>
+          <StreamedSection source={source} orgId={org.id} orgName={org.name} filter={filter} />
+        </Suspense>
+      ))}
     </Page>
+  )
+}
+
+async function loadInbox(orgId: string, orgName: string, filter: ApprovalFilter) {
+  return buildInbox(await allSections(orgId, orgName), filter)
+}
+
+async function WaitingPill({ orgId, orgName }: { orgId: string; orgName: string }) {
+  const inbox = await loadInbox(orgId, orgName, 'all')
+  return inbox.total ? <StatusPill tone="ai" label={`${inbox.total} waiting`} /> : null
+}
+
+async function StreamedTabs({ orgId, orgName, filter }: { orgId: string; orgName: string; filter: ApprovalFilter }) {
+  return <ApprovalTabs filter={filter} inbox={await loadInbox(orgId, orgName, filter)} />
+}
+
+/** The tabs; badges only once every count is known (null = still loading). */
+function ApprovalTabs({ filter, inbox }: { filter: ApprovalFilter; inbox: Inbox | null }) {
+  const tabs = [
+    { label: 'All', href: '/approvals', active: filter === 'all', badge: inbox?.total || null },
+    ...APPROVAL_SOURCES.map((s) => ({
+      label: SOURCE_META[s].tab,
+      href: `/approvals?type=${s}`,
+      active: filter === s,
+      badge: inbox?.counts[s] || null,
+    })),
+  ]
+  return <Tabs items={tabs} aria-label="Approval types" linkAs={Link} />
+}
+
+/** Inbox zero: only when every source loaded and every one is empty. */
+async function InboxZero({ orgId, orgName }: { orgId: string; orgName: string }) {
+  const inbox = await loadInbox(orgId, orgName, 'all')
+  if (!inbox.allClear) return null
+  return (
+    <EmptyState
+      icon={<CheckCircle2 aria-hidden />}
+      title="Nothing waiting on the board"
+      secondaryAction={<HowThisWorks href={guideHref('approvals-queue')} />}
+      description="New AI proposals — deposit matches, scanned bills, violation drafts, ARC reviews, vendor results — land here for a decision."
+      action={
+        <Button asChild variant="secondary">
+          <Link href="/">Back to the dashboard</Link>
+        </Button>
+      }
+    />
+  )
+}
+
+async function StreamedSection({
+  source,
+  orgId,
+  orgName,
+  filter,
+}: {
+  source: ApprovalSource
+  orgId: string
+  orgName: string
+  filter: ApprovalFilter
+}) {
+  const section = await SOURCE_LOADERS[source](orgId, orgName)
+  // An empty section could still be part of inbox zero, where the page
+  // shows one empty state instead of seven empty cards — so only an empty
+  // section waits for the rest. Loaded-with-items and failed sections
+  // render at once.
+  if (section.ok && section.total === 0) {
+    const inbox = await loadInbox(orgId, orgName, 'all')
+    if (inbox.allClear) return null
+  }
+  const byAssociation = source === 'vendor' ? await vendorCountsByAssociation(orgId) : undefined
+  return <SourceSection section={section} filter={filter} byAssociation={byAssociation} />
+}
+
+/** A section's card while its source loads: the real title, placeholder rows. */
+function SourceSectionSkeleton({ source }: { source: ApprovalSource }) {
+  const meta = SOURCE_META[source]
+  return (
+    <section aria-busy="true">
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle as="h2">{meta.title}</CardTitle>
+          <CardDescription>{meta.description}</CardDescription>
+        </CardHeader>
+        <div className="space-y-3 border-t border-border px-5 py-4">
+          <span className="sr-only">Loading {meta.title}</span>
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      </Card>
+    </section>
   )
 }
 

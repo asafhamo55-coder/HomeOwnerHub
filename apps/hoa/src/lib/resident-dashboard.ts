@@ -82,14 +82,13 @@ export interface ResidentDashboard {
 type Supabase = SupabaseClient<Database>
 
 export async function getResidentDashboard(): Promise<ResidentDashboard> {
-  const actor = await getResidentActor()
+  // Three independent reads, together (BL-099; they ran one after another).
+  const [actor, org, units] = await Promise.all([getResidentActor(), getCurrentOrg(), getResidentUnits()])
   const supabase = actor.client
-  const org = await getCurrentOrg()
 
   // Impersonation-safe: scope on the actor's identity (the service-role
   // client used while impersonating has no auth session of its own).
   const actorUser = actor.id ? { id: actor.id, email: actor.email } : null
-  const units = await getResidentUnits()
 
   const unitIds = units.map((u) => u.unit_id)
   const today = todayIn(residentTimeZone(units))
@@ -142,8 +141,7 @@ export async function getResidentDues(): Promise<{
   dues: ResidentDues
   failed: boolean
 }> {
-  const actor = await getResidentActor()
-  const units = await getResidentUnits()
+  const [actor, units] = await Promise.all([getResidentActor(), getResidentUnits()])
   const today = todayIn(residentTimeZone(units))
   const dues = await getDues(actor.client, units.map((u) => u.unit_id), actor.orgId, today, chargeWindow(units))
   return { units, dues: dues ?? emptyResidentDues(today), failed: dues === null }
@@ -159,8 +157,7 @@ export async function getResidentLedger(): Promise<{
   ledger: Ledger | null
   truncated: boolean
 }> {
-  const actor = await getResidentActor()
-  const units = await getResidentUnits()
+  const [actor, units] = await Promise.all([getResidentActor(), getResidentUnits()])
   const rows = await loadLedgerRows(actor.client, units.map((u) => u.unit_id), actor.orgId)
   if (!rows.ok) return { units, ledger: null, truncated: false }
   // A buyer sees their ownership's history only (resident-sale-window.ts).

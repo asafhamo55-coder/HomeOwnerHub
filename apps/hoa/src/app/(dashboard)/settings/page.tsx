@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import {
   Card,
@@ -36,8 +37,10 @@ export default async function SettingsPage() {
 
   const supabase = await getSupabaseServerClient()
   const [membersRes, profile] = await Promise.all([
-    supabase.from('org_members').select('user_id', { count: 'exact', head: true }),
-    getMyProfile(),
+    timed('/settings', 'settings.memberCount', () =>
+      supabase.from('org_members').select('user_id', { count: 'exact', head: true }),
+    ),
+    timed('/settings', 'settings.profile', () => getMyProfile()),
   ])
   // A failed count reads "—", never a confident "1 person".
   const memberCount = membersRes.error ? null : membersRes.count

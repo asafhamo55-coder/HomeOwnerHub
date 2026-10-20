@@ -25,6 +25,7 @@
 // returns a Supabase client (non-serializable), so it can't be a server
 // action. The mutating server actions live in impersonation-actions.ts.
 
+import { cache } from 'react'
 import { cookies } from 'next/headers'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, type Database } from '@homeowner-portal/db'
@@ -78,6 +79,17 @@ export interface ResidentActor {
   client: SupabaseClient<Database>
 }
 
+// The signed-in user, once per server render (BL-099). getResidentActor
+// runs from the resident layout AND from every resident loader on the
+// page, and each call (plus readTarget) used to make its own getUser round
+// trip to the auth server. Same call, same client; only memoized. Outside
+// a render (server actions) React's cache() does not memoize, so it is a
+// plain getUser call there, exactly as before.
+const signedInUser = cache(async () => {
+  const supabase = await getSupabaseServerClient()
+  return supabase.auth.getUser()
+})
+
 // Verifies the impersonation cookie: authentic HMAC, unexpired, issued in
 // the CURRENT org, to the CURRENTLY signed-in user. Anything else is
 // ignored. Callers must still confirm the user is an admin (below).
@@ -86,8 +98,7 @@ async function readTarget(): Promise<ImpersonationTarget | null> {
   const raw = store.get(IMPERSONATION_COOKIE)?.value
   if (!raw) return null
 
-  const supabase = await getSupabaseServerClient()
-  const [org, userRes] = await Promise.all([getCurrentOrg(), supabase.auth.getUser()])
+  const [org, userRes] = await Promise.all([getCurrentOrg(), signedInUser()])
   const claims = verifyImpersonationToken(raw, impersonationSecret(), {
     orgId: org?.id ?? null,
     actorUserId: userRes.data.user?.id ?? null,
@@ -134,7 +145,7 @@ export async function getResidentActor(): Promise<ResidentActor> {
 
   const {
     data: { user },
-  } = await userClient.auth.getUser()
+  } = await signedInUser()
   return {
     id: user?.id ?? null,
     email: user?.email ?? null,

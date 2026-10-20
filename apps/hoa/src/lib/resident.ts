@@ -6,6 +6,7 @@
 // admin impersonates, the actor's client is service-role (no RLS), so
 // every query here also filters on `actor.orgId`.
 
+import { cache } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
@@ -53,11 +54,14 @@ export interface ResidentSummary {
 // with its association (community) name so a multi-property owner can tell
 // which community a unit belongs to. Wraps the raw lookup below and fills
 // in association names in a single batched query.
-export async function getResidentUnits(): Promise<ResidentUnit[]> {
+// Memoized per server render (BL-099): a resident page asks for the units
+// from more than one loader (the home page's dashboard read and its next
+// meeting). Outside a render (server actions) cache() does not memoize.
+export const getResidentUnits = cache(async (): Promise<ResidentUnit[]> => {
   const actor = await getResidentActor()
   const units = await getOwnedUnits(actor)
   return attachAssociationNames(actor.client, units, actor.orgId)
-}
+})
 
 // Resolves the association (community) name for each unit's association_id
 // in one batched query. Units without an association_id keep a null name.

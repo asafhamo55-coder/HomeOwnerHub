@@ -1,6 +1,7 @@
 import { ClipboardList, MessageSquarePlus, ShieldAlert } from 'lucide-react'
 import { Badge, LoadFailed } from '@homeowner-portal/ui'
 import { loadMyTickets } from '@/lib/resident-tickets'
+import { timed } from '@/lib/perf/timing'
 import { loadMyArcRequests, loadMyViolationReports } from '@/lib/resident-submissions'
 import { RowGroup, ScreenHeader, Section, TappableRow, type Tone } from '@/components/resident/screen'
 
@@ -11,9 +12,9 @@ const CLOSED_REPORT = new Set(['closed_no_action', 'dismissed'])
 
 export default async function ResidentRequestsPage() {
   const [ticketsResult, arcResult, reportsResult] = await Promise.all([
-    loadMyTickets(),
-    loadMyArcRequests(),
-    loadMyViolationReports(),
+    timed('/resident/requests', 'resident.tickets', () => loadMyTickets()),
+    timed('/resident/requests', 'resident.arc', () => loadMyArcRequests()),
+    timed('/resident/requests', 'resident.violationReports', () => loadMyViolationReports()),
   ])
   // A failed read must not show as "Nothing yet" on its track row.
   const tickets = ticketsResult.ok ? ticketsResult.data : null

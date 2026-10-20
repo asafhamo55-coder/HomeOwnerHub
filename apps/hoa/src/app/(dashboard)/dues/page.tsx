@@ -1,3 +1,4 @@
+import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { Plus, Wallet } from 'lucide-react'
 import {
@@ -39,6 +40,8 @@ import { guideHref } from '@/lib/guide'
 export const metadata = { title: 'Dues' }
 export const dynamic = 'force-dynamic'
 
+const R = '/dues'
+
 // Was a silent `.limit(500)`, and the "$X overdue" headline was summed from
 // those 500 rows — so at a large association the headline undercounted with
 // no sign it had. The table now pages; the headline has its own query over
@@ -69,7 +72,7 @@ export default async function DuesPage({
   // BL-046: "none yet" gets a working next step (create it inline, or —
   // for a board member — find an admin); a failed read is LoadFailed, not
   // a claim that the association does not exist.
-  const assocRes = await getPrimaryAssociationResult()
+  const assocRes = await timed(R, 'dues.association', () => getPrimaryAssociationResult())
   if (!assocRes.ok) {
     return (
       <Page title="Dues" width="narrow">
@@ -99,11 +102,21 @@ export default async function DuesPage({
 
   const supabase = await getSupabaseServerClient()
 
+  // The headline's own read: the same predicate it always used (not
+  // paid, not waived, due before today), paged over EVERY row. Was a
+  // single `.range(0, 49_999)`, which PostgREST still capped at 1000
+  // rows (BL-047). A failed page fails the KPIs, never shrinks them.
+  // BL-099: it needs only the association, so it starts before the
+  // property scope is resolved instead of after it.
+  const overdueP = timed(R, 'dues.overdueHeadline', () =>
+    tryLoad('overdue dues total', () => loadOverdueHeadline(supabase as unknown as SupabaseClient, assoc.id, todayIsoStr)),
+  )
+
   // Opened from a property page (`?property=`): that home's charges only.
   // Charges hang off units, so the scope resolves to the units bridged to
   // the property. A failed unit lookup fails the list — it must never
   // silently widen to the whole association.
-  const scope = await loadPropertyScope(supabase as unknown as SupabaseClient, sp.property)
+  const scope = await timed(R, 'dues.propertyScope', () => loadPropertyScope(supabase as unknown as SupabaseClient, sp.property))
   // Every unit bridged to the home (duplicates included), via the one resolver.
   const scopeUnits: { ok: boolean } | null = scope
     ? scope.orgId
@@ -135,14 +148,8 @@ export default async function DuesPage({
   const [listResult, overdueResult] = await Promise.all([
     scopeUnits && !scopeUnits.ok
       ? Promise.resolve({ ok: false } as const)
-      : loadOrFail('dues', listQuery.order('due_date', { ascending: false }).range(from, to)),
-    // The headline's own read: the same predicate it always used (not
-    // paid, not waived, due before today), paged over EVERY row. Was a
-    // single `.range(0, 49_999)`, which PostgREST still capped at 1000
-    // rows (BL-047). A failed page fails the KPIs, never shrinks them.
-    tryLoad('overdue dues total', () =>
-      loadOverdueHeadline(supabase as unknown as SupabaseClient, assoc.id, todayIsoStr),
-    ),
+      : timed(R, 'dues.list', () => loadOrFail('dues', listQuery.order('due_date', { ascending: false }).range(from, to))),
+    overdueP,
   ])
 
   const rows = listResult.ok ? ((listResult.data ?? []) as unknown as AssessmentRow[]) : []
