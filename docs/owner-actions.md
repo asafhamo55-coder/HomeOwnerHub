@@ -292,6 +292,17 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-inbound-auth.sql`
 
+### OA-18 · Confirm the new wording of your founder quote
+
+**Urgency:** Whenever
+
+**Why it matters:** the marketing site quotes you. Two phrases in it couldn't be backed up, so Claude changed them: "180-home HOAs" is now "whole HOAs" (Madison Park has 49 homes), and "We're the only platform built around that" is now "We built HomeownerHub around that". They are your words, so you should approve them.
+
+**Steps:**
+
+1. Read the "From the founder" quote in `apps/marketing` (Claude can paste it into an email to you).
+2. Tell Claude "OK" or send the wording you want.
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
