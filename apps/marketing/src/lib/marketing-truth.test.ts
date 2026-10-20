@@ -184,9 +184,7 @@ describe('brand: HomeownerHub only', () => {
       (rel) =>
         !OTHER_HUB_ONLY.has(rel) &&
         rel.startsWith('app/') &&
-        !/OTHER_HUBS_ENABLED|isOfferedHref/.test(read(rel)) &&
-        // Legal text keeps its own wording until counsel revises it.
-        !['app/terms/page.tsx', 'app/privacy/page.tsx'].includes(rel),
+        !/OTHER_HUBS_ENABLED|isOfferedHref/.test(read(rel)),
     )
     expect(ungated.length).toBeGreaterThan(5)
     for (const rel of ungated) {
@@ -195,6 +193,44 @@ describe('brand: HomeownerHub only', () => {
       expect(src, `${rel} names Eviction Hub`).not.toMatch(/Eviction Hub/)
       expect(src, `${rel} sells to landlords`).not.toMatch(/landlord/i)
     }
+  })
+})
+
+// BL-107: the legal pages describe an HOA-only service. Scope phrases from
+// before BL-097 (landlords, evictions, tenants) must not come back. This
+// guards scope wording only; it says nothing about the terms themselves.
+describe('legal pages: HOA-only scope (BL-107)', () => {
+  const LEGAL_PAGES = ['app/terms/page.tsx', 'app/privacy/page.tsx', 'app/dpa/page.tsx']
+  const SCOPE_PHRASES: Array<[string, RegExp]> = [
+    ['landlords', /landlord/i],
+    ['evictions', /evict/i],
+    ['tenants', /tenant/i],
+    ['property managers', /property manag/i],
+    ['rent collection', /\brent (roll|collection|payments?)\b/i],
+    ['PM Hub', /PM Hub/],
+    ['Eviction Hub', /Eviction Hub/],
+  ]
+
+  it.each(LEGAL_PAGES)('%s exists', (rel) => {
+    expect(existsSync(path.join(marketingSrc, rel))).toBe(true)
+  })
+
+  it.each(SCOPE_PHRASES)('no legal page names %s', (_what, pattern) => {
+    for (const rel of LEGAL_PAGES) expect(code(rel), rel).not.toMatch(pattern)
+  })
+
+  it('the terms describe HOA management software for associations and residents', () => {
+    const terms = code('app/terms/page.tsx').replace(/\s+/g, ' ')
+    expect(terms).toMatch(/HOA management software/)
+    expect(terms).toMatch(/community associations and their residents/)
+    expect(terms).toMatch(/Last updated: October 20, 2026/)
+    expect(terms).toMatch(/What changed on October 20, 2026/)
+  })
+
+  it('the scan catches the pre-BL-107 wording', () => {
+    const before = 'AI-assisted workflows for HOA boards, small landlords, and eviction-adjacent tasks. applicable HOA, landlord-tenant, and consumer protection laws'
+    const hits = SCOPE_PHRASES.filter(([, re]) => re.test(before)).map(([w]) => w)
+    expect(hits).toEqual(['landlords', 'evictions', 'tenants'])
   })
 })
 
