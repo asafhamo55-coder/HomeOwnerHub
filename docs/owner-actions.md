@@ -389,6 +389,20 @@ prices; review it before pitching.
 2. In Settings → Environment Variables, add `NEXT_PUBLIC_ANALYTICS_ENABLED` = `1` for **Production**.
 3. Tell Claude. It redeploys, since the setting takes effect only on a new build. The 8 named events need a Vercel Pro plan; page views work on any plan.
 
+### OA-25 · Turn off quantity editing in the Stripe customer portal
+
+**Urgency:** Soon
+
+**Why it matters:** the app sends boards to Stripe's billing portal to manage their subscription. If that portal lets customers change their quantity, a board could lower the number of homes it pays for, and the app would then reduce its home count to match. The app doesn't control this setting; it's in your Stripe dashboard.
+
+**Steps:**
+
+1. In the Stripe dashboard, open **Settings → Billing → Customer portal** (do it in both **Test mode** and live mode).
+2. Under subscriptions, turn **off** "Customers can update quantities" (and leave plan switching off for now).
+3. Click **Save**, then tell Claude.
+
+**Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
