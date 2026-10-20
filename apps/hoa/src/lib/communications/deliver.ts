@@ -17,6 +17,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
+import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/send-status'
 import { sendEmailBatch, type BatchSendResult } from '@/lib/email'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms } from '@/lib/sms'
@@ -56,9 +57,12 @@ export interface DeliverCounts {
   sentCount: number
   failedCount: number
   skippedCount: number
+  /** Held back by the outbound safety guard (BL-004) — not a failure. The
+   *  row is marked `suppressed` (BL-044). */
+  heldCount: number
 }
 
-type Outcome = 'sent' | 'failed' | 'skipped'
+type Outcome = 'sent' | 'failed' | 'skipped' | 'held'
 
 /**
  * Per-recipient delivery. Each recipient resolves to 'sent' | 'failed' |
@@ -131,6 +135,10 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
           .eq('id', recipient.id)
         return 'sent'
       }
+      if (result.error === OUTBOUND_BLOCKED_ERROR) {
+        await markHeld(db, recipient.id, subject)
+        return 'held'
+      }
       await markFailed(db, recipient.id, result.error, subject)
       return 'failed'
     }
@@ -163,6 +171,10 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
           })
           .eq('id', recipient.id)
         return 'sent'
+      }
+      if (result.error === OUTBOUND_BLOCKED_ERROR) {
+        await markHeld(db, recipient.id, subject)
+        return 'held'
       }
       await markFailed(db, recipient.id, result.error, subject)
       return 'failed'
@@ -211,13 +223,28 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
   }
 
   const outcomes = await Promise.all(input.recipients.map((r) => deliverOne(r)))
-  const counts: DeliverCounts = { sentCount: 0, failedCount: 0, skippedCount: 0 }
+  const counts: DeliverCounts = { sentCount: 0, failedCount: 0, skippedCount: 0, heldCount: 0 }
   for (const o of outcomes) {
     if (o === 'sent') counts.sentCount += 1
     else if (o === 'failed') counts.failedCount += 1
+    else if (o === 'held') counts.heldCount += 1
     else counts.skippedCount += 1
   }
   return counts
+}
+
+/** The guard held this recipient back (sandboxed org, or off the allowlist
+ *  outside production). Recorded as `suppressed`, not `failed`: nothing is
+ *  broken, and resend must not offer to retry it (BL-044). */
+async function markHeld(db: Db, recipientId: string, renderedSubject: string): Promise<void> {
+  await db
+    .from('communication_recipients')
+    .update({
+      delivery_status: 'suppressed',
+      error_message: OUTBOUND_BLOCKED_ERROR,
+      rendered_subject: renderedSubject,
+    })
+    .eq('id', recipientId)
 }
 
 /**

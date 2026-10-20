@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react'
 import { Loader2, Mail } from 'lucide-react'
 import { Alert, Button, Dialog, DialogContent, Field, Textarea } from '@homeowner-portal/ui'
 import { usd } from '@/lib/money/format'
+import { sendSummary } from '@/lib/dues-reminders/send-summary'
 import {
   previewDuesReminders,
   sendDuesReminders,
@@ -116,11 +117,7 @@ export function SendRemindersDialog({
         setError(result.error)
         return
       }
-      setDone(
-        result.failedCount > 0
-          ? `Sent ${result.sentCount}, ${result.failedCount} failed.`
-          : `Sent ${result.sentCount} reminder${result.sentCount === 1 ? '' : 's'}.`,
-      )
+      setDone(sendSummary(result))
       // Clear the preview so a re-render after a successful send can't offer
       // "Send N reminders" again against packets that were already mailed.
       setPreview(null)

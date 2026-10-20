@@ -22,7 +22,7 @@ import { countDrafts, listCommunications, type CommunicationSummary } from '@/li
 import { draftHref, draftTitle } from '@/lib/communications/drafts'
 import { DeleteDraftButton } from './DeleteDraftButton'
 import { pickDisplaySubject } from '@/lib/communications/display'
-import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS } from '@/lib/status/community'
+import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS, communicationStatusBadge } from '@/lib/status/community'
 import { CategoryFilter } from './CategoryFilter'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
@@ -222,7 +222,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
       key: 'status',
       header: 'Status',
       cell: (c) => (
-        <StatusBadge status={c.status} tones={COMMUNICATION_STATUS.tones} labels={COMMUNICATION_STATUS.labels} />
+        <StatusBadge {...communicationStatusBadge(c)} />
       ),
     },
     {

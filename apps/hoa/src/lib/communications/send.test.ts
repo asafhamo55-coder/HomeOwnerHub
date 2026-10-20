@@ -231,6 +231,7 @@ describe('sendCommunication, M1_APPLIED true', () => {
       sentCount: 5,
       failedCount: 0,
       skippedCount: 0,
+      heldCount: 0,
       optedOutCount: 1,
       paperNotice: {
         count: 3,

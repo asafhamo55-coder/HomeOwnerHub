@@ -25,13 +25,14 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { deliverToRecipients, type QueuedRecipientRow } from './deliver'
 import { applyPreferences, loadPreferenceMap, preferencesApply } from './preferences'
 
 type Db = SupabaseClient<Database>
 
 export type ScheduledDeliveryResult =
-  | { ok: true; sentCount: number; failedCount: number; skippedCount: number; optedOutCount: number }
+  | { ok: true; sentCount: number; failedCount: number; skippedCount: number; heldCount: number; optedOutCount: number }
   | { ok: false; error: string }
 
 interface StoredAudience {
@@ -127,16 +128,19 @@ async function dispatch(db: Db, communicationId: string): Promise<ScheduledDeliv
           extraFields: {},
           recipients: deliverable,
         })
-      : { sentCount: 0, failedCount: 0, skippedCount: 0 }
+      : { sentCount: 0, failedCount: 0, skippedCount: 0, heldCount: 0 }
 
-  await markCommunication(db, comm.id, counts.sentCount > 0 ? 'sent' : 'failed')
+  const status = finalSendStatus({ sent: counts.sentCount, failed: counts.failedCount, held: counts.heldCount })
+  await markCommunication(db, comm.id, status)
   return { ok: true, ...counts, optedOutCount }
 }
 
-async function markCommunication(db: Db, id: string, status: 'sent' | 'failed'): Promise<void> {
+async function markCommunication(db: Db, id: string, status: 'sent' | 'failed' | 'cancelled'): Promise<void> {
   const { error } = await db
     .from('communications')
-    .update({ status, sent_at: new Date().toISOString() })
+    // Held by the guard (`cancelled`): nothing went out, so no sent_at —
+    // "Reminded today" and the like read sent_at.
+    .update({ status, sent_at: status === 'cancelled' ? null : new Date().toISOString() })
     .eq('id', id)
     // Only the claimed row: never overwrite a status someone else set.
     .eq('status', 'sending')

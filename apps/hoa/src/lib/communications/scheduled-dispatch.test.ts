@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   queued: [] as Array<Record<string, unknown>>,
   prefsRows: [] as Array<{ user_id: string; email_opt_in: boolean; sms_opt_in: boolean }>,
   emailFails: false,
+  emailBlocked: false,
 }))
 
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient: () => fakeClient() }))
@@ -21,7 +22,14 @@ vi.mock('@homeowner-portal/observability/outbound-guard', () => ({
 vi.mock('@/lib/email', () => ({
   sendEmailBatch: async (payloads: Array<{ to: string }>, outbound: unknown) => {
     h.trace.push(['sendEmailBatch', payloads, outbound])
-    return payloads.map((_, i) => (h.emailFails ? { ok: false, error: 'rejected' } : { ok: true, messageId: `msg-${i}` }))
+    const { OUTBOUND_BLOCKED_ERROR } = await import('@homeowner-portal/observability/send-status')
+    return payloads.map((_, i) =>
+      h.emailBlocked
+        ? { ok: false, error: OUTBOUND_BLOCKED_ERROR }
+        : h.emailFails
+          ? { ok: false, error: 'rejected' }
+          : { ok: true, messageId: `msg-${i}` },
+    )
   },
 }))
 vi.mock('@/lib/sms', async (orig) => ({
@@ -96,12 +104,13 @@ beforeEach(() => {
   h.queued = QUEUED.map((r) => ({ ...r }))
   h.prefsRows = [{ user_id: 'user-a', email_opt_in: true, sms_opt_in: true }]
   h.emailFails = false
+  h.emailBlocked = false
 })
 
 describe('dispatchScheduledCommunication', () => {
   it('delivers the stored message to the queued rows through the guarded senders, then marks it sent', async () => {
     const result = await dispatchScheduledCommunication('comm-9', fakeClient() as never)
-    expect(result).toEqual({ ok: true, sentCount: 4, failedCount: 0, skippedCount: 0, optedOutCount: 0 })
+    expect(result).toEqual({ ok: true, sentCount: 4, failedCount: 0, skippedCount: 0, heldCount: 0, optedOutCount: 0 })
     const batch = h.trace.find((t) => (t as [string])[0] === 'sendEmailBatch') as [string, Array<{ to: string; subject: string; html: string }>, unknown]
     expect(batch[1].map((p) => p.to)).toEqual(['ana@example.test', 'ben@example.test'])
     expect(batch[1][0].html).toContain('Hi Ana, water is off on Elm St.')
@@ -153,6 +162,20 @@ describe('dispatchScheduledCommunication', () => {
     expect(result).toMatchObject({ ok: true, sentCount: 0, failedCount: 1 })
     const final = updatesTo('communications').at(-1)!
     expect((final.find((c) => c[0] === 'update')![1][0] as { status: string }).status).toBe('failed')
+  })
+
+  // BL-044: the guard holding a send back is not a delivery failure.
+  it('every email held by the safety guard: not failed — `cancelled`, rows `suppressed`, no sent_at', async () => {
+    h.queued = [QUEUED[0], QUEUED[2]]
+    h.emailBlocked = true
+    const result = await dispatchScheduledCommunication('comm-9', fakeClient() as never)
+    expect(result).toMatchObject({ ok: true, sentCount: 0, failedCount: 0, heldCount: 2 })
+    const final = updatesTo('communications').at(-1)!
+    expect(final.find((c) => c[0] === 'update')![1][0]).toEqual({ status: 'cancelled', sent_at: null })
+    const rowUpdates = updatesTo('communication_recipients').map(
+      (calls) => calls.find((c) => c[0] === 'update')![1][0] as { delivery_status: string },
+    )
+    expect(rowUpdates.map((u) => u.delivery_status)).toEqual(['suppressed', 'suppressed'])
   })
 
   it('never throws: a database error marks it failed and returns an error', async () => {

@@ -39,7 +39,7 @@ import { inngest } from './client'
 export const DISPATCH_BATCH = 20
 
 export type ScheduledDeliveryResult =
-  | { ok: true; sentCount: number; failedCount: number; skippedCount: number; optedOutCount?: number }
+  | { ok: true; sentCount: number; failedCount: number; skippedCount: number; heldCount?: number; optedOutCount?: number }
   | { ok: false; error: string }
 
 export interface ScheduledCommunicationsDeps {
@@ -134,7 +134,7 @@ export async function runScheduledDispatch(
     if (result.ok) {
       summary.delivered += 1
       logger.info(
-        `[communications-scheduled] ${id}: sent ${result.sentCount}, failed ${result.failedCount}, skipped ${result.skippedCount}, opted out ${result.optedOutCount ?? 0}`,
+        `[communications-scheduled] ${id}: sent ${result.sentCount}, failed ${result.failedCount}, skipped ${result.skippedCount}, held by safety guard ${result.heldCount ?? 0}, opted out ${result.optedOutCount ?? 0}`,
       )
     } else {
       summary.failed += 1

@@ -4,7 +4,7 @@
  * fixture packets.
  *
  * Email-client constraints drive every choice here: table layout, inline
- * styles only, 600px max width, light-only palette with an explicit
+ * styles only, 600px max width (fluid below that), light-only palette with an explicit
  * background on every cell. Gmail and Outlook force-invert dark mode, and
  * a cell without its own background colour is where that goes wrong. Past
  * due is always marked with TEXT as well as colour for the same reason.
@@ -175,6 +175,10 @@ ${renderNoteHtml(opts.note)}
   return renderEmailDocument({
     bodyHtml: body,
     footerHtml: 'Sent by {{association_name}} because you are an owner of record.',
+    // BL-044: a fixed 600px card scrolled sideways on a 375px phone (and in
+    // the /dues preview frame). Fluid keeps Outlook at 600 through the
+    // MSO-only ghost table and lets every other client shrink to the screen.
+    fluid: true,
   })
 }
 

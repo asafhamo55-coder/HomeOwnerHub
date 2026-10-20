@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./report": "./src/report.ts",
-    "./outbound-guard": "./src/outbound-guard.ts"
+    "./outbound-guard": "./src/outbound-guard.ts",
+    "./send-status": "./src/send-status.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

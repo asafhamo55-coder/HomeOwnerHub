@@ -23,6 +23,7 @@
  */
 
 import { fetchOrgSandbox, OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
+import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import {
   effectiveDuesReminderSettings,
   readDuesReminderSettings,
@@ -138,7 +139,9 @@ export interface DuesReminderStore {
     recipients: { email: string; name: string; userId: string | null }[],
   ): Promise<{ id: string; email: string; name: string }[]>
   markRecipient(id: string, outcome: RecipientOutcome): Promise<void>
-  finish(communicationId: string, status: 'sent' | 'failed'): Promise<void>
+  /** `cancelled` = the outbound guard held back every recipient: nothing
+   *  went out, nothing broke (finalSendStatus, BL-044). */
+  finish(communicationId: string, status: 'sent' | 'failed' | 'cancelled'): Promise<void>
   /** BL-080: complete the association's paid-off payment plans (writes
    *  status + an audit row). Optional: the settings dry run's store has
    *  none, and a test store may leave it out. */
@@ -261,7 +264,8 @@ async function deliver(
       await store.markRecipient(row.id, outcome)
     }
   } finally {
-    await store.finish(send.communicationId, sent > 0 ? 'sent' : 'failed')
+    // `suppressed` here is only ever the guard's hold (OUTBOUND_BLOCKED_ERROR).
+    await store.finish(send.communicationId, finalSendStatus({ sent, failed, held: suppressed }))
   }
   return { claimed: true, sent, suppressed, failed }
 }
@@ -339,7 +343,7 @@ export async function runDuesRemindersForAssociation(
     }
   }
 
-  logger.info(`${tag}: ${result.planned} reminder(s); ${result.sent} sent, ${result.suppressed} suppressed, ${result.failed} failed`, {
+  logger.info(`${tag}: ${result.planned} reminder(s); ${result.sent} sent, ${result.suppressed} held by safety guard, ${result.failed} failed`, {
     skipped: result.skipped,
     orgSandbox,
   })
