@@ -12,9 +12,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { ContactVault } from './contact-placeholders'
-import { publicArgs, runToolLoop, type RawToolCall as LoopRawToolCall } from './loop'
+import { DEFAULT_TOOL_BUDGET, publicArgs, runToolLoop, type RawToolCall as LoopRawToolCall } from './loop'
 import {
   TOOLS,
+  COPILOT_STATE_LAW_CAP,
+  STATE_LAW_TOOL_NAME,
+  isBoardStateNotLoaded,
+  type BoardStateLawResult,
   isToolFailed,
   type DocsCitation,
   type DocsToolResult,
@@ -25,13 +29,21 @@ type Db = SupabaseClient<Database>
 
 const SYSTEM_PROMPT = `You are a community-data assistant for an HOA management platform.
 
-Two kinds of questions, two kinds of tools:
+Three kinds of questions, three kinds of tools:
 
 1. RULES / POLICIES ("Can I do X?", "What's the limit on Y?", "Process for Z?") → use search_governing_docs. The answer must come from the community's CC&Rs / bylaws / rules — don't infer from numbers.
 
 2. DATA ("How many", "Who is", "List", "When was") → use the typed DB tools (count_units_by_tenure, list_overdue_dues, get_unit_owner, count_open_violations, list_recent_meetings, count_properties). They return live database state.
 
+3. STATE LAW ("What does Florida law say about…?", "Is that legal?", notice or fine limits under state law, records-inspection rights, liens and foreclosure, open meetings, elections, flags, solar) → use state_law. Answer state law ONLY from its result, and name the statute sections it cites. Never answer state law from general knowledge or memory, even when you think you know it. The governing docs are not state law: a docs answer does not tell you what the statute says.
+
 Some questions need BOTH — e.g. "How many violations do we have and what's the fine schedule?" → call count_open_violations AND search_governing_docs, then synthesize.
+
+State law results:
+- If state_law returns available:false with reason "state_not_loaded", say plainly that the state's law isn't loaded in the portal yet and you can't answer it. Do not answer from memory.
+- If it returns reason "state_not_covered" or "state_ambiguous", say the portal can't tell which state's law applies (or doesn't cover it) and don't answer from memory.
+- If state_law returns {"failed": true, ...}, say state law couldn't be looked up right now. Never fill the gap with what you remember.
+- State-law answers are informational, not legal advice; suggest the association's attorney for a decision.
 
 Style:
 - Be concise — 1–3 sentences for simple questions, a short bulleted list when listing rows.
@@ -53,7 +65,14 @@ Never:
 - Invent data not present in tool results.
 - Reference data from other organizations or communities.
 - Speculate about reasons for trends — stick to the facts.
-- Pretend a rule exists when search_governing_docs returns LOW confidence with no relevant citations; say "I don't see that in your governing docs" instead.`
+- Pretend a rule exists when search_governing_docs returns LOW confidence with no relevant citations; say "I don't see that in your governing docs" instead.
+- State what a state statute says unless state_law returned it in this conversation.`
+
+/** Said instead of any state-law answer when every state_law lookup failed:
+ *  the model must not fill the gap from memory. */
+export const STATE_LAW_UNAVAILABLE_MESSAGE =
+  "I couldn't look up state law right now, so I can't answer that part. Answers about state law come only from " +
+  'the statute text, never from general knowledge. Try again in a minute.'
 
 /** One entry of the response's data-sources log: a public, camelCase view. */
 export interface PublicToolCall {
@@ -78,6 +97,9 @@ export interface AgentResult {
   /** Run id from the most recent docs lookup, when applicable. The
    *  audit log links to ai_runs.id for traceability. */
   runId?: string
+  /** Statute citations from any state_law lookups (W30). Absent when the
+   *  state_law tool returned none. */
+  statuteCitations?: Array<{ state: string; codeCitation: string; title: string }>
   /** Real owner contact behind the tokens in `answer` (BL-062). Server-side
    *  only: the route fills the answer from it for a caller who may see
    *  contact, and never puts the vault itself in the response. */
@@ -99,18 +121,60 @@ export async function askCommunity(
     ctx: toolCtx,
     logTag: 'ai.ask-community.tool',
     logIds: { orgId: ctx.orgId },
+    // state_law calls count against the run budget like every tool, and are
+    // capped per question on top (each is a W30 model call + ai_runs row).
+    budget: {
+      ...DEFAULT_TOOL_BUDGET,
+      perTool: { ...DEFAULT_TOOL_BUDGET.perTool, [STATE_LAW_TOOL_NAME]: COPILOT_STATE_LAW_CAP },
+    },
   })
 
+  const law = extractStateLawArtifacts(log)
+
   return {
-    // Loop bound exhausted: the model couldn't resolve. Return what we have.
+    // A state with no statute text, or a failed lookup: nothing the model
+    // wrote about the law can be grounded, so the answer is the fixed
+    // message, never model memory.
     answer:
+      law.override ??
       answer ??
       "I couldn't finish answering that within the step budget. Try a more specific question, or break it into smaller pieces.",
     toolCalls: log.map(toPublicCall),
     steps,
     ...extractDocsArtifacts(log),
+    ...(law.statuteCitations.length > 0 ? { statuteCitations: law.statuteCitations } : {}),
     contactVault,
   }
+}
+
+/**
+ * The state_law post-check. `override` is the fixed text that replaces the
+ * model's answer: the "<State> state law isn't loaded yet" message when any
+ * lookup found the state empty, or STATE_LAW_UNAVAILABLE_MESSAGE when every
+ * lookup failed and none answered. Otherwise the model's answer stands, and
+ * the statute citations it was given are collected.
+ */
+export function extractStateLawArtifacts<C>(log: LoopRawToolCall<C>[]): {
+  override: string | null
+  statuteCitations: NonNullable<AgentResult['statuteCitations']>
+} {
+  const results = log.filter((c) => c.tool?.def.name === STATE_LAW_TOOL_NAME).map((c) => c.result)
+  const statuteCitations: NonNullable<AgentResult['statuteCitations']> = []
+  if (results.length === 0) return { override: null, statuteCitations }
+
+  const notLoaded = results.find(isBoardStateNotLoaded)
+  if (notLoaded) return { override: notLoaded.message, statuteCitations }
+
+  let answered = false
+  for (const r of results) {
+    if (isToolFailed(r) || !r || typeof r !== 'object') continue
+    const ok = r as BoardStateLawResult
+    if (!ok.available) continue
+    answered = true
+    for (const c of ok.citations) statuteCitations.push({ state: ok.state, ...c })
+  }
+  if (!answered && results.some(isToolFailed)) return { override: STATE_LAW_UNAVAILABLE_MESSAGE, statuteCitations }
+  return { override: null, statuteCitations }
 }
 
 type RawToolCall = LoopRawToolCall<ToolContext>

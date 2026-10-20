@@ -7,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const W1 = vi.hoisted(() => ({ queryGoverningDocs: vi.fn() }))
 vi.mock('@homeowner-portal/workflows/W1', () => W1)
-vi.mock('@homeowner-portal/ai', () => ({ resolveModel: () => 'test-model' }))
+// Spread the real module: the state_law tool's W30 import defines its workflow at load.
+vi.mock('@homeowner-portal/ai', async (orig) => ({ ...(await orig<object>()), resolveModel: () => 'test-model' }))
 
 const { askCommunity } = await import('./agent')
 const { findContactPII } = await import('@homeowner-portal/ai/pii')

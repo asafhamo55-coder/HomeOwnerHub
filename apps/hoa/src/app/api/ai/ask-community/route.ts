@@ -76,5 +76,6 @@ export const POST = withRoute('ai.ask-community', async (request) => {
     ...(result.citations ? { citations: result.citations } : {}),
     ...(result.confidence ? { confidence: result.confidence } : {}),
     ...(result.runId ? { runId: result.runId } : {}),
+    ...(result.statuteCitations ? { statuteCitations: result.statuteCitations } : {}),
   })
 })
