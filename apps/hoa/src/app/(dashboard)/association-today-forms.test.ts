@@ -22,7 +22,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/assessments', () => ({ createDues: vi.fn() }))
 vi.mock('@/lib/invoices', () => ({ enterBill: vi.fn() }))
 vi.mock('@/lib/bank-reconciliation', () => ({ reconcileBankAccount: vi.fn() }))
-vi.mock('@/lib/payment-plans', () => ({ createPaymentPlan: vi.fn() }))
+vi.mock('@/lib/payment-plans', () => ({ createPaymentPlan: vi.fn(), listPlanCharges: vi.fn() }))
 
 const NOW = new Date('2026-10-02T05:30:00Z') // Oct 1 22:30 PDT; Oct 2 in Eastern and UTC
 const TODAY = '2026-10-01'

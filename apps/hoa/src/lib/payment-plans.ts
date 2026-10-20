@@ -2,44 +2,103 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import type { Database } from '@homeowner-portal/db/types'
-import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
+import { loadAccountingRefs } from '@homeowner-portal/db'
 import { memoCodeFor } from '@homeowner-portal/workflows'
-import { installmentMemo } from '@homeowner-portal/workflows/payment-plans'
+import {
+  createPlanWithLedger,
+  isPastDue,
+  loadUnitPlanCharges,
+  openCents,
+  supabasePlanStore,
+} from '@homeowner-portal/workflows/payment-plans'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { todayIn } from '@/lib/association-time'
 import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
-
-type PaymentPlanInsert = Database['public']['Tables']['payment_plans']['Insert']
-type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
+import { chargeTypeLabel } from '@/lib/assessment-labels'
 
 export type PaymentPlanResult =
-  | { ok: true; planId: string; assessmentIds: string[] }
+  | { ok: true; planId: string; assessmentIds: string[]; replacedChargeIds: string[]; totalCents: number }
   | { ok: false; error: string; fieldErrors?: Record<string, string> }
+
+export interface PlanChargeOption {
+  id: string
+  label: string
+  dueDate: string
+  openCents: number
+  /** Due before the association's today: preselected on the form. */
+  pastDue: boolean
+}
+
+export type PlanChargesResult = { ok: true; charges: PlanChargeOption[] } | { ok: false; error: string }
 
 const CreatePlanSchema = z.object({
   unitId: z.string().uuid(),
-  totalAmount: z.number().positive().max(1_000_000),
+  chargeIds: z.array(z.string().uuid()).min(1, 'Pick at least one open charge for the plan to replace.').max(500),
+  /** The total the board saw, in cents; refused if the open balance moved since. */
+  expectedTotalCents: z.number().int().positive().max(100_000_000).optional(),
   installmentCount: z.number().int().min(2).max(60),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'startDate must be YYYY-MM-DD'),
 })
 
+async function planContext(unitId: string) {
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return { ok: false as const, error: 'No HOA association configured.' }
+  const supabase = await getSupabaseServerClient()
+  const { data: assocRow } = await supabase.from('associations').select('organization_id, slug').eq('id', assoc.id).single()
+  if (!assocRow) return { ok: false as const, error: 'Association not found.' }
+  // Confirm the unit belongs to this association.
+  const { data: unit } = await supabase.from('units').select('id, association_id, unit_number').eq('id', unitId).single()
+  if (!unit || unit.association_id !== assoc.id) return { ok: false as const, error: 'Unit not found in this association.' }
+  return { ok: true as const, assoc, assocRow, unit, supabase, today: todayIn(assoc.timeZone) }
+}
+
 /**
- * Create a payment plan + generate one assessment per installment.
- * Each assessment posts its own Dr AR / Cr Assessment Income JE so the
- * obligation hits the ledger immediately — payments against the plan
- * close out each installment one by one.
- *
- * Installments are scheduled monthly from startDate. installment_amount
- * is total / count, rounded to cents; any rounding drift goes to the
- * last installment so the plan totals exactly match.
+ * The open charges on a property that a new plan can replace, oldest
+ * first. The form preselects the past-due ones.
+ */
+export async function listPlanCharges(unitId: string): Promise<PlanChargesResult> {
+  if (!z.string().uuid().safeParse(unitId).success) return { ok: false, error: 'Pick a property.' }
+  const c = await planContext(unitId)
+  if (!c.ok) return c
+  try {
+    const all = await loadUnitPlanCharges(c.supabase, c.assoc.id, unitId)
+    return {
+      ok: true,
+      charges: all
+        .filter((x) => openCents(x) > 0)
+        .map((x) => ({
+          id: x.id,
+          label: chargeTypeLabel(x.assessmentType),
+          dueDate: x.dueDate,
+          openCents: openCents(x),
+          pastDue: isPastDue(x, c.today),
+        })),
+    }
+  } catch {
+    return { ok: false, error: 'Couldn’t load the charges on this property. Try again.' }
+  }
+}
+
+/**
+ * Create a payment plan that REPLACES the open charges the board picked
+ * (2026-10-19 fix for the BL-080 double count). The plan total is what is
+ * still open on those charges. In one operation the replaced charges are
+ * closed (Dr Income / Cr AR, status 'waived', linked to the plan by the
+ * entry's memo) and one charge per installment is billed (Dr AR /
+ * Cr Assessment Income), so the owner's balance, AR and income do not
+ * change when a plan is made. Installments are due monthly from the start
+ * date, clamped at month ends. See packages/workflows/src/payment-plans/
+ * ledger.ts and create.ts.
  */
 export async function createPaymentPlan(input: {
   unitId: string
-  totalAmount: number
+  chargeIds: string[]
+  expectedTotalCents?: number
   installmentCount: number
   startDate: string
 }): Promise<PaymentPlanResult> {
@@ -53,134 +112,47 @@ export async function createPaymentPlan(input: {
   }
   const value = parsed.data
 
-  const gate = await requireBoardOrAdminForAction()
-  if (!gate.ok) return gate
-  const assoc = await getPrimaryAssociation()
-  if (!assoc) return { ok: false, error: 'No HOA association configured.' }
-
-  const supabase = await getSupabaseServerClient()
-
-  const { data: assocRow } = await supabase
-    .from('associations')
-    .select('organization_id, slug')
-    .eq('id', assoc.id)
-    .single()
-  if (!assocRow) return { ok: false, error: 'Association not found.' }
-
-  // Confirm unit belongs to this association.
-  const { data: unit } = await supabase
-    .from('units')
-    .select('id, association_id, unit_number')
-    .eq('id', value.unitId)
-    .single()
-  if (!unit || unit.association_id !== assoc.id) {
-    return { ok: false, error: 'Unit not found in this association.' }
-  }
+  const c = await planContext(value.unitId)
+  if (!c.ok) return c
 
   // The open period that has STARTED, on the association's day (BL-076):
   // next year, opened early, waits for its first day.
-  const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
+  const { data: period } = await readCurrentOpenPeriod(c.supabase, c.assoc.id, c.today)
   if (!period) return { ok: false, error: 'No open fiscal period.' }
 
-  const refs = await loadAccountingRefs(supabase, assoc.id)
+  const refs = await loadAccountingRefs(c.supabase, c.assoc.id)
   if (!refs) return { ok: false, error: 'Accounting not set up.' }
 
-  const installmentAmountRaw = value.totalAmount / value.installmentCount
-  const installmentAmount = Math.round(installmentAmountRaw * 100) / 100
-  // Drift goes to the final installment so total reconciles exactly.
-  const driftAdj =
-    Math.round(
-      (value.totalAmount - installmentAmount * value.installmentCount) * 100,
-    ) / 100
-
-  const planPayload: PaymentPlanInsert = {
-    organization_id: assocRow.organization_id,
-    unit_id: value.unitId,
-    total_amount: value.totalAmount,
-    installment_count: value.installmentCount,
-    installment_amount: installmentAmount,
-    start_date: value.startDate,
-    status: 'active',
-  }
-  const { data: plan, error: planErr } = await supabase
-    .from('payment_plans')
-    .insert(planPayload)
-    .select('id')
-    .single()
-  if (planErr || !plan) return { ok: false, error: `plan insert: ${planErr?.message}` }
-
-  // Generate installments. We use 'special' as the assessment_type per
-  // the CHECK constraint (regular/special/late_fee/fine — special fits
-  // "promised payment from a plan" cleanly).
-  const assessmentIds: string[] = []
-  const [y, m, d] = value.startDate.split('-').map(Number)
-
-  for (let i = 0; i < value.installmentCount; i++) {
-    const dueDate = new Date(Date.UTC(y, m - 1 + i, d))
-      .toISOString()
-      .slice(0, 10)
-    const isLast = i === value.installmentCount - 1
-    const amount = isLast ? installmentAmount + driftAdj : installmentAmount
-
-    const memoCode = memoCodeFor({
-      associationSlug: assocRow.slug,
-      unitNumber: unit.unit_number,
-      unitId: unit.id,
+  const store = supabasePlanStore(c.supabase, {
+    organizationId: c.assocRow.organization_id,
+    associationId: c.assoc.id,
+    fiscalPeriodId: period.id,
+    entryDate: c.today, // the association's day (BL-043)
+    installmentMemoCode: memoCodeFor({
+      associationSlug: c.assocRow.slug,
+      unitNumber: c.unit.unit_number,
+      unitId: c.unit.id,
       assessmentType: 'special',
-    })
+    }),
+  })
 
-    const assessmentPayload: AssessmentInsert = {
-      organization_id: assocRow.organization_id,
-      association_id: assoc.id,
-      unit_id: value.unitId,
-      fiscal_period_id: period.id,
-      assessment_type: 'special',
-      amount,
-      due_date: dueDate,
-      memo_code: memoCode,
-      status: 'open',
-    }
-    const { data: assess, error: aErr } = await supabase
-      .from('assessments')
-      .insert(assessmentPayload)
-      .select('id')
-      .single()
-    if (aErr || !assess) {
-      // Roll back the plan + every assessment we made so far so the user
-      // isn't left with a partial state.
-      await supabase
-        .from('assessments')
-        .delete()
-        .in('id', assessmentIds.length > 0 ? assessmentIds : ['00000000-0000-0000-0000-000000000000'])
-      await supabase.from('payment_plans').delete().eq('id', plan.id)
-      return { ok: false, error: `installment ${i + 1}: ${aErr?.message}` }
-    }
-    assessmentIds.push(assess.id)
-
-    const je = await postJournalEntry(supabase, {
-      organizationId: assocRow.organization_id,
-      associationId: assoc.id,
-      fiscalPeriodId: period.id,
-      entryDate: todayIn(assoc.timeZone), // the association's day (BL-043)
-      // The plan → installment link BL-080's completion check reads back.
-      memo: installmentMemo(i + 1, value.installmentCount, plan.id),
-      source: 'ar_payment',
-      sourceId: assess.id,
-      lines: [
-        { accountId: refs.acctAR, fundId: refs.fundOperating, debit: amount, credit: 0 },
-        { accountId: refs.acctAssessmentIncome, fundId: refs.fundOperating, debit: 0, credit: amount },
-      ],
-    })
-    if (!je.ok) {
-      await supabase.from('assessments').delete().in('id', assessmentIds)
-      await supabase.from('payment_plans').delete().eq('id', plan.id)
-      return { ok: false, error: `installment ${i + 1} JE failed: ${je.error}` }
-    }
+  let outcome
+  try {
+    outcome = await createPlanWithLedger(store, refs, value)
+  } catch {
+    return { ok: false, error: 'Couldn’t create the plan. Nothing was saved. Try again in a minute.' }
   }
+  if (!outcome.ok) return { ok: false, error: outcome.error }
 
-  revalidatePath('/')  // dashboard rollup
+  revalidatePath('/') // dashboard rollup
   revalidatePath('/accounting/payment-plans')
   revalidatePath('/dues')
   revalidatePath('/accounting/ledger')
-  return { ok: true, planId: plan.id, assessmentIds }
+  return {
+    ok: true,
+    planId: outcome.planId,
+    assessmentIds: outcome.installmentIds,
+    replacedChargeIds: outcome.replacedChargeIds,
+    totalCents: outcome.totalCents,
+  }
 }

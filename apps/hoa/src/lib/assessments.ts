@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
 import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { memoCodeFor } from '@homeowner-portal/workflows'
+import { addMonthsClamped } from '@homeowner-portal/workflows/payment-plans/schedule'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -386,17 +387,9 @@ export async function createDues(
 function generateDueDates(firstDue: string, frequency: 'one_time' | 'monthly' | 'annual'): string[] {
   if (frequency === 'one_time' || frequency === 'annual') return [firstDue]
 
-  const first = new Date(`${firstDue}T00:00:00Z`)
-  const out: string[] = []
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(Date.UTC(
-      first.getUTCFullYear(),
-      first.getUTCMonth() + i,
-      first.getUTCDate(),
-    ))
-    out.push(d.toISOString().slice(0, 10))
-  }
-  return out
+  // Clamped at month ends (Jan 31 → Feb 28 → Mar 31), the payment-plan
+  // schedule's helper: `Date.UTC(y, m + i, d)` overflowed into the next month.
+  return Array.from({ length: 12 }, (_, i) => addMonthsClamped(firstDue, i))
 }
 
 /** Returns all units in the primary association, for the dropdown on /dues/new. */

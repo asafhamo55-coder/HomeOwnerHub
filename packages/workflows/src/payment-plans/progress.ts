@@ -48,6 +48,30 @@ export function installmentFromMemo(memo: string): { index: number; count: numbe
   return { index: Number(m[1]), count: Number(m[2]), key: m[3] }
 }
 
+/**
+ * THE OTHER LINK (2026-10-19). A charge a plan replaces is closed by its own
+ * journal entry: source 'ar_payment', source_id = the replaced assessment,
+ * memo `replacedChargeMemo(planId)`. Like the installment memo, it stands
+ * in for a column (`assessments.payment_plan_id`, BL-085). The prefix is
+ * deliberately not "Payment plan installment", so the installment readers
+ * never pick it up.
+ */
+export const REPLACED_MEMO_PREFIX = 'Payment plan replaces charge '
+
+export function replacedChargeMemo(planId: string): string {
+  return `${REPLACED_MEMO_PREFIX}(plan ${planKey(planId)})`
+}
+
+/** The LIKE pattern for every replaced-charge memo. */
+export const REPLACED_MEMO_PATTERN = `${REPLACED_MEMO_PREFIX}%`
+
+const REPLACED_RE = /^Payment plan replaces charge \(plan ([0-9a-f]{8})\)$/
+
+export function replacedChargeFromMemo(memo: string): { key: string } | null {
+  const m = REPLACED_RE.exec(memo.trim())
+  return m ? { key: m[1]! } : null
+}
+
 export interface PlanRecord {
   id: string
   unitId: string

@@ -8,7 +8,8 @@ import { todayIn } from '@/lib/association-time'
 import { tryLoad } from '@/lib/load-or-fail'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
-import { behindCount, paymentPlanColumns } from './columns'
+import { behindCount, paymentPlanColumns, PRE_FIX_WARNING } from './columns'
+import { loadReplacedChargeCounts, planKey } from '@homeowner-portal/workflows/payment-plans'
 
 export const metadata = { title: 'Payment Plans' }
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,15 @@ export default async function PaymentPlansPage() {
     : null
   const standings = standingsRes?.ok ? standingsRes.data : null
   const behind = behindCount(standings)
+  // Plans made before the 2026-10-19 fix left the charges they spread open
+  // (counted twice). They have no replaced-charge link; a failed read shows
+  // no warning rather than a wrong one.
+  const linksRes = plansRes.ok
+    ? await tryLoad('replaced charges', async () => loadReplacedChargeCounts(await getSupabaseServerClient(), ctx.associationId))
+    : null
+  const preFix = new Set(
+    linksRes?.ok && plansRes.ok ? plansRes.data.filter((p) => !linksRes.data.has(planKey(p.id))).map((p) => p.id) : [],
+  )
 
   return (
     <Page
@@ -49,13 +59,23 @@ export default async function PaymentPlansPage() {
           An installment is past its due date and not paid. Automatic dues reminders don’t go to a home on an active plan, so follow up with the owner yourself.
         </Alert>
       ) : null}
+      {preFix.size > 0 ? (
+        <Alert
+          variant="warning"
+          title={preFix.size === 1 ? '1 plan was created before 2026-10-19' : `${preFix.size} plans were created before 2026-10-19`}
+          className="mb-4"
+        >
+          {PRE_FIX_WARNING} Until then a plan added its installments without closing the charges it spread, so the owner’s
+          balance can show the same amount twice. The plans are marked in the Total column.
+        </Alert>
+      ) : null}
       {!plansRes.ok ? (
         <LoadFailed what="payment plans" />
       ) : (
         <DataTable
           caption="Payment plans"
           mobile="cards"
-          columns={paymentPlanColumns(standings)}
+          columns={paymentPlanColumns(standings, preFix)}
           rows={plansRes.data}
           rowKey={(p) => p.id}
           empty={
