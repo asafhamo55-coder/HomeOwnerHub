@@ -5,9 +5,9 @@
       1440
     ],
     "route": "/approvals",
-    "sha": "a815e50",
-    "sourceHash": "66f73564a85b44a08fa2740ce2424bfdf85b5742",
-    "capturedAt": "2026-10-19"
+    "sha": "37cca17",
+    "sourceHash": "d7027a07243af00438e86fb883ee457f094f02b6",
+    "capturedAt": "2026-10-20"
   },
   "guide-approvals-bill-edit": {
     "widths": [
@@ -15,9 +15,9 @@
       1440
     ],
     "route": "/approvals",
-    "sha": "a815e50",
-    "sourceHash": "66f73564a85b44a08fa2740ce2424bfdf85b5742",
-    "capturedAt": "2026-10-19"
+    "sha": "37cca17",
+    "sourceHash": "d7027a07243af00438e86fb883ee457f094f02b6",
+    "capturedAt": "2026-10-20"
   },
   "guide-arc-detail": {
     "widths": [
@@ -65,9 +65,9 @@
       1440
     ],
     "route": "/communications/new",
-    "sha": "a815e50",
-    "sourceHash": "5640a4808bda0a794590df5f0abc02666a0a50ab",
-    "capturedAt": "2026-10-19"
+    "sha": "37cca17",
+    "sourceHash": "b3f6033b8ca31773c31ca0cc4f88abf961c5a420",
+    "capturedAt": "2026-10-20"
   },
   "guide-dashboard-setup": {
     "widths": [
@@ -75,9 +75,9 @@
       1440
     ],
     "route": "/",
-    "sha": "40c1716",
-    "sourceHash": "56e98d2c342fb20bd83660f06f999bf44b130398",
-    "capturedAt": "2026-10-18"
+    "sha": "37cca17",
+    "sourceHash": "044ed7827c2c0d918f7c4392cdb0c8ca9f5832fe",
+    "capturedAt": "2026-10-20"
   },
   "guide-documents-governing": {
     "widths": [
@@ -185,9 +185,9 @@
       1440
     ],
     "route": "/resident",
-    "sha": "40c1716",
-    "sourceHash": "2f168c1b4958716d65ac16c347a3095152dde255",
-    "capturedAt": "2026-10-18"
+    "sha": "37cca17",
+    "sourceHash": "19706f29d7b3baf062c926fdacee3d3931688fd0",
+    "capturedAt": "2026-10-20"
   },
   "guide-resident-pay": {
     "widths": [
@@ -205,9 +205,9 @@
       1440
     ],
     "route": "/violations/approval-queue",
-    "sha": "65fcd69",
-    "sourceHash": "cf48c585ffef4792ec3b40ce45a59e7728709296",
-    "capturedAt": "2026-10-19"
+    "sha": "37cca17",
+    "sourceHash": "fe48258bf58047811986a4349c1bb16ce6fd3e07",
+    "capturedAt": "2026-10-20"
   },
   "guide-violations-new": {
     "widths": [
