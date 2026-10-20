@@ -27,6 +27,15 @@ Before you fine a homeowner or send a collection letter, the app now checks your
 - **Nothing posts on its own:** it all goes to Approvals as one item. When the board approves, the app re-checks everything, then posts the entries and opens each home's balance.
 - **Carried-over balances** are given a due date (30 days out by default), so late fees don't hit them on day one.
 
+### Security
+- **More hardening:** the law loaders now cap download sizes, platform-admin invitations go through the same safety guard as everything else, and simultaneous Stripe subscription updates now always settle on the newest one.
+
+### Ready for the next database update (switched off until then)
+- **Late fees skip opening balances:** carried-over opening balances will never be charged late fees.
+- **Inbox:** snooze a conversation, see how long the first reply took, and jump between an email and the document filed from it.
+- **State-law deadlines:** "Mark as done" saves to a proper record.
+- **When:** these switch on after the owner applies the next database update (owner checklist OA-1, runbook section J).
+
 ### Fixed
 - **"Fined" and "Dismissed" violation statuses** couldn't be saved before this update, because the database rejected them. They're hidden until the next database update (owner checklist OA-1, runbook section I), then they come back and work.
 
