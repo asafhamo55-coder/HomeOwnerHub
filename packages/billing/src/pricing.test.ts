@@ -79,3 +79,29 @@ describe('the case BL-042 caught', () => {
     expect(formatUsd(s.annualUsd, { withCents: true })).toBe('$2,209.08')
   })
 })
+
+// BL-103: Stripe's line-item quantity is an integer ("Invalid integer" on
+// anything else; tests/stripe-sandbox asserts this against test mode).
+// billableDoors is the checkout quantity, so it must always be a whole
+// number at or above the minimum.
+describe('billableDoors is always a valid Stripe quantity', () => {
+  it('rounds a fractional door count up', () => {
+    expect(billableDoors(41.5)).toBe(42)
+    expect(billableDoors(180.01)).toBe(181)
+  })
+
+  it('treats a non-numeric count as the minimum', () => {
+    expect(billableDoors(Number.NaN)).toBe(41)
+    expect(billableDoors(Number('abc'))).toBe(41)
+    expect(billableDoors(Number.POSITIVE_INFINITY)).toBe(41)
+    expect(billableDoors(-5)).toBe(41)
+  })
+
+  it('minApplied flags only counts below the minimum', () => {
+    expect(billingSummary(10).minApplied).toBe(true)
+    expect(billingSummary(Number.NaN).minApplied).toBe(true)
+    expect(billingSummary(41).minApplied).toBe(false)
+    expect(billingSummary(41.5).minApplied).toBe(false)
+    expect(billingSummary(41.5).billableDoors).toBe(42)
+  })
+})

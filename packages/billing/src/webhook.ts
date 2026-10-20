@@ -31,13 +31,18 @@ export interface WebhookHandleResult {
  * case row also gets stamped with stripe_payment_id (per-case billing).
  *
  * Uses the admin client (service role) since webhooks have no user session.
+ * `deps` exists for tests (the BL-103 Stripe sandbox suite): an in-memory
+ * db and an explicit Stripe client. Routes pass nothing.
  */
-export async function handleStripeWebhook(input: {
-  rawBody: string
-  signatureHeader: string | null
-  webhookSecret: string | undefined
-}): Promise<WebhookHandleResult> {
-  const stripe = getStripe()
+export async function handleStripeWebhook(
+  input: {
+    rawBody: string
+    signatureHeader: string | null
+    webhookSecret: string | undefined
+  },
+  deps: { db?: WebhookDb; stripe?: Stripe | null; m1?: boolean } = {},
+): Promise<WebhookHandleResult> {
+  const stripe = deps.stripe ?? getStripe()
   if (!stripe) {
     return { ok: false, outcome: 'error', message: 'stripe_not_configured' }
   }
@@ -56,7 +61,22 @@ export async function handleStripeWebhook(input: {
     return { ok: false, outcome: 'error', message: 'invalid_signature' }
   }
 
-  return applyStripeEvent(event, { db: createAdminClient() as unknown as WebhookDb })
+  return applyStripeEvent(event, {
+    db: deps.db ?? (createAdminClient() as unknown as WebhookDb),
+    m1: deps.m1,
+  })
+}
+
+/**
+ * HTTP status for a handler result. A request we can never accept (no or
+ * bad signature) is 400; a failure on our side (not configured, a write
+ * that did not persist) is 500. Stripe redelivers either way, but only the
+ * 500s are ours to fix, and logs/alerts can now tell them apart.
+ */
+export function webhookHttpStatus(result: WebhookHandleResult): number {
+  if (result.ok) return 200
+  if (result.message === 'signature_missing' || result.message === 'invalid_signature') return 400
+  return 500
 }
 
 // ─── Persistence ──────────────────────────────────────────────────────
@@ -196,20 +216,30 @@ export async function applyStripeEvent(
           stripe_sub_id: idOf(session.subscription as string | { id: string } | null),
         }
         if (plan) updates.plan = plan
-        await db.from('orgs').update(updates).eq('id', orgId)
+        // A failed write must not be acknowledged: before 0064 the plan
+        // check rejected 'monthly'/'annual' (23514) and this returned ok,
+        // so Stripe never redelivered and the paying org stayed free.
+        const { error } = await db.from('orgs').update(updates).eq('id', orgId)
+        if (error) return persistFailed(error)
         return { ok: true, outcome: 'subscription_started' }
       }
 
       // One-time payment (mode: 'payment'): never overwrite the running
       // plan. Only stamp the customer id so we keep the card on file.
       if (customerId) {
-        await db.from('orgs').update({ stripe_customer_id: customerId }).eq('id', orgId)
+        const { error } = await db.from('orgs').update({ stripe_customer_id: customerId }).eq('id', orgId)
+        if (error) return persistFailed(error)
       }
 
       // Per-case eviction billing, scoped by org_id from the verified
       // metadata so a stray case_id from another org never matches.
       if (caseId && paymentIntentId) {
-        await db.from('eviction_cases').update({ stripe_payment_id: paymentIntentId }).eq('id', caseId).eq('org_id', orgId)
+        const { error } = await db
+          .from('eviction_cases')
+          .update({ stripe_payment_id: paymentIntentId })
+          .eq('id', caseId)
+          .eq('org_id', orgId)
+        if (error) return persistFailed(error)
         return { ok: true, outcome: 'case_payment_recorded' }
       }
 
@@ -230,7 +260,8 @@ export async function applyStripeEvent(
       if (!customerId) {
         return { ok: true, outcome: 'ignored', message: 'no customer on subscription' }
       }
-      await db.from('orgs').update({ plan: 'free', stripe_sub_id: null }).eq('stripe_customer_id', customerId)
+      const { error } = await db.from('orgs').update({ plan: 'free', stripe_sub_id: null }).eq('stripe_customer_id', customerId)
+      if (error) return persistFailed(error)
       return { ok: true, outcome: 'subscription_deleted' }
     }
 

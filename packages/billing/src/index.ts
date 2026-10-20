@@ -1,8 +1,8 @@
-export { getStripe, isStripeConfigured } from './client'
+export { getStripe, isStripeConfigured, STRIPE_API_VERSION } from './client'
 export { createCheckoutSession, createPortalSession } from './checkout'
 export type { CheckoutSessionInput } from './checkout'
-export { handleStripeWebhook } from './webhook'
-export type { WebhookHandleResult } from './webhook'
+export { handleStripeWebhook, applyStripeEvent, webhookHttpStatus } from './webhook'
+export type { WebhookHandleResult, WebhookDb } from './webhook'
 export {
   PRICING,
   MONTHLY_UNIT_CENTS,

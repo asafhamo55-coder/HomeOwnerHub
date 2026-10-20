@@ -1,5 +1,8 @@
 import Stripe from 'stripe'
 
+/** The API version every client in the app (and the sandbox suite) pins. */
+export const STRIPE_API_VERSION = '2025-09-30.clover'
+
 let _stripe: Stripe | null = null
 
 /**
@@ -11,7 +14,7 @@ export function getStripe(): Stripe | null {
   if (_stripe) return _stripe
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) return null
-  _stripe = new Stripe(key, { apiVersion: '2025-09-30.clover' as Stripe.LatestApiVersion })
+  _stripe = new Stripe(key, { apiVersion: STRIPE_API_VERSION as Stripe.LatestApiVersion })
   return _stripe
 }
 
