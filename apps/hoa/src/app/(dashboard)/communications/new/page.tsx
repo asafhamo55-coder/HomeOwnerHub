@@ -16,6 +16,8 @@ import { parsePropertyParam } from '@/lib/property-scope'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { BUDGET_NOTICE_FROM } from '@/lib/budget-notice/draft-handoff'
 import { smsConfigured } from '@/lib/sms'
+import { parseMeetingParam } from '@/lib/meetings/notice-prefill'
+import { loadMeetingNoticeContext, type MeetingNoticeContext } from '@/lib/meetings/notice-queries'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
 export const metadata = { title: 'New message' }
@@ -42,14 +44,18 @@ export default async function NewCommunicationPage({
    * `?followUp=<id>&via=email|text`: from a results page (BL-102 A8).
    * `?draft=<id>`: resume an autosaved draft (BL-102 A9). Wins over the
    * others, since the draft already holds what they pre-filled.
+   * `?meeting=<id>`: a meeting notice to all owners (BL-118).
    */
-  searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string; draft?: string }>
+  searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string; draft?: string; meeting?: string }>
 }) {
   const sp = await searchParams
   const resumeDraft = sp.draft ? await loadDraft(sp.draft) : null
   const draftMissing = Boolean(sp.draft) && resumeDraft === null
   const initialPropertyId = resumeDraft ? null : parsePropertyParam(sp.property)
   const prefillFrom = !resumeDraft && sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : null
+  // BL-118: prefill a meeting notice. A resumed draft or another prefill wins.
+  const meetingParam = !resumeDraft && !prefillFrom && !sp.followUp ? parseMeetingParam(sp.meeting) : null
+  const meetingCtx: MeetingNoticeContext | null = meetingParam ? await loadMeetingNoticeContext(meetingParam) : null
   const assoc = await getPrimaryAssociation()
   if (!assoc) {
     return (
@@ -182,6 +188,15 @@ export default async function NewCommunicationPage({
       title="New message"
       description="Pick a template or write your own, choose who gets it, review, send. Every message and its delivery history are kept under Communications."
     >
+      {meetingCtx && !meetingCtx.ok ? (
+        <Alert variant="warning" title="No meeting notice to prefill">
+          {meetingCtx.reason === 'held'
+            ? 'That meeting has already taken place. You can still write a message below.'
+            : meetingCtx.reason === 'failed'
+              ? 'The meeting couldn’t be loaded. Go back to the meeting and try again.'
+              : 'That meeting isn’t here any more. You can still write a message below.'}
+        </Alert>
+      ) : null}
       {draftMissing ? (
         <Alert variant="warning" title="That draft isn’t here any more">
           It was sent or deleted. You can start a new message below.
@@ -228,6 +243,7 @@ export default async function NewCommunicationPage({
           streets={streets}
           followUp={followUp}
           resumeDraft={resumeDraft}
+          meetingNotice={meetingCtx?.ok ? { prefill: meetingCtx.prefill, check: meetingCtx.check } : null}
         />
       </Card>
     </Page>

@@ -30,6 +30,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { meetingDetailColumns } from './columns'
 import { NoticePostedControl } from './NoticePostedControl'
 import { QuorumKitCard } from './QuorumKitCard'
+import { MeetingNoticeSection } from './MeetingNoticeSection'
 
 export const dynamic = 'force-dynamic'
 
@@ -271,6 +272,11 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
               </KeyValueList>
             </CardContent>
           </Card>
+
+          {/* BL-118: send the meeting notice to owners. */}
+          <MeetingNoticeSection
+            meeting={{ id: meeting.id, meetingDate: meeting.meeting_date, meetingType: meeting.meeting_type, status: meeting.status }}
+          />
 
           {/* BL-122: annual / members' meeting quorum kit. */}
           <QuorumKitCard meetingId={meeting.id} meetingType={meeting.meeting_type} />

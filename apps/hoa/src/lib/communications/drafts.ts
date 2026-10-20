@@ -87,6 +87,12 @@ export interface ComposerDraftState {
   spanish: { subject: string; bodyHtml: string; viewed: boolean; sourceKey: string } | null
   officialNotice: boolean
   followUp: DraftFollowUp | null
+  /** BL-118: a meeting notice — the send links it to this meeting and adds the calendar link. */
+  meetingNotice?: DraftMeetingNotice | null
+}
+
+export interface DraftMeetingNotice {
+  meetingId: string
 }
 
 /** Larger than any real message; stops a runaway payload, not a letter. */
@@ -195,6 +201,10 @@ export function parseDraftState(raw: unknown): ComposerDraftState | null {
     spanish,
     officialNotice: s.officialNotice === true,
     followUp,
+    // Only when present, so a draft without one reads back exactly as before.
+    ...(s.meetingNotice && typeof s.meetingNotice === 'object' && isUuid((s.meetingNotice as Record<string, unknown>).meetingId)
+      ? { meetingNotice: { meetingId: (s.meetingNotice as { meetingId: string }).meetingId } }
+      : {}),
   }
 }
 
