@@ -512,3 +512,30 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Decision under a classifier limit:** restoring automatic vendor COI emails was denied by the permission classifier. It was not worked around. Kept board-only (docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md); the owner decides via OA-19.
 - **Owner actions:** OA-1..OA-19 (1 urgent), emailed on change.
 - **Agents running:** Messages drafts tab, state law FL/CA/TX, ToS scope correction (BL-107), statutory roster export.
+
+## 2026-10-20 (10:02) â€” deploy 744a492: Messages area, batch replies, save to documents, drafts, a11y
+
+- **Live:** 744a492 at 10:02 (pushed 09:53; Vercel queued about 9 minutes). /login 200; the release-note email was sent; the owner-actions email ran.
+- **Merged since (local, gated):**
+  - TX resale certificate and GA statement of amounts due;
+  - CA/TX statute ingestion, plus not-loaded guards (/legal/ask, the resident assistant, the board Copilot);
+  - the records-request roster;
+  - "Scan as a bill";
+  - dues held status and the Select grey fix;
+  - BL-106 Copilot and meeting-summary caps;
+  - BL-108 AI budget and spend ceiling (behind PRICING_V2);
+  - BL-109 held statuses everywhere;
+  - BL-110 resident SMS opt-in;
+  - inbox draft-quality metrics;
+  - the Messages guide articles;
+  - backlog grooming (33 stale items marked done, ranked list added).
+- **Decisions:**
+  - docs/decisions/2026-10-20-ai-spend-ceiling.md (advisor-reviewed);
+  - vendor COI reminders board-only (classifier limit; OA-19);
+  - submitter identity for contact updates.
+- **Owner actions:** OA-1..OA-22 (OA-9 rewritten with a working command for FL/CA/TX).
+- **Next deploy:** at or after 11:02, the newest green tip with the 10:53 release note.
+- **Agents running:**
+  - BL-111 SMS consent per number and inbound STOP (flagged);
+  - BL-112 meter every AI call and the kill switch in the client;
+  - BL-104 band-sync, renewal-notice jobs and SMS allowance (flagged).

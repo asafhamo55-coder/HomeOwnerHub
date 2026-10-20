@@ -107,18 +107,23 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-20 09:05 ET)
+## 4. State (updated 2026-10-20 10:10 ET)
 
-- **Live in prod:** `a66a384`, deployed 08:51 ET; the release email was sent. Since 05adcce today: inbox convert and sale window, the AI composer, Stripe follow-ups, the owner-actions email, saved replies, the phone inbox, street audiences, phone preview, and results with follow-up.
-- **Integration tip:** the next deploy candidate, release note `docs/releases/2026-10-20-0952-messages-batch-replies.md`. Earliest deploy 09:51 ET (one per hour).
-  - It adds: contact-update hardening, drafts autosave, the Messages area, batch replies, save-to-documents, attachment excerpts, vendor COI board-only, an a11y pass, marketing truth round 4, CI shots for new screens, and pricing v2 plus sender-auth (both flagged off).
+- **Live in prod:** `744a492`, deployed 10:02 ET; release email sent.
+- **Integration tip (local, gating):** release note `docs/releases/2026-10-20-1053-state-law-resale-roster.md`; deploy at or after 11:02 ET. It contains:
+  - TX/GA resale paperwork and CA/TX law loaders (OA-9 to load prod);
+  - the records-request roster and "Scan as a bill";
+  - the Copilot state-law tool and BL-106 caps;
+  - BL-108 AI spend ceiling (behind PRICING_V2) and BL-109 held statuses;
+  - BL-110 resident SMS opt-in and inbox draft metrics.
+- **Backlog:** groomed 2026-10-20. Pick work from docs/backlog.md "Ranked open work (groomed 2026-10-20)".
 - **Classifier limits hit this session:**
-  1. Writing a "nothing stays on Asaf / do SQL, keys, DNS yourself" rule into next.md.
+  1. Writing a "nothing stays on Asaf" rule into next.md.
   2. Probing local credentials.
-  3. Restoring automatic vendor COI emails.
+  3. Restoring automatic vendor COI emails (OA-19).
 
-  None were worked around. The owner was told, and OA-19 covers item 3.
-- **Crons (this session):** hourly cycle `23 * * * *`; one-shot renewal on Oct 26 at 14:41. Recreate them per §3 in a new session.
+  None were worked around.
+- **Crons (this session):** hourly cycle `23 * * * *`, renewal one-shot on Oct 26 at 14:41, and a deploy one-shot at 10:57 (deploy only once 744a492 is 1h old, i.e. 11:02+). Recreate them per §3 in a new session.
 
 ## 5. Manual steps for Asaf: `docs/owner-actions.md`
 
@@ -128,13 +133,12 @@ The single list is `docs/owner-actions.md` (OA-1, OA-2…). Asaf asked on 2026-1
 - Most urgent: OA-1, migrations 0063 then M1 (subscription webhook writes fail until then). Also OA-14: turn on the Stripe webhook events `customer.subscription.updated` and `invoice.payment_failed`.
 - **Asaf, 2026-10-20:** even with items pending on him, keep allocating backlog items to the team (3–4 agents always busy).
 
-## 6. Work in flight (2026-10-20 09:05 ET)
+## 6. Work in flight (2026-10-20 10:10 ET)
 
 Worktree agents. If the session closes, check `/usr/bin/git worktree list` for `worktree-agent-*` branches with commits not in claude/quality-oracle.
-- **Messages Drafts tab:** add inbox reply drafts (design note step 4).
-- **State law:** FL ch. 720, CA Davis-Stirling and TX ch. 209 fetchers, plus a "state not loaded" guard.
-- **BL-107:** Terms of Service scope-only correction (HOA only).
-- **Properties P5:** statutory owner roster export (board-only, opt-outs, audit).
+- **BL-111:** SMS consent tied to the phone number (hash match at send), plus a Vonage inbound STOP/START route behind SMS_INBOUND_ENABLED.
+- **BL-112:** meter every AI call; kill switch inside the shared AI client; job and embedding usage counted.
+- **BL-104 leftovers:** nightly band-sync, grandfathered renewal-notice job, SMS allowance (all behind PRICING_V2).
 
 ## 7. Next up
 

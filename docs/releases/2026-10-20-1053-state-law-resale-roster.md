@@ -40,6 +40,11 @@ Texas and Georgia boards can now prepare the paperwork a home sale needs, with t
 - **Held vs failed:** when the safety guard holds a reminder back, it now says "Held by safety guard" instead of "Failed".
 - **On phones:** the reminder email now fits the screen.
 
+### Texts and sending
+- **Residents choose texts themselves:** in their portal under Account → Text messages, with clear consent wording and a one-click stop. Boards can't opt residents in.
+- **"Held by safety guard"** now shows instead of "Failed" for every kind of message the safety guard holds back.
+- **Inbox AI draft quality:** a small card shows how often drafts go out with light edits and how quickly they're approved (numbers only).
+
 ### Help
 - **New help articles:** urgent notices by text, following up with residents who didn't open, and drafts. All help now refers to **Messages**.
 
