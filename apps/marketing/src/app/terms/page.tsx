@@ -19,20 +19,43 @@ export default function TermsPage() {
       <section className="pb-24">
         <div className="container-page">
           <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-foreground-secondary">
-            <p className="text-sm text-muted">Last updated: May 15, 2026</p>
+            <p className="text-sm text-muted">Last updated: October 20, 2026</p>
+
+            <aside className="not-prose mt-4 rounded-xl border border-border/70 bg-surface p-4 text-sm">
+              <p className="font-semibold text-foreground">What changed on October 20, 2026</p>
+              <p className="mt-1">
+                A scope correction only. Your obligations, our liability,
+                fees, data terms, dispute terms and governing law are
+                unchanged.
+              </p>
+              <ul className="mt-2 list-disc pl-5">
+                <li>
+                  Section 1 (Service description) now describes HomeownerHub
+                  as HOA management software for community associations and
+                  their residents. The two non-HOA uses it previously listed
+                  were removed.
+                </li>
+                <li>
+                  Section 2 (Acceptable use) now names HOA and consumer
+                  protection laws as examples of applicable law. The
+                  non-HOA example was removed; the requirement to use the
+                  service only for lawful purposes is unchanged.
+                </li>
+              </ul>
+            </aside>
 
             <h2>1. Service description</h2>
             <p>
-              HomeownerHub provides AI-assisted workflows for HOA boards, small
-              landlords, and eviction-adjacent tasks. The service is provided as
-              described on this site and in the product.
+              HomeownerHub provides HOA management software, including
+              AI-assisted workflows, for community associations and their
+              residents. The service is provided as described on this site and
+              in the product.
             </p>
 
             <h2>2. Acceptable use</h2>
             <p>
               You agree to use HomeownerHub only for lawful purposes and in
-              accordance with applicable HOA, landlord-tenant, and consumer
-              protection laws.
+              accordance with applicable HOA and consumer protection laws.
             </p>
 
             <h2>3. AI outputs and disclaimers</h2>
