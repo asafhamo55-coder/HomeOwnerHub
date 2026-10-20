@@ -918,3 +918,10 @@ These go beyond the design-system v2 pass:
 - **BL-098 HomeownerHub logo (Done 2026-10-19, concept C) (owner, 2026-10-19):** the owner refers to the product as HomeownerHub. The BL-094 mark (blue tile, roof, ledger lines) ships with a "Ledger" wordmark, while the app says "HOA Hub" and the domain is homeownerledger.com.
   - Prepare logo options for "HomeownerHub" (2–3 concepts, wordmark plus mark) and present them for the owner to pick.
   - Then apply one brand name everywhere.
+- **BL-099 Data shows too slowly (owner, 2026-10-19):** BL-074 already fixed the region (pdx1), request-level caching and parallel loaders, yet screens still wait for data. Only 5 of about 150 pages have a `loading.tsx`, and most pages await every query before rendering anything.
+  - **Plan:**
+    1. Add per-loader timing in production (Server-Timing header plus ids-only duration logs), so the slowest pages and queries show up with real numbers.
+    2. Stream: render each page's shell at once, put data sections in `<Suspense>` with skeletons, and add `loading.tsx` to every dashboard and resident route group.
+    3. Fix the top waterfalls and over-fetching, such as `select *` and N+1 queries.
+    4. Propose missing indexes as SQL for Asaf to apply.
+    5. Tune router prefetch on the sidebar links.
