@@ -15,9 +15,12 @@
 
 import { z } from 'zod'
 import OpenAI from 'openai'
-import { defineWorkflow, resolveModel, JSON_MODE_PARAMS } from '@homeowner-portal/ai'
+import { defineWorkflow, resolveModel, JSON_MODE_PARAMS, type WorkflowExecuteApi } from '@homeowner-portal/ai'
+import { isStateLoaded, stateNotLoadedMessage, type CountLiveStatutes } from './coverage'
 import { PROMPT_VERSION, SYSTEM_PROMPT, userPromptFor } from './prompt'
-import { retrieveStatuteChunks } from './tools'
+import { countLiveStatutes, retrieveStatuteChunks } from './tools'
+
+export { STATE_LAW_NAMES, stateNotLoadedMessage, isStateLoaded } from './coverage'
 
 // ─── Public types ────────────────────────────────────────────────────
 
@@ -43,6 +46,11 @@ export const StateLawBrainOutputSchema = z.object({
   confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
   citations: z.array(StateLawCitationSchema),
   disclaimer: z.string(),
+  /** false: the state has no statute text on file yet, and the answer says
+   *  so instead of answering. Callers must not fall back to a model. The
+   *  workflow always sets it; it is optional only so existing callers'
+   *  fakes stay valid — test it with `=== false`. */
+  stateLoaded: z.boolean().optional(),
 })
 
 export type StateLawBrainOutput = z.infer<typeof StateLawBrainOutputSchema>
@@ -76,77 +84,99 @@ export const stateLawBrain = defineWorkflow({
   inputSchema: StateLawBrainInputSchema,
   outputSchema: StateLawBrainOutputSchema,
 
-  async run(input, api, _ctx) {
-    const retrieved = await retrieveStatuteChunks(
-      input.question,
-      {
-        state: input.state,
-        limit: 8,
-      },
-      api,
-    )
+  run: (input, api) => runStateLawBrain(input, api),
+})
 
-    if (retrieved.length === 0) {
-      api.setConfidence(0)
+export interface StateLawBrainDeps {
+  retrieve: typeof retrieveStatuteChunks
+  countLive: CountLiveStatutes
+}
+
+const DEFAULT_DEPS: StateLawBrainDeps = { retrieve: retrieveStatuteChunks, countLive: countLiveStatutes }
+
+/**
+ * The workflow body. Exported (with injectable retrieval) so the
+ * no-statutes guard is unit-testable without a database or a model.
+ */
+export async function runStateLawBrain(
+  input: StateLawBrainInput,
+  api: Pick<WorkflowExecuteApi, 'setConfidence' | 'addCitations' | 'setTokens' | 'setModel'>,
+  deps: StateLawBrainDeps = DEFAULT_DEPS,
+): Promise<StateLawBrainOutput> {
+  const retrieved = await deps.retrieve(input.question, { state: input.state, limit: 8 }, api)
+
+  if (retrieved.length === 0) {
+    api.setConfidence(0)
+    // Nothing retrieved has two very different meanings. If the state has
+    // no statute text at all (FL / CA / TX before their first refresh),
+    // say exactly that — never imply the law is silent on the question.
+    if (!isStateLoaded(await deps.countLive(input.state))) {
       return {
-        answer:
-          `The statutes I have access to for ${input.state} don't address this directly. Consult an attorney or your state's Attorney General office.`,
+        answer: stateNotLoadedMessage(input.state),
         confidence: 'LOW' as const,
         citations: [],
         disclaimer: DISCLAIMER,
+        stateLoaded: false,
       }
     }
+    return {
+      answer:
+        `The statutes I have access to for ${input.state} don't address this directly. Consult an attorney or your state's Attorney General office.`,
+      confidence: 'LOW' as const,
+      citations: [],
+      disclaimer: DISCLAIMER,
+      stateLoaded: true,
+    }
+  }
 
-    api.addCitations(retrieved.map((c) => c.id))
+  api.addCitations(retrieved.map((c) => c.id))
 
-    const completion = await getClient().chat.completions.create({
-      model: resolveModel(),
-      temperature: 0.1,
-      max_completion_tokens: 2500,
-      response_format: { type: 'json_object' },
-      ...JSON_MODE_PARAMS,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPromptFor(input.state, input.question, retrieved) },
-      ],
+  const completion = await getClient().chat.completions.create({
+    model: resolveModel(),
+    temperature: 0.1,
+    max_completion_tokens: 2500,
+    response_format: { type: 'json_object' },
+    ...JSON_MODE_PARAMS,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userPromptFor(input.state, input.question, retrieved) },
+    ],
+  })
+
+  if (completion.usage) {
+    api.setTokens(completion.usage.prompt_tokens, completion.usage.completion_tokens)
+  }
+  api.setModel(completion.model)
+
+  const raw = completion.choices[0]?.message?.content ?? '{}'
+  const parsed = parseModelJson(raw, api)
+
+  const confidence = normalizeConfidence(parsed.confidence)
+  api.setConfidence(confidence === 'HIGH' ? 0.95 : confidence === 'MEDIUM' ? 0.7 : 0.3)
+
+  // Validate cited chunk ids against what we actually retrieved.
+  const retrievedById = new Map(retrieved.map((c) => [c.id, c]))
+  const citations: StateLawCitation[] = (parsed.cited_chunk_ids ?? [])
+    .filter((id) => retrievedById.has(id))
+    .map((id) => {
+      const c = retrievedById.get(id)!
+      return {
+        chunkId: c.id,
+        statuteId: c.statuteId,
+        codeCitation: c.codeCitation,
+        title: c.title,
+        category: c.category,
+      }
     })
 
-    if (completion.usage) {
-      api.setTokens(completion.usage.prompt_tokens, completion.usage.completion_tokens)
-    }
-    api.setModel(completion.model)
-
-    const raw = completion.choices[0]?.message?.content ?? '{}'
-    const parsed = parseModelJson(raw, api)
-
-    const confidence = normalizeConfidence(parsed.confidence)
-    api.setConfidence(
-      confidence === 'HIGH' ? 0.95 : confidence === 'MEDIUM' ? 0.7 : 0.3,
-    )
-
-    // Validate cited chunk ids against what we actually retrieved.
-    const retrievedById = new Map(retrieved.map((c) => [c.id, c]))
-    const citations: StateLawCitation[] = (parsed.cited_chunk_ids ?? [])
-      .filter((id) => retrievedById.has(id))
-      .map((id) => {
-        const c = retrievedById.get(id)!
-        return {
-          chunkId: c.id,
-          statuteId: c.statuteId,
-          codeCitation: c.codeCitation,
-          title: c.title,
-          category: c.category,
-        }
-      })
-
-    return {
-      answer: typeof parsed.answer === 'string' ? parsed.answer : '',
-      confidence,
-      citations,
-      disclaimer: DISCLAIMER,
-    }
-  },
-})
+  return {
+    answer: typeof parsed.answer === 'string' ? parsed.answer : '',
+    confidence,
+    citations,
+    disclaimer: DISCLAIMER,
+    stateLoaded: true,
+  }
+}
 
 // ─── Convenience wrapper ─────────────────────────────────────────────
 

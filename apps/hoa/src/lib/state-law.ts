@@ -145,6 +145,19 @@ export async function getStateLawSummary(): Promise<StateLawSummary> {
   }
 }
 
+/** Live (not superseded) statutes on file for the state. Throws on a failed
+ *  read, so a page can say it couldn't check rather than "not loaded". */
+export async function countLiveStatutesForState(state: SupportedState): Promise<number> {
+  const supabase = await getSupabaseServerClient()
+  const { count, error } = await supabase
+    .from('state_statutes')
+    .select('id', { count: 'exact', head: true })
+    .eq('state', state)
+    .is('superseded_at', null)
+  if (error || count === null) throw new Error(`state_statutes count: ${error?.code ?? 'no count'}`)
+  return count
+}
+
 export async function listRecentUpdates(
   state: SupportedState,
   limit = 20,

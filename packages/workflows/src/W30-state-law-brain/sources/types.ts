@@ -59,6 +59,25 @@ export interface HttpGetter {
   get(url: string): Promise<HttpResponse>
 }
 
+/** Inclusive byte range, or the last `suffix` bytes of the file. */
+export type ByteRange = { start: number; end: number } | { suffix: number }
+
+export interface RangeResponse {
+  /** 206 on success; anything else means no parts were read. */
+  status: number
+  url: string
+  /** Lets a multi-request read detect the file being replaced mid-run. */
+  etag: string | null
+  totalSize: number | null
+  /** One entry per requested range, in request order. */
+  parts: Uint8Array[]
+}
+
+/** Byte-range reads over one large file (California's bulk zip). */
+export interface RangeGetter {
+  getRanges(url: string, ranges: ByteRange[]): Promise<RangeResponse>
+}
+
 export class SourceUnavailableError extends Error {
   constructor(message: string) {
     super(message)

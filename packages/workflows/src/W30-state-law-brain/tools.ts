@@ -57,6 +57,24 @@ export async function retrieveStatuteChunks(
   return rows.map(rowToChunk)
 }
 
+/**
+ * Live (not superseded) statutes on file for a state. Throws on a failed
+ * read: an error must never be reported as "not loaded", nor let the
+ * caller go on to answer.
+ */
+export async function countLiveStatutes(state: string): Promise<number> {
+  const db = createAdminClient()
+  const { count, error } = await db
+    .from('state_statutes')
+    .select('id', { count: 'exact', head: true })
+    .eq('state', state)
+    .is('superseded_at', null)
+  if (error || count === null) {
+    throw new Error(`state_statutes_count_failed: ${error?.code ?? 'no count'}`)
+  }
+  return count
+}
+
 interface RawStatuteChunkRow {
   id: string
   statute_id: string

@@ -107,7 +107,16 @@ describe('resident toolset', () => {
 
   it('is exactly the resident tools', () => {
     expect(RESIDENT_TOOLS.map((t) => t.def.name).sort()).toEqual(
-      ['community_updates', 'my_account', 'my_requests', 'portal_how_to', 'search_governing_docs', 'suggest_arc_application', 'suggest_ask_board'].sort(),
+      [
+        'community_updates',
+        'my_account',
+        'my_requests',
+        'portal_how_to',
+        'search_governing_docs',
+        'state_law',
+        'suggest_arc_application',
+        'suggest_ask_board',
+      ].sort(),
     )
   })
 })
@@ -233,8 +242,8 @@ describe('docs, guide and hand-offs', () => {
     expect(String(r.topic).length).toBeLessThanOrEqual(60)
   })
 
-  it('the resident tool budget caps calls per step, per run and docs searches', async () => {
+  it('the resident tool budget caps calls per step, per run, docs searches and state-law questions', async () => {
     const { RESIDENT_TOOL_BUDGET } = await import('./tools')
-    expect(RESIDENT_TOOL_BUDGET).toEqual({ perStep: 4, perRun: 6, perTool: { search_governing_docs: 2 } })
+    expect(RESIDENT_TOOL_BUDGET).toEqual({ perStep: 4, perRun: 6, perTool: { search_governing_docs: 2, state_law: 1 } })
   })
 })

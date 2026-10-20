@@ -3,6 +3,7 @@
 **Date:** 2026-08-18
 **Module:** W30 (State Law Brain), Module 8
 **Status:** Approved design. Phase 1 implemented 2026-10-15 as sub-project F phase 0 (migration renumbered 0062; see `docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md` §10 for deviations).
+CA (bulk zip) and TX adapters built 2026-10-20; TX turned out to have a server-rendered source after all (F spec §11).
 
 ## Problem
 

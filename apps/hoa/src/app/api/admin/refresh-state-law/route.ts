@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from '@homeowner-portal/jobs'
+import { SOURCE_STATES } from '@homeowner-portal/workflows/state-law-sources'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
 import { requireRoutePlatformAdmin } from '@/lib/api/auth'
@@ -19,7 +20,9 @@ import { logRouteFailure } from '@/lib/api/log'
  * as the weekly cron (packages/jobs/src/state-law-refresh.ts): fetch the
  * official source, diff by content_hash, write changes, emit
  * law/statute.changed. Only states with an official-source adapter are
- * refreshable (today: FL). Staleness keys off last_checked_at ("when we
+ * refreshable: FL (flsenate.gov ch. 720), CA (leginfo bulk data, Civ. Code
+ * §§ 4000–6150) and TX (Tex. Prop. Code ch. 202 and 209). GA has no
+ * fetchable official text. Staleness keys off last_checked_at ("when we
  * last looked"), not fetched_at ("when the text last changed").
  *
  * GET paginates explicitly (RC-9): `limit` defaults to and is capped at
@@ -30,7 +33,7 @@ import { logRouteFailure } from '@/lib/api/log'
 const SUPPORTED = ['GA', 'FL', 'CA', 'TX'] as const
 /** States with an official-source adapter (SOURCE_STATES in
  *  packages/workflows/src/W30-state-law-brain/sources/index.ts). */
-const REFRESHABLE = new Set<string>(['FL'])
+const REFRESHABLE = new Set<string>(SOURCE_STATES)
 
 /** A row is stale once it is more than 30 whole days since we last looked. */
 const STALE_AFTER_DAYS = 30

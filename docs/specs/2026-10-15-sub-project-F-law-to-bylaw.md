@@ -239,3 +239,58 @@ where the ingestion design was silent, wrong, or overtaken by events.
 
 - `pnpm ingest:state-law FL --from-source` loaded 36 sections verbatim from `flsenate.gov … Ch. 720 (2026)`, and `search_state_statute_chunks('FL', 'official records inspection')` returns § 720.303.
 - `tests/integration/flows/state-law-refresh.test.ts` changes the text of § 720.305 and asserts exactly one `law/statute.changed` event carrying the old and new hashes. It also covers removal, reinstatement, outbox recovery, chunk repair, the false-repeal guard and RLS, all against the recorded source page with no network.
+
+## 11. Decision log: CA and TX adapters, "not loaded" guard (2026-10-20)
+
+`/legal/ask` offers GA, FL, CA and TX, but only GA had statute text in the
+database. This round adds official-source adapters for CA and TX and makes
+every state-law answer surface refuse plainly while a state has no text.
+
+| # | Decision | Why |
+|---|---|---|
+| P4-1 | **CA reads the Legislative Counsel's bulk zip by HTTP range, never the web pages.** `downloads.leginfo.legislature.ca.gov/pubinfo_<session year>.zip` (~1.2 GB, ZIP64, 205k entries). One run reads the 64 KB tail, the ~20 MB central directory, `LAW_SECTION_TBL.dat` + `LAW_TOC_TBL.dat` in one multipart request, then the Part 5 `.lob` bodies 50 ranges per request: about 8 requests, ~27 MB, **~26 s measured live on 2026-10-20** (234 sections). | `leginfo.legislature.ca.gov` still answers scripts with a Cloudflare 403 (rechecked 2026-10-20). The downloads host publishes no robots.txt (404) and supports `multipart/byteranges`. The fetch is one Inngest step and must fit the 60 s function limit, so the CA getter spaces requests by 1 s, not FL's 10 s crawl delay. |
+| P4-2 | **CA scope = Civ. Code §§ 4000–6150, Division 4, Part 5, `active_flg = 'Y'`.** Title = the article heading from `LAW_TOC_TBL` (chapter heading when there is no article), e.g. "Board Meeting". `effective_date` = the row's effective date. Body = the `.lob` CAML, one line per `<p>`; the history column is never part of the body. Category = a static (chapter, article) map. Citation `Cal. Civ. Code § 5855`, link `leginfo…codes_displaySection.xhtml?lawCode=CIV&sectionNum=5855.` | California's code sections have no catchlines; the article heading is the official, deterministic label. Every rule in `CA_RULE_BASIS` was already verified against this same text (BL-054). |
+| P4-3 | **CA safety rails.** Fewer than 200 sections → `SourceUnavailableError`. Every range response must carry the tail's ETag and size, else the run fails ("archive changed during the run"). A server that ignores Range (200) is refused before its body is read. Ranges are sent ascending and merged. Session-year fallback: this session's zip, then the previous one. | The archive is rebuilt weekly; offsets from one build are garbage in the next. A 200 would be a 1.2 GB download. Apache returns the whole file when ranges overlap or reverse too often. |
+| P4-4 | **TX reads the Texas Legislative Council's file server.** `statutes.capitol.texas.gov` is an Angular app (every path, including the old `/Docs/PR/htm/PR.209.htm`, returns the JS shell). The app loads chapters from `https://tcss.legis.texas.gov/resources/PR/htm/PR.<ch>.htm`, plain server-rendered HTML (robots.txt 404). Two requests per run, 10 s apart. | Found from the app bundle's `FileServerPath`. This resolves the design's "Texas has no known source" (phase 4 spike). |
+| P4-5 | **TX scope = Prop. Code ch. 209 (42 sections) and ch. 202 (19).** Both chapters or nothing (minimums 35 and 15). History ("Added by Acts…", "Amended by:" and its list) ends a section's body; "Text of subsection as amended by…" notes are kept, because they are the only thing telling two coexisting versions of a subsection apart (§ 209.0058). Catchlines are sentence-cased. Link: the official page's own anchor, `statutes.capitol.texas.gov/Docs/PR/htm/PR.209.htm#209.006`. | Ch. 202 holds the solar, flag, roofing and religious-display rules the TX sample questions on `/legal/ask` ask about. A missing chapter would read as the repeal of every section in it. |
+| P4-6 | **User-Agent** is now `HomeownerHub-StateLawIngest/1.1 (weekly HOA statute refresh from official state sources; a few requests per run)` for all three states. | Identifies the caller without inventing a contact URL. |
+| P4-7 | **"Not loaded" guard, three layers.** (1) W30 (`runStateLawBrain`): when retrieval is empty it counts live statutes; zero → the fixed `stateNotLoadedMessage(state)` with `stateLoaded: false`, no model call. A failed count throws; it is never reported as either answer. (2) `/legal/ask` shows "<State> state law isn't loaded yet" instead of the question box when the state has no live statutes (`lib/state-law-gate.ts`). (3) The resident assistant gets a `state_law` tool (W30, budget 1 per message) and a prompt rule never to answer state law from memory; when the tool reports `state_not_loaded`, `askResident` replaces the model's text with the fixed message and adds "Ask the board". | The prompt alone cannot stop a model answering from memory; the agent-level override can. The count only runs when retrieval is empty, so a loaded state pays nothing. |
+| P4-8 | **No migration.** `state_statutes.state` and `state_statute_changes.state` already allow CA and TX (0010, 0062); 0062 is applied. | — |
+
+Not changed: the board Copilot (`lib/community-qa`) has no state-law tool
+and no "never from memory" rule for state law; the W32 inbox reply drafter
+was out of scope for this round.
+
+### Turning CA, TX (and FL) on in production
+
+No migration. After this branch is deployed to production:
+
+1. Sign in to the production app as the platform admin.
+2. Open the browser's developer console on any app page and run, one line
+   at a time:
+
+   ```js
+   fetch('/api/admin/refresh-state-law',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:'FL'})}).then(r=>r.json()).then(console.log)
+   fetch('/api/admin/refresh-state-law',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:'CA'})}).then(r=>r.json()).then(console.log)
+   fetch('/api/admin/refresh-state-law',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:'TX'})}).then(r=>r.json()).then(console.log)
+   ```
+
+   Each should print `{state: 'FL', queued: 'law/refresh.requested'}` (HTTP
+   202). The job runs one state at a time (`concurrency: 1`). A POST with no
+   body returns 400 `invalid_json`, which is why OA-9's old one-liner did
+   nothing.
+3. A few minutes later, check the counts:
+
+   ```js
+   for (const s of ['FL','CA','TX']) fetch('/api/admin/refresh-state-law?state='+s+'&limit=1').then(r=>r.json()).then(j=>console.log(s, j.total))
+   ```
+
+   Expected: FL 36, CA 234, TX 61 (the 2026-10-20 counts). In the Inngest
+   dashboard, "State Law Weekly Refresh" shows each run as completed; a
+   failed run names the state and the reason.
+4. Optional, for better retrieval: set `HUGGINGFACE_API_TOKEN` in Vercel
+   production; without it chunks are stored without embeddings and W30 uses
+   full-text search only.
+
+The weekly cron (Mondays 03:00 ET) does the same for all three states once
+the Inngest app is synced, so step 2 only makes it happen now.
