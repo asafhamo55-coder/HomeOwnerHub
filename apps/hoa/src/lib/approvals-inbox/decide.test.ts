@@ -6,8 +6,9 @@ const { approveRequest, rejectRequest } = vi.hoisted(() => ({
 }))
 vi.mock('@homeowner-portal/workflows', () => ({ approveRequest, rejectRequest }))
 
-import { billHandlers, decideApprovalFor, letterHandlers, postingHandlers, type InboxDecisionHandlers } from './decide'
+import { billHandlers, decideApprovalFor, letterHandlers, openingHandlers, postingHandlers, type InboxDecisionHandlers } from './decide'
 import { letterExecutor } from '../collections/letters/executor'
+import { openingExecutor } from '../accounting/opening-balances/executor'
 
 const ID = '11111111-1111-4111-8111-111111111111'
 
@@ -23,6 +24,8 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     rejectBill: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
     approveLetter: vi.fn(async () => ({ ok: true as const, status: 'posted' as const, resultRef: 'case', alreadyDecided: false })),
     rejectLetter: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
+    approveOpening: vi.fn(async () => ({ ok: true as const, status: 'posted' as const, resultRef: 'je', alreadyDecided: false })),
+    rejectOpening: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
     approveContact: vi.fn(async () => ({ ok: true as const, message: 'Contact details updated: phone.' })),
     rejectContact: vi.fn(async () => ({ ok: true as const, message: 'Rejected. Nothing on file changed; the resident sees your reason.' })),
     ...over,
@@ -32,7 +35,7 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
 describe('decideApprovalFor — role gate', () => {
   it.each(['resident', null, 'owner'])('refuses %s before touching any module action', async (role) => {
     const h = handlers()
-    for (const kind of ['w18', 'bill', 'w3', 'collections', 'vendor', 'contact'] as const) {
+    for (const kind of ['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact'] as const) {
       for (const decision of ['approve', 'reject'] as const) {
         const r = await decideApprovalFor(role, { kind, id: ID, decision, reason: 'x' }, h)
         expect(r.ok).toBe(false)
@@ -322,6 +325,47 @@ describe('letterHandlers', () => {
     const h = letterHandlers(userDb(t) as never, {} as never)
     expect((await h.approveLetter(ID)).ok).toBe(false)
     expect((await h.rejectLetter(ID, 'x')).ok).toBe(false)
+    expect(approveRequest).not.toHaveBeenCalled()
+    expect(rejectRequest).not.toHaveBeenCalled()
+  })
+})
+
+describe('opening balances (BL-126)', () => {
+  function userDb(actionType: string | null) {
+    const q = {
+      select: () => q,
+      eq: () => q,
+      maybeSingle: async () => ({ data: actionType ? { action_type: actionType } : null, error: null }),
+    }
+    return { from: vi.fn(() => q) }
+  }
+
+  it('decideApprovalFor routes opening approvals to approveOpening only', async () => {
+    const h = handlers()
+    const r = await decideApprovalFor('board', { kind: 'opening', id: ID, decision: 'approve' }, h)
+    expect(h.approveOpening).toHaveBeenCalledWith(ID)
+    expect(h.approvePosting).not.toHaveBeenCalled()
+    expect(r.ok && r.message).toMatch(/opening journal entry is posted/)
+    const rej = await decideApprovalFor('admin', { kind: 'opening', id: ID, decision: 'reject', reason: ' wrong date ' }, h)
+    expect(h.rejectOpening).toHaveBeenCalledWith(ID, 'wrong date')
+    expect(rej.ok && rej.message).toMatch(/Nothing was posted/)
+  })
+
+  it('approves through the approval layer with ONLY the opening-balance executor', async () => {
+    approveRequest.mockClear()
+    const u = userDb('accounting.opening_balances')
+    const adminDb = { tag: 'admin' }
+    approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'je', alreadyDecided: false })
+    expect((await openingHandlers(u as never, adminDb as never).approveOpening(ID)).ok).toBe(true)
+    expect(approveRequest).toHaveBeenCalledWith(u, adminDb, ID, { 'accounting.opening_balances': openingExecutor })
+  })
+
+  it.each([['w18.cash_receipt'], ['collections.letter'], [null]])('refuses a request that is not an opening balance (%s) before deciding it', async (t) => {
+    approveRequest.mockClear()
+    rejectRequest.mockClear()
+    const h = openingHandlers(userDb(t) as never, {} as never)
+    expect((await h.approveOpening(ID)).ok).toBe(false)
+    expect((await h.rejectOpening(ID, 'x')).ok).toBe(false)
     expect(approveRequest).not.toHaveBeenCalled()
     expect(rejectRequest).not.toHaveBeenCalled()
   })

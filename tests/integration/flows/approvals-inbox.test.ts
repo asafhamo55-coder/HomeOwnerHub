@@ -39,6 +39,9 @@ const OTHER_HANDLERS = {
   // BL-089 collections letters.
   approveLetter: notUsed,
   rejectLetter: notUsed,
+  // BL-126 opening balances.
+  approveOpening: notUsed,
+  rejectOpening: notUsed,
 }
 
 const AMOUNT = 180

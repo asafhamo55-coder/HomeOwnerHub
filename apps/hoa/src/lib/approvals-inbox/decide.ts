@@ -29,6 +29,12 @@
 //                        re-checks the case is open and marks the letter
 //                        approved for printing. Nothing is sent. The kind
 //                        is checked first, as for bills (BL-089).
+//   opening approve/   → approveRequest / rejectRequest with ONLY the
+//     reject             accounting.opening_balances executor
+//                        (lib/accounting/opening-balances/executor.ts):
+//                        approving re-checks the books and posts one
+//                        journal entry plus each home's opening charge
+//                        (BL-126). The kind is checked first, as for bills.
 //   contact approve/   → approveContactUpdate / rejectContactUpdate
 //     reject             (lib/contact-updates/apply.ts, PR-10): approve
 //                        applies the resident's own contact change to their
@@ -44,6 +50,8 @@ import { approveRequest, rejectRequest, type ApprovalExecutor, type DecisionResu
 import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
 import { letterExecutor } from '../collections/letters/executor'
+import { OPENING_ACTION } from '../accounting/opening-balances/proposal'
+import { openingExecutor } from '../accounting/opening-balances/executor'
 import { approveContactUpdate, rejectContactUpdate, type ContactDeps } from '../contact-updates/apply'
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
@@ -63,6 +71,8 @@ export interface InboxDecisionHandlers {
   rejectBill(approvalRequestId: string, reason: string): Promise<DecisionResult>
   approveLetter(approvalRequestId: string): Promise<DecisionResult>
   rejectLetter(approvalRequestId: string, reason: string): Promise<DecisionResult>
+  approveOpening(approvalRequestId: string): Promise<DecisionResult>
+  rejectOpening(approvalRequestId: string, reason: string): Promise<DecisionResult>
   approveContact(ticketId: string): Promise<Simple & { message?: string }>
   rejectContact(ticketId: string, reason: string): Promise<Simple & { message?: string }>
 }
@@ -70,7 +80,7 @@ export interface InboxDecisionHandlers {
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'bill', 'w3', 'collections', 'vendor', 'contact']),
+  kind: z.enum(['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -126,6 +136,24 @@ export function letterHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDec
   return {
     approveLetter: async (id) => ((await isLetter(id)) ? approveRequest(userDb, adminDb, id, { [LETTER_ACTION]: letterExecutor }) : notLetter),
     rejectLetter: async (id, reason) => ((await isLetter(id)) ? rejectRequest(userDb, id, reason) : notLetter),
+  }
+}
+
+/**
+ * BL-126: opening balances. Same shape as letterHandlers: the kind check
+ * runs on the decider's RLS client before the claim, and the executor map
+ * holds only the opening-balance executor.
+ */
+export function openingHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDecisionHandlers, 'approveOpening' | 'rejectOpening'> {
+  const isOpening = async (id: string): Promise<boolean> => {
+    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    return !error && data?.action_type === OPENING_ACTION
+  }
+  const notOpening = { ok: false as const, error: 'That approval item isn’t an opening balance.' }
+  return {
+    approveOpening: async (id) =>
+      (await isOpening(id)) ? approveRequest(userDb, adminDb, id, { [OPENING_ACTION]: openingExecutor }) : notOpening,
+    rejectOpening: async (id, reason) => ((await isOpening(id)) ? rejectRequest(userDb, id, reason) : notOpening),
   }
 }
 
@@ -206,6 +234,21 @@ export async function decideApprovalFor(
       message: r.alreadyDecided
         ? 'Already approved.'
         : 'Letter approved. Print it from the property’s collections letter page and mail it yourself. Nothing was sent.',
+    }
+  }
+
+  if (kind === 'opening') {
+    if (decision === 'reject') {
+      const r = await handlers.rejectOpening(id, reason)
+      return r.ok ? { ok: true, message: 'Rejected. Nothing was posted. Enter the opening balances again when they’re right.' } : { ok: false, error: r.error }
+    }
+    const r = await handlers.approveOpening(id)
+    if (!r.ok) return { ok: false, error: r.error }
+    return {
+      ok: true,
+      message: r.alreadyDecided
+        ? 'Already approved — nothing was posted again.'
+        : 'Approved. The opening journal entry is posted and each home’s opening balance is on its account.',
     }
   }
 

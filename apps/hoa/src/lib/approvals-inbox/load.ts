@@ -11,6 +11,7 @@ import type { Database } from '@homeowner-portal/db'
 import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
+import { OPENING_ACTION } from '../accounting/opening-balances/proposal'
 import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
 import { contactTicketsQuery, loadContactEntries, type ContactDeps, type ContactTicketRow } from '../contact-updates/apply'
 import {
@@ -19,7 +20,9 @@ import {
   billItems,
   contactItems,
   letterItems,
+  openingItems,
   type LetterProposalRow,
+  type OpeningProposalRow,
   type ArcRunRow,
   type BillProposalRow,
   type AssociationVendorCount,
@@ -107,6 +110,24 @@ export async function loadLetterSection(db: InboxDb, orgId: string): Promise<Inb
   if (!res.ok) return { source: 'collections', ok: false }
   const rows = (res.data ?? []) as unknown as LetterProposalRow[]
   return { source: 'collections', ok: true, items: letterItems(rows), total: res.count ?? rows.length }
+}
+
+/** BL-126: opening balances waiting on the board, oldest first. Same read rule as W18. */
+export async function loadOpeningSection(db: InboxDb, orgId: string): Promise<InboxSection> {
+  const res = await loadOrFail(
+    'approvals: opening balances',
+    db
+      .from('approval_requests')
+      .select('id, summary, amount, proposed_at, payload', { count: 'exact' })
+      .eq('organization_id', orgId)
+      .eq('action_type', OPENING_ACTION)
+      .eq('status', 'proposed')
+      .order('proposed_at', { ascending: true })
+      .range(0, SECTION_LIMIT - 1),
+  )
+  if (!res.ok) return { source: 'opening', ok: false }
+  const rows = (res.data ?? []) as unknown as OpeningProposalRow[]
+  return { source: 'opening', ok: true, items: openingItems(rows), total: res.count ?? rows.length }
 }
 
 export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSection> {
@@ -225,7 +246,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, bill, w3, collections, arc, contact, vendor] = await Promise.all([
+  const [w18, bill, opening, w3, collections, arc, contact, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -242,6 +263,15 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .select('id', { count: 'exact', head: true })
         .eq('organization_id', orgId)
         .eq('action_type', BILL_ACTION)
+        .eq('status', 'proposed'),
+    ),
+    loadOrFail(
+      'approvals badge: opening balances',
+      db
+        .from('approval_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('action_type', OPENING_ACTION)
         .eq('status', 'proposed'),
     ),
     loadOrFail(
@@ -276,7 +306,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), bill: count(bill), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), vendor }
+  return { w18: count(w18), bill: count(bill), opening: count(opening), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), vendor }
 }
 
 /**

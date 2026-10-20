@@ -128,13 +128,13 @@ describe('countPendingApprovals (sidebar badge)', () => {
 
   it('counts each source with head-only queries; vendors only for the primary association the list shows', async () => {
     const { db, calls } = fakeDb({
-      approval_requests: [ok(2), ok(5), ok(7)],
+      approval_requests: [ok(2), ok(5), ok(9), ok(7)],
       ai_runs: [ok(1), ok(2)],
       tickets: [ok(6)],
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(3), ok(1)],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, bill: 5, w3: 1, collections: 7, arc: 2, contact: 6, vendor: 4 })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, bill: 5, opening: 9, w3: 1, collections: 7, arc: 2, contact: 6, vendor: 4 })
     // PR-10: only still-open contact-update tickets of this org.
     const contact = calls.find((c) => c.table === 'tickets')!.ops
     expect(contact).toContainEqual(['eq', ['organization_id', ORG]])
@@ -158,34 +158,34 @@ describe('countPendingApprovals (sidebar badge)', () => {
 
   it('no association means no vendor in the list, so 0 — without counting', async () => {
     const { db, calls } = fakeDb({
-      approval_requests: [ok(0), ok(0), ok(0)],
+      approval_requests: [ok(0), ok(0), ok(0), ok(0)],
       ai_runs: [ok(0), ok(0)],
       tickets: [ok(0)],
       associations: [{ data: [], error: null }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, collections: 0, arc: 0, contact: 0, vendor: 0 })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, vendor: 0 })
     expect(calls.some((c) => c.table === 'vendor_compliance')).toBe(false)
   })
 
   it('a failed association lookup makes the vendor count unknown, not 0', async () => {
     const { db } = fakeDb({
-      approval_requests: [ok(0), ok(0), ok(0)],
+      approval_requests: [ok(0), ok(0), ok(0), ok(0)],
       ai_runs: [ok(0), ok(0)],
       tickets: [ok(0)],
       associations: [{ data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, w3: 0, collections: 0, arc: 0, contact: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, vendor: null })
   })
 
   it('a failed count is unknown (null), not zero', async () => {
     const { db } = fakeDb({
-      approval_requests: [{ data: null, error: err }, ok(3), ok(0)],
+      approval_requests: [{ data: null, error: err }, ok(3), ok(0), ok(0)],
       ai_runs: [ok(0), ok(0)],
       tickets: [{ data: null, error: err }],
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(0), { data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, bill: 3, w3: 0, collections: 0, arc: 0, contact: null, vendor: null })
+    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, bill: 3, opening: 0, w3: 0, collections: 0, arc: 0, contact: null, vendor: null })
   })
 })
 

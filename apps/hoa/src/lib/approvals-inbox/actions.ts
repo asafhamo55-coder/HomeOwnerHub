@@ -11,7 +11,7 @@ import { enterBill } from '@/lib/invoices'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { makeBillExecutor } from '@/lib/bill-scan/executor'
 import { billInvoiceExists } from '@/lib/bill-scan/load'
-import { billHandlers, contactHandlers, decideApprovalFor, letterHandlers, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
+import { billHandlers, contactHandlers, decideApprovalFor, letterHandlers, openingHandlers, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
 /**
  * The one decision endpoint behind /approvals (BL-014). It only routes:
@@ -45,6 +45,7 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     ...postingHandlers(supabase, adminDb),
     ...billHandlers(supabase, adminDb, billExecutor),
     ...letterHandlers(supabase, adminDb),
+    ...openingHandlers(supabase, adminDb),
     approveVendor,
     rejectVendor,
     approveViolationDraft,
@@ -68,6 +69,10 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     revalidatePath('/properties', 'layout')
     revalidatePath('/tickets', 'layout')
     revalidatePath('/resident/account')
+  } else if (input.kind === 'opening') {
+    revalidatePath('/accounting', 'layout')
+    revalidatePath('/dues')
+    revalidatePath('/properties', 'layout')
   } else if (input.kind === 'collections') {
     revalidatePath('/properties', 'layout')
   } else if (input.kind === 'w3') {

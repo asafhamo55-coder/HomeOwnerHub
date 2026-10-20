@@ -7,7 +7,7 @@
  * The file is read in the browser (lib/properties/roster/parse.ts) and
  * never uploaded whole. The dry run sends only each row's address and
  * unit, to learn which homes are already on file; Import then sends the
- * homes in chunks of about 25 rows. Balances never leave the page.
+ * homes in chunks of about 25 rows. Balances never reach the server from here: the "Enter opening balances" link hands them to the opening-balance wizard through this tab's sessionStorage (BL-126).
  */
 import * as React from 'react'
 import { WizardStepper } from '@homeowner-portal/ui'

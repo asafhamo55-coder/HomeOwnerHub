@@ -18,6 +18,7 @@ const ACCOUNTING_TABS = [
   { label: 'Recurring', href: '/accounting/recurring' },
   { label: 'Periods', href: '/accounting/periods' },
   { label: 'Accounts', href: '/accounting/coa' },
+  { label: 'Opening balances', href: '/accounting/opening-balances' },
 ]
 
 /**

@@ -28,10 +28,30 @@ import {
   cn,
 } from '@homeowner-portal/ui'
 import { usd } from '@/lib/money/format'
+import { saveRosterBalances } from '@/lib/accounting/opening-balances/handoff'
 import { PRESET_LABELS, ROSTER_FIELDS, type ColumnMapping, type RosterFieldKey, type RosterPreset } from '@/lib/properties/roster/fields'
 import type { ClassifiedRow, RosterMode, RosterSummary, RowStatus } from '@/lib/properties/roster/classify'
 import type { RowResult } from '@/lib/properties/roster/commit'
 import type { SheetRow } from '@/lib/properties/roster/xlsx'
+
+/**
+ * BL-126: the import's balances go nowhere on their own. This link opens
+ * the opening-balance wizard and hands it the file's balances through this
+ * tab's sessionStorage (never the server), so step 2 can fill them in.
+ */
+function OpeningBalancesLink({ classified }: { classified: ClassifiedRow[] }) {
+  const save = () =>
+    saveRosterBalances(
+      classified
+        .filter((c) => c.row.balance !== null && c.row.balance !== 0)
+        .map((c) => ({ address: c.row.address, unit: c.row.unit, balance: c.row.balance as number })),
+    )
+  return (
+    <Link href="/accounting/opening-balances" onClick={save} className="font-medium text-primary underline-offset-2 hover:underline">
+      Enter opening balances
+    </Link>
+  )
+}
 
 export interface AssociationChoice {
   id: string
@@ -179,7 +199,7 @@ const HINTS: Partial<Record<RosterFieldKey, string>> = {
   tenure: 'Owner-occupied or rented. Fills homes whose tenure is unknown.',
   owner_first_name: 'Only used when there is no full-name column.',
   owner_last_name: 'Only used when there is no full-name column.',
-  balance: 'Shown in the preview. Balances are never posted to the books.',
+  balance: 'Shown in the preview. The import never posts balances; enter them afterwards under Accounting › Opening balances.',
 }
 
 export function MappingStep({
@@ -477,7 +497,8 @@ export function PreviewStep({
         {showBalance ? (
           <Alert variant="info" title="Balances are for reference only">
             The file has balances for {balances.length.toLocaleString('en-US')} {balances.length === 1 ? 'home' : 'homes'} (
-            {usd(balanceTotal)} in all). Import does not post them; enter opening balances in Accounting.
+            {usd(balanceTotal)} in all). Import does not post them. After the import, carry them into the books with{' '}
+            <OpeningBalancesLink classified={classified} />.
           </Alert>
         ) : null}
 
@@ -572,6 +593,12 @@ export function DoneStep({
       </CardHeader>
       <CardContent className="space-y-6">
         <Counts summary={summary} done />
+        {classified.some((c) => c.row.balance !== null && c.row.balance !== 0) ? (
+          <Alert variant="info" title="Enter the balances in Accounting">
+            The file had balances, and the import didn’t post them. Carry them into the books with{' '}
+            <OpeningBalancesLink classified={classified} />: they are filled in for you.
+          </Alert>
+        ) : null}
         <RowTable rows={rows} showBalance={false} filter={filter} onFilter={setFilter} counts={summary} />
       </CardContent>
       <CardFooter className="flex-wrap justify-between gap-2">
