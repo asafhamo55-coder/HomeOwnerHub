@@ -51,8 +51,9 @@ database.
 | F | Speed-up indexes (also covers the BL-108 AI-spend index) | OA-4 | F1–F14 | Yes (adds indexes) | none |
 | G | Payment-plan double count correction | OA-3 | G1–G5 | Yes (G4, money records) | none; do last |
 | H | Migration 0065: new plan names, plus anything from C, D, E not yet done | BL-123 | H1–H3 | Yes (H2) | A, B; ideally C, D, E |
+| I | Migration 0066: owner records requests | BL-123 (3) | I1–I3 | Yes (I2, widens a check and adds a column) | none |
 
-40 steps in total. Sections A and B are **Urgent**. If you only have ten
+43 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
 
 ---
@@ -380,6 +381,65 @@ file is always safe, and running it twice changes nothing.
 
 ---
 
+## Section I · Migration 0066, owner records requests
+
+File: `migrations/0066_records_requests.sql`. *Needs:* nothing else in this
+runbook. It only touches the `tickets` table, which has existed since 0024.
+Order against A to H does not matter.
+
+What it does, in two parts:
+
+1. **New ticket category.** Lets a ticket be saved with the category
+   `records_request`. An owner's "Request association records" form files
+   one. All nine existing categories stay allowed.
+2. **New column `tickets.records_due_at`.** This is the deadline set by state
+   law for answering that request. It is empty for every other ticket.
+
+Nothing in the app uses either one until Claude turns on
+`RECORDS_REQUESTS_LIVE` after I3. Until then owners and the board see no
+change.
+
+### I1 · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'public.tickets'::regclass AND contype = 'c'
+                    AND pg_get_constraintdef(oid) LIKE '%records_request%') AS category_done,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'tickets'
+                    AND column_name = 'records_due_at')                     AS column_done,
+         (SELECT count(*) FROM pg_constraint
+           WHERE conrelid = 'public.tickets'::regclass AND contype = 'c'
+             AND pg_get_constraintdef(oid) ILIKE '%category%')              AS category_checks;
+  ```
+
+- **Does:** shows whether the two parts are already there, and how many category checks exist.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `category_done` = false, `column_done` = false, `category_checks` = 1.
+- **Send:** the row.
+- **If both `_done` columns are already true:** stop, I is done; tell Claude.
+
+### I2 · Apply 0066 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0066_records_requests.sql`. Ask Claude to copy it ("copy step I2").
+- **Does:** replaces the category check with one that also allows `records_request`. It also adds the empty `records_due_at` column and a small index.
+- **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
+- **Time:** ~1 s. No existing row is rewritten.
+- **Expect:** "Success. No rows returned".
+- **Send:** "I2 done", or the error.
+- **If it errors:** nothing was changed. Send the error.
+
+### I3 · Verify (read-only)
+
+- **Paste:** the I1 query again.
+- **Expect:** one row: `category_done` = true, `column_done` = true, `category_checks` = 1.
+- **Send:** the row, and the words **"0066 is applied"**.
+- **Flags Claude flips after I3:** `RECORDS_REQUESTS_LIVE` → `true` (`packages/db/src/records-requests.ts`), then deploys hoa + jobs. Claude also removes `draft: true` from the two records-request guide articles and runs `pnpm guide:build`.
+
+---
+
 ## App switches after each section
 
 | After | Switch | Where | Who / how |
@@ -392,6 +452,7 @@ file is always safe, and running it twice changes nothing.
 | F14 | none | — | — |
 | G5 | none | — | — |
 | H3 | `SENDER_AUTH_COLUMN_LIVE = true` if not done after E5; `PRICING_V2` stays off until OA-16 | `packages/mailbox/src/auth-results.ts` | Claude, then deploy hoa + jobs |
+| I3 | `RECORDS_REQUESTS_LIVE = true`; un-draft `resident-records-request` and `tickets-records-requests` | `packages/db/src/records-requests.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs

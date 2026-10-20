@@ -1,5 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { signArcClockSettings, withArcClockSettings } from '../../../apps/hoa/src/lib/arc-review/clock'
+const recordsFlag = vi.hoisted(() => ({ live: false }))
+vi.mock('@homeowner-portal/db/records-requests', () => ({
+  get RECORDS_REQUESTS_LIVE() {
+    return recordsFlag.live
+  },
+}))
+
 import {
   BOARD_ROLES,
   buildArcBlock,
@@ -34,6 +41,7 @@ interface FakeOpts {
   threads?: Row
   arcRequests?: Row
   tasks?: Row
+  tickets?: Row
 }
 
 /** Records every filter so tests can assert what was queried. */
@@ -61,6 +69,7 @@ function fakeDb(opts: FakeOpts) {
     inbox_threads: opts.threads ?? { data: [], error: null },
     arc_requests: opts.arcRequests ?? { data: [], error: null },
     meeting_action_items: opts.tasks ?? { data: [], error: null },
+    tickets: opts.tickets ?? { data: [], error: null },
   }
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {}
@@ -555,5 +564,84 @@ describe('runDailyDigest — board tasks', () => {
     expect(d.sendEmail).not.toHaveBeenCalled()
     expect(result).toMatchObject({ tasksOverdue: 0, tasksDueSoon: 0 })
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed to load task deadlines'), { code: '42P01' })
+  })
+})
+
+describe('runDailyDigest — owner records requests (BL-123)', () => {
+  const day = (offset: number) => {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() + offset)
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d)
+  }
+  const at = (offset: number) => `${day(offset)}T17:00:00+00:00`
+  const TICKETS: Row = {
+    data: [
+      { status: 'open', records_due_at: at(-2) }, // overdue
+      { status: 'in_progress', records_due_at: at(1) }, // due soon
+      { status: 'open', records_due_at: at(20) }, // later
+    ],
+    error: null,
+  }
+
+  afterEach(() => {
+    recordsFlag.live = false
+  })
+
+  it('flag off: never queries tickets and sends nothing for them', async () => {
+    const { db, calls } = fakeDb({ tickets: TICKETS })
+    const d = deps()
+    const result = await runDailyDigest(db, d, logger())
+    expect(calls.some((c) => c.table === 'tickets')).toBe(false)
+    expect(d.sendEmail).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ recordsOverdue: 0, recordsDueSoon: 0 })
+  })
+
+  it('flag on: emails board members the counts with a link to /tickets/records', async () => {
+    recordsFlag.live = true
+    const { db } = fakeDb({ tickets: TICKETS })
+    const d = deps()
+    const log = logger()
+    const result = await runDailyDigest(db, d, log)
+    expect(result).toMatchObject({ recordsOverdue: 1, recordsDueSoon: 1, emailed: 2 })
+    const recipients = d.sendEmail.mock.calls.map((c) => c[0].to).sort()
+    expect(recipients).toEqual([ADMIN_EMAIL, BOARD_EMAIL].sort())
+    const mail = d.sendEmail.mock.calls[0]![0]
+    expect(mail.text).toContain('1 owner records request past the statutory deadline')
+    expect(mail.text).toContain('1 owner records request due within 3 days')
+    expect(mail.text).toContain('https://app.test/tickets/records')
+    expect(mail.html).toContain('Open records requests')
+    expect(mail.subject).toContain('past the statutory deadline')
+    const everything = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
+    expect(everything).not.toContain('@')
+  })
+
+  it('flag on: queries only open, dated, non-deleted records requests for the org', async () => {
+    recordsFlag.live = true
+    const { db, calls } = fakeDb({ tickets: TICKETS })
+    await runDailyDigest(db, deps(), logger())
+    const q = calls.filter((c) => c.table === 'tickets')
+    expect(q).toContainEqual({ table: 'tickets', method: 'eq', args: ['organization_id', ORG] })
+    expect(q).toContainEqual({ table: 'tickets', method: 'eq', args: ['category', 'records_request'] })
+    expect(q).toContainEqual({ table: 'tickets', method: 'in', args: ['status', ['open', 'in_progress']] })
+    expect(q).toContainEqual({ table: 'tickets', method: 'is', args: ['deleted_at', null] })
+    expect(q).toContainEqual({ table: 'tickets', method: 'not', args: ['records_due_at', 'is', null] })
+  })
+
+  it('flag on: nothing due sends nothing', async () => {
+    recordsFlag.live = true
+    const { db } = fakeDb({ tickets: { data: [{ status: 'open', records_due_at: at(20) }], error: null } })
+    const d = deps()
+    await runDailyDigest(db, d, logger())
+    expect(d.sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('flag on: a failed read is logged by code and sends nothing on its own', async () => {
+    recordsFlag.live = true
+    const { db } = fakeDb({ tickets: { data: null, error: { code: '42703' } } })
+    const d = deps()
+    const log = logger()
+    await runDailyDigest(db, d, log)
+    expect(d.sendEmail).not.toHaveBeenCalled()
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed to load records-request deadlines'), { code: '42703' })
   })
 })

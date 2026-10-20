@@ -2,7 +2,7 @@
  * The ordered list of migrations that constitute the schema.
  *
  * This file exists because `migrations/` is NOT a replayable sequence:
- * it mixes 65 real migrations with 5 `verify-*` assertion scripts and 23
+ * it mixes 66 real migrations with 5 `verify-*` assertion scripts and 23
  * unnumbered one-offs (`delete-madison-park-closed-threads-force.sql`,
  * `diagnose-inbox-duplicates.sql`, `fix-madison-park-lease-cap.sql`,
  * seeds). Replaying the directory would run a force-delete.
@@ -99,6 +99,7 @@ export const MIGRATION_MANIFEST: string[] = [
   '0063_rls_sweep.sql',
   '0064_m1_batch.sql',
   '0065_m2_prep.sql',
+  '0066_records_requests.sql',
 ]
 
 /**

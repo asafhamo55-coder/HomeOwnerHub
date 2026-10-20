@@ -33,6 +33,8 @@ export type TicketCategory =
   | 'safety'
   | 'general'
   | 'other'
+  /** BL-123 (3): filed only through lib/records-requests, never the support form. */
+  | 'records_request'
 
 export type TicketStatus = 'open' | 'in_progress' | 'closed'
 

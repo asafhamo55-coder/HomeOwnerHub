@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Inbox, MessageSquare } from 'lucide-react'
+import { FileText, Inbox, MessageSquare } from 'lucide-react'
+import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
 import { format } from 'date-fns'
 import {
   Button,
@@ -114,6 +115,16 @@ export default async function TicketsPage({
         result.ok
           ? `${result.openCount} need attention · ${allCount} total. Residents open tickets from the portal; reply, assign work, and close them here.`
           : 'Requests residents send from the portal.'
+      }
+      actions={
+        RECORDS_REQUESTS_LIVE ? (
+          <Button asChild variant="secondary">
+            <Link href="/tickets/records">
+              <FileText className="size-4" aria-hidden />
+              Records requests
+            </Link>
+          </Button>
+        ) : undefined
       }
     >
       {!result.ok ? (

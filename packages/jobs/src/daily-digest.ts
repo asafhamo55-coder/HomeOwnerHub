@@ -23,6 +23,14 @@ import {
   weekEnd,
 } from '../../../apps/hoa/src/lib/tasks/model'
 import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from './association-time'
+// BL-123 (3): owner records-request deadlines. Same dependency-free,
+// relative-path rule; inert until RECORDS_REQUESTS_LIVE (migration 0066).
+import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
+import {
+  RECORDS_CATEGORY,
+  RECORDS_DUE_SOON_DAYS,
+  recordsDigestCounts,
+} from '../../../apps/hoa/src/lib/records-requests/law'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -66,6 +74,11 @@ import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from './association-time'
  * them) that are overdue or due within 7 days, linking to /tasks. Each
  * member sees only their own counts; a board member with tasks due gets
  * the email even when nothing else is wrong. Counts only.
+ *
+ * BL-123 (3): and how many owner records requests are past their statutory
+ * due day or due within 3 days, linking to /tickets/records. Counts only,
+ * board members only, and only once RECORDS_REQUESTS_LIVE is on (before
+ * that the tickets table is not even queried for them).
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -123,6 +136,10 @@ export interface DailyDigestResult {
   tasksOverdue: number
   /** Assigned open tasks due within TASK_WEEK_DAYS, summed across orgs. */
   tasksDueSoon: number
+  /** Open records requests past their due day, summed across orgs (BL-123). 0 while the flag is off. */
+  recordsOverdue: number
+  /** Open records requests due within RECORDS_DUE_SOON_DAYS, summed across orgs. */
+  recordsDueSoon: number
   emailed: number
   failed: number
 }
@@ -396,6 +413,64 @@ export function buildTaskBlock(args: { overdue: number; dueSoon: number; tasksUr
   return { lines, text, html }
 }
 
+// ─── Owner records requests (BL-123 item 3) ────────────────────────
+
+export interface RecordsDigestSummary {
+  overdue: number
+  dueSoon: number
+}
+
+/**
+ * Open records requests for one org with a statutory due day
+ * (tickets.records_due_at). null on a failed read (logged by code), and
+ * null without a query while RECORDS_REQUESTS_LIVE is off.
+ */
+export async function loadRecordsDeadlines(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+  live: boolean = RECORDS_REQUESTS_LIVE,
+): Promise<RecordsDigestSummary | null> {
+  if (!live) return null
+  const { data, error } = await db
+    .from('tickets')
+    .select('status, records_due_at')
+    .eq('organization_id', orgId)
+    .eq('category', RECORDS_CATEGORY)
+    .in('status', ['open', 'in_progress'])
+    .is('deleted_at', null)
+    .not('records_due_at', 'is', null)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load records-request deadlines`, { code: error.code })
+    return null
+  }
+  return recordsDigestCounts((data ?? []) as Array<{ status: string; records_due_at: string | null }>, today)
+}
+
+function recordsCount(n: number): string {
+  return n === 1 ? '1 owner records request' : `${n} owner records requests`
+}
+
+/** The records block: overdue and due-soon lines, a link to /tickets/records. */
+export function buildRecordsBlock(args: { overdue: number; dueSoon: number; recordsUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines: string[] = []
+  if (args.overdue > 0) lines.push(`${recordsCount(args.overdue)} past the statutory deadline`)
+  if (args.dueSoon > 0) lines.push(`${recordsCount(args.dueSoon)} due within ${RECORDS_DUE_SOON_DAYS} days`)
+  const text = [...lines, `Open records requests: ${args.recordsUrl}`].join('\n')
+  const border = args.overdue > 0 ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
+    <a href="${escapeHtml(args.recordsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open records requests</a>
+  </div>`
+  return { lines, text, html }
+}
+
 /**
  * One recipient's morning email: the mailbox alert when a mailbox is
  * broken, the waiting block when residents are waiting, or both.
@@ -409,6 +484,8 @@ export function buildDigestEmail(args: {
   arc?: { overdue: number; dueSoon: number; arcUrl: string } | null
   /** BL-119: the recipient's own task deadlines. Omitted or all-zero adds nothing. */
   tasks?: { overdue: number; dueSoon: number; tasksUrl: string } | null
+  /** BL-123 (3): records-request deadlines. Omitted or all-zero adds nothing. */
+  records?: { overdue: number; dueSoon: number; recordsUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -418,6 +495,9 @@ export function buildDigestEmail(args: {
   const taskBlock =
     args.tasks && (args.tasks.overdue > 0 || args.tasks.dueSoon > 0) ? buildTaskBlock(args.tasks) : null
   if (taskBlock) extras.push(taskBlock)
+  const recordsBlock =
+    args.records && (args.records.overdue > 0 || args.records.dueSoon > 0) ? buildRecordsBlock(args.records) : null
+  if (recordsBlock) extras.push(recordsBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -438,6 +518,10 @@ export function buildDigestEmail(args: {
 </div>`
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : !arcBlock && !taskBlock && recordsBlock
+      ? args.records!.overdue > 0
+        ? `${recordsCount(args.records!.overdue)} past the statutory deadline — ${args.orgName}`
+        : `${recordsCount(args.records!.dueSoon)} due soon — ${args.orgName}`
     : !arcBlock && taskBlock
       ? args.tasks!.overdue > 0
         ? `${taskCount(args.tasks!.overdue)} overdue — ${args.orgName}`
@@ -548,6 +632,8 @@ export async function runDailyDigest(
   let arcDueSoonTotal = 0
   let tasksOverdueTotal = 0
   let tasksDueSoonTotal = 0
+  let recordsOverdueTotal = 0
+  let recordsDueSoonTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -617,7 +703,23 @@ export async function runDailyDigest(
     }
     tasksOverdueTotal += orgTasksOverdue
     tasksDueSoonTotal += orgTasksDueSoon
-    const orgWide = broken.length > 0 || waitingCount > 0 || arcOverdue > 0 || arcDueSoon > 0
+
+    // BL-123 (3): no query at all while RECORDS_REQUESTS_LIVE is off.
+    let records: RecordsDigestSummary | null = null
+    try {
+      records = await loadRecordsDeadlines(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: records-request deadline check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const recordsOverdue = records?.overdue ?? 0
+    const recordsDueSoon = records?.dueSoon ?? 0
+    recordsOverdueTotal += recordsOverdue
+    recordsDueSoonTotal += recordsDueSoon
+
+    const orgWide =
+      broken.length > 0 || waitingCount > 0 || arcOverdue > 0 || arcDueSoon > 0 || recordsOverdue > 0 || recordsDueSoon > 0
 
     if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0) continue
     if (orgTasksOverdue > 0 || orgTasksDueSoon > 0) {
@@ -631,6 +733,10 @@ export async function runDailyDigest(
     if (arcOverdue > 0 || arcDueSoon > 0) {
       // Counts only, never which application or who submitted it.
       logger.info(`[daily-digest] ${orgId}: ${arcOverdue} ARC overdue, ${arcDueSoon} ARC due soon`)
+    }
+    if (recordsOverdue > 0 || recordsDueSoon > 0) {
+      // Counts only, never which request or who asked.
+      logger.info(`[daily-digest] ${orgId}: ${recordsOverdue} records request(s) overdue, ${recordsDueSoon} due soon`)
     }
 
     for (const mailbox of broken) {
@@ -672,6 +778,10 @@ export async function runDailyDigest(
               : null,
           arc: arcOverdue > 0 || arcDueSoon > 0 ? { overdue: arcOverdue, dueSoon: arcDueSoon, arcUrl: deps.appUrl('/arc') } : null,
           tasks: mineDue ? { ...mine, tasksUrl: deps.appUrl('/tasks?assignee=me') } : null,
+          records:
+            recordsOverdue > 0 || recordsDueSoon > 0
+              ? { overdue: recordsOverdue, dueSoon: recordsDueSoon, recordsUrl: deps.appUrl('/tickets/records') }
+              : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -702,6 +812,8 @@ export async function runDailyDigest(
     arcDueSoon: arcDueSoonTotal,
     tasksOverdue: tasksOverdueTotal,
     tasksDueSoon: tasksDueSoonTotal,
+    recordsOverdue: recordsOverdueTotal,
+    recordsDueSoon: recordsDueSoonTotal,
     emailed,
     failed,
   }

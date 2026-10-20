@@ -21,6 +21,7 @@ import * as recordSearch from '../app/api/search/route'
 import * as billScan from '../app/api/accounting/bill-scan/route'
 import * as billScanActions from './bill-scan/actions'
 import * as coiRequest from './vendor-coi-request/actions'
+import * as recordsRequests from './records-requests/actions'
 import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
 import * as activityExport from '../app/api/settings/activity/export/route'
@@ -118,6 +119,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['scanAttachmentAsBill (BL-059: runs W36 on an inbox attachment and files a proposal with the service role)', () => attachmentBill.scanAttachmentAsBill(ID), DENIED],
     ['sendCoiRequest (BL-083: emails a vendor)', () => coiRequest.sendCoiRequest({ vendorId: ID, subject: 's', body: 'b' }), DENIED],
     ['loadCoiRequestDraft (BL-083)', () => coiRequest.loadCoiRequestDraft(ID), { ok: false, reason: 'not_found' }],
+    ['markRecordsRequestFulfilled (BL-123: closes an owner records request)', () => recordsRequests.markRecordsRequestFulfilled({ ticketId: ID }), DENIED],
   ]
 
   for (const [name, call, expected] of returning) {
