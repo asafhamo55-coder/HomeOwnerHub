@@ -626,3 +626,11 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **CI shots:** the seed now covers the annual-meeting quorum kit, opened books, insurance, records requests, a hearing and a snoozed thread, plus a Georgia demo association (Peach Demo Commons HOA: GA dashboard, statement of amounts due, violation). The run is green.
 - **Merge note:** BL-139 and BL-140 conflicted in daily-digest.ts (12 hunks). Claude aborted the merge and had the BL-139 agent rebase and keep both, rather than resolving by hand.
 - **In flight:** BL-137 dues-rate schedule plus migration 0069 (M5; runbook section L for the owner), GA statutes in CI plus BL-142 insurance comparison.
+
+## 2026-10-21 (15:00 → 17:30) — insurance, dues rates, M5 batch
+
+- **Gated and pushed 7479122a:** BL-142 insurance renewal comparison, fidelity bond vs funds held, the owner insurance summary (/resident/insurance), and GA statutes in CI shots (ga-legal). Deploy queued behind CI.
+- **Merged BL-137:** dues-rate schedule (/dues/rates), billing pre-fill, budget-kit link, owner notice draft. GA has no statutory notice, cap or vote in Art. 6; the page cites only quoted fixtures. Migration 0069 part 1, behind M5_APPLIED (false). Local gates green: 640 files, 8600 tests; build 4/4; guide 0 errors.
+- **Owner asks:** emailed the owner-actions list on demand (20 open). The owner also asked for a backlog email: an agent is building a backlog-email workflow and script, modelled on owner-actions.
+- **Dispatched:** BL-143 accept-to-join (0069 part 3), BL-145 /compliance with evidence (0069 part 4, GA first), BL-144 bank CSV/OFX import (no migration), BL-146 composer polish (Spanish editor, untick homes, Vonage DLR webhook).
+- **Plan:** hand the owner runbook Section L once the M5 parts are merged (one OA, one paste).
