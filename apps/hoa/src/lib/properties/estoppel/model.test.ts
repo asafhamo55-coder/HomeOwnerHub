@@ -18,7 +18,7 @@ import {
   type EstoppelInput,
   type EstoppelRequest,
 } from './model'
-import { auditFigures } from './model'
+import { auditFigures, violationDisclosure } from './model'
 
 const UNIT = '11111111-1111-4111-8111-111111111111'
 
@@ -498,5 +498,52 @@ describe('request and audit', () => {
     })
     const text = JSON.stringify(a)
     expect(text).not.toMatch(/Owner A|Oak|Trash/)
+  })
+})
+
+describe('violationDisclosure — only what each statute asks', () => {
+  const violations = [
+    { id: 'v-noticed', description: 'Trash cans visible', status: 'notice_sent', noticeSentAt: '2026-10-01T12:00:00Z', resolvedAt: null },
+    { id: 'v-fined', description: 'Mailbox leaning', status: 'fined', noticeSentAt: null, resolvedAt: null },
+    { id: 'v-quiet', description: 'Lawn not mowed', status: 'open', noticeSentAt: null, resolvedAt: null },
+  ]
+  const figuresFor = (state: string) => buildCertificate(fixture({ state, violations }), req()).figures
+  const ids = (vs: { id: string }[]) => vs.map((v) => v.id)
+
+  it('FL item 7 counts only violations noticed to the owner; the rest go to the board, not the certificate', () => {
+    const d = violationDisclosure('FL', figuresFor('FL'))
+    expect(d.label).toMatch(/noticed to the parcel owner in the association official records/)
+    expect(ids(d.listed)).toEqual(['v-noticed', 'v-fined'])
+    expect(ids(d.boardCheck)).toEqual(['v-quiet'])
+    expect(d.boardCheckLabel).toMatch(/not yet noticed/i)
+    expect(d.boardCheckHint).toMatch(/720\.30851\(1\)\(h\)/)
+  })
+
+  it('FL with only an un-noticed open violation answers No', () => {
+    const d = violationDisclosure('FL', buildCertificate(fixture({ violations: [violations[2]!] }), req()).figures)
+    expect(d.listed).toEqual([])
+    expect(ids(d.boardCheck)).toEqual(['v-quiet'])
+  })
+
+  it('CA § 4525(a)(5) summarises notices sent, same split', () => {
+    const d = violationDisclosure('CA', figuresFor('CA'))
+    expect(d.label).toMatch(/4525\(a\)\(5\)/)
+    expect(ids(d.listed)).toEqual(['v-noticed', 'v-fined'])
+    expect(ids(d.boardCheck)).toEqual(['v-quiet'])
+  })
+
+  it('TX § 207.003(b)(11) is actual knowledge, not notice: every open violation is listed', () => {
+    const d = violationDisclosure('TX', figuresFor('TX'))
+    expect(ids(d.listed)).toEqual(['v-noticed', 'v-fined', 'v-quiet'])
+    expect(d.boardCheck).toEqual([])
+  })
+
+  it('GA and generic list every open violation on record', () => {
+    for (const s of ['GA', 'NY']) {
+      const d = violationDisclosure(jurisdictionOf(s), figuresFor(s))
+      expect(d.label).toBe('Open violations')
+      expect(ids(d.listed)).toEqual(['v-noticed', 'v-fined', 'v-quiet'])
+      expect(d.boardCheck).toEqual([])
+    }
   })
 })

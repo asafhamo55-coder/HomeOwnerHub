@@ -10,6 +10,7 @@ import { PlanPicker } from './PlanPicker'
 import { PlanPickerV2 } from './PlanPickerV2'
 import { PlanTotals, PlanTotalsV2, billingPriceCopy, billingPriceCopyV2 } from './price-display'
 import { SmsAllowanceCard } from './SmsAllowanceCard'
+import { BillingUnavailable, logBillingUnavailable } from './BillingUnavailable'
 import { readSmsAllowance } from '@/lib/sms-allowance'
 import { logRouteFailure } from '@/lib/api/log'
 
@@ -51,6 +52,7 @@ export default async function BillingPage() {
   const homes = homesRes?.count ?? 0
   const stripeCustomerId = (orgRow?.stripe_customer_id as string | null) ?? null
   const stripeReady = isStripeConfigured()
+  if (!stripeReady) logBillingUnavailable(org.id, v2)
   const isFree = plan === 'free' || plan === ''
   const legacy = isLegacyPlan(plan)
   const planLabel = v2 && isHoaPlanId(plan) ? `${PLAN_LABEL[plan]} plan` : `${humanize(plan)} plan`
@@ -66,23 +68,7 @@ export default async function BillingPage() {
 
   return (
     <Page title="Billing" description={description}>
-      {!stripeReady ? (
-        <Alert variant="warning" title="Stripe isn’t configured">
-          {v2 ? (
-            <>
-              Set <code className="rounded bg-subtle px-1 text-xs">STRIPE_SECRET_KEY</code> and create the plan prices (see the
-              pricing rollout spec). Until then checkout will fail.
-            </>
-          ) : (
-            <>
-              Set <code className="rounded bg-subtle px-1 text-xs">STRIPE_SECRET_KEY</code> and the per-door price IDs (
-              <code className="rounded bg-subtle px-1 text-xs">STRIPE_PRICE_PER_DOOR_MONTHLY</code>,{' '}
-              <code className="rounded bg-subtle px-1 text-xs">STRIPE_PRICE_PER_DOOR_ANNUAL</code>) in the environment. Until then
-              checkout will fail.
-            </>
-          )}
-        </Alert>
-      ) : null}
+      {!stripeReady ? <BillingUnavailable /> : null}
 
       <Card>
         <CardHeader actions={<StatusPill tone={isFree ? 'neutral' : 'success'} label={isFree ? 'Free plan' : planLabel} />}>

@@ -30,7 +30,7 @@ Your plan shows as current. An admin can then select [[Manage subscription]] to 
 
 ## If something goes wrong
 - **Couldn’t start checkout**: checkout didn't open, and you weren't charged. Try again. If it keeps happening, contact support.
-- "Stripe isn’t configured": billing isn't set up yet on this server, so checkout will fail. Contact support.
+- "Billing isn’t available right now": checkout is paused on our side, so you can’t start or change a subscription. Your current plan isn’t affected. Try again later, or contact support.
 - **Doors on file** is wrong: contact support. You can't change it on this page.
 
 ## Good to know

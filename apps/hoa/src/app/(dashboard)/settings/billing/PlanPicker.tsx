@@ -26,14 +26,17 @@ const FEATURE_BULLETS = [
 export function PlanPicker({
   currentPlan,
   doors,
-  initialCadence = 'annual',
+  initialCadence,
 }: {
   currentPlan: string
   doors: number
   initialCadence?: Cadence
 }) {
   const [state, action, pending] = useActionState(startHoaCheckout, initial)
-  const [cadence, setCadence] = useState<Cadence>(initialCadence)
+  // orgs.plan is the subscribed cadence ('monthly' / 'annual'): open on it,
+  // so "Current" sits on the plan the page's header pill names.
+  const subscribedCadence: Cadence | null = currentPlan === 'monthly' || currentPlan === 'annual' ? currentPlan : null
+  const [cadence, setCadence] = useState<Cadence>(initialCadence ?? subscribedCadence ?? 'annual')
   const copy = billingPriceCopy()
 
   const summary = billingSummary(doors)
@@ -44,7 +47,10 @@ export function PlanPicker({
       ? `Billed once a year — saves ${formatUsd(summary.annualSavingsUsd, { withCents: true })} vs paying monthly.`
       : `Billed every month.`
 
-  const isCurrent = currentPlan !== 'free' && currentPlan !== ''
+  const subscribed = currentPlan !== 'free' && currentPlan !== ''
+  // A subscribed plan whose cadence isn't recorded (legacy_per_door) is
+  // current on either tab; otherwise only on its own cadence.
+  const isCurrent = subscribed && (subscribedCadence === null || subscribedCadence === cadence)
 
   return (
     <div className="space-y-4">
@@ -119,8 +125,12 @@ export function PlanPicker({
           <form action={action}>
             <input type="hidden" name="plan" value={cadence === 'annual' ? 'annual' : 'monthly'} />
             <input type="hidden" name="doors" value={String(summary.billableDoors)} />
-            <Button type="submit" size="lg" className="w-full" loading={pending} disabled={isCurrent}>
-              {isCurrent ? 'Current plan' : `Subscribe ${cadence === 'annual' ? 'annually' : 'monthly'} · ${formatUsd(activePrice, { withCents: true })}`}
+            <Button type="submit" size="lg" className="w-full" loading={pending} disabled={subscribed}>
+              {isCurrent
+                ? 'Current plan'
+                : subscribed
+                  ? `Your plan is billed ${subscribedCadence === 'annual' ? 'annually' : 'monthly'}`
+                  : `Subscribe ${cadence === 'annual' ? 'annually' : 'monthly'} · ${formatUsd(activePrice, { withCents: true })}`}
             </Button>
           </form>
         </CardContent>

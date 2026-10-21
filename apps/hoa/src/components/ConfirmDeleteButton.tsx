@@ -27,6 +27,11 @@ export interface ConfirmDeleteButtonProps {
   onAfterDelete?: () => void
   /** Visible label; omit for an icon-only button (then `aria-label` is used). */
   label?: string
+  /**
+   * Classes for the visible label, e.g. 'sr-only sm:not-sr-only' to show
+   * only the icon on a phone; the label stays the accessible name.
+   */
+  labelClassName?: string
   size?: ButtonProps['size']
   variant?: ButtonProps['variant']
   disabled?: boolean
@@ -41,6 +46,7 @@ export function ConfirmDeleteButton({
   successMessage = 'Deleted.',
   onAfterDelete,
   label,
+  labelClassName,
   size = 'sm',
   variant = 'secondary',
   disabled,
@@ -73,7 +79,7 @@ export function ConfirmDeleteButton({
           disabled={disabled}
           className={className}
         >
-          {label}
+          {label && labelClassName ? <span className={labelClassName}>{label}</span> : label}
         </Button>
       }
     />
