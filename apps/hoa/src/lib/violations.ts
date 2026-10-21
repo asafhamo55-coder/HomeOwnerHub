@@ -27,21 +27,46 @@ import {
   type DriftCode,
   type OverrideReason,
 } from '@/lib/compliance/statute-drift'
-import { loadBoardHearing } from '@/lib/violation-hearings/queries'
+import { createAdminClient } from '@homeowner-portal/db'
+import { loadBoardHearing, loadBoardRosterNames } from '@/lib/violation-hearings/queries'
 import { hearingFineFacts } from '@/lib/violation-hearings/rules'
-import type { FineHearingFacts } from '@/lib/compliance/statute-drift'
+import { normaliseState, type FineHearingFacts } from '@/lib/compliance/statute-drift'
 
 /**
  * BL-133 (M4_APPLIED): the violation's hearing for the fine check.
  * undefined while hearings are off (the check reads as before 0068);
  * throws on a failed read so the caller refuses instead of skipping it.
+ *
+ * BL-140: in Florida, a panel with members marked as owners is checked
+ * against the board roster (org_members board/admin, read with the service
+ * role — the caller has already passed the board/admin gate for orgId).
+ * A failed roster read throws too: never "no conflicts".
  */
-async function hearingForFineCheck(db: unknown, orgId: string, violationId: string): Promise<FineHearingFacts | null | undefined> {
+async function hearingForFineCheck(
+  db: unknown,
+  orgId: string,
+  violationId: string,
+  state: string | null,
+): Promise<FineHearingFacts | null | undefined> {
   const res = await loadBoardHearing(db as never, orgId, violationId)
   if (res.kind === 'off') return undefined
   if (res.kind === 'failed') throw new Error('hearing read failed')
-  return hearingFineFacts(res.hearing)
+  const h = res.hearing
+  if (h && normaliseState(state) === 'FL' && h.panel.some((p) => p.role === 'member')) {
+    const roster = await loadBoardRosterNames(createAdminClient() as never, orgId)
+    if (roster.kind === 'failed') throw new Error('roster read failed')
+    return hearingFineFacts(h, roster.names)
+  }
+  return hearingFineFacts(h)
 }
+
+/** BL-140: the hearing-gate findings (not the amount caps). */
+const HEARING_GATE_CODES: ReadonlySet<DriftCode> = new Set<DriftCode>([
+  'fl_hearing_committee',
+  'fl_hearing_no_fine',
+  'ca_hearing_not_recorded',
+  'ca_hearing_no_fine',
+])
 
 const STORAGE_BUCKET = 'hoa-photos'
 
@@ -363,7 +388,7 @@ export async function updateViolation(
     try {
       const { data: current, error: curErr } = await supabase
         .from('hoa_violations')
-        .select('status')
+        .select('status, fine_amount')
         .eq('id', parsed.data.violationId)
         .eq('org_id', gate.orgId)
         .maybeSingle()
@@ -373,9 +398,14 @@ export async function updateViolation(
         const law = checkFine({
           state: rules.state,
           dailyFineCents: fineCents(parsed.data.fine_amount),
-          hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId),
+          hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId, rules.state),
         })
-        const block = law.findings.find((f) => f.severity === 'block')
+        // BL-140: lowering (or keeping) a fine already levied never makes the
+        // hearing record worse, so only a raise is held to the hearing gate.
+        const before = fineCents(current.fine_amount as number | string | null)
+        const after = fineCents(parsed.data.fine_amount)
+        const raising = before === null || after === null || after > before
+        const block = law.findings.find((f) => f.severity === 'block' && (raising || !HEARING_GATE_CODES.has(f.code)))
         if (block) {
           const msg = `${block.message} (${block.citations[0]?.cite ?? 'state law'}). This violation is already fined: move it back to Notice sent, change the fine, then move it to Fined to record the board’s reason.`
           return { ok: false, error: 'Some fields need attention.', fieldErrors: { fineAmount: msg } }
@@ -468,7 +498,7 @@ export async function updateViolationStatus(
         law = checkFine({
           state: rules.state,
           dailyFineCents: fineCents(current.fine_amount),
-          hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId),
+          hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId, rules.state),
         })
       }
     } catch {

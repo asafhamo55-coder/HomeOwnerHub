@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseFloridaChapter } from '@homeowner-portal/workflows/state-law-florida'
-import { checkFine, type DriftCitation } from '../compliance/statute-drift'
+import { FL_305_COMMITTEE, FL_RELATIVES_NOT_CHECKED, NOT_LOADED, checkFine, type DriftCitation } from '../compliance/statute-drift'
 import {
   ALL_HEARING_CITATIONS,
   CA_5855_CONTENTS,
@@ -18,8 +18,12 @@ import {
   FL_305_PAY_DATE,
   addDays,
   buildHearingNoticeDraft,
+  hearingDigestCounts,
+  hearingDigestLines,
   hearingFineFacts,
   hearingFromRow,
+  normalisePersonName,
+  panelRosterConflicts,
   hearingShapeErrors,
   hearingSteps,
   parsePanel,
@@ -224,16 +228,55 @@ describe('checkFine with the hearing (BL-130 × BL-133)', () => {
     expect(before.findings.find((f) => f.code === 'fl_hearing_committee')!.message).toContain('no hearing record yet')
   })
 
-  it('null (none recorded) keeps the warning', () => {
-    expect(codes('FL', null)).toContain('fl_hearing_committee:warn')
-    expect(codes('CA', null)).toContain('ca_hearing_not_recorded:warn')
+  it('BL-140: null (hearings on, none recorded) blocks in FL and CA, attorney-advised override only', () => {
+    expect(codes('FL', null)).toContain('fl_hearing_committee:block')
+    expect(codes('CA', null)).toContain('ca_hearing_not_recorded:block')
+    for (const [state, code] of [['FL', 'fl_hearing_committee'], ['CA', 'ca_hearing_not_recorded']] as const) {
+      const f = checkFine({ state, dailyFineCents: 5_000, hearing: null }).findings.find((x) => x.code === code)!
+      expect(f.overrideReasons).toEqual(['attorney_advised'])
+    }
   })
 
-  it('FL: a held, approved hearing with 14 days’ notice and three non-directors resolves the committee warning', () => {
-    expect(codes('FL', hearingFineFacts(heldFl))).not.toContain('fl_hearing_committee:warn')
+  it('BL-140: other states are not gated by a missing hearing', () => {
+    expect(codes('TX', null).some((c) => c.endsWith(':block'))).toBe(false)
+    expect(codes('GA', null).some((c) => c.endsWith(':block'))).toBe(false)
   })
 
-  it('FL: a hearing that falls short keeps the warning and says what is missing', () => {
+  it('FL: a held, approved hearing with 14 days’ notice and three non-directors clears the gate', () => {
+    expect(codes('FL', hearingFineFacts(heldFl)).filter((c) => c.startsWith('fl_hearing'))).toEqual([])
+  })
+
+  it('BL-140 FL: each missing statutory step blocks on its own', () => {
+    const gate = (h: HearingRecord) =>
+      checkFine({ state: 'FL', dailyFineCents: 5_000, hearing: hearingFineFacts(h) }).findings.find((x) => x.code === 'fl_hearing_committee')
+    // notice: unrecorded, and under 14 days
+    expect(gate({ ...heldFl, noticeSentOn: null })!.severity).toBe('block')
+    expect(gate({ ...heldFl, noticeSentOn: '2026-11-10' })!.message).toContain('at least 14 days’ notice (10 recorded)')
+    // held more than 90 days after the notice
+    expect(gate({ ...heldFl, noticeSentOn: '2026-08-01' })!.message).toContain('within 90 days of the notice (111 recorded)')
+    // panel: a director on it, or fewer than three
+    expect(gate({ ...heldFl, panel: [...committee, { name: 'D', role: 'board' }] })!.severity).toBe('block')
+    expect(gate({ ...heldFl, panel: committee.slice(0, 2) })!.message).toContain('(2 recorded)')
+    // outcome not recorded
+    expect(gate({ ...heldFl, status: 'scheduled', outcome: null, decidedOn: null, findingsSentOn: null, paymentDueOn: null })!.message).toContain(
+      'the hearing held, with the committee’s vote',
+    )
+  })
+
+  it('BL-140 FL: a panel member marked as an owner who is on the board roster blocks; no roster = not checked', () => {
+    const roster = ['Ann Board', 'Zed Admin']
+    const conflicted = { ...heldFl, panel: [{ name: 'board, ann', role: 'member' as const }, ...committee] }
+    const facts = hearingFineFacts(conflicted, roster)!
+    expect(facts.rosterConflicts).toBe(1)
+    const f = checkFine({ state: 'FL', dailyFineCents: 5_000, hearing: facts }).findings.find((x) => x.code === 'fl_hearing_committee')!
+    expect(f.severity).toBe('block')
+    expect(f.message).toContain('1 panel member marked as owner matches a board member or admin by name')
+    expect(f.citations[0]).toBe(FL_305_COMMITTEE)
+    expect(hearingFineFacts(conflicted)!.rosterConflicts).toBeUndefined()
+    expect(hearingFineFacts(heldFl, roster)!.rosterConflicts).toBe(0)
+  })
+
+  it('FL: a hearing that falls short blocks and says what is missing', () => {
     const facts = hearingFineFacts({ ...heldFl, panel: [...committee.slice(0, 2), { name: 'D', role: 'board' }] })
     const f = checkFine({ state: 'FL', dailyFineCents: 5_000, hearing: facts }).findings.find((x) => x.code === 'fl_hearing_committee')!
     expect(f.message).toContain('no officers, directors or employees')
@@ -250,8 +293,10 @@ describe('checkFine with the hearing (BL-130 × BL-133)', () => {
 
   it('CA: a held hearing with 10 days’ notice resolves § 5855(g); a dismissal blocks', () => {
     const heldCa = { ...heldFl, panel: [], noticeSentOn: '2026-11-08' }
-    expect(codes('CA', hearingFineFacts(heldCa))).not.toContain('ca_hearing_not_recorded:warn')
-    expect(codes('CA', hearingFineFacts({ ...heldCa, noticeSentOn: '2026-11-15' }))).toContain('ca_hearing_not_recorded:warn')
+    expect(codes('CA', hearingFineFacts(heldCa)).filter((c) => c.startsWith('ca_hearing'))).toEqual([])
+    expect(codes('CA', hearingFineFacts({ ...heldCa, noticeSentOn: '2026-11-15' }))).toContain('ca_hearing_not_recorded:block')
+    expect(codes('CA', hearingFineFacts({ ...heldCa, noticeSentOn: null }))).toContain('ca_hearing_not_recorded:block')
+    expect(codes('CA', hearingFineFacts({ ...heldCa, status: 'scheduled', outcome: null }))).toContain('ca_hearing_not_recorded:block')
     expect(codes('CA', hearingFineFacts({ ...heldCa, outcome: 'dismissed' }))).toContain('ca_hearing_no_fine:block')
   })
 
@@ -297,5 +342,110 @@ describe('buildHearingNoticeDraft', () => {
     expect(d.bodyHtml).toContain('[hearing date] at [time]')
     expect(d.bodyHtml).toContain('[place]')
     expect(d.bodyHtml).not.toContain('720.305')
+  })
+})
+
+// ─── BL-140: the panel against the board roster ──────────────────────
+
+describe('panel vs board roster (BL-140, § 720.305(2)(b))', () => {
+  it('names compare by words, ignoring case, punctuation, accents and order', () => {
+    expect(normalisePersonName('Smith, Jane')).toBe(normalisePersonName('  jane   SMITH '))
+    expect(normalisePersonName('José Ruiz')).toBe(normalisePersonName('jose ruiz'))
+    expect(normalisePersonName('...')).toBe('')
+  })
+
+  it('only members marked as owners are matched; an empty roster finds nothing', () => {
+    const panel = [{ name: 'Jane Smith', role: 'member' as const }, { name: 'Bob Lee', role: 'board' as const }, { name: 'Ann', role: 'member' as const }]
+    expect(panelRosterConflicts(panel, ['smith jane', 'Bob Lee'])).toEqual([{ name: 'Jane Smith', role: 'member' }])
+    expect(panelRosterConflicts(panel, [])).toEqual([])
+    expect(panelRosterConflicts(panel, ['', '  '])).toEqual([])
+  })
+
+  it('the FL checklist flags a roster match as a problem and names the panel member', () => {
+    const h: HearingRecord = { ...heldFl, panel: [...committee, { name: 'Jane Smith', role: 'member' }] }
+    const step = hearingSteps('FL', h, '2026-12-01', ['Jane Smith']).steps.find((s) => s.code === 'committee')!
+    expect(step.state).toBe('problem')
+    expect(step.detail).toContain('Jane Smith is marked as an owner but matches a board member or admin')
+    expect(step.citations).toEqual([FL_305_COMMITTEE])
+  })
+
+  it('a clean roster check says family ties are not checked; no roster says it was not checked', () => {
+    expect(hearingSteps('FL', heldFl, '2026-12-01', ['Someone Else']).steps.find((s) => s.code === 'committee')!.detail).toContain('can’t check family ties')
+    expect(hearingSteps('FL', heldFl, '2026-12-01').steps.find((s) => s.code === 'committee')!.detail).toContain('Not checked against the board roster')
+  })
+
+  it('relatives are listed as not checked for Florida fines, quoting the statute’s list', () => {
+    expect(NOT_LOADED.FL!.fine).toContain(FL_RELATIVES_NOT_CHECKED)
+    expect(FL_305_COMMITTEE.quote).toContain('or the spouse, parent, child, brother, or sister of an officer, director, or employee')
+  })
+})
+
+// ─── BL-140: digest timers ───────────────────────────────────────────
+
+describe('hearingDigestCounts (BL-140)', () => {
+  const today = '2026-11-10'
+
+  it('a request waiting more than 7 days counts in every state; 7 days or fewer does not', () => {
+    const req = (requestedAt: string): HearingRecord => ({ ...base, status: 'requested', hearingOn: null, requestedAt })
+    for (const st of ['FL', 'CA', 'TX', null]) {
+      expect(hearingDigestCounts(st, [req('2026-11-02T15:00:00Z'), req('2026-11-03T15:00:00Z')], today).requestsWaiting).toBe(1)
+    }
+  })
+
+  it('FL notice: due within 3 days, or already late while the hearing is still ahead', () => {
+    // hearing 11-20: FL notice by 11-06 (late on 11-10); hearing 11-26: by 11-12 (due soon)
+    const counts = hearingDigestCounts('FL', [base, { ...base, hearingOn: '2026-11-26' }, { ...base, hearingOn: '2026-12-30' }], today)
+    expect(counts).toMatchObject({ noticeLate: 1, noticeDueSoon: 1 })
+    // notice sent: nothing
+    expect(hearingDigestCounts('FL', [{ ...base, noticeSentOn: '2026-11-01' }], today).noticeLate).toBe(0)
+    // a hearing date already past is not a notice to send
+    expect(hearingDigestCounts('FL', [{ ...base, hearingOn: '2026-11-01' }], today).noticeLate).toBe(0)
+  })
+
+  it('CA notice is 10 days', () => {
+    // hearing 11-20: CA notice by 11-10 → due soon (today), not late
+    expect(hearingDigestCounts('CA', [base], today)).toMatchObject({ noticeLate: 0, noticeDueSoon: 1 })
+  })
+
+  it('FL findings within 7 days of the hearing; CA written decision within 14 days, only when a fine passed', () => {
+    const held = (hearingOn: string, outcome: HearingRecord['outcome'] = 'upheld'): HearingRecord => ({
+      ...heldFl,
+      hearingOn,
+      noticeSentOn: null,
+      decidedOn: hearingOn,
+      outcome,
+      findingsSentOn: null,
+      paymentDueOn: null,
+    })
+    // FL: 11-01 + 7 = 11-08 (late); 11-05 + 7 = 11-12 (due soon); 11-01 dismissed still needs findings
+    expect(hearingDigestCounts('FL', [held('2026-11-01'), held('2026-11-05'), held('2026-11-01', 'dismissed')], today)).toMatchObject({
+      findingsLate: 2,
+      findingsDueSoon: 1,
+    })
+    // CA: 10-20 + 14 = 11-03 (late); dismissed needs no written decision
+    expect(hearingDigestCounts('CA', [held('2026-10-20'), held('2026-10-20', 'dismissed')], today)).toMatchObject({ findingsLate: 1, findingsDueSoon: 0 })
+    // findings recorded: nothing
+    expect(hearingDigestCounts('FL', [{ ...held('2026-11-01'), findingsSentOn: '2026-11-05' }], today).findingsLate).toBe(0)
+  })
+
+  it('states with no loaded text count only requests; cancelled never counts', () => {
+    expect(hearingDigestCounts('TX', [base, { ...heldFl, findingsSentOn: null, hearingOn: '2026-10-01' }], today)).toEqual({
+      requestsWaiting: 0,
+      noticeLate: 0,
+      noticeDueSoon: 0,
+      findingsLate: 0,
+      findingsDueSoon: 0,
+    })
+    expect(hearingDigestCounts('FL', [{ ...base, status: 'cancelled' }], today).noticeLate).toBe(0)
+  })
+
+  it('lines are counts only', () => {
+    const lines = hearingDigestLines({ requestsWaiting: 2, noticeLate: 1, noticeDueSoon: 0, findingsLate: 1, findingsDueSoon: 3 })
+    expect(lines).toEqual([
+      '2 owner hearing requests waiting more than 7 days to be scheduled',
+      '1 hearing notice not sent in time for the scheduled hearing; move the hearing date',
+      '1 hearing decision not recorded as sent within the statutory window',
+      '3 hearing decisions to send within 3 days',
+    ])
   })
 })

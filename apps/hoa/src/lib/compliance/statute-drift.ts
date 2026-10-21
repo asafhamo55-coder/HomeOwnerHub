@@ -13,8 +13,13 @@
  *           record. It goes ahead only with an explicit board override
  *           reason per finding (a code from OVERRIDE_REASONS), which the
  *           caller records in audit_log (ids and codes only).
- *   warn  — a requirement the app cannot see in its records (a hearing,
- *           a mailing method). Shown, never blocking.
+ *   warn  — a requirement the app cannot see in its records (a mailing
+ *           method, a cure). Shown, never blocking.
+ *
+ * BL-140: in FL and CA a fine hearing the record does not show (no record,
+ * too little notice, a panel that doesn't qualify, no outcome) is a block,
+ * not a warning, once hearings are on (M4_APPLIED). Its only override is
+ * "attorney advised", audited like every other.
  *
  * Sources:
  *   CA — ca-civ-davis-stirling-2026.txt: Civ. Code §§ 5850 and 5855 as
@@ -272,14 +277,26 @@ export const CHECK_WITH_ATTORNEY =
 
 export const NOT_LEGAL_ADVICE = 'General information from the statute text, not legal advice.'
 
+/**
+ * BL-140: § 720.305(2)(b) bars "the spouse, parent, child, brother, or
+ * sister of an officer, director, or employee" from the committee. The app
+ * has no record of family ties, so the roster check is board membership
+ * only, and it says so.
+ */
+export const FL_RELATIVES_NOT_CHECKED =
+  'Whether a committee member is the spouse, parent, child, brother or sister of an officer, director or employee (§ 720.305(2)(b)): HomeownerHub checks the panel against the board roster by name only. It has no record of family ties, or of officers and employees who don’t have a board or admin login.'
+
 /** What BL-130 does not check, by state, because the text is not loaded or the record does not exist yet. */
 export const NOT_LOADED: Record<string, { fine: string[]; letter: string[] }> = {
   CA: {
-    fine: ['Whether the owner cured before the hearing (§ 5855(c)(1)): the app has no hearing record yet.'],
+    fine: ['Whether the owner cured before the hearing (§ 5855(c)): the hearing record does not say whether the violation was cured.'],
     letter: [],
   },
   FL: {
-    fine: ['Whether the violation was cured before the hearing (§ 720.305(2)(e)): the app has no hearing record yet.'],
+    fine: [
+      'Whether the violation was cured before the hearing (§ 720.305(2)(e)): the hearing record does not say whether the violation was cured.',
+      FL_RELATIVES_NOT_CHECKED,
+    ],
     letter: [],
   },
   TX: {
@@ -353,6 +370,11 @@ export interface FineHearingFacts {
   boardOnPanel: number
   /** Whole days from the notice to the hearing; null when either is unrecorded. */
   noticeDays: number | null
+  /**
+   * BL-140: panel members marked as owners whose name matches someone on
+   * the board roster (org_members board/admin). undefined = not checked.
+   */
+  rosterConflicts?: number
 }
 
 export interface FineCheckInput {
@@ -371,7 +393,12 @@ function flHearingGaps(h: FineHearingFacts): string[] {
   const gaps: string[] = []
   if (h.noticeDays === null) gaps.push('the day the notice was sent and the hearing date')
   else if (h.noticeDays < 14) gaps.push(`at least 14 days’ notice (${h.noticeDays} recorded)`)
+  else if (h.noticeDays > 90) gaps.push(`the hearing within 90 days of the notice (${h.noticeDays} recorded)`)
   if (h.boardOnPanel > 0) gaps.push('a committee with no officers, directors or employees on it')
+  if ((h.rosterConflicts ?? 0) > 0) {
+    const n = h.rosterConflicts!
+    gaps.push(`a committee with no one from the board roster (${n} panel member${n === 1 ? '' : 's'} marked as owner${n === 1 ? '' : 's'} match${n === 1 ? 'es' : ''} a board member or admin by name)`)
+  }
   if (h.committeeMembers < 3) gaps.push(`at least three committee members (${h.committeeMembers} recorded)`)
   if (!h.held) gaps.push('the hearing held, with the committee’s vote')
   return gaps
@@ -432,21 +459,23 @@ export function checkFine(input: FineCheckInput): DriftCheck {
         ),
       )
     } else if (!h) {
+      // null: hearings are on and none is recorded — a block (BL-140).
+      // undefined: hearings are off — the pre-0068 warning, unchanged.
       findings.push(
         finding(
           'ca_hearing_not_recorded',
-          'warn',
+          h === null ? 'block' : 'warn',
           'HomeownerHub has no record of the § 5855 hearing (10 days’ written notice, the meeting, and the written decision within 14 days). The fine is not effective unless the board followed it.',
           [CA_5855_EFFECTIVE],
         ),
       )
-    } else {
+    } else if (h) {
       const gaps = caHearingGaps(h)
       if (gaps.length > 0) {
         findings.push(
           finding(
             'ca_hearing_not_recorded',
-            'warn',
+            'block',
             `The hearing on record doesn’t yet show ${listGaps(gaps)}. The fine is not effective unless the board followed § 5855, including the written decision within 14 days.`,
             [CA_5855_EFFECTIVE],
           ),
@@ -487,21 +516,23 @@ export function checkFine(input: FineCheckInput): DriftCheck {
         ),
       )
     } else if (!h) {
+      // null: hearings are on and none is recorded — a block (BL-140).
+      // undefined: hearings are off — the pre-0068 warning, unchanged.
       findings.push(
         finding(
           'fl_hearing_committee',
-          'warn',
+          h === null ? 'block' : 'warn',
           'HomeownerHub has no hearing record yet. A fine may not be imposed unless the owner got at least 14 days’ written notice of a hearing and a committee of at least three members who are not officers, directors or employees (or their relatives) approved it by majority vote.',
           [FL_305_COMMITTEE, FL_305_VOTE],
         ),
       )
-    } else {
+    } else if (h) {
       const gaps = flHearingGaps(h)
       if (gaps.length > 0) {
         findings.push(
           finding(
             'fl_hearing_committee',
-            'warn',
+            'block',
             `The hearing on record doesn’t yet show ${listGaps(gaps)}. A fine may not be imposed unless the owner got at least 14 days’ written notice and a committee of at least three members who are not officers, directors or employees (or their relatives) approved it by majority vote.`,
             [FL_305_COMMITTEE, FL_305_VOTE],
           ),

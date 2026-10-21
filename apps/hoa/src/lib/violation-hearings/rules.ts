@@ -31,6 +31,7 @@
 
 import {
   CA_5855_EFFECTIVE,
+  FL_RELATIVES_NOT_CHECKED,
   FL_305_COMMITTEE,
   FL_305_VOTE,
   daysBetween,
@@ -265,6 +266,36 @@ export const CA_DECISION_DAYS = 14
 export const CHECK_GOVERNING_DOCUMENTS =
   'HomeownerHub has no loaded statute text for fine hearings in your state. Check your governing documents for the notice, hearing and decision steps, and ask your association’s attorney.'
 
+// ─── BL-140: the panel against the board roster ──────────────────────
+
+/**
+ * A name for comparison: lower case, letters and digits only, words sorted,
+ * so "Smith, Jane" and "jane  smith" match. Empty when nothing is left.
+ */
+export function normalisePersonName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join(' ')
+}
+
+/**
+ * Panel members marked as owners ('member') whose name matches someone on
+ * the board roster (org_members board/admin, by profile name). FL §
+ * 720.305(2)(b) bars officers, directors and employees from the committee;
+ * a member marked 'board' is already counted by panelCounts().
+ */
+export function panelRosterConflicts(panel: readonly PanelMember[], rosterNames: readonly string[]): PanelMember[] {
+  const roster = new Set(rosterNames.map(normalisePersonName).filter(Boolean))
+  if (roster.size === 0) return []
+  return panel.filter((p) => p.role === 'member' && roster.has(normalisePersonName(p.name)))
+}
+
 // ─── the checklist ───────────────────────────────────────────────────
 
 export type StepState = 'done' | 'todo' | 'late' | 'problem'
@@ -373,13 +404,31 @@ function writtenDecisionStep(
 }
 
 /** The state's hearing checklist for the board's violation page. */
-export function hearingSteps(stateIn: string | null | undefined, h: HearingRecord, today: string): HearingChecklist {
+export function hearingSteps(
+  stateIn: string | null | undefined,
+  h: HearingRecord,
+  today: string,
+  /** BL-140: board/admin names from org_members; null/undefined = not checked. */
+  rosterNames?: readonly string[] | null,
+): HearingChecklist {
   const state = normaliseState(stateIn)
   if (state === 'FL') {
     const { members, board } = panelCounts(h.panel)
+    const conflicts = rosterNames ? panelRosterConflicts(h.panel, rosterNames) : []
+    const rosterNote = rosterNames
+      ? ' Checked against the board roster by name; HomeownerHub can’t check family ties.'
+      : ' Not checked against the board roster.'
     const committee: HearingStep =
-      members >= FL_COMMITTEE_MIN && board === 0
-        ? { code: 'committee', title: 'A committee of at least 3 non-directors', state: 'done', detail: `${members} committee members recorded, none on the board.`, citations: [FL_305_COMMITTEE] }
+      conflicts.length > 0
+        ? {
+            code: 'committee',
+            title: 'A committee of at least 3 non-directors',
+            state: 'problem',
+            detail: `${conflicts.map((c) => c.name).join(', ')} ${conflicts.length === 1 ? 'is' : 'are'} marked as an owner but ${conflicts.length === 1 ? 'matches' : 'match'} a board member or admin on your roster. The committee can’t include officers, directors or employees, or their spouse, parent, child, brother or sister.`,
+            citations: [FL_305_COMMITTEE],
+          }
+        : members >= FL_COMMITTEE_MIN && board === 0
+        ? { code: 'committee', title: 'A committee of at least 3 non-directors', state: 'done', detail: `${members} committee members recorded, none on the board.${rosterNote}`, citations: [FL_305_COMMITTEE] }
         : {
             code: 'committee',
             title: 'A committee of at least 3 non-directors',
@@ -452,16 +501,131 @@ export function openSteps(c: HearingChecklist): HearingStep[] {
 // ─── BL-130: what the fine check reads ───────────────────────────────
 
 /** The hearing as checkFine() sees it; null = no hearing record. */
-export function hearingFineFacts(h: HearingRecord | null): FineHearingFacts | null {
+export function hearingFineFacts(h: HearingRecord | null, rosterNames?: readonly string[] | null): FineHearingFacts | null {
   if (!h || h.status === 'cancelled') return null
   const { members, board } = panelCounts(h.panel)
-  return {
+  const facts: FineHearingFacts = {
     held: held(h),
     outcome: h.outcome,
     committeeMembers: members,
     boardOnPanel: board,
     noticeDays: h.noticeSentOn && h.hearingOn ? daysBetween(h.noticeSentOn, h.hearingOn) : null,
   }
+  if (rosterNames) facts.rosterConflicts = panelRosterConflicts(h.panel, rosterNames).length
+  return facts
+}
+
+/** Re-exported for the hearing card: what the roster check can't see. */
+export { FL_RELATIVES_NOT_CHECKED }
+
+// ─── BL-140: daily-digest timers ─────────────────────────────────────
+
+/**
+ * An owner's hearing request waiting this many days to be scheduled shows
+ * in the digest. Not a statutory period (neither § 720.305 nor § 5855 sets
+ * one for a request); the board's own reminder.
+ */
+export const HEARING_REQUEST_WAIT_DAYS = 7
+/** "Due soon" for a notice or written findings: within this many days. */
+export const HEARING_DUE_SOON_DAYS = 3
+
+export interface HearingDigestCounts {
+  /** Requests not scheduled after HEARING_REQUEST_WAIT_DAYS. */
+  requestsWaiting: number
+  /** Scheduled, notice not sent, and the statutory lead time has already passed. */
+  noticeLate: number
+  /** Scheduled, notice not sent, and the last day to send it is within HEARING_DUE_SOON_DAYS. */
+  noticeDueSoon: number
+  /** Held, written findings / decision not recorded, past the statutory window. */
+  findingsLate: number
+  /** Held, written findings / decision not recorded, due within HEARING_DUE_SOON_DAYS. */
+  findingsDueSoon: number
+}
+
+export const EMPTY_HEARING_COUNTS: HearingDigestCounts = {
+  requestsWaiting: 0,
+  noticeLate: 0,
+  noticeDueSoon: 0,
+  findingsLate: 0,
+  findingsDueSoon: 0,
+}
+
+/** The last day the written findings (FL) or decision (CA) can go out; null when none is required or not yet held. */
+export function findingsDueOn(stateIn: string | null | undefined, h: HearingRecord): string | null {
+  const state = normaliseState(stateIn)
+  if (!held(h) || !h.hearingOn) return null
+  if (state === 'FL') return addDays(h.hearingOn, FL_FINDINGS_DAYS)
+  if (state === 'CA') return finePassed(h) ? addDays(h.decidedOn ?? h.hearingOn, CA_DECISION_DAYS) : null
+  return null
+}
+
+/** The last day the hearing notice can go out; null when the state has no loaded rule or no date is set. */
+export function noticeDueOn(stateIn: string | null | undefined, h: HearingRecord): string | null {
+  const state = normaliseState(stateIn)
+  if (!h.hearingOn) return null
+  if (state === 'FL') return addDays(h.hearingOn, -FL_NOTICE_DAYS)
+  if (state === 'CA') return addDays(h.hearingOn, -CA_NOTICE_DAYS)
+  return null
+}
+
+/**
+ * The digest's hearing counts for one association state. Pure. Requests
+ * waiting count in every state; the notice and findings windows only where
+ * the statute text is loaded (FL, CA). Cancelled hearings never count.
+ */
+export function hearingDigestCounts(
+  stateIn: string | null | undefined,
+  hearings: readonly HearingRecord[],
+  today: string,
+): HearingDigestCounts {
+  const c = { ...EMPTY_HEARING_COUNTS }
+  const soon = addDays(today, HEARING_DUE_SOON_DAYS)
+  for (const h of hearings) {
+    if (h.status === 'requested') {
+      const asked = h.requestedAt ? h.requestedAt.slice(0, 10) : null
+      if (asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && addDays(asked, HEARING_REQUEST_WAIT_DAYS) < today) c.requestsWaiting += 1
+      continue
+    }
+    if (h.status === 'scheduled' && !h.noticeSentOn) {
+      const by = noticeDueOn(stateIn, h)
+      // A hearing date already past is the board's to move, not a notice to send.
+      if (by && h.hearingOn && h.hearingOn >= today) {
+        if (by < today) c.noticeLate += 1
+        else if (by <= soon) c.noticeDueSoon += 1
+      }
+      continue
+    }
+    if (h.status === 'held' && !h.findingsSentOn) {
+      const due = findingsDueOn(stateIn, h)
+      if (due) {
+        if (due < today) c.findingsLate += 1
+        else if (due <= soon) c.findingsDueSoon += 1
+      }
+    }
+  }
+  return c
+}
+
+export function hearingDigestTotal(c: HearingDigestCounts): number {
+  return c.requestsWaiting + c.noticeLate + c.noticeDueSoon + c.findingsLate + c.findingsDueSoon
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+/** The digest lines, counts only — never a name, an address or a violation. */
+export function hearingDigestLines(c: HearingDigestCounts): string[] {
+  const lines: string[] = []
+  if (c.requestsWaiting > 0)
+    lines.push(`${plural(c.requestsWaiting, 'owner hearing request', 'owner hearing requests')} waiting more than ${HEARING_REQUEST_WAIT_DAYS} days to be scheduled`)
+  if (c.noticeLate > 0)
+    lines.push(`${plural(c.noticeLate, 'hearing notice', 'hearing notices')} not sent in time for the scheduled hearing; move the hearing date`)
+  if (c.noticeDueSoon > 0)
+    lines.push(`${plural(c.noticeDueSoon, 'hearing notice', 'hearing notices')} to send within ${HEARING_DUE_SOON_DAYS} days`)
+  if (c.findingsLate > 0)
+    lines.push(`${plural(c.findingsLate, 'hearing decision', 'hearing decisions')} not recorded as sent within the statutory window`)
+  if (c.findingsDueSoon > 0)
+    lines.push(`${plural(c.findingsDueSoon, 'hearing decision', 'hearing decisions')} to send within ${HEARING_DUE_SOON_DAYS} days`)
+  return lines
 }
 
 // ─── validation of the board's form ──────────────────────────────────

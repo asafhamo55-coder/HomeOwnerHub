@@ -39,8 +39,9 @@ import {
   loadOrgStateRules,
   type CureCommitment,
 } from '@/lib/violation-cure-commitment'
-import { checkFine, fineCents } from '@/lib/compliance/statute-drift'
-import { loadBoardHearing, type BoardHearingLoad } from '@/lib/violation-hearings/queries'
+import { checkFine, fineCents, normaliseState } from '@/lib/compliance/statute-drift'
+import { createAdminClient } from '@homeowner-portal/db'
+import { loadBoardHearing, loadBoardRosterNames, type BoardHearingLoad } from '@/lib/violation-hearings/queries'
 import { HEARING_OUTCOME_LABEL, hearingFineFacts, hearingSteps } from '@/lib/violation-hearings/rules'
 import { currentTimeZone } from '@/lib/association-time-current'
 import { todayIn } from '@/lib/association-time'
@@ -217,10 +218,23 @@ export default async function ViolationDetailPage({
       : Promise.resolve<BoardHearingLoad>({ kind: 'off' }),
     currentTimeZone(),
   ])
+  // BL-140: a Florida panel is checked against the board roster (service
+  // role, scoped to the current org; the dashboard layout admits board and
+  // admin only, and the page shows only panel names the board entered, never
+  // the roster). A failed read leaves the roster unchecked here; the server
+  // action re-reads and refuses on a failure.
+  const hearingRecord = hearingLoad.kind === 'ok' ? hearingLoad.hearing : null
+  const rosterNames =
+    org && hearingRecord && normaliseState(lawRules?.state) === 'FL' && hearingRecord.panel.some((p) => p.role === 'member')
+      ? await timed(R, 'violation.roster', () => loadBoardRosterNames(createAdminClient() as never, org.id)).then(
+          (r) => (r.kind === 'ok' ? r.names : null),
+          () => null,
+        )
+      : null
   // A failed hearing read hides the fine check (the server action re-reads
   // and refuses), rather than showing "no hearing recorded" wrongly.
   const hearingFacts =
-    hearingLoad.kind === 'off' ? undefined : hearingLoad.kind === 'ok' ? hearingFineFacts(hearingLoad.hearing) : null
+    hearingLoad.kind === 'off' ? undefined : hearingLoad.kind === 'ok' ? hearingFineFacts(hearingLoad.hearing, rosterNames) : null
   const lawCheck =
     lawRules && currentStatus !== 'fined' && hearingLoad.kind !== 'failed'
       ? checkFine({ state: lawRules.state, dailyFineCents: fineCents(v.fine_amount), hearing: hearingFacts })
@@ -529,7 +543,7 @@ export default async function ViolationDetailPage({
               hearing={hearingLoad.kind === 'ok' ? hearingLoad.hearing : null}
               loadFailed={hearingLoad.kind === 'failed'}
               checklist={
-                hearingLoad.kind === 'ok' && hearingLoad.hearing ? hearingSteps(lawRules?.state ?? null, hearingLoad.hearing, today) : null
+                hearingLoad.kind === 'ok' && hearingLoad.hearing ? hearingSteps(lawRules?.state ?? null, hearingLoad.hearing, today, rosterNames) : null
               }
             />
           ) : null}
