@@ -582,3 +582,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - BL-126 opening-balance wizard;
   - the live bug where Fined/Dismissed statuses failed at the DB, now gated by VIOLATION_FINED_STATUS_LIVE until 0066 part 5.
 - **Repeated mistake:** `git commit -a` after a conflicted merge committed markers twice. Both were fixed before any push. The trap is in next.md; check `git diff --name-only --diff-filter=U` before every commit.
+
+## 2026-10-20 (18:43 → 22:1x) — deploys 7f73e120, daadc1e0, 5ad79361, 3bcb3cce
+
+- **18:43 7f73e120:** second-round security fixes, BL-129 resident violation replies, BL-128 invite all owners, BL-135. Release email sent.
+- **19:52 daadc1e0:** BL-130 state-law check before fines and letters, BL-126 opening-balance wizard, Fined/Dismissed statuses gated. Release email sent.
+- **dcf36008 CI failure:** the m3-batch integration seed missed `inbox_messages.mailbox_account_id`, which has been NOT NULL since 0030. Fixed in 3e0c3290; the migration itself was fine.
+- **21:01 5ad79361:** BL-114 payment receipts (opt-in, off by default), 12 fixes from the screenshot review, security Lows L8–L11, 0067 flagged features. Release email sent.
+- **Screenshot review of the prod CI shots:**
+  - found the FL/CA estoppel listing un-noticed violations under "noticed to the owner" (§ 720.30851; § 4525(a)(5)), now fixed;
+  - billing badge mismatch, audience copy, filter wrap, "Unanswered" chip.
+- **22:0x 3bcb3cce:** the estoppel disclosure fix, those UI fixes, and 0068 (insurance tracker plus fine hearings, behind M4_APPLIED).
+- **Security review #2:** no Critical or High findings. N1 (revoke deleting another tenant's pending account) and N2 (audit_log forgeable until 0063) are Medium. Fixes in flight; 0063 is the real fix for N2.
