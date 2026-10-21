@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, Banknote, Landmark, ListChecks } from 'lucide-react'
+import { ArrowRight, Banknote, FileUp, Landmark, ListChecks } from 'lucide-react'
 import {
   Alert,
   Button,
@@ -30,6 +30,7 @@ import { tryLoad } from '@/lib/load-or-fail'
 import { formatDay, formatStamp, plural, usd } from '@/lib/money/format'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
+import { AddManualAccountButton } from './AddManualAccountButton'
 import { LinkPlaidButton } from './LinkPlaidButton'
 
 export const metadata = { title: 'Bank Accounts' }
@@ -59,11 +60,18 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
   return (
     <Page
       title="Bank accounts"
-      description="Linked through Plaid. Transactions sync every few hours and are matched to the ledger automatically."
+      description="Linked through Plaid, or kept by hand from imported statements. Transactions are matched to the ledger, and what can’t be matched waits in the queue."
       tabs={<AccountingTabs />}
       // With no accounts yet, the empty state below carries the one primary
-      // "Connect bank" action, so the header doesn't repeat it.
-      actions={funds.ok && (hasAccounts || !accounts.ok) ? <LinkPlaidButton funds={fundOptions} canOpenBooks={canOpenBooks} variant="secondary" /> : undefined}
+      // "Connect bank" action, so the header only offers the manual route.
+      actions={
+        funds.ok ? (
+          <>
+            <AddManualAccountButton funds={fundOptions} variant={hasAccounts || !accounts.ok ? 'ghost' : 'secondary'} />
+            {hasAccounts || !accounts.ok ? <LinkPlaidButton funds={fundOptions} canOpenBooks={canOpenBooks} variant="secondary" /> : null}
+          </>
+        ) : undefined
+      }
     >
       {unmatchedCount > 0 ? (
         <Alert
@@ -88,7 +96,7 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
         <EmptyState
           icon={<Banknote aria-hidden />}
           title="No bank accounts linked"
-          description="Link your operating and reserve accounts so transactions flow in and match to the ledger on their own."
+          description="Link your operating and reserve accounts so transactions flow in and match to the ledger on their own. Rather not link? Add a manual account and import statements instead."
           action={
             funds.ok ? (
               <LinkPlaidButton funds={fundOptions} canOpenBooks={canOpenBooks} label="Connect bank" />
@@ -172,6 +180,8 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
 }
 
 function AccountCard({ account: a }: { account: BankAccountWithFund }) {
+  // BL-144: no Plaid item means the board keeps it from imported statements.
+  const manual = !a.plaid_item_id
   return (
     <Card className="flex flex-col">
       <div className="flex items-start justify-between gap-3 p-5 pb-0">
@@ -183,17 +193,37 @@ function AccountCard({ account: a }: { account: BankAccountWithFund }) {
             {a.fund ? ` · ${a.fund.name}` : ''}
           </p>
         </div>
-        {a.is_active ? <StatusPill tone="success" label="Linked" size="sm" /> : <StatusPill tone="neutral" label="Inactive" size="sm" />}
+        {!a.is_active ? (
+          <StatusPill tone="neutral" label="Inactive" size="sm" />
+        ) : manual ? (
+          <StatusPill tone="neutral" label="Manual" size="sm" />
+        ) : (
+          <StatusPill tone="success" label="Linked" size="sm" />
+        )}
       </div>
       <div className="flex-1 px-5 pb-5 pt-4">
         <p className="num text-3xl font-semibold tracking-tight text-foreground">
           {a.current_balance != null ? usd(Number(a.current_balance)) : '—'}
         </p>
         <p className="mt-1 text-xs text-muted">
-          {a.last_synced_at ? `Bank balance · synced ${formatStamp(a.last_synced_at)}` : 'Never synced'}
+          {manual
+            ? a.last_synced_at
+              ? `Statement last imported ${formatStamp(a.last_synced_at)}`
+              : 'No statement imported yet'
+            : a.last_synced_at
+              ? `Bank balance · synced ${formatStamp(a.last_synced_at)}`
+              : 'Never synced'}
         </p>
       </div>
       <div className="flex items-center gap-2 border-t border-border px-5 py-3">
+        {manual && a.is_active ? (
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/accounting/bank/${a.id}/import`}>
+              <FileUp aria-hidden />
+              Import statement
+            </Link>
+          </Button>
+        ) : null}
         <Button asChild variant="ghost" size="sm">
           <Link href={`/accounting/bank/${a.id}/reconcile`}>
             Reconcile

@@ -84,6 +84,8 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   'recurring_je.resumed': { label: 'Resumed a recurring entry', area: 'accounting' },
   'recurring_je.stopped': { label: 'Stopped a recurring entry', area: 'accounting' },
   'recurring_je.updated': { label: 'Edited a recurring entry', area: 'accounting' },
+  'bank_account.manual_created': { label: 'Added a manual bank account', area: 'accounting' },
+  'bank_import.committed': { label: 'Imported a bank statement', area: 'accounting' },
   // Collections
   collections_letter_printed: { label: 'Printed a collections letter', area: 'collections' },
   'payment_plan.completed': { label: 'Payment plan paid off', area: 'collections' },
@@ -246,6 +248,13 @@ export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => strin
     return rows != null ? `${rows} ${rows === 1 ? 'row' : 'rows'}` : null
   },
   'vendor.compliance.manual_override': (m) => oneOf(m.new_status, COMPLIANCE_STATUS),
+  'bank_import.committed': (m) => {
+    const inserted = num(m.inserted)
+    const duplicates = num(m.duplicates)
+    if (inserted == null) return null
+    const added = `${inserted} ${inserted === 1 ? 'transaction' : 'transactions'} added`
+    return duplicates ? `${added} · ${duplicates} already in` : added
+  },
   [ACTIVITY_EXPORT_ACTION]: (m) => {
     const rows = num(m.rows)
     return rows != null ? `${rows} ${rows === 1 ? 'row' : 'rows'}` : null

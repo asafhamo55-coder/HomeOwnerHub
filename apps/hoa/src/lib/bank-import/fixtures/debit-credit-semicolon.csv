@@ -1,0 +1,4 @@
+Transaction Date;Description;Memo;Debit;Credit;Balance
+2026-10-01;Share draft 2001;Gate repair;$420.00;;9580.00
+2026-10-02;Deposit;Dues batch;;$1,250.00;10830.00
+2026-10-03;Service charge;;(5.00);;10825.00
