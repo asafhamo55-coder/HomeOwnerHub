@@ -25,6 +25,7 @@ export const APP_PATH_SEGMENTS = [
   'approvals',
   'arc',
   'communications',
+  'compliance',
   'documents',
   'dues',
   'events',

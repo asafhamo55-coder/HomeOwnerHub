@@ -19,6 +19,7 @@ import type { PacketPeriod } from '@/lib/board-packet/period'
 import type { DelinquencySummary } from '@/lib/board-packet/delinquency'
 import { reserveDisclosureHint, type ReserveSnapshotLoad, type ReserveSnapshotResult } from '@/lib/accounting/reserves'
 import { cureBy, isClosedViolation } from '@/lib/violation-cure'
+import type { ComplianceSummary } from '@/lib/compliance/obligations'
 
 export type Section<T> = { ok: true; data: T } | { ok: false }
 
@@ -232,6 +233,8 @@ export interface MonthlyReportData {
   approvals: Section<number>
   /** `data: null` = no meeting scheduled. */
   meeting: Section<UpcomingMeeting | null>
+  /** BL-145: the association's state-law obligations (lib/compliance/obligations.ts). */
+  compliance: Section<ComplianceSummary>
 }
 
 /** Maps a loaded section through `fn`; a failed one stays failed. */

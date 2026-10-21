@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { ExternalLink, Scale } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, StatusPill } from '@homeowner-portal/ui'
 import type { PendingComplianceItem } from '@/lib/compliance/deadlines'
@@ -69,6 +70,12 @@ export function ComplianceDeadlinesCard({
             </section>
           ))
         )}
+        {/* BL-145: the full list, with evidence, lives on /compliance. */}
+        <p className="text-sm">
+          <Link href="/compliance" className="font-medium text-primary hover:underline">
+            See every obligation on Compliance
+          </Link>
+        </p>
       </CardContent>
     </Card>
   )

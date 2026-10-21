@@ -19,6 +19,8 @@ import { packetPeriod, type PacketPeriod } from '@/lib/board-packet/period'
 import { loadPacketSections } from '@/lib/board-packet/sections'
 import { countPendingApprovals } from '@/lib/approvals-inbox/load'
 import { loadReserveSnapshot } from '@/lib/accounting/reserves'
+import { complianceSummary } from '@/lib/compliance/obligations'
+import { loadComplianceOverview } from '@/lib/compliance/overview-load'
 import { renderMonthlyReportEmail, type RenderedReport } from './render'
 import {
   approvalsWaiting,
@@ -145,6 +147,22 @@ export async function loadNextMeeting(db: AccountingDb, orgId: string, today: st
   return ((data ?? [])[0] ?? null) as UpcomingMeeting | null
 }
 
+// ─── state-law compliance (BL-145) ──────────────────────────────────
+
+/**
+ * The association's obligations, summarised: the same model as /compliance,
+ * scoped to this association. `db` doubles as the director tracker's
+ * name-reading client (only counts reach the report). California's § 5300(a)
+ * window is not loaded here (its loader is the budget page's); the line
+ * points at the budget's checklist instead.
+ */
+export async function loadComplianceLine(db: AccountingDb, orgId: string, associationId: string, today: string) {
+  const loose = db as unknown as Parameters<typeof loadComplianceOverview>[0]['db']
+  const res = await loadComplianceOverview({ db: loose, admin: loose, orgId, associationId, today })
+  if (!res.ok) throw new Error('monthly report: compliance obligations failed')
+  return complianceSummary(res.overview)
+}
+
 // ─── the whole report ───────────────────────────────────────────────
 
 export interface MonthlyReportContext {
@@ -172,6 +190,7 @@ export async function loadMonthlyReportData(db: AccountingDb, ctx: MonthlyReport
     arc: () => loadArcActivity(db, orgId, period, timeZone),
     approvals: () => countPendingApprovals(db, orgId),
     meeting: () => loadNextMeeting(db, orgId, ctx.today),
+    compliance: () => loadComplianceLine(db, orgId, assocId, ctx.today),
   })
   const ok = <T>(r: { ok: true; data: T } | { ok: false }) => r as { ok: true; data: T } | { ok: false }
   return {
@@ -187,6 +206,7 @@ export async function loadMonthlyReportData(db: AccountingDb, ctx: MonthlyReport
     arc: mapSection(ok(s.arc), (a) => a),
     approvals: s.approvals.ok ? approvalsWaiting(s.approvals.data) : { ok: false },
     meeting: mapSection(ok(s.meeting), (m) => m),
+    compliance: mapSection(ok(s.compliance), (c) => c),
   }
 }
 

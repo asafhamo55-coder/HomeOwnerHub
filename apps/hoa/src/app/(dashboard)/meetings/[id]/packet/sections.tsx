@@ -9,11 +9,13 @@ import {
   LoadFailed,
   StatementTable,
   StatusBadge,
+  StatusPill,
   cn,
   type DataTableColumn,
   type StatementRow,
 } from '@homeowner-portal/ui'
 import type { LoadResult } from '@/lib/load-or-fail'
+import { complianceSummary, type ComplianceOverview, type ObligationTone } from '@/lib/compliance/obligations'
 import type { BalanceSheet, IncomeStatement, ReportLineRow } from '@/lib/accounting/queries'
 import type { PacketBudget } from '@/lib/board-packet/financials'
 import type { DelinquencySummary, DelinquentUnit } from '@/lib/board-packet/delinquency'
@@ -419,5 +421,53 @@ export function AgendaSection({ text, meetingId }: { text: string | null; meetin
         </p>
       ))}
     </div>
+  )
+}
+
+// ─── State law compliance (BL-145) ──────────────────────────────────
+
+const OBLIGATION_PILL: Record<ObligationTone, 'danger' | 'warning' | 'info' | 'success' | 'neutral'> = {
+  overdue: 'danger',
+  soon: 'warning',
+  upcoming: 'info',
+  done: 'success',
+  standing: 'neutral',
+  unknown: 'warning',
+  failed: 'danger',
+  not_loaded: 'neutral',
+}
+
+/** Every obligation with its status, as on /compliance; statute text stays on the page. */
+export function ComplianceSection({ res }: { res: LoadResult<ComplianceOverview> }) {
+  if (!res.ok) return <LoadFailed what="your state-law obligations" hint="The rest of the packet is unaffected." />
+  const o = res.data
+  const sum = complianceSummary(o)
+  const multiple = o.groups.length > 1
+  return (
+    <>
+      <p className="text-sm text-foreground">
+        <span className="num font-semibold">{sum.overdue}</span> overdue ·{' '}
+        <span className="num font-semibold">{sum.open - sum.overdue}</span> coming up
+        <span className="text-muted"> — details and the statute text are on Compliance.</span>
+      </p>
+      {o.groups.map((g) => (
+        <div key={g.associationId} className="space-y-2">
+          {multiple ? <h3 className="text-sm font-semibold text-foreground">{g.associationName}</h3> : null}
+          <ul className="divide-y divide-border rounded-md border border-border">
+            {g.obligations.map((ob) => (
+              <li key={ob.key} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                <span className="min-w-0 text-foreground">{ob.title}</span>
+                <StatusPill tone={OBLIGATION_PILL[ob.tone]} label={ob.label} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      <p className="text-xs text-muted print:hidden">
+        <Link href="/compliance" className="font-medium text-primary hover:underline">
+          Open Compliance
+        </Link>
+      </p>
+    </>
   )
 }

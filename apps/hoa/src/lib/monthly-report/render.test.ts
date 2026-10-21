@@ -68,10 +68,11 @@ describe('renderMonthlyReportEmail', () => {
         arc: failed,
         approvals: failed,
         meeting: failed,
+        compliance: failed,
       }),
       links,
     )
-    expect(html.match(/We couldn’t/g)).toHaveLength(10)
+    expect(html.match(/We couldn’t/g)).toHaveLength(11)
     expect(html).not.toMatch(/\$0\.00/)
   })
 
@@ -180,5 +181,35 @@ describe('renderMonthlyReportEmail', () => {
       resolve(dir, 'monthly-report-email-failed-sections.html'),
       renderMonthlyReportEmail(reportFixture({ cash: { ok: false }, delinquency: { ok: false }, approvals: { ok: false } }), links).html,
     )
+  })
+
+  describe('state law compliance (BL-145)', () => {
+    it('counts, the most pressing obligation, and a link to /compliance', () => {
+      const { html, text } = renderMonthlyReportEmail(reportFixture(), links)
+      expect(text).toContain('STATE LAW COMPLIANCE')
+      expect(text).toContain('Overdue: None — on track')
+      expect(text).toContain('Coming up: 2 obligations')
+      expect(text).toContain('Most pressing: Register with the Georgia Secretary of State — Takes effect in 92 days (Jan 1, 2027)')
+      expect(html).toContain('/compliance')
+    })
+
+    it('overdue obligations read in red; nothing loaded says so in words', () => {
+      const overdue = renderMonthlyReportEmail(
+        reportFixture({
+          compliance: {
+            ok: true,
+            data: { open: 1, overdue: 1, done: 0, next: { title: 'Hold the annual members’ meeting, with 21 days’ notice', label: 'No annual meeting since Mar 3, 2025', associationName: 'X' }, nothingTracked: false },
+          },
+        }),
+        links,
+      )
+      expect(overdue.text).toContain('Overdue: 1 obligation')
+      expect(overdue.html).toContain('#B42318')
+      const none = renderMonthlyReportEmail(
+        reportFixture({ compliance: { ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: true } } }),
+        links,
+      )
+      expect(none.text).toContain('None loaded for your state — check your governing documents')
+    })
   })
 })

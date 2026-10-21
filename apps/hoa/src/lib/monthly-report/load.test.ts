@@ -8,7 +8,9 @@ const m = vi.hoisted(() => ({
   loadDelinquency: vi.fn(),
   countPendingApprovals: vi.fn(),
   loadReserveSnapshot: vi.fn(),
+  loadComplianceOverview: vi.fn(),
 }))
+vi.mock('@/lib/compliance/overview-load', () => ({ loadComplianceOverview: m.loadComplianceOverview }))
 vi.mock('@homeowner-portal/observability/report', () => ({ reportError: m.reportError }))
 vi.mock('@/lib/board-packet/financials', () => ({
   loadIncomeStatement: m.loadIncomeStatement,
@@ -67,6 +69,7 @@ beforeEach(() => {
   m.loadDelinquency.mockResolvedValue({ totalOverdue: 900, unitCount: 2, aging: { d90_plus: 300 } })
   m.countPendingApprovals.mockResolvedValue({ w18: 1, bill: 0, w3: 0, arc: 0, contact: 0, vendor: 2 })
   m.loadReserveSnapshot.mockResolvedValue({ result: { kind: 'no_reserve_fund' }, state: 'FL' })
+  m.loadComplianceOverview.mockResolvedValue({ ok: true, overview: { groups: [], overdue: [] }, documents: [] })
 })
 
 describe('loadMonthlyReportData', () => {
@@ -95,6 +98,15 @@ describe('loadMonthlyReportData', () => {
       approvals: { ok: true, data: 3 },
       meeting: { ok: true, data: { id: 'mtg-1' } },
     })
+  })
+
+  it('BL-145: the compliance line is the association’s own obligations, summarised', async () => {
+    const { db } = fakeDb({})
+    const d = await loadMonthlyReportData(db, CTX)
+    expect(m.loadComplianceOverview).toHaveBeenCalledWith({ db, admin: db, orgId: 'org-1', associationId: 'assoc-1', today: '2026-10-01' })
+    expect(d.compliance).toEqual({ ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: true } })
+    m.loadComplianceOverview.mockResolvedValue({ ok: false })
+    expect((await loadMonthlyReportData(db, CTX)).compliance).toEqual({ ok: false })
   })
 
   it('a failed read costs only its own section', async () => {

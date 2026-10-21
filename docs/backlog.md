@@ -1449,6 +1449,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - Overdue banner.
      - A line in the monthly board report and the packet.
    - **Files:** `apps/hoa/src/app/(dashboard)/compliance/` (new), `apps/hoa/src/lib/compliance/`, `apps/hoa/src/lib/monthly-report/render.ts`.
+   - **Status (2026-10-21): built, waiting on 0069.** `/compliance` is live read-only (flag off): Georgia first (SoS registration, renewal/amendment, annual meeting + 21-day notice from recorded meetings, minutes and records, § 44-3-232(d) statement), TX § 209.004, FL director certificates summary, CA § 5300(a) window from the adoption checklist; elections and GA condominium rules say "check your governing documents". Every quote checked word for word (`lib/compliance/law.test.ts`). Overdue banner; monthly board report section; board packet section; dashboard card links to it. Evidence (0069 part 4, `compliance_deadlines_done.document_id`, runbook L-BL145) turns on with `M5_APPLIED`; `tests/integration/security/m5-compliance-evidence.test.ts` in CI. Guide draft `compliance-obligations`.
 10. **BL-146 Composer polish.** Migration: no. Effort S–M. Score 0.90.
    - **Status:** Shipped (6df2b5cb): Spanish editor, untick homes, signed status webhook. Remaining: BL-146b (send via Messages API).
     - **Today:**

@@ -1,10 +1,12 @@
 -- 0069_m5_batch.sql — migration batch M5 (round 4: BL-137 part 1, BL-143
--- part 3; BL-141 (part 2) and BL-145 (part 4) append their own parts)
+-- part 3, BL-145 part 4; BL-141 (part 2) appends its own part)
 --
 -- Apply: docs/specs/2026-10-20-sql-runbook.md, Section L. Needs
 -- auth_is_board_or_admin(uuid) (0012), auth_org_ids() (0000),
 -- auth_resident_unit_ids() (0061) and the budgets table (0006), all
--- asserted below. Independent of 0064–0068; RLS shape follows 0063.
+-- asserted below; part 4 also needs compliance_deadlines_done (0067,
+-- applied in Section J) and asserts it. Otherwise independent of
+-- 0064–0068; RLS shape follows 0063.
 --
 -- Idempotent (safe to run any number of times):
 --
@@ -43,11 +45,22 @@
 --              membership plus an ownership link, in one transaction — or
 --              rejects with a reason; both audited (ids only).
 --
+--   4. BL-145  compliance_deadlines_done.document_id: the evidence
+--              document the board attaches when it marks a statutory
+--              deadline done. Nullable FK to hoa_documents (ON DELETE SET
+--              NULL); the document must be the row's org's (trigger, 23503,
+--              also for the service role — the 0068 insurance shape). The
+--              table's 0067 RLS (board/admin of the org only, 0063 board
+--              shape) covers the column; nothing new is resident-visible.
+--              Part 2 (BL-141) is numbered for its own item and lands
+--              separately.
+--
 -- App code reads and writes none of this until M5_APPLIED
 -- (packages/db/src/m5.ts) is flipped. Every app path works with the table
 -- present and the flag false (CI replays this file).
 --
--- No existing table is altered. All-or-nothing.
+-- Part 4 adds one nullable column to compliance_deadlines_done (0067);
+-- no other existing table is altered. All-or-nothing.
 
 BEGIN;
 
@@ -720,5 +733,75 @@ REVOKE EXECUTE ON FUNCTION public.owner_join_decide(uuid, boolean, text) FROM PU
 GRANT EXECUTE ON FUNCTION public.owner_join_claim(text, text, text, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.owner_join_my_status() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.owner_join_decide(uuid, boolean, text) TO authenticated, service_role;
+
+-- ── 4. BL-145: compliance_deadlines_done.document_id ──────────────────
+-- The evidence the board attaches when it marks a statutory deadline done
+-- (the filed Georgia registration, the recorded Texas certificate): one
+-- hoa_documents row of the same org. Nullable, no default: metadata-only,
+-- no table rewrite. Deleting the document clears the link; the "done"
+-- itself stays. Needs compliance_deadlines_done (0067), asserted here so a
+-- database without it refuses this part instead of half-applying.
+DO $pre4$
+BEGIN
+  IF to_regclass('public.compliance_deadlines_done') IS NULL THEN
+    RAISE EXCEPTION '0069 part 4: compliance_deadlines_done is missing (0067)';
+  END IF;
+  IF to_regclass('public.hoa_documents') IS NULL THEN
+    RAISE EXCEPTION '0069 part 4: hoa_documents is missing (0000)';
+  END IF;
+END $pre4$;
+
+ALTER TABLE public.compliance_deadlines_done
+  ADD COLUMN IF NOT EXISTS document_id uuid;
+
+DO $fk4$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conname = 'compliance_deadlines_done_document_id_fkey'
+                    AND conrelid = 'public.compliance_deadlines_done'::regclass) THEN
+    ALTER TABLE public.compliance_deadlines_done
+      ADD CONSTRAINT compliance_deadlines_done_document_id_fkey
+      FOREIGN KEY (document_id) REFERENCES public.hoa_documents(id) ON DELETE SET NULL;
+  END IF;
+END $fk4$;
+
+CREATE INDEX IF NOT EXISTS compliance_deadlines_done_document_idx
+  ON public.compliance_deadlines_done (document_id)
+  WHERE document_id IS NOT NULL;
+
+COMMENT ON COLUMN public.compliance_deadlines_done.document_id IS
+  'BL-145: the evidence document (hoa_documents, same org — trigger compliance_deadlines_done_document_org). Null = none attached.';
+
+-- The FK proves the document exists; this proves it is the same org's
+-- (23503 otherwise, also for the service role) — the 0068
+-- insurance_policies_document_org shape. RLS on the table is unchanged
+-- (0067: board/admin of the org read and write; residents nothing), and
+-- covers the new column.
+CREATE OR REPLACE FUNCTION public.compliance_deadlines_done_document_org()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF new.document_id IS NULL THEN
+    RETURN new;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.hoa_documents d
+                  WHERE d.id = new.document_id
+                    AND d.org_id = new.organization_id) THEN
+    RAISE EXCEPTION 'compliance_deadlines_done: document is not in this organization'
+      USING errcode = '23503';
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.compliance_deadlines_done_document_org() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS compliance_deadlines_done_document_org ON public.compliance_deadlines_done;
+CREATE TRIGGER compliance_deadlines_done_document_org
+  BEFORE INSERT OR UPDATE OF document_id, organization_id ON public.compliance_deadlines_done
+  FOR EACH ROW EXECUTE FUNCTION public.compliance_deadlines_done_document_org();
 
 COMMIT;

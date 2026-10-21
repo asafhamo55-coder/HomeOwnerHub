@@ -1,0 +1,618 @@
+/**
+ * BL-145: the /compliance page's model — every statutory obligation that
+ * applies to each of the org's associations, where it stands today, and the
+ * evidence the board attached when it marked one done. Pure: the loaders
+ * (./overview-load.ts, ./evidence.ts) hand the rows in. The monthly board
+ * report and the board packet print `complianceSummary` of the same model.
+ *
+ * GEORGIA FIRST. A Georgia association gets, in this order:
+ *   1. Secretary of State registration (SB 406), markable, with evidence.
+ *   2. Keeping that registration current: the Dec 31 renewal and the
+ *      30-day amendment after an officer or address change.
+ *   3. The annual members' meeting and its 21-day notice, from the
+ *      meetings the board has recorded (§ 44-3-230(a)).
+ *   4. Minutes and financial records (§ 44-3-231(d)).
+ *   5. The statement of amounts due within five business days
+ *      (§ 44-3-232(d)).
+ *   6. What isn't loaded (condominium rules): "check your governing
+ *      documents".
+ * Rows 3–5 are the Property Owners' Association Act, which covers property
+ * submitted to it (§ 44-3-235(a)); each says so.
+ * TEXAS: the management certificate (§ 209.004), markable.
+ * FLORIDA: the BL-139 director certificates, summarised (the tracker lives
+ * on Members).
+ * CALIFORNIA: the BL-138 § 5300(a) annual budget report window, from the
+ * next budget's adoption checklist.
+ * EVERY STATE: director elections are not tracked yet (BL-141), so "check
+ * your governing documents".
+ * ANY OTHER STATE: nothing quoted; "check your governing documents".
+ *
+ * Statute wording only ever comes from ./law.ts (checked word for word);
+ * the steps here are plain actions and never restate a rule.
+ */
+
+import {
+  COMPLIANCE_DEADLINES,
+  complianceLabel,
+  complianceState,
+  complianceTone,
+  daysUntil,
+  formatDueOn,
+  readComplianceAcks,
+  type ComplianceAssociationInput,
+  type ComplianceState,
+} from './deadlines'
+import { addDays, addYears, type DirectorCertRow } from './director-certs'
+import {
+  CA_ANNUAL_BUDGET_REPORT,
+  CHECK_GOVERNING_DOCS,
+  FL_DIRECTOR_CERTIFICATE,
+  FL_DIRECTOR_SUSPENSION,
+  GA_ANNUAL_MEETING,
+  GA_ANNUAL_NOTICE_DAYS,
+  GA_ANNUAL_REPORT,
+  GA_MEETING_NOTICE,
+  GA_POA_ACT_SCOPE,
+  GA_RECORDS_FINANCIAL,
+  GA_RECORDS_MINUTES,
+  GA_REGISTRATION_AMENDMENT,
+  GA_REGISTRATION_BAR,
+  GA_REGISTRATION_FEE,
+  GA_REGISTRATION_FILING,
+  GA_REGISTRATION_FINANCIALS,
+  GA_REGISTRATION_OPT_OUT,
+  GA_REGISTRATION_RENEWAL,
+  GA_SB406_EFFECTIVE,
+  GA_STATEMENT_DEADLINE,
+  GA_STATEMENT_RIGHT,
+  TX_CERTIFICATE_RECORD,
+  TX_CERTIFICATE_TREC,
+  type StatuteQuote,
+} from './law'
+
+// ─── Inputs ─────────────────────────────────────────────────────────
+
+/** One compliance_deadlines_done row (or verified acknowledgment), with its evidence. */
+export interface DoneEntry {
+  doneAt: string
+  /** hoa_documents.id (migration 0069 part 4, M5_APPLIED); null when none or the flag is off. */
+  documentId: string | null
+}
+
+/** association id → deadline code → done. */
+export type DoneWithEvidence = Map<string, Map<string, DoneEntry>>
+
+/** The org's annual members' meetings (hoa_meeting_minutes, meeting_type 'annual'). */
+export interface AnnualMeetings {
+  /** The latest one before today, YYYY-MM-DD. */
+  lastHeld: string | null
+  /** The soonest one today or later. */
+  next: { id: string; date: string } | null
+  /** The day the notice for `next` went out (BL-118 communications record); 'failed' when unreadable. */
+  nextNoticeSentOn: string | null | 'failed'
+}
+
+export type DirectorCertInput =
+  | { kind: 'not_applicable' }
+  | { kind: 'failed' }
+  | { kind: 'ok'; associationId: string; rows: readonly DirectorCertRow[] }
+
+export type CaBudgetInput =
+  /** The caller did not load it (the monthly report): the row points at the checklist. */
+  | { kind: 'not_loaded' }
+  | { kind: 'failed' }
+  /** No draft or approved budget in budget season. */
+  | { kind: 'none' }
+  | {
+      kind: 'ok'
+      budgetId: string
+      /** § 5300(a) window for that budget's fiscal year. */
+      earliest: string
+      latest: string
+      /** The owner budget notice step of the BL-138 checklist is done. */
+      sent: boolean
+    }
+
+export interface ComplianceInput {
+  today: string
+  associations: readonly ComplianceAssociationInput[]
+  /** Verifies the legacy signed acknowledgments (still count as done). */
+  secret: string | null
+  /** null: the rows couldn't be read; the acknowledgments alone count. */
+  done: DoneWithEvidence | null
+  /** hoa_documents id → name, for evidence links. */
+  documentNames: ReadonlyMap<string, string>
+  /** null: the meetings couldn't be read. Only consulted for Georgia. */
+  annualMeetings: AnnualMeetings | null
+  directorCerts: DirectorCertInput
+  /** association id → the § 5300(a) status. Only consulted for California. */
+  caBudgets: ReadonlyMap<string, CaBudgetInput>
+}
+
+// ─── Output ─────────────────────────────────────────────────────────
+
+export type ObligationTone =
+  /** Past due, or in effect and not done. */
+  | 'overdue'
+  /** Due within COMPLIANCE_SOON_DAYS. */
+  | 'soon'
+  | 'upcoming'
+  | 'done'
+  /** An ongoing duty with no date. */
+  | 'standing'
+  /** HomeownerHub can't tell (nothing recorded). */
+  | 'unknown'
+  | 'failed'
+  /** The rule isn't loaded. */
+  | 'not_loaded'
+
+export type ObligationKind = 'deadline' | 'registration_upkeep' | 'annual_meeting' | 'duty' | 'director_certs' | 'ca_budget_report' | 'not_loaded'
+
+export interface ComplianceObligation {
+  /** Unique within the overview. */
+  key: string
+  associationId: string
+  associationName: string
+  kind: ObligationKind
+  title: string
+  tone: ObligationTone
+  label: string
+  /** The date that matters now, YYYY-MM-DD, or null. */
+  dueOn: string | null
+  /** Plain actions, never a restated rule. */
+  steps: string[]
+  /** Word for word, from ./law.ts. */
+  quotes: StatuteQuote[]
+  /** Who it covers, when that needs saying. */
+  appliesTo: string | null
+  link: { href: string; label: string } | null
+  official: { href: string; label: string } | null
+  /** compliance_deadlines_done code: "Mark as done" (and evidence) apply. */
+  deadlineCode: string | null
+  done: { doneAt: string; evidence: { documentId: string; name: string } | null } | null
+}
+
+export interface ComplianceGroup {
+  associationId: string
+  associationName: string
+  state: ComplianceState | null
+  obligations: ComplianceObligation[]
+}
+
+export interface ComplianceOverview {
+  groups: ComplianceGroup[]
+  /** Every overdue obligation, for the banner. */
+  overdue: ComplianceObligation[]
+}
+
+/** Amber this many days out. */
+export const COMPLIANCE_SOON_DAYS = 30
+/** A Georgia annual-meeting notice turns amber this many days before it is due. */
+export const GA_NOTICE_SOON_DAYS = 14
+
+const STATE_ORDER: Record<ComplianceState, number> = { GA: 0, FL: 1, CA: 2, TX: 3 }
+
+const STATE_NAME: Record<ComplianceState, string> = { GA: 'Georgia', FL: 'Florida', CA: 'California', TX: 'Texas' }
+
+export const GA_SOS_URL = 'https://sos.ga.gov/georgia-property-owners-associations-division'
+const GA_SOS_LABEL = 'Georgia Secretary of State — Property Owners’ Associations Division'
+
+const GA_POA_APPLIES =
+  'Associations whose property is submitted to the Georgia Property Owners’ Association Act (your declaration says so). If yours isn’t, check your governing documents.'
+
+function days(n: number): string {
+  return `${n} day${n === 1 ? '' : 's'}`
+}
+
+function datedTone(daysLeft: number, soon = COMPLIANCE_SOON_DAYS): ObligationTone {
+  if (daysLeft < 0) return 'overdue'
+  if (daysLeft <= soon) return 'soon'
+  return 'upcoming'
+}
+
+// ─── Builders ───────────────────────────────────────────────────────
+
+type Base = Pick<ComplianceObligation, 'associationId' | 'associationName'>
+
+function deadlineDone(
+  base: Base,
+  code: string,
+  acks: ReturnType<typeof readComplianceAcks>,
+  input: ComplianceInput,
+): ComplianceObligation['done'] {
+  const row = input.done?.get(base.associationId)?.get(code)
+  const ack = acks.get(code)
+  if (!row && !ack) return null
+  const documentId = row?.documentId ?? null
+  return {
+    doneAt: row?.doneAt ?? ack!.doneAt,
+    evidence: documentId ? { documentId, name: input.documentNames.get(documentId) ?? 'Attached document' } : null,
+  }
+}
+
+function doneLabel(doneAt: string): string {
+  const day = doneAt.slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? `Done ${formatDueOn(day)}` : 'Done'
+}
+
+/** A COMPLIANCE_DEADLINES entry (GA registration, TX certificate): dated or standing, markable. */
+function deadlineObligation(
+  base: Base,
+  code: string,
+  acks: ReturnType<typeof readComplianceAcks>,
+  input: ComplianceInput,
+  extra: Pick<ComplianceObligation, 'steps' | 'quotes' | 'appliesTo' | 'link'>,
+): ComplianceObligation {
+  const d = COMPLIANCE_DEADLINES.find((x) => x.code === code)!
+  const done = deadlineDone(base, code, acks, input)
+  const daysLeft = d.dueOn ? daysUntil(input.today, d.dueOn) : null
+  const pending = complianceTone(daysLeft)
+  const tone: ObligationTone = done ? 'done' : pending === 'standing' ? 'unknown' : pending
+  return {
+    ...base,
+    key: `${base.associationId}:${code}`,
+    kind: 'deadline',
+    title: d.title,
+    tone,
+    label: done ? doneLabel(done.doneAt) : d.dueOn ? complianceLabel(d.dueOn, daysLeft) : 'Not marked as filed yet',
+    dueOn: d.dueOn,
+    official: { href: d.officialUrl, label: d.officialLabel },
+    deadlineCode: code,
+    done,
+    ...extra,
+  }
+}
+
+/** The Dec 31 on or after `today`, never before the first renewal (Dec 31, 2027). */
+export function nextGaRenewal(today: string): string {
+  const year = Math.max(Number(today.slice(0, 4)), 2027)
+  return `${year}-12-31`
+}
+
+function gaRegistrationUpkeep(base: Base, today: string): ComplianceObligation {
+  const due = nextGaRenewal(today)
+  const left = daysUntil(today, due)
+  const first = due === '2027-12-31' && today < '2027-01-01'
+  const tone: ObligationTone = left <= COMPLIANCE_SOON_DAYS ? 'soon' : 'standing'
+  return {
+    ...base,
+    key: `${base.associationId}:ga-registration-upkeep`,
+    kind: 'registration_upkeep',
+    title: 'Keep the Secretary of State registration current',
+    tone,
+    label: first
+      ? `First renewal due ${formatDueOn(due)}`
+      : left === 0
+        ? `Renewal due today (${formatDueOn(due)})`
+        : `Renewal due ${formatDueOn(due)} (in ${days(left)})`,
+    dueOn: due,
+    steps: [
+      'Put the renewal on the board calendar every year, well before December 31.',
+      'When the association’s name, address or officers change (after an election, for example), file an amended registration statement.',
+      'File each renewal or amendment in Documents so the next board can find it.',
+    ],
+    quotes: [GA_REGISTRATION_RENEWAL, GA_REGISTRATION_AMENDMENT, GA_REGISTRATION_FEE],
+    appliesTo: null,
+    link: { href: '/documents', label: 'Open Documents' },
+    official: { href: GA_SOS_URL, label: GA_SOS_LABEL },
+    deadlineCode: null,
+    done: null,
+  }
+}
+
+function gaAnnualMeeting(base: Base, input: ComplianceInput): ComplianceObligation {
+  const common = {
+    ...base,
+    key: `${base.associationId}:ga-annual-meeting`,
+    kind: 'annual_meeting' as const,
+    title: 'Hold the annual members’ meeting, with 21 days’ notice',
+    steps: [
+      'Schedule the annual meeting under Meetings (type: Annual).',
+      `Send the notice to every owner at least ${GA_ANNUAL_NOTICE_DAYS} days before the meeting, with the time and place.`,
+      'At the meeting, report on the association’s affairs, finances and budget projections.',
+      'File the minutes afterwards.',
+    ],
+    quotes: [GA_ANNUAL_MEETING, GA_MEETING_NOTICE, GA_ANNUAL_REPORT, GA_POA_ACT_SCOPE],
+    appliesTo: GA_POA_APPLIES,
+    official: null,
+    deadlineCode: null,
+    done: null,
+  }
+  const m = input.annualMeetings
+  if (m === null) {
+    return { ...common, tone: 'failed', label: 'Couldn’t load your meetings', dueOn: null, link: { href: '/meetings', label: 'Open Meetings' } }
+  }
+  if (m.next) {
+    const link = { href: `/meetings/${m.next.id}`, label: 'Open the annual meeting' }
+    const noticeBy = addDays(m.next.date, -GA_ANNUAL_NOTICE_DAYS)
+    const meetingOn = formatDueOn(m.next.date)
+    const sent = m.nextNoticeSentOn
+    if (typeof sent === 'string' && sent !== 'failed') {
+      const late = sent > noticeBy
+      return {
+        ...common,
+        tone: late ? 'soon' : 'upcoming',
+        label: late
+          ? `Annual meeting ${meetingOn} · notice sent ${formatDueOn(sent)}, after ${formatDueOn(noticeBy)}`
+          : `Annual meeting ${meetingOn} · notice sent ${formatDueOn(sent)}`,
+        dueOn: m.next.date,
+        link,
+      }
+    }
+    const left = daysUntil(input.today, noticeBy)
+    const unknownSent = sent === 'failed' ? ' (couldn’t check whether it went out)' : ''
+    return {
+      ...common,
+      tone: datedTone(left, GA_NOTICE_SOON_DAYS),
+      label:
+        left < 0
+          ? `Notice was due ${formatDueOn(noticeBy)} for the ${meetingOn} annual meeting${unknownSent}`
+          : `Send the notice by ${formatDueOn(noticeBy)} for the ${meetingOn} annual meeting${unknownSent}`,
+      dueOn: noticeBy,
+      link,
+    }
+  }
+  const link = { href: '/meetings/schedule', label: 'Schedule a meeting' }
+  if (!m.lastHeld) {
+    return { ...common, tone: 'unknown', label: 'No annual meeting recorded in HomeownerHub', dueOn: null, link }
+  }
+  const yearOn = addYears(m.lastHeld, 1)
+  const left = daysUntil(input.today, yearOn)
+  if (left < 0) {
+    return { ...common, tone: 'overdue', label: `No annual meeting since ${formatDueOn(m.lastHeld)}`, dueOn: yearOn, link }
+  }
+  return {
+    ...common,
+    tone: left <= 60 ? 'soon' : 'upcoming',
+    label: `Last held ${formatDueOn(m.lastHeld)} · a year on is ${formatDueOn(yearOn)}`,
+    dueOn: yearOn,
+    link,
+  }
+}
+
+function gaDuties(base: Base): ComplianceObligation[] {
+  const duty = (
+    key: string,
+    title: string,
+    steps: string[],
+    quotes: StatuteQuote[],
+    link: ComplianceObligation['link'],
+  ): ComplianceObligation => ({
+    ...base,
+    key: `${base.associationId}:${key}`,
+    kind: 'duty',
+    title,
+    tone: 'standing',
+    label: 'Ongoing',
+    dueOn: null,
+    steps,
+    quotes,
+    appliesTo: GA_POA_APPLIES,
+    link,
+    official: null,
+    deadlineCode: null,
+    done: null,
+  })
+  return [
+    duty(
+      'ga-records',
+      'Keep minutes and financial records',
+      [
+        'File minutes for every board meeting and members’ meeting under Meetings.',
+        'Record every receipt and expense in Accounting, with the bill or receipt attached.',
+      ],
+      [GA_RECORDS_MINUTES, GA_RECORDS_FINANCIAL],
+      { href: '/meetings', label: 'Open Meetings' },
+    ),
+    duty(
+      'ga-statement-of-amounts-due',
+      'Answer a request for a statement of amounts due within five business days',
+      [
+        'Watch for written requests from owners, buyers and lenders, and note the day each arrives.',
+        'Open the home under Properties and prepare the statement from its ledger.',
+        'Send it to the address in the request and keep a copy.',
+      ],
+      [GA_STATEMENT_RIGHT, GA_STATEMENT_DEADLINE],
+      { href: '/properties', label: 'Open Properties' },
+    ),
+  ]
+}
+
+function notLoaded(base: Base, key: string, title: string, label = 'Not loaded'): ComplianceObligation {
+  return {
+    ...base,
+    key: `${base.associationId}:${key}`,
+    kind: 'not_loaded',
+    title,
+    tone: 'not_loaded',
+    label,
+    dueOn: null,
+    steps: [CHECK_GOVERNING_DOCS],
+    quotes: [],
+    appliesTo: null,
+    link: null,
+    official: null,
+    deadlineCode: null,
+    done: null,
+  }
+}
+
+function flDirectorCerts(base: Base, input: ComplianceInput): ComplianceObligation | null {
+  const dc = input.directorCerts
+  if (dc.kind === 'not_applicable') return null
+  // The tracker lives on one Florida association (director-certs.ts): show it there only.
+  if (dc.kind === 'ok' && dc.associationId !== base.associationId) return null
+  const common = {
+    ...base,
+    key: `${base.associationId}:fl-director-certificates`,
+    kind: 'director_certs' as const,
+    title: 'Director education certificates',
+    steps: [
+      'Record each director’s election date and certificate on Members.',
+      'Keep each certificate on file.',
+    ],
+    quotes: [FL_DIRECTOR_CERTIFICATE, FL_DIRECTOR_SUSPENSION],
+    appliesTo: null,
+    link: { href: '/settings/members', label: 'Open Members' },
+    official: null,
+    deadlineCode: null,
+    done: null,
+  }
+  if (dc.kind === 'failed') return { ...common, tone: 'failed', label: 'Couldn’t load the board’s certificates', dueOn: null }
+  const rows = dc.rows
+  const count = (tones: string[]) => rows.filter((r) => tones.includes(r.status.tone)).length
+  const overdue = count(['overdue', 'expired'])
+  const soon = count(['due_soon', 'renewal_soon'])
+  const missing = count(['not_recorded'])
+  const soonest = rows
+    .filter((r) => r.status.dueOn && r.status.alert)
+    .map((r) => r.status.dueOn!)
+    .sort()[0] ?? null
+  if (overdue > 0) return { ...common, tone: 'overdue', label: `${overdue} director${overdue === 1 ? '' : 's'} overdue or expired`, dueOn: soonest }
+  if (soon > 0) return { ...common, tone: 'soon', label: `${soon} certificate${soon === 1 ? '' : 's'} due within 30 days`, dueOn: soonest }
+  if (missing > 0) return { ...common, tone: 'unknown', label: `${missing} director${missing === 1 ? '’s' : 's’'} election date not recorded`, dueOn: null }
+  return { ...common, tone: 'done', label: rows.length === 0 ? 'No board members yet' : 'Every director is on track', dueOn: null }
+}
+
+function caBudgetReport(base: Base, input: ComplianceInput): ComplianceObligation {
+  const c = input.caBudgets.get(base.associationId) ?? { kind: 'not_loaded' }
+  const common = {
+    ...base,
+    key: `${base.associationId}:ca-annual-budget-report`,
+    kind: 'ca_budget_report' as const,
+    title: 'Send the annual budget report',
+    steps: [
+      'Open next year’s budget and follow its Adopt this budget checklist.',
+      'Send owners the budget notice from the checklist inside the window.',
+    ],
+    quotes: [CA_ANNUAL_BUDGET_REPORT],
+    appliesTo: null,
+    official: null,
+    deadlineCode: null,
+    done: null,
+  }
+  const budgets = { href: '/accounting/budget', label: 'Open budgets' }
+  switch (c.kind) {
+    case 'not_loaded':
+      return { ...common, tone: 'standing', label: 'See the budget’s adoption checklist', dueOn: null, link: budgets }
+    case 'failed':
+      return { ...common, tone: 'failed', label: 'Couldn’t load next year’s budget', dueOn: null, link: budgets }
+    case 'none':
+      return { ...common, tone: 'unknown', label: 'No budget for next year yet', dueOn: null, link: budgets }
+    case 'ok': {
+      const link = { href: `/accounting/budget/${c.budgetId}`, label: 'Open the budget' }
+      if (c.sent) return { ...common, tone: 'done', label: 'Budget report sent', dueOn: c.latest, link }
+      if (input.today < c.earliest) {
+        return { ...common, tone: 'upcoming', label: `Window opens ${formatDueOn(c.earliest)} · closes ${formatDueOn(c.latest)}`, dueOn: c.latest, link }
+      }
+      const left = daysUntil(input.today, c.latest)
+      if (left < 0) return { ...common, tone: 'overdue', label: `Window closed ${formatDueOn(c.latest)} · not recorded as sent`, dueOn: c.latest, link }
+      return { ...common, tone: 'soon', label: left === 0 ? 'Send it today — the window closes today' : `Send by ${formatDueOn(c.latest)} (${days(left)} left)`, dueOn: c.latest, link }
+    }
+  }
+}
+
+function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
+  const base: Base = { associationId: a.id, associationName: a.name }
+  const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
+  const elections = notLoaded(base, 'director-elections', 'Director elections', 'Not tracked yet')
+  switch (state) {
+    case 'GA':
+      return [
+        deadlineObligation(base, 'ga-sos-registration-2027', acks, input, {
+          steps: [
+            'Decide as a board: register, or opt out in writing (read what an association that opts out can’t collect).',
+            'Gather a copy of your governing documents, the association’s name, address and officers, and a recent financial statement.',
+            'File the registration statement with the Secretary of State and pay the fee. Its page says filing opens on or after Jan 1, 2027, through an online portal.',
+            'Mark it done here and attach the filed registration or the receipt as evidence.',
+            'Confirm the details with your association’s attorney.',
+          ],
+          quotes: [
+            GA_SB406_EFFECTIVE,
+            GA_REGISTRATION_BAR,
+            GA_REGISTRATION_OPT_OUT,
+            GA_REGISTRATION_FILING,
+            GA_REGISTRATION_FINANCIALS,
+            GA_REGISTRATION_FEE,
+          ],
+          appliesTo: 'Georgia owners’ associations, including HOAs and condominium associations.',
+          link: null,
+        }),
+        gaRegistrationUpkeep(base, input.today),
+        gaAnnualMeeting(base, input),
+        ...gaDuties(base),
+        notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)'),
+        elections,
+      ]
+    case 'TX':
+      return [
+        deadlineObligation(base, 'tx-management-certificate', acks, input, {
+          steps: [
+            'Record the management certificate in every county where the subdivision lies.',
+            'File the same certificate electronically with the Texas Real Estate Commission.',
+            'When anything on it changes, record and file an amended certificate.',
+            'Mark it done here and attach the recorded certificate or the TREC receipt as evidence.',
+          ],
+          quotes: [TX_CERTIFICATE_RECORD, TX_CERTIFICATE_TREC],
+          appliesTo: 'Texas property owners’ associations under Property Code ch. 209 (not condominiums).',
+          link: null,
+        }),
+        elections,
+      ]
+    case 'FL': {
+      const certs = flDirectorCerts(base, input)
+      return [...(certs ? [certs] : []), elections]
+    }
+    case 'CA':
+      return [caBudgetReport(base, input), elections]
+    default:
+      return [notLoaded(base, 'state-rules', 'Your state’s rules')]
+  }
+}
+
+/** Every association's obligations, Georgia associations first; and the overdue ones for the banner. */
+export function buildComplianceOverview(input: ComplianceInput): ComplianceOverview {
+  const groups = input.associations
+    .map((a) => {
+      const state = complianceState(a.governingLawState, a.state)
+      return { associationId: a.id, associationName: a.name, state, obligations: obligationsFor(a, state, input) }
+    })
+    .sort(
+      (x, y) =>
+        (x.state ? STATE_ORDER[x.state] : 9) - (y.state ? STATE_ORDER[y.state] : 9) || x.associationName.localeCompare(y.associationName),
+    )
+  return { groups, overdue: groups.flatMap((g) => g.obligations.filter((o) => o.tone === 'overdue')) }
+}
+
+export function stateName(state: ComplianceState | null): string | null {
+  return state ? STATE_NAME[state] : null
+}
+
+// ─── Summary (monthly board report, board packet) ───────────────────
+
+export interface ComplianceSummary {
+  /** Obligations that need the board: overdue, due soon, or upcoming with a date. */
+  open: number
+  overdue: number
+  done: number
+  /** The most pressing open one: overdue first, then the soonest date. */
+  next: { title: string; label: string; associationName: string } | null
+  /** No state rule is loaded for any association. */
+  nothingTracked: boolean
+}
+
+const OPEN: ReadonlySet<ObligationTone> = new Set(['overdue', 'soon', 'upcoming'])
+const RANK: Record<ObligationTone, number> = { overdue: 0, soon: 1, upcoming: 2, unknown: 3, failed: 4, standing: 5, done: 6, not_loaded: 7 }
+
+export function complianceSummary(o: ComplianceOverview): ComplianceSummary {
+  const all = o.groups.flatMap((g) => g.obligations)
+  const open = all.filter((x) => OPEN.has(x.tone))
+  const pick = [...open].sort((a, b) => RANK[a.tone] - RANK[b.tone] || (a.dueOn ?? '9999').localeCompare(b.dueOn ?? '9999'))[0]
+  return {
+    open: open.length,
+    overdue: open.filter((x) => x.tone === 'overdue').length,
+    done: all.filter((x) => x.tone === 'done').length,
+    next: pick ? { title: pick.title, label: pick.label, associationName: pick.associationName } : null,
+    nothingTracked: all.every((x) => x.tone === 'not_loaded'),
+  }
+}

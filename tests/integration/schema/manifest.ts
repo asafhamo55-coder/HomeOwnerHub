@@ -103,8 +103,9 @@ export const MIGRATION_MANIFEST: string[] = [
   '0067_m3_batch.sql',
   '0068_m4_batch.sql',
   // M5: part 1 BL-137 dues_rates (security/m5-dues-rates.test.ts), part 3
-  // BL-143 owner_join_* (security/m5-join-requests.test.ts). One file, one
-  // entry: later parts append to it.
+  // BL-143 owner_join_* (security/m5-join-requests.test.ts), part 4 BL-145
+  // compliance_deadlines_done.document_id (security/m5-compliance-evidence.test.ts).
+  // One file, one entry: later parts append to it.
   '0069_m5_batch.sql',
 ]
 

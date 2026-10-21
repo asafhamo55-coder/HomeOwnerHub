@@ -12,6 +12,10 @@ import { loadBalanceSheet, loadBudgetsVsActual, loadIncomeStatement } from '@/li
 import { loadDelinquency, loadOpenArc, loadOpenViolations, loadPreviousMeeting } from '@/lib/board-packet/queries'
 import { formatDay, formatDayRange, todayIso } from '@/lib/money/format'
 import { MEETING_TYPE } from '@/lib/status/community'
+import { createAdminClient } from '@homeowner-portal/db'
+import { loadComplianceOverview } from '@/lib/compliance/overview-load'
+import { caBudgetLoader } from '@/lib/compliance/ca-budget-load'
+import type { LooseDb } from '@/lib/compliance/evidence'
 import { PrintPacketButton } from './PrintPacketButton'
 import {
   AccountingMissing,
@@ -19,6 +23,7 @@ import {
   ArcSection,
   BalanceSheetSection,
   BudgetSection,
+  ComplianceSection,
   DelinquencySection,
   IncomeStatementSection,
   PacketSection,
@@ -109,6 +114,19 @@ export default async function BoardPacketPage(props: { params: Promise<{ id: str
     delinquency: assocId ? () => loadDelinquency(supabase, assocId, period.after, timeZone) : null,
     violations: () => loadOpenViolations(supabase, meeting.org_id),
     arc: () => loadOpenArc(supabase, meeting.org_id),
+    // BL-145: every association's state-law obligations, as on /compliance.
+    compliance: async () => {
+      const db = supabase as unknown as LooseDb
+      const res = await loadComplianceOverview({
+        db,
+        admin: createAdminClient() as unknown as LooseDb,
+        orgId: meeting.org_id,
+        today,
+        caBudgets: caBudgetLoader(db, meeting.org_id, today, timeZone),
+      })
+      if (!res.ok) throw new Error('board packet: compliance obligations failed')
+      return res.overview
+    },
   })
 
   const dateLabel = formatDay(meeting.meeting_date, 'medium')
@@ -176,6 +194,10 @@ export default async function BoardPacketPage(props: { params: Promise<{ id: str
 
         <PacketSection id="arc" title="Open ARC applications" subtitle="Submitted or in review">
           <ArcSection res={s.arc} />
+        </PacketSection>
+
+        <PacketSection id="compliance" title="State law compliance" subtitle={`Where each obligation stands on ${formatDay(today)}`}>
+          <ComplianceSection res={s.compliance} />
         </PacketSection>
       </div>
     </Page>
