@@ -32,5 +32,10 @@ Estoppel certificates for Florida and California homes now follow the statute: t
 - **Agenda:** the spacing between items is even.
 - **Reply wait:** the inbox chip now says "Unanswered 2d" instead of "Waiting 2d", so it isn't confused with the Waiting filter.
 
+### Ready for a later database update (switched off until then)
+- **Insurance and fidelity-bond tracker:** keep your policies in one place, get renewal reminders at 90, 60 and 30 days, and check coverage against Florida and California rules.
+- **Fine hearings:** residents can ask for a hearing on a violation. The board schedules it, records the outcome and drafts the hearing notice. The state-law check takes the hearing into account.
+- **When:** both switch on after the owner applies runbook section K.
+
 ## Good to know
 - If you prepare Florida or California estoppel certificates, check that every violation you noticed has its notice date recorded.
