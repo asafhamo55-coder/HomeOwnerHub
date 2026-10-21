@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { memoCodeFor, parseMemoCode } from '@homeowner-portal/workflows'
 import {
   ZELLE_SETTINGS_KEY,
@@ -152,5 +152,31 @@ describe('payLinesFor', () => {
     ])
     expect(noMemo).toMatchObject({ memoCode: null, autoMatch: false })
     expect(partial).toMatchObject({ memoCode: 'DEMO-1247-DUES', autoMatch: false, amount: 125 })
+  })
+})
+
+describe('SEC-N7: secret fallback and rotation', () => {
+  it('prefers PAY_SETTINGS_SECRET; falls back to the service-role key, warning once in production without the value', async () => {
+    const mod = await import('./pay-by-zelle')
+    mod.resetPaySettingsWarningForTests()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(mod.paySettingsSecret({ PAY_SETTINGS_SECRET: 'dedicated', SUPABASE_SERVICE_ROLE_KEY: 'srk', VERCEL_ENV: 'production' })).toBe('dedicated')
+    expect(warn).not.toHaveBeenCalled()
+    expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'preview' })).toBe('srk-value')
+    expect(warn).not.toHaveBeenCalled()
+    expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' })).toBe('srk-value')
+    expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' })).toBe('srk-value')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('srk-value')
+    warn.mockRestore()
+  })
+
+  it('a Zelle setup signed with the previous secret still verifies during a rotation; an unknown key does not', async () => {
+    const { readZelleSettings, signZelleSettings, ZELLE_SETTINGS_KEY } = await import('./pay-by-zelle')
+    const stored = signZelleSettings('assoc-1', { recipient: 'pay@hoa.test', recipientName: null, instructions: null }, 'old-secret')
+    const cs = { [ZELLE_SETTINGS_KEY]: stored }
+    expect(readZelleSettings('assoc-1', cs, 'new-secret', null).state).toBe('unverified')
+    expect(readZelleSettings('assoc-1', cs, 'new-secret', 'old-secret').state).toBe('configured')
+    expect(readZelleSettings('assoc-1', cs, 'new-secret', 'other').state).toBe('unverified')
   })
 })

@@ -425,6 +425,15 @@ describe('5. compliance_deadlines_done (BL-131)', () => {
     expect(asAdmin.error).toBeNull()
   })
 
+  it('SEC-N6: done_by is the caller whatever the insert or update says', async () => {
+    const ins = await board.client.from(table).insert(row({ done_by: admin.id }) as never)
+    expect(ins.error).toBeNull()
+    const upd = await admin.client.from(table).update({ done_by: admin.id } as never).eq('organization_id' as never, org.orgId).select('id')
+    expect(upd.error).toBeNull()
+    const { data } = await adminDb().from(table).select('done_by').eq('organization_id' as never, org.orgId)
+    expect(data).toEqual([{ done_by: board.id }])
+  })
+
   it('a resident and another org’s board see nothing and write nothing', async () => {
     await adminDb().from(table).insert(row() as never)
     for (const user of [resident, otherBoard]) {

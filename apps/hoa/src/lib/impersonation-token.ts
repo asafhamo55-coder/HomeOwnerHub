@@ -33,7 +33,26 @@ interface Payload extends ImpersonationClaims {
   exp: number
 }
 
+/**
+ * SEC-N7: the secret is shared with the signed board settings
+ * (paySettingsSecret), so the MAC carries its own domain and can never be
+ * confused with another signature made with the same key.
+ */
+const MAC_DOMAIN = 'hoa-impersonation:v2\n'
+
+/**
+ * Tokens signed before the domain prefix (bare HMAC of the payload) are
+ * accepted only if issued before this instant; with the 8h TTL every such
+ * token is expired by LEGACY_MAC_ISSUED_BEFORE + 8h, after which the
+ * legacy branch can be deleted.
+ */
+export const LEGACY_MAC_ISSUED_BEFORE = Date.parse('2026-10-23T00:00:00Z')
+
 function mac(payload: string, secret: string): Buffer {
+  return createHmac('sha256', secret).update(MAC_DOMAIN + payload).digest()
+}
+
+function legacyMac(payload: string, secret: string): Buffer {
   return createHmac('sha256', secret).update(payload).digest()
 }
 
@@ -65,8 +84,10 @@ export function verifyImpersonationToken(
   if (!sigText) return null
 
   const given = Buffer.from(sigText, 'base64url')
-  const want = mac(payload, secret)
-  if (given.length !== want.length || !timingSafeEqual(given, want)) return null
+  const same = (want: Buffer) => given.length === want.length && timingSafeEqual(given, want)
+  const current = same(mac(payload, secret))
+  const legacy = !current && same(legacyMac(payload, secret))
+  if (!current && !legacy) return null
 
   let p: Partial<Payload>
   try {
@@ -78,6 +99,7 @@ export function verifyImpersonationToken(
   if (typeof p.orgId !== 'string' || typeof p.actorUserId !== 'string') return null
   if (typeof p.email !== 'string' || typeof p.name !== 'string') return null
   if (typeof p.iat !== 'number' || typeof p.exp !== 'number') return null
+  if (legacy && !(p.iat < LEGACY_MAC_ISSUED_BEFORE)) return null
 
   const now = expected.now ?? Date.now()
   if (p.exp <= now) return null

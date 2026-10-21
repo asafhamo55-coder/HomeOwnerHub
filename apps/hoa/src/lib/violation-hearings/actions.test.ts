@@ -169,6 +169,8 @@ describe('requestViolationHearing', () => {
     expect(await requestViolationHearing(V, null)).toEqual({ ok: false, error: 'We couldn’t find that notice on your home.' })
     h.rpcResult = { data: null, error: { code: '22023' } }
     expect((await requestViolationHearing(V, null)).ok).toBe(false)
+    h.rpcResult = { data: null, error: { code: '55000' } }
+    expect(await requestViolationHearing(V, null)).toEqual({ ok: false, error: expect.stringMatching(/hasn’t sent a notice/) })
   })
 
   it('refuses a bad id or an over-long statement without a call', async () => {

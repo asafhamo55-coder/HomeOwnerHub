@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createHmac } from 'node:crypto'
 import {
   IMPERSONATION_TOKEN_TTL_MS,
+  LEGACY_MAC_ISSUED_BEFORE,
   signImpersonationToken,
   verifyImpersonationToken,
   type ImpersonationClaims,
@@ -78,6 +79,24 @@ describe('impersonation cookie token', () => {
     const payload = b64({ v: 1, ...claims, iat: NOW, exp: NOW + 10 * IMPERSONATION_TOKEN_TTL_MS })
     const sig = createHmac('sha256', SECRET).update(payload).digest('base64url')
     expect(verifyImpersonationToken(`${payload}.${sig}`, SECRET, expectFor)).toBeNull()
+  })
+
+  it('SEC-N7: the MAC is domain-separated (not a bare HMAC of the payload)', () => {
+    const token = signImpersonationToken(claims, SECRET, NOW)
+    const [payload, sig] = token.split('.')
+    expect(sig).not.toBe(createHmac('sha256', SECRET).update(payload!).digest('base64url'))
+  })
+
+  it('SEC-N7: a legacy bare-HMAC token verifies only if issued before the cutoff', () => {
+    const legacy = (iat: number) => {
+      const payload = b64({ v: 1, ...claims, iat, exp: iat + IMPERSONATION_TOKEN_TTL_MS })
+      return `${payload}.${createHmac('sha256', SECRET).update(payload).digest('base64url')}`
+    }
+    expect(verifyImpersonationToken(legacy(NOW), SECRET, expectFor)).toEqual(claims)
+    const after = LEGACY_MAC_ISSUED_BEFORE + 1000
+    expect(verifyImpersonationToken(legacy(after), SECRET, { ...expectFor, now: after + 1000 })).toBeNull()
+    // …and a new-format token issued after the cutoff is fine.
+    expect(verifyImpersonationToken(signImpersonationToken(claims, SECRET, after), SECRET, { ...expectFor, now: after + 1000 })).toEqual(claims)
   })
 
   it('fails closed with no secret', () => {

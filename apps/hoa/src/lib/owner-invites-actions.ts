@@ -24,6 +24,7 @@ import { linkOwnershipForMember } from '@/lib/properties/lot'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   INVITE_SPACING_MS,
+  createdByThisCall,
   isAlreadyRegistered,
   isPendingInvite,
   isRateLimited,
@@ -61,9 +62,9 @@ export async function previewOwnerInvites(): Promise<Result<OwnerInvitePreview>>
 }
 
 export interface OwnerInviteOutcome {
+  /** SEC-N4: includes owners whose address already has an account — the
+   *  response never says which addresses those are. */
   invited: number
-  /** Already had an account elsewhere: added to this HOA, no email. */
-  linked: number
   failed: number
   held: number
   remaining: number
@@ -97,12 +98,12 @@ export async function inviteAllOwners(expected: number): Promise<Result<OwnerInv
     return { ok: false, error: 'The owner list changed since you reviewed it. Review the new count and confirm again.' }
   }
   if (plan.batch.length === 0) {
-    return { ok: true, data: { invited: 0, linked: 0, failed: 0, held: plan.held, remaining: 0, rateLimited: false } }
+    return { ok: true, data: { invited: 0, failed: 0, held: plan.held, remaining: 0, rateLimited: false } }
   }
 
   const supabase = await getSupabaseServerClient()
   const today = todayIn(await orgTimeZone(admin, gate.orgId))
-  const out: OwnerInviteOutcome = { invited: 0, linked: 0, failed: 0, held: plan.held, remaining: plan.remaining, rateLimited: false }
+  const out: OwnerInviteOutcome = { invited: 0, failed: 0, held: plan.held, remaining: plan.remaining, rateLimited: false }
 
   for (let i = 0; i < plan.batch.length; i++) {
     const owner = plan.batch[i]!
@@ -132,10 +133,24 @@ export async function inviteAllOwners(expected: number): Promise<Result<OwnerInv
   return { ok: true, data: out }
 }
 
-type OneOutcome = 'invited' | 'linked' | 'failed' | 'rate_limited'
+type OneOutcome = 'invited' | 'failed' | 'rate_limited'
 
-/** The Members page's invite, for one owner: invite (or find) the auth
- *  user, add them as a resident, link every home they own on file. */
+/**
+ * The Members page's invite, for one owner: invite the auth user, add them
+ * as a resident, link every home they own on file.
+ *
+ * SEC-N4: an address that already has a confirmed account is NOT attached
+ * to this HOA (no membership, no ownership link) unless that account is
+ * already a member here — a board must not be able to pull a stranger's
+ * account into its HOA, nor learn from the result that the address has an
+ * account. Such owners are counted as "invited" like everyone else (GoTrue
+ * cannot send an invitation to a confirmed account, and there is no
+ * accept-to-join flow yet); they can join by signing in once the board
+ * uses a path the account holder confirms.
+ *
+ * SEC-N1: when inviteUserByEmail hands back an account that existed before
+ * this call (an unconfirmed invitee of any HOA), its profile is left alone.
+ */
 async function inviteOneOwner(
   admin: ReturnType<typeof createAdminClient>,
   supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
@@ -144,7 +159,7 @@ async function inviteOneOwner(
   today: string,
 ): Promise<OneOutcome> {
   let userId: string | null = null
-  let outcome: 'invited' | 'linked' = 'invited'
+  const startedAt = Date.now()
   const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(owner.email, {
     redirectTo: appUrl('/auth/callback'),
     data: owner.name ? { full_name: owner.name } : undefined,
@@ -157,11 +172,28 @@ async function inviteOneOwner(
     }
     const { data: prof } = await admin.from('profiles').select('id').ilike('email', exactIlike(owner.email)).limit(1)
     userId = ((prof ?? []) as Array<{ id: string }>)[0]?.id ?? null
-    if (!userId) return 'failed'
-    outcome = 'linked'
+    // Uniform outcome: whether or not the account exists, or is ours to link.
+    if (!userId) return 'invited'
+    const { data: here, error: hereErr } = await admin
+      .from('org_members')
+      .select('user_id')
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (hereErr) {
+      console.error('[owner-invites] membership check failed', { orgId, code: hereErr.code ?? null })
+      return 'failed'
+    }
+    if (!here) {
+      console.info('[owner-invites] existing account not attached', { orgId })
+      return 'invited'
+    }
+    // Already a member of this HOA: linking their homes reveals nothing.
   } else {
     userId = invited.user.id
-    await admin.from('profiles').upsert({ id: userId, email: owner.email, full_name: owner.name } as never)
+    if (createdByThisCall(invited.user, startedAt)) {
+      await admin.from('profiles').upsert({ id: userId, email: owner.email, full_name: owner.name } as never)
+    }
   }
 
   const { error: memberErr } = await supabase
@@ -185,7 +217,7 @@ async function inviteOneOwner(
     })
     if (!linked.ok) console.error('[owner-invites] ownership link failed', { orgId, unitId })
   }
-  return outcome
+  return 'invited'
 }
 
 // ─── Pending: list / Resend / Revoke ─────────────────────────────────
@@ -267,11 +299,17 @@ export async function resendInvitation(userId: string): Promise<Result<{ sent: b
 }
 
 /**
- * Withdraw an invitation that was never accepted: the membership goes, the
- * account link on this HOA's ownerships is cleared (so the owner shows as
- * "without an account" again), and — if the invitee belongs to no other
- * HOA — the unconfirmed auth user is deleted so the emailed link stops
- * working. The roster (owner name and email) is untouched.
+ * Withdraw an invitation that was never accepted: this HOA's membership
+ * goes and the account link on this HOA's ownerships is cleared (so the
+ * owner shows as "without an account" again). The roster (owner name and
+ * email) is untouched.
+ *
+ * SEC-N1: Revoke never deletes the auth account. "Belongs to no other HOA"
+ * is not proof the account is this board's to delete — it may be another
+ * tenant's pending invitee or a pending platform admin (platform_admins is
+ * not an org membership). An unconfirmed account with no membership is
+ * harmless: signing in through the old link lands on an empty account
+ * with no HOA, and the next invitation from anyone reuses it.
  */
 export async function revokeInvitation(userId: string): Promise<Result<{ revoked: boolean }>> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
@@ -299,12 +337,6 @@ export async function revokeInvitation(userId: string): Promise<Result<{ revoked
     .eq('organization_id', gate.orgId)
     .eq('owner_user_id', userId)
   if (unlinkErr) console.error('[owner-invites] ownership unlink failed', { userId, code: unlinkErr.code ?? null })
-
-  const { data: elsewhere, error: elsewhereErr } = await found.admin.from('org_members').select('org_id').eq('user_id', userId).limit(1)
-  if (!elsewhereErr && (elsewhere ?? []).length === 0) {
-    const { error: delErr } = await found.admin.auth.admin.deleteUser(userId)
-    if (delErr) console.error('[owner-invites] invitee account delete failed', { userId, code: delErr.code ?? delErr.status ?? null })
-  }
 
   revalidatePath('/settings/members')
   return { ok: true, data: { revoked: true } }

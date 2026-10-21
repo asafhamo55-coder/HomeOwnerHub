@@ -95,6 +95,15 @@ describe('0068 part 1: insurance_policies (BL-132)', () => {
     expect(upd.data ?? []).toHaveLength(1)
   })
 
+  it('SEC-N6: created_by is the caller whatever the insert or update says', async () => {
+    const ins = await board.client.from(table).insert(policy({ created_by: admin.id }) as never)
+    expect(ins.error).toBeNull()
+    const upd = await admin.client.from(table).update({ created_by: admin.id } as never).eq('organization_id' as never, org.orgId).select('id')
+    expect(upd.error).toBeNull()
+    const { data } = await adminDb().from(table).select('created_by').eq('organization_id' as never, org.orgId)
+    expect(data).toEqual([{ created_by: board.id }])
+  })
+
   it('a resident and another org’s board see nothing, write nothing and delete nothing', async () => {
     await adminDb().from(table).insert(policy() as never)
     for (const user of [resident, otherBoard]) {

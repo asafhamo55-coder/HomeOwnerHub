@@ -328,14 +328,21 @@ export interface BoardResponseThread {
  * Every homeowner response thread on one violation, for /violations/[id].
  * `db` is the board's RLS-bound client (board reads audit_log and tickets).
  * null = a read failed (the page says so; never "no responses").
+ *
+ * SEC-N2: a link row is a claim. Until 0063 any member can insert
+ * audit_log rows, so a forged link could make any ticket in the org render
+ * as "the homeowner's response". A linked ticket is shown only when it was
+ * filed on a unit of THIS violation's home, by the user the link names,
+ * and that user is a member of the org who currently owns, rents or is on
+ * the roster of that home (the same people loadOwnViolation lets respond).
  */
 export async function loadBoardResponseThreads(
   db: Db,
-  input: { orgId: string; violationId: string },
+  input: { orgId: string; violationId: string; propertyId: string | null },
 ): Promise<BoardResponseThread[] | null> {
   const { data: links, error: linkError } = await db
     .from('audit_log')
-    .select('metadata')
+    .select('metadata, user_id')
     .eq('org_id', input.orgId)
     .eq('entity_type', VIOLATION_RESPONSE_ENTITY)
     .eq('entity_id', input.violationId)
@@ -344,15 +351,22 @@ export async function loadBoardResponseThreads(
     console.error('[violation-response] board link read failed', { code: linkError.code ?? null })
     return null
   }
-  const ids = [
-    ...new Set(((links ?? []) as Array<{ metadata: unknown }>).map((l) => ticketIdOf(l.metadata)).filter((x): x is string => x !== null)),
-  ]
-  if (ids.length === 0) return []
+  // ticket id → the user ids its link rows name
+  const linkUsers = new Map<string, Set<string>>()
+  for (const l of (links ?? []) as Array<{ metadata: unknown; user_id: unknown }>) {
+    const tid = ticketIdOf(l.metadata)
+    if (!tid || typeof l.user_id !== 'string') continue
+    const set = linkUsers.get(tid) ?? new Set<string>()
+    set.add(l.user_id)
+    linkUsers.set(tid, set)
+  }
+  const ids = [...linkUsers.keys()]
+  if (ids.length === 0 || !input.propertyId) return []
 
   const [tickets, messages] = await Promise.all([
     db
       .from('tickets')
-      .select('id, status, description, created_at, submitted_by')
+      .select('id, status, description, created_at, submitted_by, unit_id')
       .in('id', ids)
       .eq('organization_id', input.orgId)
       .is('deleted_at', null),
@@ -368,10 +382,21 @@ export async function loadBoardResponseThreads(
     })
     return null
   }
-  type T = { id: string; status: string; description: string; created_at: string }
+  type T = { id: string; status: string; description: string; created_at: string; submitted_by: string | null; unit_id: string | null }
   type M = { id: string; ticket_id: string; author_role: 'resident' | 'board' | 'admin'; body: string; internal: boolean; created_at: string }
   const msgs = (messages.data ?? []) as M[]
-  return ((tickets.data ?? []) as T[])
+  const all = (tickets.data ?? []) as T[]
+  const genuine = await residentFiledTickets(db, { orgId: input.orgId, propertyId: input.propertyId, tickets: all, linkUsers })
+  if (genuine === null) return null
+  if (genuine.size < all.length) {
+    // Ids and counts only.
+    console.warn('[violation-response] unverified response links hidden', {
+      violationId: input.violationId,
+      hidden: all.length - genuine.size,
+    })
+  }
+  return all
+    .filter((t) => genuine.has(t.id))
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map((t) => ({
       ticketId: t.id,
@@ -383,4 +408,79 @@ export async function loadBoardResponseThreads(
         ...msgs.filter((m) => m.ticket_id === t.id).map(({ ticket_id: _t, ...m }) => m),
       ],
     }))
+}
+
+/**
+ * The linked tickets that a resident of the violation's home really filed
+ * (see loadBoardResponseThreads). null = a read failed.
+ */
+async function residentFiledTickets(
+  db: Db,
+  input: {
+    orgId: string
+    propertyId: string
+    tickets: Array<{ id: string; submitted_by: string | null; unit_id: string | null }>
+    linkUsers: Map<string, Set<string>>
+  },
+): Promise<Set<string> | null> {
+  const fail = (code: unknown) => {
+    console.error('[violation-response] response link check failed', { code: code ?? null })
+    return null
+  }
+  // The tickets' units → their homes, by the one bridge rule
+  // (lib/properties/resolve.ts); a unit on another home does not count.
+  const ticketUnits = [...new Set(input.tickets.map((t) => t.unit_id).filter((u): u is string => typeof u === 'string'))]
+  const homes = await homePropertiesForUnits(db, ticketUnits, input.orgId)
+  if (homes === null) return fail(null)
+  const homeUnits = new Set(homes.filter((h) => h.propertyId === input.propertyId).map((h) => h.unitId))
+  const candidates = input.tickets.filter(
+    (t) =>
+      typeof t.submitted_by === 'string' &&
+      typeof t.unit_id === 'string' &&
+      homeUnits.has(t.unit_id) &&
+      (input.linkUsers.get(t.id)?.has(t.submitted_by) ?? false),
+  )
+  if (candidates.length === 0) return new Set()
+  const submitters = [...new Set(candidates.map((t) => t.submitted_by as string))]
+  const unitIds = [...homeUnits]
+
+  const [members, owners, tenants, roster, profiles] = await Promise.all([
+    db.from('org_members').select('user_id').eq('org_id', input.orgId).in('user_id', submitters),
+    db
+      .from('ownerships')
+      .select('owner_user_id')
+      .eq('organization_id', input.orgId)
+      .in('unit_id', unitIds)
+      .in('owner_user_id', submitters)
+      .is('valid_to', null),
+    db
+      .from('tenancies')
+      .select('tenant_user_id')
+      .eq('organization_id', input.orgId)
+      .in('unit_id', unitIds)
+      .in('tenant_user_id', submitters)
+      .eq('status', 'active'),
+    db
+      .from('property_residents')
+      .select('email')
+      .eq('organization_id', input.orgId)
+      .eq('property_id', input.propertyId)
+      .is('moved_out_at', null),
+    db.from('profiles').select('id, email').in('id', submitters),
+  ])
+  const failed = members.error ?? owners.error ?? tenants.error ?? roster.error ?? profiles.error
+  if (failed) return fail(failed.code)
+
+  const member = new Set(((members.data ?? []) as Array<{ user_id: string }>).map((r) => r.user_id))
+  const living = new Set<string>([
+    ...((owners.data ?? []) as Array<{ owner_user_id: string }>).map((r) => r.owner_user_id),
+    ...((tenants.data ?? []) as Array<{ tenant_user_id: string }>).map((r) => r.tenant_user_id),
+  ])
+  const rosterEmails = new Set(
+    ((roster.data ?? []) as Array<{ email: string | null }>).map((r) => r.email?.trim().toLowerCase()).filter((e): e is string => !!e),
+  )
+  for (const p of (profiles.data ?? []) as Array<{ id: string; email: string | null }>) {
+    if (p.email && rosterEmails.has(p.email.trim().toLowerCase())) living.add(p.id)
+  }
+  return new Set(candidates.filter((t) => member.has(t.submitted_by!) && living.has(t.submitted_by!)).map((t) => t.id))
 }

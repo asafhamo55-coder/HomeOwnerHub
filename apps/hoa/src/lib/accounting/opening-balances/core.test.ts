@@ -95,12 +95,13 @@ beforeEach(() => {
 })
 
 describe('openingSubjectId (the idempotency key)', () => {
-  it('is a stable uuid per association and date', () => {
-    const a = openingSubjectId(ASSOC, '2026-01-01')
+  it('is a stable uuid per association, whatever the start date (SEC-N3: one live proposal per association)', () => {
+    const a = openingSubjectId(ASSOC)
     expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
-    expect(openingSubjectId(ASSOC, '2026-01-01')).toBe(a)
-    expect(openingSubjectId(ASSOC, '2026-01-02')).not.toBe(a)
-    expect(openingSubjectId(ORG, '2026-01-01')).not.toBe(a)
+    expect(openingSubjectId(ASSOC)).toBe(a)
+    expect(openingSubjectId(ORG)).not.toBe(a)
+    // the date is not an input: proposals for two dates collide on the live-subject index
+    expect(openingSubjectId.length).toBe(1)
   })
 })
 
@@ -150,7 +151,7 @@ describe('proposeOpeningCore', () => {
     expect(filed).toMatchObject({
       organizationId: ORG,
       actionType: OPENING_ACTION,
-      subjectId: openingSubjectId(ASSOC, '2026-01-01'),
+      subjectId: openingSubjectId(ASSOC),
       amount: 1_325.5,
     })
     const payload = readOpeningPayload(filed.payload)

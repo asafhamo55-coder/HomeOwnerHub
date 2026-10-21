@@ -1,10 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const { approveRequest, rejectRequest } = vi.hoisted(() => ({
+const { approveRequest, rejectRequest, w18Executor } = vi.hoisted(() => ({
   approveRequest: vi.fn(),
   rejectRequest: vi.fn(),
+  w18Executor: vi.fn(),
 }))
-vi.mock('@homeowner-portal/workflows', () => ({ approveRequest, rejectRequest }))
+vi.mock('@homeowner-portal/workflows', () => ({
+  approveRequest,
+  rejectRequest,
+  W18_CASH_RECEIPT: 'w18.cash_receipt',
+  APPROVAL_EXECUTORS: { 'w18.cash_receipt': w18Executor },
+}))
 
 import { billHandlers, decideApprovalFor, letterHandlers, openingHandlers, postingHandlers, type InboxDecisionHandlers } from './decide'
 import { letterExecutor } from '../collections/letters/executor'
@@ -184,17 +190,38 @@ describe('decideApprovalFor — W3 letters and vendor reject (BL-048)', () => {
 })
 
 describe('postingHandlers', () => {
-  it('wraps the approval layer: user client decides, admin client executes', async () => {
-    const userDb = { tag: 'user' }
+  const kindDb = (actionType: string | null) => ({
+    tag: 'user',
+    from: () => {
+      const b = { select: () => b, eq: () => b, maybeSingle: async () => ({ data: actionType ? { action_type: actionType } : null, error: null }) }
+      return b
+    },
+  })
+
+  it('wraps the approval layer: user client decides, admin client executes, W18 executor only', async () => {
+    const userDb = kindDb('w18.cash_receipt')
     const adminDb = { tag: 'admin' }
     approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'je', alreadyDecided: false })
     rejectRequest.mockResolvedValueOnce({ ok: true, status: 'rejected', resultRef: null, alreadyDecided: false })
     const h = postingHandlers(userDb as never, adminDb as never)
     await h.approvePosting(ID)
     await h.rejectPosting(ID, 'why')
-    expect(approveRequest).toHaveBeenCalledWith(userDb, adminDb, ID)
+    expect(approveRequest).toHaveBeenCalledWith(userDb, adminDb, ID, { 'w18.cash_receipt': w18Executor })
     expect(rejectRequest).toHaveBeenCalledWith(userDb, ID, 'why')
   })
+
+  it.each([['w36.ap_bill'], ['accounting.opening_balances'], ['collections.letter'], [null]])(
+    'SEC-N8: refuses a request that is not a W18 match (%s) before deciding it',
+    async (t) => {
+      approveRequest.mockClear()
+      rejectRequest.mockClear()
+      const h = postingHandlers(kindDb(t) as never, {} as never)
+      expect((await h.approvePosting(ID)).ok).toBe(false)
+      expect((await h.rejectPosting(ID, 'x')).ok).toBe(false)
+      expect(approveRequest).not.toHaveBeenCalled()
+      expect(rejectRequest).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('decideApprovalFor — scanned bills (BL-021)', () => {

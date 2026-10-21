@@ -46,7 +46,14 @@
 // can drive the exact composition the server action uses.
 
 import { z } from 'zod'
-import { approveRequest, rejectRequest, type ApprovalExecutor, type DecisionResult } from '@homeowner-portal/workflows'
+import {
+  APPROVAL_EXECUTORS,
+  approveRequest,
+  rejectRequest,
+  W18_CASH_RECEIPT,
+  type ApprovalExecutor,
+  type DecisionResult,
+} from '@homeowner-portal/workflows'
 import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
 import { letterExecutor } from '../collections/letters/executor'
@@ -88,14 +95,27 @@ const DecisionSchema = z.object({
 
 export type InboxDecisionInput = z.input<typeof DecisionSchema>
 
-/** The approval layer's two calls, bound to a decider and an executor client. */
+/**
+ * The approval layer's two calls for W18 cash receipts, bound to a decider
+ * and an executor client. SEC-N8: same shape as billHandlers — the row's
+ * action_type is checked on the decider's RLS client BEFORE the claim, and
+ * the executor map holds only the W18 executor, so a bill, letter or
+ * opening-balance id sent as 'w18' is refused, never claimed (and never
+ * burned to 'failed' or rejected without its own checks).
+ */
 export function postingHandlers(
   userDb: InboxDb,
   adminDb: InboxDb,
 ): Pick<InboxDecisionHandlers, 'approvePosting' | 'rejectPosting'> {
+  const isW18 = async (id: string): Promise<boolean> => {
+    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    return !error && data?.action_type === W18_CASH_RECEIPT
+  }
+  const notW18 = { ok: false as const, error: 'That approval item isn’t a bank deposit match.' }
   return {
-    approvePosting: (id) => approveRequest(userDb, adminDb, id),
-    rejectPosting: (id, reason) => rejectRequest(userDb, id, reason),
+    approvePosting: async (id) =>
+      (await isW18(id)) ? approveRequest(userDb, adminDb, id, { [W18_CASH_RECEIPT]: APPROVAL_EXECUTORS[W18_CASH_RECEIPT]! }) : notW18,
+    rejectPosting: async (id, reason) => ((await isW18(id)) ? rejectRequest(userDb, id, reason) : notW18),
   }
 }
 

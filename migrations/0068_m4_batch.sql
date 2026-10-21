@@ -17,6 +17,8 @@
 --              (select / insert / update / delete). Residents read nothing.
 --              The association (if set) must be the row's org's (policy),
 --              and so must the linked document (trigger, 23503).
+--              created_by is the caller for a signed-in user (trigger,
+--              security review #2 SEC-N6).
 --   2. BL-133  violation_hearings: one hearing record per violation
 --              (the first slice of BL-030): the resident's request (when,
 --              who, an optional written statement), the hearing date, time
@@ -25,11 +27,16 @@
 --              findings / payment-due dates. A trigger refuses a violation
 --              from another org (23503).
 --              RLS: board/admin of the org only, the 0063 board-only shape.
+--              created_by is the caller for a signed-in user, and the
+--              resident-request columns (requested_at, requested_by,
+--              resident_statement) are written only by the function below
+--              (trigger, security review #2 SEC-N6).
 --              Residents get exactly one thing, through
 --              request_violation_hearing(violation_id, statement)
 --              (SECURITY DEFINER): record a request on a violation on
 --              their OWN home (the 0063 hoa_violations_select resident
---              predicate), in their own org, that the board has not closed.
+--              predicate), in their own org, not deleted, that the board
+--              has noticed and has not closed (SEC-N5).
 --              It never touches the board's columns. Residents read their
 --              request back through the app (service role, after the app's
 --              own-home check), not through PostgREST.
@@ -148,6 +155,35 @@ CREATE POLICY insurance_policies_delete ON public.insurance_policies
   FOR DELETE TO authenticated
   USING (public.auth_is_board_or_admin(organization_id));
 
+-- Attribution (security review #2, SEC-N6): for a signed-in caller (role
+-- `authenticated`, i.e. through PostgREST) created_by is always the caller
+-- on INSERT and never changes on UPDATE. SECURITY INVOKER on purpose:
+-- current_user must be the caller's role. The service role is left alone.
+CREATE OR REPLACE FUNCTION public.insurance_policies_attribution()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF current_user = 'authenticated' THEN
+    IF tg_op = 'INSERT' THEN
+      new.created_by := auth.uid();
+    ELSE
+      new.created_by := old.created_by;
+    END IF;
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.insurance_policies_attribution() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS insurance_policies_attribution ON public.insurance_policies;
+CREATE TRIGGER insurance_policies_attribution
+  BEFORE INSERT OR UPDATE ON public.insurance_policies
+  FOR EACH ROW EXECUTE FUNCTION public.insurance_policies_attribution();
+
 -- ── 2. BL-133: violation_hearings ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.violation_hearings (
   id                 uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -240,6 +276,44 @@ CREATE POLICY violation_hearings_delete ON public.violation_hearings
   FOR DELETE TO authenticated
   USING (public.auth_is_board_or_admin(organization_id));
 
+-- Attribution (security review #2, SEC-N6): for a signed-in caller (role
+-- `authenticated`, i.e. a board member through PostgREST) created_by is
+-- the caller on INSERT and fixed after; the resident-request columns can
+-- be neither invented on INSERT nor changed on UPDATE, so a board member
+-- cannot record a request the resident never made. request_violation_hearing()
+-- is SECURITY DEFINER, so inside it current_user is its owner and these
+-- rules do not apply; it sets the columns itself from auth.uid().
+CREATE OR REPLACE FUNCTION public.violation_hearings_attribution()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF current_user = 'authenticated' THEN
+    IF tg_op = 'INSERT' THEN
+      new.created_by         := auth.uid();
+      new.requested_at       := NULL;
+      new.requested_by       := NULL;
+      new.resident_statement := NULL;
+    ELSE
+      new.created_by         := old.created_by;
+      new.requested_at       := old.requested_at;
+      new.requested_by       := old.requested_by;
+      new.resident_statement := old.resident_statement;
+    END IF;
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.violation_hearings_attribution() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS violation_hearings_attribution ON public.violation_hearings;
+CREATE TRIGGER violation_hearings_attribution
+  BEFORE INSERT OR UPDATE ON public.violation_hearings
+  FOR EACH ROW EXECUTE FUNCTION public.violation_hearings_attribution();
+
 -- The resident's one write: "I request a hearing" on a violation on their
 -- own home. SECURITY DEFINER so it can write the row the resident has no
 -- policy for; it checks, as the caller (auth.uid()):
@@ -247,12 +321,16 @@ CREATE POLICY violation_hearings_delete ON public.violation_hearings
 --   * the violation is in one of the caller's orgs AND on one of the
 --     caller's homes — the same predicate as 0063's hoa_violations_select
 --     resident branch (units in auth_resident_unit_ids() via
---     legacy_hoa_property_id);
+--     legacy_hoa_property_id) — and not deleted;
+--   * the board has noticed it: notice_sent_at is set, or its status is
+--     notice_sent or fined (the app's definition of "noticed",
+--     apps/hoa/src/lib/properties/estoppel/model.ts) (SEC-N5);
 --   * the board has not closed it.
 -- A second request is a no-op that keeps the first request's time, author
 -- and statement. It never writes the board's columns (date, panel,
--- notice, outcome). Errors: 42501 not yours / not signed in, 22023 closed
--- or a statement over 4,000 characters. Returns the request time.
+-- notice, outcome). Errors: 42501 not yours / not signed in / deleted,
+-- 55000 not noticed yet, 22023 closed or a statement over 4,000
+-- characters. Returns the request time.
 CREATE OR REPLACE FUNCTION public.request_violation_hearing(p_violation_id uuid, p_statement text DEFAULT NULL)
 RETURNS timestamptz
 LANGUAGE plpgsql
@@ -263,6 +341,7 @@ DECLARE
   v_uid       uuid := auth.uid();
   v_org       uuid;
   v_status    text;
+  v_noticed   timestamptz;
   v_statement text := nullif(btrim(coalesce(p_statement, '')), '');
   v_at        timestamptz;
 BEGIN
@@ -273,9 +352,10 @@ BEGIN
     RAISE EXCEPTION 'request_violation_hearing: statement too long' USING errcode = '22023';
   END IF;
 
-  SELECT v.org_id, v.status INTO v_org, v_status
+  SELECT v.org_id, v.status, v.notice_sent_at INTO v_org, v_status, v_noticed
     FROM public.hoa_violations v
    WHERE v.id = p_violation_id
+     AND v.deleted_at IS NULL
      AND v.org_id = ANY (public.auth_org_ids())
      AND v.property_id IN (
        SELECT u.legacy_hoa_property_id FROM public.units u
@@ -286,6 +366,9 @@ BEGIN
   END IF;
   IF v_status IN ('resolved', 'dismissed', 'waived', 'cured') THEN
     RAISE EXCEPTION 'request_violation_hearing: violation is closed' USING errcode = '22023';
+  END IF;
+  IF v_noticed IS NULL AND v_status NOT IN ('notice_sent', 'fined') THEN
+    RAISE EXCEPTION 'request_violation_hearing: no notice has been sent' USING errcode = '55000';
   END IF;
 
   INSERT INTO public.violation_hearings AS h

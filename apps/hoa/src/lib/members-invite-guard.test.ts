@@ -12,6 +12,10 @@ const h = vi.hoisted(() => ({
   adminWrites: [] as unknown[][],
   sandboxReads: [] as string[],
   warn: vi.fn(),
+  inviteError: null as null | { message: string; code?: string },
+  createdAt: null as string | null,
+  existingUsers: [] as Array<{ id: string; email: string }>,
+  hereMember: false,
 }))
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -31,7 +35,8 @@ function chain(log: unknown[][], table: string) {
   for (const op of ['select', 'eq', 'is', 'ilike', 'limit', 'update', 'delete', 'upsert', 'insert']) {
     b[op] = (...a: unknown[]) => (log.push([table, op, ...a]), b)
   }
-  b.maybeSingle = async () => ({ data: null, error: null })
+  b.maybeSingle = async () =>
+    table === 'org_members' && h.hereMember ? { data: { user_id: 'existing-user' }, error: null } : { data: null, error: null }
   b.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(res)
   return b
 }
@@ -45,10 +50,11 @@ vi.mock('@homeowner-portal/db', () => ({
     auth: {
       admin: {
         inviteUserByEmail: vi.fn(async (email: string) => {
+          if (h.inviteError) return { data: { user: null }, error: h.inviteError }
           h.invited.push(email)
-          return { data: { user: { id: 'new-user' } }, error: null }
+          return { data: { user: { id: 'new-user', created_at: h.createdAt ?? new Date().toISOString() } }, error: null }
         }),
-        listUsers: vi.fn(async () => ({ data: { users: [] } })),
+        listUsers: vi.fn(async () => ({ data: { users: h.existingUsers } })),
       },
     },
   })),
@@ -68,6 +74,10 @@ beforeEach(() => {
   h.userWrites = []
   h.adminWrites = []
   h.sandboxReads = []
+  h.inviteError = null
+  h.createdAt = null
+  h.existingUsers = []
+  h.hereMember = false
   vi.spyOn(console, 'warn').mockImplementation(h.warn)
   h.warn.mockClear()
 })
@@ -125,5 +135,41 @@ describe('inviteMember outbound guard (BL-135)', () => {
     const logged = JSON.stringify(h.warn.mock.calls)
     expect(logged).not.toContain('owner@example.com')
     expect(logged).toContain('invite_single:org-1')
+  })
+})
+
+describe('inviteMember and existing accounts (SEC-N1 / SEC-N4)', () => {
+  const profileUpserts = () => h.adminWrites.filter((c) => c[0] === 'profiles' && c[1] === 'upsert')
+
+  it('a brand-new account gets its profile seeded', async () => {
+    await inviteMember({ email: 'owner@example.com', role: 'resident', fullName: 'Pat' })
+    expect(profileUpserts()).toHaveLength(1)
+  })
+
+  it('an unconfirmed account that existed before the call keeps its profile', async () => {
+    h.createdAt = '2026-01-01T00:00:00Z'
+    const res = await inviteMember({ email: 'owner@example.com', role: 'resident', fullName: 'Someone Else' })
+    expect(res.ok).toBe(true)
+    expect(profileUpserts()).toHaveLength(0)
+  })
+
+  it('a confirmed account outside this HOA is not attached, and the answer matches a fresh invite', async () => {
+    h.inviteError = { message: 'A user with this email address has already been registered', code: 'email_exists' }
+    h.existingUsers = [{ id: 'existing-user', email: 'owner@example.com' }]
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const res = await inviteMember({ email: 'owner@example.com', role: 'resident', propertyId: '11111111-1111-4111-8111-111111111111', residencyRole: 'owner' })
+    expect(res).toEqual({ ok: true, data: { userId: null, alreadyExisted: false } })
+    expect(memberInserts()).toHaveLength(0)
+    expect(profileUpserts()).toHaveLength(0)
+    expect(h.adminWrites.some((c) => ['property_residents', 'ownerships', 'tenancies'].includes(c[0] as string) && c[1] !== 'select')).toBe(false)
+  })
+
+  it('a confirmed account that is already a member here is updated without touching its profile', async () => {
+    h.inviteError = { message: 'A user with this email address has already been registered', code: 'email_exists' }
+    h.existingUsers = [{ id: 'existing-user', email: 'owner@example.com' }]
+    h.hereMember = true
+    const res = await inviteMember({ email: 'owner@example.com', role: 'resident' })
+    expect(res).toEqual({ ok: true, data: { userId: 'existing-user', alreadyExisted: true } })
+    expect(profileUpserts()).toHaveLength(0)
   })
 })

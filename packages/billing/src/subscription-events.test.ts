@@ -2,7 +2,7 @@
 // A small stateful fake of the admin client (orgs + audit_log rows, filters
 // including `metadata->>key`), so idempotency and ordering are asserted on
 // the resulting state rather than on call lists.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type Stripe from 'stripe'
 import { applyStripeEvent, webhookHttpStatus, type WebhookDb } from './webhook'
 import { AUDIT_INVOICE_PAYMENT_FAILED, AUDIT_SUBSCRIPTION_UPDATED, billingAttention } from './billing-status'
@@ -516,5 +516,106 @@ describe('customer.subscription.updated, concurrent deliveries', () => {
     const again = await applyStripeEvent(updated('evt_a', T, { status: 'active', quantity: 50 }), { db: s.db, m1: false })
     expect(again).toEqual({ ok: true, outcome: 'duplicate' })
     expect(s.org(ORG)!.doors_count).toBe(60)
+  })
+})
+
+// ─── Forged applied-update rows (security review #2, SEC-N2) ──────────
+//
+// Until 0063, a member can insert audit_log rows with user_id NULL. A row
+// newer than the incoming event is honoured only if Stripe confirms it.
+
+function fakeStripe(events: Stripe.Event[], opts: { down?: boolean } = {}) {
+  const calls: string[] = []
+  return {
+    calls,
+    client: {
+      events: {
+        async retrieve(id: string) {
+          calls.push(id)
+          if (opts.down) throw Object.assign(new Error('connection'), { type: 'StripeConnectionError' })
+          const e = events.find((x) => x.id === id)
+          if (!e) throw Object.assign(new Error('No such event'), { statusCode: 404, code: 'resource_missing' })
+          return e
+        },
+      },
+    },
+  }
+}
+
+const forgedRow = (metadata: Row) => ({
+  org_id: ORG,
+  user_id: null,
+  action: AUDIT_SUBSCRIPTION_UPDATED,
+  entity_type: 'stripe_subscription',
+  metadata: { sub_id: 'sub_1', status: 'active', plan: 'annual', quantity: 999, ...metadata },
+})
+
+describe('SEC-N2: a user_id NULL row newer than the event is verified against Stripe', () => {
+  it('a row naming an event Stripe does not have is ignored: the real update applies (ids-only log)', async () => {
+    const s = payingOrg()
+    await s.db.from('audit_log').insert(forgedRow({ event_id: 'evt_forged', event_created: '9999-12-31T00:00:00.000Z' }))
+    const stripe = fakeStripe([])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const r = await applyStripeEvent(updated('evt_real', T, { status: 'past_due', quantity: 180 }), { db: s.db, m1: true, stripe: stripe.client })
+    expect(r).toEqual({ ok: true, outcome: 'subscription_updated' })
+    expect(stripe.calls).toContain('evt_forged')
+    // reconcile did not copy the forged plan / quantity
+    expect(s.org(ORG)).toMatchObject({ plan: 'monthly', doors_count: 180 })
+    expect(s.rpcs.filter((x) => x.args.p_plan === 'annual')).toEqual([])
+    expect(JSON.stringify(warn.mock.calls)).toContain('evt_forged')
+    warn.mockRestore()
+  })
+
+  it('a real event id with a forged clock or state, or another subscription, is ignored', async () => {
+    const s = payingOrg()
+    const realOther = updated('evt_other_sub', T + 30, { id: 'sub_2', status: 'active' })
+    const realOld = updated('evt_old', T - 30, { status: 'active', quantity: 41, lookupKey: 'hoa_per_door_annual' })
+    await s.db.from('audit_log').insert(forgedRow({ event_id: 'evt_other_sub', event_created: new Date((T + 30) * 1000).toISOString() }))
+    await s.db.from('audit_log').insert(forgedRow({ event_id: 'evt_old', event_created: '9999-12-31T00:00:00.000Z', quantity: 41 }))
+    const stripe = fakeStripe([realOther, realOld])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const r = await applyStripeEvent(updated('evt_real', T, { status: 'past_due' }), { db: s.db, m1: false, stripe: stripe.client })
+    warn.mockRestore()
+    expect(r).toEqual({ ok: true, outcome: 'subscription_updated' })
+    expect(stripe.calls.sort()).toEqual(['evt_old', 'evt_other_sub'])
+  })
+
+  it('a genuine newer update still makes a late event stale', async () => {
+    const s = payingOrg()
+    const newer = updated('evt_active', T + 60, { status: 'active' })
+    const stripe = fakeStripe([newer])
+    await applyStripeEvent(newer, { db: s.db, m1: false, stripe: stripe.client })
+    const late = await applyStripeEvent(updated('evt_pd', T, { status: 'past_due' }), { db: s.db, m1: false, stripe: stripe.client })
+    expect(late).toEqual({ ok: true, outcome: 'ignored', message: 'stale_event' })
+    expect(stripe.calls).toEqual(['evt_active'])
+  })
+
+  it('older rows are never looked up (nothing to verify on the normal path)', async () => {
+    const s = payingOrg()
+    const stripe = fakeStripe([])
+    await applyStripeEvent(updated('evt_1', T, { status: 'active' }), { db: s.db, m1: false, stripe: stripe.client })
+    await applyStripeEvent(updated('evt_2', T + 60, { status: 'past_due' }), { db: s.db, m1: false, stripe: stripe.client })
+    expect(stripe.calls).toEqual([])
+  })
+
+  it('Stripe unreachable while a newer row needs checking is a 500, not a pass', async () => {
+    const s = payingOrg()
+    await s.db.from('audit_log').insert(forgedRow({ event_id: 'evt_x', event_created: '9999-12-31T00:00:00.000Z' }))
+    const r = await applyStripeEvent(updated('evt_real', T, { status: 'past_due' }), { db: s.db, m1: false, stripe: fakeStripe([], { down: true }).client })
+    expect(r).toEqual({ ok: false, outcome: 'error', message: 'verify_failed' })
+    expect(webhookHttpStatus(r)).toBe(500)
+    expect(s.audit(AUDIT_SUBSCRIPTION_UPDATED)).toHaveLength(1) // only the forged row
+  })
+
+  it('invoice.payment_failed: a forged row naming the event id alone does not dedupe the real failure', async () => {
+    const s = payingOrg()
+    await s.db.from('audit_log').insert({
+      org_id: ORG,
+      user_id: null,
+      action: AUDIT_INVOICE_PAYMENT_FAILED,
+      entity_type: 'stripe_invoice',
+      metadata: { event_id: 'evt_f', sub_id: 'sub_1' },
+    })
+    expect(await applyStripeEvent(invoiceFailed('evt_f', T, 'sub_1'), { db: s.db, m1: false })).toEqual({ ok: true, outcome: 'invoice_failed' })
   })
 })

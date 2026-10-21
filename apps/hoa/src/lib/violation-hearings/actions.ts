@@ -195,6 +195,8 @@ export async function requestViolationHearing(violationId: string, statement: st
     console.error('[violation-hearings] request failed', { code: error.code ?? null, violationId: parsed.data.violationId })
     if (error.code === '42501') return { ok: false, error: 'We couldn’t find that notice on your home.' }
     if (error.code === '22023') return { ok: false, error: 'This violation is closed, so a hearing can’t be requested.' }
+    // 0068 (SEC-N5): only a violation the board has sent a notice for.
+    if (error.code === '55000') return { ok: false, error: 'The board hasn’t sent a notice for this violation yet, so there is no hearing to request.' }
     return { ok: false, error: 'Couldn’t send your request. Try again.' }
   }
 
