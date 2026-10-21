@@ -24,6 +24,7 @@ import { seed_guide } from './ui-shots-seed/guide'
 import { seed_properties } from './ui-shots-seed/properties'
 import { seed_screens } from './ui-shots-seed/screens'
 import { seed_board_tools } from './ui-shots-seed/board-tools'
+import { seed_georgia } from './ui-shots-seed/georgia'
 
 export interface SeedContext {
   userId: string
@@ -47,6 +48,7 @@ const SEEDERS: Seeder[] = [
   seed_approvals,
   seed_meetings,
   seed_setup,
+  seed_georgia,
   seed_resident,
   seed_guide,
   seed_screens,

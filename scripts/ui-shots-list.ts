@@ -225,6 +225,14 @@ export const SHOTS: Shot[] = [
   // The only /settings/billing shot, so release notes for that route get it.
   { name: 'settings-billing-past-due', path: '/settings/billing', auth: true, org: 'pastDueHoaOrgId' },
   { name: 'legal-compliance', path: '/legal/compliance', auth: true },
+  // next.md §2: Georgia is the launch state. A Georgia board's view, in its
+  // own org (scripts/ui-shots-seed/georgia.ts): the SB 406 registration
+  // deadline card on the dashboard, the § 44-3-232(d) statement of amounts
+  // due on the estoppel route, and an open violation. No /legal shot: CI's
+  // schema replay loads no Georgia statute rows.
+  { name: 'ga-dashboard', path: '/', auth: true, org: 'gaHoaOrgId', themes: LIGHT },
+  { name: 'ga-estoppel', path: '/properties/:gaPropertyId/estoppel', auth: true, org: 'gaHoaOrgId', themes: LIGHT },
+  { name: 'ga-violation', path: '/violations/:gaViolationId', auth: true, org: 'gaHoaOrgId', themes: LIGHT },
   // BL-070 user guide: help centre, search (hit + no hit), topic, article,
   // and the "?" drawer on a covered page and on one with no article.
   { name: 'help', path: '/help', auth: true },
