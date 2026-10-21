@@ -1,10 +1,19 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import * as React from 'react'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { PageHeader } from '@homeowner-portal/ui'
+import { PageHeader, ToastProvider } from '@homeowner-portal/ui'
+import { printableHomes } from '@/lib/meeting-quorum/quorum'
+import { proxyLaw } from '@/lib/meeting-quorum/law'
+import { ProxyForm, SignInSheet } from './meetings/[id]/quorum/print'
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh() {}, push() {} }) }))
+vi.mock('@/lib/insurance/actions', () => ({
+  saveInsurancePolicy: async () => ({ ok: true }),
+  deleteInsurancePolicy: async () => ({ ok: true }),
+}))
 
 // ui:overflow regressions, checked against server-rendered markup (the
 // repo's component-test pattern: no DOM, so we assert the classes that
@@ -13,6 +22,7 @@ import { PageHeader } from '@homeowner-portal/ui'
 ;(globalThis as { React?: typeof React }).React = React
 
 const { FollowUpActions } = await import('./communications/[id]/FollowUpActions')
+const { PolicyList } = await import('./insurance/PolicyList')
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const html = (el: React.ReactElement) => renderToStaticMarkup(el).replace(/<!-- -->/g, '')
@@ -93,5 +103,108 @@ describe('communications follow-up buttons (/communications/[id] @375)', () => {
   it('the row itself wraps', () => {
     const row = markup.match(/^<div class="([^"]*)"/)![1].split(/\s+/)
     expect(row).toEqual(expect.arrayContaining(['flex', 'flex-wrap', 'min-w-0']))
+  })
+})
+
+describe('quorum sign-in sheet (/meetings/[id]/quorum/sign-in @375: table 469px > 375px)', () => {
+  const homes = printableHomes([
+    {
+      propertyId: 'p1',
+      address: '1200 Extraordinarily Long Sample Boulevard Northwest',
+      unitNumber: '4B',
+      lotNumber: null,
+      owners: [{ name: 'Jordan Example', share: '100%', email: null, phone: null }],
+    },
+  ])
+  const markup = html(
+    <SignInSheet header={{ associationName: 'Demo HOA', meetingLabel: 'Annual meeting', meetingDate: 'Oct 21, 2026' }} homes={homes} showShares={false} />,
+  )
+
+  it('wraps the table in a sideways-scrolling box on screen', () => {
+    const box = markup.match(/<div role="region"[^>]*>(?=<table)/)
+    expect(box).not.toBeNull()
+    const cls = classOf(box![0])
+    expect(cls).toEqual(expect.arrayContaining(['max-w-full', 'overflow-x-auto']))
+    // Keyboard users can scroll it too.
+    expect(box![0]).toContain('tabindex="0"')
+    expect(box![0]).toContain('aria-label="Sign-in sheet table"')
+  })
+
+  it('shows a scroll hint on phones only, never on paper', () => {
+    const hint = markup.match(/<p data-scroll-hint[^>]*>[^<]*<\/p>/)
+    expect(hint).not.toBeNull()
+    expect(hint![0]).toContain('Scroll sideways')
+    expect(classOf(hint![0])).toEqual(expect.arrayContaining(['sm:hidden', 'print:hidden']))
+  })
+
+  it('keeps print unchanged: full width, no scroll box, no screen minimum width', () => {
+    const box = markup.match(/<div role="region"[^>]*>/)![0]
+    expect(classOf(box)).toContain('print:overflow-visible')
+    const table = classOf(markup.match(/<table\b[^>]*>/)![0])
+    expect(table).toEqual(expect.arrayContaining(['w-full', 'print:min-w-0']))
+  })
+})
+
+describe('proxy forms (/meetings/[id]/quorum/proxies @375)', () => {
+  it('lets long addresses and owner names break inside the details grid', () => {
+    const [home] = printableHomes([
+      { propertyId: 'p1', address: '1200 Extraordinarily Long Sample Boulevard Northwest', unitNumber: '4B', lotNumber: null, owners: [] },
+    ])
+    const markup = html(
+      <ProxyForm header={{ associationName: null, meetingLabel: 'Annual meeting', meetingDate: 'Oct 21, 2026' }} home={home!} law={proxyLaw('TX')} />,
+    )
+    const dds = markup.match(/<dd\b[^>]*>/g) ?? []
+    expect(dds.length).toBeGreaterThanOrEqual(3)
+    for (const tag of dds.slice(0, 3).filter((_, i) => i !== 1)) {
+      expect(classOf(tag)).toEqual(expect.arrayContaining(['min-w-0', 'break-words']))
+    }
+    // No unscrollable wide table on the proxy page.
+    expect(markup).not.toContain('<table')
+  })
+})
+
+describe('insurance policy row header (/insurance @375: 320px in a 301px box)', () => {
+  const policy = {
+    id: 'pol1',
+    associationId: null,
+    kind: 'property' as const,
+    carrier: 'Sample Mutual Insurance (demo)',
+    policyNumber: 'UI-PROP-0001',
+    coverageLimitCents: 450_000_000,
+    deductibleCents: 2_500_000,
+    premiumCents: 1_840_000,
+    effectiveOn: '2025-11-11',
+    expiresOn: '2026-11-11',
+    documentId: null,
+    notes: null,
+  }
+  const markup = html(
+    <ToastProvider>
+      <PolicyList
+        policies={[policy]}
+        reminders={[{ policyId: 'pol1', kind: 'property', carrier: policy.carrier, expiresOn: policy.expiresOn, daysLeft: 21, tone: '30' }]}
+        today="2026-10-21"
+        associations={[]}
+        documents={[]}
+        documentsFailed={false}
+      />
+    </ToastProvider>,
+  )
+  const header = markup.match(/<div class="flex flex-wrap items-start justify-between gap-2"><div class="([^"]*)">[\s\S]*?<\/div><div class="([^"]*)">/)
+
+  it('renders the row with its expiry pill and actions', () => {
+    expect(markup).toContain('Sample Mutual Insurance (demo)')
+    expect(markup).toContain('Delete')
+    expect(header).not.toBeNull()
+  })
+
+  it('lets the carrier text shrink and break', () => {
+    expect(header![1].split(/\s+/)).toEqual(expect.arrayContaining(['min-w-0', 'max-w-full', 'break-words']))
+  })
+
+  it('lets the pill and Edit / Delete wrap instead of holding their width', () => {
+    const cls = header![2].split(/\s+/)
+    expect(cls).toEqual(expect.arrayContaining(['flex', 'flex-wrap', 'min-w-0', 'max-w-full']))
+    expect(cls).not.toContain('shrink-0')
   })
 })
