@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Wallet } from 'lucide-react'
 import { Button, ChoiceGroup, Field, Fieldset, Input, Radio, Select, useToast } from '@homeowner-portal/ui'
@@ -8,6 +8,7 @@ import { createDues } from '@/lib/assessments'
 import { isBooksNotOpen } from '@/lib/accounting/books-not-open'
 import { BooksNotOpenNotice } from '../../_components/BooksNotOpenNotice'
 import { usd } from '@/lib/money/format'
+import { billingPrefill, type DuesRate } from '@/lib/dues-rates/model'
 
 interface UnitOption {
   id: string
@@ -25,10 +26,18 @@ const FREQUENCIES = [
 export function NewDueForm({
   units,
   today,
+  rates = [],
 }: {
   units: UnitOption[]
   /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
   today: string
+  /**
+   * BL-137: the dues-rate schedule ([] until M5_APPLIED). Regular dues
+   * start from the rate in effect on the due date until the board types
+   * its own amount; the server records a different amount in the
+   * activity log.
+   */
+  rates?: DuesRate[]
 }): React.ReactElement {
   const router = useRouter()
   const toast = useToast()
@@ -44,6 +53,14 @@ export function NewDueForm({
   const [amount, setAmount] = useState('')
   const [firstDueDate, setFirstDueDate] = useState(today)
   const [memo, setMemo] = useState('')
+
+  // BL-137: follow the rate in effect until the board edits the amount.
+  const [amountTouched, setAmountTouched] = useState(false)
+  const prefill = assessmentType === 'regular' && firstDueDate ? billingPrefill(rates, firstDueDate, frequency) : null
+  const prefillText = prefill ? (prefill.cents / 100).toFixed(2) : ''
+  useEffect(() => {
+    if (!amountTouched && prefillText) setAmount(prefillText)
+  }, [amountTouched, prefillText])
 
   const amt = Number(amount.replace(/[$,\s]/g, ''))
   const perProperty = frequency === 'monthly' ? 12 : 1
@@ -124,8 +141,18 @@ export function NewDueForm({
         </Fieldset>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Amount per charge" required error={errors.amount}>
-            <Input inputMode="decimal" prefix="$" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.currentTarget.value)} disabled={isPending} />
+          <Field label="Amount per charge" required error={errors.amount} hint={prefill?.hint}>
+            <Input
+              inputMode="decimal"
+              prefix="$"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => {
+                setAmountTouched(true)
+                setAmount(e.currentTarget.value)
+              }}
+              disabled={isPending}
+            />
           </Field>
           <Field label={frequency === 'monthly' ? 'First due date' : 'Due date'} required error={errors.firstDueDate}>
             <Input type="date" value={firstDueDate} onChange={(e) => setFirstDueDate(e.currentTarget.value)} disabled={isPending} />

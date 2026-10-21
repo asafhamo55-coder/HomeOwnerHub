@@ -260,3 +260,18 @@ describe('budget season', () => {
     expect(inBudgetSeason(b('draft', null), '2026-10-21')).toBe(false)
   })
 })
+
+describe('BL-137: the hand-off to the dues-rate schedule', () => {
+  it('flag off (the default today): links to Add a due, as before', () => {
+    const s = step(input({ duesRatesLive: false, budget: { id: BUDGET, status: 'approved', periodStart: '2027-01-01' } }), 'rate')
+    expect(s.href).toBe('/dues/new')
+  })
+
+  it('flag on: an approved budget opens Dues rates pre-filled from it; a draft waits', () => {
+    const approved = step(input({ duesRatesLive: true, budget: { id: BUDGET, status: 'approved', periodStart: '2027-01-01' } }), 'rate')
+    expect(approved).toMatchObject({ state: 'next', href: `/dues/rates?budget=${BUDGET}`, hrefLabel: 'Set the new dues rate' })
+    const draft = step(input({ duesRatesLive: true }), 'rate')
+    expect(draft.href).toBeNull()
+    expect(draft.state).toBe('next')
+  })
+})

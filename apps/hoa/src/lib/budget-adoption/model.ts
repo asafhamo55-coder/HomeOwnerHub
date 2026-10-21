@@ -13,14 +13,16 @@
  *   4. Record the adoption: the date the board adopted it.
  *   5. Send owners the budget notice (BL-091). In California, inside the
  *      § 5300(a) window: 30 to 90 days before the fiscal year ends.
- *   6. Next: set the new dues rate (until BL-137, the amount is entered
- *      when dues are billed).
+ *   6. Next: set the new dues rate (BL-137: with M5_APPLIED, a new rate on
+ *      the dues schedule pre-filled from this budget; before that, the
+ *      amount is entered when dues are billed).
  *
  * Nothing here sends anything. Every rule quoted is in ./law.ts and
  * checked against the statute text in the repo; anywhere else the kit says
  * "check your governing documents".
  */
 
+import { M5_APPLIED } from '@homeowner-portal/db/m5'
 import { addCalendarDays, calendarDaysBetween } from '@/lib/association-time'
 import { caWindow, type CaWindow } from '@/lib/budget-notice/model'
 import {
@@ -120,6 +122,12 @@ export interface AdoptionInput {
    */
   noticeDay: string | null | 'failed'
   record: AdoptionRecord
+  /**
+   * BL-137: the dues-rate schedule is live (M5_APPLIED). Then the last
+   * step opens Dues rates with a new rate pre-filled from this budget;
+   * otherwise it opens Add a due. Defaults to the flag.
+   */
+  duesRatesLive?: boolean
 }
 
 // ─── output ──────────────────────────────────────────────────────────
@@ -394,6 +402,23 @@ function ownerNoticeStep(input: AdoptionInput, j: AdoptionJurisdiction, win: CaW
 }
 
 function rateStep(input: AdoptionInput): AdoptionStep {
+  const live = input.duesRatesLive ?? M5_APPLIED
+  if (live) {
+    const approved = input.budget.status === 'approved'
+    return {
+      id: 'rate',
+      title: 'Next: set the new dues rate',
+      state: 'next',
+      detail: [
+        approved
+          ? 'Add next year’s rate to the dues schedule. It starts pre-filled from this budget’s assessment income divided by your homes, and every Generate dues from that day uses it.'
+          : 'Once the budget is approved, add next year’s rate to the dues schedule, pre-filled from this budget.',
+      ],
+      href: approved ? `/dues/rates?budget=${input.budget.id}` : null,
+      hrefLabel: approved ? 'Set the new dues rate' : null,
+      citations: [],
+    }
+  }
   return {
     id: 'rate',
     title: 'Next: set the new dues rate',

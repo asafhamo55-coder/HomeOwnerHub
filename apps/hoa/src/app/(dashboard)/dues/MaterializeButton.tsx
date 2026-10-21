@@ -9,11 +9,24 @@ import { isBooksNotOpen } from '@/lib/accounting/books-not-open'
 import { BooksNotOpenNotice } from '../_components/BooksNotOpenNotice'
 
 /** Generate this month's regular dues for every property, in a dialog. */
-export function MaterializeButton({ monthLabel, variant = 'secondary' }: { monthLabel: string; variant?: 'default' | 'secondary' }) {
+export function MaterializeButton({
+  monthLabel,
+  variant = 'secondary',
+  prefill = null,
+}: {
+  monthLabel: string
+  variant?: 'default' | 'secondary'
+  /**
+   * BL-137: the monthly amount from the dues rate in effect (M5_APPLIED),
+   * and where it came from. Null → the old default. The board can change
+   * it; the server records a different amount in the activity log.
+   */
+  prefill?: { cents: number; hint: string } | null
+}) {
   const router = useRouter()
   const toast = useToast()
   const [open, setOpen] = useState(false)
-  const [amount, setAmount] = useState('250')
+  const [amount, setAmount] = useState(prefill ? (prefill.cents / 100).toFixed(2) : '250')
   const [error, setError] = useState<string | undefined>()
   // BL-072: no open books → say so in the dialog and offer to open them.
   const [booksGap, setBooksGap] = useState<{ canOpenBooks: boolean } | null>(null)
@@ -64,7 +77,7 @@ export function MaterializeButton({ monthLabel, variant = 'secondary' }: { month
         }
       >
         <form id="materialize-dues" onSubmit={submit}>
-          <Field label="Amount per property" required error={error}>
+          <Field label="Amount per property" required error={error} hint={prefill?.hint}>
             <Input inputMode="decimal" prefix="$" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={pending} />
           </Field>
         </form>

@@ -1,7 +1,7 @@
 import { timed } from '@/lib/perf/timing'
 import { Suspense } from 'react'
 import Link from 'next/link'
-import { Plus, Wallet } from 'lucide-react'
+import { BadgeDollarSign, Plus, Wallet } from 'lucide-react'
 import {
   Button,
   Card,
@@ -42,6 +42,9 @@ import { loadPropertyScope } from '@/lib/property-scope'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { M5_APPLIED } from '@homeowner-portal/db/m5'
+import { loadDuesRates, type LooseDb } from '@/lib/dues-rates/queries'
+import { billingPrefill } from '@/lib/dues-rates/model'
 
 export const metadata = { title: 'Dues' }
 export const dynamic = 'force-dynamic'
@@ -151,12 +154,20 @@ export default async function DuesPage({
     .is('deleted_at', null)
   if (scope) listQuery = listQuery.in('unit_id', scopeUnitIds.length ? scopeUnitIds : ['00000000-0000-0000-0000-000000000000'])
 
-  const [listResult, overdueResult] = await Promise.all([
+  // BL-137: Generate dues starts from the dues rate in effect today
+  // (M5_APPLIED; no read with the flag off). A failed read just means no
+  // pre-fill — the board types the amount, as before.
+  const ratesP = M5_APPLIED ? timed(R, 'dues.rates', () => loadDuesRates(supabase as unknown as LooseDb, assoc.id)) : Promise.resolve([])
+
+  const [listResult, overdueResult, rates] = await Promise.all([
     scopeUnits && !scopeUnits.ok
       ? Promise.resolve({ ok: false } as const)
       : timed(R, 'dues.list', () => loadOrFail('dues', listQuery.order('due_date', { ascending: false }).range(from, to))),
     overdueP,
+    ratesP,
   ])
+  const generatePrefill = rates ? billingPrefill(rates, todayIsoStr, 'monthly') : null
+  const prefill = generatePrefill ? { cents: generatePrefill.cents, hint: generatePrefill.hint } : null
 
   const rows = listResult.ok ? ((listResult.data ?? []) as unknown as AssessmentRow[]) : []
   const total = listResult.ok ? (listResult.count ?? rows.length) : 0
@@ -198,7 +209,15 @@ export default async function DuesPage({
       description="Charges billed to each property, who has paid, and who to remind."
       actions={
         <>
-          <MaterializeButton monthLabel={currentMonthLabel} />
+          {M5_APPLIED ? (
+            <Button asChild variant="secondary">
+              <Link href="/dues/rates">
+                <BadgeDollarSign aria-hidden />
+                Dues rates
+              </Link>
+            </Button>
+          ) : null}
+          <MaterializeButton monthLabel={currentMonthLabel} prefill={prefill} />
           <Button asChild>
             <Link href="/dues/new">
               <Plus aria-hidden />
@@ -271,7 +290,7 @@ export default async function DuesPage({
           icon={<Wallet aria-hidden />}
           title="No dues billed yet"
           description="Generate this month’s dues for every property, or add a one-off charge. Each charge posts to the ledger as money owed to the association."
-          action={<MaterializeButton monthLabel={currentMonthLabel} variant="default" />}
+          action={<MaterializeButton monthLabel={currentMonthLabel} variant="default" prefill={prefill} />}
           secondaryAction={
             <>
               <Button asChild variant="ghost">

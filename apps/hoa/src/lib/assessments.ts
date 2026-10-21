@@ -16,6 +16,7 @@ import { fieldErrorsOf } from '@/lib/field-errors'
 import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lot'
 import { completePlansAfterPayment } from '@/lib/accounting/plan-completion'
 import { queuePaymentReceiptAfterResponse } from '@/lib/resident-notify/receipt-notify'
+import { recordDuesRateOverride } from '@/lib/dues-rates/billing'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
@@ -197,6 +198,19 @@ export async function materializeCurrentPeriodAssessments(input: {
     created += 1
   }
 
+  // BL-137: billed at an amount other than the dues rate in effect today →
+  // one audit row (M5_APPLIED; a no-op with the flag off). Never undoes
+  // the billing above.
+  await recordDuesRateOverride(supabase as never, {
+    orgId,
+    associationId: assoc.id,
+    day: todayIn(assoc.timeZone),
+    cadence: 'monthly',
+    billedCents: Math.round(parsed.data.amountPerUnit * 100),
+    scope: 'all',
+    created,
+  })
+
   revalidatePath('/dues')
   revalidatePath('/')
   revalidatePath('/accounting')
@@ -366,6 +380,21 @@ export async function createDues(
       }
       created += 1
     }
+  }
+
+  // BL-137: regular dues billed at an amount other than the dues rate in
+  // effect on the first due date → one audit row (M5_APPLIED; a no-op with
+  // the flag off). Special assessments have no rate to compare against.
+  if (parsed.data.assessmentType === 'regular') {
+    await recordDuesRateOverride(supabase as never, {
+      orgId: assocRow.organization_id,
+      associationId: assoc.id,
+      day: parsed.data.firstDueDate,
+      cadence: parsed.data.frequency,
+      billedCents: Math.round(parsed.data.amount * 100),
+      scope: parsed.data.scope,
+      created,
+    })
   }
 
   revalidatePath('/dues')
