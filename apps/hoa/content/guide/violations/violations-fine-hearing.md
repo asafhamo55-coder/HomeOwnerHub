@@ -1,13 +1,13 @@
 ---
 id: violations-fine-hearing
 title: Hold a fine hearing
-summary: Record the fine hearing and draft its notice. In Florida and California a fine is blocked until the hearing on record meets the statute.
+summary: Record the fine hearing and draft its notice. In FL and CA a fine is blocked until the hearing meets the statute. Cancel it if the owner cures first.
 topic: violations
 roles: [admin, board]
 routes: ["/violations/[id]"]
 primary_route: /violations
-keywords: [hearing, fine hearing, hearing notice, committee, hearing committee, panel, request a hearing, hearing request, notice of hearing, decision, findings, fine due, "14 days", "10 days", florida, california, "720.305", "5855", state law check, blocked, fine blocked, attorney advised, board roster, conflict, morning email, digest, reminder]
-related: [violations-report-and-letter, resident-request-hearing]
+keywords: [hearing, fine hearing, hearing notice, committee, hearing committee, panel, request a hearing, hearing request, notice of hearing, decision, findings, fine due, "14 days", "10 days", florida, california, "720.305", "5855", state law check, blocked, fine blocked, attorney advised, board roster, conflict, morning email, digest, reminder, cured, cure before hearing, fixed before hearing, cancel hearing, cancelled hearing, financial commitment]
+related: [violations-report-and-letter, resident-request-hearing, violations-hearing-cured]
 reviewed: 2026-10-21
 ---
 
@@ -36,6 +36,10 @@ Before the board fines an owner, many states require a hearing. Record it on the
 - **California** (§ 5855): at least 10 days’ written notice of the board meeting; the owner may attend and address the board, or ask for executive session; the written decision within 14 days.
 - **The board roster check** (Florida) compares each committee member’s name with the names of your board members and admins in **Settings**. It can’t see family ties, so check yourself that no committee member is the spouse, parent, child, brother or sister of an officer, director or employee. It also can’t see officers or employees who don’t have a board or admin login.
 - The 7-day reminder for an owner’s hearing request is HomeownerHub’s own. The statute doesn’t set a day to schedule a request.
-- Other states: HomeownerHub has no loaded statute text for hearings, and no hearing blocks the fine. Check your governing documents.
+- **Cured before the hearing.** Florida (§ 720.305(2)(e)): no fine if the violation is cured before the hearing, or cured the way the notice asked. California (§ 5855(c)): the owner may cure before the meeting, and the board can't impose discipline once they have, or once they've made a financial commitment to cure something that takes longer.
+- To cancel a hearing because the owner fixed the violation first, see **Cancel a hearing when the owner cures first** below, under related articles.
+- A cancelled hearing doesn't count for the fine check. In Florida and California, fining that violation later needs a new hearing.
+- Only board members and admins can cancel a hearing. The activity log keeps the reason as a code, with no names or notes.
+- Other states: HomeownerHub has no loaded statute text for hearings, and no hearing blocks the fine. For a cure before the hearing too, check your governing documents.
 - Nothing is sent to the owner from the hearing card. The notice goes out only when you send it from Messages.
 - General information from the statute text, not legal advice.

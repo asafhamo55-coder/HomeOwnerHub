@@ -18,7 +18,8 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { NOT_LEGAL_ADVICE } from '@/lib/compliance/statute-drift'
-import { saveViolationHearing } from '@/lib/violation-hearings/actions'
+import { cancelHearingAfterCure, saveViolationHearing } from '@/lib/violation-hearings/actions'
+import { CURE_CANCEL_REASON_LABEL, type CureBeforeHearingOffer, type CureCancelReason } from '@/lib/violation-hearings/cure'
 import {
   HEARING_OUTCOMES,
   HEARING_OUTCOME_LABEL,
@@ -60,6 +61,8 @@ export interface HearingCardProps {
   hearing: HearingRecord | null
   loadFailed: boolean
   checklist: HearingChecklist | null
+  /** BL-140: the violation was resolved before its hearing; null hides the offer. */
+  cureOffer?: CureBeforeHearingOffer | null
 }
 
 const STEP_TONE: Record<StepState, 'success' | 'neutral' | 'danger' | 'warning'> = {
@@ -74,7 +77,7 @@ function formatDay(day: string): string {
   return new Date(`${day}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 }
 
-export function HearingCard({ violation, state, associationName, hearing, loadFailed, checklist }: HearingCardProps) {
+export function HearingCard({ violation, state, associationName, hearing, loadFailed, checklist, cureOffer = null }: HearingCardProps) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -91,6 +94,8 @@ export function HearingCard({ violation, state, associationName, hearing, loadFa
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [handoffFailed, setHandoffFailed] = useState(false)
+  const [cureReason, setCureReason] = useState<CureCancelReason | ''>(cureOffer?.reasons[0] ?? '')
+  const [cureError, setCureError] = useState<string | null>(null)
 
   const isFl = state === 'FL'
   const panelLabel = isFl ? 'Hearing committee' : 'Hearing panel'
@@ -141,6 +146,23 @@ export function HearingCard({ violation, state, associationName, hearing, loadFa
     router.push(hearingNoticeComposerHref(violation.propertyId))
   }
 
+  function cancelForCure() {
+    if (!cureReason) {
+      setCureError('Pick why the hearing is cancelled.')
+      return
+    }
+    setCureError(null)
+    startTransition(async () => {
+      const result = await cancelHearingAfterCure({ violationId: violation.id, reason: cureReason })
+      if (!result.ok) {
+        setCureError(result.error)
+        return
+      }
+      toast({ tone: 'success', message: 'Hearing cancelled. The reason is in the activity log.' })
+      router.refresh()
+    })
+  }
+
   const setMember = (i: number, patch: Partial<PanelMember>) =>
     setPanel((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
 
@@ -165,6 +187,43 @@ export function HearingCard({ violation, state, associationName, hearing, loadFa
           <Alert variant="error">We could not load the hearing record. Reload the page before fining.</Alert>
         ) : (
           <>
+            {cureOffer ? (
+              <section aria-label="Cured before the hearing" className="space-y-3 rounded-lg border border-border bg-subtle p-3 text-sm">
+                <p className="font-medium text-foreground">Cured before the hearing</p>
+                <p className="text-foreground-secondary">{cureOffer.message}</p>
+                {cureOffer.note ? <p className="text-muted">{cureOffer.note}</p> : null}
+                {cureOffer.citations.length > 0 ? (
+                  <details>
+                    <summary className="cursor-pointer text-xs text-primary">{[...new Set(cureOffer.citations.map((c) => c.cite))].join('; ')}</summary>
+                    {cureOffer.citations.map((c) => (
+                      <blockquote key={c.quote} className="mt-1 border-l-2 border-border pl-2 text-xs text-muted">
+                        “{c.quote}”
+                      </blockquote>
+                    ))}
+                    <p className="mt-1 text-xs text-muted">{NOT_LEGAL_ADVICE}</p>
+                  </details>
+                ) : null}
+                <Field label="Why the hearing is cancelled" error={cureError ?? undefined}>
+                  <Select value={cureReason} onValueChange={(v) => setCureReason(v as CureCancelReason)} disabled={isPending}>
+                    {cureOffer.reasons.map((r) => (
+                      <option key={r} value={r}>
+                        {CURE_CANCEL_REASON_LABEL[r]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" onClick={cancelForCure} loading={isPending}>
+                    Cancel the hearing
+                  </Button>
+                </div>
+                <p className="text-xs text-muted">
+                  Board only. The reason is kept in the activity log. Nothing is sent to the owner; tell them from Messages if
+                  you need to.
+                </p>
+              </section>
+            ) : null}
+
             {hearing?.requestedAt ? (
               <div className="space-y-2 rounded-lg border border-border bg-subtle p-3 text-sm">
                 <p className="font-medium text-foreground">

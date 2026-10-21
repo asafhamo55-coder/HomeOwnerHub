@@ -15,6 +15,8 @@ import { loadHeldFunds } from '@/lib/insurance/held-funds'
 import { CoverageCheckPanel } from './CoverageCheckPanel'
 import { FidelityPanel, RenewalPanel } from './RenewalPanel'
 import { PolicyList } from './PolicyList'
+import { DraftHo6NoticeButton } from './DraftHo6NoticeButton'
+import { buildHo6Notice, masterPolicyForNotice } from '@/lib/insurance/ho6-notice'
 
 export const metadata = { title: 'Insurance' }
 export const dynamic = 'force-dynamic'
@@ -101,6 +103,16 @@ export default async function InsurancePage() {
       }),
   )
 
+  // BL-142: the optional HO-6 notice, built from the master policy of the
+  // first association (owner-facing columns only). Drafted, never sent.
+  const ho6Draft = buildHo6Notice({
+    associationName: associations[0]?.name ?? null,
+    master: masterPolicyForNotice(
+      policies.filter((p) => p.associationId === null || p.associationId === (associations[0]?.id ?? null)),
+      today,
+    ),
+  })
+
   return (
     <Page title="Insurance" description={DESCRIPTION} linkAs={Link}>
       <PolicyList
@@ -112,6 +124,15 @@ export default async function InsurancePage() {
         documentsFailed={documents === null}
       />
       <RenewalPanel comparisons={renewals} />
+      <Card>
+        <CardHeader actions={<DraftHo6NoticeButton draft={ho6Draft} />}>
+          <CardTitle as="h2">Tell owners what they need to insure</CardTitle>
+          <CardDescription>
+            Optional. A message to owners about what the master policy covers and why they may need their own HO-6 policy. It
+            opens in Messages for you to finish and send; nothing goes out automatically.
+          </CardDescription>
+        </CardHeader>
+      </Card>
       <FidelityPanel rows={fidelityRows} />
       <Card>
         <CardHeader>

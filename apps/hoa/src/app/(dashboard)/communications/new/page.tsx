@@ -17,6 +17,7 @@ import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { BUDGET_NOTICE_FROM } from '@/lib/budget-notice/draft-handoff'
 import { HEARING_NOTICE_FROM } from '@/lib/violation-hearings/notice-handoff'
 import { RATE_NOTICE_FROM } from '@/lib/dues-rates/notice'
+import { HO6_NOTICE_FROM } from '@/lib/insurance/ho6-notice'
 import { smsConfigured } from '@/lib/sms'
 import { parseMeetingParam } from '@/lib/meetings/notice-prefill'
 import { loadMeetingNoticeContext, type MeetingNoticeContext } from '@/lib/meetings/notice-queries'
@@ -50,6 +51,7 @@ export default async function NewCommunicationPage({
    * `?from=hearing-notice&property=<id>`: a violation hearing notice to one
    * home (BL-133), handed over in this tab's sessionStorage.
    * `?from=dues-rate-notice`: the owner notice for a dues change (BL-137).
+   * `?from=ho6-notice`: the optional HO-6 notice to owners (BL-142).
    */
   searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string; draft?: string; meeting?: string }>
 }) {
@@ -58,7 +60,7 @@ export default async function NewCommunicationPage({
   const draftMissing = Boolean(sp.draft) && resumeDraft === null
   const initialPropertyId = resumeDraft ? null : parsePropertyParam(sp.property)
   const prefillFrom =
-    resumeDraft ? null : sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : sp.from === HEARING_NOTICE_FROM ? HEARING_NOTICE_FROM : sp.from === RATE_NOTICE_FROM ? RATE_NOTICE_FROM : null
+    resumeDraft ? null : sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : sp.from === HEARING_NOTICE_FROM ? HEARING_NOTICE_FROM : sp.from === RATE_NOTICE_FROM ? RATE_NOTICE_FROM : sp.from === HO6_NOTICE_FROM ? HO6_NOTICE_FROM : null
   // BL-118: prefill a meeting notice. A resumed draft or another prefill wins.
   const meetingParam = !resumeDraft && !prefillFrom && !sp.followUp ? parseMeetingParam(sp.meeting) : null
   const meetingCtx: MeetingNoticeContext | null = meetingParam ? await loadMeetingNoticeContext(meetingParam) : null

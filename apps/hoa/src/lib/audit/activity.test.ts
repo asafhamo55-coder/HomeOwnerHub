@@ -81,6 +81,10 @@ describe('activity labels', () => {
     expect(actionDetail('bank_import.committed', { inserted: 12, duplicates: 3, format: 'csv' })).toBe('12 transactions added · 3 already in')
     expect(actionDetail('bank_import.committed', { inserted: 1, duplicates: 0 })).toBe('1 transaction added')
     expect(actionDetail('bank_import.committed', { inserted: 'x' })).toBeNull()
+    // BL-140: a known reason code only; anything else shows nothing.
+    expect(actionLabel('violation.hearing_cancelled_cured')).toBe('Cancelled a fine hearing after a cure')
+    expect(actionDetail('violation.hearing_cancelled_cured', { reason: 'cured_before_hearing', hearing_id: 'h1' })).toBe('Fixed before the hearing')
+    expect(actionDetail('violation.hearing_cancelled_cured', { reason: '<b>free text</b>' })).toBeNull()
   })
 })
 

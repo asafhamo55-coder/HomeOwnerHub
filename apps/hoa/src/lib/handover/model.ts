@@ -384,6 +384,17 @@ export function buildChecklist(
     }
   }
 
+  // BL-142: the fidelity bond and D&O policy name or cover the people who
+  // handle the money and sit on the board; the agent needs the new list.
+  items.push({
+    id: 'insurance',
+    text:
+      leaving.size > 0
+        ? 'Send the insurance agent the new board and treasurer, so the fidelity bond and D&O policy cover them. Check the policies on Insurance.'
+        : 'Review the association’s insurance policies and renewal dates, and keep the agent’s contact with the HOA’s records.',
+    state: 'todo',
+    href: '/insurance',
+  })
   items.push({
     id: 'export',
     text: 'Download a full copy of the association’s data and keep it with the HOA’s records.',
@@ -445,5 +456,6 @@ export function buildPrintableSummary(model: HandoverModel, leaving: ReadonlySet
   }
   lines.push('')
   lines.push(`Records: the full data export (${model.exportTableCount} spreadsheets) is under Settings → Your data.`)
+  lines.push('Insurance: the policies, the fidelity bond and their renewal dates are under Insurance.')
   return lines
 }

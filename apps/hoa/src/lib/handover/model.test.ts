@@ -165,6 +165,18 @@ describe('buildChecklist', () => {
     expect(byId[`work:${A}`]!.state).toBe('done')
   })
 
+  it('BL-142: insurance is always on the list, and asks for the agent when someone leaves', () => {
+    const calm = buildChecklist(model(), new Set()).find((i) => i.id === 'insurance')!
+    expect(calm).toMatchObject({ state: 'todo', href: '/insurance' })
+    expect(calm.text).toContain('renewal dates')
+    const leaving = buildChecklist(model(), new Set([B])).find((i) => i.id === 'insurance')!
+    expect(leaving.href).toBe('/insurance')
+    expect(leaving.text).toContain('fidelity bond')
+    // The order: insurance comes right before the export.
+    const ids = buildChecklist(model(), new Set()).map((i) => i.id)
+    expect(ids.slice(-2)).toEqual(['insurance', 'export'])
+  })
+
   it('a section that failed to load is an unknown item, never a pass', () => {
     const items = buildChecklist(model({ access: null, connections: null, openWork: null }), new Set())
     expect(items.filter((i) => i.state === 'unknown').map((i) => i.id)).toEqual(['access', 'connections', 'work'])
@@ -181,6 +193,7 @@ describe('buildPrintableSummary', () => {
     expect(text).toContain('Residents with access: 1')
     expect(text).toContain('Bank connection (Plaid) · Second Bank: connected, set up by a former member')
     expect(text).toContain('15 spreadsheets')
+    expect(text).toContain('Insurance: the policies, the fidelity bond and their renewal dates are under Insurance.')
     expect(text).not.toMatch(/@/)
     for (const id of [A, B, C, R, GONE]) expect(text).not.toContain(id)
     expect(text).not.toContain('Resident Person')

@@ -1,13 +1,13 @@
 ---
 id: insurance-policies
 title: Track insurance policies and the fidelity bond
-summary: Record the association's policies and fidelity bond, get expiry reminders, compare renewals, and check the bond against the money you hold.
+summary: Record the association's policies and fidelity bond, get renewal reminders and comparisons, check the bond, and draft an HO-6 notice to owners.
 topic: settings
 roles: [admin, board]
 routes: ["/insurance"]
 primary_route: /insurance
-keywords: [insurance, renewal comparison, premium increase, premium went up, previous term, fidelity bond amount, bond enough, bond adequacy, owner insurance summary, policy, policies, fidelity bond, crime policy, bond, master policy, property insurance, general liability, d&o, directors and officers, flood, earthquake, umbrella, workers comp, renewal, expires, expiry, deductible, coverage, "720.3033", "5300", "5806", budget report]
-related: [documents-governing-and-ask, accounting-reserves, resident-insurance-summary]
+keywords: [insurance, ho-6, ho6, ho-3, owner insurance, condo insurance, walls-in, loss assessment, what does the master policy cover, insurance notice to owners, renewal comparison, premium increase, premium went up, previous term, fidelity bond amount, bond enough, bond adequacy, owner insurance summary, policy, policies, fidelity bond, crime policy, bond, master policy, property insurance, general liability, d&o, directors and officers, flood, earthquake, umbrella, workers comp, renewal, expires, expiry, deductible, coverage, "720.3033", "5300", "5806", budget report]
+related: [documents-governing-and-ask, accounting-reserves, resident-insurance-summary, insurance-ho6-notice]
 reviewed: 2026-10-21
 ---
 
@@ -39,5 +39,6 @@ Keep every policy the association carries in one list, so a renewal never slips 
 - **California:** Civ. Code § 5300(b)(9) asks the annual budget report to summarize the property, general liability, earthquake, flood and fidelity policies, with the insurer, the limit and the deductible. The check tells you which of these are missing. HomeownerHub doesn't have the text of § 5806 (the fidelity minimum), so for that, check your governing documents.
 - **Other states:** the coverage check says to check your governing documents and ask your insurance agent.
 - Only board members and admins see this page. Owners see a short summary in their portal under **Documents**, then **Association insurance**: the kind of each policy in force, the insurance company, the limit and the deductible. Never the premium or the policy number.
+- To tell owners what the master policy covers and suggest HO-6 coverage, select [[Draft HO-6 notice]]. It's optional, and nothing is sent until you send it from **Messages**.
 - Use **Notes** for exclusions or the broker's contact.
 - This is general information from the statute text, not legal advice.
