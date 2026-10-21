@@ -405,6 +405,19 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
+### OA-26 · (Optional, later) Give board settings their own signing secret
+
+**Urgency:** Whenever
+
+**Why it matters:** board settings saved in the app (Zelle details, reminders, receipts and similar) are signed so they can't be tampered with. Today that signature reuses an older database key. A dedicated secret is cleaner. **The catch:** after the switch, every saved board setting except Zelle reads as "off" until a board member saves it again. So do this when you can tell boards to re-save their settings, not before.
+
+**Steps:**
+
+1. Ask Claude first. It will confirm which settings each HOA has saved, so you know who to tell.
+2. In Vercel (both the hoa and jobs projects, Production), add `PAY_SETTINGS_SECRET` with a long random value. You can make one in Terminal with `openssl rand -base64 48`.
+3. In the same place, add `PAY_SETTINGS_SECRET_PREVIOUS`, set to the value the app uses today (Claude will tell you which one).
+4. Redeploy, tell boards to re-save their settings, then remove `PAY_SETTINGS_SECRET_PREVIOUS` a week later.
+
 ## Done
 
 _Nothing yet. Finished items move here with the date they were done._
