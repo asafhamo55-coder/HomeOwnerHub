@@ -139,6 +139,9 @@ export default async function ResidentDocumentsPage({
           <Button asChild variant="ghost" size="sm">
             <Link href="/resident/ask">Ask the Docs</Link>
           </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/resident/insurance">Association insurance</Link>
+          </Button>
         </div>
       </Panel>
     </div>
