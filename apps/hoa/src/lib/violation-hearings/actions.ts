@@ -324,14 +324,29 @@ export async function cancelHearingAfterCure(input: { violationId: string; reaso
     return { ok: false, error: 'We could not record why, so the hearing was not cancelled. Try again.' }
   }
 
-  const { error: upErr } = await db
+  // Security review #3 (SEC3-M1): compare-and-swap on what the checks above
+  // saw. Only the row still in the status and on the day that was checked
+  // is cancelled, so a hearing another board member marked held (with its
+  // outcome) or moved in the meantime is never overwritten; and a write
+  // that changed no row is a failure, not a silent success.
+  let cancel = db
     .from(HEARING_TABLE)
     .update({ status: 'cancelled', outcome: null, decided_on: null, updated_at: new Date().toISOString() })
     .eq('id', hearing.id)
     .eq('organization_id', gate.orgId)
+    .eq('status', hearing.status)
+  cancel = hearing.hearingOn ? cancel.eq('hearing_on', hearing.hearingOn) : cancel.is('hearing_on', null)
+  const { data: cancelled, error: upErr } = (await cancel.select('id')) as {
+    data: Array<{ id: string }> | null
+    error: { code?: string } | null
+  }
   if (upErr) {
     console.error('[violation-hearings] cure: cancel failed', { code: upErr.code ?? null, violationId })
     return { ok: false, error: 'Couldn’t cancel the hearing. Try again.' }
+  }
+  if (!cancelled || cancelled.length === 0) {
+    console.error('[violation-hearings] cure: cancel matched no row', { violationId, hearingId: hearing.id })
+    return { ok: false, error: 'The hearing changed while you were looking at it, so it was not cancelled. Reload the page and check it.' }
   }
 
   revalidatePath(`/violations/${violationId}`)
