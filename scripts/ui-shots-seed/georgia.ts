@@ -1,6 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { SeedContext } from '../ui-shots-seed'
 import { extraOrg } from './setup'
+import { georgiaAdapter } from '../../packages/workflows/src/W30-state-law-brain/sources/georgia'
+import { planStatuteSync } from '../../packages/workflows/src/W30-state-law-brain/plan'
+import {
+  applyStatuteWrite,
+  applyUnchanged,
+  loadExistingStatutes,
+  noEmbed,
+  type StatuteDb,
+} from '../../packages/workflows/src/W30-state-law-brain/sync'
 
 /**
  * A Georgia demo association (next.md §2: Georgia is the launch state; the
@@ -15,9 +24,14 @@ import { extraOrg } from './setup'
  *    acknowledgment or compliance_deadlines_done row a previous run's
  *    click-through left is removed, so the dashboard card always shows.
  *
- * No Georgia statute rows: CI's schema replay (tests/integration/schema/
- * manifest.ts SCHEMA_SEEDS) does not load migrations/seed-state-law-ga.sql,
- * so there is no /legal shot for this org.
+ *  - Georgia's statute text (O.C.G.A. §§ 44-3-220 to 44-3-235), loaded from
+ *    the vetted verbatim snapshot through the same adapter → plan → upsert
+ *    path the weekly refresh job uses (no embeddings: /legal and W30's FTS
+ *    fallback don't need them). CI's schema replay has no GA statutes of
+ *    its own, so this is what fills the `ga-legal` shot. state_statutes is
+ *    global (not per-org), so the rows serve every GA org in the stack.
+ *    From the snapshot's @valid_until (2027-01-01) the adapter refuses to
+ *    serve superseded law; this part then fails soft and logs it.
  *
  * CI-only throwaway Supabase. Idempotent (find-or-create); fail-soft per
  * part, so one failed part still returns the vars the others produced.
@@ -163,6 +177,24 @@ export async function seed_georgia(db: SupabaseClient, ctx: SeedContext): Promis
         created_at: iso(now - 8 * DAY),
       },
     )
+  })
+
+  await part('statutes', async () => {
+    const statuteDb = db as unknown as StatuteDb
+    const adapter = georgiaAdapter()
+    const fetched = await adapter.fetchSections()
+    const plan = planStatuteSync({
+      state: 'GA',
+      sourceName: fetched.sourceName,
+      records: fetched.records,
+      existing: await loadExistingStatutes(statuteDb, 'GA'),
+      covers: adapter.covers,
+    })
+    const opts = { state: 'GA', sourceName: plan.sourceName }
+    await applyUnchanged(statuteDb, plan.unchanged, opts)
+    for (const w of plan.writes) await applyStatuteWrite(statuteDb, w, { ...opts, embed: noEmbed })
+    // Removals are never applied here: a demo seed must not supersede law.
+    console.log(`seed georgia statutes: ${plan.writes.length} written, ${plan.unchanged.length} unchanged`)
   })
 
   console.log('seed georgia: ok')

@@ -61,3 +61,40 @@ export async function loadInsuranceDocumentOptions(
   }
   return (data ?? []).map((d) => ({ id: d.id, name: d.name?.trim() || 'Untitled document' }))
 }
+
+/**
+ * BL-142: the columns an owner may see. No premium_cents, no
+ * policy_number, no notes, no document link: they are never read, so they
+ * can never be rendered.
+ */
+export const OWNER_INSURANCE_COLUMNS =
+  'id, association_id, kind, carrier, coverage_limit_cents, deductible_cents, effective_on, expires_on'
+
+/**
+ * The org's policies for the resident portal's insurance summary.
+ * insurance_policies RLS is board/admin only, so the caller passes the
+ * service-role client; it is confined here to `orgId`, which the caller
+ * takes from the signed-in member's own org (getCurrentOrg) or a verified
+ * impersonation target. [] with the flag off; null on a failed read.
+ */
+export async function loadOwnerInsurancePolicies(
+  db: LooseDb,
+  orgId: string,
+  live: boolean = M4_APPLIED,
+): Promise<OwnerInsuranceRow[] | null> {
+  if (!live) return []
+  const { data, error } = (await db
+    .from(INSURANCE_TABLE)
+    .select(OWNER_INSURANCE_COLUMNS)
+    .eq('organization_id', orgId)
+    .order('expires_on', { ascending: true })
+    .range(0, 499)) as { data: Record<string, unknown>[] | null; error: { code?: string } | null }
+  if (error) {
+    console.error('[insurance] owner summary read failed', { orgId, code: error.code ?? null })
+    return null
+  }
+  return (data ?? []).map(policyFromRow).filter((p): p is OwnerInsuranceRow => p !== null)
+}
+
+/** A policy read with OWNER_INSURANCE_COLUMNS: premium and policy number are always null. */
+export type OwnerInsuranceRow = InsurancePolicy

@@ -77,9 +77,13 @@ describe('ui-shots list', () => {
       ['ga-dashboard', '/'],
       ['ga-estoppel', '/properties/:gaPropertyId/estoppel'],
       ['ga-violation', '/violations/:gaViolationId'],
+      ['ga-legal', '/legal'],
     ] as const) {
       expect(byName.get(name)).toMatchObject({ path: p, auth: true, org: 'gaHoaOrgId' })
     }
+    // ga-legal: light only, at every default width (no `widths` override).
+    expect(byName.get('ga-legal')?.widths).toBeUndefined()
+    expect(byName.get('ga-legal')?.themes).toEqual(['light'])
   })
 })
 
