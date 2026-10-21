@@ -48,8 +48,12 @@ const codes = 'owner_join_codes' as never
 const attempts = 'owner_join_attempts' as never
 
 type RpcResult = { data: unknown; error: { code?: string } | null }
-const rpc = (u: TestUser, fn: string, args: Record<string, unknown> = {}) =>
-  u.client.rpc(fn as never, args as never) as unknown as Promise<RpcResult>
+// Keep only data and error: supabase-js responses also carry status,
+// statusText, count and success, which the assertions don't compare.
+const rpc = async (u: TestUser, fn: string, args: Record<string, unknown> = {}): Promise<RpcResult> => {
+  const { data, error } = (await u.client.rpc(fn as never, args as never)) as unknown as RpcResult
+  return { data, error } as RpcResult
+}
 
 const claimAddress = (u: TestUser, address: string, zip: string, unit?: string) =>
   rpc(u, 'owner_join_claim', { p_address: address, p_postal_code: zip, p_unit: unit ?? null })
