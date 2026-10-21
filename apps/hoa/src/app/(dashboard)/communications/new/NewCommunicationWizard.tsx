@@ -60,6 +60,7 @@ import {
   type PropertyOption,
 } from './AudienceStep'
 import { BUDGET_NOTICE_FROM, readBudgetNoticeDraft, sessionStore } from '@/lib/budget-notice/draft-handoff'
+import { RATE_NOTICE_FROM, readRateNoticeDraft } from '@/lib/dues-rates/notice'
 import { HEARING_NOTICE_FROM, readHearingNoticeDraft } from '@/lib/violation-hearings/notice-handoff'
 import { ComposeBox } from './ComposeBox'
 import { QuestionStep } from './QuestionStep'
@@ -194,7 +195,7 @@ export function NewCommunicationWizard({
    * sessionStorage). Only pre-fills: the board still picks the audience,
    * reviews and sends as usual.
    */
-  prefillFrom?: typeof BUDGET_NOTICE_FROM | typeof HEARING_NOTICE_FROM | null
+  prefillFrom?: typeof BUDGET_NOTICE_FROM | typeof HEARING_NOTICE_FROM | typeof RATE_NOTICE_FROM | null
   /**
    * BL-102: false when the Vonage keys are missing (lib/sms.ts
    * smsConfigured). The Text channel is then disabled with "Texting isn't
@@ -281,6 +282,20 @@ export function NewCommunicationWizard({
       setBaseCategory('violation')
       setSubject(hearing.subject)
       setBodyHtml(hearing.bodyHtml)
+      setPrefill('loaded')
+      return
+    }
+    // BL-137: the owner notice for a dues change, to owners. Only pre-fills.
+    if (prefillFrom === RATE_NOTICE_FROM) {
+      const notice = readRateNoticeDraft(sessionStore())
+      if (!notice) {
+        setPrefill('missing')
+        return
+      }
+      setBaseCategory('financial')
+      setAudience('owners_only')
+      setSubject(notice.subject)
+      setBodyHtml(notice.bodyHtml)
       setPrefill('loaded')
       return
     }
@@ -1147,6 +1162,14 @@ export function NewCommunicationWizard({
         ) : prefill === 'missing' && prefillFrom === HEARING_NOTICE_FROM ? (
           <Alert variant="warning" title="The hearing notice didn’t come through">
             Go back to the violation and choose Draft hearing notice again in this tab.
+          </Alert>
+        ) : prefill === 'loaded' && prefillFrom === RATE_NOTICE_FROM ? (
+          <Alert variant="info" title="Pre-filled dues change notice">
+            The subject and message are the dues change notice, addressed to owners. Fill in the reason in brackets, check the audience, then send it as usual. Nothing has been sent.
+          </Alert>
+        ) : prefill === 'missing' && prefillFrom === RATE_NOTICE_FROM ? (
+          <Alert variant="warning" title="The dues change notice didn’t come through">
+            Go back to Dues rates and choose Draft owner notice again in this tab.
           </Alert>
         ) : prefill === 'loaded' ? (
           <Alert variant="info" title="Pre-filled from the owner budget notice">

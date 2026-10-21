@@ -53,6 +53,7 @@ database.
 | H | Migration 0065: new plan names, plus anything from C, D, E not yet done | BL-123 | H1–H3 | Yes (H2) | A, B; ideally C, D, E |
 | I | Migration 0066: owner records requests, the billing-columns guard on orgs, and the Fined / Dismissed violation statuses | BL-123 (3), security finding (orgs_update), live bug (violation status check) | I1–I3 | Yes (I2, widens two checks, adds a column and two guards) | none |
 | J | Migration 0067 (batch M3): no late fees on opening balances, inbox snooze and reply clock, link and filing checks, compliance "done" table | BL-136, BL-134, BL-131 | J1–J4 | Yes (J3, adds columns, a table and three automatic rules) | none |
+| L | Migration 0069 (batch M5): dues rate schedule (BL-137; more M5 parts may join) | BL-137 | L1–L4 | Yes (L3, adds a table, its rules and two automatic checks) | none |
 
 47 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
@@ -701,6 +702,91 @@ Both tables start empty. There is nothing to copy across, so there is no K2 quer
 
 ---
 
+## Section L · Migration 0069, batch M5 (dues rate schedule)
+
+File: `migrations/0069_m5_batch.sql`. *Needs:* nothing else in this runbook
+(it uses the board/admin check from migration 0012, the org check from
+0000, the "my homes" check from 0061 and the budgets table from 0006, all
+live). Order against A to K does not matter.
+
+What it does (part 1, BL-137; BL-141, BL-143 and BL-145 add their own parts
+to the same file when they land, and this section grows with them):
+
+1. **Dues rates (BL-137).** A new table for the association's dues schedule:
+   the amount per home, how often it is billed (monthly, quarterly, twice a
+   year or yearly), the day it starts, an optional link to the budget it
+   came from, and a short note. Only the board and admins of that HOA can
+   add, change or remove a rate. An owner can see exactly one row: the rate
+   in effect **today** for the association where they own a home (not
+   upcoming rates, not other HOAs). Another HOA's association or budget is
+   refused. "Created by" is always the person who saved it. Room is left
+   for a future per-home-type or per-share rate; nothing uses it yet.
+
+Nothing in the app reads or writes the table until Claude turns on
+`M5_APPLIED` after L4. No existing table is changed. No step outputs names,
+addresses or emails.
+
+### L1 · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regclass('public.dues_rates') IS NOT NULL                          AS rates_done,
+         to_regprocedure('public.dues_rates_resident_current_ids()') IS NOT NULL AS owner_view_done,
+         to_regprocedure('public.auth_is_board_or_admin(uuid)') IS NOT NULL    AS board_check_ok,
+         to_regprocedure('public.auth_org_ids()') IS NOT NULL                  AS org_check_ok,
+         to_regprocedure('public.auth_resident_unit_ids()') IS NOT NULL        AS home_check_ok,
+         to_regclass('public.budgets') IS NOT NULL                             AS budgets_ok,
+         (SELECT count(*) FROM public.associations)                            AS associations;
+  ```
+
+- **Does:** shows whether the table is already there, that the four things it builds on exist, and how many associations there are.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `rates_done` = false, `owner_view_done` = false, `board_check_ok` = true, `org_check_ok` = true, `home_check_ok` = true, `budgets_ok` = true, `associations` = some number.
+- **Send:** the row.
+- **If any `_ok` column is false:** stop and tell Claude (L3 would refuse to run, changing nothing).
+- **If both `_done` columns are true:** stop, L is done; tell Claude.
+
+### L2 · Nothing to move (no step)
+
+The table starts empty. Today's dues amounts are not copied in: the board
+adds its current rate on the new **Dues rates** page after the switch. There
+is no L2 query.
+
+### L3 · Apply 0069 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0069_m5_batch.sql`. Ask Claude to copy it ("copy step L3").
+- **Does:** creates the empty dues-rate table, its rules (board writes, owners see today's rate for their own HOA), the same-HOA checks, and "created by" stamping.
+- **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
+- **Time:** about a second (the table is new and empty).
+- **Expect:** "Success. No rows returned".
+- **Send:** "L3 done", or the error.
+- **If it errors:** nothing was changed. Send the error.
+
+### L4 · Verify (read-only)
+
+- **Paste:** the L1 query again.
+- **Expect:** one row: `rates_done` = true, `owner_view_done` = true, every `_ok` = true, `associations` the same number as in L1.
+- **Then paste, on its own:**
+
+  ```sql
+  SELECT (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'dues_rates')        AS rate_rules,
+         (SELECT relrowsecurity FROM pg_class
+           WHERE oid = 'public.dues_rates'::regclass)                       AS rates_locked,
+         (SELECT count(*) FROM public.dues_rates)                           AS rates,
+         has_function_privilege('anon', 'public.dues_rates_resident_current_ids()', 'EXECUTE') AS anon_can_read_owner_view,
+         (SELECT count(*) FROM pg_trigger
+           WHERE tgname IN ('dues_rates_attribution', 'dues_rates_scope')) AS guard_rules;
+  ```
+
+- **Expect:** `rate_rules` = 4, `rates_locked` = true, `rates` = 0, `anon_can_read_owner_view` = false, `guard_rules` = 2.
+- **Send:** both rows, and the words **"0069 is applied"**.
+- **Flag Claude flips after L4:** `M5_APPLIED` → `true` (`packages/db/src/m5.ts`), then un-drafts the guide article `dues-rate-schedule`, updates the "Until dues rates can be saved" line in `accounting-budget-adoption`, and deploys hoa + jobs. That turns on, together: the **Dues rates** page (button on Dues), Generate dues and Add a due starting from the rate in effect (a different amount writes one `dues_rate.override` row to the activity log), the budget adoption checklist's last step opening Dues rates pre-filled from the approved budget, and **Draft owner notice** for an upcoming change (opens Messages; nothing is sent until the board sends it). `tests/integration/security/m5-dues-rates.test.ts` covers the table and its rules in CI.
+- **First thing for the board after the flip:** open **Dues → Dues rates** and add today's rate (start day = the day it began), so billing pre-fills from it.
+
+---
+
 ## App switches after each section
 
 | After | Switch | Where | Who / how |
@@ -716,6 +802,7 @@ Both tables start empty. There is nothing to copy across, so there is no K2 quer
 | I3 | `RECORDS_REQUESTS_LIVE = true`; `VIOLATION_FINED_STATUS_LIVE = true`; un-draft `resident-records-request` and `tickets-records-requests` | `packages/db/src/records-requests.ts`, `packages/db/src/violation-statuses.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 | J4 | `M3_APPLIED = true` (one flag for all of 0067: BL-136, BL-134, BL-131) | `packages/db/src/m3.ts` | Claude, then deploy hoa + jobs |
 | K4 | `M4_APPLIED = true` (one flag for all of 0068: BL-132, BL-133); un-draft `insurance-policies`, `violations-fine-hearing`, `resident-request-hearing` | `packages/db/src/m4.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
+| L4 | `M5_APPLIED = true` (one flag for all of 0069; today BL-137); un-draft `dues-rate-schedule` | `packages/db/src/m5.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs

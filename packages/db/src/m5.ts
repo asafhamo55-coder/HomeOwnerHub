@@ -1,0 +1,24 @@
+/**
+ * Migration batch M5 (migrations/0069_m5_batch.sql) switch.
+ *
+ * false until the owner confirms 0069 is applied in production (runbook
+ * Section L, L4). Every code path that reads or writes an M5 table or
+ * function checks this first, and with it false the app behaves exactly
+ * as before M5 — and keeps working when the tables already exist (CI
+ * replays 0069, so the integration suite runs "tables present, flag
+ * false").
+ *
+ * Flipping it to true is the one-line follow-up after the apply. Covers:
+ *   BL-137 dues_rates
+ *          apps/hoa/src/lib/dues-rates/ (model.ts, law.ts, queries.ts,
+ *          actions.ts, billing.ts), app/(dashboard)/dues/rates (the
+ *          schedule and the increase notice), app/(dashboard)/dues
+ *          (Generate dues pre-fill), app/(dashboard)/dues/new (Add a due
+ *          pre-fill), lib/assessments.ts (the audited override),
+ *          lib/budget-adoption/model.ts (the kit's "set the new dues rate"
+ *          step links to a pre-filled rate)
+ *
+ * No imports: pure modules, client components and the integration suite
+ * import this.
+ */
+export const M5_APPLIED: boolean = false

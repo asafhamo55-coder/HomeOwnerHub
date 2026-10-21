@@ -102,6 +102,7 @@ export const MIGRATION_MANIFEST: string[] = [
   '0066_records_requests.sql',
   '0067_m3_batch.sql',
   '0068_m4_batch.sql',
+  '0069_m5_batch.sql',
 ]
 
 /**
