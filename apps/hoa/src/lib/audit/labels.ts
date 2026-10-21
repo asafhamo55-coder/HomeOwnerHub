@@ -69,6 +69,7 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   // Violations
   'violation.cure_commitment.recorded': { label: 'Recorded an owner’s cure commitment', area: 'violations' },
   'violation.cure_commitment.withdrawn': { label: 'Withdrew a cure commitment', area: 'violations' },
+  'violation.hearing_cancelled_cured': { label: 'Cancelled a fine hearing after a cure', area: 'violations' },
   // Vendors
   'vendor.rejected': { label: 'Rejected a vendor', area: 'vendors' },
   'vendor.compliance.manual_override': { label: 'Overrode a vendor’s insurance status', area: 'vendors' },
@@ -238,6 +239,14 @@ const COMPLIANCE_STATUS = {
  * Anything not listed here is never read, so free text and contact details
  * a writer kept in metadata cannot reach the page or the CSV.
  */
+/** BL-140: lib/violation-hearings/cure.ts CURE_CANCEL_REASON_LABEL, shortened. */
+const HEARING_CURE_REASON: Record<string, string> = {
+  cured_before_hearing: 'Fixed before the hearing',
+  cured_as_noticed: 'Fixed as the notice asked',
+  cure_commitment: 'Financial commitment to fix',
+  board_withdrew: 'Board withdrew the fine',
+}
+
 export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => string | null> = {
   statutory_roster_export: (m) => {
     const parts = [oneOf(m.kind, ROSTER_KIND), oneOf(m.format, FORMAT)].filter(Boolean)
@@ -248,6 +257,7 @@ export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => strin
     return rows != null ? `${rows} ${rows === 1 ? 'row' : 'rows'}` : null
   },
   'vendor.compliance.manual_override': (m) => oneOf(m.new_status, COMPLIANCE_STATUS),
+  'violation.hearing_cancelled_cured': (m) => oneOf(m.reason, HEARING_CURE_REASON),
   'bank_import.committed': (m) => {
     const inserted = num(m.inserted)
     const duplicates = num(m.duplicates)

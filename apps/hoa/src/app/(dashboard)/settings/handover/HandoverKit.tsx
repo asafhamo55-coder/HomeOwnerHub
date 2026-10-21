@@ -284,6 +284,12 @@ export function HandoverKit({
               </Link>{' '}
               <span className="text-muted">— the CC&amp;Rs, bylaws and rules the new board works under.</span>
             </p>
+            <p>
+              <Link href="/insurance" className="font-medium text-primary hover:underline">
+                Insurance
+              </Link>{' '}
+              <span className="text-muted">— the policies, the fidelity bond and when each one renews.</span>
+            </p>
           </CardContent>
         </Card>
       </div>

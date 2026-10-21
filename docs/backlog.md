@@ -1393,7 +1393,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
    - **Files:** `apps/hoa/src/lib/compliance/director-certs.ts` (new), `apps/hoa/src/components/dashboard/ComplianceDeadlinesCard.tsx`, `apps/hoa/src/app/(dashboard)/settings/handover/`.
    - **Status (2026-10-21): built, no migration.** Signed records under `associations.compliance_settings.director_certifications[user_id]` (HMAC, same secret chain as BL-131) on the org's first FL association by name; certificate link is an https or `/documents` URL (no `hoa_documents` type change). Members card with dates, link and "Mark certified" (audit_log ids only), handover pill, dashboard "Director certification" card and digest block at ≤ 30 days / overdue / 4-year expiry. Fixture check: current (1)(a) accepts only the educational certificate (no written-affidavit option); (1)(c) 5-year retention; CE hours (4 / 8) shown as text, not tracked. Guide `director-certification`.
 4. **BL-140 Fine hearing hard gate (BL-133 leftovers).** Migration: no. Effort M. Score 1.60.
-   - **Status:** Shipped (99e2d3fa, live): hard gate, panel check, digest timers. Remaining: cure-before-hearing.
+   - **Status:** Shipped (99e2d3fa, live): hard gate, panel check, digest timers. Cure-before-hearing built on claude/quality-oracle (not yet deployed): resolved-before-hearing offer on the hearing card, FL § 720.305(2)(e) / CA § 5855(c) quotes, board-only `cancelHearingAfterCure`, audited with a reason code. Remaining: none.
    - **Today:** Fined with no hearing recorded is only a warning (`ca_hearing_not_recorded`, `fl_hearing_committee` in `apps/hoa/src/lib/compliance/statute-drift.ts`).
    - **Build:**
      - Make it a block in FL and CA, with the existing audited override.
@@ -1413,7 +1413,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - No e-voting.
    - **Files:** `apps/hoa/src/lib/elections/` (new), `apps/hoa/src/app/(dashboard)/meetings/[id]/election/` (new), `apps/hoa/src/lib/meetings/notice-law.ts`.
 6. **BL-142 Insurance renewal comparison and fidelity check (BL-132 leftovers).** Migration: no. Effort S–M. Score 1.60.
-   - **Status:** Shipped (2f857986, live): renewal comparison, fidelity vs funds, owner summary. Remaining: HO-6 notice, handover-kit link.
+   - **Status:** Shipped (2f857986, live): renewal comparison, fidelity vs funds, owner summary. HO-6 notice (composer prefill `?from=ho6-notice`, nothing auto-sent) and handover-kit insurance link built on claude/quality-oracle (not yet deployed). Remaining: none.
    - **Pain:** premiums are the main driver of dues increases (R1).
    - **Build:**
      - Premium, limit and deductible vs the prior policy of the same kind.

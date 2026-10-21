@@ -44,7 +44,8 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { loadBoardHearing, loadBoardRosterNames, type BoardHearingLoad } from '@/lib/violation-hearings/queries'
 import { HEARING_OUTCOME_LABEL, hearingFineFacts, hearingSteps } from '@/lib/violation-hearings/rules'
 import { currentTimeZone } from '@/lib/association-time-current'
-import { todayIn } from '@/lib/association-time'
+import { dayOf, todayIn } from '@/lib/association-time'
+import { cureBeforeHearingOffer } from '@/lib/violation-hearings/cure'
 import { HearingCard } from './HearingCard'
 
 export const dynamic = 'force-dynamic'
@@ -544,6 +545,18 @@ export default async function ViolationDetailPage({
               loadFailed={hearingLoad.kind === 'failed'}
               checklist={
                 hearingLoad.kind === 'ok' && hearingLoad.hearing ? hearingSteps(lawRules?.state ?? null, hearingLoad.hearing, today, rosterNames) : null
+              }
+              cureOffer={
+                // BL-140: resolved before the hearing. Only when the state
+                // rules loaded, so a failed read never shows the wrong state's law.
+                lawRules
+                  ? cureBeforeHearingOffer({
+                      state: lawRules.state,
+                      violationStatus: v.status,
+                      resolvedOn: dayOf(v.resolved_at, timeZone),
+                      hearing: hearingRecord,
+                    })
+                  : null
               }
             />
           ) : null}

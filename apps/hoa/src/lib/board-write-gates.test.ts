@@ -23,6 +23,7 @@ import * as billScanActions from './bill-scan/actions'
 import * as coiRequest from './vendor-coi-request/actions'
 import * as recordsRequests from './records-requests/actions'
 import * as bankImport from './bank-import/actions'
+import * as hearingActions from './violation-hearings/actions'
 import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
 import * as activityExport from '../app/api/settings/activity/export/route'
@@ -169,6 +170,8 @@ describe('board-only server actions refuse a resident before touching the databa
     ['createManualBankAccount (BL-144)', () => bankImport.createManualBankAccount({ accountName: 'Ops', fundId: ID }), { ok: false, error: ACCOUNTING_DENIED }],
     ['previewBankImport (BL-144: reads the bank feed)', () => bankImport.previewBankImport(form({ bankAccountId: ID, file: new Blob(['Date,Amount\n']) })), { ok: false, error: ACCOUNTING_DENIED }],
     ['commitBankImport (BL-144: inserts bank transactions)', () => bankImport.commitBankImport(form({ bankAccountId: ID, file: new Blob(['Date,Amount\n']), fileHash: 'a'.repeat(64) })), { ok: false, error: ACCOUNTING_DENIED }],
+    ['saveViolationHearing (BL-133)', () => hearingActions.saveViolationHearing({ violationId: ID } as never), DENIED],
+    ['cancelHearingAfterCure (BL-140: cancels a fine hearing, audited)', () => hearingActions.cancelHearingAfterCure({ violationId: ID, reason: 'cured_before_hearing' }), DENIED],
     ['sendTestAlert (service-role audience send)', () => events.sendTestAlert(ID), { ok: false, error: "You don't have permission to perform this action." }],
   ]
 

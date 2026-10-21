@@ -15,6 +15,14 @@
  *     board's columns. An impersonating admin reads but never writes.
  *
  * Flag off: both refuse with a plain message and touch nothing.
+ *   cancelHearingAfterCure — BL-140: the violation was resolved before its
+ *     hearing; the board cancels the hearing and records why (a reason
+ *     code). Board/admin only. Every condition the card showed is
+ *     re-checked here (violation resolved, hearing still requested or
+ *     scheduled, cure not after the hearing day, reason allowed for the
+ *     state). The audit row (ids and codes only) is written BEFORE the
+ *     status change: no record, no cancellation.
+ *
  * Nothing here sends anything to anyone: the hearing notice is drafted
  * from the violation page into the composer, where the board sends it.
  * Logs carry ids and error codes only (names and statements never).
@@ -38,7 +46,18 @@ import {
   REQUEST_HEARING_RPC,
   HEARINGS_NOT_LIVE,
   hearingShapeErrors,
+  hearingFromRow,
+  HEARING_COLUMNS,
 } from './rules'
+import {
+  CURE_CANCEL_AUDIT_ACTION,
+  CURE_CANCEL_REASONS,
+  cureBeforeHearingOffer,
+  cureCancelAuditMetadata,
+} from './cure'
+import { loadOrgStateRules } from '@/lib/violation-cure-commitment'
+import { currentTimeZone } from '@/lib/association-time-current'
+import { dayOf } from '@/lib/association-time'
 
 export type SaveHearingResult = { ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type RequestHearingResult = { ok: true; requestedAt: string | null } | { ok: false; error: string; fieldErrors?: Record<string, string> }
@@ -203,4 +222,119 @@ export async function requestViolationHearing(violationId: string, statement: st
   revalidatePath(`/resident/violations/${parsed.data.violationId}`)
   revalidatePath(`/violations/${parsed.data.violationId}`)
   return { ok: true, requestedAt: typeof data === 'string' ? data : null }
+}
+
+// ─── BL-140: cancel the hearing after a cure ─────────────────────────
+
+export type CancelAfterCureResult = { ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string> }
+
+const CancelSchema = z.object({
+  violationId: z.string().uuid('That violation isn’t valid.'),
+  reason: z.enum(CURE_CANCEL_REASONS, { errorMap: () => ({ message: 'Pick why the hearing is cancelled.' }) }),
+})
+
+export async function cancelHearingAfterCure(input: { violationId: string; reason: string }): Promise<CancelAfterCureResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!M4_APPLIED) return { ok: false, error: HEARINGS_NOT_LIVE }
+
+  const parsed = CancelSchema.safeParse(input)
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    const field = String(issue?.path[0] ?? '')
+    return {
+      ok: false,
+      error: issue?.message ?? 'Invalid input.',
+      ...(field === 'reason' ? { fieldErrors: { reason: issue!.message } } : {}),
+    }
+  }
+  const { violationId, reason } = parsed.data
+
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const { data: violation, error: vErr } = (await supabase
+    .from('hoa_violations')
+    .select('id, status, resolved_at')
+    .eq('id', violationId)
+    .eq('org_id', gate.orgId)
+    .is('deleted_at', null)
+    .maybeSingle()) as { data: { id: string; status: string | null; resolved_at: string | null } | null; error: { code?: string } | null }
+  if (vErr) {
+    console.error('[violation-hearings] cure: violation read failed', { code: vErr.code ?? null, violationId })
+    return { ok: false, error: 'Couldn’t load the violation. Try again.' }
+  }
+  if (!violation) return { ok: false, error: 'We could not find that violation.' }
+
+  const db = supabase as unknown as LooseDb
+  const { data: hRow, error: hErr } = (await db
+    .from(HEARING_TABLE)
+    .select(HEARING_COLUMNS)
+    .eq('organization_id', gate.orgId)
+    .eq('violation_id', violationId)
+    .maybeSingle()) as { data: Record<string, unknown> | null; error: { code?: string } | null }
+  if (hErr) {
+    console.error('[violation-hearings] cure: hearing read failed', { code: hErr.code ?? null, violationId })
+    return { ok: false, error: 'Couldn’t load the hearing. Try again.' }
+  }
+  const hearing = hRow ? hearingFromRow(hRow) : null
+  if (!hearing) return { ok: false, error: 'There is no hearing on record for this violation.' }
+
+  let state: string | null
+  let timeZone: string
+  try {
+    ;[state, timeZone] = await Promise.all([loadOrgStateRules(supabase as never, gate.orgId).then((r) => r.state ?? null), currentTimeZone()])
+  } catch {
+    return { ok: false, error: 'We could not check state law for this violation. Try again.' }
+  }
+
+  const offer = cureBeforeHearingOffer({
+    state,
+    violationStatus: violation.status,
+    resolvedOn: dayOf(violation.resolved_at, timeZone),
+    hearing,
+  })
+  if (!offer) {
+    return {
+      ok: false,
+      error:
+        hearing.status === 'held' || hearing.status === 'cancelled'
+          ? 'This hearing is already held or cancelled.'
+          : 'Mark the violation resolved first. A hearing is cancelled for a cure only when the cure came before the hearing.',
+    }
+  }
+  if (!offer.reasons.includes(reason)) {
+    return { ok: false, error: 'That reason doesn’t apply in your state.', fieldErrors: { reason: 'Pick one of the listed reasons.' } }
+  }
+
+  // Recorded first: no record, no cancellation. Ids and codes only.
+  const { error: auditErr } = await supabase.from('audit_log').insert({
+    action: CURE_CANCEL_AUDIT_ACTION,
+    org_id: gate.orgId,
+    user_id: user.id,
+    entity_type: 'hoa_violation',
+    entity_id: violationId,
+    metadata: cureCancelAuditMetadata({ hearingId: hearing.id, reason, state: offer.state, priorStatus: hearing.status }),
+  } as never)
+  if (auditErr) {
+    console.error('[violation-hearings] cure: audit failed', { code: auditErr.code ?? null, violationId })
+    return { ok: false, error: 'We could not record why, so the hearing was not cancelled. Try again.' }
+  }
+
+  const { error: upErr } = await db
+    .from(HEARING_TABLE)
+    .update({ status: 'cancelled', outcome: null, decided_on: null, updated_at: new Date().toISOString() })
+    .eq('id', hearing.id)
+    .eq('organization_id', gate.orgId)
+  if (upErr) {
+    console.error('[violation-hearings] cure: cancel failed', { code: upErr.code ?? null, violationId })
+    return { ok: false, error: 'Couldn’t cancel the hearing. Try again.' }
+  }
+
+  revalidatePath(`/violations/${violationId}`)
+  revalidatePath(`/resident/violations/${violationId}`)
+  return { ok: true }
 }

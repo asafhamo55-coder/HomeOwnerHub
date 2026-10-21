@@ -6,9 +6,9 @@ topic: settings
 roles: [admin, board]
 routes: ["/settings/handover"]
 primary_route: /settings/handover
-keywords: [handover, hand over, turnover, board turnover, new board, leaving, outgoing treasurer, outgoing president, successor, transfer, election, resign, step down, records, access, reconnect]
+keywords: [handover, hand over, turnover, board turnover, new board, leaving, outgoing treasurer, outgoing president, successor, transfer, election, resign, step down, records, access, reconnect, insurance, fidelity bond, d&o, insurance agent]
 related: [settings-data-export, members-invite-board]
-reviewed: 2026-10-20
+reviewed: 2026-10-21
 ---
 
 Use this when someone leaves the board, for example after an election or a resignation. The checklist keeps the HOA's accounts and records with the association, not with one person.
@@ -35,6 +35,7 @@ The summary lists board members' names and roles, the status of each connection,
 - **Last sign-in** shows "Not recorded": that member has never signed in, or the date couldn't be read.
 
 ## Good to know
+- **Insurance** is on the checklist and under **Records**. When someone leaves, send the insurance agent the new board and treasurer, so the fidelity bond and the D&O policy cover them.
 - Ticks under **Leaving** aren't saved. Reloading the page clears them.
 - The Zelle details and the subscription billing email don't record who set them up. When anyone leaves, check they belong to the HOA, not a person.
 - Residents are counted, not listed.
