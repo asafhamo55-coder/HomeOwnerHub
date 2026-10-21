@@ -31,6 +31,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { daysSince, formatDay, plural, todayIso, usd } from '@/lib/money/format'
 import { MarkPaidButton } from './MarkPaidButton'
+import { SendReceiptButton } from './SendReceiptButton'
+import { paymentDay } from '@/lib/resident-ledger'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 import { WhoOwesPanel } from './WhoOwesPanel'
@@ -65,7 +67,7 @@ interface AssessmentRow {
     address_line1: string | null
     /** The hoa_properties row this unit is bridged to, for the address link. */
   } | null
-  payments: { amount: number }[]
+  payments: { id: string; amount: number; paid_at: string }[]
 }
 
 export default async function DuesPage({
@@ -142,7 +144,7 @@ export default async function DuesPage({
   let listQuery = supabase
     .from('assessments')
     .select(
-      'id, amount, due_date, status, assessment_type, fiscal_period:fiscal_period_id(id, start_date, end_date), unit:unit_id(id, unit_number, address_line1), payments(amount)',
+      'id, amount, due_date, status, assessment_type, fiscal_period:fiscal_period_id(id, start_date, end_date), unit:unit_id(id, unit_number, address_line1), payments(id, amount, paid_at)',
       { count: 'exact' },
     )
     .eq('association_id', assoc.id)
@@ -282,7 +284,14 @@ export default async function DuesPage({
       ) : (
         <div className="space-y-6">
           {months.map(([month, monthRows]) => (
-            <MonthTable key={month} month={month} rows={monthRows} today={todayIsoStr} partial={cutMonths.has(month)} />
+            <MonthTable
+              key={month}
+              month={month}
+              rows={monthRows}
+              today={todayIsoStr}
+              timeZone={assoc.timeZone}
+              partial={cutMonths.has(month)}
+            />
           ))}
           {total > PAGE_SIZE ? (
             <Pager
@@ -310,7 +319,26 @@ function unitLabelOf(r: AssessmentRow): string {
   return `${r.unit?.address_line1 ?? 'Unknown property'}${r.unit?.unit_number ? ` · unit ${r.unit.unit_number}` : ''}`
 }
 
-function MonthTable({ month, rows, today, partial }: { month: string; rows: AssessmentRow[]; today: string; partial: boolean }) {
+/** The most recent payment on a charge — what "Send receipt" receipts (BL-114). */
+function latestPaymentOf(r: AssessmentRow): AssessmentRow['payments'][number] | null {
+  let latest: AssessmentRow['payments'][number] | null = null
+  for (const p of r.payments ?? []) if (!latest || p.paid_at > latest.paid_at) latest = p
+  return latest
+}
+
+function MonthTable({
+  month,
+  rows,
+  today,
+  timeZone,
+  partial,
+}: {
+  month: string
+  rows: AssessmentRow[]
+  today: string
+  timeZone: string
+  partial: boolean
+}) {
   const billed = rows.reduce((sum, r) => sum + Number(r.amount), 0)
   const paid = rows.reduce((sum, r) => sum + paidOf(r), 0)
   const remaining = Math.max(billed - paid, 0)
@@ -355,13 +383,29 @@ function MonthTable({ month, rows, today, partial }: { month: string; rows: Asse
       key: 'actions',
       header: <span className="sr-only">Actions</span>,
       className: 'text-right',
-      cell: (r) =>
-        r.status !== 'paid' ? (
+      cell: (r) => {
+        const latest = latestPaymentOf(r)
+        const open = r.status !== 'paid'
+        if (!open && !latest) return null
+        return (
           <div className="flex items-center justify-end gap-1">
-            <MarkPaidButton assessmentId={r.id} balance={Math.max(Number(r.amount) - paidOf(r), 0)} unitLabel={unitLabelOf(r)} />
-            <DeleteAssessmentButton assessmentId={r.id} unitLabel={unitLabelOf(r)} />
+            {latest ? (
+              <SendReceiptButton
+                paymentId={latest.id}
+                amount={Number(latest.amount)}
+                paidDay={paymentDay(latest.paid_at, timeZone)}
+                unitLabel={unitLabelOf(r)}
+              />
+            ) : null}
+            {open ? (
+              <>
+                <MarkPaidButton assessmentId={r.id} balance={Math.max(Number(r.amount) - paidOf(r), 0)} unitLabel={unitLabelOf(r)} />
+                <DeleteAssessmentButton assessmentId={r.id} unitLabel={unitLabelOf(r)} />
+              </>
+            ) : null}
           </div>
-        ) : null,
+        )
+      },
     },
   ]
 

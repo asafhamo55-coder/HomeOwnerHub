@@ -157,7 +157,8 @@ export interface ResidentNotifyStore {
     organizationId: string,
     r: {
       channel: 'email' | 'sms'
-      userId: string
+      /** Null for an owner with no portal account (BL-114 receipts). */
+      userId: string | null
       unitId: string | null
       name: string | null
       email: string | null
