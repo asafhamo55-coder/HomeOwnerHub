@@ -1357,7 +1357,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 
 Migrations through 0068 are applied, and every flag is on. Highest value first; the ranking weighs budget season (now) and Q1 annual meetings.
 
-**Migration batch M5:** BL-137, BL-141, BL-143 and BL-145 go into one `migrations/0069_m5_batch.sql`, with a runbook section and an `M5_APPLIED` flag. CI validates it, Asaf applies it, and the code ships behind the flag. Every other item needs no migration.
+**Migration batch M5:** BL-137, BL-143 and BL-145 go into one `migrations/0069_m5_batch.sql` (BL-141 was built without a migration, 2026-10-21), with a runbook section and an `M5_APPLIED` flag. CI validates it, Asaf applies it, and the code ships behind the flag. Every other item needs no migration.
 
 **Prerequisite (S, no migration):** load CA Civ. Code §§ 5605, 5610, 5615 and 5806 (from the pubinfo zip) and TX Prop. Code §§ 209.0051 and 209.00592–.00594 into fixtures and W30. Until then, CA and TX increase and election rules read "check your governing documents".
 
@@ -1412,6 +1412,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - Ties into the quorum kit.
      - No e-voting.
    - **Files:** `apps/hoa/src/lib/elections/` (new), `apps/hoa/src/app/(dashboard)/meetings/[id]/election/` (new), `apps/hoa/src/lib/meetings/notice-law.ts`.
+   - **Status (2026-10-21): built, NO migration** (decision `docs/decisions/2026-10-21-election-planner-no-migration.md`; not in 0069, not behind `M5_APPLIED`). Signed record per meeting in `associations.compliance_settings.meeting_elections` (same HMAC chain as the BL-122 quorum kit; names, ids, dates and counts only — the ledger check is computed per load, board-only, never stored). `/meetings/[id]/election`: seats and dates, a per-state timeline worked back from the meeting day, candidates with the ledger on the nomination deadline, inspectors (CA) / tellers, results with plurality ranking and tie flag, CA quorum outcome and reconvened meeting; `/meetings/[id]/election/print`: ballot (no voter id), two-envelope labels, inspector record (CA) or tally sheet. Law (fixtures only, `lib/elections/law.test.ts` checks every quote): GA §§ 44-3-230(a)/(b), 44-3-228, 44-3-224(a)/(b), 44-3-235(a) (no nomination, secret-ballot, inspector, results or challenge rule in Art. 6 → bylaws); FL § 720.306(2), (5), (8)(b), (9)(a)/(b); CA §§ 5100, 5103, 5105(c)(1)/(d), 5110, 5115, 5120, 5125, 5130(b), 5145(a); TX § 209.0058(a)(2), (c), (d), (d)(3) (§§ 209.0051, 209.00592–.00594 not loaded → governing documents). Also: `notice-law.ts` now checks GA members' meetings (21 days annual / 7 special, § 44-3-230(a)). Meeting page "Board election" card; quorum kit links to it. Guide `election-planner` (draft).
 6. **BL-142 Insurance renewal comparison and fidelity check (BL-132 leftovers).** Migration: no. Effort S–M. Score 1.60.
    - **Status:** Shipped (2f857986, live): renewal comparison, fidelity vs funds, owner summary. HO-6 notice (composer prefill `?from=ho6-notice`, nothing auto-sent) and handover-kit insurance link built on claude/quality-oracle (not yet deployed). Remaining: none.
    - **Pain:** premiums are the main driver of dues increases (R1).

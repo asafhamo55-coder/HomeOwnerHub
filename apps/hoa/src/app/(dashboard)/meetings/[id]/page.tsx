@@ -30,6 +30,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { meetingDetailColumns } from './columns'
 import { NoticePostedControl } from './NoticePostedControl'
 import { QuorumKitCard } from './QuorumKitCard'
+import { ElectionCard } from './ElectionCard'
 import { minutesBlocks } from './minutes-blocks'
 import { MeetingNoticeSection } from './MeetingNoticeSection'
 
@@ -281,6 +282,9 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
 
           {/* BL-122: annual / members' meeting quorum kit. */}
           <QuorumKitCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
+
+          {/* BL-141: board election planner, paper-first. */}
+          <ElectionCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
 
           <Card>
             <CardHeader>

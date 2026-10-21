@@ -13,6 +13,7 @@ import {
   FL_BOARD_POSTED,
   FL_MEMBERS,
   FL_SPECIAL_ASSESSMENT,
+  GA_MEMBERS,
   checkMeetingNotice,
   daysUntil,
 } from './notice-law'
@@ -55,8 +56,15 @@ describe('citations are verbatim from the fixtures', () => {
     for (const c of [CA_ELECTION_NOTICE, CA_ELECTION_MEETING, CA_BALLOTS]) expect(s).toContain(c.quote)
   })
 
+  it('Georgia § 44-3-230(a)', () => {
+    const t = fixture('ga-ocga-44-3-art6-2026.txt')
+    const start = t.indexOf('=== O.C.G.A. Section 44-3-230 |')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(norm(t.slice(start, t.indexOf('\n=== ', start + 1)))).toContain(GA_MEMBERS.quote)
+  })
+
   it('every exported citation is covered above', () => {
-    expect(ALL_NOTICE_CITATIONS).toHaveLength(7)
+    expect(ALL_NOTICE_CITATIONS).toHaveLength(8)
   })
 
   it('CA § 4920 and TX § 209.0051 are NOT loaded — so they are "check your bylaws"', () => {
@@ -133,6 +141,23 @@ describe('California', () => {
     expect(near.message).toContain('check your bylaws')
     expect(near.citations).toEqual([CA_ELECTION_NOTICE, CA_ELECTION_MEETING, CA_BALLOTS])
     expect(at('CA', 'annual', '2026-12-19')).toMatchObject({ level: 'bylaws', daysAhead: 60 })
+  })
+})
+
+describe('Georgia (BL-141)', () => {
+  it('annual: 21 days under § 44-3-230(a) — 20 is short, 21 is ok', () => {
+    expect(at('GA', 'annual', '2026-11-09')).toMatchObject({ level: 'short', daysAhead: 20, minDays: 21 })
+    expect(at('GA', 'annual', '2026-11-10')).toMatchObject({ level: 'ok', daysAhead: 21 })
+    expect(at('GA', 'annual', '2026-11-10').citations).toEqual([GA_MEMBERS])
+  })
+
+  it('special: under 7 days is a caution (it may be a board meeting), 7 is ok', () => {
+    expect(at('GA', 'special', '2026-10-26')).toMatchObject({ level: 'caution', minDays: 7 })
+    expect(at('GA', 'special', '2026-10-27')).toMatchObject({ level: 'ok', daysAhead: 7 })
+  })
+
+  it('board and emergency meetings: Article 6 sets nothing — check your bylaws', () => {
+    for (const t of ['regular', 'emergency', null]) expect(at('GA', t, '2026-10-21')).toMatchObject({ level: 'bylaws', citations: [] })
   })
 })
 
