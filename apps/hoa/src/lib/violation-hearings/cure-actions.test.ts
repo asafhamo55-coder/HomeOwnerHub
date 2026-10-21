@@ -12,6 +12,8 @@ const h = vi.hoisted(() => ({
   state: 'FL' as string | null,
   auditError: null as { code: string } | null,
   updateError: null as { code: string } | null,
+  /** Rows the conditional cancel matched (security review #3, SEC3-M1). */
+  updateRows: [{ id: 'h-1' }] as Array<{ id: string }> | null,
   calls: [] as Array<{ table: string; method: string; args: unknown[] }>,
   clientCalls: 0,
 }))
@@ -46,7 +48,8 @@ function chain(table: string) {
   }
   self.maybeSingle = async () => ({ data: table === 'hoa_violations' ? h.violation : h.hearing, error: null })
   // `await db.from(t).update(...).eq(...).eq(...)`
-  self.then = (resolve: (v: unknown) => void) => resolve(op === 'update' ? { error: h.updateError } : { data: null, error: null })
+  self.then = (resolve: (v: unknown) => void) =>
+    resolve(op === 'update' ? { data: h.updateError ? null : h.updateRows, error: h.updateError } : { data: null, error: null })
   return self
 }
 
@@ -78,6 +81,7 @@ beforeEach(() => {
   h.state = 'FL'
   h.auditError = null
   h.updateError = null
+  h.updateRows = [{ id: 'h-1' }]
   h.calls = []
   h.clientCalls = 0
 })
@@ -179,5 +183,35 @@ describe('cancelHearingAfterCure', () => {
       error: 'We could not find that violation.',
     })
     expect(writes()).toEqual([])
+  })
+
+  // Security review #3, SEC3-M1: the cancel is a compare-and-swap on what
+  // was checked, and a write that matched no row is not a success.
+  it('the cancel only matches the hearing in the status and on the day that was checked', async () => {
+    expect(await cancelHearingAfterCure({ violationId: V, reason: 'cured_before_hearing' })).toEqual({ ok: true })
+    const updEqs = h.calls.filter((c) => c.table === 'violation_hearings' && c.method === 'eq').map((c) => c.args)
+    expect(updEqs).toContainEqual(['status', 'scheduled'])
+    expect(updEqs).toContainEqual(['hearing_on', '2026-11-20'])
+  })
+
+  it('a hearing with no date yet is matched on "no date"', async () => {
+    h.hearing = { ...HEARING, status: 'requested', hearing_on: null }
+    expect(await cancelHearingAfterCure({ violationId: V, reason: 'cured_before_hearing' })).toEqual({ ok: true })
+    const updEqs = h.calls.filter((c) => c.table === 'violation_hearings' && c.method === 'eq').map((c) => c.args)
+    expect(updEqs).toContainEqual(['status', 'requested'])
+    const isCalls = h.calls.filter((c) => c.table === 'violation_hearings' && c.method === 'is').map((c) => c.args)
+    expect(isCalls).toContainEqual(['hearing_on', null])
+  })
+
+  it('a hearing changed meanwhile (held, or moved): the cancel matches no row and is refused, not reported done', async () => {
+    h.updateRows = []
+    const r = await cancelHearingAfterCure({ violationId: V, reason: 'cured_before_hearing' })
+    expect(r.ok).toBe(false)
+    expect(r).toMatchObject({ error: expect.stringContaining('not cancelled') })
+  })
+
+  it('a failed cancel write is refused', async () => {
+    h.updateError = { code: '42501' }
+    expect((await cancelHearingAfterCure({ violationId: V, reason: 'cured_before_hearing' })).ok).toBe(false)
   })
 })

@@ -1475,3 +1475,58 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
 - Reserve study module. Large, needs a migration.
 - E-ballots (CA AB 2159, TX SB 2629), after BL-141.
 - BL-124 GA snapshot refresh (deadline 2027-01-01, schedule mid-December).
+
+## Security review #3 (2026-10-21)
+
+Scope: every first-parent merge on `claude/quality-oracle` dated 2026-10-21 (`4337b1b7`..`05bb635b`): BL-137, BL-138–BL-146b, the backlog-digest workflow and 0069 parts 1, 3 and 4. Adversarial pass over role gates, org scoping of client ids, RLS and SECURITY DEFINER functions (assuming CI's blanket re-grant of routines to anon), PII in logs and injection.
+
+- **No Critical or High findings.**
+- Verified holding:
+  - Every new server action (bank import, dues rates, join codes, compliance evidence, cure cancel, budget adoption, director certs, elections) runs its board/admin gate before any client is made or any row read.
+  - Every client-supplied id is scoped to the gate's org or primary association before it is used (bank account, fund, rate, join code, request, evidence document, violation, hearing, budget, meeting, property).
+  - Every 0069 SECURITY DEFINER function that can be called directly (`dues_rates_resident_current_ids`, `owner_join_claim`, `owner_join_my_status`, `owner_join_decide`) refuses a null `auth.uid()` inside its body, so the anon re-grant does not open it. The others are trigger functions, which can't be called directly.
+  - `owner_join_decide` checks board/admin of the *request's* org, so cross-org decides fail with 42501.
+  - Address claims answer `sent` whether or not a home matched.
+  - Join codes carry 50 bits, have no modulo bias (256 % 32 = 0), are stored as SHA-256 only, are single-use, and are capped at 5 claims a day per account.
+  - Vonage status: the HS256 JWT plus `payload_hash` are checked before parsing, rows are matched on `message_uuid` + channel only, and writes are forward-only.
+  - Bank files: no XML parser, bounded regexes, size and row caps, and control/bidi characters are stripped after entity decoding. Exports neutralize formulas through `lib/csv.ts`.
+  - Notice drafts (HO-6, dues rate) escape every interpolated value.
+  - Resident insurance reads only owner columns, through the service role, confined to the org verified by `getCurrentOrg`.
+  - New logs carry only ids, codes and counts.
+  - The backlog workflow has no `pull_request` trigger. The recipient comes only from the `OWNER_ACTIONS_TO` secret (owner fallback), and `--to` flags are refused.
+
+- **SEC3-M1 (Medium, fixed):** BL-140 `cancelHearingAfterCure` wrote an unconditional UPDATE, `apps/hoa/src/lib/violation-hearings/actions.ts:327` (before the fix).
+  - **Race:** a hearing another board member marked `held` (with an outcome) or moved to an earlier day, between the read and the write, was overwritten to `cancelled`, and its `outcome` and `decided_on` were nulled. That destroys a statutory hearing record.
+  - **False success:** an update that matched no row returned `{ ok: true }`.
+  - **Fix:** a compare-and-swap on the checked `status` and `hearing_on`, plus `.select('id')`. Zero rows now returns "The hearing changed … not cancelled" (`actions.ts:327-350`).
+  - **Tests:** four new cases in `cure-actions.test.ts`. No existing assertion changed.
+  - **Residual:** the audit row is still written first by design, so a refused race leaves one `violation.hearing_cancelled_cured` row for an attempt that changed nothing.
+- **SEC3-L1 (Low):** bank import commits race (`apps/hoa/src/lib/bank-import/actions.ts:291-323`).
+  - Two concurrent commits of the same file both plan against the database before either inserts, so the rows go in twice.
+  - The "second click inserts nothing" guarantee holds only when the commits run one after the other.
+  - Only a board member can trigger it, and the duplicates show in the matching queue.
+  - The proper fix needs a lock or unique key, which means a migration. Deferred.
+- **SEC3-L2 (Low):** `owner_join_claim` copies `auth.users.email` into `requester_email` without checking `email_confirmed_at` (`migrations/0069_m5_batch.sql:588`).
+  - The board's "sign-in email matches the owner on file" check, and the approve-time link by email (`:697-705`), therefore trust the project's "confirm email" setting.
+  - Local `supabase/config.toml:221` has `enable_confirmations = false`. The prod signup flow asks for confirmation.
+  - Before 0069 is applied, consider adding `AND au.email_confirmed_at IS NOT NULL`, or showing "unverified" to the board.
+- **SEC3-L3 (Low):** `owner_join_claim` work before its limits (`0069:513-517`, `:569-574`).
+  - It normalizes `p_address` and `p_code` in DECLARE, before the 200- and 10-character limits are checked.
+  - Each address claim scans every `units` row in every org with three regex functions.
+  - It is rate-limited per account, but accounts are free. The matched path also does more work, which is a timing side channel on whether an address exists.
+- **SEC3-L4 (Low):** join-request spam (`0069:591-596`).
+  - Any confirmed account can drop up to 5 requests a day into any HOA's /approvals, by address, carrying an attacker-chosen `profiles.full_name`. React escapes it.
+  - The units scan is not limited to `hub_type = 'hoa'` orgs.
+  - A board member can also approve their own request. This is not an escalation, since the board already writes ownerships, but there is no separation of duties.
+- **SEC3-L5 (Low):** a revoked code can come back (`0069:423-448`). The `owner_join_codes` attribution trigger freezes the hash, the home and the use stamp, but not `revoked_at`. A board member can therefore un-revoke a code through PostgREST.
+- **SEC3-L6 (Low):** no replay cache on the Vonage status webhook (`apps/hoa/src/app/api/webhooks/vonage/status/route.ts:68`).
+  - A captured signed receipt can be replayed within `MAX_JWT_AGE_SECONDS` (24 h, `sms-inbound.ts:70`).
+  - The impact is nil today: timestamps are first-write-wins and status moves forward only.
+- **SEC3-L7 (Low):** phone numbers can leak into a failed text's row (`apps/hoa/src/lib/sms.ts:148`).
+  - The Vonage error text masks only runs of 7 or more contiguous digits.
+  - A number echoed back formatted (`+1 404-555-0100`), or a non-RFC 7807 `err.message` fallback, would land in `communication_recipients.error_message`, which only the board sees.
+- **SEC3-L8 (Low):** lone surrogates in OFX files (`apps/hoa/src/lib/bank-import/parse.ts:451`). `decodeEntities` accepts `&#xD800;`–`&#xDFFF;`. A lone surrogate may make one insert chunk fail, leaving a partial import that is resumable. Refuse the 0xD800–0xDFFF range.
+- **SEC3-L9 (Low, defense in depth):** the board packet reads the meeting by URL id without an org filter (`apps/hoa/src/app/(dashboard)/meetings/[id]/packet/page.tsx:68`).
+  - It passes `meeting.org_id` to the service-role director roster in the BL-145 compliance section (`:123`).
+  - This is safe today only because 0063 makes `hoa_meeting_minutes` readable by board members only. Add `.eq('org_id', org.id)`.
+- **SEC3-L10 (Info):** `backlog-email.yml` uploads `preview.html` as a 30-day artifact. On a public repo, any signed-in GitHub user can download it. The content is the already-public `docs/backlog.md`, and the owner's address in the workflow is already public in `next.md`.
