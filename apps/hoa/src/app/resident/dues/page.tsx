@@ -8,6 +8,7 @@ import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { chargeDueText, nextDueText } from '@/lib/resident-due-text'
 import { DuesTabs } from '@/components/resident/DuesTabs'
 import { Hero, Panel, RowGroup, ScreenEmpty, ScreenHeader, Section, TappableRow } from '@/components/resident/screen'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'Dues' }
 export const dynamic = 'force-dynamic'
@@ -25,6 +26,7 @@ export default async function ResidentDuesPage() {
           icon={<Wallet />}
           title="No home linked yet"
           description="Once your community manager links you to a unit, your dues and charges will appear here."
+          action={<AskToJoinLink />}
         />
       </div>
     )

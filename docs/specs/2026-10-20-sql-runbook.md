@@ -53,9 +53,9 @@ database.
 | H | Migration 0065: new plan names, plus anything from C, D, E not yet done | BL-123 | H1–H3 | Yes (H2) | A, B; ideally C, D, E |
 | I | Migration 0066: owner records requests, the billing-columns guard on orgs, and the Fined / Dismissed violation statuses | BL-123 (3), security finding (orgs_update), live bug (violation status check) | I1–I3 | Yes (I2, widens two checks, adds a column and two guards) | none |
 | J | Migration 0067 (batch M3): no late fees on opening balances, inbox snooze and reply clock, link and filing checks, compliance "done" table | BL-136, BL-134, BL-131 | J1–J4 | Yes (J3, adds columns, a table and three automatic rules) | none |
-| L | Migration 0069 (batch M5): dues rate schedule (BL-137; more M5 parts may join) | BL-137 | L1–L4 | Yes (L3, adds a table, its rules and two automatic checks) | none |
+| L | Migration 0069 (batch M5): dues rate schedule (BL-137) and join requests (BL-143); more M5 parts may join | BL-137, BL-143 | L1–L4, L-BL143a–c | Yes (L3, adds four tables, their rules, four automatic checks and three join functions) | none |
 
-47 steps in total. Sections A and B are **Urgent**. If you only have ten
+50 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
 
 ---
@@ -702,15 +702,17 @@ Both tables start empty. There is nothing to copy across, so there is no K2 quer
 
 ---
 
-## Section L · Migration 0069, batch M5 (dues rate schedule)
+## Section L · Migration 0069, batch M5 (dues rate schedule, join requests)
 
 File: `migrations/0069_m5_batch.sql`. *Needs:* nothing else in this runbook
 (it uses the board/admin check from migration 0012, the org check from
-0000, the "my homes" check from 0061 and the budgets table from 0006, all
-live). Order against A to K does not matter.
+0000, the "my homes" check from 0061, the budgets table from 0006 and the
+homes and owners tables from 0004, all live). Order against A to K does not
+matter.
 
-What it does (part 1, BL-137; BL-141, BL-143 and BL-145 add their own parts
-to the same file when they land, and this section grows with them):
+What it does (part 1, BL-137; part 3, BL-143; BL-141 (part 2) and BL-145
+(part 4) add their own parts to the same file when they land, and this
+section grows with them):
 
 1. **Dues rates (BL-137).** A new table for the association's dues schedule:
    the amount per home, how often it is billed (monthly, quarterly, twice a
@@ -721,8 +723,18 @@ to the same file when they land, and this section grows with them):
    upcoming rates, not other HOAs). Another HOA's association or budget is
    refused. "Created by" is always the person who saved it. Room is left
    for a future per-home-type or per-share rate; nothing uses it yet.
+3. **Join requests (BL-143).** Three new tables and three new functions.
+   An owner whose account isn't linked to a home asks to join it, by its
+   street address and ZIP or with a one-time code the board made for that
+   home. The request waits in **Approvals**; approving makes them a
+   resident and links the home. Only the board and admins of that HOA see
+   requests and codes. Codes are stored only as a fingerprint (SHA-256),
+   work once and expire. Every ask, matched or not, is counted: 5 a day per
+   account. The answer to an address ask is the same whether or not it
+   matched a home, so nobody can use it to find out which addresses exist.
+   The asker never sees a request row. See **L-BL143** below.
 
-Nothing in the app reads or writes the table until Claude turns on
+Nothing in the app reads or writes these tables until Claude turns on
 `M5_APPLIED` after L4. No existing table is changed. No step outputs names,
 addresses or emails.
 
@@ -756,9 +768,10 @@ is no L2 query.
 ### L3 · Apply 0069 (changes the database)
 
 - **Paste:** the **whole file** `migrations/0069_m5_batch.sql`. Ask Claude to copy it ("copy step L3").
-- **Does:** creates the empty dues-rate table, its rules (board writes, owners see today's rate for their own HOA), the same-HOA checks, and "created by" stamping.
+- **Does:** creates the empty dues-rate table, its rules (board writes, owners see today's rate for their own HOA), the same-HOA checks, and "created by" stamping; and the three empty join-request tables, their rules and the three join functions (L-BL143).
 - **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
-- **Time:** about a second (the table is new and empty).
+- **Time:** about a second (every table is new and empty).
+- **Already ran L3 before part 3 (BL-143) was in the file?** Run the whole file again: it is safe to re-run, and it only adds what is missing. Then do L-BL143.
 - **Expect:** "Success. No rows returned".
 - **Send:** "L3 done", or the error.
 - **If it errors:** nothing was changed. Send the error.
@@ -781,9 +794,79 @@ is no L2 query.
   ```
 
 - **Expect:** `rate_rules` = 4, `rates_locked` = true, `rates` = 0, `anon_can_read_owner_view` = false, `guard_rules` = 2.
-- **Send:** both rows, and the words **"0069 is applied"**.
-- **Flag Claude flips after L4:** `M5_APPLIED` → `true` (`packages/db/src/m5.ts`), then un-drafts the guide article `dues-rate-schedule`, updates the "Until dues rates can be saved" line in `accounting-budget-adoption`, and deploys hoa + jobs. That turns on, together: the **Dues rates** page (button on Dues), Generate dues and Add a due starting from the rate in effect (a different amount writes one `dues_rate.override` row to the activity log), the budget adoption checklist's last step opening Dues rates pre-filled from the approved budget, and **Draft owner notice** for an upcoming change (opens Messages; nothing is sent until the board sends it). `tests/integration/security/m5-dues-rates.test.ts` covers the table and its rules in CI.
+- **Then paste L-BL143c** (below) and check it too.
+- **Send:** all three rows, and the words **"0069 is applied"**.
+- **Flag Claude flips after L4:** `M5_APPLIED` → `true` (`packages/db/src/m5.ts`), then un-drafts the guide articles `dues-rate-schedule` and `members-ask-to-join`, updates the "Until dues rates can be saved" line in `accounting-budget-adoption`, and deploys hoa + jobs. That turns on, together: the **Dues rates** page (button on Dues), Generate dues and Add a due starting from the rate in effect (a different amount writes one `dues_rate.override` row to the activity log), the budget adoption checklist's last step opening Dues rates pre-filled from the approved budget, and **Draft owner notice** for an upcoming change (opens Messages; nothing is sent until the board sends it); and, for BL-143, **Ask to join** on every resident "No home linked yet" screen and under **Create your HOA**, **Join codes** on Settings → Members, and **Requests to join** in Approvals. `tests/integration/security/m5-dues-rates.test.ts` and `tests/integration/security/m5-join-requests.test.ts` cover the tables and their rules in CI.
 - **First thing for the board after the flip:** open **Dues → Dues rates** and add today's rate (start day = the day it began), so billing pre-fills from it.
+- **And for join requests:** nothing to set up. Owners who ask show up in **Approvals → Requests to join**; codes are made on **Settings → Members → Join codes**.
+
+### L-BL143 · Join requests (part 3 of 0069)
+
+These are part of L3 (the same file). They are here so you can check part 3
+on its own, before and after.
+
+#### L-BL143a · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regclass('public.owner_join_requests') IS NOT NULL              AS requests_done,
+         to_regclass('public.owner_join_codes') IS NOT NULL                 AS codes_done,
+         to_regclass('public.owner_join_attempts') IS NOT NULL              AS attempts_done,
+         to_regprocedure('public.owner_join_claim(text, text, text, text)') IS NOT NULL AS ask_done,
+         to_regprocedure('public.owner_join_decide(uuid, boolean, text)') IS NOT NULL   AS decide_done,
+         to_regclass('public.ownerships') IS NOT NULL                       AS owners_ok,
+         to_regclass('public.units') IS NOT NULL                            AS homes_ok,
+         (SELECT count(*) FROM public.units)                                AS homes,
+         (SELECT count(*) FROM public.units WHERE postal_code IS NULL OR postal_code = '') AS homes_without_zip;
+  ```
+
+- **Does:** shows whether part 3 is already there, that the homes and owners tables exist, and how many homes have no ZIP code on file.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: every `_done` = false, `owners_ok` = true, `homes_ok` = true, `homes` = some number, `homes_without_zip` = some number (often 0).
+- **Send:** the row.
+- **If `homes_without_zip` is above 0:** nothing to fix now. Owners of those homes can't ask by address (it needs the ZIP); the board gives them a join code instead, or adds the ZIP on the property page.
+- **If every `_done` is true:** part 3 is in; skip to L-BL143c.
+
+#### L-BL143b · Apply (changes the database)
+
+- **Paste:** nothing new — L3 (the whole `migrations/0069_m5_batch.sql`) applies part 3 together with part 1. If L3 already ran before part 3 was in the file, run L3 again; it is safe to re-run.
+- **Does:** creates the three empty join tables (requests, codes, the per-account count of asks), their security rules, the fingerprint and same-HOA checks on codes, and the three functions: ask to join, "my asks today", and the board's decision.
+- **Read-only:** no. All-or-nothing, like L3.
+- **Expect:** "Success. No rows returned".
+- **Send:** "L-BL143b done", or the error.
+
+#### L-BL143c · Verify (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'owner_join_codes')     AS code_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'owner_join_requests')  AS request_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'owner_join_attempts')  AS attempt_rules,
+         (SELECT bool_and(relrowsecurity) FROM pg_class
+           WHERE oid IN ('public.owner_join_codes'::regclass,
+                         'public.owner_join_requests'::regclass,
+                         'public.owner_join_attempts'::regclass))              AS join_locked,
+         (SELECT count(*) FROM public.owner_join_requests)
+           + (SELECT count(*) FROM public.owner_join_codes)
+           + (SELECT count(*) FROM public.owner_join_attempts)                 AS join_rows,
+         has_function_privilege('anon', 'public.owner_join_claim(text, text, text, text)', 'EXECUTE') AS anon_can_ask,
+         has_function_privilege('anon', 'public.owner_join_decide(uuid, boolean, text)', 'EXECUTE')   AS anon_can_decide,
+         has_function_privilege('authenticated', 'public.owner_join_claim(text, text, text, text)', 'EXECUTE') AS members_can_ask,
+         (SELECT count(*) FROM pg_trigger
+           WHERE tgname IN ('owner_join_codes_scope', 'owner_join_codes_attribution')) AS code_guards,
+         public.owner_join_norm_address('12 Oak Street.') = public.owner_join_norm_address('12 OAK st') AS address_match_ok;
+  ```
+
+- **Does:** counts the security rules on the three tables, checks they are locked, empty, closed to signed-out visitors, open to signed-in accounts for asking, that the code checks are in place, and that address matching ignores "Street"/"St" and punctuation.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `code_rules` = 4, `request_rules` = 1, `attempt_rules` = 0, `join_locked` = true, `join_rows` = 0, `anon_can_ask` = false, `anon_can_decide` = false, `members_can_ask` = true, `code_guards` = 2, `address_match_ok` = true.
+- **Send:** the row (with L4).
+- **If `request_rules` is not 1 or `attempt_rules` is not 0:** stop and tell Claude. Requests must be readable by the board only and written by nobody directly; attempts must be readable by nobody.
 
 ---
 
@@ -802,7 +885,7 @@ is no L2 query.
 | I3 | `RECORDS_REQUESTS_LIVE = true`; `VIOLATION_FINED_STATUS_LIVE = true`; un-draft `resident-records-request` and `tickets-records-requests` | `packages/db/src/records-requests.ts`, `packages/db/src/violation-statuses.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 | J4 | `M3_APPLIED = true` (one flag for all of 0067: BL-136, BL-134, BL-131) | `packages/db/src/m3.ts` | Claude, then deploy hoa + jobs |
 | K4 | `M4_APPLIED = true` (one flag for all of 0068: BL-132, BL-133); un-draft `insurance-policies`, `violations-fine-hearing`, `resident-request-hearing` | `packages/db/src/m4.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
-| L4 | `M5_APPLIED = true` (one flag for all of 0069; today BL-137); un-draft `dues-rate-schedule` | `packages/db/src/m5.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
+| L4 + L-BL143c | `M5_APPLIED = true` (one flag for all of 0069; today BL-137 and BL-143); un-draft `dues-rate-schedule` and `members-ask-to-join` | `packages/db/src/m5.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs

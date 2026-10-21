@@ -8,6 +8,7 @@ import type { ResidentUnit } from '@/lib/resident'
 import { ZellePayInstructions } from '@/components/resident/ZellePayInstructions'
 import { Hero, Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
 import { TrackOnMount } from '@/components/analytics/ProductAnalytics'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'Pay dues' }
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,7 @@ export default async function ResidentPayPage() {
           icon={<Wallet />}
           title="No home linked yet"
           description="Once your board links your account to a home, you can pay its dues here."
+          action={<AskToJoinLink />}
         />
       </div>
     )

@@ -95,7 +95,7 @@ const december = periodForMonth('2026-01-01')
 beforeEach(() => {
   ;({ db } = cappedFakeDb(tables()))
   side.loadDelinquency.mockResolvedValue({ totalOverdue: 0, unitCount: 0, aging: { d90_plus: 0 } })
-  side.countPendingApprovals.mockResolvedValue({ w18: 0, bill: 0, w3: 0, collections: 0, arc: 0, contact: 0, vendor: 0 })
+  side.countPendingApprovals.mockResolvedValue({ w18: 0, bill: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, vendor: 0 })
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 

@@ -41,6 +41,12 @@
 //                        rows on the home (lot.ts applySelfContact) with the
 //                        decider's RLS client; reject closes the request
 //                        with the reason. Nothing uses the service role.
+//   join approve/      → owner_join_decide (lib/owner-join/board.ts,
+//     reject             BL-143) on the decider's RLS client: approve adds
+//                        the asker as a resident and links the home in one
+//                        transaction; reject records the reason. The
+//                        function itself refuses anyone but the request
+//                        org's board/admin (42501).
 //
 // Pure (relative imports + workspace packages only) so tests/integration
 // can drive the exact composition the server action uses.
@@ -60,6 +66,7 @@ import { letterExecutor } from '../collections/letters/executor'
 import { OPENING_ACTION } from '../accounting/opening-balances/proposal'
 import { openingExecutor } from '../accounting/opening-balances/executor'
 import { approveContactUpdate, rejectContactUpdate, type ContactDeps } from '../contact-updates/apply'
+import { decideJoinRequest, type JoinDb } from '../owner-join/board'
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
 
@@ -82,12 +89,14 @@ export interface InboxDecisionHandlers {
   rejectOpening(approvalRequestId: string, reason: string): Promise<DecisionResult>
   approveContact(ticketId: string): Promise<Simple & { message?: string }>
   rejectContact(ticketId: string, reason: string): Promise<Simple & { message?: string }>
+  approveJoin(requestId: string): Promise<InboxDecisionOutcome>
+  rejectJoin(requestId: string, reason: string): Promise<InboxDecisionOutcome>
 }
 
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact']),
+  kind: z.enum(['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact', 'join']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -195,6 +204,15 @@ export function contactHandlers(
   }
 }
 
+/** BL-143: join requests, decided by owner_join_decide on the decider's own RLS client. */
+export function joinHandlers(userDb: InboxDb, live: boolean): Pick<InboxDecisionHandlers, 'approveJoin' | 'rejectJoin'> {
+  const db = userDb as unknown as JoinDb
+  return {
+    approveJoin: (requestId) => decideJoinRequest(db, { requestId, approve: true }, live),
+    rejectJoin: (requestId, reason) => decideJoinRequest(db, { requestId, approve: false, reason }, live),
+  }
+}
+
 /**
  * Gate, validate, dispatch. The role gate is defense in depth: the server
  * action already refused non-board callers, the W18 RPC refuses them
@@ -240,6 +258,10 @@ export async function decideApprovalFor(
     const r = decision === 'reject' ? await handlers.rejectContact(id, reason) : await handlers.approveContact(id)
     if (!r.ok) return { ok: false, error: r.error }
     return { ok: true, message: r.message ?? (decision === 'reject' ? 'Rejected.' : 'Contact details updated.') }
+  }
+
+  if (kind === 'join') {
+    return decision === 'reject' ? handlers.rejectJoin(id, reason) : handlers.approveJoin(id)
   }
 
   if (kind === 'collections') {

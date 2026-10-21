@@ -24,6 +24,10 @@
 //   contact tickets a resident filed from /resident/account → My contact
 //          details (PR-10, subject CONTACT_SUBJECT, still open). Decided
 //          by lib/contact-updates/apply.ts with the board's own client.
+//   join   owner_join_requests rows (status 'pending') — an account asking
+//          to be linked to a home, by address or a board code (BL-143,
+//          migration 0069 part 3, M5_APPLIED). Decided by owner_join_decide
+//          with the board's own client (lib/owner-join/board.ts).
 //   vendor the W21 vendor approval queue (/vendors/approval-queue):
 //          compliant prospects plus yellow/red/missing compliance.
 //
@@ -48,8 +52,9 @@ import {
 } from '../arc-review/model'
 import { FIELD_LABEL, HELD_REASON, planContactApply } from '../contact-updates/model'
 import type { ContactEntry, ContactTicketRow } from '../contact-updates/apply'
+import type { JoinCard } from '../owner-join/model'
 
-export const APPROVAL_SOURCES = ['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'vendor'] as const
+export const APPROVAL_SOURCES = ['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'join', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -130,6 +135,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueLabel: 'Open requests',
     what: 'contact updates',
   },
+  join: {
+    title: 'Requests to join',
+    tab: 'Join requests',
+    description:
+      'People who asked to be linked to a home — by its address or with a join code you gave them. Nothing changes until a board member approves; approving makes them a resident and links the home to their account.',
+    queueHref: '/settings/members',
+    queueLabel: 'Open members',
+    what: 'requests to join',
+  },
   vendor: {
     title: 'Vendors',
     tab: 'Vendors',
@@ -157,12 +171,15 @@ export type InboxDecisionTarget =
   | { kind: 'arc'; runId: string; arcId: string }
   /** PR-10: approve applies the resident's own contact change; withheld (canApprove false) when it can't be applied. */
   | { kind: 'contact'; ticketId: string; canApprove: boolean }
+  /** BL-143: approve links the asker to the home (owner_join_decide); reject records why. */
+  | { kind: 'join'; requestId: string }
 
 /** The id the decision endpoint takes for a target. */
 export function decisionId(d: InboxDecisionTarget): string {
   if (d.kind === 'w18' || d.kind === 'bill' || d.kind === 'collections' || d.kind === 'opening') return d.approvalRequestId
   if (d.kind === 'w3' || d.kind === 'arc') return d.runId
   if (d.kind === 'contact') return d.ticketId
+  if (d.kind === 'join') return d.requestId
   return d.vendorId
 }
 
@@ -191,6 +208,8 @@ export interface InboxItem {
   arc?: ArcCard
   /** PR-10: the requested change, field by field. Absent for other sources. */
   contact?: ContactCard
+  /** BL-143: who is asking for which home. Absent for other sources. */
+  join?: JoinCard
 }
 
 export interface ContactCard {
@@ -604,6 +623,29 @@ export function contactItems(tickets: readonly ContactTicketRow[], entries: read
       contact: { ticketId: t.id, home: e.home, changes, names, held, problem },
     }
   })
+}
+
+/**
+ * BL-143: requests to join, each decidable in one click. The card says who
+ * is asking (their account's name and email), for which home, how they
+ * asked, and whether their email matches the owner on file.
+ */
+export function joinItems(rows: ReadonlyArray<{ card: JoinCard; createdAt: string }>): InboxItem[] {
+  return rows.map(({ card, createdAt }) => ({
+    source: 'join' as const,
+    id: card.requestId,
+    title: `Join request — ${card.home ?? 'home not found'}`,
+    detail: card.who,
+    amount: null,
+    amountNote: null,
+    createdAt,
+    reasoning: null,
+    citations: [],
+    confidenceLabel: null,
+    href: '/settings/members',
+    decision: { kind: 'join' as const, requestId: card.requestId },
+    join: card,
+  }))
 }
 
 export interface VendorQueueRow {

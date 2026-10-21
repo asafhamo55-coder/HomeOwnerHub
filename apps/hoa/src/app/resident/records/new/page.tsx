@@ -4,6 +4,7 @@ import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
 import { getResidentUnits } from '@/lib/resident'
 import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 import { RecordsRequestForm } from './RecordsRequestForm'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'Request association records' }
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,7 @@ export default async function NewRecordsRequestPage() {
           icon={<Home />}
           title="No home linked yet"
           description="Records requests come from owners. Once your community manager links you to your home, you can send one here."
+          action={<AskToJoinLink />}
         />
       ) : (
         <Panel className="space-y-4 p-5">

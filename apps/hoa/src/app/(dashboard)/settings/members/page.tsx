@@ -21,6 +21,9 @@ import { MemberRow } from './MemberRow'
 import { InviteAllOwners, PendingInvitations } from './OwnerInvites'
 import { listPendingInvitations, previewOwnerInvites } from '@/lib/owner-invites-actions'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { M5_APPLIED } from '@homeowner-portal/db/m5'
+import { loadJoinHomes, loadLiveJoinCodes, type JoinDb } from '@/lib/owner-join/board'
+import { JoinCodes } from './JoinCodes'
 import { loadEmailConsent } from '@/lib/email-consent'
 import { createAdminClient } from '@homeowner-portal/db'
 import { currentTimeZone } from '@/lib/association-time-current'
@@ -63,6 +66,14 @@ export default async function MembersPage() {
     orgId: org.id,
     todayYmd: todayIn(await currentTimeZone()),
   })
+  // BL-143 (M5): homes to issue a join code for, and the codes not used yet.
+  // No query at all with the flag off.
+  const [joinHomes, joinCodes] = M5_APPLIED
+    ? await Promise.all([
+        loadJoinHomes(supabase as unknown as JoinDb, org.id, true),
+        loadLiveJoinCodes(supabase as unknown as JoinDb, org.id, new Date().toISOString(), true),
+      ])
+    : [null, null]
   const consent = consentResult?.ok && consentResult.available ? consentResult.consent : null
 
   // null = the server could not read push_subscriptions at all (0053 not
@@ -106,6 +117,22 @@ export default async function MembersPage() {
           />
         </CardContent>
       </Card>
+
+      {M5_APPLIED ? (
+        <Card id="join-codes">
+          <CardHeader className="pb-4">
+            <CardTitle as="h2">Join codes</CardTitle>
+            <CardDescription>
+              For an owner who already has an account, or whose home isn’t linked yet: make a one-time code for their
+              home and give it to them. They enter it on “Ask to join”, and the request comes to Approvals for a board
+              member to approve. Owners can also ask with their address; those requests come to Approvals too.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <JoinCodes homes={joinHomes} codes={joinCodes} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader

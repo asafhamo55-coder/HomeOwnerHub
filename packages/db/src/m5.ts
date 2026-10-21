@@ -17,6 +17,13 @@
  *          pre-fill), lib/assessments.ts (the audited override),
  *          lib/budget-adoption/model.ts (the kit's "set the new dues rate"
  *          step links to a pre-filled rate)
+ *   BL-143 owner_join_codes, owner_join_requests, owner_join_attempts and
+ *          owner_join_claim / owner_join_my_status / owner_join_decide
+ *          apps/hoa/src/lib/owner-join/ (model.ts, board.ts, actions.ts,
+ *          status.ts), app/join ("Ask to join"), the "Ask to join" button
+ *          on every resident "No home linked yet" (AskToJoinLink),
+ *          /onboarding's link, /settings/members "Join codes", and the
+ *          /approvals "Requests to join" section (lib/approvals-inbox)
  *
  * No imports: pure modules, client components and the integration suite
  * import this.
