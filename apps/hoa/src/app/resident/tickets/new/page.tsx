@@ -4,6 +4,7 @@ import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 import { Alert } from '@homeowner-portal/ui'
 import { FROM_ASSISTANT_VALUE, SUGGESTED_BY_ASSISTANT } from '@/lib/resident-assistant/handoff'
 import { CreateTicketForm } from './CreateTicketForm'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'New request' }
 
@@ -29,6 +30,7 @@ export default async function NewTicketPage({
           icon={<Home />}
           title="No home linked yet"
           description="Requests are filed against your home. Once your community manager links you to a unit, you can send one here."
+          action={<AskToJoinLink />}
         />
       ) : (
         <Panel className="space-y-4 p-5">

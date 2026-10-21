@@ -9,6 +9,7 @@ import { DuesTabs } from '@/components/resident/DuesTabs'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'Ledger' }
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,7 @@ export default async function ResidentLedgerPage() {
           icon={<Wallet />}
           title="No home linked yet"
           description="Once your board links your account to a home, its charges and payments will appear here."
+          action={<AskToJoinLink />}
         />
       </div>
     )

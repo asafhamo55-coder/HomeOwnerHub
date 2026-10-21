@@ -4,6 +4,7 @@ import { getResidentUnits } from '@/lib/resident'
 import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 import { FROM_ASSISTANT_VALUE, FROM_BOARD_VALUE, SUGGESTED_BY_ASSISTANT, SUGGESTED_BY_BOARD } from '@/lib/resident-assistant/handoff'
 import { ArcRequestForm } from './ArcRequestForm'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'New ARC application' }
 
@@ -35,6 +36,7 @@ export default async function NewArcRequestPage({
           icon={<Home />}
           title="No home linked yet"
           description="Applications are filed against your home. Once your community manager links you to a unit, you can apply here."
+          action={<AskToJoinLink />}
         />
       ) : (
         <>

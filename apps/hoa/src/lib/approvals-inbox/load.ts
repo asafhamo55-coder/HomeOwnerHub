@@ -8,17 +8,20 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
+import { M5_APPLIED } from '@homeowner-portal/db/m5'
 import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
 import { OPENING_ACTION } from '../accounting/opening-balances/proposal'
 import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
 import { contactTicketsQuery, loadContactEntries, type ContactDeps, type ContactTicketRow } from '../contact-updates/apply'
+import { countPendingJoins, loadPendingJoins, type JoinDb } from '../owner-join/board'
 import {
   SECTION_LIMIT,
   arcItems,
   billItems,
   contactItems,
+  joinItems,
   letterItems,
   openingItems,
   type LetterProposalRow,
@@ -190,6 +193,22 @@ export async function loadContactSection(db: InboxDb, orgId: string, deps: Conta
 }
 
 /**
+ * BL-143: requests to join, oldest first, each with its home and the
+ * owners on file (board RLS). Flag off: empty, without a query — the table
+ * may not exist yet.
+ */
+export async function loadJoinSection(db: InboxDb, orgId: string, live: boolean = M5_APPLIED): Promise<InboxSection> {
+  const res = await loadPendingJoins(db as unknown as JoinDb, orgId, SECTION_LIMIT, live)
+  if (!res.ok) return { source: 'join', ok: false }
+  return {
+    source: 'join',
+    ok: true,
+    items: joinItems(res.items.map((i) => ({ card: i.card, createdAt: i.row.created_at }))),
+    total: res.total,
+  }
+}
+
+/**
  * Vendors needing the board in ONE association: two index-backed head
  * counts mirroring vendorNeedsBoard (yellow/red/missing, or green on a
  * prospect; deleted vendors excluded). Scoped to an association because
@@ -239,14 +258,14 @@ async function loadAssociations(db: InboxDb, orgId: string) {
  * means the vendor list is empty, so 0. A failed count is null — unknown,
  * never 0.
  */
-export async function countPendingApprovals(db: InboxDb, orgId: string): Promise<SourceCounts> {
+export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { m5?: boolean } = {}): Promise<SourceCounts> {
   const vendorCount = async (): Promise<number | null> => {
     const assocs = await loadAssociations(db, orgId)
     if (!assocs.ok) return null
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, bill, opening, w3, collections, arc, contact, vendor] = await Promise.all([
+  const [w18, bill, opening, w3, collections, arc, contact, join, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -303,10 +322,11 @@ export async function countPendingApprovals(db: InboxDb, orgId: string): Promise
         .eq('status', 'pending_human_approval'),
     ),
     loadOrFail('approvals badge: contact updates', contactTicketsQuery(db, orgId, { head: true })),
+    countPendingJoins(db as unknown as JoinDb, orgId, opts.m5 ?? M5_APPLIED),
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), bill: count(bill), opening: count(opening), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), vendor }
+  return { w18: count(w18), bill: count(bill), opening: count(opening), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), join, vendor }
 }
 
 /**

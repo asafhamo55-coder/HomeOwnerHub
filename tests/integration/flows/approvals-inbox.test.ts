@@ -36,6 +36,9 @@ const OTHER_HANDLERS = {
   // PR-10 contact updates.
   approveContact: notUsed,
   rejectContact: notUsed,
+  // BL-143 join requests (security/m5-join-requests.test.ts).
+  approveJoin: notUsed,
+  rejectJoin: notUsed,
   // BL-089 collections letters.
   approveLetter: notUsed,
   rejectLetter: notUsed,

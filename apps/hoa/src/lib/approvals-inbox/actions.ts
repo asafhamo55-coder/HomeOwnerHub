@@ -11,7 +11,8 @@ import { enterBill } from '@/lib/invoices'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { makeBillExecutor } from '@/lib/bill-scan/executor'
 import { billInvoiceExists } from '@/lib/bill-scan/load'
-import { billHandlers, contactHandlers, decideApprovalFor, letterHandlers, openingHandlers, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
+import { M5_APPLIED } from '@homeowner-portal/db/m5'
+import { billHandlers, contactHandlers, decideApprovalFor, joinHandlers, letterHandlers, openingHandlers, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
 /**
  * The one decision endpoint behind /approvals (BL-014). It only routes:
@@ -54,6 +55,8 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     // one service-role call is a read of submitters' auth emails, so a
     // typed "Signed in as" line never picks whose rows change.
     ...contactHandlers(supabase, { orgId: gate.orgId, deciderId: user.id, deciderRole: gate.role }, { submitterEmails: authSubmitterEmails }),
+    // BL-143: the board's own RLS client; owner_join_decide refuses non-board callers.
+    ...joinHandlers(supabase, M5_APPLIED),
   })
 
   revalidatePath('/approvals')
@@ -69,6 +72,9 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     revalidatePath('/properties', 'layout')
     revalidatePath('/tickets', 'layout')
     revalidatePath('/resident/account')
+  } else if (input.kind === 'join') {
+    revalidatePath('/settings/members')
+    revalidatePath('/properties', 'layout')
   } else if (input.kind === 'opening') {
     revalidatePath('/accounting', 'layout')
     revalidatePath('/dues')

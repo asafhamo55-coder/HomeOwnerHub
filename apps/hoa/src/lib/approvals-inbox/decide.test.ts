@@ -34,6 +34,8 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     rejectOpening: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
     approveContact: vi.fn(async () => ({ ok: true as const, message: 'Contact details updated: phone.' })),
     rejectContact: vi.fn(async () => ({ ok: true as const, message: 'Rejected. Nothing on file changed; the resident sees your reason.' })),
+    approveJoin: vi.fn(async () => ({ ok: true as const, message: 'Approved.' })),
+    rejectJoin: vi.fn(async () => ({ ok: true as const, message: 'Request rejected.' })),
     ...over,
   }
 }
@@ -395,5 +397,28 @@ describe('opening balances (BL-126)', () => {
     expect((await h.rejectOpening(ID, 'x')).ok).toBe(false)
     expect(approveRequest).not.toHaveBeenCalled()
     expect(rejectRequest).not.toHaveBeenCalled()
+  })
+})
+
+describe('decideApprovalFor — BL-143 join requests', () => {
+  it('approve and reject go to the join handlers only', async () => {
+    const h = handlers()
+    expect(await decideApprovalFor('board', { kind: 'join', id: ID, decision: 'approve' }, h)).toEqual({ ok: true, message: 'Approved.' })
+    expect(h.approveJoin).toHaveBeenCalledWith(ID)
+    expect(await decideApprovalFor('admin', { kind: 'join', id: ID, decision: 'reject', reason: ' Not on file ' }, h)).toEqual({
+      ok: true,
+      message: 'Request rejected.',
+    })
+    expect(h.rejectJoin).toHaveBeenCalledWith(ID, 'Not on file')
+    expect(h.approvePosting).not.toHaveBeenCalled()
+    expect(h.approveContact).not.toHaveBeenCalled()
+  })
+
+  it('a resident is refused, and a reject without a reason never reaches the handler', async () => {
+    const h = handlers()
+    expect((await decideApprovalFor('resident', { kind: 'join', id: ID, decision: 'approve' }, h)).ok).toBe(false)
+    expect((await decideApprovalFor('board', { kind: 'join', id: ID, decision: 'reject', reason: ' ' }, h)).ok).toBe(false)
+    expect(h.approveJoin).not.toHaveBeenCalled()
+    expect(h.rejectJoin).not.toHaveBeenCalled()
   })
 })

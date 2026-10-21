@@ -44,6 +44,7 @@ import { formatMeetingDate, type UpcomingMeeting } from '@/lib/resident-meetings
 import { getResidentActor } from '@/lib/impersonation'
 import { loadMySmsPreference, loadMyTextPhones } from '@/lib/sms-consent'
 import { TextsPromptCard } from '@/components/resident/TextsPromptCard'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'My Home' }
 
@@ -103,6 +104,7 @@ export default async function ResidentDashboard() {
               the rest of your portal will light up.
             </p>
           </div>
+          <AskToJoinLink />
         </Panel>
       ) : (
         <>

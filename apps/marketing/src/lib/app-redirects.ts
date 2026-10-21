@@ -47,6 +47,8 @@ export const APP_PATH_SEGMENTS = [
   'admin',
   'api',
   'auth',
+  // BL-143 "Ask to join"
+  'join',
   'offline',
   'onboarding',
   'resident',

@@ -9,6 +9,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { PrintStatementButton } from '@/components/resident/PrintStatementButton'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 import { formatDay } from '@/lib/money/format'
+import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'Statement' }
 export const dynamic = 'force-dynamic'
@@ -70,6 +71,7 @@ export default async function ResidentStatementPage({
           icon={<Wallet />}
           title="No home linked yet"
           description="Once your board links your account to a home, you can print its statement here."
+          action={<AskToJoinLink />}
         />
       </div>
     )

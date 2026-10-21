@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { M5_APPLIED } from '@homeowner-portal/db/m5'
 import { Building2 } from 'lucide-react'
 import { WizardStepper } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
@@ -23,6 +25,15 @@ export default async function OnboardingPage() {
           description="Name your association to open its workspace. It takes less than a minute, and you can change everything later."
         />
         <OnboardingForm />
+        {/* BL-143: an owner whose HOA is already here asks to join instead. */}
+        {M5_APPLIED ? (
+          <p className="mt-6 text-center text-sm text-muted">
+            Already in an HOA that uses HomeownerHub?{' '}
+            <Link href="/join" className="font-medium text-primary">
+              Ask to join your home
+            </Link>
+          </p>
+        ) : null}
       </AuthPanel>
     </AuthShell>
   )

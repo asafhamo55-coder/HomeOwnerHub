@@ -83,6 +83,16 @@ const COPY: Record<ApprovalTarget['kind'], Copy> = {
     rejectConfirm: 'Reject change',
     rejectPlaceholder: 'Please call the office so we can confirm the new number.',
   },
+  join: {
+    approveButton: 'Approve & link',
+    approveTitle: 'Link this person to the home?',
+    approveDescription: (title) =>
+      `${title}. They become a resident of your HOA and the home is linked to their account, so they see its dues, notices and requests. Check who they are first if their email isn't the owner email on file.`,
+    approveConfirm: 'Approve & link',
+    rejectTitle: 'Reject this request?',
+    rejectConfirm: 'Reject request',
+    rejectPlaceholder: 'We couldn’t confirm you own this home. Please call the office.',
+  },
   vendor: {
     approveButton: 'Approve',
     approveTitle: 'Approve this vendor?',

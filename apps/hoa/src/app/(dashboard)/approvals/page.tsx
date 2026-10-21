@@ -23,7 +23,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadArcSection, loadBillSection, loadContactSection, loadLetterSection, loadOpeningSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadArcSection, loadBillSection, loadContactSection, loadJoinSection, loadLetterSection, loadOpeningSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -44,6 +44,7 @@ import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { ArcReviewActions } from '@/components/arc-review/ArcReviewActions'
 import { BillDetails } from './BillDetails'
 import { ContactDetails } from './ContactDetails'
+import { JoinDetails } from './JoinDetails'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
 
@@ -81,6 +82,7 @@ const SOURCE_LOADERS: Record<ApprovalSource, (orgId: string, orgName: string) =>
     timed(R, 'approvals.arc', async () => loadArcSection(await db(), orgId, { associationName: orgName })),
   ),
   contact: cache((orgId: string) => timed(R, 'approvals.contact', async () => loadContactSection(await db(), orgId, { submitterEmails: authSubmitterEmails }))),
+  join: cache((orgId: string) => timed(R, 'approvals.join', async () => loadJoinSection(await db(), orgId))),
   vendor: cache(() =>
     timed(R, 'approvals.vendor', () =>
       listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
@@ -114,7 +116,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Approvals"
-      description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, vendors. Nothing here happens until someone approves it."
+      description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={
         <Suspense fallback={null}>
@@ -307,6 +309,7 @@ const COLUMNS: DataTableColumn<InboxItem>[] = [
         {item.detail ? <p className="line-clamp-2 text-xs text-foreground-secondary">{item.detail}</p> : null}
         {item.bill ? <BillDetails bill={item.bill} approvalRequestId={item.id} /> : null}
         {item.contact ? <ContactDetails contact={item.contact} /> : null}
+        {item.join ? <JoinDetails join={item.join} /> : null}
         {item.arc && item.arc.conditions.length > 0 ? (
           <ul className="list-disc space-y-0.5 pl-5 text-xs text-foreground-secondary" aria-label="Suggested conditions">
             {item.arc.conditions.map((c) => (

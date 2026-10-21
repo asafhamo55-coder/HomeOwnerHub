@@ -10,7 +10,7 @@
  */
 import { z } from 'zod'
 
-const APPROVAL_KINDS = ['w18', 'bill', 'opening', 'w3', 'collections', 'contact', 'vendor'] as const
+const APPROVAL_KINDS = ['w18', 'bill', 'opening', 'w3', 'collections', 'contact', 'join', 'vendor'] as const
 const DRAFT_KINDS = ['reply', 'forward', 'new'] as const
 
 export const ANALYTICS_EVENTS = {
