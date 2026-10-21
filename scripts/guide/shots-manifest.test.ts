@@ -70,6 +70,17 @@ describe('ui-shots list', () => {
     // The inbox reads its view from `filter` (INBOX_FILTERS), not `status`.
     expect(byName.get('inbox-snoozed')?.path).toBe('/inbox?filter=snoozed')
   })
+
+  it('captures the Georgia board view in its own org', () => {
+    const byName = new Map(SHOTS.map((s) => [s.name, s]))
+    for (const [name, p] of [
+      ['ga-dashboard', '/'],
+      ['ga-estoppel', '/properties/:gaPropertyId/estoppel'],
+      ['ga-violation', '/violations/:gaViolationId'],
+    ] as const) {
+      expect(byName.get(name)).toMatchObject({ path: p, auth: true, org: 'gaHoaOrgId' })
+    }
+  })
 })
 
 describe('guideClipHeight', () => {
