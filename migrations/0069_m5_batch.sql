@@ -149,12 +149,18 @@ CREATE TRIGGER dues_rates_scope
 -- it without querying dues_rates under its own RLS. Returns only ids.
 CREATE OR REPLACE FUNCTION public.dues_rates_resident_current_ids()
 RETURNS uuid[]
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $fn$
-  SELECT COALESCE(
+BEGIN
+  -- Refuse callers with no session in the function itself, not only by
+  -- grant: a later blanket GRANT on routines must not reopen it to anon.
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'dues_rates_resident_current_ids: sign in first' USING errcode = '42501';
+  END IF;
+  RETURN COALESCE(
     ARRAY(
       SELECT DISTINCT ON (r.association_id) r.id
         FROM public.dues_rates r
@@ -167,6 +173,7 @@ AS $fn$
     ),
     ARRAY[]::uuid[]
   );
+END;
 $fn$;
 
 REVOKE EXECUTE ON FUNCTION public.dues_rates_resident_current_ids() FROM PUBLIC, anon;
@@ -583,16 +590,24 @@ $fn$;
 -- when the last one was. Says nothing about any home or request.
 CREATE OR REPLACE FUNCTION public.owner_join_my_status()
 RETURNS TABLE (attempts_today integer, daily_limit integer, last_attempt_at timestamptz)
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $fn$
+BEGIN
+  -- Same guard as owner_join_claim: no session, no answer (not an empty
+  -- row), whatever the routine grants say.
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'owner_join_my_status: sign in first' USING errcode = '42501';
+  END IF;
+  RETURN QUERY
   SELECT (count(*) FILTER (WHERE a.created_at > now() - interval '24 hours'))::integer,
          5,
          max(a.created_at)
     FROM public.owner_join_attempts a
    WHERE a.requester_id = auth.uid();
+END;
 $fn$;
 
 -- Decide a request: board/admin of its org only (else 42501, the same
