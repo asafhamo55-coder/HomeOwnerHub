@@ -49,7 +49,7 @@ export const DEFAULT_TRUSTED_AUTHSERV_IDS: readonly string[] = ['mx.google.com']
  * exactly as before BL-105). Flip to true in the same deploy that follows
  * the migration — both the hoa app and packages/jobs read this constant.
  */
-export const SENDER_AUTH_COLUMN_LIVE = false
+export const SENDER_AUTH_COLUMN_LIVE = true
 
 interface ResInfo {
   method: string

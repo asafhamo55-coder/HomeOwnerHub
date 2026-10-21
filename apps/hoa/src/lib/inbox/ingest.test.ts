@@ -463,12 +463,15 @@ describe('ingestMessages — a closed thread reopens on a resident reply', () =>
 })
 
 describe('senderAuthColumn — BL-105 flag', () => {
-  it('writes nothing while the column is not live (the shipped default)', async () => {
+  it('writes nothing while the column is not live', () => {
     expect(senderAuthColumn({ senderAuth: 'fail' }, false)).toEqual({})
+  })
+
+  it('ingest stores the verdict now that the column is live (shipped default since 2026-10-20)', async () => {
     const { db, tables } = fakeDb()
     await ingestMessages(db, ORG, ACCOUNT_BEFORE, MAILBOX, [parsed({ senderAuth: 'fail' })])
     expect(tables.inbox_messages).toHaveLength(1)
-    expect(tables.inbox_messages[0]).not.toHaveProperty('sender_auth')
+    expect(tables.inbox_messages[0]).toHaveProperty('sender_auth', 'fail')
   })
 
   it('writes the verdict once live; a message without one stores none', () => {
