@@ -18,8 +18,14 @@
  *   NOT § 4920 (board meeting notice) or the member-meeting notice period,
  *   so those are "check your bylaws"; an annual meeting gets the § 5115
  *   election note.
+ * GEORGIA — ga-ocga-44-3-art6-2026.txt (BL-141): § 44-3-230(a) sets the
+ *   MEMBERS' meeting notice: 21 days for an annual or regularly scheduled
+ *   meeting, 7 days for any other. Article 6 sets nothing for board
+ *   meetings, so a regular (board) or emergency meeting is "check your
+ *   bylaws"; a special meeting may be the board's or the members', so
+ *   under 7 days is a caution, not a failure.
  * TEXAS — § 209.0051 is not in tx-prop-209-2026.txt or the tcss excerpt:
- *   "check your bylaws". GEORGIA and every other state: the same.
+ *   "check your bylaws". Every other state: the same.
  *
  * Days are association calendar days from today to the meeting date; the
  * 48-hour rule counts as 2 days (the same reading as
@@ -75,6 +81,12 @@ export const CA_BALLOTS: StatuteCitation = {
     'Ballots and two preaddressed envelopes with instructions on how to return ballots shall be mailed by first-class mail or delivered by the association to every member not less than 30 days prior to the deadline for voting',
 }
 
+export const GA_MEMBERS: StatuteCitation = {
+  cite: 'O.C.G.A. § 44-3-230(a)',
+  quote:
+    'Notice shall be given to each lot owner at least 21 days in advance of any annual or regularly scheduled meeting and at least seven days in advance of any other meeting and shall state the time, place, and, for any special meeting, purpose of such meeting.',
+}
+
 /** Every quote this module can show — what notice-law.test.ts checks against the fixtures. */
 export const ALL_NOTICE_CITATIONS: readonly StatuteCitation[] = [
   FL_BOARD_POSTED,
@@ -84,6 +96,7 @@ export const ALL_NOTICE_CITATIONS: readonly StatuteCitation[] = [
   CA_ELECTION_NOTICE,
   CA_ELECTION_MEETING,
   CA_BALLOTS,
+  GA_MEMBERS,
 ]
 
 export const CHECK_BYLAWS =
@@ -228,6 +241,40 @@ function california(type: string | null | undefined, ahead: number): Omit<Notice
   return { level: 'bylaws', minDays: null, message: CHECK_BYLAWS, citations: [] }
 }
 
+function georgia(type: string | null | undefined, ahead: number): Omit<NoticeCheck, 'state' | 'daysAhead'> | null {
+  if (type === 'annual') {
+    return ahead < 21
+      ? {
+          level: 'short',
+          minDays: 21,
+          message: `The meeting is ${plural(ahead, 'day')} away. Owners must get at least 21 days’ notice of the annual meeting, with its time and place.`,
+          citations: [GA_MEMBERS],
+        }
+      : {
+          level: 'ok',
+          minDays: 21,
+          message: `The meeting is ${plural(ahead, 'day')} away: at least the 21 days’ notice the annual meeting needs.`,
+          citations: [GA_MEMBERS],
+        }
+  }
+  if (type === 'special') {
+    return ahead < 7
+      ? {
+          level: 'caution',
+          minDays: 7,
+          message: `The meeting is ${plural(ahead, 'day')} away. If this is a special meeting of the owners, they need at least 7 days’ notice stating its time, place and purpose. For a board meeting, check your bylaws.`,
+          citations: [GA_MEMBERS],
+        }
+      : {
+          level: 'ok',
+          minDays: 7,
+          message: `The meeting is ${plural(ahead, 'day')} away: enough for a special meeting of the owners (7 days, with its purpose). For a board meeting, check your bylaws.`,
+          citations: [GA_MEMBERS],
+        }
+  }
+  return null
+}
+
 /** Whether a notice sent today meets the state's minimum for this meeting. */
 export function checkMeetingNotice(input: NoticeCheckInput): NoticeCheck {
   const state = normaliseState(input.state)
@@ -246,7 +293,7 @@ export function checkMeetingNotice(input: NoticeCheckInput): NoticeCheck {
     }
   }
   const type = input.meetingType ?? null
-  const rule = state === 'FL' ? florida(type, ahead) : state === 'CA' ? california(type, ahead) : null
+  const rule = state === 'FL' ? florida(type, ahead) : state === 'CA' ? california(type, ahead) : state === 'GA' ? georgia(type, ahead) : null
   if (!rule) return { level: 'bylaws', state, daysAhead: ahead, minDays: null, message: CHECK_BYLAWS, citations: [] }
   return { ...rule, state, daysAhead: ahead }
 }

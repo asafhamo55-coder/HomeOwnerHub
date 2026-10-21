@@ -93,6 +93,15 @@ export default async function QuorumKitPage(props: { params: Promise<{ id: strin
           asOf={formatDay(ctx.asOf, 'medium')}
         />
       ) : null}
+      {kitIsOpen(ctx.eligibility) ? (
+        <p className="text-sm text-foreground-secondary">
+          Electing directors at this meeting?{' '}
+          <Link href={`/meetings/${id}/election`} className="font-medium text-primary underline-offset-2 hover:underline">
+            Open the election planner
+          </Link>{' '}
+          for your state’s dates, the candidates and the ballot kit.
+        </p>
+      ) : null}
       <LegalDisclaimer>{KIT_DISCLAIMER}</LegalDisclaimer>
     </Page>
   )
