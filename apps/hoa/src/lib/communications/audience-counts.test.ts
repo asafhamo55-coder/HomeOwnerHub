@@ -151,3 +151,53 @@ describe('street audience agrees with resolveAudience', () => {
     expect(recipients.map((r) => r.recipientName)).toEqual(['Tanneru'])
   })
 })
+
+// BL-146: homes unticked from a street are left out by the server, not
+// just hidden in the composer.
+describe('street exclusions are enforced in resolveAudience', () => {
+  it('an excluded home gets nothing, and the summary says how many were left out', async () => {
+    const res = await resolveAudience(fakeDb(), ASSOC, {
+      kind: 'specific_units',
+      unitIds: ['u1', 'u3'],
+      street: 'Allee Elm',
+      excludeUnitIds: ['u3'],
+    })
+    expect(res.recipients.map((r) => r.unitId)).toEqual(['u1'])
+    expect(res.summary).toBe('Homes on Allee Elm, 1 home left out (1 recipient)')
+  })
+
+  it('holds with owners only, and when every home is excluded nobody gets it', async () => {
+    const owners = await resolveAudience(fakeDb(), ASSOC, {
+      kind: 'specific_units',
+      unitIds: ['u1', 'u3'],
+      ownersOnly: true,
+      excludeUnitIds: ['u1'],
+    })
+    expect(owners.recipients.map((r) => r.unitId)).toEqual(['u3'])
+    const none = await resolveAudience(fakeDb(), ASSOC, {
+      kind: 'specific_units',
+      unitIds: ['u1', 'u3'],
+      excludeUnitIds: ['u1', 'u3'],
+    })
+    expect(none.recipients).toEqual([])
+  })
+
+  it('applies to every unit-level kind, whatever else the request carries', async () => {
+    const all = await resolveAudience(fakeDb(), ASSOC, { kind: 'everyone', excludeUnitIds: ['u2', 'u4'] })
+    const units = new Set(all.recipients.map((r) => r.unitId))
+    expect(units.has('u2')).toBe(false)
+    expect(units.has('u4')).toBe(false)
+    expect(all.recipients.length).toBeGreaterThan(0)
+  })
+
+  it('an exclusion naming a home that is not listed is harmless', async () => {
+    const res = await resolveAudience(fakeDb(), ASSOC, {
+      kind: 'specific_units',
+      unitIds: ['u1', 'u3'],
+      street: 'Allee Elm',
+      excludeUnitIds: ['not-a-home'],
+    })
+    expect(res.recipients).toHaveLength(2)
+    expect(res.summary).toBe('Homes on Allee Elm (2 recipients)')
+  })
+})

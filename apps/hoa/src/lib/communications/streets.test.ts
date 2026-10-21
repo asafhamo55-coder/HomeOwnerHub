@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupUnitsByStreet, matchStreet, streetAudienceLabel, streetKey, streetOf } from './streets'
+import { groupUnitsByStreet, matchStreet, streetAudienceLabel, streetKey, streetOf, streetSelection } from './streets'
 
 // BL-102 A5: streets parsed from existing addresses. Synthetic addresses only.
 
@@ -75,5 +75,34 @@ describe('labels', () => {
     expect(streetAudienceLabel('Elm St', false)).toBe('Homes on Elm St')
     expect(streetAudienceLabel('Elm St', true)).toBe('Owners on Elm St')
     expect(streetKey('N. Elm St')).toBe('n elm st')
+  })
+})
+
+// BL-146: each street lists its homes so the board can untick some.
+describe('street homes and selection', () => {
+  const streets = groupUnitsByStreet(
+    [
+      { id: 'u10', address_line1: '10 Elm St' },
+      { id: 'u2', address_line1: '2 Elm St' },
+      { id: 'u3', address_line1: '3 Elm St' },
+    ],
+    new Set(['u2', 'u10']),
+  )
+  const elm = streets[0]!
+
+  it('lists every home in house-number order, with whether an owner is on file', () => {
+    expect(elm.homes).toEqual([
+      { id: 'u2', label: '2 Elm St', hasOwner: true },
+      { id: 'u3', label: '3 Elm St', hasOwner: false },
+      { id: 'u10', label: '10 Elm St', hasOwner: true },
+    ])
+  })
+
+  it('streetSelection sends the full list plus the exclusions, and counts the rest', () => {
+    expect(streetSelection(elm, new Set(), false)).toEqual({ unitIds: elm.unitIds, excludeUnitIds: [], count: 3 })
+    const pick = streetSelection(elm, new Set(['u3', 'other']), false)
+    expect(pick.excludeUnitIds).toEqual(['u3'])
+    expect(pick.count).toBe(2)
+    expect(streetSelection(elm, new Set(['u2']), true).count).toBe(1)
   })
 })

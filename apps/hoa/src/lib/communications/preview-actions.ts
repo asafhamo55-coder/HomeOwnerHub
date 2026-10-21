@@ -48,6 +48,8 @@ const AudienceSchema = z.object({
   phones: z.array(z.string().max(20)).max(500).optional(),
   ownersOnly: z.boolean().optional(),
   street: z.string().max(120).optional(),
+  // BL-146: homes unticked from a street; applied by resolveAudience.
+  excludeUnitIds: z.array(z.string().uuid()).max(5000).optional(),
 })
 
 const MessageSchema = z.object({

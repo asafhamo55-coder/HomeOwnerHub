@@ -27,6 +27,7 @@ function state(over: Partial<ComposerDraftState> = {}): ComposerDraftState {
     manualContacts: [],
     selectedStreetKey: '',
     streetOwnersOnly: false,
+    streetExcludedUnitIds: [],
     answers: {},
     subject: 'Pool closed Friday',
     bodyHtml: '<p>The pool is closed.</p>',
@@ -80,6 +81,14 @@ describe('parseDraftState', () => {
       step: 2,
       manualContacts: [{ email: 'a@example.test', phone: '', name: '' }],
     })
+  })
+
+  it('BL-146: keeps the unticked street homes (ids only); an older draft has none', () => {
+    const s = state({ audience: 'street', selectedStreetKey: 'elm st', streetExcludedUnitIds: [U1] })
+    expect(parseDraftState(JSON.parse(JSON.stringify(s)))?.streetExcludedUnitIds).toEqual([U1])
+    expect(parseDraftState({ ...s, streetExcludedUnitIds: ['nope', U2, 5] })?.streetExcludedUnitIds).toEqual([U2])
+    const { streetExcludedUnitIds: _, ...older } = s
+    expect(parseDraftState(older)?.streetExcludedUnitIds).toEqual([])
   })
 
   it('a follow-up audience without its homes falls back to everyone', () => {

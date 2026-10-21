@@ -77,6 +77,8 @@ export interface ComposerDraftState {
   manualContacts: { email: string; phone: string; name: string }[]
   selectedStreetKey: string
   streetOwnersOnly: boolean
+  /** BL-146: homes the board unticked on the chosen street. Absent in older drafts. */
+  streetExcludedUnitIds?: string[]
   answers: Record<string, string | string[]>
   subject: string
   bodyHtml: string
@@ -191,6 +193,7 @@ export function parseDraftState(raw: unknown): ComposerDraftState | null {
     manualContacts,
     selectedStreetKey: str(s.selectedStreetKey, 300),
     streetOwnersOnly: s.streetOwnersOnly === true,
+    streetExcludedUnitIds: strList(s.streetExcludedUnitIds).filter(isUuid).slice(0, 5000),
     answers,
     subject: str(s.subject, 255),
     bodyHtml: str(s.bodyHtml),

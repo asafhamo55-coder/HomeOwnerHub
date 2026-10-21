@@ -104,6 +104,15 @@ export interface StreetOption {
   unitIds: string[]
   /** Homes on the street with a current owner on file. */
   ownerCount: number
+  /** BL-146: each home, so the board can untick some. Same order as unitIds. */
+  homes: StreetHome[]
+}
+
+export interface StreetHome {
+  id: string
+  /** The home's first address line, as on file. */
+  label: string
+  hasOwner: boolean
 }
 
 export interface StreetUnit {
@@ -113,7 +122,10 @@ export interface StreetUnit {
 
 /** Group units by street, largest street first, then by name. */
 export function groupUnitsByStreet(units: readonly StreetUnit[], ownerUnitIds: ReadonlySet<string>): StreetOption[] {
-  const byKey = new Map<string, { label: string; labels: Map<string, number>; unitIds: string[]; ownerCount: number }>()
+  const byKey = new Map<
+    string,
+    { label: string; labels: Map<string, number>; unitIds: string[]; ownerCount: number; homes: StreetHome[] }
+  >()
   for (const u of units) {
     const street = streetOf(u.address_line1)
     if (!street) continue
@@ -121,18 +133,22 @@ export function groupUnitsByStreet(units: readonly StreetUnit[], ownerUnitIds: R
     if (!key) continue
     let entry = byKey.get(key)
     if (!entry) {
-      entry = { label: street, labels: new Map(), unitIds: [], ownerCount: 0 }
+      entry = { label: street, labels: new Map(), unitIds: [], ownerCount: 0, homes: [] }
       byKey.set(key, entry)
     }
     entry.labels.set(street, (entry.labels.get(street) ?? 0) + 1)
     entry.unitIds.push(u.id)
-    if (ownerUnitIds.has(u.id)) entry.ownerCount += 1
+    const hasOwner = ownerUnitIds.has(u.id)
+    entry.homes.push({ id: u.id, label: (u.address_line1 ?? '').trim(), hasOwner })
+    if (hasOwner) entry.ownerCount += 1
   }
   return [...byKey.entries()]
     .map(([key, e]) => {
       // The most common spelling wins the label.
       const label = [...e.labels.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
-      return { key, label, unitIds: e.unitIds, ownerCount: e.ownerCount }
+      // Homes in house-number order ("2 Elm St" before "10 Elm St").
+      const homes = [...e.homes].sort((a, b) => a.label.localeCompare(b.label, 'en', { numeric: true }))
+      return { key, label, unitIds: e.unitIds, ownerCount: e.ownerCount, homes }
     })
     .sort((a, b) => b.unitIds.length - a.unitIds.length || a.label.localeCompare(b.label))
 }
@@ -153,6 +169,24 @@ export function matchStreet(typed: string | null | undefined, options: readonly 
   if (exact) return exact
   const prefix = options.filter((o) => o.key === key || o.key.startsWith(`${key} `))
   return prefix.length === 1 ? prefix[0] : null
+}
+
+/**
+ * BL-146: the street's homes still ticked, and how many get it. The UI's
+ * count only; the server applies the same exclusion (audience.ts
+ * excludeUnitIds) whatever the client sends.
+ */
+export function streetSelection(
+  street: StreetOption,
+  excluded: ReadonlySet<string>,
+  ownersOnly: boolean,
+): { unitIds: string[]; excludeUnitIds: string[]; count: number } {
+  const kept = street.homes.filter((h) => !excluded.has(h.id))
+  return {
+    unitIds: street.unitIds,
+    excludeUnitIds: street.unitIds.filter((id) => excluded.has(id)),
+    count: ownersOnly ? kept.filter((h) => h.hasOwner).length : kept.length,
+  }
 }
 
 /** "Homes on Elm St" / "Owners on Elm St". */

@@ -79,3 +79,39 @@ describe('AudienceStep options', () => {
     expect(o).toMatch(/<span class="num[^"]*">2<\/span>/)
   })
 })
+
+// BL-146: the chosen street lists its homes, each tickable.
+describe('AudienceStep street homes', () => {
+  const streets = [
+    {
+      key: 'elm st',
+      label: 'Elm St',
+      unitIds: ['u1', 'u2', 'u3'],
+      ownerCount: 2,
+      homes: [
+        { id: 'u1', label: '1 Elm St', hasOwner: true },
+        { id: 'u2', label: '2 Elm St', hasOwner: true },
+        { id: 'u3', label: '3 Elm St', hasOwner: false },
+      ],
+    },
+  ]
+
+  it('shows every home ticked except the excluded ones, with a count', () => {
+    const html = render({ audience: 'street', streets, selectedStreetKey: 'elm st', streetExcluded: new Set(['u2']) })
+    expect(html).toContain('(2 of 3 ticked)')
+    for (const a of ['1 Elm St', '2 Elm St', '3 Elm St']) expect(html).toContain(a)
+    const boxes = html.match(/<input[^>]*type="checkbox"[^>]*>/g) ?? []
+    // Owners only + three homes.
+    expect(boxes).toHaveLength(4)
+    expect(boxes.filter((b) => / checked=""/.test(b))).toHaveLength(2)
+  })
+
+  it('owners only flags a home with no owner on file', () => {
+    const html = render({ audience: 'street', streets, selectedStreetKey: 'elm st', streetOwnersOnly: true })
+    expect(html).toContain('No owner on file, so nobody here gets it')
+  })
+
+  it('no list before a street is chosen', () => {
+    expect(render({ audience: 'street', streets, selectedStreetKey: '' })).not.toContain('Homes on this street')
+  })
+})

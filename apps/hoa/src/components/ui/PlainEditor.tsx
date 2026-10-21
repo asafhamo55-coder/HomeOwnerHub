@@ -23,6 +23,7 @@ export function PlainEditor({
   disabled,
   invalid,
   aside,
+  label = 'Message body',
 }: {
   html: string
   onChange: (html: string) => void
@@ -30,6 +31,8 @@ export function PlainEditor({
   invalid?: boolean
   /** Extra controls next to the toolbar (e.g. the AI rewrite button), given the plain text. */
   aside?: (text: string, setText: (next: string) => void) => React.ReactNode
+  /** Accessible name of the text box; distinct per editor when a page has two (BL-146: the Spanish body). */
+  label?: string
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const [mode, setMode] = useState<'plain' | 'html'>(() => (htmlToPlainEditorText(html) === null ? 'html' : 'plain'))
@@ -133,7 +136,7 @@ export function PlainEditor({
           error={invalid}
           rows={12}
           className="font-mono text-xs sm:text-xs"
-          aria-label="Message body (HTML)"
+          aria-label={`${label} (HTML)`}
         />
         {!forcedHtml ? (
           <Button type="button" variant="link" size="sm" onClick={switchToPlain} disabled={disabled}>
@@ -198,7 +201,7 @@ export function PlainEditor({
         error={invalid}
         rows={12}
         placeholder={"Hi [Resident's name],\n\nWrite your message here. Leave a blank line between paragraphs.\n\n[HOA name] Board"}
-        aria-label="Message body"
+        aria-label={label}
       />
       <p className="text-xs text-muted">
         Blank line = new paragraph. Start a line with “- ” for a bullet. **Two stars** make words bold. Links work as
