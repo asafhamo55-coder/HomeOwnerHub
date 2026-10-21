@@ -18,10 +18,12 @@ import {
   BOARD_ROLES,
   buildArcBlock,
   buildComplianceBlock,
+  buildHearingBlock,
   buildInsuranceBlock,
   buildMailboxAlert,
   loadArcDeadlines,
   loadComplianceDeadlines,
+  loadHearingDeadlines,
   loadInsuranceRenewals,
   runDailyDigest,
   type DailyDigestDeps,
@@ -55,6 +57,7 @@ interface FakeOpts {
   tickets?: Row
   done?: Row
   insurance?: Row
+  hearings?: Row
 }
 
 /** Records every filter so tests can assert what was queried. */
@@ -85,6 +88,7 @@ function fakeDb(opts: FakeOpts) {
     tickets: opts.tickets ?? { data: [], error: null },
     compliance_deadlines_done: opts.done ?? { data: [], error: null },
     insurance_policies: opts.insurance ?? { data: [], error: null },
+    violation_hearings: opts.hearings ?? { data: [], error: null },
   }
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {}
@@ -873,6 +877,99 @@ describe('BL-132 insurance renewals (M4_APPLIED, migration 0068)', () => {
       const everything = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
       expect(everything).toContain('1 insurance policy expiring or expired')
       expect(everything).not.toContain('Acme')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('BL-140 fine hearing timers (M4_APPLIED, migration 0068)', () => {
+  const hearingRow = (extra: Record<string, unknown>) => ({
+    id: `h-${Math.random()}`,
+    violation_id: 'v-1',
+    status: 'held',
+    requested_at: null,
+    resident_statement: 'PRIVATE STATEMENT',
+    hearing_on: '2026-10-01',
+    hearing_time: '18:00',
+    location: '12 Secret Lane',
+    panel: [{ name: 'Panel Person', role: 'member' }],
+    notice_sent_on: '2026-09-10',
+    outcome: 'upheld',
+    decided_on: '2026-10-01',
+    findings_sent_on: null,
+    payment_due_on: null,
+    ...extra,
+  })
+  const FL: Row = { data: [{ state: 'FL', name: 'Maple Creek HOA', compliance_settings: {} }], error: null }
+
+  afterEach(() => {
+    m4Flag.live = false
+  })
+
+  it('M4 off: never reads violation_hearings, in the loader and the job', async () => {
+    const { db, calls } = fakeDb({ hearings: { data: [hearingRow({})], error: null }, associations: FL })
+    expect(await loadHearingDeadlines(db as never, ORG, '2026-10-20', logger())).toBeNull()
+    const d = deps()
+    const result = await runDailyDigest(db, d, logger())
+    expect(calls.some((c) => c.table === 'violation_hearings')).toBe(false)
+    expect(result).toMatchObject({ hearingDeadlines: 0 })
+    expect(d.sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('M4 on: counts by the association state, scoped to the org, open hearings with no findings only', async () => {
+    const { db, calls } = fakeDb({
+      associations: FL,
+      hearings: {
+        data: [
+          hearingRow({}), // FL findings due 10-08: late on 10-20
+          hearingRow({ status: 'requested', hearing_on: null, outcome: null, decided_on: null, notice_sent_on: null, requested_at: '2026-10-01T12:00:00Z' }),
+          hearingRow({ status: 'scheduled', hearing_on: '2026-11-05', outcome: null, decided_on: null, notice_sent_on: null }), // notice by 10-22: due soon
+        ],
+        error: null,
+      },
+    })
+    const r = await loadHearingDeadlines(db as never, ORG, '2026-10-20', logger(), true)
+    expect(r).toEqual({ requestsWaiting: 1, noticeLate: 0, noticeDueSoon: 1, findingsLate: 1, findingsDueSoon: 0 })
+    expect(calls).toContainEqual({ table: 'violation_hearings', method: 'eq', args: ['organization_id', ORG] })
+    expect(calls).toContainEqual({ table: 'violation_hearings', method: 'is', args: ['findings_sent_on', null] })
+  })
+
+  it('M4 on: a failed read is logged by code and null, not "nothing due"', async () => {
+    const log = logger()
+    const { db } = fakeDb({ hearings: { data: null, error: { code: '42P01' } } })
+    expect(await loadHearingDeadlines(db as never, ORG, '2026-10-20', log, true)).toBeNull()
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed to load fine hearings'), { code: '42P01' })
+  })
+
+  it('the block links to /violations and carries counts only', () => {
+    const block = buildHearingBlock({
+      counts: { requestsWaiting: 1, noticeLate: 0, noticeDueSoon: 0, findingsLate: 2, findingsDueSoon: 0 },
+      violationsUrl: 'https://app.test/violations',
+    })
+    expect(block.lines).toEqual([
+      '1 owner hearing request waiting more than 7 days to be scheduled',
+      '2 hearing decisions not recorded as sent within the statutory window',
+    ])
+    expect(block.html).toContain('href="https://app.test/violations"')
+  })
+
+  it('M4 on, the only block: board members get it; nothing private in the email or the logs', async () => {
+    m4Flag.live = true
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T11:00:00Z'))
+    try {
+      const { db } = fakeDb({ associations: FL, hearings: { data: [hearingRow({})], error: null } })
+      const d = deps()
+      const log = logger()
+      const result = await runDailyDigest(db, d, log)
+      expect(result).toMatchObject({ hearingDeadlines: 1, emailed: 2 })
+      const mail = d.sendEmail.mock.calls[0]![0]
+      expect(mail.subject).toBe('1 hearing decision not recorded as sent within the statutory window — Maple Creek HOA')
+      expect(mail.text).toContain('https://app.test/violations')
+      const everything = JSON.stringify([mail, log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
+      expect(everything).not.toMatch(/PRIVATE STATEMENT|Secret Lane|Panel Person/)
+      expect(everything).toContain('1 decision(s) late')
     } finally {
       vi.useRealTimers()
     }

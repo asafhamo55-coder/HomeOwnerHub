@@ -27,7 +27,7 @@ vi.mock('@/lib/accounting/guard', () => ({
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: vi.fn(async () => state.db!.client) }))
 vi.mock('@/lib/orgs', () => ({ getCurrentOrg: vi.fn(async () => ({ id: ORG, name: 'Fixture HOA' })) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@homeowner-portal/db', () => ({ createAdminClient: vi.fn() }))
+vi.mock('@homeowner-portal/db', () => ({ createAdminClient: vi.fn(() => state.db!.client) }))
 
 import { updateViolationStatus } from '@/lib/violations'
 import {
@@ -40,11 +40,38 @@ import {
 const ORG = '44444444-4444-4444-8444-444444444444'
 const VIOLATION = '66666666-6666-4666-8666-666666666666'
 
+// BL-140: in FL and CA a fine needs a hearing on record that meets the
+// statute (or the attorney-advised override). This one meets both states.
+const QUALIFYING_HEARING = {
+  id: 'h-1',
+  organization_id: ORG,
+  violation_id: VIOLATION,
+  status: 'held',
+  requested_at: null,
+  resident_statement: null,
+  hearing_on: '2026-11-20',
+  hearing_time: '18:30',
+  location: null,
+  panel: [
+    { name: 'A', role: 'member' },
+    { name: 'B', role: 'member' },
+    { name: 'C', role: 'member' },
+  ],
+  notice_sent_on: '2026-11-01',
+  outcome: 'upheld',
+  decided_on: '2026-11-20',
+  findings_sent_on: '2026-11-24',
+  payment_due_on: '2026-12-31',
+}
+
 beforeEach(() => {
   state.live = false
   state.db = memorySupabase({
     associations: [{ id: 'assoc-1', organization_id: ORG, name: 'Fixture HOA', state: 'FL' }],
     hoa_violations: [{ id: VIOLATION, org_id: ORG, status: 'notice_sent', fine_amount: 25 }],
+    violation_hearings: [QUALIFYING_HEARING],
+    org_members: [],
+    profiles: [],
     audit_log: [],
   })
 })
@@ -93,7 +120,7 @@ describe('updateViolationStatus with the flag on', () => {
     expect(state.db!.rows('hoa_violations')[0]).toMatchObject({ status: 'dismissed', resolution_note: 'not a violation' })
   })
 
-  it('saves fined and starts the fine date (state law check passes for FL $25/day)', async () => {
+  it('saves fined and starts the fine date (state law check passes for FL $25/day with a qualifying hearing)', async () => {
     state.live = true
     expect(await updateViolationStatus({ violationId: VIOLATION, status: 'fined' })).toEqual({ ok: true })
     const row = state.db!.rows('hoa_violations')[0]!

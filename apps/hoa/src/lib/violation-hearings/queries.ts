@@ -80,3 +80,43 @@ export async function loadResidentHearing(
   }
   return { kind: 'ok', hearing: residentHearingView(data) }
 }
+
+// ─── BL-140: the board roster for the panel conflict check ───────────
+
+/** org_members roles that are on the board roster. */
+export const ROSTER_ROLES = ['board', 'admin'] as const
+
+export type BoardRosterLoad = { kind: 'failed' } | { kind: 'ok'; names: string[] }
+
+/**
+ * The full names of the org's board members and admins (org_members, not
+ * the panel's self-tagged roles). Call with the SERVICE ROLE, only after
+ * the caller has passed the board/admin gate for this org: profiles RLS
+ * lets a user read only their own row (see members.ts). Names stay in
+ * memory for the comparison; logs carry codes only.
+ */
+export async function loadBoardRosterNames(admin: LooseDb, orgId: string): Promise<BoardRosterLoad> {
+  const { data: members, error } = (await admin
+    .from('org_members')
+    .select('user_id, role')
+    .eq('org_id', orgId)
+    .in('role', [...ROSTER_ROLES])) as { data: Array<{ user_id: string }> | null; error: { code?: string } | null }
+  if (error) {
+    console.error('[violation-hearings] roster read failed', { stage: 'members', code: error.code ?? null })
+    return { kind: 'failed' }
+  }
+  const ids = [...new Set((members ?? []).map((m) => m.user_id).filter((id): id is string => typeof id === 'string'))]
+  if (ids.length === 0) return { kind: 'ok', names: [] }
+  const { data: profiles, error: pErr } = (await admin
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', ids)) as { data: Array<{ full_name: string | null }> | null; error: { code?: string } | null }
+  if (pErr) {
+    console.error('[violation-hearings] roster read failed', { stage: 'profiles', code: pErr.code ?? null })
+    return { kind: 'failed' }
+  }
+  return {
+    kind: 'ok',
+    names: (profiles ?? []).map((p) => (typeof p.full_name === 'string' ? p.full_name.trim() : '')).filter(Boolean),
+  }
+}

@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: vi.fn(async (
 vi.mock('@/lib/orgs', () => ({ getCurrentOrg: vi.fn(async () => ({ id: ORG, name: 'Fixture HOA' })) }))
 vi.mock('@/lib/collections/letters/load', () => ({ loadLetterContext: vi.fn(async () => state.ctx) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@homeowner-portal/db', () => ({ createAdminClient: vi.fn() }))
+vi.mock('@homeowner-portal/db', () => ({ createAdminClient: vi.fn(() => state.db!.client) }))
 // Fined is gated behind migration 0066 part 5; BL-130 runs with it on.
 vi.mock('@homeowner-portal/db/violation-statuses', () => ({ VIOLATION_FINED_STATUS_LIVE: true }))
 vi.mock('@homeowner-portal/workflows', () => ({
@@ -58,10 +58,37 @@ function expectCodesOnly(metadata: unknown) {
 
 // ─── fines ───────────────────────────────────────────────────────────
 
+// BL-140: in FL and CA a fine needs a hearing on record that meets the
+// statute (or the attorney-advised override). This one meets both states.
+const QUALIFYING_HEARING = {
+  id: 'h-1',
+  organization_id: ORG,
+  violation_id: VIOLATION,
+  status: 'held',
+  requested_at: null,
+  resident_statement: null,
+  hearing_on: '2026-11-20',
+  hearing_time: '18:30',
+  location: null,
+  panel: [
+    { name: 'A', role: 'member' },
+    { name: 'B', role: 'member' },
+    { name: 'C', role: 'member' },
+  ],
+  notice_sent_on: '2026-11-01',
+  outcome: 'upheld',
+  decided_on: '2026-11-20',
+  findings_sent_on: '2026-11-24',
+  payment_due_on: '2026-12-31',
+}
+
 function violationDb(stateCode: string, fineAmount: number) {
   state.db = memorySupabase({
     associations: [{ id: 'assoc-1', organization_id: ORG, name: 'Fixture HOA', state: stateCode }],
     hoa_violations: [{ id: VIOLATION, org_id: ORG, status: 'notice_sent', fine_amount: fineAmount }],
+    violation_hearings: [QUALIFYING_HEARING],
+    org_members: [],
+    profiles: [],
     audit_log: [],
   })
 }
@@ -104,6 +131,9 @@ describe('levying a fine (updateViolationStatus → fined)', () => {
       {
         associations: [{ id: 'assoc-1', organization_id: ORG, name: 'Fixture HOA', state: 'FL' }],
         hoa_violations: [{ id: VIOLATION, org_id: ORG, status: 'notice_sent', fine_amount: 250 }],
+        violation_hearings: [QUALIFYING_HEARING],
+        org_members: [],
+        profiles: [],
       },
       { failOn: (c) => (c.table === 'audit_log' && c.op === 'insert' ? { code: '57014', message: 'timeout' } : null) },
     )
@@ -112,7 +142,7 @@ describe('levying a fine (updateViolationStatus → fined)', () => {
     expect(state.db!.rows('hoa_violations')[0]!.status).toBe('notice_sent')
   })
 
-  it('FL $25/day: only warnings, so it goes ahead with no override row', async () => {
+  it('FL $25/day with a qualifying hearing: only warnings, so it goes ahead with no override row', async () => {
     violationDb('FL', 25)
     expect(await updateViolationStatus({ violationId: VIOLATION, status: 'fined' })).toEqual({ ok: true })
     expect(state.db!.rows('audit_log')).toHaveLength(0)

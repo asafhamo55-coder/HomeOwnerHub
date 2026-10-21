@@ -55,6 +55,19 @@ import {
   type PolicyReminder,
 } from '../../../apps/hoa/src/lib/insurance/model'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
+// BL-140: fine hearing timers. Same dependency-free, relative-path rule
+// (rules.ts imports only compliance/statute-drift.ts, which imports
+// nothing); inert until M4_APPLIED (migration 0068).
+import {
+  HEARING_COLUMNS,
+  HEARING_TABLE,
+  hearingDigestCounts,
+  hearingDigestLines,
+  hearingDigestTotal,
+  hearingFromRow,
+  type HearingDigestCounts,
+  type HearingRecord,
+} from '../../../apps/hoa/src/lib/violation-hearings/rules'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -109,6 +122,11 @@ import { M4_APPLIED } from '@homeowner-portal/db/m4'
  * in force 2027-01-01), a countdown line within 90 days of the date or once
  * it has passed, until a board member marks it done on the dashboard.
  * Board members only; logs carry counts only.
+ *
+ * BL-140: and, once M4_APPLIED, the fine hearing timers: owner hearing
+ * requests waiting more than 7 days to be scheduled, and (FL § 720.305,
+ * CA § 5855) hearing notices and written decisions due within 3 days or
+ * past their statutory window, linking to /violations. Counts only.
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -174,6 +192,8 @@ export interface DailyDigestResult {
   complianceDeadlines: number
   /** Insurance policies expiring within 90 days or expired, summed across orgs (BL-132). 0 while M4 is off. */
   insuranceRenewals: number
+  /** Fine hearing timer items (BL-140), summed across orgs. 0 while M4 is off. */
+  hearingDeadlines: number
   emailed: number
   failed: number
 }
@@ -632,6 +652,69 @@ export function buildInsuranceBlock(args: { reminders: PolicyReminder[]; insuran
   return { lines, text, html }
 }
 
+// ─── Fine hearing timers (BL-140) ──────────────────────────────────
+
+/**
+ * The org's open hearings (requested, scheduled, or held with no written
+ * findings recorded) counted against the association's state. M4_APPLIED
+ * off: null and NO query (the table may not exist). null on a failed read
+ * (logged by code) so a failure never reads as "nothing is due".
+ */
+export async function loadHearingDeadlines(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+  live: boolean = M4_APPLIED,
+): Promise<HearingDigestCounts | null> {
+  if (!live) return null
+  const { data, error } = await db
+    .from(HEARING_TABLE)
+    .select(HEARING_COLUMNS)
+    .eq('organization_id', orgId)
+    .in('status', ['requested', 'scheduled', 'held'])
+    .is('findings_sent_on', null)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load fine hearings`, { code: error.code })
+    return null
+  }
+  const hearings = ((data ?? []) as Record<string, unknown>[])
+    .map(hearingFromRow)
+    .filter((h): h is HearingRecord => h !== null)
+  if (hearings.length === 0) return hearingDigestCounts(null, [], today)
+  // The association's state, as the violation page reads it (first by name).
+  const { data: assoc, error: assocErr } = await db
+    .from('associations')
+    .select('state, name')
+    .eq('organization_id', orgId)
+    .order('name', { ascending: true })
+    .limit(1)
+  if (assocErr) {
+    logger.error(`[daily-digest] ${orgId}: failed to load the association state for hearings`, { code: assocErr.code })
+    return null
+  }
+  const state = ((assoc ?? []) as Array<{ state?: string | null }>)[0]?.state ?? null
+  return hearingDigestCounts(state, hearings, today)
+}
+
+/** The hearing block: one line per timer, counts only, and the /violations link. */
+export function buildHearingBlock(args: { counts: HearingDigestCounts; violationsUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines = hearingDigestLines(args.counts)
+  const text = [...lines, `Open violations: ${args.violationsUrl}`].join('\n')
+  const late = args.counts.noticeLate + args.counts.findingsLate + args.counts.requestsWaiting > 0
+  const border = late ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
+    <a href="${escapeHtml(args.violationsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open violations</a>
+  </div>`
+  return { lines, text, html }
+}
+
 /**
  * One recipient's morning email: the mailbox alert when a mailbox is
  * broken, the waiting block when residents are waiting, or both.
@@ -651,6 +734,8 @@ export function buildDigestEmail(args: {
   compliance?: { items: PendingComplianceItem[]; dashboardUrl: string } | null
   /** BL-132: insurance renewals. Omitted or empty adds nothing. */
   insurance?: { reminders: PolicyReminder[]; insuranceUrl: string } | null
+  /** BL-140: fine hearing timers. Omitted or all-zero adds nothing. */
+  hearings?: { counts: HearingDigestCounts; violationsUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -669,6 +754,9 @@ export function buildDigestEmail(args: {
   const insuranceBlock =
     args.insurance && args.insurance.reminders.length > 0 ? buildInsuranceBlock(args.insurance) : null
   if (insuranceBlock) extras.push(insuranceBlock)
+  const hearingBlock =
+    args.hearings && hearingDigestTotal(args.hearings.counts) > 0 ? buildHearingBlock(args.hearings) : null
+  if (hearingBlock) extras.push(hearingBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -690,6 +778,8 @@ export function buildDigestEmail(args: {
   const firstDeadline = args.compliance?.items[0]
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && hearingBlock
+      ? `${hearingBlock.lines[0]} — ${args.orgName}`
     : !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && insuranceBlock
       ? `${remindersSummary(args.insurance!.reminders)} — ${args.orgName}`
     : !arcBlock && !taskBlock && !recordsBlock && complianceBlock && firstDeadline
@@ -812,6 +902,7 @@ export async function runDailyDigest(
   let recordsDueSoonTotal = 0
   let complianceTotal = 0
   let insuranceTotal = 0
+  let hearingTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -920,6 +1011,18 @@ export async function runDailyDigest(
     const insuranceCount = insurance?.length ?? 0
     insuranceTotal += insuranceCount
 
+    // BL-140: no query at all while M4_APPLIED is off.
+    let hearings: HearingDigestCounts | null = null
+    try {
+      hearings = await loadHearingDeadlines(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: fine hearing check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const hearingCount = hearings ? hearingDigestTotal(hearings) : 0
+    hearingTotal += hearingCount
+
     const orgWide =
       broken.length > 0 ||
       waitingCount > 0 ||
@@ -928,7 +1031,8 @@ export async function runDailyDigest(
       recordsOverdue > 0 ||
       recordsDueSoon > 0 ||
       complianceCount > 0 ||
-      insuranceCount > 0
+      insuranceCount > 0 ||
+      hearingCount > 0
 
     if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0) continue
     if (orgTasksOverdue > 0 || orgTasksDueSoon > 0) {
@@ -958,6 +1062,13 @@ export async function runDailyDigest(
     if (insuranceCount > 0) {
       // A count only, never carriers or policy numbers.
       logger.info(`[daily-digest] ${orgId}: ${insuranceCount} insurance polic${insuranceCount === 1 ? 'y' : 'ies'} expiring or expired`)
+    }
+
+    if (hearingCount > 0) {
+      // Counts only, never which violation, owner or panel member.
+      logger.info(
+        `[daily-digest] ${orgId}: fine hearings — ${hearings!.requestsWaiting} request(s) waiting, ${hearings!.noticeLate} notice(s) late, ${hearings!.noticeDueSoon} notice(s) due soon, ${hearings!.findingsLate} decision(s) late, ${hearings!.findingsDueSoon} decision(s) due soon`,
+      )
     }
 
     for (const mailbox of broken) {
@@ -1005,6 +1116,7 @@ export async function runDailyDigest(
               : null,
           compliance: complianceCount > 0 ? { items: compliance!, dashboardUrl: deps.appUrl('/#compliance-deadlines') } : null,
           insurance: insuranceCount > 0 ? { reminders: insurance!, insuranceUrl: deps.appUrl('/insurance') } : null,
+          hearings: hearingCount > 0 ? { counts: hearings!, violationsUrl: deps.appUrl('/violations') } : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -1039,6 +1151,7 @@ export async function runDailyDigest(
     recordsDueSoon: recordsDueSoonTotal,
     complianceDeadlines: complianceTotal,
     insuranceRenewals: insuranceTotal,
+    hearingDeadlines: hearingTotal,
     emailed,
     failed,
   }
