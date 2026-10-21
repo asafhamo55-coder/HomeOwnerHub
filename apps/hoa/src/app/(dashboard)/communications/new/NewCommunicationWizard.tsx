@@ -1316,7 +1316,7 @@ export function NewCommunicationWizard({
                 description={
                   smsConfigured
                     ? 'Urgent messages also go by text, to residents who agreed to get texts.'
-                    : 'Urgent messages would also go by text, but texting isn’t set up yet, so this goes by email and the portal.'
+                    : 'Urgent messages would also go by text, but texting isn’t set up yet, so no text goes out.'
                 }
               />
               <p className="text-sm text-foreground-secondary">

@@ -33,7 +33,7 @@ function toTemplateQuestions(questions: unknown): readonly TemplateQuestion[] {
   return Array.isArray(questions) ? (questions as unknown as TemplateQuestion[]) : []
 }
 
-const BREADCRUMBS = [{ label: 'Communications', href: '/communications' }, { label: 'New message' }]
+const BREADCRUMBS = [{ label: 'Messages', href: '/communications' }, { label: 'New message' }]
 
 export default async function NewCommunicationPage({
   searchParams,
@@ -186,7 +186,7 @@ export default async function NewCommunicationPage({
       linkAs={Link}
       breadcrumbs={BREADCRUMBS}
       title="New message"
-      description="Pick a template or write your own, choose who gets it, review, send. Every message and its delivery history are kept under Communications."
+      description="Pick a template or write your own, choose who gets it, review, send. Every message and its delivery history are kept under Messages, on Sent to residents."
     >
       {meetingCtx && !meetingCtx.ok ? (
         <Alert variant="warning" title="No meeting notice to prefill">

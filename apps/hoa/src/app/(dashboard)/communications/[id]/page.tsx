@@ -222,7 +222,7 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
     <Page
       width="wide"
       linkAs={Link}
-      breadcrumbs={[{ label: 'Communications', href: '/communications' }, { label: displaySubject.text }]}
+      breadcrumbs={[{ label: 'Messages', href: '/communications' }, { label: displaySubject.text }]}
       title={displaySubject.text}
       meta={
         <>

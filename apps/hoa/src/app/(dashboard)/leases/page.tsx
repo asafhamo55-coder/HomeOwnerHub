@@ -36,6 +36,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadPropertyScope } from '@/lib/property-scope'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
+import { plural } from '@/lib/money/format'
 
 export const metadata = { title: 'Leases' }
 export const dynamic = 'force-dynamic'
@@ -117,7 +118,7 @@ export default async function LeasesPage({
                 hint={
                   stats.totalUnits === 0
                     ? 'No units mapped to this association yet.'
-                    : `${stats.leasedCount} of ${stats.totalUnits} units`
+                    : `${stats.leasedCount} of ${plural(stats.totalUnits, 'unit')}`
                 }
               />
               <Kpi

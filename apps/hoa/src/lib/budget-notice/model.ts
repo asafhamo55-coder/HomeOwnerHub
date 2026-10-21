@@ -332,10 +332,10 @@ export function fieldsFor(j: Jurisdiction, input: BudgetNoticeInput, f: Figures)
       value: null,
       hint:
         j === 'FL'
-          ? 'HomeownerHub has no reserve module. List each reserve account and this year’s contribution, or write “None — this budget does not include reserve accounts” (§ 720.303(6)(b)–(d)).'
+          ? 'The notice doesn’t fill reserves in from your books. List each reserve account and this year’s contribution, or write “None — this budget does not include reserve accounts” (§ 720.303(6)(b)–(d)).'
           : j === 'CA'
-            ? 'HomeownerHub has no reserve module. Summarize this year’s reserve contributions. The § 5565 reserve summary and § 5570 disclosure form are still attached separately.'
-            : 'HomeownerHub has no reserve module. List each reserve account and this year’s contribution, or write “None”.',
+            ? 'The notice doesn’t fill reserves in from your books. Summarize this year’s reserve contributions. The § 5565 reserve summary and § 5570 disclosure form are still attached separately.'
+            : 'The notice doesn’t fill reserves in from your books. List each reserve account and this year’s contribution, or write “None”.',
     },
   ]
   if (j === 'FL') {

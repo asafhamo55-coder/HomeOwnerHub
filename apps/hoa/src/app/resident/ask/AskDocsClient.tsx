@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, HelpCircle, Sparkles } from 'lucide-react'
 import {
@@ -165,16 +165,20 @@ export function AskDocsClient() {
               />
               <span className="text-xs text-muted">
                 Try:{' '}
+                {/* The separator sits between the buttons, not inside them: a
+                    button trims its trailing space, which ran the questions
+                    together as "have?,When". */}
                 {SAMPLE_QUESTIONS.map((q, i) => (
-                  <button
-                    key={q}
-                    type="button"
-                    className="underline underline-offset-2 hover:text-foreground"
-                    onClick={() => setQuestion(q)}
-                  >
-                    {q}
-                    {i < SAMPLE_QUESTIONS.length - 1 ? ', ' : ''}
-                  </button>
+                  <Fragment key={q}>
+                    {i > 0 ? ', ' : null}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-foreground"
+                      onClick={() => setQuestion(q)}
+                    >
+                      {q}
+                    </button>
+                  </Fragment>
                 ))}
               </span>
             </div>

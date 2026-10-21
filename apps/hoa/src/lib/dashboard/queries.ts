@@ -5,6 +5,7 @@ import { chunk, readAllResult } from '@/lib/supabase/read-all'
 import type { DayCell, DayLevel } from '@/components/dashboard/heat-map-grid'
 import { ASSOCIATION_ZONE_COLUMNS, addCalendarDays, calendarDaysBetween, dayOf, todayIn } from '@/lib/association-time'
 import { orgTimeZone, primaryAssociationZone } from '@/lib/association-time-server'
+import { overdueUnitLabel } from './row-labels'
 
 // Optional `client` on every fetcher lets ./cached.ts pass an admin
 // client (no cookies, so unstable_cache can memoize). Falls back to
@@ -187,6 +188,9 @@ export async function getApprovalsInbox(
   client?: AnyClient,
 ): Promise<ApprovalsInbox> {
   const supabase = await resolveClient(client)
+  // Minutes of a meeting that hasn't happened yet are its agenda, not
+  // something to approve: the meetings list shows them as Scheduled.
+  const todayISO = todayIn(await orgTimeZone(supabase, orgId))
 
   const [violations, minutes, invoices, rfps] = await Promise.all([
     // AI-drafted violation letters awaiting human approval (Bar B gate).
@@ -209,6 +213,7 @@ export async function getApprovalsInbox(
       .eq('org_id', orgId)
       .is('deleted_at', null)
       .neq('status', 'approved')
+      .lte('meeting_date', todayISO)
       .order('meeting_date', { ascending: false })
       .limit(10),
 
@@ -645,6 +650,8 @@ export async function getStaleApprovalCount(
 ): Promise<StaleApprovalCount> {
   const supabase = await resolveClient(client)
   const cutoff = new Date(Date.now() - days * 86_400_000).toISOString()
+  // Same rule as getApprovalsInbox: an upcoming meeting's minutes aren't pending.
+  const todayISO = todayIn(await orgTimeZone(supabase, orgId))
 
   const [violations, minutes, invoices, rfps] = await Promise.all([
     supabase
@@ -662,6 +669,7 @@ export async function getStaleApprovalCount(
       .eq('org_id', orgId)
       .is('deleted_at', null)
       .neq('status', 'approved')
+      .lte('meeting_date', todayISO)
       .lt('updated_at', cutoff),
 
     supabase
@@ -882,11 +890,11 @@ export async function getAtRiskThisWeek(
           amount: number
           status: string
           unit_id: string | null
-          unit: { unit_number: string | null } | null
+          unit: { address_line1: string | null; unit_number: string | null } | null
         }>((from, to) =>
           supabase
             .from('assessments')
-            .select('id, due_date, amount, status, unit_id, unit:units(unit_number)')
+            .select('id, due_date, amount, status, unit_id, unit:units(address_line1, unit_number)')
             .in('association_id', assocIds)
             .is('deleted_at', null)
             .not('status', 'in', '("paid","waived","written_off")')
@@ -973,7 +981,7 @@ export async function getAtRiskThisWeek(
     amount: number
     status: string
     unit_id: string | null
-    unit: { unit_number: string | null } | null
+    unit: { address_line1: string | null; unit_number: string | null } | null
   }
   // DISTINCT units, not assessment rows: one unit three months behind is
   // one delinquent unit. Rows with no unit_id count individually rather
@@ -987,7 +995,7 @@ export async function getAtRiskThisWeek(
       currency: 'USD',
       maximumFractionDigits: 0,
     })
-    const unitLabel = a.unit?.unit_number ? `Unit ${a.unit.unit_number}` : 'Unit'
+    const unitLabel = overdueUnitLabel(a.unit)
     overdueUnitIds.add(a.unit_id ?? `assessment:${a.id}`)
     items.push({
       kind: 'dues_overdue',
