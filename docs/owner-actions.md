@@ -324,13 +324,14 @@ prices; review it before pitching.
 
 **Urgency:** Whenever
 
-**Why it matters:** today a text message only ever shows as "sent", never "delivered" or "not delivered". The app can now take Vonage's delivery receipts and mark each text as delivered, or as failed with the reason. The code is built but off. Wait until Claude says texts are sent through Vonage's Messages API; until then, receipts can't be matched to texts.
+**Why it matters:** today a text message only ever shows as "sent", never "delivered" or "not delivered". The app can now take Vonage's delivery receipts and mark each text as delivered, or as failed with the reason. The code is built but off. Texts now go through Vonage's Messages API (BL-146b) with your existing key and secret, so no new keys are needed and receipts can be matched once this is on.
 
 **Steps:**
 
 1. Do OA-23 first, or at least its steps 1 to 3: the Messages API setting, the signature secret in `VONAGE_SIGNATURE_SECRET`, and the Application.
 2. In that Vonage Application, set the **Status URL** to `https://www.homeownerledger.com/api/webhooks/vonage/status` (POST). Save.
-3. Set `SMS_STATUS_WEBHOOK_ENABLED=true` in Vercel production, then tell Claude. Claude redeploys and checks one test text shows "delivered".
+3. Also in the Vonage dashboard → **API Settings** → Messages API, set the account-level **Status URL** to the same address (POST). Save. Texts are sent with the key and secret, not the Application, so this is where Vonage sends their receipts.
+4. Set `SMS_STATUS_WEBHOOK_ENABLED=true` in Vercel production, then tell Claude. Claude redeploys and checks one test text shows "delivered".
 
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 

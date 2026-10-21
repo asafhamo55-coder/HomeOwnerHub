@@ -40,29 +40,41 @@ and moves it forward:
    - `api_key` must equal `VONAGE_API_KEY` when that is set.
 6. JSON parse (**400** `invalid_json`), then the receipt is applied.
 
-## Known gap: outbound texts use the legacy SMS API
+## Outbound texts use the Messages API (BL-146b, done)
 
-`lib/sms.ts` sends with the legacy SMS API (`vonage.sms.send`), so `external_id` holds the SMS API
-`messageId`. Only the Messages API sends JWT-signed status webhooks carrying `message_uuid`. The
-legacy SMS API's delivery receipts are signed differently (a `sig` parameter), and this route
-refuses them.
+`lib/sms.ts` sends with the Messages API (`vonage.messages.send`, channel `sms`, type `text`). It
+authenticates with Basic auth from the existing `VONAGE_API_KEY` / `VONAGE_API_SECRET`, so no new
+env var or key is needed. Vonage answers 202 with `message_uuid`; `sendSms` returns it as
+`messageSid`, and every caller (broadcast delivery, event alerts, resident notifications) stores it
+in `communication_recipients.external_id`. That is the id this route matches receipts on.
 
-So receipts match only once outbound texts go through the Messages API, which stores its
-`message_uuid` in `external_id`. Until that switch lands, turning this route on is harmless: an
-unmatched receipt updates nothing and answers 200. It is also pointless. Turn it on only after the
-send switch (backlog: BL-146 follow-up).
+Before BL-146b, texts went through the legacy SMS API (`vonage.sms.send`), whose `messageId` never
+matched a Messages API receipt, and whose own receipts are signed differently (a `sig` parameter)
+and are refused here. Rows sent before the switch keep their legacy id and will never match.
+
+Errors: a non-2xx from the Messages API throws a `VetchError`; `sendSms` reads its RFC 7807 body
+and stores the `title` (else the `detail`, with any 7+ digit run masked) as the row's reason, as it
+stored the legacy `errorText` before. Gates in front of the provider are unchanged.
+
+**Where the receipts go.** With Basic auth there is no Application in the request, so Vonage
+posts Messages API status webhooks to the **account-level** Status URL (Dashboard → API Settings →
+Messages API), not the Application's Status URL. Set the same URL in both places (OA-27).
 
 ## Environment variables (Vercel → hoa project → Production)
 
 | Name | Value |
 |---|---|
 | `VONAGE_SIGNATURE_SECRET` | Already set if OA-23 is done. Vonage dashboard → Settings → Signature secret. |
-| `SMS_STATUS_WEBHOOK_ENABLED` | `true`, only after the dashboard step below and the send switch |
+| `SMS_STATUS_WEBHOOK_ENABLED` | `true`, after the dashboard steps below (the send switch has landed) |
 | `VONAGE_API_KEY` | Already set for sending. When present, the JWT's `api_key` claim must match it. |
 
 ## Vonage dashboard config (owner)
 
 1. Use the same Application as OA-23 (Messages capability). Set its **Status URL** to
    `https://www.homeownerledger.com/api/webhooks/vonage/status`, method `POST`.
-2. Make sure signed webhooks use the signature secret in `VONAGE_SIGNATURE_SECRET` (HS256).
-3. Set `SMS_STATUS_WEBHOOK_ENABLED=true` in Vercel production and redeploy.
+2. Also set the account-level Messages API **Status URL** (Dashboard → API Settings) to the same
+   URL. Sends use Basic auth, so this is where Vonage actually posts their receipts.
+3. Make sure signed webhooks use the signature secret in `VONAGE_SIGNATURE_SECRET` (HS256).
+4. Set `SMS_STATUS_WEBHOOK_ENABLED=true` in Vercel production and redeploy. Check that the first
+   test text's row moves to "delivered"; if the route logs 401s instead, the account-level
+   webhooks are not being signed, and the signed-webhooks setting needs checking in the dashboard.

@@ -21,7 +21,7 @@ vi.mock('resend', () => ({
 const smsSend = vi.fn()
 vi.mock('@vonage/server-sdk', () => ({
   Vonage: class {
-    sms = { send: smsSend }
+    messages = { send: smsSend }
   },
 }))
 
@@ -45,7 +45,7 @@ beforeEach(() => {
   vi.stubEnv('VONAGE_FROM_NUMBER', '15550000000')
   vi.stubEnv('OUTBOUND_ALLOWLIST', '@example.test,+1 404 555 1234')
   emailSend.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
-  smsSend.mockResolvedValue({ messages: [{ messageId: 'sms_1' }] })
+  smsSend.mockResolvedValue({ messageUUID: 'sms_1' })
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
