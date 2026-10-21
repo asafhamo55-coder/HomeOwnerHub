@@ -8,7 +8,6 @@ routes: ["/resident/records/new", "/resident/requests", "/resident/tickets/[id]"
 primary_route: /resident/records/new
 keywords: [records, records request, association records, inspect records, see records, copies, financial records, budget, bank statements, minutes, meeting minutes, contracts, invoices, owner list, membership list, governing documents, bylaws, declaration, how long, deadline]
 related: [resident-support-tickets, resident-portal-basics]
-draft: true
 reviewed: 2026-10-20
 ---
 

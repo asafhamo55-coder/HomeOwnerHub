@@ -40,6 +40,20 @@ function cappedDb(tables: Record<string, Row[]>, failOn?: (table: string, from: 
         b.eq = chain('eq', (c, v) => preds.push((r) => r[c as string] === v))
         b.neq = chain('neq', (c, v) => preds.push((r) => r[c as string] !== v))
         b.is = chain('is', (c, v) => preds.push((r) => (v === null ? r[c as string] == null : r[c as string] === v)))
+        // Evaluates the `col.is.null,col.neq.<v>` OR form — the M3 (BL-136)
+        // opening-balance skip. Anything else fails loudly rather than
+        // silently matching every row.
+        b.or = chain('or', (expr) => {
+          const terms = String(expr)
+            .split(',')
+            .map((t) => {
+              const m = /^(\w+)\.(is|neq)\.(.+)$/.exec(t)
+              if (!m) throw new Error(`fake db: unsupported or() term ${t}`)
+              const [, c, op, v] = m
+              return op === 'is' && v === 'null' ? (r: Row) => r[c!] == null : (r: Row) => r[c!] != null && r[c!] !== v
+            })
+          preds.push((r) => terms.some((t) => t(r)))
+        })
         b.lt = chain('lt', (c, v) => preds.push((r) => (r[c as string] as string) < (v as string)))
         b.in = chain('in', (c, v) => {
           inLists.push((v as unknown[]).length)
@@ -101,6 +115,29 @@ describe('findUnchargedDefaults (hoa-late-fees)', () => {
   it('a failed later page of defaulted charges throws', async () => {
     const { db } = cappedDb({ assessments: defaulted }, (_t, from) => from === 1000)
     await expect(findUnchargedDefaults(db as never, 'assoc-1', TODAY)).rejects.toThrow(/defaulted assessments read failed/)
+  })
+
+  // BL-136 (M3_APPLIED, now live): a balance carried over by the opening-
+  // balances approval never earns a late fee. NULL source must stay in.
+  const opening = Array.from({ length: 3 }, (_, i) => ({
+    ...defaulted[0]!,
+    id: id('o', i),
+    source: 'opening_balance',
+  }))
+  const tagged = { ...defaulted[0]!, id: id('t', 0), source: 'manual' }
+
+  it('by default (M3 live) skips opening balances but keeps NULL and other sources', async () => {
+    const { db } = cappedDb({ assessments: [...defaulted, ...opening, tagged] })
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY)
+    expect(r.defaulted).toHaveLength(2501)
+    expect(r.defaulted.some((a) => a.id.startsWith('o'))).toBe(false)
+    expect(r.defaulted.some((a) => a.id === tagged.id)).toBe(true)
+  })
+
+  it('flag off (pre-M3): issues no source predicate and charges opening balances like any other', async () => {
+    const { db } = cappedDb({ assessments: [...defaulted, ...opening] })
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY, false)
+    expect(r.defaulted).toHaveLength(2503)
   })
 })
 

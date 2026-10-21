@@ -26,4 +26,4 @@
  * No imports: pure modules, client components and the integration suite
  * import this.
  */
-export const M3_APPLIED: boolean = false
+export const M3_APPLIED: boolean = true

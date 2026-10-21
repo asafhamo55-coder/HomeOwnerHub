@@ -25,6 +25,8 @@ function makeDb() {
         return chain
       }),
       or: vi.fn(() => chain),
+      // The BL-134 Snoozed count (M3_APPLIED) uses `.gt`.
+      gt: vi.fn(() => chain),
       not: vi.fn(() => chain),
       in: vi.fn(() => chain),
       order: vi.fn(() => chain),
@@ -42,9 +44,23 @@ describe('owner scope', () => {
     await listThreads(list.db, 'org-1', 'needs_review', 50, 0, { owner: 'mine', userId: 'user-1' })
     expect(list.perCall[0].eq).toContainEqual(['assigned_to', 'user-1'])
 
+    // Default scope (M3 live): the five status counts AND the Snoozed
+    // count all narrow to Mine.
     const counts = makeDb()
     await countThreadsByStatus(counts.db, 'org-1', { owner: 'mine', userId: 'user-1' })
+    expect(counts.perCall).toHaveLength(6)
     for (const call of counts.perCall) expect(call.eq).toContainEqual(['assigned_to', 'user-1'])
+
+    // Flag off (pre-M3): the five status counts only.
+    const off = makeDb()
+    await countThreadsByStatus(
+      off.db,
+      'org-1',
+      { owner: 'mine', userId: 'user-1' },
+      { live: false, nowIso: '2026-10-20T12:00:00.000Z' },
+    )
+    expect(off.perCall).toHaveLength(5)
+    for (const call of off.perCall) expect(call.eq).toContainEqual(['assigned_to', 'user-1'])
   })
 
   it('Unassigned filters assigned_to IS NULL', async () => {

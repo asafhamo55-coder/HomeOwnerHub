@@ -8,6 +8,7 @@ import { timed } from '@/lib/perf/timing'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   countThreadsByStatus,
+  defaultSnoozeScope,
   getDraftById,
   getLatestDraft,
   getPropertyContext,
@@ -118,12 +119,15 @@ export default async function ThreadPage({
   const user = await getSignedInUser()
   const currentUserId = user?.id ?? null
   const ownerScope = { owner, userId: currentUserId }
+  // BL-134: one snooze instant per request, so a snooze that expires
+  // between the count and the list reads cannot make them disagree.
+  const snooze = defaultSnoozeScope()
 
   // Same pagination math as /inbox/page.tsx — counts land first so the
   // page/offset this list paginates over can never disagree with the
   // filter-chip counts, and deep-linking into a thread with `?page=N`
   // still resolves the same list page ThreadList's own links carry.
-  const countsP = early(timed(R, 'inbox.counts', () => countThreadsByStatus(supabase, org.id, ownerScope)))
+  const countsP = early(timed(R, 'inbox.counts', () => countThreadsByStatus(supabase, org.id, ownerScope, snooze)))
   const thread = await threadP
   if (!thread) notFound()
 
@@ -244,7 +248,7 @@ export default async function ThreadPage({
   })
 
   const [threads, contextOutcome, suggestedProperty, draft] = await Promise.all([
-    timed(R, 'inbox.list', () => listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope)),
+    timed(R, 'inbox.list', () => listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope, snooze)),
     contextOutcomeP,
     !thread.unitId && suggestedUnitId
       ? getUnitLabel(supabase, org.id, suggestedUnitId)
@@ -264,7 +268,7 @@ export default async function ThreadPage({
     // scope), whichever chip the list pane shows.
     filter === 'needs_review'
       ? Promise.resolve(threads)
-      : listThreads(supabase, org.id, 'needs_review', INBOX_PAGE_SIZE, 0, ownerScope).catch(() => []),
+      : listThreads(supabase, org.id, 'needs_review', INBOX_PAGE_SIZE, 0, ownerScope, snooze).catch(() => []),
     autoDraftP,
     assigneesP,
     slaP,

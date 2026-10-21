@@ -185,10 +185,17 @@ describe('getThreadDetail — vendor filing', () => {
  * from `countThreadsByStatus` only fails those two).
  */
 describe('needs_review / awaiting_resident split', () => {
-  type Calls = { eq: unknown[][]; or: unknown[][]; not: unknown[][]; in: unknown[][] }
+  type Calls = {
+    eq: unknown[][]
+    or: unknown[][]
+    not: unknown[][]
+    in: unknown[][]
+    is: unknown[][]
+    gt: unknown[][]
+  }
 
   function makeChain(result: { data?: unknown; error: unknown; count?: number | null }) {
-    const calls: Calls = { eq: [], or: [], not: [], in: [] }
+    const calls: Calls = { eq: [], or: [], not: [], in: [], is: [], gt: [] }
     const chain: Record<string, unknown> = {
       select: vi.fn(() => chain),
       eq: vi.fn((...args: unknown[]) => {
@@ -211,6 +218,15 @@ describe('needs_review / awaiting_resident split', () => {
         calls.in.push(args)
         return chain
       }),
+      // `.is` / `.gt` carry the BL-134 snooze predicates (M3_APPLIED).
+      is: vi.fn((...args: unknown[]) => {
+        calls.is.push(args)
+        return chain
+      }),
+      gt: vi.fn((...args: unknown[]) => {
+        calls.gt.push(args)
+        return chain
+      }),
       order: vi.fn(() => chain),
       range: vi.fn(() => chain),
       then: (resolve: (r: unknown) => unknown) => Promise.resolve(result).then(resolve),
@@ -221,10 +237,24 @@ describe('needs_review / awaiting_resident split', () => {
   /** The exact PostgREST predicate that hides mail filed away in Gmail. */
   const HIDDEN = ['gmail_state', 'in', '("archived","trashed")']
 
+  /**
+   * BL-134 snooze scopes, passed explicitly so these tests pin both sides
+   * of M3_APPLIED regardless of the flag's current value. ON is the live
+   * default since 0067 was applied; OFF is the pre-M3 shape the code still
+   * supports.
+   */
+  const NOW = '2026-10-20T12:00:00.000Z'
+  const ON = { live: true, nowIso: NOW }
+  const OFF = { live: false, nowIso: NOW }
+  /** The NULL-safe "not snoozed into the future" predicate every queue carries when live. */
+  const AWAKE_OR = [`snoozed_until.is.null,snoozed_until.lte.${NOW}`]
+  const NEEDS_REVIEW_OR = ['last_direction.is.null,last_direction.neq.outbound']
+
   /** One fresh chain per `.from()` call, in call order — matches the
    * `filters.map(...)` order inside `countThreadsByStatus`:
-   * needs_review, awaiting_resident, open, waiting, closed. The sixth,
-   * archived_in_gmail, was removed with the "Filed in Gmail" chip. */
+   * needs_review, awaiting_resident, open, waiting, closed, then (only
+   * when the snooze scope is live) snoozed. The old archived_in_gmail
+   * count was removed with the "Filed in Gmail" chip. */
   function dbForCounts(counts: number[]) {
     const perCallCalls: Calls[] = []
     let i = 0
@@ -245,16 +275,19 @@ describe('needs_review / awaiting_resident split', () => {
 
   describe('countThreadsByStatus', () => {
     it('counts needs_review, awaiting_resident, open, waiting, closed and sums them into all', async () => {
-      const { db } = dbForCounts([39, 33, 3, 2, 1])
+      const { db } = dbForCounts([39, 33, 3, 2, 1, 4])
 
-      const result = await countThreadsByStatus(db, 'org-1')
+      const result = await countThreadsByStatus(db, 'org-1', undefined, ON)
 
+      // `snoozed` is counted but NOT summed into `all`: a snoozed thread
+      // is in no queue until it wakes.
       expect(result).toEqual({
         needs_review: 39,
         awaiting_resident: 33,
         open: 3,
         waiting: 2,
         closed: 1,
+        snoozed: 4,
         all: 78,
       })
       // No archived_in_gmail key at all now. Every one of the five buckets
@@ -267,9 +300,53 @@ describe('needs_review / awaiting_resident split', () => {
       expect(result.needs_review + result.awaiting_resident).toBe(72)
     })
 
+    it('flag off (pre-M3): exactly the old five-bucket shape, no snoozed key', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+
+      const result = await countThreadsByStatus(db, 'org-1', undefined, OFF)
+
+      expect(result).toEqual({
+        needs_review: 39,
+        awaiting_resident: 33,
+        open: 3,
+        waiting: 2,
+        closed: 1,
+        all: 78,
+      })
+      expect(perCallCalls).toHaveLength(5)
+      for (const call of perCallCalls) {
+        expect(call.or.some(([p]) => String(p).includes('snoozed_until'))).toBe(false)
+        expect(call.gt).toHaveLength(0)
+      }
+    })
+
+    it('the default scope is live now that M3 is applied: six queries, every queue excludes snoozed', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 4])
+
+      const result = await countThreadsByStatus(db, 'org-1')
+
+      expect(perCallCalls).toHaveLength(6)
+      expect(result).toHaveProperty('snoozed', 4)
+      for (const call of perCallCalls.slice(0, 5)) {
+        expect(call.or.some(([p]) => String(p).startsWith('snoozed_until.is.null,snoozed_until.lte.'))).toBe(true)
+      }
+      expect(perCallCalls[5].gt.map(([col]) => col)).toEqual(['snoozed_until'])
+    })
+
+    it('the snoozed count selects snoozed_until > now, keeps the visibility predicate, and adds no status filter', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 4])
+      await countThreadsByStatus(db, 'org-1', undefined, ON)
+
+      const snoozed = perCallCalls[5]
+      expect(snoozed.gt).toEqual([['snoozed_until', NOW]])
+      expect(snoozed.not).toContainEqual(HIDDEN)
+      expect(snoozed.eq.some(([col]) => col === 'status')).toBe(false)
+      expect(snoozed.or).toHaveLength(0)
+    })
+
     it('needs_review filters status=needs_review AND an OR that excludes outbound but ADMITS null', async () => {
       const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
-      await countThreadsByStatus(db, 'org-1')
+      await countThreadsByStatus(db, 'org-1', undefined, ON)
 
       const needsReview = perCallCalls[0]
       expect(needsReview.eq).toContainEqual(['organization_id', 'org-1'])
@@ -279,24 +356,34 @@ describe('needs_review / awaiting_resident split', () => {
       // true), so a bare neq would silently drop every thread with no
       // recorded direction out of needs_review. This string form is what
       // keeps them in.
-      expect(needsReview.or).toContainEqual([
-        'last_direction.is.null,last_direction.neq.outbound',
-      ])
+      expect(needsReview.or).toContainEqual(NEEDS_REVIEW_OR)
+      // ...and the snooze predicate, as its own OR (PostgREST ANDs them).
+      expect(needsReview.or).toEqual([AWAKE_OR, NEEDS_REVIEW_OR])
     })
 
-    it('awaiting_resident filters status=needs_review AND last_direction=outbound, with no OR', async () => {
+    it('awaiting_resident filters status=needs_review AND last_direction=outbound, with no last_direction OR', async () => {
       const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
-      await countThreadsByStatus(db, 'org-1')
+      await countThreadsByStatus(db, 'org-1', undefined, ON)
 
       const awaitingResident = perCallCalls[1]
       expect(awaitingResident.eq).toContainEqual(['status', 'needs_review'])
       expect(awaitingResident.eq).toContainEqual(['last_direction', 'outbound'])
-      expect(awaitingResident.or).toHaveLength(0)
+      // Only the snooze predicate; flag off, none at all.
+      expect(awaitingResident.or).toEqual([AWAKE_OR])
+    })
+
+    it('flag off: awaiting_resident and open/waiting/closed carry no OR at all', async () => {
+      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
+      await countThreadsByStatus(db, 'org-1', undefined, OFF)
+
+      const [needsReview, ...rest] = perCallCalls
+      expect(needsReview.or).toEqual([NEEDS_REVIEW_OR])
+      for (const c of rest) expect(c.or).toHaveLength(0)
     })
 
     it('open/waiting/closed are untouched — plain status equality, no last_direction predicate', async () => {
       const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
-      await countThreadsByStatus(db, 'org-1')
+      await countThreadsByStatus(db, 'org-1', undefined, ON)
 
       const [, , open, waiting, closed] = perCallCalls
       expect(open.eq).toContainEqual(['status', 'open'])
@@ -304,7 +391,7 @@ describe('needs_review / awaiting_resident split', () => {
       expect(closed.eq).toContainEqual(['status', 'closed'])
       for (const c of [open, waiting, closed]) {
         expect(c.eq.some(([col]) => col === 'last_direction')).toBe(false)
-        expect(c.or).toHaveLength(0)
+        expect(c.or).toEqual([AWAKE_OR])
       }
     })
   })
@@ -312,37 +399,55 @@ describe('needs_review / awaiting_resident split', () => {
   describe('listThreads', () => {
     it('needs_review applies status=needs_review AND the same null-admitting OR as the count', async () => {
       const { db, calls } = dbForList({ data: [], error: null })
-      await listThreads(db, 'org-1', 'needs_review')
+      await listThreads(db, 'org-1', 'needs_review', 50, 0, undefined, ON)
 
       expect(calls.eq).toContainEqual(['status', 'needs_review'])
-      expect(calls.or).toContainEqual([
-        'last_direction.is.null,last_direction.neq.outbound',
-      ])
+      expect(calls.or).toEqual([AWAKE_OR, NEEDS_REVIEW_OR])
     })
 
     it('awaiting_resident applies status=needs_review AND last_direction=outbound', async () => {
       const { db, calls } = dbForList({ data: [], error: null })
-      await listThreads(db, 'org-1', 'awaiting_resident')
+      await listThreads(db, 'org-1', 'awaiting_resident', 50, 0, undefined, ON)
 
       expect(calls.eq).toContainEqual(['status', 'needs_review'])
       expect(calls.eq).toContainEqual(['last_direction', 'outbound'])
-      expect(calls.or).toHaveLength(0)
+      expect(calls.or).toEqual([AWAKE_OR])
     })
 
     it('open is unchanged — plain status equality', async () => {
       const { db, calls } = dbForList({ data: [], error: null })
-      await listThreads(db, 'org-1', 'open')
+      await listThreads(db, 'org-1', 'open', 50, 0, undefined, ON)
 
       expect(calls.eq).toContainEqual(['status', 'open'])
-      expect(calls.or).toHaveLength(0)
+      expect(calls.or).toEqual([AWAKE_OR])
     })
 
-    it('all applies no status/last_direction predicate at all', async () => {
+    it('all applies no status/last_direction predicate at all — only the snooze one', async () => {
       const { db, calls } = dbForList({ data: [], error: null })
-      await listThreads(db, 'org-1', 'all')
+      await listThreads(db, 'org-1', 'all', 50, 0, undefined, ON)
 
       expect(calls.eq.some(([col]) => col === 'status')).toBe(false)
-      expect(calls.or).toHaveLength(0)
+      expect(calls.or).toEqual([AWAKE_OR])
+    })
+
+    it('flag off: open/awaiting_resident/all carry no OR at all', async () => {
+      for (const filter of ['open', 'awaiting_resident', 'all'] as const) {
+        const { db, calls } = dbForList({ data: [], error: null })
+        await listThreads(db, 'org-1', filter, 50, 0, undefined, OFF)
+        expect(calls.or, filter).toHaveLength(0)
+      }
+    })
+
+    it('snoozed lists snoozed_until > now when live, and matches nothing when off', async () => {
+      const on = dbForList({ data: [], error: null })
+      await listThreads(on.db, 'org-1', 'snoozed', 50, 0, undefined, ON)
+      expect(on.calls.gt).toEqual([['snoozed_until', NOW]])
+      expect(on.calls.or).toHaveLength(0)
+
+      const off = dbForList({ data: [], error: null })
+      await listThreads(off.db, 'org-1', 'snoozed', 50, 0, undefined, OFF)
+      expect(off.calls.gt).toHaveLength(0)
+      expect(off.calls.is).toContainEqual(['id', null])
     })
   })
 
@@ -394,23 +499,31 @@ describe('needs_review / awaiting_resident split', () => {
       // filtered the list but not the count would render "Showing 1–12 of
       // 74" over twelve rows.
       const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
-      await countThreadsByStatus(countDb, 'org-1')
+      await countThreadsByStatus(countDb, 'org-1', undefined, ON)
 
       const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
-      await listThreads(listDb, 'org-1', 'needs_review')
+      await listThreads(listDb, 'org-1', 'needs_review', 50, 0, undefined, ON)
 
       expect(perCallCalls[0].not).toContainEqual(HIDDEN)
       expect(listArgs.not).toEqual(perCallCalls[0].not)
     })
 
-    it('counts only the five status filters, with no filed-in-Gmail query', async () => {
-      const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1])
-      await countThreadsByStatus(db, 'org-1')
+    it('counts the five status filters plus snoozed, with no filed-in-Gmail query', async () => {
+      // The old sixth query counted what the board had filed away; it is
+      // gone. With M3 live the sixth is the Snoozed chip instead, and it
+      // too excludes filed mail. Flag off: exactly five.
+      for (const [scope, expected] of [
+        [ON, 6],
+        [OFF, 5],
+      ] as const) {
+        const { db, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 4])
+        await countThreadsByStatus(db, 'org-1', undefined, scope)
 
-      // Was six queries; the sixth counted what the board had filed away.
-      expect(perCallCalls).toHaveLength(5)
-      for (const call of perCallCalls) {
-        expect(call.not).toContainEqual(HIDDEN)
+        expect(perCallCalls).toHaveLength(expected)
+        for (const call of perCallCalls) {
+          expect(call.not).toContainEqual(HIDDEN)
+          expect(call.in.some(([col]) => col === 'gmail_state')).toBe(false)
+        }
       }
     })
 
@@ -463,11 +576,11 @@ describe('needs_review / awaiting_resident split', () => {
   describe('count/list predicate parity', () => {
     it('needs_review: the count and the list apply an identical predicate', async () => {
       const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
-      await countThreadsByStatus(countDb, 'org-1')
+      await countThreadsByStatus(countDb, 'org-1', undefined, ON)
       const countArgs = perCallCalls[0]
 
       const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
-      await listThreads(listDb, 'org-1', 'needs_review')
+      await listThreads(listDb, 'org-1', 'needs_review', 50, 0, undefined, ON)
 
       expect(listArgs.eq.filter(([col]) => col === 'status')).toEqual(
         countArgs.eq.filter(([col]) => col === 'status'),
@@ -477,16 +590,43 @@ describe('needs_review / awaiting_resident split', () => {
 
     it('awaiting_resident: the count and the list apply an identical predicate', async () => {
       const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 26])
-      await countThreadsByStatus(countDb, 'org-1')
+      await countThreadsByStatus(countDb, 'org-1', undefined, ON)
       const countArgs = perCallCalls[1]
 
       const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
-      await listThreads(listDb, 'org-1', 'awaiting_resident')
+      await listThreads(listDb, 'org-1', 'awaiting_resident', 50, 0, undefined, ON)
 
       expect(listArgs.eq.filter(([col]) => col === 'status' || col === 'last_direction')).toEqual(
         countArgs.eq.filter(([col]) => col === 'status' || col === 'last_direction'),
       )
       expect(listArgs.or).toEqual(countArgs.or)
+    })
+
+    it('snoozed: the chip count and the Snoozed list apply an identical predicate', async () => {
+      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 4])
+      await countThreadsByStatus(countDb, 'org-1', undefined, ON)
+
+      const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
+      await listThreads(listDb, 'org-1', 'snoozed', 50, 0, undefined, ON)
+
+      expect(listArgs.gt).toEqual(perCallCalls[5].gt)
+      expect(listArgs.not).toEqual(perCallCalls[5].not)
+      expect(listArgs.or).toEqual(perCallCalls[5].or)
+    })
+
+    it('one shared scope is what makes them agree: two default scopes taken at different instants do not', async () => {
+      // Why the inbox pages build ONE defaultSnoozeScope() per request and
+      // pass it to both reads: with the flag live, the snooze cutoff is
+      // part of the predicate, so separately-defaulted reads compare
+      // against different instants and can disagree about a thread whose
+      // snooze expires in between.
+      const { db: countDb, perCallCalls } = dbForCounts([39, 33, 3, 2, 1, 4])
+      await countThreadsByStatus(countDb, 'org-1', undefined, ON)
+      const later = { live: true, nowIso: '2026-10-20T12:00:01.000Z' }
+      const { db: listDb, calls: listArgs } = dbForList({ data: [], error: null })
+      await listThreads(listDb, 'org-1', 'needs_review', 50, 0, undefined, later)
+
+      expect(listArgs.or).not.toEqual(perCallCalls[0].or)
     })
   })
 })

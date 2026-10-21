@@ -16,4 +16,4 @@
  *
  * No imports: client components and the integration suite import this.
  */
-export const VIOLATION_FINED_STATUS_LIVE: boolean = false
+export const VIOLATION_FINED_STATUS_LIVE: boolean = true

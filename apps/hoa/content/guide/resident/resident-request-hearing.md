@@ -8,7 +8,6 @@ routes: ["/resident/violations/[id]"]
 primary_route: /resident
 keywords: [hearing, request a hearing, ask for a hearing, appeal, dispute, fine, violation, notice, statement, disagree, hearing date]
 related: [resident-violation-respond, resident-portal-basics]
-draft: true
 reviewed: 2026-10-20
 ---
 

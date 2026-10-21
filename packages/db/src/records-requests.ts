@@ -18,4 +18,4 @@
  *
  * No imports: pure modules and the integration suite import this.
  */
-export const RECORDS_REQUESTS_LIVE: boolean = false
+export const RECORDS_REQUESTS_LIVE: boolean = true

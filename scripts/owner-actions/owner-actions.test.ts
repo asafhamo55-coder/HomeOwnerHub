@@ -111,12 +111,17 @@ describe('parse', () => {
     expect(openItemsHash(parseOwnerActions(DOC.replace('**Urgency:** Soon', '**Urgency:** Urgent')).open)).not.toBe(h)
   })
 
-  it('the real docs/owner-actions.md parses, with the urgent migrations item first', () => {
+  it('the real docs/owner-actions.md parses, and the migrations item (OA-1) is Done', () => {
+    // The owner applied every migration on 2026-10-20, so no item needs to
+    // be urgent any more — this pins only that the real file parses and
+    // that OA-1 (the SQL runbook) sits in Done, not which open item leads.
     const real = readFileSync(fileURLToPath(new URL('../../docs/owner-actions.md', import.meta.url)), 'utf8')
     const a = parseOwnerActions(real)
     expect(a.open.length).toBeGreaterThan(0)
-    expect(a.open[0]!.urgency).toBe('Urgent')
-    expect(a.open[0]!.body).toContain('docs/specs/2026-10-16-rls-sweep-apply.sql')
+    const oa1 = a.done.find((i) => i.id === 'OA-1')
+    expect(oa1).toBeDefined()
+    expect(oa1!.body).toContain('docs/specs/2026-10-16-rls-sweep-apply.sql')
+    expect(a.open.some((i) => i.id === 'OA-1')).toBe(false)
     expect(a.why).toContain('/permissions')
     // The repo is public: no key-shaped strings in the checklist.
     expect(real).not.toMatch(/\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{8,}|\bre_[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9_-]{20,}/)

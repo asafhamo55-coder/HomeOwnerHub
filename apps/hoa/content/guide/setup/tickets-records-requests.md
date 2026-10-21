@@ -8,7 +8,6 @@ routes: ["/tickets/records", "/tickets", "/tickets/[id]"]
 primary_route: /tickets/records
 keywords: [records request, records requests, request records, inspect records, inspection, copies of records, owner list, membership list, books and records, official records, 10 business days, deadline, overdue, statutory deadline, "720.303", "5210", mark fulfilled, fulfilled]
 related: [tickets-board, properties-records-request-roster]
-draft: true
 reviewed: 2026-10-20
 ---
 

@@ -64,6 +64,8 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('@/lib/inbox/queries', () => ({
   INBOX_PAGE_SIZE: 50,
+  // One snooze instant per request, shared by the counts and the list (BL-134).
+  defaultSnoozeScope: () => ({ live: true, nowIso: '2026-10-20T12:00:00.000Z' }),
   getThreadDetail: h.track('getThreadDetail', () => THREAD),
   countThreadsByStatus: h.track('countThreadsByStatus', () => ({ needs_review: 1, open: 1, all: 1 })),
   listThreads: h.track('listThreads', () => []),

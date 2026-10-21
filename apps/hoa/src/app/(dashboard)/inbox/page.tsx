@@ -7,6 +7,7 @@ import { timed } from '@/lib/perf/timing'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   countThreadsByStatus,
+  defaultSnoozeScope,
   getDraftById,
   getMailboxStatus,
   getPropertyContext,
@@ -116,6 +117,9 @@ export default async function InboxPage({
   // layout already made, so this costs no extra auth round trip.
   const user = await getSignedInUser()
   const ownerScope = { owner, userId: user?.id ?? null }
+  // BL-134: one snooze instant per request, so a snooze that expires
+  // between the count and the list reads cannot make them disagree.
+  const snooze = defaultSnoozeScope()
 
   // Counts must land before the page/offset math below — `counts[filter]`
   // IS the total this page paginates over, so the count and the list can
@@ -137,7 +141,7 @@ export default async function InboxPage({
         return { kind: 'failed' }
       },
     ),
-    timed('/inbox', 'inbox.counts', () => countThreadsByStatus(supabase, org.id, ownerScope)),
+    timed('/inbox', 'inbox.counts', () => countThreadsByStatus(supabase, org.id, ownerScope, snooze)),
   ])
   const status = statusRead?.kind === 'loaded' ? statusRead.status : null
 
@@ -151,7 +155,7 @@ export default async function InboxPage({
   const offset = (page - 1) * INBOX_PAGE_SIZE
 
   const [threads, sla, assigneeNames, draftQuality] = await Promise.all([
-    timed('/inbox', 'inbox.list', () => listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope)),
+    timed('/inbox', 'inbox.list', () => listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope, snooze)),
     slaP,
     assigneeNamesP,
     draftQualityP,

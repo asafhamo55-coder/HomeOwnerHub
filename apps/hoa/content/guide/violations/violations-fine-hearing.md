@@ -8,7 +8,6 @@ routes: ["/violations/[id]"]
 primary_route: /violations
 keywords: [hearing, fine hearing, hearing notice, committee, hearing committee, panel, request a hearing, hearing request, notice of hearing, decision, findings, fine due, "14 days", "10 days", florida, california, "720.305", "5855", state law check]
 related: [violations-report-and-letter, resident-request-hearing]
-draft: true
 reviewed: 2026-10-20
 ---
 

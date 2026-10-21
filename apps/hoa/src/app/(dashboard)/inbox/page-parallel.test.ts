@@ -56,6 +56,8 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('@/lib/inbox/queries', () => ({
   INBOX_PAGE_SIZE: 50,
+  // One snooze instant per request, shared by the counts and the list (BL-134).
+  defaultSnoozeScope: () => ({ live: true, nowIso: '2026-10-20T12:00:00.000Z' }),
   // No mailbox connected: the page's simplest complete render.
   getMailboxStatus: h.track('getMailboxStatus', () => null),
   countThreadsByStatus: h.track('countThreadsByStatus', () => ({ needs_review: 0, open: 0, all: 0 })),

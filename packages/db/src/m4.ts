@@ -23,4 +23,4 @@
  * No imports: pure modules, client components and the integration suite
  * import this.
  */
-export const M4_APPLIED: boolean = false
+export const M4_APPLIED: boolean = true

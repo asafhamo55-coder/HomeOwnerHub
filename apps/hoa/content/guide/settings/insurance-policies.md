@@ -8,7 +8,6 @@ routes: ["/insurance"]
 primary_route: /insurance
 keywords: [insurance, policy, policies, fidelity bond, crime policy, bond, master policy, property insurance, general liability, d&o, directors and officers, flood, earthquake, umbrella, workers comp, renewal, expires, expiry, deductible, coverage, "720.3033", "5300", "5806", budget report]
 related: [documents-governing-and-ask]
-draft: true
 reviewed: 2026-10-20
 ---
 

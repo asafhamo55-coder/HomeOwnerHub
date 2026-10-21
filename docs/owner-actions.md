@@ -41,77 +41,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-1 · Run the database steps in the SQL runbook (start here)
-
-**Urgency:** Urgent
-
-**Progress:** sections A (0063) and B (M1) are done (Asaf, 2026-10-20 evening). Claude switched M1 on. Continue from section C.
-
-**Why it matters:** until the M1 batch (migration 0064) is applied, Stripe's
-"subscription changed" messages fail to save, so an HOA that pays stays on
-the Free plan. Stripe retries each message for 3 days, so customers who pay
-in the meantime can still be fixed, but only for those 3 days. 0063 must go
-first: it closes the security gaps in who can see which records, and M1
-refuses to run without it. Every other pending SQL step (OA-2, OA-21,
-OA-17, OA-4, OA-3) is in the same runbook, in a safe order, so this is the
-single place to start.
-
-**Steps:**
-
-1. Open `docs/specs/2026-10-20-sql-runbook.md`. It lists 43 small steps in sections A to I, each with the exact file part to paste, what it does, whether it only reads, what you should see, and what to send Claude.
-2. Do **Section A** (0063) and **Section B** (M1) today; they are the urgent part. After step B5, tell Claude "M1 is applied". Claude switches the new features on (`M1_APPLIED` in `packages/db/src/m1.ts`) and deploys.
-3. Continue with Sections C to G when you have time. Each section also closes one item below (C = OA-2, D = OA-21, E = OA-17, F = OA-4, G = OA-3). Section H (0065) and Section I (0066, owner records requests and the Fined / Dismissed violation statuses) have no separate item; after I3, tell Claude "0066 is applied" and Claude switches records requests on (`RECORDS_REQUESTS_LIVE`) and the Fined / Dismissed statuses on (`VIOLATION_FINED_STATUS_LIVE`).
-4. Ask Claude to copy any step to your clipboard ("copy step B4"). If any step errors, stop and send Claude the error and the step number.
-
-**Files:** `docs/specs/2026-10-20-sql-runbook.md`, `docs/specs/2026-10-16-rls-sweep-apply.sql`, `docs/specs/2026-10-18-m1-apply.sql`
-
-### OA-2 · Show the resident "Meetings and notices" page
-
-**Urgency:** Soon
-
-**Why it matters:** the resident meetings page is built and deployed, but it
-stays hidden until this small database function exists. No deploy is needed
-afterwards; the page appears on its own.
-
-**Steps:**
-
-1. Do OA-1 first (0063 and M1).
-2. Run the whole of `docs/specs/2026-10-19-resident-meeting-notices.sql` in the SQL Editor.
-
-**Files:** `docs/specs/2026-10-19-resident-meeting-notices.sql`
-
-### OA-3 · Correct payment plans that count the balance twice
-
-**Urgency:** Soon
-
-**Why it matters:** payment plans created before 2026-10-19 counted the
-owner's balance twice. Balances, estoppel letters, collections letters and
-board reports for those owners show too much money owed. The code is fixed;
-the old records still need correcting.
-
-**Steps:**
-
-1. Open `docs/specs/2026-10-19-payment-plan-double-count.sql`.
-2. Run **Part 1** and **Part 2**. They only read and show you what would change.
-3. Read **Part 3**. It ends in `ROLLBACK`, so running it as-is changes nothing: it is a rehearsal. Run it once like that.
-4. If the numbers look right, change the last `ROLLBACK` to `COMMIT` and run Part 3 again. Ask Claude to check the numbers with you first if you are unsure.
-
-**Files:** `docs/specs/2026-10-19-payment-plan-double-count.sql`
-
-### OA-4 · Add the speed-up indexes
-
-**Urgency:** Soon
-
-**Why it matters:** these make the busiest board and resident pages load
-faster. Nothing breaks without them; pages are just slower as data grows.
-
-**Steps:**
-
-1. Open `docs/specs/2026-10-19-perf-indexes.sql`.
-2. Run each of the 12 `CREATE INDEX CONCURRENTLY` statements **one at a time**, each as its own query. Do not run the file as one block: these statements refuse to run together.
-
-**Files:** `docs/specs/2026-10-19-perf-indexes.sql`
-
 ### OA-5 · Move the app to app.homeownerledger.com
 
 **Urgency:** Soon
@@ -288,20 +217,6 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
-### OA-17 · Turn on the inbox's "Unverified sender" check
-
-**Urgency:** Whenever
-
-**Why it matters:** anyone can fake the "From" address on an email. The inbox can now spot emails that fail Gmail's sender checks (SPF, DKIM, DMARC) and flag them as "Unverified sender", so the board never updates contact details or shares a balance in reply to an impostor. It needs one new database column first.
-
-**Steps:**
-
-1. Do OA-1 first (0063 and M1).
-2. Open `docs/specs/2026-10-20-inbound-auth.sql`. Run the pre-check, then the apply step, then the verify step, each on its own. Send Claude the verify counts.
-3. Tell Claude it's done. Claude switches the check on (`SENDER_AUTH_COLUMN_LIVE`) and deploys.
-
-**Files:** `docs/specs/2026-10-20-inbound-auth.sql`
-
 ### OA-18 · Confirm the new wording of your founder quote
 
 **Urgency:** Whenever
@@ -338,19 +253,6 @@ prices; review it before pitching.
 2. Compare it with `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`, and tell Claude "matches" or paste any difference.
 
 **Files:** `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`
-
-### OA-21 · Lock text-message consent to the resident themself
-
-**Urgency:** Soon
-
-**Why it matters:** residents now agree to texts themselves (Account → Text messages), and the app never lets a board member do it for them. One gap remains at the database level: a board member with technical skills could still flip a resident's "texts on" setting directly. This SQL adds a guard so only the resident can turn their own texts on. Texting consent rules are strict, so close the gap before texting goes live (OA-11).
-
-**Steps:**
-
-1. Open `docs/specs/2026-10-20-sms-consent.sql`.
-2. Run the pre-check, then the apply section, then the verify section, each on its own. Send Claude the verify output.
-
-**Files:** `docs/specs/2026-10-20-sms-consent.sql`
 
 ### OA-22 · Choose who gets the daily AI-cost alert
 
@@ -420,7 +322,117 @@ prices; review it before pitching.
 
 ## Done
 
-_Nothing yet. Finished items move here with the date they were done._
+### OA-1 · Run the database steps in the SQL runbook (start here)
+
+**Done:** 2026-10-20 (owner ran the SQL runbook; Claude verified each check)
+
+**Urgency:** Urgent
+
+**Progress:** sections A (0063) and B (M1) are done (Asaf, 2026-10-20 evening). Claude switched M1 on. Continue from section C.
+
+**Why it matters:** until the M1 batch (migration 0064) is applied, Stripe's
+"subscription changed" messages fail to save, so an HOA that pays stays on
+the Free plan. Stripe retries each message for 3 days, so customers who pay
+in the meantime can still be fixed, but only for those 3 days. 0063 must go
+first: it closes the security gaps in who can see which records, and M1
+refuses to run without it. Every other pending SQL step (OA-2, OA-21,
+OA-17, OA-4, OA-3) is in the same runbook, in a safe order, so this is the
+single place to start.
+
+**Steps:**
+
+1. Open `docs/specs/2026-10-20-sql-runbook.md`. It lists 43 small steps in sections A to I, each with the exact file part to paste, what it does, whether it only reads, what you should see, and what to send Claude.
+2. Do **Section A** (0063) and **Section B** (M1) today; they are the urgent part. After step B5, tell Claude "M1 is applied". Claude switches the new features on (`M1_APPLIED` in `packages/db/src/m1.ts`) and deploys.
+3. Continue with Sections C to G when you have time. Each section also closes one item below (C = OA-2, D = OA-21, E = OA-17, F = OA-4, G = OA-3). Section H (0065) and Section I (0066, owner records requests and the Fined / Dismissed violation statuses) have no separate item; after I3, tell Claude "0066 is applied" and Claude switches records requests on (`RECORDS_REQUESTS_LIVE`) and the Fined / Dismissed statuses on (`VIOLATION_FINED_STATUS_LIVE`).
+4. Ask Claude to copy any step to your clipboard ("copy step B4"). If any step errors, stop and send Claude the error and the step number.
+
+**Files:** `docs/specs/2026-10-20-sql-runbook.md`, `docs/specs/2026-10-16-rls-sweep-apply.sql`, `docs/specs/2026-10-18-m1-apply.sql`
+
+### OA-2 · Show the resident "Meetings and notices" page
+
+**Done:** 2026-10-20 (owner ran the SQL runbook; Claude verified each check)
+
+**Urgency:** Soon
+
+**Why it matters:** the resident meetings page is built and deployed, but it
+stays hidden until this small database function exists. No deploy is needed
+afterwards; the page appears on its own.
+
+**Steps:**
+
+1. Do OA-1 first (0063 and M1).
+2. Run the whole of `docs/specs/2026-10-19-resident-meeting-notices.sql` in the SQL Editor.
+
+**Files:** `docs/specs/2026-10-19-resident-meeting-notices.sql`
+
+### OA-3 · Correct payment plans that count the balance twice
+
+**Done:** 2026-10-20 (owner ran the SQL runbook; Claude verified each check)
+
+**Urgency:** Soon
+
+**Why it matters:** payment plans created before 2026-10-19 counted the
+owner's balance twice. Balances, estoppel letters, collections letters and
+board reports for those owners show too much money owed. The code is fixed;
+the old records still need correcting.
+
+**Steps:**
+
+1. Open `docs/specs/2026-10-19-payment-plan-double-count.sql`.
+2. Run **Part 1** and **Part 2**. They only read and show you what would change.
+3. Read **Part 3**. It ends in `ROLLBACK`, so running it as-is changes nothing: it is a rehearsal. Run it once like that.
+4. If the numbers look right, change the last `ROLLBACK` to `COMMIT` and run Part 3 again. Ask Claude to check the numbers with you first if you are unsure.
+
+**Files:** `docs/specs/2026-10-19-payment-plan-double-count.sql`
+
+### OA-4 · Add the speed-up indexes
+
+**Done:** 2026-10-20 (owner ran the SQL runbook; Claude verified each check)
+
+**Urgency:** Soon
+
+**Why it matters:** these make the busiest board and resident pages load
+faster. Nothing breaks without them; pages are just slower as data grows.
+
+**Steps:**
+
+1. Open `docs/specs/2026-10-19-perf-indexes.sql`.
+2. Run each of the 12 `CREATE INDEX CONCURRENTLY` statements **one at a time**, each as its own query. Do not run the file as one block: these statements refuse to run together.
+
+**Files:** `docs/specs/2026-10-19-perf-indexes.sql`
+
+### OA-17 · Turn on the inbox's "Unverified sender" check
+
+**Done:** 2026-10-20 (owner ran the SQL runbook; Claude verified each check)
+
+**Urgency:** Whenever
+
+**Why it matters:** anyone can fake the "From" address on an email. The inbox can now spot emails that fail Gmail's sender checks (SPF, DKIM, DMARC) and flag them as "Unverified sender", so the board never updates contact details or shares a balance in reply to an impostor. It needs one new database column first.
+
+**Steps:**
+
+1. Do OA-1 first (0063 and M1).
+2. Open `docs/specs/2026-10-20-inbound-auth.sql`. Run the pre-check, then the apply step, then the verify step, each on its own. Send Claude the verify counts.
+3. Tell Claude it's done. Claude switches the check on (`SENDER_AUTH_COLUMN_LIVE`) and deploys.
+
+**Files:** `docs/specs/2026-10-20-inbound-auth.sql`
+
+### OA-21 · Lock text-message consent to the resident themself
+
+**Done:** 2026-10-20 (owner ran the SQL runbook; Claude verified each check)
+
+**Urgency:** Soon
+
+**Why it matters:** residents now agree to texts themselves (Account → Text messages), and the app never lets a board member do it for them. One gap remains at the database level: a board member with technical skills could still flip a resident's "texts on" setting directly. This SQL adds a guard so only the resident can turn their own texts on. Texting consent rules are strict, so close the gap before texting goes live (OA-11).
+
+**Steps:**
+
+1. Open `docs/specs/2026-10-20-sms-consent.sql`.
+2. Run the pre-check, then the apply section, then the verify section, each on its own. Send Claude the verify output.
+
+**Files:** `docs/specs/2026-10-20-sms-consent.sql`
+
+
 
 ## For Claude: keeping this file current
 
