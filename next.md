@@ -107,12 +107,12 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-20 22:10 ET)
+## 4. State (updated 2026-10-21 04:15 ET)
 
-- **Live in prod:** `3bcb3cce` (deploying 22:07). Earlier tonight: 5ad79361 (21:01), daadc1e0 (19:52), 7f73e120 (18:43). Release emails confirmed sent for all of them through 5ad79361.
-- **Flags waiting on owner SQL:** M1_APPLIED (runbook B), SENDER_AUTH_COLUMN_LIVE (E), RECORDS_REQUESTS_LIVE and VIOLATION_FINED_STATUS_LIVE (I), M3_APPLIED (J, 0067), M4_APPLIED (K, 0068). The runbook has sections A–K.
-- **Most urgent owner step:** 0063 (runbook A). Until it's applied, audit_log is writable by any member (SEC-N2); RLS is the real boundary.
-- **Owner start point:** OA-1 → `docs/specs/2026-10-20-sql-runbook.md`, sections A–I (0063, M1, notices, SMS consent, inbound auth, indexes, payment plans, 0065, 0066 with 5 parts). After section I, Claude flips RECORDS_REQUESTS_LIVE and VIOLATION_FINED_STATUS_LIVE; after E, SENDER_AUTH_COLUMN_LIVE; after B, M1_APPLIED.
+- **Live in prod:** `f89c4047` (03:29 ET), with every feature flag on. Release emails confirmed sent for every deploy.
+- **Database:** the owner applied and Claude verified every runbook section A–K on 2026-10-20 (0063, M1/0064, meeting notices, SMS consent guard, sender_auth, perf indexes, 0065, 0066, 0067, 0068). Owner actions OA-1/2/3/4/17/21 are done.
+- **Flags:** all true: M1_APPLIED, SENDER_AUTH_COLUMN_LIVE, RECORDS_REQUESTS_LIVE, VIOLATION_FINED_STATUS_LIVE, M3_APPLIED, M4_APPLIED. PRICING_V2 stays off until OA-16 (the Stripe prices).
+- **Optional now:** `pnpm gen:types` against the live DB to replace the casts (every migration is applied). Diff columns, not just tables (CLAUDE.md §3).
 - **Security:** docs/backlog.md "Security review 2026-10-20". All High and Medium findings are fixed. Lows closed: http.ts body-size caps (SEC-L8), platform-admin invites guarded (SEC-L9), subscription.updated race mitigated by reconcile-to-newest (SEC-L10; a locked SQL function is the eventual fix). SEC-L7 closed (pdfjs-dist with caps). Open: the Stripe portal quantity setting is an owner dashboard action (SEC-L11, OA-25).
 - **Traps:**
   - Never `git commit -a` after a conflicted merge (this happened twice today). Resolve, check `git diff --name-only --diff-filter=U` is empty, then commit.

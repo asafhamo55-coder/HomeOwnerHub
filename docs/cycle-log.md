@@ -594,3 +594,21 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - billing badge mismatch, audience copy, filter wrap, "Unanswered" chip.
 - **22:0x 3bcb3cce:** the estoppel disclosure fix, those UI fixes, and 0068 (insurance tracker plus fine hearings, behind M4_APPLIED).
 - **Security review #2:** no Critical or High findings. N1 (revoke deleting another tenant's pending account) and N2 (audit_log forgeable until 0063) are Medium. Fixes in flight; 0063 is the real fix for N2.
+
+## 2026-10-20 22:35 → 2026-10-21 03:29 — owner applied the whole SQL runbook; everything switched on
+
+- **The owner ran the runbook with Claude** copying each step and checking every result:
+  - A 0063 and B M1: verified, B5 all true.
+  - C meeting notices: done.
+  - D SMS consent guard: done.
+  - E sender_auth: already present, verified E3–E5.
+  - F indexes: 12/12 valid.
+  - G payment plans: nothing to fix.
+  - H 0065, I 0066, J 0067 (311 of 340 threads clocked), K 0068: each applied and verified.
+- **Flags on:** M1_APPLIED, SENDER_AUTH_COLUMN_LIVE, RECORDS_REQUESTS_LIVE, VIOLATION_FINED_STATUS_LIVE, M3_APPLIED, M4_APPLIED. 16 unit tests that pinned flag-off defaults were updated. One real bug was found and fixed: the inbox count and list now share one snooze cutoff.
+- **Deploys:**
+  - 23:29 263cc991: M1 on, plus security review #2 fixes. Release email sent.
+  - 03:29 f89c4047: everything on. Release email sent. The prod UI-shots run is green with 0 overflow (322 checks).
+- **Mistake:** a deploy one-shot was announced in chat but never actually started, so f89c4047 went out about 2.5h late. When a deploy is due, run deploy.sh in the same turn.
+- **Owner actions:** OA-1/2/3/4/17/21 done; 20 open, none urgent.
+- **Follow-up:** add an annual-meeting seed, an opened-books seed, and the /insurance and /tickets/records routes to the UI-shots list, so those screens get screenshots.
