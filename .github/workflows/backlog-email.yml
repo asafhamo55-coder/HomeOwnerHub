@@ -1,0 +1,126 @@
+name: Backlog digest
+
+# Emails the owner the backlog items in docs/backlog.md that are not done or
+# shipped, grouped Georgia first and then by ranked round.
+#
+#   push      only when THIS workflow or scripts/backlog-email/** change on
+#             the prod or quality branch, so the first push sends the digest
+#             right away. Editing docs/backlog.md never sends.
+#   schedule  every Monday ~09:12 New York time while anything is open.
+#             Two crons cover EDT and EST; a gate keeps the one that matches.
+#             Scheduled runs only fire from the default branch.
+#   dispatch  on demand.
+#
+# Recipient: OWNER_ACTIONS_TO, falling back to the owner's own address. Never
+# the release-notes list. Sender: RELEASE_NOTES_FROM (or EMAIL_FROM).
+
+on:
+  push:
+    branches:
+      - claude/phase1-homeownerhub-setup-MILNu
+      - claude/quality-oracle
+    paths:
+      - .github/workflows/backlog-email.yml
+      - scripts/backlog-email/**
+  schedule:
+    - cron: '12 13 * * 1' # 09:12 EDT
+    - cron: '12 14 * * 1' # 09:12 EST
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backlog-digest
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: Email backlog digest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Weekly time gate
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+        run: |
+          set -euo pipefail
+          skip=false
+          if [ "$EVENT" = "schedule" ]; then
+            offset=$(TZ=America/New_York date +%z)
+            case "$CRON:$offset" in
+              '12 13 * * 1:-0400'|'12 14 * * 1:-0500') ;;
+              *) echo "::notice::Not 09:12 in New York for this cron ($CRON, offset $offset); the other one sends."; skip=true ;;
+            esac
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        if: steps.gate.outputs.skip != 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node 22
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Decide
+        id: decide
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          pnpm exec tsx scripts/backlog-email/send.ts --summary > now.txt
+          cat now.txt
+          open=$(sed -n 's/^open=//p' now.txt)
+          hash=$(sed -n 's/^hash=//p' now.txt)
+          send=true
+          if [ "$open" = "0" ]; then
+            echo "::notice::Nothing open; no email."
+            send=false
+          fi
+          # Push: keyed on the open items, so the same digest pushed to both
+          # branches within Resend's 24h idempotency window sends once.
+          case "$EVENT" in
+            push) key="backlog-digest-$hash" ;;
+            schedule) key="backlog-digest-weekly-$(TZ=America/New_York date +%F)-$hash" ;;
+            *) key="backlog-digest-manual-$RUN_ID" ;;
+          esac
+          { echo "send=$send"; echo "key=$key"; } >> "$GITHUB_OUTPUT"
+
+      - name: Render preview
+        if: steps.decide.outputs.send == 'true'
+        run: pnpm exec tsx scripts/backlog-email/send.ts --dry-run --branch "$GITHUB_REF_NAME" --out backlog-email/preview.html
+
+      - name: Keep the preview
+        if: steps.decide.outputs.send == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlog-digest-${{ github.run_id }}
+          path: backlog-email/preview.html
+          retention-days: 30
+
+      - name: Send
+        if: steps.decide.outputs.send == 'true'
+        env:
+          KEY: ${{ steps.decide.outputs.key }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OWNER_ACTIONS_TO: ${{ secrets.OWNER_ACTIONS_TO || 'asafhamo55@gmail.com' }}
+          RELEASE_NOTES_FROM: ${{ secrets.RELEASE_NOTES_FROM }}
+        run: pnpm exec tsx scripts/backlog-email/send.ts --branch "$GITHUB_REF_NAME" --idempotency-key "$KEY"
