@@ -12,6 +12,7 @@ import { todayIn } from '@/lib/association-time'
 import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 import { completePlansAfterPayment } from '@/lib/accounting/plan-completion'
+import { queuePaymentReceiptAfterResponse } from '@/lib/resident-notify/receipt-notify'
 
 export type BankRecActionResult =
   | { ok: true; matchMethod: string; confidence: number; notes: string }
@@ -153,7 +154,7 @@ export async function confirmFuzzyMatch(input: {
   })
   if (!je.ok) return { ok: false, error: `JE failed: ${je.error}` }
 
-  await Promise.all([
+  const [, paymentInsert] = await Promise.all([
     supabase
       .from('bank_transactions')
       .update({
@@ -173,7 +174,7 @@ export async function confirmFuzzyMatch(input: {
       // US zone; UTC midnight read as the evening before (BL-043).
       paid_at: `${String(txn.posted_date).slice(0, 10)}T12:00:00Z`,
       journal_entry_id: je.journalEntryId,
-    }),
+    }).select('id').single(),
     supabase
       .from('assessments')
       .update({
@@ -198,6 +199,11 @@ export async function confirmFuzzyMatch(input: {
     unitId: assessment.unit_id,
     today: todayIn(assoc.timeZone),
   })
+
+  // BL-114: the owner's receipt, after the response — only when the board
+  // turned on "Email owners a receipt" (OFF by default).
+  const paymentId = (paymentInsert.data as { id: string } | null)?.id
+  if (paymentId) queuePaymentReceiptAfterResponse(supabase, { paymentId, associationId: assoc.id })
 
   revalidatePaths()
   return { ok: true, journalEntryId: je.journalEntryId }

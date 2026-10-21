@@ -15,6 +15,7 @@ import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lot'
 import { completePlansAfterPayment } from '@/lib/accounting/plan-completion'
+import { queuePaymentReceiptAfterResponse } from '@/lib/resident-notify/receipt-notify'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
@@ -591,6 +592,11 @@ export async function markAssessmentPaid(input: {
     today: todayIn(assoc.timeZone),
   })
   if (completed.length > 0) revalidatePath('/accounting/payment-plans')
+
+  // BL-114: the owner's receipt, after the response. Sends only when the
+  // board turned on "Email owners a receipt" (OFF by default); never
+  // blocks or undoes the recorded payment.
+  queuePaymentReceiptAfterResponse(supabase, { paymentId: payment.id, associationId: assoc.id })
 
   revalidatePath('/dues')
   revalidatePath('/')

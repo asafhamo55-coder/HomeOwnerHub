@@ -6,9 +6,9 @@ topic: settings
 roles: [admin, board]
 routes: ["/settings/payments", "/accounting/bank/queue"]
 primary_route: /settings/payments
-keywords: [zelle, online payment, pay online, pay dues online, resident payments, pay button, turn on payments, set up payments, enable payments, memo, memo code, recipient, treasurer, receive payments, collect dues, accept payments, credit card, ach, venmo, turn off zelle, payment settings]
+keywords: [zelle, online payment, pay online, pay dues online, resident payments, pay button, turn on payments, set up payments, enable payments, memo, memo code, recipient, treasurer, receive payments, collect dues, accept payments, credit card, ach, venmo, turn off zelle, payment settings, receipt, payment receipt, email receipt, automatic receipt]
 related: [dues-record-payment, resident-portal-basics, dues-generate-monthly]
-reviewed: 2026-10-18
+reviewed: 2026-10-20
 ---
 
 Do this once so residents can pay their dues from their phone. Until you do, residents see "Online payments aren’t set up yet" and are asked to contact the board.
@@ -37,9 +37,11 @@ Do this once so residents can pay their dues from their phone. Until you do, res
 - "Use an email address or a 10-digit US mobile number.": check the email or number for typos.
 - "Payment settings can’t be saved on this server yet. Contact support.": the app isn't fully set up for this yet. Contact support.
 - "Couldn’t save the payment settings. Try again.": nothing was saved. Try again.
+- "Automatic receipts are paused": the saved receipt setting was changed outside this screen, so no receipt sends on its own. Turn it on again.
 - "Residents can’t see your Zelle details right now": the saved details were changed outside this screen, so they're hidden from residents. Check them and save again.
 
 ## Good to know
+- **Payment receipts**, below the Zelle settings, has one switch: [[Email owners a receipt when we record their payment]]. It's off until a board turns it on, and it applies to the whole association. When it's on, every time a board member records a payment (**Mark paid** on Dues, or confirming a bank deposit against a charge), the home's owners get one email receipt with the amount, date, how it was paid, the balance left and a link to their ledger. Owners who turned off emails don't get one. With it off, you can still send a receipt for any payment with **Send receipt** on Dues.
 - Zelle is the only online payment option. Residents can't pay by credit card or ACH in the portal.
 - There is no autopay. Each resident sends each payment from their own bank.
 - No money goes through HomeownerHub. Residents send Zelle from their own bank straight to your association's account.
