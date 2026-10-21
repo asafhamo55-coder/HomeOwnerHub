@@ -46,6 +46,15 @@ this file is the reference it points to.
 - **Always work through teams of subagents** (worktree-isolated), with the main session coordinating. Keep about 3–4 agents running in parallel.
 - **Hold only for manual steps** Asaf alone can do: SQL in Supabase, keys or accounts, DNS, and the Vercel, Stripe, Google or Supabase dashboards. List the exact steps for him; don't ask permission.
 
+### Go-to-market: we begin with Georgia (Asaf, 2026-10-21)
+- **Georgia is the launch state.** FL, CA and TX stay supported, but Georgia comes first when choosing what to build, test, word or demo: GA statute coverage (the O.C.G.A. § 44-3 snapshot, BL-124 refresh before 2027-01-01), the GA Secretary of State registration (SB 406), GA-specific paperwork and copy, and GA examples in the decks and marketing.
+- Before ranking backlog items, ask: "does this help a Georgia board first?"
+
+### Presentations stay current (Asaf, 2026-10-21)
+- **Always keep the product deck and the investor deck up to date** (`~/HomeownerHub-decks/`, outside the repo) with the latest features, market trends, competitor moves and pricing.
+- Refresh them whenever a deploy changes what they show, and at least once a day during the loop. Put Georgia first in both (launch market, sizing, go-to-market, examples).
+- Never invent traction; keep "ASAF TO FILL" where numbers are unknown.
+
 ### Scope
 - **HOA app only.** `apps/hoa` is the focus. Marketing gets truth/brand fixes. `apps/pm` and `apps/eviction` must keep compiling but are hidden from users (`OTHER_HUBS_ENABLED = false`, BL-097).
 
