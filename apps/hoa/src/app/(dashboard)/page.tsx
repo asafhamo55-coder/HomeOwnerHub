@@ -55,7 +55,15 @@ import { M4_APPLIED } from '@homeowner-portal/db/m4'
 import { InsuranceRenewalsCard } from '@/components/dashboard/InsuranceRenewalsCard'
 import { policyReminders } from '@/lib/insurance/model'
 import { loadInsurancePolicies, type LooseDb as InsuranceDb } from '@/lib/insurance/queries'
-import { plural } from '@/lib/money/format'
+import { periodLabel, plural } from '@/lib/money/format'
+import { BudgetAdoptionCard, type BudgetAdoptionItem } from '@/components/dashboard/BudgetAdoptionCard'
+import {
+  listSeasonBudgets,
+  loadAdoptionKit,
+  readAdoptionAssociation,
+  type LooseDb as AdoptionDb,
+} from '@/lib/budget-adoption/load'
+import { nextStep } from '@/lib/budget-adoption/model'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -178,6 +186,11 @@ function DashboardSections({ orgId }: { orgId: string }) {
       {/* BL-132: insurance policies expiring within 90 days (M4_APPLIED). */}
       <Suspense fallback={null}>
         <InsuranceRenewalsSection orgId={orgId} />
+      </Suspense>
+      {/* BL-138: budget season — draft/approved budgets whose adoption
+          isn't finished, with the next step and the date to watch. */}
+      <Suspense fallback={null}>
+        <BudgetAdoptionSection orgId={orgId} />
       </Suspense>
 
       {/* ── Needs attention ─────────────────────────────────────────────
@@ -503,6 +516,41 @@ async function InsuranceRenewalsSection({ orgId }: { orgId: string }) {
     loadInsurancePolicies(supabase as unknown as InsuranceDb, orgId),
   )
   return <InsuranceRenewalsCard reminders={policies === null ? null : policyReminders(policies, todayIn(timeZone))} />
+}
+
+// BL-138: budget season. Board/admin only. Nothing renders outside the
+// season (model.inBudgetSeason) or once every step is done.
+const MAX_SEASON_BUDGETS = 3
+
+async function BudgetAdoptionSection({ orgId }: { orgId: string }) {
+  const ctx = await getCurrentUserRole()
+  if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return null
+  const assocRes = await getPrimaryAssociationResult()
+  if (!assocRes.ok) return <BudgetAdoptionCard items={null} />
+  const primary = assocRes.data
+  if (!primary) return null
+  const db = (await getSupabaseServerClient()) as unknown as AdoptionDb
+  const today = todayIn(primary.timeZone)
+  const items = await timed('/', 'dashboard.budgetAdoption', async (): Promise<BudgetAdoptionItem[] | null> => {
+    const [budgets, assoc] = await Promise.all([
+      listSeasonBudgets(db, primary.id, today, periodLabel),
+      readAdoptionAssociation(db, primary.id),
+    ])
+    if (!budgets || !assoc.ok) return null
+    if (!assoc.row || budgets.length === 0) return []
+    const row = assoc.row
+    const loaded = await Promise.all(
+      budgets.slice(0, MAX_SEASON_BUDGETS).map(async (b) => ({
+        b,
+        k: await loadAdoptionKit(db, { orgId, association: row, timeZone: primary.timeZone, today, budget: b }),
+      })),
+    )
+    if (loaded.some((l) => l.k === null)) return null
+    return loaded
+      .filter((l) => !l.k!.kit.complete)
+      .map((l) => ({ budgetId: l.b.id, name: l.b.name, next: nextStep(l.k!.kit), countdown: l.k!.kit.countdown }))
+  })
+  return <BudgetAdoptionCard items={items} />
 }
 
 async function OpenWorkKpis({ orgId }: { orgId: string }) {

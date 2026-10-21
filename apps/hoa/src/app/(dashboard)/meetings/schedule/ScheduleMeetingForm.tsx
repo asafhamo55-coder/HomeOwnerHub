@@ -15,6 +15,14 @@ import {
   Textarea,
 } from '@homeowner-portal/ui'
 import { scheduleMeeting, type MeetingType } from '@/lib/meetings'
+import { updateBudgetAdoption } from '@/lib/budget-adoption/actions'
+
+/** BL-138: scheduling the meeting that adopts this budget. */
+export interface AdoptionBudgetRef {
+  id: string
+  name: string
+  agenda: string
+}
 
 const TYPES: Array<{ value: MeetingType; label: string }> = [
   { value: 'regular', label: 'Regular board meeting' },
@@ -23,7 +31,7 @@ const TYPES: Array<{ value: MeetingType; label: string }> = [
   { value: 'emergency', label: 'Emergency meeting' },
 ]
 
-export function ScheduleMeetingForm() {
+export function ScheduleMeetingForm({ budget = null }: { budget?: AdoptionBudgetRef | null } = {}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -46,6 +54,13 @@ export function ScheduleMeetingForm() {
       if (!result.ok) {
         if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) setErrors(result.fieldErrors)
         else setFormError(result.error ?? 'Could not schedule the meeting.')
+        return
+      }
+      if (budget && result.meetingId) {
+        // Link it to the budget's adoption kit. If that fails the kit
+        // offers the meeting in its picker, so the board can link it there.
+        await updateBudgetAdoption(budget.id, { kind: 'meeting', meetingId: result.meetingId })
+        router.push(`/accounting/budget/${budget.id}#adoption-kit`)
         return
       }
       router.push('/meetings')
@@ -81,7 +96,7 @@ export function ScheduleMeetingForm() {
             hint="Topics to discuss and documents to review. Becomes the meeting’s notes until minutes are recorded."
             error={errors.agenda}
           >
-            <Textarea name="agenda" rows={6} maxLength={4000} placeholder="1. Approve last meeting’s minutes&#10;2. Q3 financials&#10;3. Pool resurfacing bids" />
+            <Textarea name="agenda" rows={6} maxLength={4000} defaultValue={budget?.agenda} placeholder="1. Approve last meeting’s minutes&#10;2. Q3 financials&#10;3. Pool resurfacing bids" />
           </Field>
         </CardContent>
         <CardFooter className="justify-end">
