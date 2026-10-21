@@ -19,4 +19,4 @@
  *
  * No imports: pure modules and the integration suite import this.
  */
-export const M1_APPLIED: boolean = false
+export const M1_APPLIED: boolean = true

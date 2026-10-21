@@ -45,6 +45,8 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 **Urgency:** Urgent
 
+**Progress:** sections A (0063) and B (M1) are done (Asaf, 2026-10-20 evening). Claude switched M1 on. Continue from section C.
+
 **Why it matters:** until the M1 batch (migration 0064) is applied, Stripe's
 "subscription changed" messages fail to save, so an HOA that pays stays on
 the Free plan. Stripe retries each message for 3 days, so customers who pay

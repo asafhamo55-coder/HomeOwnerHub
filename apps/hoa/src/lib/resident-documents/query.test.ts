@@ -122,7 +122,7 @@ describe('fetchResidentDocuments', () => {
         error: null,
       },
     })
-    const docs = await fetchResidentDocuments(client, ORG)
+    const docs = await fetchResidentDocuments(client, ORG, { m1: false })
     expect(docs.map((d) => d.id)).toEqual(['h1', 'g1'])
     expect(docs[0]).toMatchObject({ updatedAt: '2026-04-01T00:00:00Z', hasFile: true })
     expect(docs[1]).toMatchObject({ effectiveDate: '2026-03-01', hasFile: false })
