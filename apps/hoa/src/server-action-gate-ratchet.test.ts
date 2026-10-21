@@ -20,9 +20,13 @@ import { describe, expect, it } from 'vitest'
  * does — without first calling a role gate:
  *   requireBoardOrAdminForAction, requireBoardOrAdmin, requireAdmin,
  *   requireResident, requirePlatformAdmin, requireRoute*,
- *   getCurrentUserRole, getCurrentUserRoleInOrg, isPlatformAdmin,
  *   getImpersonationTarget / getResidentActor (admin-verified
  *   impersonation, else the caller's own RLS client) —
+ * or a role LOOKUP (getCurrentUserRole, getCurrentUserRoleInOrg,
+ *   isPlatformAdmin) whose result is compared in the same function
+ *   (security review #2, L6: a lookup alone refuses nobody, so
+ *   `await getCurrentUserRole()` followed by the service role is an
+ *   offender; `if (role !== 'admin') return …` is a gate) —
  * or a local helper whose body starts with one of those (gateAndLoad,
  * planContext, signedInResident, …). chargeAiActionQuota is never
  * credited as a gate.
@@ -48,8 +52,90 @@ const ALLOWLIST: Record<string, string> = {
     'public vendor onboarding link: the random invitation token IS the authorization; it reads only the one invitation the token names.',
 }
 
+/** Gates that refuse by themselves (throw / redirect / return a denial). */
 const GATE =
-  /\b(?:requireBoardOrAdminForAction|requireBoardOrAdmin|requireAdmin|requireResident|requirePlatformAdmin|requireRoute\w+|getCurrentUserRole|getCurrentUserRoleInOrg|isPlatformAdmin|getImpersonationTarget|getResidentActor)\s*\(/
+  /\b(?:requireBoardOrAdminForAction|requireBoardOrAdmin|requireAdmin|requireResident|requirePlatformAdmin|requireRoute\w+|getImpersonationTarget|getResidentActor)\s*\(/
+
+/** Role lookups: a gate only when the result is compared (roleLookupGates). */
+const ROLE_LOOKUP = /\b(?:getCurrentUserRole|getCurrentUserRoleInOrg|isPlatformAdmin)\s*\(/g
+
+const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+type LookupKind = 'object' | 'value' | 'boolean'
+
+/** What each lookup returns: { role, org } | null, a role | null, or a boolean. */
+const LOOKUP_KIND: Record<string, LookupKind> = {
+  getCurrentUserRole: 'object',
+  getCurrentUserRoleInOrg: 'value',
+  isPlatformAdmin: 'boolean',
+}
+
+const CMP = '(?:===|!==|==|!=)'
+
+/**
+ * Is the lookup's result `name` tested for a ROLE somewhere in `rest`? A
+ * null check alone (`if (!ctx) return`) is not enough for a role lookup:
+ * a resident has a role too.
+ */
+function comparedLater(rest: string, name: string, kind: LookupKind): boolean {
+  const n = `\\b${esc(name)}\\b`
+  const role = `${n}\\s*(?:\\?\\.|\\.)\\s*role`
+  const alternatives =
+    kind === 'object'
+      ? [`${role}\\s*${CMP}(?!\\s*(?:null|undefined)\\b)`, `${CMP}\\s*${role}`, `\\.includes\\(\\s*${role}`]
+      : kind === 'value'
+        ? [`${n}\\s*${CMP}(?!\\s*(?:null|undefined)\\b)`, `${CMP}\\s*${n}`, `\\.includes\\(\\s*${n}`]
+        : [`!\\s*\\(?\\s*${n}`, `\\bif\\s*\\(\\s*${n}\\s*(?:\\)|&&|\\|\\|)`, `${n}\\s*${CMP}\\s*(?:true|false)`]
+  return new RegExp(alternatives.join('|')).test(rest)
+}
+
+/**
+ * Indices of role lookups whose result this function compares: assigned
+ * (`const ctx = await getCurrentUserRole()`, `const { role } = …`) and
+ * tested later, or tested inline (`if (!(await isPlatformAdmin()))`,
+ * `(await getCurrentUserRole())?.role === 'admin'`).
+ */
+function roleLookupGates(body: string): number[] {
+  const out: number[] = []
+  for (const m of body.matchAll(ROLE_LOOKUP)) {
+    const idx = m.index!
+    const kind = LOOKUP_KIND[/^\w+/.exec(m[0])![0]]!
+    const lineStart = body.lastIndexOf('\n', idx) + 1
+    const before = body.slice(lineStart, idx)
+    const after = body.slice(idx)
+    const assigned = /(?:const|let)\s+(\w+)\s*(?::[^=]+)?=\s*(?:await\s+)?$/.exec(before)
+    const destructured = /(?:const|let)\s*\{([^}]*)\}\s*=\s*(?:await\s+)?$/.exec(before)
+    let ok = false
+    if (assigned) ok = comparedLater(after, assigned[1]!, kind)
+    else if (destructured && kind === 'object') {
+      // const { role } = … / const { role: r } = …
+      const roleName = destructured[1]!
+        .split(',')
+        .map((p) => p.trim())
+        .find((p) => /^role\b/.test(p))
+      ok = roleName ? comparedLater(after, roleName.split(':').pop()!.trim(), 'value') : false
+    } else if (!destructured) {
+      const lineEnd = body.indexOf('\n', idx)
+      const rest = body.slice(idx, lineEnd === -1 ? undefined : lineEnd)
+      ok =
+        kind === 'boolean'
+          ? /(?:\bif\s*\(|!)\s*\(?\s*(?:await\s+)?$/.test(before)
+          : kind === 'object'
+            ? new RegExp(`^\\w+\\s*\\([^)]*\\)\\s*\\)?\\s*(?:\\?\\.|\\.)\\s*role\\s*${CMP}`).test(rest)
+            : new RegExp(`^\\w+\\s*\\([^)]*\\)\\s*\\)?\\s*${CMP}`).test(rest)
+    }
+    if (ok) out.push(idx)
+  }
+  return out
+}
+
+/** Every gate in a body: self-refusing gates plus compared role lookups. */
+function gateIndices(body: string): number[] {
+  const out: number[] = []
+  for (const m of body.matchAll(new RegExp(GATE.source, 'g'))) out.push(m.index!)
+  out.push(...roleLookupGates(body))
+  return out
+}
 
 const NOT_A_GATE = new Set(['chargeAiActionQuota'])
 
@@ -153,8 +239,7 @@ const reachCache = new Map<string, boolean>()
 function firstUngatedPrivileged(mod: Mod, fn: Fn, stack: Set<string>): number {
   const body = fn.body
   const hits: number[] = []
-  const gates: number[] = []
-  for (const m of body.matchAll(new RegExp(GATE.source, "g"))) gates.push(m.index!)
+  const gates: number[] = gateIndices(body)
   for (const m of body.matchAll(/\bcreateAdminClient\s*\(/g)) hits.push(m.index!)
   for (const m of body.matchAll(/\b(\w+)\s*(?:\.\s*execute\s*)?\(/g)) {
     const id = m[1]!
@@ -191,10 +276,11 @@ function isGateFn(fn: Fn): boolean {
   // closed), but it is a backstop, not the action's gate: the action must
   // gate — and org-own its ids — before charging. Never credit it.
   if (NOT_A_GATE.has(fn.name)) return false
-  const g = GATE.exec(fn.body)
-  if (!g) return false
+  const gates = gateIndices(fn.body)
+  if (gates.length === 0) return false
+  const first = Math.min(...gates)
   const admin = fn.body.search(/\bcreateAdminClient\s*\(/)
-  return admin === -1 || g.index < admin
+  return admin === -1 || first < admin
 }
 
 /** Does calling `fn` reach privileged code without passing a gate? */
@@ -257,5 +343,24 @@ describe('server-action gate ratchet', () => {
     }
     expect(firstUngatedPrivileged(fake, ungated, new Set())).toBeGreaterThan(-1)
     expect(firstUngatedPrivileged(fake, gated, new Set())).toBe(-1)
+  })
+
+  it('L6: a role lookup is a gate only when its result is compared (control)', () => {
+    const fake: Mod = { rel: 'fake.ts', useServer: true, fns: new Map(), imports: new Map() }
+    const body = (name: string, inner: string) => ({ name, exported: true, body: `export async function ${name}() {\n${inner}\n}` })
+    const offends = (inner: string) => firstUngatedPrivileged(fake, body('f', inner), new Set()) > -1
+    // looked up, never compared: refuses nobody
+    expect(offends('  const ctx = await getCurrentUserRole()\n  return createAdminClient().from("x")')).toBe(true)
+    expect(offends('  await getCurrentUserRole()\n  return createAdminClient().from("x")')).toBe(true)
+    expect(offends('  const role = await getCurrentUserRoleInOrg(org.id)\n  log(role)\n  return createAdminClient()')).toBe(true)
+    expect(offends('  const ctx = await getCurrentUserRole()\n  if (!ctx) return null\n  return createAdminClient()')).toBe(true)
+    expect(offends('  const ctx = await getCurrentUserRole()\n  log(ctx.role)\n  return createAdminClient()')).toBe(true)
+    // compared: a gate
+    expect(offends("  const ctx = await getCurrentUserRole()\n  if (!ctx || ctx.role !== 'admin') return null\n  return createAdminClient()")).toBe(false)
+    expect(offends("  const role = await getCurrentUserRoleInOrg(org.id)\n  if (role !== 'admin' && role !== 'board') return x\n  return createAdminClient()")).toBe(false)
+    expect(offends("  const { role } = await getCurrentUserRole()\n  if (!['board', 'admin'].includes(role)) return x\n  return createAdminClient()")).toBe(false)
+    expect(offends('  if (!(await isPlatformAdmin())) return x\n  return createAdminClient()')).toBe(false)
+    expect(offends('  const ok = await isPlatformAdmin()\n  if (!ok) return x\n  return createAdminClient()')).toBe(false)
+    expect(offends("  if ((await getCurrentUserRole())?.role !== 'admin') return x\n  return createAdminClient()")).toBe(false)
   })
 })

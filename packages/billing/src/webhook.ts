@@ -75,7 +75,16 @@ export async function handleStripeWebhook(
   return applyStripeEvent(event, {
     db: deps.db ?? (createAdminClient() as unknown as WebhookDb),
     m1: deps.m1,
+    stripe,
   })
+}
+
+/**
+ * The slice of the Stripe client used to check that an audit row's claimed
+ * event is real (SEC-N2). Structural, so tests can pass a fake.
+ */
+export interface StripeEventLookup {
+  events: { retrieve(id: string): Promise<Stripe.Event> }
 }
 
 /**
@@ -199,10 +208,11 @@ function idOf(value: string | { id: string } | null | undefined): string | null 
  */
 export async function applyStripeEvent(
   event: Stripe.Event,
-  deps: { db: WebhookDb; m1?: boolean },
+  deps: { db: WebhookDb; m1?: boolean; stripe?: StripeEventLookup | Stripe | null },
 ): Promise<WebhookHandleResult> {
   const m1 = deps.m1 ?? M1_APPLIED
   const db = deps.db
+  const verifier = makeVerifier(deps.stripe ?? null)
   const eventCreated = new Date(event.created * 1000).toISOString()
 
   switch (event.type) {
@@ -295,7 +305,7 @@ export async function applyStripeEvent(
     }
 
     case 'customer.subscription.updated':
-      return applySubscriptionUpdated(event, db, m1, eventCreated)
+      return applySubscriptionUpdated(event, db, m1, eventCreated, verifier)
 
     case 'invoice.payment_failed':
       // Stripe retries the charge on its own; we record the failure so the
@@ -385,12 +395,6 @@ interface AppliedUpdate {
   metadata: Record<string, unknown>
 }
 
-/** The applied updates' clocks for (org, subscription), newest first by event time. */
-async function appliedUpdates(db: WebhookDb, orgId: string, subId: string): Promise<{ clocks: EventClock[]; error: DbError }> {
-  const r = await appliedUpdateRows(db, orgId, subId)
-  return { clocks: r.rows.map((x) => x.clock), error: r.error }
-}
-
 /** The applied update rows (clock + metadata) for (org, subscription). */
 async function appliedUpdateRows(db: WebhookDb, orgId: string, subId: string): Promise<{ rows: AppliedUpdate[]; error: DbError }> {
   const { data, error } = await db
@@ -401,7 +405,9 @@ async function appliedUpdateRows(db: WebhookDb, orgId: string, subId: string): P
     .eq('metadata->>sub_id', subId)
     // Only rows this webhook wrote (service role, user_id null). RLS lets a
     // board member insert audit rows as themselves; a forged far-future
-    // event_created would otherwise make every real update "stale".
+    // event_created would otherwise make every real update "stale". Until
+    // 0063 a member can also write user_id NULL, so callers still verify
+    // any row that would change the outcome (SEC-N2, below).
     .is('user_id', null)
     .order('metadata->>event_created', { ascending: false })
     .limit(ORDER_WINDOW)
@@ -427,11 +433,26 @@ async function reconcileToNewest(
   orgId: string,
   sub: Stripe.Subscription,
   eventId: string,
+  verify: Verifier,
 ): Promise<WebhookHandleResult | null> {
   const applied = await appliedUpdateRows(db, orgId, sub.id)
   if (applied.error) return readFailed(applied.error)
+  // Newest first; the first row that is this (signature-verified) event or
+  // that Stripe confirms is the state to converge on (SEC-N2).
+  const ordered = [...applied.rows].sort((a, b) => (isAfter(a.clock, b.clock) ? -1 : isAfter(b.clock, a.clock) ? 1 : 0))
   let newest: AppliedUpdate | null = null
-  for (const row of applied.rows) if (!newest || isAfter(row.clock, newest.clock)) newest = row
+  for (const row of ordered) {
+    if (row.clock.eventId === eventId) {
+      newest = row
+      break
+    }
+    const claim = await verify(row, sub.id)
+    if (claim === 'unverifiable') return verifyFailed()
+    if (claim === 'genuine') {
+      newest = row
+      break
+    }
+  }
   if (!newest) return null
 
   const status = typeof newest.metadata.status === 'string' ? newest.metadata.status : null
@@ -469,6 +490,83 @@ async function reconcileToNewest(
   return null
 }
 
+// ─── Forged audit rows (security review #2, SEC-N2) ───────────────────
+//
+// The `.is('user_id', null)` filter above only proves a row was written
+// with no user. Until migrations/0063 tightens audit_log's insert policy,
+// any member can insert a row with user_id NULL, so an applied-update row
+// is a CLAIM, not proof. A row matters only when it is newer than the
+// event in hand (it would make that event stale, or reconcile would copy
+// its plan / quantity); every such row is checked against Stripe before it
+// is honoured: the event it names must exist, be a
+// customer.subscription.updated for THIS subscription, and carry the same
+// created time, status, plan and quantity the row claims. A row that fails
+// is ignored and logged with ids only. Stripe being unreachable is a 500
+// (verify_failed) so Stripe redelivers, never a silent pass either way.
+// Rows older than the event in hand are never looked up (Stripe keeps
+// events for 30 days; those rows cannot block anything).
+
+type Claim = 'genuine' | 'forged' | 'unverifiable'
+
+interface UpdateFacts {
+  status: string | null
+  plan: string | null
+  quantity: number | null
+}
+
+function updateFacts(sub: Stripe.Subscription): UpdateFacts {
+  const item = sub.items?.data?.[0]
+  return {
+    status: sub.status ?? null,
+    plan: planForPrice(item?.price),
+    quantity: typeof item?.quantity === 'number' && Number.isInteger(item.quantity) && item.quantity > 0 ? item.quantity : null,
+  }
+}
+
+type Verifier = (row: AppliedUpdate, subId: string) => Promise<Claim>
+
+function makeVerifier(stripe: StripeEventLookup | Stripe | null): Verifier {
+  const lookup = stripe && typeof (stripe as StripeEventLookup).events?.retrieve === 'function' ? (stripe as StripeEventLookup) : null
+  const cache = new Map<string, Claim>()
+  return async (row, subId) => {
+    // No client (direct callers in tests): nothing to check against.
+    if (!lookup) return 'genuine'
+    const key = `${row.clock.eventId}|${row.clock.created}|${JSON.stringify(row.metadata)}`
+    const hit = cache.get(key)
+    if (hit) return hit
+    let claim: Claim
+    try {
+      const real = await lookup.events.retrieve(row.clock.eventId)
+      const sub = real?.data?.object as Stripe.Subscription | undefined
+      const facts = sub ? updateFacts(sub) : null
+      const m = row.metadata
+      claim =
+        real?.type === 'customer.subscription.updated' &&
+        sub?.id === subId &&
+        new Date(real.created * 1000).toISOString() === row.clock.created &&
+        facts != null &&
+        (m.status ?? null) === facts.status &&
+        (m.plan ?? null) === facts.plan &&
+        (m.quantity ?? null) === facts.quantity
+          ? 'genuine'
+          : 'forged'
+    } catch (err) {
+      const e = err as { statusCode?: number; code?: string } | null
+      claim = e?.statusCode === 404 || e?.code === 'resource_missing' ? 'forged' : 'unverifiable'
+    }
+    if (claim === 'forged') {
+      // Ids only: the claimed event id is attacker-chosen text, so cap it.
+      console.warn('[stripe-webhook] ignored unverified audit row', { subId, claimedEventId: row.clock.eventId.slice(0, 64) })
+    }
+    cache.set(key, claim)
+    return claim
+  }
+}
+
+function verifyFailed(): WebhookHandleResult {
+  return { ok: false, outcome: 'error', message: 'verify_failed' }
+}
+
 async function insertAudit(
   db: WebhookDb,
   orgId: string,
@@ -503,6 +601,7 @@ async function applySubscriptionUpdated(
   db: WebhookDb,
   m1: boolean,
   eventCreated: string,
+  verify: Verifier,
 ): Promise<WebhookHandleResult> {
   const sub = event.data.object as Stripe.Subscription
   if (!sub.id) return { ok: true, outcome: 'ignored', message: 'subscription_missing_id' }
@@ -520,19 +619,24 @@ async function applySubscriptionUpdated(
     return { ok: true, outcome: 'ignored', message: 'not_current_subscription' }
   }
 
-  const prior = await appliedUpdates(db, org.id, sub.id)
+  const prior = await appliedUpdateRows(db, org.id, sub.id)
   if (prior.error) return readFailed(prior.error)
   const clock: EventClock = { created: eventCreated, eventId: event.id }
-  if (prior.clocks.some((c) => c.eventId === event.id)) {
+  if (prior.rows.some((r) => r.clock.eventId === event.id)) {
     // A redelivery of an applied event: reconcile again, in case this
     // event's first delivery raced another and its reconcile failed.
-    return (await reconcileToNewest(db, m1, org.id, sub, event.id)) ?? { ok: true, outcome: 'duplicate' }
+    return (await reconcileToNewest(db, m1, org.id, sub, event.id, verify)) ?? { ok: true, outcome: 'duplicate' }
   }
-  if (prior.clocks.some((c) => !isAfter(clock, c))) return { ok: true, outcome: 'ignored', message: 'stale_event' }
+  // A newer applied row makes this event stale only if Stripe confirms it
+  // (SEC-N2: a member-inserted row with a far-future clock must not).
+  for (const row of prior.rows) {
+    if (isAfter(clock, row.clock)) continue
+    const claim = await verify(row, sub.id)
+    if (claim === 'unverifiable') return verifyFailed()
+    if (claim === 'genuine') return { ok: true, outcome: 'ignored', message: 'stale_event' }
+  }
 
-  const item = sub.items?.data?.[0]
-  const plan = planForPrice(item?.price)
-  const quantity = typeof item?.quantity === 'number' && Number.isInteger(item.quantity) && item.quantity > 0 ? item.quantity : null
+  const { plan, quantity } = updateFacts(sub)
 
   let outcome: WebhookHandleResult['outcome']
   if (effect === 'downgrade') {
@@ -585,7 +689,7 @@ async function applySubscriptionUpdated(
   })
   if (auditError) return persistFailed(auditError)
   if (outcome === 'subscription_updated') {
-    const reconciled = await reconcileToNewest(db, m1, org.id, sub, event.id)
+    const reconciled = await reconcileToNewest(db, m1, org.id, sub, event.id, verify)
     if (reconciled) return reconciled
   }
   return { ok: true, outcome }
@@ -615,14 +719,21 @@ async function recordInvoiceFailed(event: Stripe.Event, db: WebhookDb, eventCrea
 
   const { data, error } = await db
     .from('audit_log')
-    .select('id')
+    .select('id, metadata')
     .eq('org_id', found.org.id)
     .eq('action', AUDIT_INVOICE_PAYMENT_FAILED)
     .eq('metadata->>event_id', event.id)
-    .is('user_id', null) // see appliedUpdates: never trust a user-written row
-    .limit(1)
+    .is('user_id', null) // see appliedUpdateRows: never trust a user-written row
+    .limit(5)
   if (error) return readFailed(error)
-  if (data?.length) return { ok: true, outcome: 'duplicate' }
+  // SEC-N2: a duplicate only if the row also names this event's invoice,
+  // subscription and time — what this function writes. A forged row that
+  // merely names the event id cannot suppress the real failure.
+  const isOurs = (data ?? []).some((r) => {
+    const m = (r.metadata ?? {}) as Record<string, unknown>
+    return m.invoice_id === invoice.id && m.sub_id === subId && m.event_created === eventCreated
+  })
+  if (isOurs) return { ok: true, outcome: 'duplicate' }
 
   const auditError = await insertAudit(db, found.org.id, AUDIT_INVOICE_PAYMENT_FAILED, 'stripe_invoice', {
     event_id: event.id,

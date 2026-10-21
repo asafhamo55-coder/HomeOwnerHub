@@ -7,11 +7,14 @@
 // then files ONE approval request. A board member approves it in
 // /approvals, and only then does executor.ts post.
 //
-// Idempotent: the request's subject id is derived from the association and
-// the start date, so the approval layer's live-subject unique index keeps
-// one live proposal per date, and a re-run finds it instead of filing
-// another. A live proposal for a DIFFERENT date, or one already posted,
-// refuses the new one: two opening balances would double the books.
+// Idempotent: the request's subject id is derived from the association
+// alone (SEC-N3), so the approval layer's live-subject unique index
+// (proposed / approved / posted) keeps ONE live or posted opening balance
+// per association, whatever its start date, even when two proposals for
+// different dates race past checkExisting. A re-run finds the live one
+// instead of filing another. A live proposal for a DIFFERENT date, or one
+// already posted, refuses the new one: two opening balances would double
+// the books.
 
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
@@ -39,9 +42,13 @@ export type ProposeOpeningResult =
   | { ok: true; created: boolean; approvalRequestId: string; status: string; message: string }
   | { ok: false; error: string; errors?: string[] }
 
-/** A stable uuid per (association, date): the approval layer's idempotency key. */
-export function openingSubjectId(associationId: string, cutoverDate: string): string {
-  const h = createHash('sha256').update(`opening-balances:${associationId}:${cutoverDate}`).digest('hex')
+/**
+ * A stable uuid per association: the approval layer's idempotency key.
+ * Not per date (SEC-N3): a per-date key let two live proposals for
+ * different dates coexist, and both could be approved and posted.
+ */
+export function openingSubjectId(associationId: string): string {
+  const h = createHash('sha256').update(`opening-balances:${associationId}`).digest('hex')
   // Shaped as a version-5-style uuid so it passes uuid checks everywhere.
   const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16)
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`
@@ -132,7 +139,7 @@ export async function proposeOpeningCore(
     workflowId: OPENING_WORKFLOW,
     actionType: OPENING_ACTION,
     subjectType: OPENING_SUBJECT,
-    subjectId: openingSubjectId(ctx.associationId, input.cutoverDate),
+    subjectId: openingSubjectId(ctx.associationId),
     payload: payload as unknown as Json,
     summary: openingSummary(payload),
     amount: entry.totalDebitCents / 100,

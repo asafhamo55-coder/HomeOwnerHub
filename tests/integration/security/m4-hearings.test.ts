@@ -7,12 +7,16 @@
  *   must be the row's org's (23503, even for the service role); one row
  *   per violation (23505); the shape CHECK (scheduled/held need a date,
  *   held needs an outcome, an outcome needs held), the time format and the
- *   panel array are enforced (23514).
+ *   panel array are enforced (23514). created_by is the caller and the
+ *   request columns are the function's alone, whatever a board member
+ *   sends (SEC-N6).
  *
  *   request_violation_hearing(): a resident records a request on a
  *   violation on their OWN home only (42501 for a neighbour's, another
  *   org's, or an anonymous caller), never on a closed one or with an
- *   over-long statement (22023); a second request keeps the first; a
+ *   over-long statement (22023); never on a deleted violation (42501) or
+ *   one the board has not noticed yet (55000, SEC-N5); a second request
+ *   keeps the first; a
  *   request on a row the board already scheduled sets only the request
  *   columns; the resident still cannot read the table directly.
  *
@@ -157,6 +161,32 @@ describe('violation_hearings RLS (board/admin only)', () => {
     expect(ok.error).toBeNull()
   })
 
+  it('SEC-N6: a board member cannot forge created_by or record a request the owner never made', async () => {
+    const ins = await board.client
+      .from(table)
+      .insert(row({ created_by: admin.id, requested_by: resident.id, requested_at: '2026-10-01T00:00:00Z', resident_statement: 'forged' }) as never)
+    expect(ins.error).toBeNull()
+    const read = async () =>
+      (
+        await adminDb()
+          .from(table)
+          .select('created_by, requested_by, requested_at, resident_statement' as never)
+          .eq('violation_id' as never, vioMine)
+          .single()
+      ).data
+    expect(await read()).toEqual({ created_by: board.id, requested_by: null, requested_at: null, resident_statement: null })
+    const upd = await admin.client
+      .from(table)
+      .update({ created_by: admin.id, requested_by: resident.id, resident_statement: 'forged' } as never)
+      .eq('violation_id' as never, vioMine)
+      .select('id')
+    expect(upd.error).toBeNull()
+    expect(await read()).toEqual({ created_by: board.id, requested_by: null, requested_at: null, resident_statement: null })
+    // The service role is not overridden.
+    await adminDb().from(table).update({ created_by: admin.id } as never).eq('violation_id' as never, vioMine)
+    expect(await read()).toMatchObject({ created_by: admin.id })
+  })
+
   it('deleting the violation removes its hearing', async () => {
     await adminDb().from(table).insert(row() as never)
     await adminDb().from('hoa_violations').delete().eq('id', vioMine)
@@ -198,6 +228,18 @@ describe('request_violation_hearing()', () => {
     expect((await resident.client.rpc(rpc, { p_violation_id: vioMine, p_statement: 'x'.repeat(4001) } as never)).error?.code).toBe('22023')
     await adminDb().from('hoa_violations').update({ status: 'resolved' }).eq('id', vioMine)
     expect((await resident.client.rpc(rpc, { p_violation_id: vioMine } as never)).error?.code).toBe('22023')
+  })
+
+  it('SEC-N5: a deleted violation is refused with 42501, one not yet noticed with 55000', async () => {
+    await adminDb().from('hoa_violations').update({ status: 'open', notice_sent_at: null } as never).eq('id', vioMine)
+    expect((await resident.client.rpc(rpc, { p_violation_id: vioMine } as never)).error?.code).toBe('55000')
+    // A recorded notice time counts, whatever the status.
+    await adminDb().from('hoa_violations').update({ notice_sent_at: '2026-10-01T00:00:00Z' } as never).eq('id', vioMine)
+    expect((await resident.client.rpc(rpc, { p_violation_id: vioMine } as never)).error).toBeNull()
+    await adminDb().from('hoa_violations').update({ deleted_at: new Date().toISOString() } as never).eq('id', vioNeighbor)
+    expect((await neighbor.client.rpc(rpc, { p_violation_id: vioNeighbor } as never)).error?.code).toBe('42501')
+    const { count } = await adminDb().from(table).select('id', { count: 'exact', head: true }).eq('violation_id' as never, vioNeighbor)
+    expect(count).toBe(0)
   })
 
   it('on a row the board already scheduled, only the request columns change', async () => {

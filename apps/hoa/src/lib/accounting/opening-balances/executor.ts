@@ -71,17 +71,23 @@ async function recheck(db: Db, orgId: string, requestId: string, p: OpeningPaylo
   if (unbalanced) return fail(unbalanced)
 
   // One opening balance per association: a second one would double the books.
-  const { data: posted, error: postedErr } = await db
+  // SEC-N3: any OTHER request for the association that is approved (being
+  // posted, or left approved after an executor crash — state unknown) or
+  // posted refuses this one. Proposals filed before the per-association
+  // subject id could coexist for different dates; this is the backstop.
+  const { data: other, error: otherErr } = await db
     .from('approval_requests')
-    .select('id')
+    .select('id, status')
     .eq('organization_id', orgId)
     .eq('action_type', OPENING_ACTION)
-    .eq('status', 'posted')
+    .in('status', ['approved', 'posted'])
     .eq('payload->>associationId' as never, p.associationId)
     .neq('id', requestId)
     .limit(1)
-  if (postedErr) return fail('Couldn’t check for earlier opening balances. Try again.')
-  if ((posted ?? []).length > 0) return fail('Opening balances were already posted for this association.')
+  if (otherErr) return fail('Couldn’t check for earlier opening balances. Try again.')
+  const blocking = (other ?? [])[0] as { status?: string } | undefined
+  if (blocking?.status === 'posted') return fail('Opening balances were already posted for this association.')
+  if (blocking) return fail('Another opening balance for this association is already approved. Check Approvals before posting a second one.')
 
   const unitIds = [...new Set(p.charges.map((c) => c.unitId))]
   if (unitIds.length !== p.charges.length) return fail('A home is charged twice.')

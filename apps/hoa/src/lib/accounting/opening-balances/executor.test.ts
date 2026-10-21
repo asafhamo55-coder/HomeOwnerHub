@@ -186,14 +186,22 @@ describe('openingExecutor', () => {
   })
 
   it('posts nothing when opening balances were already posted for the association', async () => {
-    const { db, calls } = fakeDb(healthy({ posted: [{ id: 'other' }] }))
+    const { db, calls } = fakeDb(healthy({ posted: [{ id: 'other', status: 'posted' }] }))
     const r = await openingExecutor(db, request())
     expect(r).toEqual({ ok: false, error: 'Opening balances were already posted for this association.' })
     expect(m.postJournalEntry).not.toHaveBeenCalled()
     expect(calls.some((c) => c.table === 'assessments')).toBe(false)
     const q = calls.find((c) => c.table === 'approval_requests')!.ops
-    expect(q).toContainEqual(['eq', ['status', 'posted']])
+    expect(q).toContainEqual(['in', ['status', ['approved', 'posted']]])
     expect(q).toContainEqual(['neq', ['id', REQ]])
+  })
+
+  it('SEC-N3: posts nothing when ANOTHER opening balance for the association is approved (any start date)', async () => {
+    const { db, calls } = fakeDb(healthy({ posted: [{ id: 'other', status: 'approved' }] }))
+    const r = await openingExecutor(db, request())
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/already approved/) })
+    expect(m.postJournalEntry).not.toHaveBeenCalled()
+    expect(calls.some((c) => c.table === 'assessments')).toBe(false)
   })
 
   it('posts nothing when the period has closed since the proposal', async () => {

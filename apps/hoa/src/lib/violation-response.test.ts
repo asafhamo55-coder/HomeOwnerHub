@@ -285,20 +285,58 @@ describe('postViolationResponse', () => {
 })
 
 describe('loadBoardResponseThreads', () => {
-  it('assembles each linked ticket with its first response and messages, oldest first', async () => {
-    const T1 = '66666666-6666-4666-8666-666666666666'
-    const db = memDb({
-      audit_log: [
-        { org_id: ORG, entity_type: VIOLATION_RESPONSE_ENTITY, entity_id: V_MINE, action: VIOLATION_RESPONSE_AUDIT, metadata: { ticketId: T1 } },
-        { org_id: ORG, entity_type: VIOLATION_RESPONSE_ENTITY, entity_id: V_MINE, action: VIOLATION_RESPONSE_AUDIT, metadata: { ticketId: 'not-a-uuid' } },
-        { org_id: ORG, entity_type: VIOLATION_RESPONSE_ENTITY, entity_id: V_NEIGHBOUR, action: VIOLATION_RESPONSE_AUDIT, metadata: { ticketId: 'x' } },
+  const T1 = '66666666-6666-4666-8666-666666666666'
+  const T2 = '77777777-7777-4777-8777-777777777777'
+  const BOARD = '88888888-8888-4888-8888-888888888888'
+  const link = (ticketId: string, user_id: string | null, entity_id = V_MINE) => ({
+    org_id: ORG,
+    user_id,
+    entity_type: VIOLATION_RESPONSE_ENTITY,
+    entity_id,
+    action: VIOLATION_RESPONSE_AUDIT,
+    metadata: { ticketId },
+  })
+  const ticket = (id: string, submitted_by: string, unit_id: string, description = 'Fixed it') => ({
+    id,
+    organization_id: ORG,
+    status: 'open',
+    description,
+    created_at: '2026-10-05T00:00:00Z',
+    deleted_at: null,
+    submitted_by,
+    unit_id,
+  })
+  const home = (extra: Record<string, Row[]> = {}) =>
+    memDb({
+      units: [
+        { id: MY_UNIT, organization_id: ORG, legacy_hoa_property_id: MY_PROP },
+        { id: 'unit-neighbour', organization_id: ORG, legacy_hoa_property_id: 'prop-neighbour' },
       ],
-      tickets: [{ id: T1, organization_id: ORG, status: 'open', description: 'Fixed it', created_at: '2026-10-05T00:00:00Z', deleted_at: null }],
+      org_members: [
+        { org_id: ORG, user_id: ME },
+        { org_id: ORG, user_id: BOARD },
+      ],
+      ownerships: [{ organization_id: ORG, unit_id: MY_UNIT, owner_user_id: ME, valid_to: null }],
+      tenancies: [],
+      property_residents: [],
+      profiles: [],
       ticket_messages: [
         { id: 'm1', ticket_id: T1, author_role: 'board', body: 'Thanks', internal: false, created_at: '2026-10-06T00:00:00Z' },
       ],
+      ...extra,
     })
-    const threads = await loadBoardResponseThreads(db, { orgId: ORG, violationId: V_MINE })
+  const input = { orgId: ORG, violationId: V_MINE, propertyId: MY_PROP }
+
+  it('assembles each linked ticket with its first response and messages, oldest first', async () => {
+    const db = home({
+      audit_log: [
+        link(T1, ME),
+        link('not-a-uuid', ME),
+        link('x', ME, V_NEIGHBOUR),
+      ],
+      tickets: [ticket(T1, ME, MY_UNIT)],
+    })
+    const threads = await loadBoardResponseThreads(db, input)
     expect(threads).toHaveLength(1)
     expect(threads![0]!.messages.map((m) => [m.author_role, m.body])).toEqual([
       ['resident', 'Fixed it'],
@@ -306,8 +344,75 @@ describe('loadBoardResponseThreads', () => {
     ])
   })
 
+  it('SEC-N2: forged links do not render (wrong submitter, another home, a non-resident, a link naming someone else)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const T3 = '99999999-9999-4999-8999-999999999999'
+    const T4 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const db = home({
+      audit_log: [
+        link(T1, BOARD), // board member's own ticket, forged link
+        link(T2, ME), // the resident's ticket on the neighbour's home
+        link(T3, BOARD), // link names the board member, ticket filed by the resident
+        link(T4, null), // service-role-looking link
+      ],
+      tickets: [
+        ticket(T1, BOARD, MY_UNIT, 'board-private ticket'),
+        ticket(T2, ME, 'unit-neighbour', 'neighbour ticket'),
+        ticket(T3, ME, MY_UNIT, 'some other request'),
+        ticket(T4, ME, MY_UNIT, 'yet another'),
+      ],
+    })
+    expect(await loadBoardResponseThreads(db, input)).toEqual([])
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(/ticket/)
+    warn.mockRestore()
+  })
+
+  it('SEC-N2: a former owner, or an owner who left the org, no longer counts', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const db = home({
+      audit_log: [link(T1, ME)],
+      tickets: [ticket(T1, ME, MY_UNIT)],
+      ownerships: [{ organization_id: ORG, unit_id: MY_UNIT, owner_user_id: ME, valid_to: '2026-09-01' }],
+    })
+    expect(await loadBoardResponseThreads(db, input)).toEqual([])
+    const db2 = home({ audit_log: [link(T1, ME)], tickets: [ticket(T1, ME, MY_UNIT)], org_members: [] })
+    expect(await loadBoardResponseThreads(db2, input)).toEqual([])
+    warn.mockRestore()
+  })
+
+  it('a tenant, or a roster resident matched by email, counts', async () => {
+    const tenant = home({
+      audit_log: [link(T1, ME)],
+      tickets: [ticket(T1, ME, MY_UNIT)],
+      ownerships: [],
+      tenancies: [{ organization_id: ORG, unit_id: MY_UNIT, tenant_user_id: ME, status: 'active' }],
+    })
+    expect(await loadBoardResponseThreads(tenant, input)).toHaveLength(1)
+    const roster = home({
+      audit_log: [link(T1, ME)],
+      tickets: [ticket(T1, ME, MY_UNIT)],
+      ownerships: [],
+      property_residents: [{ organization_id: ORG, property_id: MY_PROP, email: 'Me@Example.com', moved_out_at: null }],
+      profiles: [{ id: ME, email: 'me@example.com' }],
+    })
+    expect(await loadBoardResponseThreads(roster, input)).toHaveLength(1)
+  })
+
+  it('a violation with no home has no responses to show', async () => {
+    const db = home({ audit_log: [link(T1, ME)], tickets: [ticket(T1, ME, MY_UNIT)] })
+    expect(await loadBoardResponseThreads(db, { ...input, propertyId: null })).toEqual([])
+  })
+
   it('returns null on a failed read, [] when there are none', async () => {
-    expect(await loadBoardResponseThreads(memDb({}, { failRead: 'audit_log' }), { orgId: ORG, violationId: V_MINE })).toBeNull()
-    expect(await loadBoardResponseThreads(memDb({ audit_log: [] }), { orgId: ORG, violationId: V_MINE })).toEqual([])
+    expect(await loadBoardResponseThreads(memDb({}, { failRead: 'audit_log' }), input)).toBeNull()
+    expect(await loadBoardResponseThreads(memDb({ audit_log: [] }), input)).toEqual([])
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(
+      await loadBoardResponseThreads(
+        memDb({ audit_log: [link(T1, ME)], tickets: [ticket(T1, ME, MY_UNIT)], units: [{ id: MY_UNIT, organization_id: ORG, legacy_hoa_property_id: MY_PROP }] }, { failRead: 'ownerships' }),
+        input,
+      ),
+    ).toBeNull()
+    err.mockRestore()
   })
 })

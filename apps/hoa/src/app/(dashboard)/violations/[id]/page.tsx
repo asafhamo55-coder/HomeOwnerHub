@@ -207,7 +207,7 @@ export default async function ViolationDetailPage({
     // BL-129: the homeowner's responses (tickets linked by audit_log).
     org
       ? timed(R, 'violation.responses', () =>
-          loadBoardResponseThreads(supabase as unknown as Db, { orgId: org.id, violationId: v.id }).catch(() => null),
+          loadBoardResponseThreads(supabase as unknown as Db, { orgId: org.id, violationId: v.id, propertyId: v.property_id }).catch(() => null),
         )
       : Promise.resolve([] as BoardResponseThread[]),
     rulesP,

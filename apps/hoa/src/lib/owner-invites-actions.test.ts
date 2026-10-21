@@ -11,7 +11,8 @@ const h = vi.hoisted(() => ({
   invited: [] as string[],
   memberRole: 'resident' as string | null,
   authUser: { email: 'p@x.com', email_confirmed_at: null, last_sign_in_at: null } as Record<string, unknown> | null,
-  elsewhere: [] as unknown[],
+  hereMember: false,
+  preExisting: {} as Record<string, boolean>,
   deleted: [] as string[],
   userCalls: [] as unknown[][],
   adminCalls: [] as unknown[][],
@@ -60,10 +61,9 @@ vi.mock('@homeowner-portal/db', () => ({
     from: (t: string) =>
       chain(h.adminCalls, t, () => {
         if (t === 'org_members') {
-          const isElsewhere = h.adminCalls.some((c) => c[0] === 'org_members' && c[1] === 'limit')
-          return isElsewhere
-            ? { data: h.elsewhere, error: null }
-            : { data: h.memberRole ? { role: h.memberRole } : null, error: null }
+          const lastSelect = [...h.adminCalls].reverse().find((c) => c[0] === 'org_members' && c[1] === 'select')
+          if (lastSelect?.[2] === 'user_id') return { data: h.hereMember ? { user_id: 'existing-user' } : null, error: null }
+          return { data: h.memberRole ? { role: h.memberRole } : null, error: null }
         }
         if (t === 'profiles') return { data: [{ id: 'existing-user' }], error: null }
         return { data: null, error: null }
@@ -74,7 +74,8 @@ vi.mock('@homeowner-portal/db', () => ({
           const err = h.inviteErrors[email]
           if (err) return { data: { user: null }, error: err }
           h.invited.push(email)
-          return { data: { user: { id: `user-${email}` } }, error: null }
+          const created_at = h.preExisting[email] ? '2026-01-01T00:00:00Z' : new Date().toISOString()
+          return { data: { user: { id: `user-${email}`, created_at } }, error: null }
         }),
         getUserById: vi.fn(async () => ({ data: { user: h.authUser }, error: null })),
         deleteUser: vi.fn(async (id: string) => (h.deleted.push(id), { error: null })),
@@ -102,7 +103,8 @@ beforeEach(() => {
   h.invited = []
   h.memberRole = 'resident'
   h.authUser = { email: 'p@x.com', email_confirmed_at: null, last_sign_in_at: null }
-  h.elsewhere = []
+  h.hereMember = false
+  h.preExisting = {}
   h.deleted = []
   h.userCalls = []
   h.adminCalls = []
@@ -132,7 +134,7 @@ describe('inviteAllOwners', () => {
 
   it('sends the confirmed batch, links every home, audits counts only', async () => {
     const r = await inviteAllOwners(2)
-    expect(r).toEqual({ ok: true, data: { invited: 2, linked: 0, failed: 0, held: 0, remaining: 0, rateLimited: false } })
+    expect(r).toEqual({ ok: true, data: { invited: 2, failed: 0, held: 0, remaining: 0, rateLimited: false } })
     expect(h.invited).toEqual(['o1@example.com', 'o2@example.com'])
     expect(h.linked).toHaveLength(4)
     const memberInserts = h.userCalls.filter((c) => c[0] === 'org_members' && c[1] === 'insert')
@@ -163,7 +165,7 @@ describe('inviteAllOwners', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     expect(await inviteAllOwners(0)).toEqual({
       ok: true,
-      data: { invited: 0, linked: 0, failed: 0, held: 2, remaining: 0, rateLimited: false },
+      data: { invited: 0, failed: 0, held: 2, remaining: 0, rateLimited: false },
     })
     spy.mockRestore()
     expect(h.invited).toEqual([])
@@ -177,10 +179,30 @@ describe('inviteAllOwners', () => {
     expect(h.invited).toHaveLength(3)
   })
 
-  it('an owner who already has an account is added without an email', async () => {
+  it('SEC-N4: a confirmed account elsewhere is not attached, and is reported as invited like everyone else', async () => {
     h.inviteErrors['o1@example.com'] = { code: 'email_exists', message: 'already been registered' }
     const r = await inviteAllOwners(2)
-    expect(r).toMatchObject({ ok: true, data: { invited: 1, linked: 1 } })
+    expect(r).toEqual({ ok: true, data: { invited: 2, failed: 0, held: 0, remaining: 0, rateLimited: false } })
+    expect(JSON.stringify(r)).not.toMatch(/linked/)
+    const memberInserts = h.userCalls.filter((c) => c[0] === 'org_members' && c[1] === 'insert')
+    expect(memberInserts.map((c) => (c[2] as { user_id: string }).user_id)).toEqual(['user-o2@example.com'])
+    expect(h.linked.map((l) => (l as { userId: string }).userId)).toEqual(['user-o2@example.com', 'user-o2@example.com'])
+    expect(h.adminCalls.some((c) => c[0] === 'profiles' && c[1] === 'upsert' && (c[2] as { id: string }).id === 'existing-user')).toBe(false)
+  })
+
+  it('SEC-N4: a confirmed account that is already a member here gets its homes linked (same uniform count)', async () => {
+    h.inviteErrors['o1@example.com'] = { code: 'email_exists', message: 'already been registered' }
+    h.hereMember = true
+    const r = await inviteAllOwners(2)
+    expect(r).toMatchObject({ ok: true, data: { invited: 2, failed: 0 } })
+    expect(h.linked.filter((l) => (l as { userId: string }).userId === 'existing-user')).toHaveLength(2)
+  })
+
+  it('SEC-N1: a new account gets its profile written; a pre-existing (unconfirmed) one is left untouched', async () => {
+    h.preExisting['o1@example.com'] = true
+    await inviteAllOwners(2)
+    const upserts = h.adminCalls.filter((c) => c[0] === 'profiles' && c[1] === 'upsert').map((c) => (c[2] as { id: string }).id)
+    expect(upserts).toEqual(['user-o2@example.com'])
   })
 })
 
@@ -210,15 +232,18 @@ describe('resend / revoke', () => {
     expect(h.deleted).toEqual([])
   })
 
-  it('revoke removes the membership, unlinks this HOA’s homes, and deletes an account used nowhere else', async () => {
+  it('revoke removes the membership and unlinks this HOA’s homes, and never deletes the account (SEC-N1)', async () => {
     expect(await revokeInvitation(P1)).toEqual({ ok: true, data: { revoked: true } })
     expect(h.userCalls.some((c) => c[0] === 'org_members' && c[1] === 'delete')).toBe(true)
     expect(h.adminCalls).toContainEqual(['ownerships', 'update', { owner_user_id: null }])
-    expect(h.deleted).toEqual([P1])
+    expect(h.deleted).toEqual([])
+    const admin = vi.mocked(createAdminClient).mock.results[0]!.value as { auth: { admin: { deleteUser: ReturnType<typeof vi.fn> } } }
+    expect(admin.auth.admin.deleteUser).not.toHaveBeenCalled()
   })
 
-  it('revoke keeps the account when the invitee belongs to another HOA', async () => {
-    h.elsewhere = [{ org_id: 'org-2' }]
+  it('revoke by an admin of a pending admin-role invitation still never deletes the account', async () => {
+    h.gate = { ok: true, role: 'admin', orgId: 'org-1' }
+    h.memberRole = 'admin'
     expect((await revokeInvitation(P1)).ok).toBe(true)
     expect(h.deleted).toEqual([])
   })

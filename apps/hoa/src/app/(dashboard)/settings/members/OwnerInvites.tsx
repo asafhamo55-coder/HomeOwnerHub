@@ -24,7 +24,6 @@ function plural(n: number, one: string, many = `${one}s`): string {
 export function summarizeOutcome(o: OwnerInviteOutcome): string {
   const parts: string[] = []
   if (o.invited) parts.push(`${plural(o.invited, 'invitation')} sent`)
-  if (o.linked) parts.push(`${plural(o.linked, 'owner')} who already had an account added`)
   if (o.failed) parts.push(`${o.failed} couldn’t be invited`)
   if (o.held) parts.push(`${o.held} held back by test mode`)
   if (o.rateLimited) parts.push('email paused for now; try the rest in a few minutes')

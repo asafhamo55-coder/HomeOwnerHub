@@ -505,7 +505,9 @@ What it does, in five parts:
    an attachment from another HOA.
 5. **Compliance "done" table (BL-131).** A new table holding which state-law
    deadlines the board marked done. Only the board and admins of that HOA
-   can see or change it; owners cannot. The "done" marks saved so far stay
+   can see or change it; owners cannot. "Done by" is always the person who
+   saved it (a board member cannot put someone else's name on it). The
+   "done" marks saved so far stay
    where they are and the app copies them into the table the first time a
    board member opens the dashboard after the switch below.
 
@@ -593,11 +595,14 @@ checks links the same way, so nobody sees a change.
          count(*) FILTER (WHERE first_response_at IS NOT NULL) AS answered,
          count(*) FILTER (WHERE snoozed_until IS NOT NULL)     AS snoozed,
          (SELECT count(*) FROM pg_policies
-           WHERE schemaname = 'public' AND tablename = 'compliance_deadlines_done') AS done_table_rules
+           WHERE schemaname = 'public' AND tablename = 'compliance_deadlines_done') AS done_table_rules,
+         EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgrelid = 'public.compliance_deadlines_done'::regclass
+                    AND tgname = 'compliance_deadlines_done_attribution')    AS done_by_rule
     FROM public.inbox_threads;
   ```
 
-- **Expect:** `clocked` close to `threads` (a conversation the board started has no resident email, so it stays empty), `answered` ≤ `clocked`, `snoozed` = 0, `done_table_rules` = 4.
+- **Expect:** `clocked` close to `threads` (a conversation the board started has no resident email, so it stays empty), `answered` ≤ `clocked`, `snoozed` = 0, `done_table_rules` = 4, `done_by_rule` = true.
 - **Send:** both rows, and the words **"0067 is applied"**.
 - **Flag Claude flips after J4:** `M3_APPLIED` → `true` (`packages/db/src/m3.ts`), then deploys hoa + jobs. That turns on, together: the opening-balance mark and the late-fee skip, the inbox Snooze control, "Snoozed" list and reply time, "Filed to library" on emails and "filed from an email" on documents, and the compliance "done" table (with the lazy copy of the old marks). `tests/integration/security/m3-batch.test.ts` covers all five parts, including the security rules, in CI.
 
@@ -617,15 +622,18 @@ What it does, in two parts:
    number, coverage limit, deductible, premium, start and end dates, and an
    optional link to the policy PDF in Documents. Only the board and admins
    of that HOA can see or change it; owners cannot. A document from another
-   HOA is refused.
+   HOA is refused. "Created by" is always the person who saved it.
 2. **Fine hearings (BL-133).** A new table with one hearing record per
    violation: when the owner asked for it (and their written statement),
    the hearing date, time and place, the committee or panel (names, each
    marked board or owner), the day the notice went out, the outcome, and
    the findings and fine-due dates. Only the board and admins of that HOA
    can see or change it. Owners get one thing: a "request a hearing" button
-   that works only on a violation on **their own home** that is still open.
-   A violation from another HOA is refused.
+   that works only on a violation on **their own home** that the board has
+   sent a notice for, that is still open and not deleted. A violation from
+   another HOA is refused. "Created by" is always the person who saved it,
+   and only the owner's own button can record an owner's request (a board
+   member cannot record one for them).
 
 Nothing in the app reads or writes either table until Claude turns on
 `M4_APPLIED` after K4. No existing table is changed.
@@ -682,10 +690,12 @@ Both tables start empty. There is nothing to copy across, so there is no K2 quer
            WHERE oid = 'public.violation_hearings'::regclass)                 AS hearings_locked,
          (SELECT count(*) FROM public.insurance_policies)                     AS policies,
          (SELECT count(*) FROM public.violation_hearings)                     AS hearings,
-         has_function_privilege('anon', 'public.request_violation_hearing(uuid, text)', 'EXECUTE') AS anon_can_request;
+         has_function_privilege('anon', 'public.request_violation_hearing(uuid, text)', 'EXECUTE') AS anon_can_request,
+         (SELECT count(*) FROM pg_trigger
+           WHERE tgname IN ('insurance_policies_attribution', 'violation_hearings_attribution')) AS attribution_rules;
   ```
 
-- **Expect:** `insurance_rules` = 4, `hearing_rules` = 4, `insurance_locked` = true, `hearings_locked` = true, `policies` = 0, `hearings` = 0, `anon_can_request` = false.
+- **Expect:** `insurance_rules` = 4, `hearing_rules` = 4, `insurance_locked` = true, `hearings_locked` = true, `policies` = 0, `hearings` = 0, `anon_can_request` = false, `attribution_rules` = 2.
 - **Send:** both rows, and the words **"0068 is applied"**.
 - **Flag Claude flips after K4:** `M4_APPLIED` → `true` (`packages/db/src/m4.ts`), then un-drafts the guide articles `insurance-policies`, `violations-fine-hearing` and `resident-request-hearing`, and deploys hoa + jobs. That turns on, together: the Insurance page (sidebar under Money), the insurance renewal card on the dashboard and the renewal lines in the board's morning email, the coverage check, the Fine hearing card on each violation (with "Draft hearing notice" into Messages), the state law check reading the hearing record, and the owner's "Request a hearing" on their violation page. `tests/integration/security/m4-insurance.test.ts` and `tests/integration/security/m4-hearings.test.ts` cover both parts, including the security rules, in CI.
 

@@ -3,6 +3,7 @@ import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { linkOwnershipForMember } from '@/lib/properties/lot'
 import { exactIlike } from '@/lib/impersonation-target'
+import { createdByThisCall } from '@/lib/owner-invites'
 
 // Member management. Lists, invites, role changes, removes.
 // All writes go through the user-bound RLS client. Per migration 0058,
@@ -198,7 +199,7 @@ export interface InviteMemberInput {
 
 export async function inviteMember(
   input: InviteMemberInput,
-): Promise<ActionResult<{ userId: string; alreadyExisted: boolean }>> {
+): Promise<ActionResult<{ userId: string | null; alreadyExisted: boolean }>> {
   const parsed = InviteSchema.safeParse({
     email: input.email,
     role: input.role,
@@ -267,6 +268,7 @@ export async function inviteMember(
       ? { full_name: parsed.data.full_name }
       : undefined,
   }
+  const startedAt = Date.now()
   const { data: invitedUser, error: inviteErr } = await admin.auth.admin
     .inviteUserByEmail(parsed.data.email, inviteOptions)
   if (inviteErr) {
@@ -278,6 +280,22 @@ export async function inviteMember(
     if (!existing) {
       return { ok: false, error: inviteErr.message }
     }
+    // SEC-N4: a confirmed account is attached only when it is already a
+    // member of this HOA (a role change or a home link the board can see
+    // anyway). Anyone else's account is not pulled into this HOA, and the
+    // answer is the same as for a fresh invitation, so the form does not
+    // reveal that the address has an account. Ids only in the log.
+    const { data: here, error: hereErr } = await admin
+      .from('org_members')
+      .select('user_id')
+      .eq('org_id', org.id)
+      .eq('user_id', existing.id)
+      .maybeSingle()
+    if (hereErr) return { ok: false, error: "We couldn't check that address. Try again." }
+    if (!here) {
+      console.info('[members] existing account not attached', { orgId: org.id })
+      return { ok: true, data: { userId: null, alreadyExisted: false } }
+    }
     return await attachToOrg({
       userId: existing.id,
       email: parsed.data.email,
@@ -285,6 +303,7 @@ export async function inviteMember(
       role: parsed.data.role,
       orgId: org.id,
       alreadyExisted: true,
+      writeProfile: false,
       propertyId: parsed.data.propertyId ?? null,
       residencyRole: parsed.data.residencyRole ?? null,
     })
@@ -297,6 +316,9 @@ export async function inviteMember(
     role: parsed.data.role,
     orgId: org.id,
     alreadyExisted: false,
+    // SEC-N1: an unconfirmed account that existed before this call (any
+    // HOA's pending invitee) keeps its profile; only a new one is seeded.
+    writeProfile: createdByThisCall(invitedUser.user, startedAt),
     propertyId: parsed.data.propertyId ?? null,
     residencyRole: parsed.data.residencyRole ?? null,
   })
@@ -309,22 +331,26 @@ async function attachToOrg(args: {
   role: MemberRole
   orgId: string
   alreadyExisted: boolean
+  /** Only for an account this invite just created (SEC-N1). */
+  writeProfile: boolean
   propertyId?: string | null
   residencyRole?: ResidencyRole | null
-}): Promise<ActionResult<{ userId: string; alreadyExisted: boolean }>> {
+}): Promise<ActionResult<{ userId: string | null; alreadyExisted: boolean }>> {
   const supabase = await getSupabaseServerClient()
 
   // Ensure profile exists. Use the admin client because the RLS policy on
   // profiles only allows users to edit their own row (id = auth.uid()),
   // but here the admin is writing a profile for the invited user.
   const admin = createAdminClient()
-  await admin
-    .from('profiles')
-    .upsert({
-      id: args.userId,
-      email: args.email,
-      full_name: args.fullName,
-    } as never)
+  if (args.writeProfile) {
+    await admin
+      .from('profiles')
+      .upsert({
+        id: args.userId,
+        email: args.email,
+        full_name: args.fullName,
+      } as never)
+  }
 
   // Insert org_members row. The unique (org_id, user_id) pk dedupes if
   // we're attaching an existing user that's already a member; in that

@@ -39,7 +39,11 @@
 --              the app copies verified acknowledgments into rows lazily.
 --              RLS: board/admin of the org only, the 0063 board-only shape
 --              (select / insert / update / delete), and the association
---              must belong to the row's org.
+--              must belong to the row's org. done_by is the caller for a
+--              signed-in user (trigger, security review #2 SEC-N6): a
+--              board member cannot attribute a row to someone else. The
+--              service role (and SECURITY DEFINER functions) are not
+--              overridden.
 --
 -- RLS for the new COLUMNS (parts 1, 2, 4): each table's existing policies
 -- already cover them: assessments (0061: board writes, residents read
@@ -306,5 +310,39 @@ CREATE POLICY compliance_deadlines_done_update ON public.compliance_deadlines_do
 CREATE POLICY compliance_deadlines_done_delete ON public.compliance_deadlines_done
   FOR DELETE TO authenticated
   USING (public.auth_is_board_or_admin(organization_id));
+
+-- Attribution (security review #2, SEC-N6): through PostgREST a signed-in
+-- caller runs as role `authenticated`; for that role done_by is always the
+-- caller on INSERT and never changes on UPDATE, whatever the request says.
+-- SECURITY INVOKER on purpose: current_user must be the caller's role (a
+-- SECURITY DEFINER trigger would see its owner). The service role is left
+-- alone. Note: the app's lazy copy of signed acknowledgments runs as the
+-- board member whose dashboard copies them, so a copied row's done_by is
+-- that board member (done_at keeps the original time; done_by is not shown
+-- anywhere).
+CREATE OR REPLACE FUNCTION public.compliance_deadlines_done_attribution()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF current_user = 'authenticated' THEN
+    IF tg_op = 'INSERT' THEN
+      new.done_by := auth.uid();
+    ELSE
+      new.done_by := old.done_by;
+    END IF;
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.compliance_deadlines_done_attribution() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS compliance_deadlines_done_attribution ON public.compliance_deadlines_done;
+CREATE TRIGGER compliance_deadlines_done_attribution
+  BEFORE INSERT OR UPDATE ON public.compliance_deadlines_done
+  FOR EACH ROW EXECUTE FUNCTION public.compliance_deadlines_done_attribution();
 
 COMMIT;

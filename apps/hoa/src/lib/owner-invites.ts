@@ -222,3 +222,19 @@ export function isRateLimited(err: { message?: string; code?: string; status?: n
   if (!err) return false
   return err.status === 429 || err.code === 'over_email_send_rate_limit' || /rate limit/i.test(err.message ?? '')
 }
+
+/**
+ * SEC-N1: did inviteUserByEmail create this auth user just now, or hand
+ * back one that already existed (an unconfirmed invitee of some other HOA,
+ * possibly a pending platform admin)? Only an account created by this call
+ * may have its profile written by the inviting board. A missing or
+ * unparseable created_at counts as pre-existing: the safe side, because
+ * handle_new_user already seeds the profile of a genuinely new user.
+ * `startedAtMs` is taken just before the invite call; the small allowance
+ * covers clock skew between this server and Supabase.
+ */
+export const CREATED_NOW_SKEW_MS = 2_000
+export function createdByThisCall(user: { created_at?: string | null } | null | undefined, startedAtMs: number): boolean {
+  const t = user?.created_at ? Date.parse(user.created_at) : Number.NaN
+  return Number.isFinite(t) && t >= startedAtMs - CREATED_NOW_SKEW_MS
+}

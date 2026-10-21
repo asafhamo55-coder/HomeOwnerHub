@@ -29,3 +29,4 @@ The board schedules the hearing and sends you a written notice with the date, ti
 ## Good to know
 - You can request a hearing once per violation. To add more, use **Respond to the board** on the same page.
 - A closed violation no longer takes hearing requests.
+- **Request a hearing** appears once the board has sent you the violation notice.

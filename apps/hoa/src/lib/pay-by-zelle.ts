@@ -55,18 +55,48 @@ export type ZelleReadResult =
 
 // ─── secret ─────────────────────────────────────────────────────────
 
+let warnedFallback = false
+
 /**
  * Server-only signing secret. Same fallback chain as the session cap
  * (lib/supabase/middleware.ts): a dedicated secret if set, else the
  * service-role key every deployment already has. Null fails closed.
+ *
+ * SEC-N7 (security review #2): the service-role key doubling as an HMAC
+ * secret is meant for preview / local only. In production an unset
+ * PAY_SETTINGS_SECRET logs once (never the value) and the fallback is kept
+ * for now, so nothing already signed stops verifying. The owner step is to
+ * set PAY_SETTINGS_SECRET in Vercel production; rotating it is covered by
+ * paySettingsPreviousSecret() below.
  */
-export function paySettingsSecret(): string | null {
-  return (
-    process.env.PAY_SETTINGS_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
-    null
-  )
+export function paySettingsSecret(env: Record<string, string | undefined> = process.env): string | null {
+  if (env.PAY_SETTINGS_SECRET) return env.PAY_SETTINGS_SECRET
+  const fallback = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
+  if (fallback && env.VERCEL_ENV === 'production' && !warnedFallback) {
+    warnedFallback = true
+    console.warn('[pay-settings] PAY_SETTINGS_SECRET is not set in production; using the service-role key fallback (SEC-N7)')
+  }
+  return fallback
+}
+
+/**
+ * The secret settings were signed with before the last rotation, accepted
+ * for VERIFYING the Zelle recipient only (never for signing), so a board's
+ * Zelle setup keeps showing to residents while PAY_SETTINGS_SECRET changes.
+ * Set PAY_SETTINGS_SECRET_PREVIOUS to the old value (the service-role key,
+ * if the fallback was in use) for the transition; remove it once boards
+ * have re-saved. Other signed settings (reminders, notices, receipts, the
+ * assistant, ARC clock, quorum kit, compliance acks) do not read it: after
+ * a rotation they read as off / not set up until the board saves them
+ * again (fail closed).
+ */
+export function paySettingsPreviousSecret(env: Record<string, string | undefined> = process.env): string | null {
+  return env.PAY_SETTINGS_SECRET_PREVIOUS || null
+}
+
+/** Test hook: forget that the production fallback warning was logged. */
+export function resetPaySettingsWarningForTests(): void {
+  warnedFallback = false
 }
 
 // ─── validation ─────────────────────────────────────────────────────
@@ -145,6 +175,8 @@ export function readZelleSettings(
   associationId: string,
   complianceSettings: unknown,
   secret: string | null,
+  /** SEC-N7: also accepted for verification during a rotation. */
+  previousSecret: string | null = paySettingsPreviousSecret(),
 ): ZelleReadResult {
   const raw = asObject(asObject(complianceSettings)?.[ZELLE_SETTINGS_KEY])
   if (!raw) return { state: 'not_configured' }
@@ -159,9 +191,12 @@ export function readZelleSettings(
     recipientName: strOrNull(raw.recipient_name),
     instructions: strOrNull(raw.instructions),
   }
-  const expected = Buffer.from(signature(associationId, settings, updatedAt, secret))
   const actual = Buffer.from(sig)
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return { state: 'unverified' }
+  const matches = (key: string) => {
+    const expected = Buffer.from(signature(associationId, settings, updatedAt, key))
+    return expected.length === actual.length && timingSafeEqual(expected, actual)
+  }
+  if (!matches(secret) && !(previousSecret && previousSecret !== secret && matches(previousSecret))) return { state: 'unverified' }
 
   return { state: 'configured', settings: { ...settings, updatedAt } }
 }

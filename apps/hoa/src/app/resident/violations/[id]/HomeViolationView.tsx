@@ -160,6 +160,8 @@ export function HomeViolationView({
             )}
             {hearing.kind === 'ok' &&
             canRespond &&
+            // 0068 (SEC-N5) accepts a request only once the notice went out.
+            (Boolean(v.noticeSentAt) || v.status === 'notice_sent' || v.status === 'fined') &&
             !hearing.hearing?.requestedAt &&
             hearing.hearing?.status !== 'held' &&
             hearing.hearing?.status !== 'cancelled' ? (
