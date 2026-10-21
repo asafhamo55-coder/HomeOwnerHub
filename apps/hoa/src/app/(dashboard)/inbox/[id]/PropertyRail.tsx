@@ -9,6 +9,7 @@ import { ResidentRailRow } from './ResidentRailRow'
 import { formatShortDate } from '@/lib/format-datetime'
 import type { ThreadRailContext } from '@/lib/inbox/thread-context'
 import { MoneyCard, SenderLine, ViolationList } from './ContextSections'
+import { filedByLine, matchRuleLabel } from '@/lib/inbox/match-label'
 
 interface Props {
   thread: ThreadDetail
@@ -105,8 +106,7 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
             </div>
           )}
           <p className="text-xs text-muted">
-            Matched via {String(thread.matchReason?.rule ?? 'unknown')}
-            {thread.matchSource === 'manual' ? ' (manual)' : ''}
+            {filedByLine(thread.matchReason?.rule, thread.matchSource)}
           </p>
           {rail ? <SenderLine rail={rail} address={addressLabel} /> : null}
         </div>
@@ -237,7 +237,7 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
       {suggestedProperty ? (
         <Alert variant="warning" hideIcon>
           Suggested: <strong className="font-semibold text-foreground">{suggestedProperty.address}</strong> —
-          matched via {String(thread.matchReason?.rule ?? 'unknown')}. Confirm below.
+          {matchRuleLabel(thread.matchReason?.rule) ? `matched by ${matchRuleLabel(thread.matchReason?.rule)}` : 'a possible match'}. Confirm below.
         </Alert>
       ) : (
         <p className="text-xs text-muted">

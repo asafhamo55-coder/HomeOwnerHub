@@ -389,9 +389,14 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
                     : 'Try another status or category.'
                 }
                 action={
-                  <Button asChild variant="secondary" size="sm">
-                    <Link href="/communications">Clear filters</Link>
-                  </Button>
+                  // Only when a filter narrowed the list: an empty Drafts tab
+                  // offered "Clear filters" with none set (and the link left
+                  // the tab). Clearing on Drafts keeps you on Drafts.
+                  (showingDrafts ? category : category || status) ? (
+                    <Button asChild variant="secondary" size="sm">
+                      <Link href={showingDrafts ? '/communications?status=draft' : '/communications'}>Clear filters</Link>
+                    </Button>
+                  ) : undefined
                 }
               />
             }

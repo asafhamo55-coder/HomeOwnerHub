@@ -11,8 +11,12 @@ import { INBOX_APPROVE_CLOSE_EVENT, INBOX_EDIT_EVENT } from '@/lib/inbox/keys'
 export const THREAD_TOP_ANCHOR = 'thread-top'
 export const REPLY_ANCHOR = 'thread-reply'
 
-/** A thumb bar's targets are 44px tall (WCAG 2.5.5), not the 32px of `sm`. */
-const TOUCH = 'h-11'
+/**
+ * A thumb bar's targets are 44px tall (WCAG 2.5.5), not the 32px of `sm`.
+ * Icon above label, tab-bar style: side by side, "Approve" ran past its
+ * quarter of a 375px screen and was clipped.
+ */
+const TOUCH = 'h-11 min-w-0 flex-col gap-0.5 px-1 text-xs'
 
 /**
  * BL-101 A7 — the thread's actions within thumb reach on a phone: a bar

@@ -22,6 +22,16 @@ function frameDoc(html: string): string {
 }
 
 /**
+ * The line under "What residents get". It used to read "Shown as Resident
+ * (no contact on file) gets it", which isn't a sentence.
+ */
+export function previewCaption(result: PreviewForSampleResult | null): string {
+  if (!result?.ok) return 'A preview of one home’s message.'
+  if (result.synthetic) return 'Shown for a sample resident.'
+  return `Shown for ${result.sampleName}. Each person sees their own name.`
+}
+
+/**
  * BL-102 A7: exactly what one resident gets, in a phone frame, rendered on
  * the server by the send's own functions (lib/communications/preview.ts).
  * A merge field with no value shows as "[Due date]" and is listed above the
@@ -116,11 +126,7 @@ export function PhonePreview({
         <div>
           <h3 className="text-sm font-semibold text-foreground">What residents get</h3>
           <p className="text-xs text-muted">
-            {result?.ok
-              ? result.synthetic
-                ? 'Shown for a sample resident.'
-                : `Shown as ${result.sampleName} gets it. Each person sees their own name.`
-              : 'A preview of one home’s message.'}
+            {previewCaption(result)}
           </p>
         </div>
         <Button

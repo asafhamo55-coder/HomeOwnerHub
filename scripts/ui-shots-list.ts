@@ -153,6 +153,17 @@ export const SHOTS: Shot[] = [
   // (print media at US Letter width) in both themes — dark must print light.
   { name: 'meeting-packet', path: '/meetings/:meetingId/packet', auth: true },
   { name: 'meeting-packet-print', path: '/meetings/:meetingId/packet', auth: true, print: true, widths: [816] },
+  // 2026-10-20 screens nobody had a shot of: the motion log, the quorum
+  // kit, board tasks, the roster, year-end and opening balances, and the
+  // activity log and board handover settings.
+  { name: 'meetings-motions', path: '/meetings/motions', auth: true },
+  { name: 'meeting-quorum', path: '/meetings/:meetingId/quorum', auth: true },
+  { name: 'tasks', path: '/tasks', auth: true },
+  { name: 'properties-roster', path: '/properties/roster', auth: true },
+  { name: 'accounting-year-end', path: '/accounting/reports/year-end', auth: true },
+  { name: 'accounting-opening-balances', path: '/accounting/opening-balances', auth: true },
+  { name: 'settings-activity', path: '/settings/activity', auth: true },
+  { name: 'settings-handover', path: '/settings/handover', auth: true },
   { name: 'tickets', path: '/tickets', auth: true },
   { name: 'communications', path: '/communications', auth: true },
   // BL-102 A11: the Messages area — the one "New message" button opened on

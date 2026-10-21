@@ -32,6 +32,16 @@ describe('MobileActionBar', () => {
       expect(tag).not.toMatch(/\bh-8\b/)
     }
   })
+
+  it('stacks icon over label so "Approve" fits a quarter of a 375px screen (was clipped)', () => {
+    for (const tag of buttons(markup)) {
+      expect(tag).toMatch(/\bflex-col\b/)
+      expect(tag).toMatch(/\btext-xs\b/)
+      expect(tag).toMatch(/\bpx-1\b/)
+      expect(tag).not.toMatch(/\bpx-3\b/)
+      expect(tag).not.toMatch(/\btext-sm\b/)
+    }
+  })
 })
 
 describe('SaveToDocumentsButton', () => {

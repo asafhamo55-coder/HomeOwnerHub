@@ -9,10 +9,30 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 vi.mock('@/lib/communications/preview-actions', () => ({ previewForSample: vi.fn(), sendTestToMe: vi.fn() }))
 
-const { PhonePreview } = await import('./PhonePreview')
+const { PhonePreview, previewCaption } = await import('./PhonePreview')
 const { DraftStatus } = await import('./DraftStatus')
 
 const html = (el: React.ReactElement) => renderToStaticMarkup(el).replace(/<!-- -->/g, '')
+
+describe('previewCaption', () => {
+  // communications-phone-preview--*.png read "Shown as Resident (no contact
+  // on file) gets it. Each person sees their own name."
+  const ok = (sampleName: string, synthetic = false) =>
+    ({ ok: true, sampleName, synthetic }) as unknown as Parameters<typeof previewCaption>[0]
+
+  it('is a sentence for a real sample, whatever the name', () => {
+    expect(previewCaption(ok('Resident (no contact on file)'))).toBe(
+      'Shown for Resident (no contact on file). Each person sees their own name.',
+    )
+    expect(previewCaption(ok('Pat Example'))).not.toContain('gets it')
+  })
+
+  it('covers the synthetic, failed and not-yet-loaded cases', () => {
+    expect(previewCaption(ok('x', true))).toBe('Shown for a sample resident.')
+    expect(previewCaption({ ok: false, error: 'nope' })).toBe('A preview of one home’s message.')
+    expect(previewCaption(null)).toBe('A preview of one home’s message.')
+  })
+})
 
 describe('PhonePreview channel tabs', () => {
   const markup = html(

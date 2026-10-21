@@ -176,6 +176,14 @@ describe('BLANKs', () => {
     expect(blank).toEqual(['payment', 'reserves', 'deferral', 'specials', 'mechanisms', 'loans'])
   })
 
+  it('the reserves hint no longer claims the app has no reserve module (funds exist since BL-120)', () => {
+    for (const state of ['FL', 'CA', 'TX']) {
+      const hint = buildNotice(input({ state }), '2026-11-20').fields.find((f) => f.key === 'reserves')!.hint ?? ''
+      expect(hint).not.toContain('no reserve module')
+      expect(hint).toContain('doesn’t fill reserves in from your books')
+    }
+  })
+
   it('other states: only reserves (and what is unknown)', () => {
     const n = buildNotice(input({ state: 'TX', approvedDay: null, billableUnits: null }), '2026-11-20')
     expect(n.fields.filter((f) => f.value === null).map((f) => f.key)).toEqual(['adoptedOn', 'perHome', 'payment', 'reserves'])

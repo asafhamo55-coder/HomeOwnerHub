@@ -51,6 +51,7 @@ import { ComplianceDeadlinesCard } from '@/components/dashboard/ComplianceDeadli
 import { complianceAckSecret, pendingComplianceItems } from '@/lib/compliance/deadlines'
 import { loadComplianceDoneAndMigrate } from '@/lib/compliance/done'
 import { getCurrentUserRole } from '@/lib/auth'
+import { plural } from '@/lib/money/format'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -545,7 +546,7 @@ async function LeasedKpi({ orgId }: { orgId: string }) {
           ? 'no association set up'
           : leaseSummary.totalUnits === 0
             ? 'no units on file'
-            : `${leaseSummary.leasedCount} of ${leaseSummary.totalUnits} units`
+            : `${leaseSummary.leasedCount} of ${plural(leaseSummary.totalUnits, 'unit')}`
       }
       href="/leases"
       linkAs={Link}

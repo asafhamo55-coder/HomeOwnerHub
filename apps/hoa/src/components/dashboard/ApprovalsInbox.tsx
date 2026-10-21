@@ -10,6 +10,7 @@ import {
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import type { ApprovalItem, ApprovalKind } from '@/lib/dashboard/queries'
 import { FailedNote } from './BreakdownList'
+import { waitingLabel } from '@/lib/dashboard/row-labels'
 
 // Kind glyph + word: the row's kind is named in text ("Invoice"), the
 // icon is only a scanning aid.
@@ -18,20 +19,6 @@ const KIND: Record<ApprovalKind, { icon: React.ReactNode; label: string }> = {
   meeting: { icon: <CalendarDays className="size-4" aria-hidden />, label: 'Minutes' },
   invoice: { icon: <Receipt className="size-4" aria-hidden />, label: 'Invoice' },
   rfp: { icon: <FileSpreadsheet className="size-4" aria-hidden />, label: 'RFP draft' },
-}
-
-const MS_DAY = 86_400_000
-
-function age(iso: string | null): string {
-  if (!iso) return ''
-  const ms = Date.now() - new Date(iso).getTime()
-  if (ms < 0) return 'just now'
-  const days = Math.floor(ms / MS_DAY)
-  if (days === 0) return 'today'
-  if (days === 1) return '1 day'
-  if (days < 30) return `${days} days`
-  const months = Math.floor(days / 30)
-  return months === 1 ? '1 month' : `${months} months`
 }
 
 /** Strip the "Kind · " prefix the query puts on titles; the kind is shown separately. */
@@ -105,12 +92,12 @@ export function ApprovalsInbox({
                       <span className="block text-xs text-muted">
                         {kind.label}
                         {item.pendingSince ? (
-                          <span className="sm:hidden"> · waiting {age(item.pendingSince)}</span>
+                          <span className="sm:hidden"> · {waitingLabel(item.pendingSince)}</span>
                         ) : null}
                       </span>
                     </span>
                     <span className="num hidden shrink-0 text-xs text-muted sm:inline">
-                      {item.pendingSince ? `waiting ${age(item.pendingSince)}` : null}
+                      {item.pendingSince ? waitingLabel(item.pendingSince) : null}
                     </span>
                     <ChevronRight
                       className="size-4 shrink-0 text-muted transition-transform duration-fast group-hover:translate-x-0.5"
