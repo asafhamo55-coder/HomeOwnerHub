@@ -9,6 +9,16 @@ import { BUDGET_STATUS, statusOf } from '@/lib/money/status'
 import { AccountingLoadFailed, accountingCrumbs } from '../../_components/shared'
 import { BudgetEditor } from './BudgetEditor'
 import { BudgetActions } from './BudgetActions'
+import { AdoptionKit } from './AdoptionKit'
+import { getCurrentUserRole } from '@/lib/auth'
+import { todayIn } from '@/lib/association-time'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import {
+  listUpcomingMeetings,
+  loadAdoptionKit,
+  readAdoptionAssociation,
+  type LooseDb,
+} from '@/lib/budget-adoption/load'
 
 export const metadata = { title: 'Budget' }
 
@@ -41,6 +51,10 @@ export default async function BudgetDetailPage({ params }: PageProps) {
   const status = statusOf(BUDGET_STATUS, budget.status)
   const name = `${budget.fund?.name ?? 'Budget'}${budget.fiscalPeriod ? ` · ${periodLabel(budget.fiscalPeriod)}` : ''}`
 
+  // BL-138: the adoption kit, for the board on a draft or approved budget.
+  const showKit = budget.status === 'draft' || budget.status === 'approved'
+  const kit = showKit ? await loadKitFor(ctx, { id: budget.id, status: budget.status, periodStart: budget.fiscalPeriod?.start_date ?? null }) : null
+
   return (
     <Page
       width="default"
@@ -69,6 +83,11 @@ export default async function BudgetDetailPage({ params }: PageProps) {
         </>
       }
     >
+      {kit ? (
+        <div className="mb-6">
+          <AdoptionKit budgetId={budget.id} loaded={kit.loaded} upcoming={kit.upcoming} today={kit.today} />
+        </div>
+      ) : null}
       <BudgetEditor
         budgetId={budget.id}
         editable={isEditable}
@@ -84,4 +103,31 @@ export default async function BudgetDetailPage({ params }: PageProps) {
       />
     </Page>
   )
+}
+
+/**
+ * BL-138: the adoption kit's reads. Null when the viewer isn't board or
+ * admin (the kit is board-only); `loaded: null` when a read failed.
+ */
+async function loadKitFor(
+  ctx: { organizationId: string; associationId: string; timeZone: string },
+  budget: { id: string; status: string; periodStart: string | null },
+) {
+  const role = await getCurrentUserRole()
+  if (!role || (role.role !== 'board' && role.role !== 'admin')) return null
+  const db = (await getSupabaseServerClient()) as unknown as LooseDb
+  const today = todayIn(ctx.timeZone)
+  const [assoc, upcoming] = await Promise.all([
+    readAdoptionAssociation(db, ctx.associationId),
+    listUpcomingMeetings(db, ctx.organizationId, today),
+  ])
+  if (!assoc.ok || !assoc.row) return { loaded: null, upcoming, today }
+  const loaded = await loadAdoptionKit(db, {
+    orgId: ctx.organizationId,
+    association: assoc.row,
+    timeZone: ctx.timeZone,
+    today,
+    budget,
+  })
+  return { loaded, upcoming, today }
 }
