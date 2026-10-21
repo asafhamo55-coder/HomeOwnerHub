@@ -60,6 +60,7 @@ import {
   type PropertyOption,
 } from './AudienceStep'
 import { BUDGET_NOTICE_FROM, readBudgetNoticeDraft, sessionStore } from '@/lib/budget-notice/draft-handoff'
+import { HEARING_NOTICE_FROM, readHearingNoticeDraft } from '@/lib/violation-hearings/notice-handoff'
 import { ComposeBox } from './ComposeBox'
 import { QuestionStep } from './QuestionStep'
 import { SectionToggles } from './SectionToggles'
@@ -193,7 +194,7 @@ export function NewCommunicationWizard({
    * sessionStorage). Only pre-fills: the board still picks the audience,
    * reviews and sends as usual.
    */
-  prefillFrom?: typeof BUDGET_NOTICE_FROM | null
+  prefillFrom?: typeof BUDGET_NOTICE_FROM | typeof HEARING_NOTICE_FROM | null
   /**
    * BL-102: false when the Vonage keys are missing (lib/sms.ts
    * smsConfigured). The Text channel is then disabled with "Texting isn't
@@ -269,6 +270,20 @@ export function NewCommunicationWizard({
   // when the hand-off didn't arrive (storage blocked, or a new tab).
   const [prefill, setPrefill] = useState<'loaded' | 'missing' | null>(null)
   useEffect(() => {
+    // BL-133: a violation hearing notice to the one home the page was
+    // opened for (`?property=`, preselected above). Only pre-fills.
+    if (prefillFrom === HEARING_NOTICE_FROM) {
+      const hearing = readHearingNoticeDraft(sessionStore())
+      if (!hearing) {
+        setPrefill('missing')
+        return
+      }
+      setBaseCategory('violation')
+      setSubject(hearing.subject)
+      setBodyHtml(hearing.bodyHtml)
+      setPrefill('loaded')
+      return
+    }
     if (prefillFrom !== BUDGET_NOTICE_FROM) return
     const draft = readBudgetNoticeDraft(sessionStore())
     if (!draft) {
@@ -1125,7 +1140,15 @@ export function NewCommunicationWizard({
             Pick up where you left off. Changes save automatically, and nothing goes out until you press Send.
           </Alert>
         ) : null}
-        {prefill === 'loaded' ? (
+        {prefill === 'loaded' && prefillFrom === HEARING_NOTICE_FROM ? (
+          <Alert variant="info" title="Pre-filled hearing notice">
+            The subject and message are the hearing notice drafted from the violation, addressed to that home. Fill in anything in brackets, check who gets it, then send it as usual. Nothing has been sent.
+          </Alert>
+        ) : prefill === 'missing' && prefillFrom === HEARING_NOTICE_FROM ? (
+          <Alert variant="warning" title="The hearing notice didn’t come through">
+            Go back to the violation and choose Draft hearing notice again in this tab.
+          </Alert>
+        ) : prefill === 'loaded' ? (
           <Alert variant="info" title="Pre-filled from the owner budget notice">
             The subject and message are the notice you prepared, addressed to owners. Check the audience, read the message, then send it as usual. Nothing has been sent.
           </Alert>

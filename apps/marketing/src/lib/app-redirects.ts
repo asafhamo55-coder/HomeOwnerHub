@@ -31,6 +31,7 @@ export const APP_PATH_SEGMENTS = [
   'help',
   'inbox',
   'inspect',
+  'insurance',
   'leases',
   'legal',
   'meetings',

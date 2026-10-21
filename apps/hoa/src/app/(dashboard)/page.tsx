@@ -51,6 +51,10 @@ import { ComplianceDeadlinesCard } from '@/components/dashboard/ComplianceDeadli
 import { complianceAckSecret, pendingComplianceItems } from '@/lib/compliance/deadlines'
 import { loadComplianceDoneAndMigrate } from '@/lib/compliance/done'
 import { getCurrentUserRole } from '@/lib/auth'
+import { M4_APPLIED } from '@homeowner-portal/db/m4'
+import { InsuranceRenewalsCard } from '@/components/dashboard/InsuranceRenewalsCard'
+import { policyReminders } from '@/lib/insurance/model'
+import { loadInsurancePolicies, type LooseDb as InsuranceDb } from '@/lib/insurance/queries'
 import { plural } from '@/lib/money/format'
 
 export const metadata = { title: 'Dashboard' }
@@ -170,6 +174,10 @@ function DashboardSections({ orgId }: { orgId: string }) {
           TX management certificate). Nothing renders when none apply. */}
       <Suspense fallback={null}>
         <ComplianceDeadlinesSection orgId={orgId} />
+      </Suspense>
+      {/* BL-132: insurance policies expiring within 90 days (M4_APPLIED). */}
+      <Suspense fallback={null}>
+        <InsuranceRenewalsSection orgId={orgId} />
       </Suspense>
 
       {/* ── Needs attention ─────────────────────────────────────────────
@@ -482,6 +490,19 @@ async function ComplianceDeadlinesSection({ orgId }: { orgId: string }) {
   const done = await loadComplianceDoneAndMigrate(supabase, orgId, associations, secret)
   const items = pendingComplianceItems(associations, todayIn(timeZone), secret, done)
   return <ComplianceDeadlinesCard items={items} multipleAssociations={rows.length > 1} />
+}
+
+// BL-132: policies expiring within 90 days (or expired) with no renewal
+// recorded. Board/admin only. M4_APPLIED off: no query, nothing rendered.
+async function InsuranceRenewalsSection({ orgId }: { orgId: string }) {
+  if (!M4_APPLIED) return null
+  const ctx = await getCurrentUserRole()
+  if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return null
+  const [supabase, timeZone] = await Promise.all([getSupabaseServerClient(), currentTimeZone()])
+  const policies = await timed('/', 'dashboard.insuranceRenewals', () =>
+    loadInsurancePolicies(supabase as unknown as InsuranceDb, orgId),
+  )
+  return <InsuranceRenewalsCard reminders={policies === null ? null : policyReminders(policies, todayIn(timeZone))} />
 }
 
 async function OpenWorkKpis({ orgId }: { orgId: string }) {

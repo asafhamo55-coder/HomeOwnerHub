@@ -9,6 +9,9 @@ import { Panel, ScreenHeader, Section } from '@/components/resident/screen'
 import { ResidentStatus } from '@/components/resident/status'
 import { Conversation, ThreadClosed } from '@/components/resident/Conversation'
 import { RespondToBoardForm } from './RespondToBoardForm'
+import { RequestHearingForm } from './RequestHearingForm'
+import type { ResidentHearingLoad } from '@/lib/violation-hearings/queries'
+import { HEARING_OUTCOME_LABEL, type ResidentHearingView } from '@/lib/violation-hearings/rules'
 
 // BL-129: a violation on the resident's own home — the notice, the cure-by
 // date, the board's photos, the history, and the resident's response.
@@ -25,12 +28,15 @@ export function HomeViolationView({
   threadFailed,
   canRespond,
   attachments,
+  hearing = { kind: 'off' },
 }: {
   violation: ResidentViolationView
   thread: MyViolationThread | null
   threadFailed: boolean
   canRespond: boolean
   attachments: SubmissionAttachment[]
+  /** BL-133 (M4_APPLIED). `off` renders nothing. */
+  hearing?: ResidentHearingLoad
 }) {
   const overdue = v.cureBy ? new Date(v.cureBy) < new Date() && !v.closed : false
 
@@ -144,6 +150,27 @@ export function HomeViolationView({
         </Panel>
       </Section>
 
+      {hearing.kind !== 'off' ? (
+        <Section label="Hearing">
+          <Panel className="space-y-4">
+            {hearing.kind === 'failed' ? (
+              <LoadFailed what="your hearing" />
+            ) : (
+              <HearingStatusBlock hearing={hearing.hearing} />
+            )}
+            {hearing.kind === 'ok' &&
+            canRespond &&
+            !hearing.hearing?.requestedAt &&
+            hearing.hearing?.status !== 'held' &&
+            hearing.hearing?.status !== 'cancelled' ? (
+              <div className="border-t border-border pt-4">
+                <RequestHearingForm violationId={v.id} />
+              </div>
+            ) : null}
+          </Panel>
+        </Section>
+      ) : null}
+
       <Section label="Respond to the board">
         <Panel className="space-y-4">
           {threadFailed ? (
@@ -172,5 +199,40 @@ export function HomeViolationView({
         </Section>
       ) : null}
     </div>
+  )
+}
+
+function dayText(day: string): string {
+  return format(new Date(`${day}T12:00:00Z`), 'PP')
+}
+
+// BL-133: what the resident can see of the hearing. The day and place only
+// once the board has sent the notice (residentHearingView).
+function HearingStatusBlock({ hearing }: { hearing: ResidentHearingView | null }) {
+  if (!hearing) {
+    return (
+      <p className="text-sm text-foreground-secondary">
+        If you disagree with this notice or a proposed fine, you can ask for a hearing. The board schedules it and sends you
+        a written notice with the date and place.
+      </p>
+    )
+  }
+  return (
+    <KeyValueList>
+      {hearing.requestedAt ? <KeyValue label="You asked for a hearing" value={format(new Date(hearing.requestedAt), 'PP')} /> : null}
+      <KeyValue
+        label="Hearing"
+        value={
+          hearing.status === 'cancelled'
+            ? 'Cancelled by the board'
+            : hearing.hearingOn
+              ? `${dayText(hearing.hearingOn)}${hearing.hearingTime ? ` at ${hearing.hearingTime}` : ''}`
+              : 'The board will send you a notice with the date'
+        }
+      />
+      {hearing.location && hearing.status !== 'cancelled' ? <KeyValue label="Where" value={hearing.location} /> : null}
+      {hearing.outcome ? <KeyValue label="Decision" value={HEARING_OUTCOME_LABEL[hearing.outcome]} /> : null}
+      {hearing.paymentDueOn ? <KeyValue label="Fine due by" value={dayText(hearing.paymentDueOn)} /> : null}
+    </KeyValueList>
   )
 }

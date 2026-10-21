@@ -27,6 +27,21 @@ import {
   type DriftCode,
   type OverrideReason,
 } from '@/lib/compliance/statute-drift'
+import { loadBoardHearing } from '@/lib/violation-hearings/queries'
+import { hearingFineFacts } from '@/lib/violation-hearings/rules'
+import type { FineHearingFacts } from '@/lib/compliance/statute-drift'
+
+/**
+ * BL-133 (M4_APPLIED): the violation's hearing for the fine check.
+ * undefined while hearings are off (the check reads as before 0068);
+ * throws on a failed read so the caller refuses instead of skipping it.
+ */
+async function hearingForFineCheck(db: unknown, orgId: string, violationId: string): Promise<FineHearingFacts | null | undefined> {
+  const res = await loadBoardHearing(db as never, orgId, violationId)
+  if (res.kind === 'off') return undefined
+  if (res.kind === 'failed') throw new Error('hearing read failed')
+  return hearingFineFacts(res.hearing)
+}
 
 const STORAGE_BUCKET = 'hoa-photos'
 
@@ -355,7 +370,11 @@ export async function updateViolation(
       if (curErr) throw curErr
       if (current?.status === 'fined') {
         const rules = await loadOrgStateRules(supabase, gate.orgId)
-        const law = checkFine({ state: rules.state, dailyFineCents: fineCents(parsed.data.fine_amount) })
+        const law = checkFine({
+          state: rules.state,
+          dailyFineCents: fineCents(parsed.data.fine_amount),
+          hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId),
+        })
         const block = law.findings.find((f) => f.severity === 'block')
         if (block) {
           const msg = `${block.message} (${block.citations[0]?.cite ?? 'state law'}). This violation is already fined: move it back to Notice sent, change the fine, then move it to Fined to record the board’s reason.`
@@ -446,7 +465,11 @@ export async function updateViolationStatus(
       } else {
         const rules = await loadOrgStateRules(supabase, gate.orgId)
         block = cureCommitmentPenaltyBlock(rules, await loadCureCommitment(supabase, gate.orgId, parsed.data.violationId))
-        law = checkFine({ state: rules.state, dailyFineCents: fineCents(current.fine_amount) })
+        law = checkFine({
+          state: rules.state,
+          dailyFineCents: fineCents(current.fine_amount),
+          hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId),
+        })
       }
     } catch {
       return { ok: false, error: 'We could not check state law for this violation. Try again.' }
