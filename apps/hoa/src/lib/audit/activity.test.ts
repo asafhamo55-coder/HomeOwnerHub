@@ -76,6 +76,11 @@ describe('activity labels', () => {
     expect(actionDetail('statutory_roster_export', { kind: '<script>' })).toBeNull()
     expect(actionDetail(ACTIVITY_EXPORT_ACTION, { rows: 12 })).toBe('12 rows')
     expect(actionDetail('properties_import', null)).toBeNull()
+    // BL-144: counts only.
+    expect(actionLabel('bank_import.committed')).toBe('Imported a bank statement')
+    expect(actionDetail('bank_import.committed', { inserted: 12, duplicates: 3, format: 'csv' })).toBe('12 transactions added · 3 already in')
+    expect(actionDetail('bank_import.committed', { inserted: 1, duplicates: 0 })).toBe('1 transaction added')
+    expect(actionDetail('bank_import.committed', { inserted: 'x' })).toBeNull()
   })
 })
 

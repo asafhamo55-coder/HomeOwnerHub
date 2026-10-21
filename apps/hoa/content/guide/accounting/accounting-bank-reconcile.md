@@ -7,8 +7,8 @@ roles: [admin, board]
 routes: ["/accounting/bank", "/accounting/bank/queue", "/accounting/bank/[accountId]/reconcile"]
 primary_route: /accounting/bank
 keywords: [bank, bank account, connect bank, link bank, plaid, checking, savings, operating account, reserve account, bank feed, bank sync, transactions, bank transactions, unmatched, matching queue, match deposit, deposit, categorize, expense, ignore transaction, ai match, suggested match, reconcile, reconciliation, bank reconciliation, bank statement, statement balance, ending balance, month end, doesn't match, off by, difference, balance the checkbook, hook up bank, transactions come in automatically, withdrawal, shows unmatched, record expense]
-related: [accounting-reports-overview, accounting-enter-pay-bills, approvals-queue, accounting-monthly-board-report]
-reviewed: 2026-10-18
+related: [accounting-bank-import, accounting-reports-overview, accounting-enter-pay-bills, approvals-queue, accounting-monthly-board-report]
+reviewed: 2026-10-21
 ---
 
 Use this to bring the association's bank activity into the books and, once a month, prove that the bank statement and the books agree.
@@ -47,4 +47,4 @@ Use this to bring the association's bank activity into the books and, once a mon
 - A suggested match never posts, and no charge is marked paid, until a board member approves it. You can also approve these from **Approvals**.
 - **Ignore (mark reviewed)**, in the **More actions** menu, records that you looked at a transaction without posting anything. It still stays in the unmatched list.
 - Reconciling compares the statement with the books' cash balance for that account's fund, through the statement date. If you reconcile again for the same date, the new numbers replace the old ones.
-- You can't type in or import bank transactions by hand. They only come from the linked bank.
+- Rather not link a bank? Add a manual account and import its statements as CSV, OFX or QFX files. You can't type in single bank transactions by hand.
