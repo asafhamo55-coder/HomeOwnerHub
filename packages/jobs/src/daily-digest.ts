@@ -42,6 +42,19 @@ import {
   type PendingComplianceItem,
 } from '../../../apps/hoa/src/lib/compliance/deadlines'
 import { M3_APPLIED } from '@homeowner-portal/db/m3'
+// BL-139: FL director certification (§ 720.3033(1)). Same dependency-free,
+// relative-path rule.
+import {
+  directorCertAlerts,
+  directorCertAssociation,
+  directorCertConsequence,
+  directorCertDigestLine,
+  directorCertRows,
+  readDirectorCerts,
+  DIRECTOR_CERT_OFFICIAL_LABEL,
+  DIRECTOR_CERT_OFFICIAL_URL,
+  type DirectorCertRow,
+} from '../../../apps/hoa/src/lib/compliance/director-certs'
 // BL-132: insurance policy expiry reminders. Same dependency-free,
 // relative-path rule; inert until M4_APPLIED (migration 0068).
 import {
@@ -194,6 +207,8 @@ export interface DailyDigestResult {
   insuranceRenewals: number
   /** Fine hearing timer items (BL-140), summed across orgs. 0 while M4 is off. */
   hearingDeadlines: number
+  /** FL directors whose certificate is due within 30 days, overdue or expired, summed across orgs (BL-139). */
+  directorCertAlerts: number
   emailed: number
   failed: number
 }
@@ -715,6 +730,114 @@ export function buildHearingBlock(args: { counts: HearingDigestCounts; violation
   return { lines, text, html }
 }
 
+// ─── FL director certification (BL-139) ────────────────────────────
+
+/**
+ * The org's directors to flag today: Florida associations only (first by
+ * name, as the app picks it), a verified signed record, the member still
+ * board/admin, and due within 30 days, overdue or expired. [] with no
+ * further query when nothing applies. null on a failed read (logged by
+ * code) so a failure never reads as "nobody is due". Names are the board
+ * members' own and go only into the board's email, never into a log.
+ */
+export async function loadDirectorCertAlerts(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+  secret: string | null = complianceAckSecret(),
+): Promise<DirectorCertRow[] | null> {
+  const { data, error } = await db
+    .from('associations')
+    .select('id, name, state, governing_law_state, compliance_settings')
+    .eq('organization_id', orgId)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load director certifications`, { code: error.code })
+    return null
+  }
+  const picked = directorCertAssociation(
+    ((data ?? []) as Array<{
+      id?: string
+      name?: string | null
+      state?: string | null
+      governing_law_state?: string | null
+      compliance_settings?: unknown
+    }>)
+      .filter((r): r is typeof r & { id: string } => typeof r.id === 'string')
+      .map((r) => ({
+        id: r.id,
+        name: r.name?.trim() || 'Your association',
+        state: r.state ?? null,
+        governingLawState: r.governing_law_state ?? null,
+        complianceSettings: r.compliance_settings,
+      })),
+  )
+  if (!picked) return []
+  const certs = readDirectorCerts(picked.id, picked.complianceSettings, secret)
+  if (certs.size === 0) return []
+  const flagged = directorCertAlerts(
+    directorCertRows([...certs.keys()].map((userId) => ({ userId, name: null })), certs, today),
+  )
+  if (flagged.length === 0) return []
+
+  // Only people still on the board: a director who left is not flagged.
+  const ids = flagged.map((r) => r.userId)
+  const { data: members, error: membersError } = await db
+    .from('org_members')
+    .select('user_id, role')
+    .eq('org_id', orgId)
+    .in('user_id', ids)
+  if (membersError) {
+    logger.error(`[daily-digest] ${orgId}: failed to load director certification members`, { code: membersError.code })
+    return null
+  }
+  const board = new Set(
+    ((members ?? []) as Array<{ user_id?: string; role?: string }>)
+      .filter((m) => m.role === 'admin' || m.role === 'board')
+      .map((m) => m.user_id as string),
+  )
+  const current = flagged.filter((r) => board.has(r.userId))
+  if (current.length === 0) return []
+  const { data: profiles, error: profilesError } = await db
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', current.map((r) => r.userId))
+  // Names are a nicety: without them the line says "A board member".
+  if (profilesError) logger.warn(`[daily-digest] ${orgId}: director names unavailable`, { code: profilesError.code })
+  const names = new Map(
+    ((profiles ?? []) as Array<{ id?: string; full_name?: string | null }>).map((p) => [p.id, p.full_name?.trim() || null]),
+  )
+  return current.map((r) => ({ ...r, name: names.get(r.userId) ?? null }))
+}
+
+/** The director-certification block: one line per director, what's at stake, and the Members link. */
+export function buildDirectorCertBlock(args: { rows: DirectorCertRow[]; membersUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines = args.rows.map(directorCertDigestLine)
+  const tones = [...new Set(args.rows.map((r) => r.status.tone))]
+  const consequences = tones.map(directorCertConsequence)
+  const text = [
+    'Florida director certification:',
+    ...lines,
+    ...consequences,
+    `Official text: ${DIRECTOR_CERT_OFFICIAL_URL}`,
+    `Record certificates: ${args.membersUrl}`,
+  ].join('\n')
+  const border = args.rows.some((r) => r.status.tone === 'overdue' || r.status.tone === 'expired') ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    <p style="margin:0 0 8px;font-weight:600">Florida director certification</p>
+    <ul style="margin:0 0 8px;padding-left:20px">${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>
+    ${consequences.map((c) => `<p style="margin:0 0 8px">${escapeHtml(c)}</p>`).join('')}
+    <p style="margin:0 0 12px"><a href="${escapeHtml(DIRECTOR_CERT_OFFICIAL_URL)}">${escapeHtml(DIRECTOR_CERT_OFFICIAL_LABEL)}</a></p>
+    <a href="${escapeHtml(args.membersUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Record certificates</a>
+  </div>`
+  return { lines, text, html }
+}
+
 /**
  * One recipient's morning email: the mailbox alert when a mailbox is
  * broken, the waiting block when residents are waiting, or both.
@@ -736,6 +859,8 @@ export function buildDigestEmail(args: {
   insurance?: { reminders: PolicyReminder[]; insuranceUrl: string } | null
   /** BL-140: fine hearing timers. Omitted or all-zero adds nothing. */
   hearings?: { counts: HearingDigestCounts; violationsUrl: string } | null
+  /** BL-139: FL director certification. Omitted or empty adds nothing. */
+  directorCerts?: { rows: DirectorCertRow[]; membersUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -757,6 +882,9 @@ export function buildDigestEmail(args: {
   const hearingBlock =
     args.hearings && hearingDigestTotal(args.hearings.counts) > 0 ? buildHearingBlock(args.hearings) : null
   if (hearingBlock) extras.push(hearingBlock)
+  const directorCertBlock =
+    args.directorCerts && args.directorCerts.rows.length > 0 ? buildDirectorCertBlock(args.directorCerts) : null
+  if (directorCertBlock) extras.push(directorCertBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -776,8 +904,13 @@ export function buildDigestEmail(args: {
   <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(args.orgName)}.</p>${extras.map((b) => b.html).join('')}
 </div>`
   const firstDeadline = args.compliance?.items[0]
+  // BL-139: lowest precedence — its own subject only when it is the only block.
+  const directorOnly =
+    directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : directorOnly
+      ? `Florida director certification: ${args.directorCerts!.rows.length === 1 ? '1 director' : `${args.directorCerts!.rows.length} directors`} to act on — ${args.orgName}`
     : !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && hearingBlock
       ? `${hearingBlock.lines[0]} — ${args.orgName}`
     : !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && insuranceBlock
@@ -903,6 +1036,7 @@ export async function runDailyDigest(
   let complianceTotal = 0
   let insuranceTotal = 0
   let hearingTotal = 0
+  let directorCertTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -1023,7 +1157,20 @@ export async function runDailyDigest(
     const hearingCount = hearings ? hearingDigestTotal(hearings) : 0
     hearingTotal += hearingCount
 
+    // BL-139: FL director certification, against the job's own day.
+    let directorCerts: DirectorCertRow[] | null = null
+    try {
+      directorCerts = await loadDirectorCertAlerts(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: director certification check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const directorCertCount = directorCerts?.length ?? 0
+    directorCertTotal += directorCertCount
+
     const orgWide =
+      directorCertCount > 0 ||
       broken.length > 0 ||
       waitingCount > 0 ||
       arcOverdue > 0 ||
@@ -1069,6 +1216,11 @@ export async function runDailyDigest(
       logger.info(
         `[daily-digest] ${orgId}: fine hearings — ${hearings!.requestsWaiting} request(s) waiting, ${hearings!.noticeLate} notice(s) late, ${hearings!.noticeDueSoon} notice(s) due soon, ${hearings!.findingsLate} decision(s) late, ${hearings!.findingsDueSoon} decision(s) due soon`,
       )
+    }
+
+    if (directorCertCount > 0) {
+      // A count only, never names or user ids.
+      logger.info(`[daily-digest] ${orgId}: ${directorCertCount} director certification(s) due or overdue`)
     }
 
     for (const mailbox of broken) {
@@ -1117,6 +1269,10 @@ export async function runDailyDigest(
           compliance: complianceCount > 0 ? { items: compliance!, dashboardUrl: deps.appUrl('/#compliance-deadlines') } : null,
           insurance: insuranceCount > 0 ? { reminders: insurance!, insuranceUrl: deps.appUrl('/insurance') } : null,
           hearings: hearingCount > 0 ? { counts: hearings!, violationsUrl: deps.appUrl('/violations') } : null,
+          directorCerts:
+            directorCertCount > 0
+              ? { rows: directorCerts!, membersUrl: deps.appUrl('/settings/members#director-certification') }
+              : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -1152,6 +1308,7 @@ export async function runDailyDigest(
     complianceDeadlines: complianceTotal,
     insuranceRenewals: insuranceTotal,
     hearingDeadlines: hearingTotal,
+    directorCertAlerts: directorCertTotal,
     emailed,
     failed,
   }

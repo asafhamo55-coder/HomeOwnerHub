@@ -22,6 +22,12 @@ import { InviteAllOwners, PendingInvitations } from './OwnerInvites'
 import { listPendingInvitations, previewOwnerInvites } from '@/lib/owner-invites-actions'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { loadEmailConsent } from '@/lib/email-consent'
+import { createAdminClient } from '@homeowner-portal/db'
+import { currentTimeZone } from '@/lib/association-time-current'
+import { todayIn } from '@/lib/association-time'
+import { loadDirectorCertBoard } from '@/lib/compliance/director-certs-load'
+import { directorCertView } from '@/lib/compliance/director-certs'
+import { DirectorCertPanel } from '@/components/compliance/DirectorCertPanel'
 
 export const metadata = { title: 'Members' }
 
@@ -49,6 +55,14 @@ export default async function MembersPage() {
     previewOwnerInvites(),
     listPendingInvitations(),
   ])
+  // BL-139: Florida director certification (§ 720.3033(1)). Not shown for
+  // any other state.
+  const directorCerts = await loadDirectorCertBoard({
+    db: supabase,
+    admin: createAdminClient(),
+    orgId: org.id,
+    todayYmd: todayIn(await currentTimeZone()),
+  })
   const consent = consentResult?.ok && consentResult.available ? consentResult.consent : null
 
   // null = the server could not read push_subscriptions at all (0053 not
@@ -159,6 +173,27 @@ export default async function MembersPage() {
           </CardContent>
         )}
       </Card>
+
+      {directorCerts.kind !== 'not_applicable' ? (
+        <Card id="director-certification">
+          <CardHeader className="pb-3">
+            <CardTitle as="h2">Florida director certification</CardTitle>
+            <CardDescription>
+              Within 90 days after being elected or appointed, each director must submit a certificate of completing
+              the state-approved director education. A director who misses it is suspended from the board until they
+              comply. The certificate is valid for up to 4 years, and the association keeps it for 5 years after the
+              director’s election (Fla. Stat. § 720.3033(1)). Informational, not legal advice.
+            </CardDescription>
+          </CardHeader>
+          {directorCerts.kind === 'ok' ? (
+            <DirectorCertPanel rows={directorCerts.rows.map(directorCertView)} />
+          ) : (
+            <CardContent>
+              <LoadFailed what="director certification" retryHref="/settings/members" />
+            </CardContent>
+          )}
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-4">

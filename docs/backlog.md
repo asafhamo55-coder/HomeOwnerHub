@@ -1375,6 +1375,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - Added to the handover kit and the state deadlines card.
    - **Storage:** `compliance_settings`. Verify the `hoa_documents` type list; ride along in M5 if a new type is needed.
    - **Files:** `apps/hoa/src/lib/compliance/director-certs.ts` (new), `apps/hoa/src/components/dashboard/ComplianceDeadlinesCard.tsx`, `apps/hoa/src/app/(dashboard)/settings/handover/`.
+   - **Status (2026-10-21): built, no migration.** Signed records under `associations.compliance_settings.director_certifications[user_id]` (HMAC, same secret chain as BL-131) on the org's first FL association by name; certificate link is an https or `/documents` URL (no `hoa_documents` type change). Members card with dates, link and "Mark certified" (audit_log ids only), handover pill, dashboard "Director certification" card and digest block at ≤ 30 days / overdue / 4-year expiry. Fixture check: current (1)(a) accepts only the educational certificate (no written-affidavit option); (1)(c) 5-year retention; CE hours (4 / 8) shown as text, not tracked. Guide `director-certification`.
 4. **BL-140 Fine hearing hard gate (BL-133 leftovers).** Migration: no. Effort M. Score 1.60.
    - **Today:** Fined with no hearing recorded is only a warning (`ca_hearing_not_recorded`, `fl_hearing_committee` in `apps/hoa/src/lib/compliance/statute-drift.ts`).
    - **Build:**

@@ -25,6 +25,8 @@ import {
   type Connection,
   type HandoverModel,
 } from '@/lib/handover/model'
+import type { DirectorCertView } from '@/lib/compliance/director-certs'
+import { DirectorCertPill } from '@/components/compliance/director-cert-ui'
 
 const STATUS: Record<Connection['status'], { tone: StatusTone; label: string }> = {
   connected: { tone: 'success', label: 'Connected' },
@@ -37,7 +39,17 @@ const STATUS: Record<Connection['status'], { tone: StatusTone; label: string }> 
  * lives in this component's state only: nothing is saved, and reloading
  * clears it. Removing someone for real happens on Members.
  */
-export function HandoverKit({ model, viewerRole }: { model: HandoverModel; viewerRole: 'admin' | 'board' }) {
+export function HandoverKit({
+  model,
+  viewerRole,
+  directorCerts = null,
+}: {
+  model: HandoverModel
+  viewerRole: 'admin' | 'board'
+  /** BL-139: Florida associations only; null shows nothing. */
+  directorCerts?: DirectorCertView[] | null
+}) {
+  const certByUser = new Map((directorCerts ?? []).map((c) => [c.userId, c]))
   const [leaving, setLeaving] = useState<ReadonlySet<string>>(() => new Set())
   const checklist = useMemo(() => buildChecklist(model, leaving), [model, leaving])
   const summary = useMemo(() => buildPrintableSummary(model, leaving), [model, leaving])
@@ -99,6 +111,16 @@ export function HandoverKit({ model, viewerRole }: { model: HandoverModel; viewe
               </Link>
               .
             </CardDescription>
+            {directorCerts ? (
+              <CardDescription>
+                Florida: a new director must submit the education certificate within 90 days after being elected or
+                appointed, or is suspended until they do (Fla. Stat. § 720.3033(1)).{' '}
+                <Link href="/settings/members#director-certification" className="font-medium text-primary hover:underline">
+                  Record election and certificate dates on Members
+                </Link>
+                .
+              </CardDescription>
+            ) : null}
           </CardHeader>
           {model.access ? (
             <>
@@ -111,6 +133,12 @@ export function HandoverKit({ model, viewerRole }: { model: HandoverModel; viewe
                       <div className="text-xs text-muted">
                         Last sign-in: {m.lastSignInAt ? formatShortDate(m.lastSignInAt) : 'Not recorded'}
                       </div>
+                      {certByUser.get(m.userId) ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                          <span>FL director certificate:</span>
+                          <DirectorCertPill tone={certByUser.get(m.userId)!.tone} label={certByUser.get(m.userId)!.label} />
+                        </div>
+                      ) : null}
                     </div>
                     <div className="flex items-center gap-3">
                       <Badge variant={m.role === 'admin' ? 'info' : 'neutral'}>{m.role === 'admin' ? 'Admin' : 'Board'}</Badge>
