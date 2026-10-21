@@ -112,6 +112,8 @@ export const SHOTS: Shot[] = [
   { name: 'books-not-open-income-statement', path: '/accounting/reports/income-statement', auth: true, org: 'noBooksAdminOrgId' },
   { name: 'books-not-open-board-periods', path: '/accounting/periods', auth: true, org: 'noBooksBoardOrgId' },
   { name: 'inbox', path: '/inbox', auth: true },
+  // BL-134: the Snoozed chip's view, with one seeded snoozed thread.
+  { name: 'inbox-snoozed', path: '/inbox?filter=snoozed', auth: true },
   // An inbox thread filed under 128 Demo Court: the property/vendor context
   // panel (its own column at xl, below the conversation on a phone), and
   // the "Create from email" menu open (BL-101 A4). scripts/ui-shots-seed/screens.ts.
@@ -157,7 +159,12 @@ export const SHOTS: Shot[] = [
   // kit, board tasks, the roster, year-end and opening balances, and the
   // activity log and board handover settings.
   { name: 'meetings-motions', path: '/meetings/motions', auth: true },
-  { name: 'meeting-quorum', path: '/meetings/:meetingId/quorum', auth: true },
+  // The quorum kit on the seeded annual meeting (held today): counter,
+  // check-in list and chase list, plus its printable proxy forms and
+  // sign-in sheet. scripts/ui-shots-seed/board-tools.ts.
+  { name: 'meeting-quorum', path: '/meetings/:annualMeetingId/quorum', auth: true },
+  { name: 'meeting-quorum-proxies', path: '/meetings/:annualMeetingId/quorum/proxies', auth: true, themes: LIGHT },
+  { name: 'meeting-quorum-sign-in', path: '/meetings/:annualMeetingId/quorum/sign-in', auth: true, themes: LIGHT },
   { name: 'tasks', path: '/tasks', auth: true },
   { name: 'properties-roster', path: '/properties/roster', auth: true },
   { name: 'accounting-year-end', path: '/accounting/reports/year-end', auth: true },
@@ -165,6 +172,12 @@ export const SHOTS: Shot[] = [
   { name: 'settings-activity', path: '/settings/activity', auth: true },
   { name: 'settings-handover', path: '/settings/handover', auth: true },
   { name: 'tickets', path: '/tickets', auth: true },
+  // BL-123: owner records requests, one due soon and one overdue.
+  { name: 'tickets-records', path: '/tickets/records', auth: true },
+  // BL-132: three policies, one expiring within 30 days, one fidelity bond.
+  { name: 'insurance', path: '/insurance', auth: true },
+  // BL-133: a violation with a scheduled fine hearing (the Fine hearing card).
+  { name: 'violation-hearing', path: '/violations/:hearingViolationId', auth: true },
   { name: 'communications', path: '/communications', auth: true },
   // BL-102 A11: the Messages area — the one "New message" button opened on
   // its two choices, the Drafts tab, and the Inbox tab's read-only
@@ -252,6 +265,8 @@ export const SHOTS: Shot[] = [
   { name: 'resident-violations', path: '/resident/violations', auth: true, resident: true },
   { name: 'resident-violation', path: '/resident/violations/:residentReportId', auth: true, resident: true },
   { name: 'resident-report', path: '/resident/report-violation', auth: true, resident: true },
+  // BL-123: the owner's records-request form.
+  { name: 'resident-records-new', path: '/resident/records/new', auth: true, resident: true },
   { name: 'resident-ask', path: '/resident/ask', auth: true, resident: true },
   { name: 'resident-documents', path: '/resident/documents', auth: true, resident: true },
   { name: 'resident-account', path: '/resident/account', auth: true, resident: true },

@@ -55,6 +55,21 @@ describe('ui-shots list', () => {
     expect(byName.get('properties-estoppel')?.path).toBe('/properties/:propertyId/estoppel')
     expect(byName.get('accounting-budget-notice')?.path).toBe('/accounting/budget/:budgetNoticeId/notice')
   })
+
+  it('captures the 2026-10 board screens on seeded data', () => {
+    const byName = new Map(SHOTS.map((s) => [s.name, s]))
+    expect(byName.get('meeting-quorum')?.path).toBe('/meetings/:annualMeetingId/quorum')
+    expect(byName.get('meeting-quorum-proxies')?.path).toBe('/meetings/:annualMeetingId/quorum/proxies')
+    expect(byName.get('meeting-quorum-sign-in')?.path).toBe('/meetings/:annualMeetingId/quorum/sign-in')
+    expect(byName.get('accounting-opening-balances')?.path).toBe('/accounting/opening-balances')
+    expect(byName.get('accounting-year-end')?.path).toBe('/accounting/reports/year-end')
+    expect(byName.get('insurance')?.path).toBe('/insurance')
+    expect(byName.get('tickets-records')?.path).toBe('/tickets/records')
+    expect(byName.get('resident-records-new')).toMatchObject({ path: '/resident/records/new', resident: true })
+    expect(byName.get('violation-hearing')?.path).toBe('/violations/:hearingViolationId')
+    // The inbox reads its view from `filter` (INBOX_FILTERS), not `status`.
+    expect(byName.get('inbox-snoozed')?.path).toBe('/inbox?filter=snoozed')
+  })
 })
 
 describe('guideClipHeight', () => {
