@@ -1320,3 +1320,16 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 - FL condo 30-day website posting (with BL-038).
 - **BL-135 Single-member invite through the outbound guard:** `inviteMember` (one at a time) still sends the Supabase invite without the outbound guard. The bulk path (BL-128) uses the guard. Route the single path through it too. **Done:** `inviteMember` now checks `fetchOrgSandbox` + `guardRecipients` before `inviteUserByEmail`; a held address gets no account, email or membership (`members-invite-guard.test.ts`).
 - **BL-136 Exempt opening-balance charges from late fees:** opening charges get a "due on" date (default today + 30 days) so the nightly 5% late-fee job doesn't hit carried-over balances on day one. The cleaner fix is a marker column (e.g. `assessments.source = 'opening_balance'`) that the late-fee job skips. Batch it into the next migration. **Built behind `M3_APPLIED`** (`migrations/0067_m3_batch.sql` part 1): the executor marks its charges and `findUnchargedDefaults` skips them once the flag is on.
+
+## Security review #2 2026-10-20 (a094c25d..3bcb3cce)
+- No Critical or High findings. Prior fixes verified holding: the ratchet, billing admin-only, event-alert scoping, the records_due_at guard, the orgs column guard, invitation gates.
+- **SEC-N1 (Medium, fixing):** owner-invite Revoke could delete another tenant's pending account.
+- **SEC-N2 (Medium, owner + fixing):** until 0063 is applied, any member can insert `audit_log` rows, which can forge the webhook ordering clock or violation-response links. The real fix is applying 0063 (OA-1). A code mitigation is in progress.
+- **SEC-N3–N8, L6 (Low, fixing):**
+  - N3: opening-balance double proposal race;
+  - N4: bulk invite attaches existing accounts and reveals that they exist;
+  - N5: hearing request on deleted or un-noticed violations;
+  - N6: forgeable attribution columns;
+  - N7: signing secret falls back to the service key;
+  - N8: approvals w18 kind check;
+  - L6: the ratchet credits role reads.
