@@ -30,47 +30,58 @@ export function SignInSheet({ header, homes, showShares }: { header: PrintHeader
           {header.meetingDate} · One line per home · One vote per home unless your governing documents say otherwise
         </p>
       </header>
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-border-strong text-left">
-            <th scope="col" className="w-10 py-2 pr-2">#</th>
-            <th scope="col" className="py-2 pr-2">Home</th>
-            <th scope="col" className="w-16 py-2 pr-2">Lot</th>
-            <th scope="col" className="py-2 pr-2">Owner(s) of record</th>
-            <th scope="col" className="w-14 py-2 pr-2">Votes</th>
-            <th scope="col" className="w-28 py-2 pr-2">In person / proxy</th>
-            <th scope="col" className="w-56 py-2">Signature</th>
-          </tr>
-        </thead>
-        <tbody>
-          {homes.map((h, i) => (
-            <tr key={h.propertyId} className="break-inside-avoid border-b border-border align-top">
-              <td className="num py-3 pr-2">{i + 1}</td>
-              <td className="py-3 pr-2">{h.home}</td>
-              <td className="py-3 pr-2">{h.lot ?? '—'}</td>
-              <td className="py-3 pr-2">
-                {h.owners.length === 0
-                  ? 'No owner on record'
-                  : h.owners.map((o, j) => (
-                      <span key={j} className="block">
-                        {o.name}
-                        {showShares ? <span className="text-foreground-secondary"> ({o.share})</span> : null}
-                      </span>
-                    ))}
-              </td>
-              <td className="num py-3 pr-2">{h.votes}</td>
-              <td className="py-3 pr-2">☐ In person ☐ Proxy</td>
-              <td className="py-3" />
+      {/* On a phone the seven columns are wider than the screen: scroll the
+          table sideways inside its own box so the page itself never
+          overflows. Print keeps the full-width, unscrolled sheet. */}
+      <p data-scroll-hint className="text-xs text-muted sm:hidden print:hidden">Scroll sideways to see every column →</p>
+      <div
+        role="region"
+        aria-label="Sign-in sheet table"
+        tabIndex={0}
+        className="max-w-full overflow-x-auto print:overflow-visible"
+      >
+        <table className="w-full min-w-[40rem] border-collapse text-sm print:min-w-0">
+          <thead>
+            <tr className="border-b border-border-strong text-left">
+              <th scope="col" className="w-10 py-2 pr-2">#</th>
+              <th scope="col" className="py-2 pr-2">Home</th>
+              <th scope="col" className="w-16 py-2 pr-2">Lot</th>
+              <th scope="col" className="py-2 pr-2">Owner(s) of record</th>
+              <th scope="col" className="w-14 py-2 pr-2">Votes</th>
+              <th scope="col" className="w-28 py-2 pr-2">In person / proxy</th>
+              <th scope="col" className="w-56 py-2">Signature</th>
             </tr>
-          ))}
-          {Array.from({ length: SIGN_IN_BLANK_ROWS }, (_, i) => (
-            <tr key={`blank-${i}`} className="break-inside-avoid border-b border-border">
-              <td className="num py-4 pr-2">{homes.length + i + 1}</td>
-              <td className="py-4" colSpan={6} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {homes.map((h, i) => (
+              <tr key={h.propertyId} className="break-inside-avoid border-b border-border align-top">
+                <td className="num py-3 pr-2">{i + 1}</td>
+                <td className="py-3 pr-2">{h.home}</td>
+                <td className="py-3 pr-2">{h.lot ?? '—'}</td>
+                <td className="py-3 pr-2">
+                  {h.owners.length === 0
+                    ? 'No owner on record'
+                    : h.owners.map((o, j) => (
+                        <span key={j} className="block">
+                          {o.name}
+                          {showShares ? <span className="text-foreground-secondary"> ({o.share})</span> : null}
+                        </span>
+                      ))}
+                </td>
+                <td className="num py-3 pr-2">{h.votes}</td>
+                <td className="py-3 pr-2">☐ In person ☐ Proxy</td>
+                <td className="py-3" />
+              </tr>
+            ))}
+            {Array.from({ length: SIGN_IN_BLANK_ROWS }, (_, i) => (
+              <tr key={`blank-${i}`} className="break-inside-avoid border-b border-border">
+                <td className="num py-4 pr-2">{homes.length + i + 1}</td>
+                <td className="py-4" colSpan={6} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   )
 }
@@ -95,11 +106,11 @@ export function ProxyForm({ header, home, law }: { header: PrintHeader; home: Pr
 
       <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="font-medium">Home</dt>
-        <dd>{home.home}</dd>
+        <dd className="min-w-0 break-words">{home.home}</dd>
         <dt className="font-medium">Lot</dt>
         <dd>{home.lot ?? '—'}</dd>
         <dt className="font-medium">Owner(s)</dt>
-        <dd>{home.owners.length > 0 ? home.owners.map((o) => o.name).join(', ') : 'No owner on record'}</dd>
+        <dd className="min-w-0 break-words">{home.owners.length > 0 ? home.owners.map((o) => o.name).join(', ') : 'No owner on record'}</dd>
         <dt className="font-medium">Meeting date</dt>
         <dd>{header.meetingDate}</dd>
       </dl>
