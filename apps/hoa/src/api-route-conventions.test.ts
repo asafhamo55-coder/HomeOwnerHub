@@ -44,6 +44,10 @@ const EXEMPT: Record<string, Partial<Record<Rule, string>>> = {
     'secret-header':
       'Vonage signs webhooks with a provider JWT in Authorization (HS256 + payload_hash), verified timing-safe in lib/sms-inbound.ts — RC-7 provider signature, not our bearer secret.',
   },
+  'webhooks/vonage/status/route.ts': {
+    'secret-header':
+      'BL-146 delivery receipts: the same Vonage signed-webhook JWT (HS256 + payload_hash), verified by verifyVonageSignedWebhook in lib/sms-inbound.ts — RC-7 provider signature, not our bearer secret.',
+  },
 }
 
 /** route (relative to app/api) → rules it still violates. SHRINK-ONLY. */

@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { Languages, RefreshCw, X } from 'lucide-react'
-import { Alert, Button, Checkbox, Field, Input, Textarea } from '@homeowner-portal/ui'
+import { Alert, Button, Checkbox, Field, Input } from '@homeowner-portal/ui'
+import { PlainEditor } from '@/components/ui/PlainEditor'
 import { responseErrorMessage } from '@/lib/api/client'
 
 /**
  * BL-025 — "Add Spanish version". The draft comes from W31's translation
  * step (POST /api/ai/translate-communication); the board reads it, can edit
  * it, and has to tick "I've read the Spanish version" before the wizard will
- * send. If the English changes afterwards, the tick is cleared.
+ * send. If the English changes afterwards, the tick is cleared. BL-146: the
+ * body is edited in PlainEditor, like the English.
  */
 export interface SpanishDraft {
   subject: string
@@ -150,13 +152,18 @@ export function SpanishVersion({
           disabled={disabled}
         />
       </Field>
-      <Field label="Mensaje (Spanish body)" required hint="HTML. Keep the {{ variables }} exactly as they are.">
-        <Textarea
-          value={value.bodyHtml}
-          onChange={(e) => onChange({ ...value, bodyHtml: e.target.value })}
+      {/* BL-146: the same plain editor as the English body (it falls back to
+          HTML for a layout it can't hold), not a monospace HTML textarea. */}
+      <Field
+        label="Mensaje (Spanish body)"
+        required
+        hint="Keep [Resident's name] and [HOA name] as they are; they are filled in for each person."
+      >
+        <PlainEditor
+          html={value.bodyHtml}
+          onChange={(bodyHtml) => onChange({ ...value, bodyHtml })}
           disabled={disabled}
-          rows={10}
-          className="font-mono text-xs sm:text-xs"
+          label="Spanish message body"
         />
       </Field>
 

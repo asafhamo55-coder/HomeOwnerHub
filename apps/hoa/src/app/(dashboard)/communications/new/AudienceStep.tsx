@@ -55,11 +55,14 @@ const AUDIENCE_HINTS: Record<AudienceKind, string> = {
   tenants_only: 'Homes with a current renter',
   late_on_dues: 'Homes with an overdue charge',
   open_violations: 'The owner of each home with a violation not yet resolved',
-  street: 'Every home on one street',
+  street: 'Homes on one street; untick any to leave out',
   specific_property: 'Pick people at one address',
   board: 'Board members (email + portal)',
   manual_emails: 'Vendors, attorneys, anyone else',
 }
+
+const EMPTY_SET: ReadonlySet<string> = new Set()
+function noop() {}
 
 /** BL-102 A9: shown only under "More options". */
 const ADVANCED_AUDIENCES: ReadonlySet<AudienceKind> = new Set(['board', 'manual_emails'])
@@ -87,6 +90,10 @@ interface Props {
   setSelectedStreetKey: (key: string) => void
   streetOwnersOnly: boolean
   setStreetOwnersOnly: (v: boolean) => void
+  /** BL-146: homes unticked on the chosen street. */
+  streetExcluded?: ReadonlySet<string>
+  toggleStreetHome?: (unitId: string) => void
+  setStreetExcluded?: (next: Set<string>) => void
 
   // Manual contacts audience state.
   manualContacts: ManualContact[]
@@ -137,6 +144,9 @@ export function AudienceStep({
   setSelectedStreetKey,
   streetOwnersOnly,
   setStreetOwnersOnly,
+  streetExcluded = EMPTY_SET,
+  toggleStreetHome = noop,
+  setStreetExcluded = noop,
   manualContacts,
   draftName,
   setDraftName,
@@ -163,6 +173,8 @@ export function AudienceStep({
   selectAllBoard,
   clearBoard,
 }: Props) {
+  const selectedStreet = audience === 'street' ? (streets.find((st) => st.key === selectedStreetKey) ?? null) : null
+
   function tryAdd() {
     const result = addManualContact()
     if (!result.ok) setError(result.error)
@@ -266,6 +278,16 @@ export function AudienceStep({
             label="Owners only"
             description="Only the owner of each home on this street, not renters."
           />
+          {selectedStreet ? (
+            <StreetHomes
+              homes={selectedStreet.homes}
+              excluded={streetExcluded}
+              ownersOnly={streetOwnersOnly}
+              pending={pending}
+              toggle={toggleStreetHome}
+              setExcluded={setStreetExcluded}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -517,4 +539,71 @@ function roleHumanLabel(role: ResidentOption['role']): string {
     case 'family_member': return 'Family member'
     case 'other': return 'Resident'
   }
+}
+
+/**
+ * BL-146: every home on the chosen street, ticked by default; the board
+ * unticks the ones that shouldn't get it. The server leaves the unticked
+ * homes out (audience.ts excludeUnitIds), so this list is a choice, not
+ * the only guard.
+ */
+function StreetHomes({
+  homes,
+  excluded,
+  ownersOnly,
+  pending,
+  toggle,
+  setExcluded,
+}: {
+  homes: StreetOption['homes']
+  excluded: ReadonlySet<string>
+  ownersOnly: boolean
+  pending: boolean
+  toggle: (unitId: string) => void
+  setExcluded: (next: Set<string>) => void
+}) {
+  const kept = homes.filter((h) => !excluded.has(h.id)).length
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-foreground" id="street-homes-heading">
+          Homes on this street{' '}
+          <span className="num font-normal text-muted">
+            ({kept} of {homes.length} ticked)
+          </span>
+        </p>
+        <div className="flex flex-wrap items-center gap-1">
+          <Button type="button" variant="ghost" size="xs" onClick={() => setExcluded(new Set())} disabled={pending}>
+            All
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setExcluded(new Set(homes.map((h) => h.id)))}
+            disabled={pending}
+          >
+            None
+          </Button>
+        </div>
+      </div>
+      <ul
+        aria-labelledby="street-homes-heading"
+        className="max-h-72 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface"
+      >
+        {homes.map((h) => (
+          <li key={h.id} className="px-3 py-2">
+            <Checkbox
+              checked={!excluded.has(h.id)}
+              onChange={() => toggle(h.id)}
+              disabled={pending}
+              label={h.label || 'Home with no address line'}
+              description={ownersOnly && !h.hasOwner ? 'No owner on file, so nobody here gets it' : undefined}
+            />
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted">Untick a home to leave it out of this message.</p>
+    </div>
+  )
 }

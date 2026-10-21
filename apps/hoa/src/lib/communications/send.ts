@@ -94,6 +94,8 @@ const SendSchema = z.object({
     unitIds: z.array(z.string().uuid()).optional(),
     ownersOnly: z.boolean().optional(),
     street: z.string().trim().max(120).optional(),
+    // BL-146: homes unticked from a street; applied by resolveAudience.
+    excludeUnitIds: z.array(z.string().uuid()).max(5000).optional(),
     residentIds: z.array(z.string().uuid()).optional(),
     boardUserIds: z.array(z.string().uuid()).optional(),
     emails: z.array(z.string()).optional(),

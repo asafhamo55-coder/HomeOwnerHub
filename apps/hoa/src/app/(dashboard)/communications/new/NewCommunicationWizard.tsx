@@ -35,7 +35,7 @@ import {
   urgencyForCategory,
   type Urgency,
 } from '@/lib/communications/channel-defaults'
-import { streetAudienceLabel, type StreetOption } from '@/lib/communications/streets'
+import { streetAudienceLabel, streetSelection, type StreetOption } from '@/lib/communications/streets'
 import type { FollowUpDraft } from '@/lib/communications/follow-up'
 import { DRAFT_STATE_VERSION, UNTITLED_DRAFT, draftHref, isDraftEmpty, type ComposerDraftState } from '@/lib/communications/drafts'
 import { trackEvent } from '@/lib/analytics/track'
@@ -256,6 +256,17 @@ export function NewCommunicationWizard({
   const [selectedStreetKey, setSelectedStreetKey] = useState(r?.selectedStreetKey ?? '')
   const [streetOwnersOnly, setStreetOwnersOnly] = useState(r?.streetOwnersOnly ?? false)
   const selectedStreet = streets.find((st) => st.key === selectedStreetKey) ?? null
+  // BL-146: homes unticked on the chosen street (cleared when the street changes).
+  const [streetExcluded, setStreetExcluded] = useState<Set<string>>(() => new Set(r?.streetExcludedUnitIds ?? []))
+  const streetPick = selectedStreet ? streetSelection(selectedStreet, streetExcluded, streetOwnersOnly) : null
+  function toggleStreetHome(id: string) {
+    setStreetExcluded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
   const [scheduledFor, setScheduledFor] = useState(r?.scheduledFor ?? '')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -471,6 +482,7 @@ export function NewCommunicationWizard({
     setAudience(f.audience)
     if (f.street) {
       setSelectedStreetKey(f.street.key)
+      setStreetExcluded(new Set())
       setStreetOwnersOnly(f.street.ownersOnly)
     }
     setSubject(f.subject)
@@ -598,6 +610,7 @@ export function NewCommunicationWizard({
     if (i === 0) {
       if (audience === 'street') {
         if (!selectedStreet) errs.audience = 'Pick a street first.'
+        else if (streetPick && streetPick.count === 0) errs.audience = 'Every home on this street is unticked. Tick at least one.'
       } else if (audience === 'specific_property') {
         if (!selectedPropertyId) errs.audience = 'Pick a property first.'
         else if (checkedResidentIds.size === 0) errs.audience = 'Pick at least one resident at that property.'
@@ -669,14 +682,17 @@ export function NewCommunicationWizard({
         extra: { summary: 'Follow-up to homes that hadn’t opened' },
       }
     } else if (audience === 'street') {
-      if (!selectedStreet) return { ok: false, error: 'Pick a street first.' }
+      if (!selectedStreet || !streetPick) return { ok: false, error: 'Pick a street first.' }
+      if (streetPick.count === 0) return { ok: false, error: 'Every home on this street is unticked. Tick at least one.' }
       // BL-102 A5: the street's homes, through the existing unit-list
       // audience. The street name is only for the summary.
       audienceDef = {
         kind: 'specific_units',
-        unitIds: selectedStreet.unitIds,
+        unitIds: streetPick.unitIds,
         street: selectedStreet.label,
         ...(streetOwnersOnly ? { ownersOnly: true } : {}),
+        // BL-146: the unticked homes; resolveAudience leaves them out.
+        ...(streetPick.excludeUnitIds.length > 0 ? { excludeUnitIds: streetPick.excludeUnitIds } : {}),
       }
     } else if (audience === 'specific_property') {
       if (!selectedPropertyId) {
@@ -780,7 +796,7 @@ export function NewCommunicationWizard({
     }
     // buildAudienceDef reads exactly these picks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officialActive, audience, selectedPropertyId, selectedStreetKey, streetOwnersOnly, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels])
+  }, [officialActive, audience, selectedPropertyId, selectedStreetKey, streetOwnersOnly, streetExcluded, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels])
 
   // BL-102: on the Review step, how many recipients each channel skips
   // because of their own preferences. The send applies the same policy, so
@@ -811,7 +827,7 @@ export function NewCommunicationWizard({
     }
     // buildAudienceDef reads exactly these picks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reviewing, audience, selectedPropertyId, selectedStreetKey, streetOwnersOnly, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels, officialNotice])
+  }, [reviewing, audience, selectedPropertyId, selectedStreetKey, streetOwnersOnly, streetExcluded, checkedResidentIds, checkedBoardIds, boardMembers, manualContacts, channels, officialNotice])
 
   // ─── BL-102 A9: autosave to a status='draft' row ───────────────────────
   // Saves only after the board changes something (opening a follow-up or
@@ -830,6 +846,7 @@ export function NewCommunicationWizard({
     manualContacts,
     selectedStreetKey,
     streetOwnersOnly,
+    streetExcludedUnitIds: Array.from(streetExcluded),
     answers: Object.fromEntries(
       Object.entries(answers).filter((e): e is [string, string | string[]] => e[1] !== undefined),
     ),
@@ -1097,11 +1114,7 @@ export function NewCommunicationWizard({
     audience === 'follow_up'
       ? (followUp?.unitIds.length ?? 0)
       : audience === 'street'
-      ? selectedStreet
-        ? streetOwnersOnly
-          ? selectedStreet.ownerCount
-          : selectedStreet.unitIds.length
-        : 0
+      ? (streetPick?.count ?? 0)
       : audience === 'specific_property'
       ? checkedResidentIds.size
       : audience === 'board'
@@ -1207,10 +1220,14 @@ export function NewCommunicationWizard({
               selectedStreetKey={selectedStreetKey}
               setSelectedStreetKey={(k) => {
                 setSelectedStreetKey(k)
+                setStreetExcluded(new Set())
                 setFieldErrors((e) => ({ ...e, audience: '' }))
               }}
               streetOwnersOnly={streetOwnersOnly}
               setStreetOwnersOnly={setStreetOwnersOnly}
+              streetExcluded={streetExcluded}
+              toggleStreetHome={toggleStreetHome}
+              setStreetExcluded={setStreetExcluded}
               manualContacts={manualContacts}
               draftName={draftName}
               setDraftName={setDraftName}

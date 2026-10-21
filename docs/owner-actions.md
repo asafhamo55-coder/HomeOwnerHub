@@ -320,6 +320,20 @@ prices; review it before pitching.
 3. In the same place, add `PAY_SETTINGS_SECRET_PREVIOUS`, set to the value the app uses today (Claude will tell you which one).
 4. Redeploy, tell boards to re-save their settings, then remove `PAY_SETTINGS_SECRET_PREVIOUS` a week later.
 
+### OA-27 · Show "delivered" on texts (Vonage delivery receipts)
+
+**Urgency:** Whenever
+
+**Why it matters:** today a text message only ever shows as "sent", never "delivered" or "not delivered". The app can now take Vonage's delivery receipts and mark each text as delivered, or as failed with the reason. The code is built but off. Wait until Claude says texts are sent through Vonage's Messages API; until then, receipts can't be matched to texts.
+
+**Steps:**
+
+1. Do OA-23 first, or at least its steps 1 to 3: the Messages API setting, the signature secret in `VONAGE_SIGNATURE_SECRET`, and the Application.
+2. In that Vonage Application, set the **Status URL** to `https://www.homeownerledger.com/api/webhooks/vonage/status` (POST). Save.
+3. Set `SMS_STATUS_WEBHOOK_ENABLED=true` in Vercel production, then tell Claude. Claude redeploys and checks one test text shows "delivered".
+
+**Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
+
 ## Done
 
 ### OA-1 · Run the database steps in the SQL runbook (start here)

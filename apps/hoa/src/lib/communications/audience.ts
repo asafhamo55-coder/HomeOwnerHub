@@ -42,6 +42,12 @@ export interface AudienceDefinition {
   /** BL-102 A5: the street these unit ids came from, for the summary
    *  ("Homes on Elm St"). Display only; the unit ids decide who gets it. */
   street?: string
+  /** BL-146: homes the board unticked ("Elm St, except 4 and 6"). Applied
+   *  here, on the server, to every unit-level kind after its own
+   *  narrowing, so an excluded home gets nothing whatever else the
+   *  request carries. Kept on the stored definition, so a scheduled or
+   *  re-run send leaves the same homes out. */
+  excludeUnitIds?: string[]
   /** Populated when kind = 'specific_residents'. Each id refers to a
    *  row in property_residents (the canonical "who lives here" table
    *  from migration 0017). Lets the sender pick a specific named
@@ -242,6 +248,9 @@ export async function resolveAudience(
     }
   }
 
+  // BL-146: the board's unticked homes, enforced server-side.
+  candidateUnitIds = applyUnitExclusions(candidateUnitIds, def.excludeUnitIds)
+
   if (candidateUnitIds.length === 0) {
     return { recipients: [], summary: summaryFor(def, 0) }
   }
@@ -358,6 +367,23 @@ export async function resolveAudience(
   return { recipients, summary: summaryFor(def, recipients.length) }
 }
 
+/**
+ * BL-146: drop the excluded homes from a unit-level audience. Pure; ids
+ * that aren't in the list are ignored, so a stale exclusion is harmless.
+ */
+export function applyUnitExclusions(unitIds: readonly string[], excludeUnitIds: readonly string[] | undefined): string[] {
+  if (!excludeUnitIds || excludeUnitIds.length === 0) return [...unitIds]
+  const excluded = new Set(excludeUnitIds)
+  return unitIds.filter((id) => !excluded.has(id))
+}
+
+/** ", 2 homes left out" — only for an exclusion that names a listed home. */
+function leftOutSuffix(def: AudienceDefinition): string {
+  const listed = new Set(def.unitIds ?? [])
+  const n = new Set((def.excludeUnitIds ?? []).filter((id) => listed.has(id))).size
+  return n > 0 ? `, ${n} ${n === 1 ? 'home' : 'homes'} left out` : ''
+}
+
 function summaryFor(def: AudienceDefinition, count: number): string {
   const noun = count === 1 ? 'recipient' : 'recipients'
   switch (def.kind) {
@@ -377,7 +403,7 @@ function summaryFor(def: AudienceDefinition, count: number): string {
         return `${def.extra.summary.slice(0, 120)} (${count} ${noun})`
       }
       if (def.street) {
-        return `${def.ownersOnly ? 'Owners' : 'Homes'} on ${def.street} (${count} ${noun})`
+        return `${def.ownersOnly ? 'Owners' : 'Homes'} on ${def.street}${leftOutSuffix(def)} (${count} ${noun})`
       }
       if (def.ownersOnly) {
         return `Owners of ${(def.unitIds ?? []).length} hand-picked home${(def.unitIds ?? []).length === 1 ? '' : 's'} (${count} ${noun})`

@@ -16,7 +16,7 @@ Use this when a message is only for some people, or should also go out as a text
 ## Steps
 1. Open **Messages**, select [[New message]], then [[To many homes]].
 2. Under **Audience**, pick who gets it: **All homes**, **All owners**, **Renters**, **Homes behind on dues**, **Homes with an open violation**, **A street** or **One home**. Under **More options** are **Board** and **Someone outside the HOA** (like a vendor or your attorney). Each one shows how many people it reaches right now. **One home** shows a number once you choose the home: how many people there you've ticked.
-3. For **A street**, choose the street, like "Elm St (12 homes)". Tick **Owners only** to leave out renters.
+3. For **A street**, choose the street, like "Elm St (12 homes)". Every home on it is listed and ticked; untick any home that shouldn't get this message. Tick **Owners only** to leave out renters.
 4. For **One home**, choose the home, then tick the people living there. [[Owners]], [[Tenants]], [[All]] and [[None]] tick them for you. For **Board**, tick the board members. For **Someone outside the HOA**, type a name, email or US phone and select [[Add]].
 5. Select [[Continue]], write the message, then select [[Continue]] again.
 6. Tick **This is urgent** to also send a text, or tick **Text** yourself.
