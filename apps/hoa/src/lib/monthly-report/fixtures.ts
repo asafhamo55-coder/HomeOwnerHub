@@ -47,6 +47,16 @@ export function reportFixture(over: Partial<MonthlyReportData> = {}): MonthlyRep
     arc: { ok: true, data: { submitted: 3, approved: 2, denied: 1 } },
     approvals: { ok: true, data: 5 },
     meeting: { ok: true, data: { id: 'mtg-1', meeting_date: '2026-10-14', meeting_type: 'regular' } },
+    compliance: {
+      ok: true,
+      data: {
+        open: 2,
+        overdue: 0,
+        done: 1,
+        next: { title: 'Register with the Georgia Secretary of State', label: 'Takes effect in 92 days (Jan 1, 2027)', associationName: 'Maple Creek HOA' },
+        nothingTracked: false,
+      },
+    },
     ...over,
   }
 }

@@ -702,17 +702,18 @@ Both tables start empty. There is nothing to copy across, so there is no K2 quer
 
 ---
 
-## Section L · Migration 0069, batch M5 (dues rate schedule, join requests)
+## Section L · Migration 0069, batch M5 (dues rate schedule, join requests, compliance evidence)
 
-File: `migrations/0069_m5_batch.sql`. *Needs:* nothing else in this runbook
-(it uses the board/admin check from migration 0012, the org check from
-0000, the "my homes" check from 0061, the budgets table from 0006 and the
-homes and owners tables from 0004, all live). Order against A to K does not
-matter.
+File: `migrations/0069_m5_batch.sql`. *Needs:* Section J done (part 4
+adds a column to J's compliance "done" table; L3 refuses to run, changing
+nothing, if it is missing). Otherwise it uses the board/admin check from
+migration 0012, the org check from 0000, the "my homes" check from 0061,
+the budgets table from 0006 and the homes and owners tables from 0004, all
+live.
 
-What it does (part 1, BL-137; part 3, BL-143; BL-141 (part 2) and BL-145
-(part 4) add their own parts to the same file when they land, and this
-section grows with them):
+What it does (part 1, BL-137; part 3, BL-143; part 4, BL-145; BL-141
+(part 2) adds its own part to the same file when it lands, and this
+section grows with it):
 
 1. **Dues rates (BL-137).** A new table for the association's dues schedule:
    the amount per home, how often it is billed (monthly, quarterly, twice a
@@ -733,10 +734,19 @@ section grows with them):
    account. The answer to an address ask is the same whether or not it
    matched a home, so nobody can use it to find out which addresses exist.
    The asker never sees a request row. See **L-BL143** below.
+4. **Compliance evidence (BL-145).** One new, optional column on the
+   compliance "done" table from Section J: the document (from the HOA's own
+   Documents) the board keeps as proof it met a state-law deadline, such as
+   the Georgia Secretary of State registration receipt. A document from
+   another HOA is refused. Deleting the document clears the link; the
+   deadline stays done. Who can see or change it is unchanged: the board
+   and admins of that HOA only. Existing rows are untouched (no evidence).
+   See **L-BL145** below.
 
-Nothing in the app reads or writes these tables until Claude turns on
-`M5_APPLIED` after L4. No existing table is changed. No step outputs names,
-addresses or emails.
+Nothing in the app reads or writes the new tables or column until Claude
+turns on `M5_APPLIED` after L4. The only existing table changed is J's
+compliance "done" table (one empty column, no rewrite). No step outputs
+names, addresses or emails.
 
 ### L1 · What is already there (read-only)
 
@@ -759,16 +769,78 @@ addresses or emails.
 - **If any `_ok` column is false:** stop and tell Claude (L3 would refuse to run, changing nothing).
 - **If both `_done` columns are true:** stop, L is done; tell Claude.
 
+### L-BL145 · Compliance evidence (part 4)
+
+Three sub-steps. L-BL145a runs **before** L3, L-BL145b is part of L3, and
+L-BL145c runs **with** L4.
+
+#### L-BL145a · Pre-check (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regclass('public.compliance_deadlines_done') IS NOT NULL AS done_table_ok,
+         to_regclass('public.hoa_documents') IS NOT NULL             AS documents_ok,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'compliance_deadlines_done'
+                    AND column_name = 'document_id')                 AS evidence_done,
+         (SELECT count(*) FROM public.compliance_deadlines_done)      AS done_rows;
+  ```
+
+- **Does:** checks Section J's "done" table and the Documents table are there, whether the evidence column already is, and counts the deadlines already marked done.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `done_table_ok` = true, `documents_ok` = true, `evidence_done` = false, `done_rows` = some number (often 0 or 1).
+- **Send:** the row.
+- **If `done_table_ok` is false:** stop. Section J (J3) isn't applied yet; do J first. (If the query itself errors with "relation does not exist", that means the same thing.)
+- **If `evidence_done` is true:** part 4 is already applied; carry on with L3 anyway (it is safe to re-run).
+
+#### L-BL145b · Applied by L3 (no separate paste)
+
+Part 4 is in the same file as parts 1 and 3, so pasting the whole file at
+L3 applies it. If L3 already ran before part 4 was in the file, run L3
+again; it is safe to re-run and only adds what is missing. It adds the column, the link to Documents, an index, and the
+same-HOA check. All-or-nothing with the rest of the file.
+
+#### L-BL145c · Verify (read-only, with L4)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'compliance_deadlines_done'
+                    AND column_name = 'document_id')                    AS evidence_done,
+         (SELECT is_nullable FROM information_schema.columns
+           WHERE table_schema = 'public'
+             AND table_name = 'compliance_deadlines_done'
+             AND column_name = 'document_id')                           AS evidence_optional,
+         (SELECT count(*) FROM pg_constraint
+           WHERE conname = 'compliance_deadlines_done_document_id_fkey') AS evidence_link,
+         (SELECT count(*) FROM pg_trigger
+           WHERE tgname = 'compliance_deadlines_done_document_org')     AS evidence_guard,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public'
+             AND tablename = 'compliance_deadlines_done')               AS done_rules,
+         (SELECT count(*) FROM public.compliance_deadlines_done
+           WHERE document_id IS NOT NULL)                               AS with_evidence,
+         (SELECT count(*) FROM public.compliance_deadlines_done)         AS done_rows;
+  ```
+
+- **Expect:** one row: `evidence_done` = true, `evidence_optional` = `YES`, `evidence_link` = 1, `evidence_guard` = 1, `done_rules` = 4 (J's rules, unchanged), `with_evidence` = 0, `done_rows` = the same number as in L-BL145a.
+- **Send:** the row (with L4).
+
 ### L2 · Nothing to move (no step)
 
 The table starts empty. Today's dues amounts are not copied in: the board
-adds its current rate on the new **Dues rates** page after the switch. There
-is no L2 query.
+adds its current rate on the new **Dues rates** page after the switch.
+Deadlines already marked done keep no evidence; the board can attach it on
+**Compliance** after the switch. There is no L2 query.
 
 ### L3 · Apply 0069 (changes the database)
 
 - **Paste:** the **whole file** `migrations/0069_m5_batch.sql`. Ask Claude to copy it ("copy step L3").
-- **Does:** creates the empty dues-rate table, its rules (board writes, owners see today's rate for their own HOA), the same-HOA checks, and "created by" stamping; and the three empty join-request tables, their rules and the three join functions (L-BL143).
+- **Does:** creates the empty dues-rate table, its rules (board writes, owners see today's rate for their own HOA), the same-HOA checks, and "created by" stamping; the three empty join-request tables, their rules and the three join functions (L-BL143); and (L-BL145b) the optional evidence column on the compliance "done" table with its same-HOA check.
 - **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
 - **Time:** about a second (every table is new and empty).
 - **Already ran L3 before part 3 (BL-143) was in the file?** Run the whole file again: it is safe to re-run, and it only adds what is missing. Then do L-BL143.
@@ -794,9 +866,11 @@ is no L2 query.
   ```
 
 - **Expect:** `rate_rules` = 4, `rates_locked` = true, `rates` = 0, `anon_can_read_owner_view` = false, `guard_rules` = 2.
-- **Then paste L-BL143c** (below) and check it too.
-- **Send:** all three rows, and the words **"0069 is applied"**.
-- **Flag Claude flips after L4:** `M5_APPLIED` → `true` (`packages/db/src/m5.ts`), then un-drafts the guide articles `dues-rate-schedule` and `members-ask-to-join`, updates the "Until dues rates can be saved" line in `accounting-budget-adoption`, and deploys hoa + jobs. That turns on, together: the **Dues rates** page (button on Dues), Generate dues and Add a due starting from the rate in effect (a different amount writes one `dues_rate.override` row to the activity log), the budget adoption checklist's last step opening Dues rates pre-filled from the approved budget, and **Draft owner notice** for an upcoming change (opens Messages; nothing is sent until the board sends it); and, for BL-143, **Ask to join** on every resident "No home linked yet" screen and under **Create your HOA**, **Join codes** on Settings → Members, and **Requests to join** in Approvals. `tests/integration/security/m5-dues-rates.test.ts` and `tests/integration/security/m5-join-requests.test.ts` cover the tables and their rules in CI.
+- **Then paste L-BL143c** (below), on its own, and check it against its **Expect**.
+- **Then paste L-BL145c** (above), on its own, and check it against its **Expect**.
+- **L4 is done only when all four rows match:** the L1 query, the query above, L-BL143c and L-BL145c.
+- **Send:** all four rows, and the words **"0069 is applied"**.
+- **Flag Claude flips after L4:** `M5_APPLIED` → `true` (`packages/db/src/m5.ts`), then un-drafts the guide articles `dues-rate-schedule`, `members-ask-to-join` and `compliance-obligations`, updates the "Until dues rates can be saved" line in `accounting-budget-adoption`, and deploys hoa + jobs. That turns on, together: the **Dues rates** page (button on Dues), Generate dues and Add a due starting from the rate in effect (a different amount writes one `dues_rate.override` row to the activity log), the budget adoption checklist's last step opening Dues rates pre-filled from the approved budget, and **Draft owner notice** for an upcoming change (opens Messages; nothing is sent until the board sends it); for BL-143, **Ask to join** on every resident "No home linked yet" screen and under **Create your HOA**, **Join codes** on Settings → Members, and **Requests to join** in Approvals; and for BL-145, on **Compliance** (sidebar under Knowledge; the page itself is already live, read-only), **Mark as done** with an evidence document, and attaching or changing evidence on a deadline already done. `tests/integration/security/m5-dues-rates.test.ts`, `tests/integration/security/m5-join-requests.test.ts` and `tests/integration/security/m5-compliance-evidence.test.ts` cover the tables, the column and their rules in CI.
 - **First thing for the board after the flip:** open **Dues → Dues rates** and add today's rate (start day = the day it began), so billing pre-fills from it.
 - **And for join requests:** nothing to set up. Owners who ask show up in **Approvals → Requests to join**; codes are made on **Settings → Members → Join codes**.
 
@@ -885,7 +959,7 @@ on its own, before and after.
 | I3 | `RECORDS_REQUESTS_LIVE = true`; `VIOLATION_FINED_STATUS_LIVE = true`; un-draft `resident-records-request` and `tickets-records-requests` | `packages/db/src/records-requests.ts`, `packages/db/src/violation-statuses.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 | J4 | `M3_APPLIED = true` (one flag for all of 0067: BL-136, BL-134, BL-131) | `packages/db/src/m3.ts` | Claude, then deploy hoa + jobs |
 | K4 | `M4_APPLIED = true` (one flag for all of 0068: BL-132, BL-133); un-draft `insurance-policies`, `violations-fine-hearing`, `resident-request-hearing` | `packages/db/src/m4.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
-| L4 + L-BL143c | `M5_APPLIED = true` (one flag for all of 0069; today BL-137 and BL-143); un-draft `dues-rate-schedule` and `members-ask-to-join` | `packages/db/src/m5.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
+| L4 + L-BL143c + L-BL145c | `M5_APPLIED = true` (one flag for all of 0069; today BL-137, BL-143 and BL-145); un-draft `dues-rate-schedule`, `members-ask-to-join` and `compliance-obligations` | `packages/db/src/m5.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs

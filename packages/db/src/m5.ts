@@ -24,6 +24,11 @@
  *          on every resident "No home linked yet" (AskToJoinLink),
  *          /onboarding's link, /settings/members "Join codes", and the
  *          /approvals "Requests to join" section (lib/approvals-inbox)
+ *   BL-145 compliance_deadlines_done.document_id (the evidence document)
+ *          apps/hoa/src/lib/compliance/evidence.ts (selects it),
+ *          lib/compliance/actions.ts (Mark as done with evidence, attach
+ *          evidence), app/(dashboard)/compliance (the picker; with the flag
+ *          off the page is read-only and shows no evidence)
  *
  * No imports: pure modules, client components and the integration suite
  * import this.

@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   CreditCard,
   DatabaseBackup,
+  FileCheck2,
   FileText,
   History,
   Home,
@@ -131,6 +132,13 @@ export const HOA_NAV: HoaNavGroup[] = [
     items: [
       { href: '/documents', icon: FileText, label: 'Documents', keywords: ['files', 'governing'] },
       { href: '/legal', icon: Scale, label: 'State Law', keywords: ['statutes', 'legal', 'compliance', '720.303', 'official records'] },
+      // BL-145: every statutory obligation, its status and the evidence.
+      {
+        href: '/compliance',
+        icon: FileCheck2,
+        label: 'Compliance',
+        keywords: ['obligations', 'deadlines', 'secretary of state', 'registration', 'sb 406', 'annual meeting', 'management certificate', 'evidence', 'overdue'],
+      },
     ],
   },
 ]

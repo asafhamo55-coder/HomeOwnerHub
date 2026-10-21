@@ -176,6 +176,9 @@ export const SHOTS: Shot[] = [
   { name: 'tickets-records', path: '/tickets/records', auth: true },
   // BL-132: three policies, one expiring within 30 days, one fidelity bond.
   { name: 'insurance', path: '/insurance', auth: true },
+  // BL-145: every state-law obligation (the Georgia demo org: registration
+  // countdown, annual meeting, records), read-only until M5_APPLIED.
+  { name: 'compliance', path: '/compliance', auth: true },
   // BL-133: a violation with a scheduled fine hearing (the Fine hearing card).
   { name: 'violation-hearing', path: '/violations/:hearingViolationId', auth: true },
   { name: 'communications', path: '/communications', auth: true },

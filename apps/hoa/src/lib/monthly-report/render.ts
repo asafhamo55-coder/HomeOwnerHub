@@ -13,10 +13,14 @@
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { formatDay, plural, usd } from '@/lib/money/format'
 import { MEETING_TYPE } from '@/lib/status/community'
+import type { ComplianceSummary } from '@/lib/compliance/obligations'
 import type { MonthlyReportData, ReserveReport, Section, Variance } from './model'
 
 /** Band accent — inside the dark-mode-safe window (email/palette.ts; render.test.ts asserts it). */
 export const REPORT_ACCENT = '#2F5D8A'
+
+/** BL-145: the state-law obligations page. */
+export const COMPLIANCE_PATH = '/compliance'
 
 /** Where "Set up a reserve fund" goes: the chart of accounts' Funds card (BL-120). */
 export const RESERVE_SETUP_PATH = '/accounting/coa#funds'
@@ -117,6 +121,29 @@ function reserveBlock(res: Section<ReserveReport>, asOf: string, links: MonthlyR
   }
 }
 
+/** BL-145: one line per count, the most pressing obligation, and the page link. */
+function complianceBlock(res: Section<ComplianceSummary>, links: MonthlyReportLinks): Block {
+  return {
+    title: 'State law compliance',
+    lines: lines(res, (c) =>
+      c.nothingTracked
+        ? [{ label: 'Obligations', value: 'None loaded for your state — check your governing documents' }]
+        : [
+            {
+              label: 'Overdue',
+              value: c.overdue === 0 ? 'None — on track' : plural(c.overdue, 'obligation'),
+              tone: c.overdue > 0 ? 'danger' : 'success',
+            },
+            { label: 'Coming up', value: c.open - c.overdue === 0 ? 'Nothing dated coming up' : plural(c.open - c.overdue, 'obligation') },
+            ...(c.next ? [{ label: 'Most pressing', value: `${c.next.title} — ${c.next.label}`, ...(c.overdue > 0 ? { tone: 'danger' as const } : {}) }] : []),
+          ],
+    ),
+    failed: 'We couldn’t load your state-law obligations.',
+    note: 'Quoted from the statute text HomeownerHub holds. Not legal advice.',
+    link: { label: 'Open Compliance', href: links.appUrl(COMPLIANCE_PATH) },
+  }
+}
+
 function lines<T>(res: Section<T>, fn: (t: T) => Line[]): Line[] | null {
   return res.ok ? fn(res.data) : null
 }
@@ -210,6 +237,7 @@ function blocks(d: MonthlyReportData, links: MonthlyReportLinks): Block[] {
       failed: 'We couldn’t count the approvals waiting for the board.',
       link: { label: 'Open approvals', href: links.appUrl('/approvals') },
     },
+    complianceBlock(d.compliance, links),
     {
       title: 'Next meeting',
       lines: lines(d.meeting, (m) =>
