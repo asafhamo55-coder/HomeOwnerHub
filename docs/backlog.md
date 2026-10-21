@@ -1333,3 +1333,116 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
   - N7: signing secret falls back to the service key;
   - N8: approvals w18 kind check;
   - L6: the ratchet credits role reads.
+
+## Ranked open work — round 4 (2026-10-21)
+
+**Source:** `docs/research/2026-10-21-round4.md`. It has:
+- the pain points, with URLs;
+- today's leftovers, checked against the code;
+- the statute text from `scripts/fixtures/state-law`;
+- a first-30-days map.
+
+Migrations through 0068 are applied, and every flag is on. Highest value first; the ranking weighs budget season (now) and Q1 annual meetings.
+
+**Migration batch M5:** BL-137, BL-141, BL-143 and BL-145 go into one `migrations/0069_m5_batch.sql`, with a runbook section and an `M5_APPLIED` flag. CI validates it, Asaf applies it, and the code ships behind the flag. Every other item needs no migration.
+
+**Prerequisite (S, no migration):** load CA Civ. Code §§ 5605, 5610, 5615 and 5806 (from the pubinfo zip) and TX Prop. Code §§ 209.0051 and 209.00592–.00594 into fixtures and W30. Until then, CA and TX increase and election rules read "check your governing documents".
+
+1. **BL-137 Dues-rate schedule and assessment-increase notice.** Migration: **yes (M5)**. Effort M. Score 1.33, with a timing override.
+   - **Pain:** insurance is pushing 2026 dues up 5–15% (R1). CA increase caps and notice windows are commonly missed (R3).
+   - **Today:** dues are a flat amount typed in at every billing run (`apps/hoa/src/lib/assessments.ts:30-60`).
+   - **Build:**
+     - A `dues_rates` table: association, amount, frequency, `effective_from`. Leave room for a future per-home share.
+     - Billing reads the rate in effect.
+     - "Change dues for next year", with the % change shown.
+     - An increase notice to owners through the composer (guarded).
+     - Per-state checks: CA § 5605 20% / 5% caps and § 5615 30–60-day notice, once loaded; FL § 720.303(2)(c)2 assessment statement (fixture). Other states: "check your bylaws".
+     - Money changes go through /approvals.
+   - **Files:** `apps/hoa/src/lib/assessments.ts`, `apps/hoa/src/lib/dues-rates/` (new), `apps/hoa/src/app/(dashboard)/dues/`, `packages/jobs/src/` (generation).
+2. **BL-138 Budget adoption kit.** Migration: no. Effort M. Score 1.60.
+   - **Pain:** FL § 720.303(2)(c)2 (fixture): an assessment may not be levied unless the meeting notice says assessments will be considered; special assessments need 14 days plus posting. CA § 5300(a) (fixture): the budget report goes out 30–90 days before fiscal year end, a window that is open now for calendar-year associations.
+   - **Build:**
+     - An "adopts budget or assessments" flag on a meeting (agenda or `compliance_settings`, no new type), checked in `notice-law.ts`.
+     - A CA § 5300 window countdown on the dashboard and in the digest.
+     - "Adopt budget" proposes next year's rate into BL-137. Until M5 lands, it pre-fills the billing amount.
+     - The R2 bad-debt line in the first draft.
+   - **Files:** `apps/hoa/src/lib/meetings/notice-law.ts`, `apps/hoa/src/app/(dashboard)/accounting/budget/`, `apps/hoa/src/lib/budget-notice/`, `packages/jobs/src/daily-digest.ts`.
+3. **BL-139 FL director certification tracker.** Migration: no. Effort S. Score 2.70.
+   - **Rule:** § 720.3033(1)(a) (fixture): a certificate within 90 days of election or appointment, valid for 4 years, plus 4 hours of CE a year under 2,500 parcels. A director who misses it is suspended (R6).
+   - **Build:**
+     - Per-director elected-on and certificate dates, with the certificate filed to Documents.
+     - A 90-day countdown on the dashboard and in the digest.
+     - Added to the handover kit and the state deadlines card.
+   - **Storage:** `compliance_settings`. Verify the `hoa_documents` type list; ride along in M5 if a new type is needed.
+   - **Files:** `apps/hoa/src/lib/compliance/director-certs.ts` (new), `apps/hoa/src/components/dashboard/ComplianceDeadlinesCard.tsx`, `apps/hoa/src/app/(dashboard)/settings/handover/`.
+4. **BL-140 Fine hearing hard gate (BL-133 leftovers).** Migration: no. Effort M. Score 1.60.
+   - **Today:** Fined with no hearing recorded is only a warning (`ca_hearing_not_recorded`, `fl_hearing_committee` in `apps/hoa/src/lib/compliance/statute-drift.ts`).
+   - **Build:**
+     - Make it a block in FL and CA, with the existing audited override.
+     - Cross-check the panel against `org_members` board roles, not self-tagged roles.
+     - Digest timers: notice ≥ 14 days, findings within 7 days, payment due ≥ 30 days.
+     - Cure-before-hearing.
+   - **Files:** `apps/hoa/src/lib/compliance/statute-drift.ts`, `apps/hoa/src/lib/violation-hearings/rules.ts`, `packages/jobs/src/daily-digest.ts`.
+5. **BL-141 Election planner, paper-first.** Migration: **yes (M5)**. Effort L. Score 0.60, with a timing override for Q1 annual meetings.
+   - **Pain:** quorum failures mean no elections (R5); CA elections are expensive (R8).
+   - **Build:**
+     - An `elections` table and an `election_candidates` table.
+     - A CA timeline from the fixture: § 5115(a) nomination notice 30 days before the deadline; (b) general notice 30 days before ballots; (c) ballots 30 days before voting; (d) a reconvened 20%-quorum meeting with 15 days' notice; § 5120(b) results within 15 days.
+     - CA inspector record and double-envelope ballot print kit.
+     - FL § 720.306(9) (fixture): no election when candidates ≤ vacancies; a delinquency check of candidates against the ledger; 60-day challenge window.
+     - TX and GA: "check your bylaws" until loaded.
+     - Ties into the quorum kit.
+     - No e-voting.
+   - **Files:** `apps/hoa/src/lib/elections/` (new), `apps/hoa/src/app/(dashboard)/meetings/[id]/election/` (new), `apps/hoa/src/lib/meetings/notice-law.ts`.
+6. **BL-142 Insurance renewal comparison and fidelity check (BL-132 leftovers).** Migration: no. Effort S–M. Score 1.60.
+   - **Pain:** premiums are the main driver of dues increases (R1).
+   - **Build:**
+     - Premium, limit and deductible vs the prior policy of the same kind.
+     - A numeric fidelity check vs the BL-120 reserve balance plus 3 months of dues. CA § 5806 only once it is loaded; FL § 720.3033(5) as today.
+     - An owner-facing summary through the composer, which also feeds CA § 5300(b)(9).
+     - An optional HO-6 notice.
+     - A handover-kit link.
+   - **Files:** `apps/hoa/src/lib/insurance/model.ts`, `apps/hoa/src/app/(dashboard)/insurance/`, `apps/hoa/src/lib/accounting/reserves.ts`, `apps/hoa/src/app/(dashboard)/settings/handover/`.
+7. **BL-143 Accept-to-join and self-claim for unlinked owners.** Migration: **yes (M5)**. Effort M. Score 1.07.
+   - **Today:**
+     - Homes are linked when the invite is sent (`apps/hoa/src/lib/owner-invites-actions.ts:196-219`).
+     - An owner who already has an account is never attached (SEC-N4).
+     - "No home linked to your account yet" is a dead end on 9 resident pages (`resident/page.tsx:100`).
+   - **Build:**
+     - An `owner_join_requests` table (claim by address or a board-issued code).
+     - Board approval in /approvals.
+     - Link on accept.
+     - Replace the dead end with "Ask to join".
+   - **Files:** `apps/hoa/src/lib/owner-invites*.ts`, `apps/hoa/src/app/auth/callback/route.ts`, `apps/hoa/src/app/resident/`.
+8. **BL-144 Bank statement CSV/OFX import and manual bank account.** Migration: no (verify the bank tables accept non-Plaid rows). Effort M. Score 0.93.
+   - **Pain:** bank feeds are Plaid only, and many small credit unions or cautious treasurers won't link. Turnover means new accounts and signers (R11).
+   - **Build:**
+     - Add a manual account.
+     - Upload a CSV or OFX with a dry run, deduplicated by date, amount and description.
+     - Feeds the existing reconciliation queue.
+     - Board-only and audited.
+   - **Files:** `apps/hoa/src/app/(dashboard)/accounting/bank/`, `apps/hoa/src/lib/bank-reconciliation.ts`, `apps/hoa/src/lib/bank-import/` (new).
+9. **BL-145 /compliance page with evidence (BL-131 leftover).** Migration: **yes (M5: `compliance_deadlines_done.document_id`)**. Effort M. Score 0.96.
+   - **Build:**
+     - A `/compliance` page listing every statutory obligation: GA registration, TX § 209.004, BL-139 certificates, the BL-138 § 5300 window, BL-141 election dates.
+     - Evidence document on "Mark as done".
+     - Overdue banner.
+     - A line in the monthly board report and the packet.
+   - **Files:** `apps/hoa/src/app/(dashboard)/compliance/` (new), `apps/hoa/src/lib/compliance/`, `apps/hoa/src/lib/monthly-report/render.ts`.
+10. **BL-146 Composer polish.** Migration: no. Effort S–M. Score 0.90.
+    - **Today:**
+      - The Spanish version is still a monospace HTML textarea (`communications/new/SpanishVersion.tsx:154-168`).
+      - A street sends to every home on it (`AudienceStep.tsx:246-269`).
+      - SMS never shows as delivered: there is no Vonage delivery-receipt webhook, and `delivered_at` exists (0018:146).
+    - **Build:**
+      - `PlainEditor` for Spanish, keeping the "I've read" tick.
+      - Untick homes in the street list.
+      - A signed Vonage DLR webhook that sets `delivered_at` and failure.
+    - **Files:** `apps/hoa/src/app/(dashboard)/communications/new/`, `apps/hoa/src/lib/communications/audience.ts`, `apps/hoa/src/app/api/webhooks/vonage/` (new `status/route.ts`).
+
+**Below the line:**
+- Inbox Phase B rest: `sla_due_at`, category and priority routing, `source_message_id`. This needs a migration; ride along in M5 if there is room.
+- Resident preferences UI (language, quiet hours) and board and emergency contacts on the portal.
+- Reserve study module. Large, needs a migration.
+- E-ballots (CA AB 2159, TX SB 2629), after BL-141.
+- BL-124 GA snapshot refresh (deadline 2027-01-01, schedule mid-December).
