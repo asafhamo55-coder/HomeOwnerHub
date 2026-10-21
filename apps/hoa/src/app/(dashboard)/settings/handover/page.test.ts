@@ -32,6 +32,10 @@ vi.mock('@/lib/handover/load', () => ({
     return { generatedAt: 'now', orgName: deps.orgName, orgId: deps.orgId, access: null, connections: null, openWork: null, exportTableCount: 0 }
   }),
 }))
+vi.mock('@/lib/association-time-current', () => ({ currentTimeZone: vi.fn(async () => 'America/New_York') }))
+vi.mock('@/lib/compliance/director-certs-load', () => ({
+  loadDirectorCertBoard: vi.fn(async () => ({ kind: 'not_applicable' })),
+}))
 vi.mock('@/components/settings/SettingsTabs', () => ({ SettingsTabs: () => null }))
 vi.mock('./HandoverKit', () => ({ HandoverKit: () => null }))
 

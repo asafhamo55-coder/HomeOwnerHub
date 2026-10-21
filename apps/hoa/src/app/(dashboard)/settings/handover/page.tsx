@@ -6,6 +6,10 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadHandover } from '@/lib/handover/load'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { HandoverKit } from './HandoverKit'
+import { currentTimeZone } from '@/lib/association-time-current'
+import { todayIn } from '@/lib/association-time'
+import { loadDirectorCertBoard } from '@/lib/compliance/director-certs-load'
+import { directorCertView } from '@/lib/compliance/director-certs'
 
 export const metadata = { title: 'Board handover' }
 export const dynamic = 'force-dynamic'
@@ -17,12 +21,13 @@ export const dynamic = 'force-dynamic'
 export default async function HandoverSettingsPage() {
   const { role, org } = await requireBoardOrAdmin()
 
-  const model = await loadHandover({
-    db: await getSupabaseServerClient(),
-    admin: createAdminClient(),
-    orgId: org.id,
-    orgName: org.name,
-  })
+  const db = await getSupabaseServerClient()
+  const admin = createAdminClient()
+  const [model, certs] = await Promise.all([
+    loadHandover({ db, admin, orgId: org.id, orgName: org.name }),
+    // BL-139: Florida director certification; anything else shows nothing.
+    currentTimeZone().then((tz) => loadDirectorCertBoard({ db, admin, orgId: org.id, todayYmd: todayIn(tz) })),
+  ])
 
   return (
     <Page
@@ -32,7 +37,7 @@ export default async function HandoverSettingsPage() {
       tabs={<SettingsTabs current="/settings/handover" role={role} />}
       linkAs={Link}
     >
-      <HandoverKit model={model} viewerRole={role} />
+      <HandoverKit model={model} viewerRole={role} directorCerts={certs.kind === 'ok' ? certs.rows.map(directorCertView) : null} />
     </Page>
   )
 }

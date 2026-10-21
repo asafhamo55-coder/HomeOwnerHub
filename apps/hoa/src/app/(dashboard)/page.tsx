@@ -50,6 +50,10 @@ import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { ComplianceDeadlinesCard } from '@/components/dashboard/ComplianceDeadlinesCard'
 import { complianceAckSecret, pendingComplianceItems } from '@/lib/compliance/deadlines'
 import { loadComplianceDoneAndMigrate } from '@/lib/compliance/done'
+import { DirectorCertCard } from '@/components/dashboard/DirectorCertCard'
+import { loadDirectorCertBoard } from '@/lib/compliance/director-certs-load'
+import { directorCertAlerts } from '@/lib/compliance/director-certs'
+import { createAdminClient } from '@homeowner-portal/db'
 import { getCurrentUserRole } from '@/lib/auth'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
 import { InsuranceRenewalsCard } from '@/components/dashboard/InsuranceRenewalsCard'
@@ -174,6 +178,10 @@ function DashboardSections({ orgId }: { orgId: string }) {
           TX management certificate). Nothing renders when none apply. */}
       <Suspense fallback={null}>
         <ComplianceDeadlinesSection orgId={orgId} />
+      </Suspense>
+      {/* BL-139: FL directors whose certificate is due within 30 days or overdue. */}
+      <Suspense fallback={null}>
+        <DirectorCertSection orgId={orgId} />
       </Suspense>
       {/* BL-132: insurance policies expiring within 90 days (M4_APPLIED). */}
       <Suspense fallback={null}>
@@ -490,6 +498,20 @@ async function ComplianceDeadlinesSection({ orgId }: { orgId: string }) {
   const done = await loadComplianceDoneAndMigrate(supabase, orgId, associations, secret)
   const items = pendingComplianceItems(associations, todayIn(timeZone), secret, done)
   return <ComplianceDeadlinesCard items={items} multipleAssociations={rows.length > 1} />
+}
+
+// BL-139: Florida only. Board/admin only, re-checked here like the
+// deadlines card. The service role reads org_members + profiles (board
+// members' own names) only after that check.
+async function DirectorCertSection({ orgId }: { orgId: string }) {
+  const ctx = await getCurrentUserRole()
+  if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return null
+  const [db, timeZone] = await Promise.all([getSupabaseServerClient(), currentTimeZone()])
+  const board = await timed('/', 'dashboard.directorCerts', () =>
+    loadDirectorCertBoard({ db, admin: createAdminClient(), orgId, todayYmd: todayIn(timeZone) }),
+  )
+  if (board.kind === 'not_applicable') return null
+  return <DirectorCertCard alerts={board.kind === 'ok' ? directorCertAlerts(board.rows) : null} />
 }
 
 // BL-132: policies expiring within 90 days (or expired) with no renewal
