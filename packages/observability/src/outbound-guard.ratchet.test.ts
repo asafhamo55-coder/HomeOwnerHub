@@ -155,7 +155,7 @@ describe('outbound ratchet', () => {
   it('in each guarded module, the guard runs before the provider call', () => {
     const PROVIDER_CALL: Record<string, RegExp> = {
       'apps/hoa/src/lib/email.ts': /\.emails\.send\(/,
-      'apps/hoa/src/lib/sms.ts': /\.sms\.send\(/,
+      'apps/hoa/src/lib/sms.ts': /\.messages\.send\(/, // BL-146b: Messages API
       'packages/jobs/src/web-push.ts': /\.sendNotification\(/,
       'apps/marketing/src/app/demo/actions.ts': /\.emails\.send\(/,
       'packages/jobs/src/mailbox-send.ts': /\bsendReply\s*\(/,

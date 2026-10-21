@@ -17,10 +17,16 @@
 // grey out the Text option up front instead.
 //
 // We use the `@vonage/server-sdk` package (the official Vonage Node SDK)
-// and its legacy SMS API (vonage.sms.send), which authenticates with the
-// API key + secret pair. The client is constructed lazily and cached at
-// the module level so serverless cold starts amortize across requests in
-// the same warm function instance.
+// and its Messages API (vonage.messages.send, BL-146b). It authenticates
+// with Basic auth from the same API key + secret pair the legacy SMS API
+// used, so no new keys are needed. The Messages API answers 202 with a
+// `message_uuid`; sendSms returns it as `messageSid`, the callers store it
+// in communication_recipients.external_id, and the signed status webhook
+// (/api/webhooks/vonage/status, lib/sms-status.ts) matches receipts on it.
+// The legacy SMS API's messageId never matched a receipt.
+// The client is constructed lazily and cached at the module level so
+// serverless cold starts amortize across requests in the same warm
+// function instance.
 
 //
 // Every send passes the outbound safety guard (BL-004) first — outside
@@ -86,23 +92,24 @@ export async function sendSms(
   const to = input.to.trim().replace(/[^\d]/g, '')
 
   try {
-    const resp = await client.sms.send({
+    const resp = await client.messages.send({
+      channel: 'sms',
+      messageType: 'text',
       to,
       from,
       text: input.body,
     })
-    // On success the SMS API resolves with a per-message status of "0"
-    // (accepted for delivery). Any non-"0" status makes the SDK *throw*
-    // (MessageSendAllFailure / MessageSendPartialFailure) rather than
-    // resolve, so the real error handling lives in the catch below.
-    const message = resp.messages?.[0]
-    return { ok: true, messageSid: message?.messageId ?? null }
+    // The Messages API accepts a text with HTTP 202 and a message_uuid
+    // (the SDK maps it to messageUUID). Any non-2xx makes the SDK *throw*
+    // a VetchError rather than resolve, so the real error handling lives
+    // in the catch below.
+    return { ok: true, messageSid: resp?.messageUUID || null }
   } catch (err) {
-    // A failed send throws a Vonage SMSFailure carrying the per-message
-    // errorText (e.g. "Non White-listed Destination", "Invalid Sender
-    // Address"). Surface that specific reason instead of the generic
-    // "All SMS messages failed to send" wrapper message.
-    const detail = firstVonageErrorText(err)
+    // A failed send throws a VetchError whose unread response carries an
+    // RFC 7807 body ({ type, title, detail }), e.g. title "Invalid sender"
+    // or "Non-Whitelisted Destination". Surface that specific reason
+    // instead of the generic "Request failed with status code 422".
+    const detail = await firstVonageErrorText(err)
     const message =
       detail ??
       (err && typeof err === 'object' && 'message' in err
@@ -113,23 +120,35 @@ export async function sendSms(
 }
 
 /**
- * Pull the first per-message errorText out of a thrown Vonage SMSFailure.
- * The failure exposes getFailedMessages(): Array<{ status?, errorText? }>.
- * Returns undefined for anything that isn't a recognizable SMSFailure.
+ * Pull the reason out of a thrown Vonage Messages API error. The SDK's
+ * VetchError keeps the raw fetch Response (body not yet read); its JSON
+ * body is { type, title, detail, instance }. Returns the title (a short
+ * reason, like the legacy SMS API's errorText), else the detail. Runs of
+ * 7+ digits are masked so a number echoed back by Vonage never lands in
+ * the row. Returns undefined for anything unrecognizable; never throws.
  */
-function firstVonageErrorText(err: unknown): string | undefined {
-  if (
-    err &&
-    typeof err === 'object' &&
-    'getFailedMessages' in err &&
-    typeof (err as { getFailedMessages: unknown }).getFailedMessages === 'function'
-  ) {
-    const failed = (
-      err as { getFailedMessages: () => Array<{ errorText?: string }> }
-    ).getFailedMessages()
-    return failed?.[0]?.errorText
+async function firstVonageErrorText(err: unknown): Promise<string | undefined> {
+  if (!err || typeof err !== 'object' || !('response' in err)) return undefined
+  const response = (err as { response?: unknown }).response
+  if (!response || typeof response !== 'object' || !('text' in response)) return undefined
+  const read = (response as { text: unknown }).text
+  if (typeof read !== 'function') return undefined
+  try {
+    const raw: unknown = await read.call(response)
+    if (typeof raw !== 'string' || raw.length === 0) return undefined
+    const body: unknown = JSON.parse(raw)
+    if (!body || typeof body !== 'object') return undefined
+    const { title, detail } = body as { title?: unknown; detail?: unknown }
+    const reason =
+      typeof title === 'string' && title.trim()
+        ? title.trim()
+        : typeof detail === 'string' && detail.trim()
+          ? detail.trim()
+          : undefined
+    return reason ? reason.replace(/\d{7,}/g, '[number]').slice(0, 200) : undefined
+  } catch {
+    return undefined
   }
-  return undefined
 }
 
 /**

@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 const smsSend = vi.fn()
 vi.mock('@vonage/server-sdk', () => ({
   Vonage: class {
-    sms = { send: smsSend }
+    messages = { send: smsSend }
   },
 }))
 
@@ -60,7 +60,7 @@ describe('sendSms when Vonage is not fully configured', () => {
 describe('sendSms when configured', () => {
   it('sends through Vonage and returns the message id', async () => {
     stubAll()
-    smsSend.mockResolvedValue({ messages: [{ messageId: 'vm-1' }] })
+    smsSend.mockResolvedValue({ messageUUID: 'vm-1' })
     const { sendSms, smsConfigured } = await load()
     expect(smsConfigured()).toBe(true)
     expect(await sendSms({ to: ALLOWED, body: 'Water off Thursday' })).toEqual({ ok: true, messageSid: 'vm-1' })

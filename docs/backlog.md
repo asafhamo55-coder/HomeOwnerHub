@@ -1446,6 +1446,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
       - Street homes can be unticked. `excludeUnitIds` is enforced in `resolveAudience` and stored on the definition.
       - The DLR route is built behind `SMS_STATUS_WEBHOOK_ENABLED` (OA-27, spec `docs/specs/2026-10-21-sms-delivery-receipts.md`).
     - **Follow-up (BL-146b):** switch `lib/sms.ts` from the legacy SMS API to the Messages API (Basic auth with the same key and secret) so `external_id` holds `message_uuid`. Until then, no receipt can match a row. Keep the outbound guard and the error handling. Turn OA-27 on after it lands.
+      - **Status (2026-10-21): built.** `sendSms` uses `vonage.messages.send` (Basic auth, no new env var); `external_id` holds `message_uuid`. Tests: `apps/hoa/src/lib/sms-messages-api.test.ts`. OA-27 gained a step: the account-level Messages API Status URL, since Basic-auth sends post receipts there.
 
 **Below the line:**
 - Inbox Phase B rest: `sla_due_at`, category and priority routing, `source_message_id`. This needs a migration; ride along in M5 if there is room.

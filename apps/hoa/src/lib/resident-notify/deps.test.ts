@@ -19,7 +19,7 @@ vi.mock('resend', () => ({
 const smsSend = vi.fn()
 vi.mock('@vonage/server-sdk', () => ({
   Vonage: class {
-    sms = { send: smsSend }
+    messages = { send: smsSend }
   },
 }))
 
@@ -80,7 +80,7 @@ describe('residentNotifyDeps — the guarded senders the notification runs with'
     send.mockReset()
     send.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
     smsSend.mockReset()
-    smsSend.mockResolvedValue({ messages: [{ status: '0', 'message-id': 'sid' }] })
+    smsSend.mockResolvedValue({ messageUUID: 'sid' })
     vi.stubEnv('RESEND_API_KEY', 'test-key')
     vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@example.test>')
     vi.stubEnv('VONAGE_API_KEY', 'k')
