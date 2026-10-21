@@ -6,7 +6,7 @@ topic: communications
 roles: [admin, board]
 routes: ["/inbox", "/inbox/[id]", "/inbox/compose"]
 primary_route: /inbox
-keywords: [messages, inbox, scan as a bill, invoice by email, emailed invoice, vendor invoice, bill attachment, drafts, unsent reply, to one resident, replies to announcements, reply, save to documents, file attachment, documents library, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, overdue, keyboard shortcuts, next email]
+keywords: [messages, inbox, scan as a bill, invoice by email, emailed invoice, vendor invoice, bill attachment, drafts, unsent reply, to one resident, replies to announcements, reply, save to documents, file attachment, documents library, balance, what do i owe, sender not a resident, side panel, earlier conversations, matching documents, linked records, respond, answer email, ai draft, draft reply, resident email, attachment, attach file, retry attachment, failed attachment, undo send, sent by mistake, take back, unsend, pdf, forward, new email, compose, write email, needs review, file under property, close conversation, reopen, assign, assigned to me, mine, unassigned, waiting, unanswered, overdue, keyboard shortcuts, next email]
 related: [inbox-answer-similar-questions, inbox-connect-mailbox, communications-send-announcement, communications-segments-sms]
 reviewed: 2026-10-20
 ---
@@ -47,7 +47,7 @@ If the resident writes back to a closed conversation, it reopens in **Needs revi
 - AI only puts a balance or a request status in a draft when the sender's email is on file for a resident of that home. Otherwise the panel says **Sender is not a resident of this home**, and the draft leaves a blank that says why. Check who you're writing to before you fill it in.
 - Every figure AI uses is listed under **Sources**, like **Account — balance**, so you can check it against the panel.
 - **Matching documents** appears once a reply is drafted.
-- Each conversation shows how long the resident has waited for a reply, like **Waiting 2d**. It turns amber after 48 hours and red after 5 days.
+- Each conversation shows how long the resident has waited for a reply, like **Unanswered 2d**. It turns amber after 48 hours and red after 5 days.
 - Use the menu at the top of a conversation to assign it to a board member. Replying to an unassigned conversation assigns it to you.
 - [[Close]] finishes a conversation that needs no reply. [[Waiting]] parks it while you wait on someone else. [[Reopen]] puts it back in **Needs review**.
 - The morning email to board members says how many residents have waited more than 48 hours, and how many are assigned to you. Residents never get it.

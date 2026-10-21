@@ -52,7 +52,9 @@ import {
   statuteProblem,
   usdCents,
   valueOf,
+  violationDisclosure,
   type CertificateField,
+  type OpenViolation,
   type EstoppelInput,
   type FieldValues,
   type Certificate,
@@ -363,11 +365,27 @@ function Items({ items, empty, flag }: { items: { id: string; dueDate: string; l
   )
 }
 
-function CertificateDocument({ cert, input, values, printClass }: { cert: Certificate; input: EstoppelInput; values: FieldValues; printClass: string }) {
+function ViolationList({ items }: { items: OpenViolation[] }) {
+  return (
+    <ul className="mt-1 list-disc space-y-0.5 pl-5">
+      {items.map((v) => (
+        <li key={v.id}>
+          {v.description || 'Violation'}
+          <span className="num text-xs text-foreground-secondary">
+            {v.noticeSentAt ? ` — notice sent ${formatDay(v.noticeSentAt)}` : v.noticed ? ' — notice recorded, date not on file' : ' — no notice recorded'}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+export function CertificateDocument({ cert, input, values, printClass }: { cert: Certificate; input: EstoppelInput; values: FieldValues; printClass: string }) {
   const j = cert.jurisdiction
   const f = cert.figures
   const d = cert.deadlines
   const field = (key: string) => cert.fields.find((x) => x.key === key)
+  const violations = violationDisclosure(j, f)
   const title =
     j === 'FL'
       ? 'Estoppel Certificate'
@@ -471,23 +489,25 @@ function CertificateDocument({ cert, input, values, printClass }: { cert: Certif
         <h3 className="font-semibold text-foreground">Other information</h3>
         <dl className="divide-y divide-border/60">
           <Line field={field('transferFee')} values={values} />
-          <Row label={j === 'FL' ? 'Open violation noticed to the owner in the official records?' : j === 'TX' ? 'Open violations on record (§ 207.003(b)(11))' : 'Open violations'}>
-            {f.openViolations.length === 0 ? (
+          <Row label={violations.label}>
+            {violations.listed.length === 0 ? (
               'No'
             ) : (
               <>
-                Yes ({f.openViolations.length})
-                <ul className="mt-1 list-disc space-y-0.5 pl-5">
-                  {f.openViolations.map((v) => (
-                    <li key={v.id}>
-                      {v.description || 'Violation'}
-                      {v.noticeSentAt ? <span className="num text-xs text-foreground-secondary"> — notice sent {formatDay(v.noticeSentAt)}</span> : <span className="text-xs text-foreground-secondary"> — no notice recorded</span>}
-                    </li>
-                  ))}
-                </ul>
+                Yes ({violations.listed.length})
+                <ViolationList items={violations.listed} />
               </>
             )}
           </Row>
+          {violations.boardCheck.length > 0 ? (
+            <div data-testid="violations-board-check" className="my-1.5 space-y-1 rounded border border-warning bg-warning-subtle px-3 py-2 print:hidden">
+              <p className="font-medium text-warning">
+                {violations.boardCheckLabel} ({violations.boardCheck.length})
+              </p>
+              <ViolationList items={violations.boardCheck} />
+              <p className="text-xs text-foreground-secondary">{violations.boardCheckHint}</p>
+            </div>
+          ) : null}
           {j === 'FL' ? (
             <>
               <Line field={field('transferApproval')} values={values} />

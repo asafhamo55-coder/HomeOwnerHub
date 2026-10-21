@@ -61,3 +61,39 @@ describe('the minimum', () => {
     expect(out).not.toContain('9,700.56')
   })
 })
+
+describe('the current plan matches the plan on file (past-due shot: "Monthly plan" pill, Annual marked Current)', () => {
+  it('a monthly subscriber opens on Monthly, marked Current', () => {
+    const out = html(<PlanPicker currentPlan="monthly" doors={48} />)
+    expect(out).toMatch(/aria-checked="true"[^>]*>Monthly/)
+    expect(out).toContain('>Current<')
+    expect(out).toContain('Current plan')
+  })
+
+  it('an annual subscriber opens on Annual, marked Current', () => {
+    const out = html(<PlanPicker currentPlan="annual" doors={48} />)
+    expect(out).toMatch(/aria-checked="true"[^>]*>Annual/)
+    expect(out).toContain('Current plan')
+  })
+
+  it('the other cadence is not marked Current and cannot start a second checkout', () => {
+    const out = html(<PlanPicker currentPlan="monthly" doors={48} initialCadence="annual" />)
+    expect(out).not.toContain('>Current<')
+    expect(out).toContain('Your plan is billed monthly')
+    expect(out).not.toContain('Subscribe annually')
+    expect(out).toMatch(/<button[^>]*disabled=""[^>]*type="submit"/)
+  })
+})
+
+describe('billing unavailable', () => {
+  it('never names an env var to the customer; the detail goes to the server log', async () => {
+    const { BillingUnavailable, logBillingUnavailable } = await import('./BillingUnavailable')
+    const out = html(<BillingUnavailable />)
+    expect(out).toContain('Billing isn’t available right now')
+    expect(out).not.toMatch(/STRIPE_|Stripe isn|environment/i)
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    logBillingUnavailable('org-1', false)
+    expect(JSON.stringify(spy.mock.calls)).toContain('STRIPE_SECRET_KEY')
+    spy.mockRestore()
+  })
+})

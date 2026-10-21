@@ -369,6 +369,72 @@ export function computeFigures(input: EstoppelInput, issueDate: string, effectiv
   }
 }
 
+// ─── violations: what each statute asks ──────────────────────────────
+
+export type OpenViolation = Figures['openViolations'][number]
+
+export interface ViolationDisclosure {
+  /** The certificate's line label (the statute's own question where it has one). */
+  label: string
+  /** The violations the certificate's answer covers (and counts). */
+  listed: OpenViolation[]
+  /**
+   * Open violations the statutory question does not cover: shown to the
+   * board on screen to check the records, never printed and never counted
+   * in the answer.
+   */
+  boardCheck: OpenViolation[]
+  boardCheckLabel: string | null
+  boardCheckHint: string | null
+}
+
+/**
+ * Which open violations go on the certificate, per state:
+ *
+ * - FL § 720.30851(1)(h), item 7: "Is there any open violation of rule or
+ *   regulation noticed to the parcel owner in the association official
+ *   records? (Yes) (No)". Only violations with a recorded notice answer
+ *   it. An open violation without one is outside the question — the
+ *   statute does not ask for it, and the certificate binds the association
+ *   to what it states — so it is shown to the board to verify (record the
+ *   notice if one was given outside the app), not printed.
+ * - CA § 4525(a)(5): "a copy or a summary of any notice previously sent to
+ *   the owner pursuant to Section 5855 that sets forth any alleged
+ *   violation … that remains unresolved". Notices only, same split.
+ * - TX § 207.003(b)(11): "any conditions on the owner's property that the
+ *   … board has actual knowledge are in violation" — knowledge, not
+ *   notice, so every open violation on record is listed.
+ * - GA § 44-3-232(d) asks only for amounts due, and the generic statement
+ *   follows no statute: every open violation on record is listed, as the
+ *   records show it.
+ */
+export function violationDisclosure(j: Jurisdiction, f: Pick<Figures, 'openViolations'>): ViolationDisclosure {
+  const all = f.openViolations
+  if (j === 'FL' || j === 'CA') {
+    const listed = all.filter((v) => v.noticed)
+    return {
+      label:
+        j === 'FL'
+          ? 'Is there any open violation of rule or regulation noticed to the parcel owner in the association official records?'
+          : 'Unresolved violation notices sent to the owner (§ 4525(a)(5))',
+      listed,
+      boardCheck: all.filter((v) => !v.noticed),
+      boardCheckLabel: 'Open violations not yet noticed to the owner (board to verify)',
+      boardCheckHint:
+        j === 'FL'
+          ? 'Not on the certificate: item 7 of § 720.30851(1)(h) asks only about violations noticed to the owner in the official records. If a notice was given, record it on the violation before issuing.'
+          : 'Not on the statement: § 4525(a)(5) covers only notices previously sent to the owner under § 5855. If a notice was sent, record it on the violation before issuing.',
+    }
+  }
+  return {
+    label: j === 'TX' ? 'Open violations on record (§ 207.003(b)(11))' : 'Open violations',
+    listed: all,
+    boardCheck: [],
+    boardCheckLabel: null,
+    boardCheckHint: null,
+  }
+}
+
 // ─── fields and BLANKs ───────────────────────────────────────────────
 
 export type FieldKind = 'text' | 'textarea' | 'money' | 'yesno' | 'yesno_detail' | 'frequency' | 'day'

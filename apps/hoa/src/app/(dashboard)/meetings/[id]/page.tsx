@@ -30,6 +30,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { meetingDetailColumns } from './columns'
 import { NoticePostedControl } from './NoticePostedControl'
 import { QuorumKitCard } from './QuorumKitCard'
+import { minutesBlocks } from './minutes-blocks'
 import { MeetingNoticeSection } from './MeetingNoticeSection'
 
 export const dynamic = 'force-dynamic'
@@ -142,7 +143,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
             <CardContent>
               {meeting.ai_summary ? (
                 <div className="max-w-prose space-y-3 text-base leading-relaxed text-foreground">
-                  {meeting.ai_summary.split('\n\n').map((para, i) => (
+                  {minutesBlocks(meeting.ai_summary).map((para, i) => (
                     <p key={i} className="whitespace-pre-wrap">
                       {para}
                     </p>

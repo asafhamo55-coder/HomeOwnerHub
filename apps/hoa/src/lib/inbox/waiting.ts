@@ -56,7 +56,7 @@ export type WaitingTone = 'normal' | 'warn' | 'overdue'
 
 export interface WaitingInfo {
   hours: number
-  /** "Waiting 3h", "Waiting 2d". */
+  /** "Unanswered 3h", "Unanswered 2d" — not "Waiting", which is also a status filter and the snooze button. */
   label: string
   tone: WaitingTone
 }
@@ -87,7 +87,7 @@ export function waitingInfo(
   if (!Number.isFinite(since)) return null
   const hours = Math.max(0, (now - since) / HOUR_MS)
   const label =
-    hours < 1 ? 'Waiting <1h' : hours < 24 ? `Waiting ${Math.floor(hours)}h` : `Waiting ${Math.floor(hours / 24)}d`
+    hours < 1 ? 'Unanswered <1h' : hours < 24 ? `Unanswered ${Math.floor(hours)}h` : `Unanswered ${Math.floor(hours / 24)}d`
   const tone: WaitingTone = hours >= sla.overdue ? 'overdue' : hours >= sla.warn ? 'warn' : 'normal'
   return { hours, label, tone }
 }

@@ -13,9 +13,9 @@ const waitingThread = (h: number) => ({ status: 'needs_review', lastDirection: '
 
 describe('waitingInfo — BL-101 A6 waiting badge', () => {
   it('labels in hours under a day and in days after', () => {
-    expect(waitingInfo(waitingThread(0.2), NOW)?.label).toBe('Waiting <1h')
-    expect(waitingInfo(waitingThread(5.5), NOW)?.label).toBe('Waiting 5h')
-    expect(waitingInfo(waitingThread(50), NOW)?.label).toBe('Waiting 2d')
+    expect(waitingInfo(waitingThread(0.2), NOW)?.label).toBe('Unanswered <1h')
+    expect(waitingInfo(waitingThread(5.5), NOW)?.label).toBe('Unanswered 5h')
+    expect(waitingInfo(waitingThread(50), NOW)?.label).toBe('Unanswered 2d')
   })
 
   it('turns amber at 48h and red at 5 days by default', () => {

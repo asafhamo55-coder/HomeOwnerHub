@@ -43,11 +43,15 @@ export interface FilterChipsProps {
   className?: string
 }
 
-/** Segmented link filter. Each chip is a link; the active one has `aria-current`. */
+/**
+ * Segmented link filter. Each chip is a link; the active one has `aria-current`.
+ * Chips wrap onto a second row when they don't fit (375px): a sideways
+ * scroll hid the last chips with no hint they were there.
+ */
 export function FilterChips({ items, label, linkAs: LinkAs = 'a', className }: FilterChipsProps) {
   return (
-    <nav aria-label={label} className={cn('-mx-1 overflow-x-auto scrollbar-none px-1', className)}>
-      <ul className="flex min-w-max items-center gap-1 rounded-lg border border-border bg-subtle p-0.5">
+    <nav aria-label={label} className={cn('max-w-full', className)}>
+      <ul className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-subtle p-0.5">
         {items.map((item) => (
           <li key={item.href}>
             <LinkAs

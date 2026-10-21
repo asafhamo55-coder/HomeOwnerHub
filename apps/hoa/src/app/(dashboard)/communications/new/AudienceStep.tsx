@@ -54,7 +54,7 @@ const AUDIENCE_HINTS: Record<AudienceKind, string> = {
   owners_only: 'The owner of each home',
   tenants_only: 'Homes with a current renter',
   late_on_dues: 'Homes with an overdue charge',
-  open_violations: 'Homes with an open violation',
+  open_violations: 'The owner of each home with a violation not yet resolved',
   street: 'Every home on one street',
   specific_property: 'Pick people at one address',
   board: 'Board members (email + portal)',
@@ -170,11 +170,15 @@ export function AudienceStep({
 
   function renderOption(kind: AudienceKind) {
     const selected = audience === kind
+    // "One home": the chosen home's recipients — no number until one is
+    // picked (the property list's length is not a head count).
     const count =
       kind === 'follow_up'
         ? followUpCount
         : kind === 'specific_property'
-        ? properties.length
+        ? selectedPropertyId
+          ? checkedResidentIds.size
+          : null
         : kind === 'street'
           ? streets.length
           : kind === 'manual_emails'
@@ -214,7 +218,7 @@ export function AudienceStep({
           <span className="block text-xs text-muted">{hint}</span>
         </span>
         {/* A street's number is how many streets, so it isn't shown as a head count. */}
-        {kind === 'street' ? null : <span className="num shrink-0 text-sm text-foreground-secondary">{count}</span>}
+        {kind === 'street' || count === null ? null : <span className="num shrink-0 text-sm text-foreground-secondary">{count}</span>}
       </label>
     )
   }
