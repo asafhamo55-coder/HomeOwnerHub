@@ -116,9 +116,10 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-21 04:15 ET)
+## 4. State (updated 2026-10-21 15:00 ET)
 
-- **Live in prod:** `f89c4047` (03:29 ET), with every feature flag on. Release emails confirmed sent for every deploy.
+- **Live in prod:** `1d79d562` (11:56 ET): budget adoption kit, FL/CA fine hearing gate, FL director certification. Every feature flag is on. Release emails confirmed.
+- **Georgia first** (§2): the decks lead with Georgia, and the CI shots include a Georgia demo association. Owner action OA-9 (`state:'GA'`) loads the verbatim Georgia law into prod; until then, prod holds the paraphrased seed.
 - **Database:** the owner applied and Claude verified every runbook section A–K on 2026-10-20 (0063, M1/0064, meeting notices, SMS consent guard, sender_auth, perf indexes, 0065, 0066, 0067, 0068). Owner actions OA-1/2/3/4/17/21 are done.
 - **Flags:** all true: M1_APPLIED, SENDER_AUTH_COLUMN_LIVE, RECORDS_REQUESTS_LIVE, VIOLATION_FINED_STATUS_LIVE, M3_APPLIED, M4_APPLIED. PRICING_V2 stays off until OA-16 (the Stripe prices).
 - **Optional now:** `pnpm gen:types` against the live DB to replace the casts (every migration is applied). Diff columns, not just tables (CLAUDE.md §3).

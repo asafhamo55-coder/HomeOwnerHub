@@ -612,3 +612,17 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Mistake:** a deploy one-shot was announced in chat but never actually started, so f89c4047 went out about 2.5h late. When a deploy is due, run deploy.sh in the same turn.
 - **Owner actions:** OA-1/2/3/4/17/21 done; 20 open, none urgent.
 - **Follow-up:** add an annual-meeting seed, an opened-books seed, and the /insurance and /tickets/records routes to the UI-shots list, so those screens get screenshots.
+
+## 2026-10-21 (03:29 → 15:00) — Georgia first; budget, hearings, directors
+
+- **03:29 f89c4047:** everything switched on (see the entry above).
+- **Owner (2026-10-21):** "keep the product and investor presentation up to date… we begin with Georgia". Added as a standing rule in next.md §2 and in memory. Both decks rebuilt Georgia-first (product deck 37 slides, investor deck 23): GA beachhead $4.1M, the SB 406 registration wedge, 2026 trends and competitor moves with sources.
+- **10:16 413a6996:** phone fixes (quorum sign-in sheet scroll box, insurance row wrap), both found by the CI overflow check on newly seeded screens.
+- **11:56 1d79d562:**
+  - BL-138 budget adoption kit (FL notice rules, CA § 5300 window);
+  - BL-140 fine hearing hard gate for FL/CA, with a panel-vs-roster check and digest timers;
+  - BL-139 FL director certification (§ 720.3033: educational certificate only, 90 days).
+  - Release email sent.
+- **CI shots:** the seed now covers the annual-meeting quorum kit, opened books, insurance, records requests, a hearing and a snoozed thread, plus a Georgia demo association (Peach Demo Commons HOA: GA dashboard, statement of amounts due, violation). The run is green.
+- **Merge note:** BL-139 and BL-140 conflicted in daily-digest.ts (12 hunks). Claude aborted the merge and had the BL-139 agent rebase and keep both, rather than resolving by hand.
+- **In flight:** BL-137 dues-rate schedule plus migration 0069 (M5; runbook section L for the owner), GA statutes in CI plus BL-142 insurance comparison.
