@@ -234,6 +234,8 @@ export const DRIFT_CODES = [
   'fl_fine_over_cap',
   'fl_fine_aggregate',
   'fl_hearing_committee',
+  'fl_hearing_no_fine',
+  'ca_hearing_no_fine',
   'tx_fine_certified_notice',
   'tx_fine_cure_period',
   'ga_fine_instrument',
@@ -336,11 +338,55 @@ export function fineCents(amount: number | string | null | undefined): number | 
   return Number.isFinite(n) ? Math.round(n * 100) : null
 }
 
+/**
+ * BL-133: the violation's hearing as the fine check needs it
+ * (violation-hearings/rules.ts hearingFineFacts). Built only under
+ * M4_APPLIED; without it the check reads exactly as before 0068.
+ */
+export interface FineHearingFacts {
+  /** Held, with an outcome recorded. */
+  held: boolean
+  outcome: 'upheld' | 'reduced' | 'dismissed' | null
+  /** Panel members marked as members (not on the board). */
+  committeeMembers: number
+  /** Panel members marked as on the board. */
+  boardOnPanel: number
+  /** Whole days from the notice to the hearing; null when either is unrecorded. */
+  noticeDays: number | null
+}
+
 export interface FineCheckInput {
   state: string | null | undefined
   /** The violation's fine (hoa_violations.fine_amount, dollars per day), in cents; null when none is set. */
   dailyFineCents: number | null
+  /**
+   * BL-133 (M4_APPLIED): the hearing record. undefined = hearings are not
+   * on (the pre-0068 messages, unchanged); null = none recorded.
+   */
+  hearing?: FineHearingFacts | null
 }
+
+/** What a hearing record still lacks for the FL committee rule; [] = it meets it. */
+function flHearingGaps(h: FineHearingFacts): string[] {
+  const gaps: string[] = []
+  if (h.noticeDays === null) gaps.push('the day the notice was sent and the hearing date')
+  else if (h.noticeDays < 14) gaps.push(`at least 14 days’ notice (${h.noticeDays} recorded)`)
+  if (h.boardOnPanel > 0) gaps.push('a committee with no officers, directors or employees on it')
+  if (h.committeeMembers < 3) gaps.push(`at least three committee members (${h.committeeMembers} recorded)`)
+  if (!h.held) gaps.push('the hearing held, with the committee’s vote')
+  return gaps
+}
+
+/** What a hearing record still lacks for CA § 5855; [] = it meets it. */
+function caHearingGaps(h: FineHearingFacts): string[] {
+  const gaps: string[] = []
+  if (h.noticeDays === null) gaps.push('the day the notice was sent and the meeting date')
+  else if (h.noticeDays < 10) gaps.push(`at least 10 days’ notice (${h.noticeDays} recorded)`)
+  if (!h.held) gaps.push('the meeting held, with the board’s decision')
+  return gaps
+}
+
+const listGaps = (g: string[]) => (g.length <= 1 ? g.join('') : `${g.slice(0, -1).join(', ')} and ${g[g.length - 1]}`)
 
 /**
  * Before a violation moves to Fined. The app levies `fine_amount` per day
@@ -375,14 +421,38 @@ export function checkFine(input: FineCheckInput): DriftCheck {
       )
     }
     findings.push(finding('ca_no_late_charge_on_fine', 'warn', 'Do not add a late charge or interest to this fine.', [CA_5850_NO_LATE_CHARGE]))
-    findings.push(
-      finding(
-        'ca_hearing_not_recorded',
-        'warn',
-        'HomeownerHub has no record of the § 5855 hearing (10 days’ written notice, the meeting, and the written decision within 14 days). The fine is not effective unless the board followed it.',
-        [CA_5855_EFFECTIVE],
-      ),
-    )
+    const h = input.hearing
+    if (h && h.held && h.outcome === 'dismissed') {
+      findings.push(
+        finding(
+          'ca_hearing_no_fine',
+          'block',
+          'The hearing on record ended with no fine. A fine now would not follow the board’s own § 5855 decision.',
+          [CA_5855_EFFECTIVE],
+        ),
+      )
+    } else if (!h) {
+      findings.push(
+        finding(
+          'ca_hearing_not_recorded',
+          'warn',
+          'HomeownerHub has no record of the § 5855 hearing (10 days’ written notice, the meeting, and the written decision within 14 days). The fine is not effective unless the board followed it.',
+          [CA_5855_EFFECTIVE],
+        ),
+      )
+    } else {
+      const gaps = caHearingGaps(h)
+      if (gaps.length > 0) {
+        findings.push(
+          finding(
+            'ca_hearing_not_recorded',
+            'warn',
+            `The hearing on record doesn’t yet show ${listGaps(gaps)}. The fine is not effective unless the board followed § 5855, including the written decision within 14 days.`,
+            [CA_5855_EFFECTIVE],
+          ),
+        )
+      }
+    }
   } else if (state === 'FL') {
     if (fine !== null && fine > FL_FINE_CAP_CENTS) {
       findings.push(
@@ -406,14 +476,38 @@ export function checkFine(input: FineCheckInput): DriftCheck {
         ),
       )
     }
-    findings.push(
-      finding(
-        'fl_hearing_committee',
-        'warn',
-        'HomeownerHub has no hearing record yet. A fine may not be imposed unless the owner got at least 14 days’ written notice of a hearing and a committee of at least three members who are not officers, directors or employees (or their relatives) approved it by majority vote.',
-        [FL_305_COMMITTEE, FL_305_VOTE],
-      ),
-    )
+    const h = input.hearing
+    if (h && h.held && h.outcome === 'dismissed') {
+      findings.push(
+        finding(
+          'fl_hearing_no_fine',
+          'block',
+          'The hearing committee did not approve this fine. If the committee, by majority vote, does not approve a proposed fine, it may not be imposed.',
+          [FL_305_VOTE],
+        ),
+      )
+    } else if (!h) {
+      findings.push(
+        finding(
+          'fl_hearing_committee',
+          'warn',
+          'HomeownerHub has no hearing record yet. A fine may not be imposed unless the owner got at least 14 days’ written notice of a hearing and a committee of at least three members who are not officers, directors or employees (or their relatives) approved it by majority vote.',
+          [FL_305_COMMITTEE, FL_305_VOTE],
+        ),
+      )
+    } else {
+      const gaps = flHearingGaps(h)
+      if (gaps.length > 0) {
+        findings.push(
+          finding(
+            'fl_hearing_committee',
+            'warn',
+            `The hearing on record doesn’t yet show ${listGaps(gaps)}. A fine may not be imposed unless the owner got at least 14 days’ written notice and a committee of at least three members who are not officers, directors or employees (or their relatives) approved it by majority vote.`,
+            [FL_305_COMMITTEE, FL_305_VOTE],
+          ),
+        )
+      }
+    }
   } else if (state === 'TX') {
     findings.push(
       finding(

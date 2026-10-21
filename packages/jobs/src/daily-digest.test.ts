@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { signArcClockSettings, withArcClockSettings } from '../../../apps/hoa/src/lib/arc-review/clock'
 import { signComplianceAck, withComplianceAck } from '../../../apps/hoa/src/lib/compliance/deadlines'
 const recordsFlag = vi.hoisted(() => ({ live: false }))
+const m4Flag = vi.hoisted(() => ({ live: false }))
+vi.mock('@homeowner-portal/db/m4', () => ({
+  get M4_APPLIED() {
+    return m4Flag.live
+  },
+}))
 vi.mock('@homeowner-portal/db/records-requests', () => ({
   get RECORDS_REQUESTS_LIVE() {
     return recordsFlag.live
@@ -12,9 +18,11 @@ import {
   BOARD_ROLES,
   buildArcBlock,
   buildComplianceBlock,
+  buildInsuranceBlock,
   buildMailboxAlert,
   loadArcDeadlines,
   loadComplianceDeadlines,
+  loadInsuranceRenewals,
   runDailyDigest,
   type DailyDigestDeps,
 } from './daily-digest'
@@ -46,6 +54,7 @@ interface FakeOpts {
   tasks?: Row
   tickets?: Row
   done?: Row
+  insurance?: Row
 }
 
 /** Records every filter so tests can assert what was queried. */
@@ -75,6 +84,7 @@ function fakeDb(opts: FakeOpts) {
     meeting_action_items: opts.tasks ?? { data: [], error: null },
     tickets: opts.tickets ?? { data: [], error: null },
     compliance_deadlines_done: opts.done ?? { data: [], error: null },
+    insurance_policies: opts.insurance ?? { data: [], error: null },
   }
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {}
@@ -791,6 +801,80 @@ describe('runDailyDigest — statutory deadlines (BL-131)', () => {
       expect(result).toMatchObject({ complianceDeadlines: 0 })
     } finally {
       vi.unstubAllEnvs()
+    }
+  })
+})
+
+describe('BL-132 insurance renewals (M4_APPLIED, migration 0068)', () => {
+  const policyRow = (expiresOn: string, extra: Record<string, unknown> = {}) => ({
+    id: `p-${expiresOn}`,
+    association_id: null,
+    kind: 'fidelity',
+    carrier: 'Acme Mutual',
+    policy_number: 'SECRET-123',
+    expires_on: expiresOn,
+    ...extra,
+  })
+
+  afterEach(() => {
+    m4Flag.live = false
+  })
+
+  it('M4 off: never reads insurance_policies (the table may not exist), in the loader and the job', async () => {
+    const { db, calls } = fakeDb({ insurance: { data: [policyRow('2026-11-19')], error: null } })
+    expect(await loadInsuranceRenewals(db as never, ORG, '2026-10-20', logger())).toBeNull()
+    const d = deps()
+    const result = await runDailyDigest(db, d, logger())
+    expect(calls.some((c) => c.table === 'insurance_policies')).toBe(false)
+    expect(result).toMatchObject({ insuranceRenewals: 0 })
+    expect(d.sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('M4 on: lists a policy expiring in 30 days, scoped to the org; a far-off one is not listed', async () => {
+    const { db, calls } = fakeDb({
+      insurance: { data: [policyRow('2026-11-19'), policyRow('2027-06-01', { kind: 'property' })], error: null },
+    })
+    const r = await loadInsuranceRenewals(db as never, ORG, '2026-10-20', logger(), true)
+    expect(r?.map((x) => [x.kind, x.daysLeft, x.tone])).toEqual([['fidelity', 30, '30']])
+    expect(calls).toContainEqual({ table: 'insurance_policies', method: 'eq', args: ['organization_id', ORG] })
+  })
+
+  it('M4 on: a failed read is logged by code and null, not "nothing expiring"', async () => {
+    const log = logger()
+    const { db } = fakeDb({ insurance: { data: null, error: { code: '42P01' } } })
+    expect(await loadInsuranceRenewals(db as never, ORG, '2026-10-20', log, true)).toBeNull()
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed to load insurance policies'), { code: '42P01' })
+  })
+
+  it('the block carries the kind and countdown and the /insurance link, never the carrier or policy number', async () => {
+    const { db } = fakeDb({ insurance: { data: [policyRow('2026-11-19')], error: null } })
+    const reminders = (await loadInsuranceRenewals(db as never, ORG, '2026-10-20', logger(), true))!
+    const block = buildInsuranceBlock({ reminders, insuranceUrl: 'https://app.test/insurance' })
+    expect(block.lines).toEqual(['Fidelity / crime bond policy: expires in 30 days'])
+    expect(block.text).toContain('https://app.test/insurance')
+    expect(block.text + block.html).not.toContain('Acme')
+    expect(block.text + block.html).not.toContain('SECRET-123')
+  })
+
+  it('M4 on, the only block: board members get it, with the count as the subject; logs are counts only', async () => {
+    m4Flag.live = true
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T11:00:00Z'))
+    try {
+      const { db } = fakeDb({ insurance: { data: [policyRow('2026-11-19')], error: null } })
+      const d = deps()
+      const log = logger()
+      const result = await runDailyDigest(db, d, log)
+      expect(result).toMatchObject({ insuranceRenewals: 1, emailed: 2 })
+      expect(d.sendEmail.mock.calls.map((c) => c[0].to).sort()).toEqual([ADMIN_EMAIL, BOARD_EMAIL].sort())
+      const mail = d.sendEmail.mock.calls[0]![0]
+      expect(mail.subject).toBe('1 insurance policy expires within 90 days — Maple Creek HOA')
+      expect(mail.text).toContain('Fidelity / crime bond policy: expires in 30 days')
+      const everything = JSON.stringify([log.info.mock.calls, log.warn.mock.calls, log.error.mock.calls])
+      expect(everything).toContain('1 insurance policy expiring or expired')
+      expect(everything).not.toContain('Acme')
+    } finally {
+      vi.useRealTimers()
     }
   })
 })

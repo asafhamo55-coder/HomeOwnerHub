@@ -16,6 +16,7 @@ import {
   residentViolationView,
   type ResidentViolationView,
 } from '@/lib/violation-response'
+import { loadResidentHearing, type ResidentHearingLoad } from '@/lib/violation-hearings/queries'
 
 export interface MyViolationThread {
   ticketId: string
@@ -23,7 +24,15 @@ export interface MyViolationThread {
 }
 
 export type MyHomeViolation =
-  | { ok: true; violation: ResidentViolationView; thread: MyViolationThread | null; threadFailed: boolean; canRespond: boolean }
+  | {
+      ok: true
+      violation: ResidentViolationView
+      thread: MyViolationThread | null
+      threadFailed: boolean
+      canRespond: boolean
+      /** BL-133 (M4_APPLIED): the hearing request and, once noticed, the hearing. `off` while the flag is off. */
+      hearing: ResidentHearingLoad
+    }
   | { ok: false; reason: 'not_found' | 'error' }
 
 export async function loadMyHomeViolation(violationId: string): Promise<MyHomeViolation> {
@@ -38,19 +47,23 @@ export async function loadMyHomeViolation(violationId: string): Promise<MyHomeVi
   })
   if (!own.ok) return own
   const violation = residentViolationView(own.violation)
+  // BL-133: service role for the hearing only, after loadOwnViolation
+  // confirmed the home; scoped to this org and violation, limited columns.
+  // No query at all while M4_APPLIED is off.
+  const hearing = await loadResidentHearing(createAdminClient() as never, orgId, violationId)
 
   // An impersonated account-less owner has no user id, so no thread; an
   // impersonating admin reads but never writes.
   if (!actor.id) {
-    return { ok: true, violation, thread: null, threadFailed: false, canRespond: false }
+    return { ok: true, violation, thread: null, threadFailed: false, canRespond: false, hearing }
   }
 
   // Service role for the link only, after loadOwnViolation confirmed the
   // home; scoped to this org, violation and resident.
   const ticketId = await findResponseTicketId(createAdminClient(), { orgId, violationId, userId: actor.id })
   const canRespond = !actor.impersonating && !violation.closed
-  if (ticketId === 'error') return { ok: true, violation, thread: null, threadFailed: true, canRespond: false }
-  if (!ticketId) return { ok: true, violation, thread: null, threadFailed: false, canRespond }
+  if (ticketId === 'error') return { ok: true, violation, thread: null, threadFailed: true, canRespond: false, hearing }
+  if (!ticketId) return { ok: true, violation, thread: null, threadFailed: false, canRespond, hearing }
 
   const [ticketRes, msgRes] = await Promise.all([
     actor.client
@@ -72,16 +85,16 @@ export async function loadMyHomeViolation(violationId: string): Promise<MyHomeVi
   ])
   if (ticketRes.error || msgRes.error) {
     console.error('[violation-response] thread read failed', { code: ticketRes.error?.code ?? msgRes.error?.code ?? null })
-    return { ok: true, violation, thread: null, threadFailed: true, canRespond: false }
+    return { ok: true, violation, thread: null, threadFailed: true, canRespond: false, hearing }
   }
   const ticket = ticketRes.data as { id: string; description: string; created_at: string } | null
   // The link exists but the board deleted the ticket: nothing to show, and
   // nowhere visible to write to.
-  if (!ticket) return { ok: true, violation, thread: null, threadFailed: true, canRespond: false }
+  if (!ticket) return { ok: true, violation, thread: null, threadFailed: true, canRespond: false, hearing }
 
   const messages = [
     { id: `${ticket.id}-first`, author_role: 'resident' as const, body: ticket.description, created_at: ticket.created_at },
     ...((msgRes.data ?? []) as MyViolationThread['messages']),
   ]
-  return { ok: true, violation, thread: { ticketId: ticket.id, messages }, threadFailed: false, canRespond }
+  return { ok: true, violation, thread: { ticketId: ticket.id, messages }, threadFailed: false, canRespond, hearing }
 }

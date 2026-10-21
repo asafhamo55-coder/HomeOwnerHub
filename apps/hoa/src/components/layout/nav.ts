@@ -31,6 +31,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
+import { M4_APPLIED } from '@homeowner-portal/db/m4'
 import { MESSAGES_PREFIXES } from '@/lib/messages/tabs'
 
 /**
@@ -107,6 +108,18 @@ export const HOA_NAV: HoaNavGroup[] = [
     items: [
       { href: '/dues', icon: Wallet, label: 'Dues', keywords: ['assessments', 'overdue', 'payments'] },
       { href: '/accounting', icon: Calculator, label: 'Accounting', keywords: ['ledger', 'invoices', 'bank', 'budget'] },
+      // BL-132: only once migration 0068 is applied (M4_APPLIED), so the
+      // sidebar doesn't change before then.
+      ...(M4_APPLIED
+        ? [
+            {
+              href: '/insurance',
+              icon: ShieldCheck,
+              label: 'Insurance',
+              keywords: ['policy', 'policies', 'fidelity bond', 'crime', 'd&o', 'renewal', 'coverage', 'master policy'],
+            },
+          ]
+        : []),
     ],
   },
   {

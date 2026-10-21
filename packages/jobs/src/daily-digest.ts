@@ -42,6 +42,19 @@ import {
   type PendingComplianceItem,
 } from '../../../apps/hoa/src/lib/compliance/deadlines'
 import { M3_APPLIED } from '@homeowner-portal/db/m3'
+// BL-132: insurance policy expiry reminders. Same dependency-free,
+// relative-path rule; inert until M4_APPLIED (migration 0068).
+import {
+  INSURANCE_COLUMNS,
+  INSURANCE_TABLE,
+  policyFromRow,
+  policyReminders,
+  reminderDigestLine,
+  remindersSummary,
+  type InsurancePolicy,
+  type PolicyReminder,
+} from '../../../apps/hoa/src/lib/insurance/model'
+import { M4_APPLIED } from '@homeowner-portal/db/m4'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -159,6 +172,8 @@ export interface DailyDigestResult {
   recordsDueSoon: number
   /** Statutory deadline lines included, summed across orgs (BL-131). */
   complianceDeadlines: number
+  /** Insurance policies expiring within 90 days or expired, summed across orgs (BL-132). 0 while M4 is off. */
+  insuranceRenewals: number
   emailed: number
   failed: number
 }
@@ -574,6 +589,50 @@ export function buildComplianceBlock(args: { items: PendingComplianceItem[]; das
 }
 
 /**
+ * BL-132: the org's insurance policies expiring within 90 days (or
+ * expired) with no renewal recorded. M4_APPLIED off: null and NO query
+ * (the table may not exist). null on a failed read (logged by code) so a
+ * failure never reads as "nothing is expiring".
+ */
+export async function loadInsuranceRenewals(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+  live: boolean = M4_APPLIED,
+): Promise<PolicyReminder[] | null> {
+  if (!live) return null
+  const { data, error } = await db.from(INSURANCE_TABLE).select(INSURANCE_COLUMNS).eq('organization_id', orgId)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load insurance policies`, { code: error.code })
+    return null
+  }
+  const policies = ((data ?? []) as Record<string, unknown>[])
+    .map(policyFromRow)
+    .filter((p): p is InsurancePolicy => p !== null)
+  return policyReminders(policies, today)
+}
+
+/** The insurance block: a count headline, one line per policy (kind and countdown only), and the link. */
+export function buildInsuranceBlock(args: { reminders: PolicyReminder[]; insuranceUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines = args.reminders.map(reminderDigestLine)
+  const headline = remindersSummary(args.reminders)
+  const text = [headline, ...lines, `Record the renewal: ${args.insuranceUrl}`].join('\n')
+  const border = args.reminders.some((r) => r.tone === 'expired' || r.tone === '30') ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    <p style="margin:0 0 8px;font-weight:600">${escapeHtml(headline)}</p>
+    <ul style="margin:0 0 12px;padding-left:20px">${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>
+    <a href="${escapeHtml(args.insuranceUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Record the renewal</a>
+  </div>`
+  return { lines, text, html }
+}
+
+/**
  * One recipient's morning email: the mailbox alert when a mailbox is
  * broken, the waiting block when residents are waiting, or both.
  */
@@ -590,6 +649,8 @@ export function buildDigestEmail(args: {
   records?: { overdue: number; dueSoon: number; recordsUrl: string } | null
   /** BL-131: statutory deadlines. Omitted or empty adds nothing. */
   compliance?: { items: PendingComplianceItem[]; dashboardUrl: string } | null
+  /** BL-132: insurance renewals. Omitted or empty adds nothing. */
+  insurance?: { reminders: PolicyReminder[]; insuranceUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -605,6 +666,9 @@ export function buildDigestEmail(args: {
   const complianceBlock =
     args.compliance && args.compliance.items.length > 0 ? buildComplianceBlock(args.compliance) : null
   if (complianceBlock) extras.push(complianceBlock)
+  const insuranceBlock =
+    args.insurance && args.insurance.reminders.length > 0 ? buildInsuranceBlock(args.insurance) : null
+  if (insuranceBlock) extras.push(insuranceBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -626,6 +690,8 @@ export function buildDigestEmail(args: {
   const firstDeadline = args.compliance?.items[0]
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && insuranceBlock
+      ? `${remindersSummary(args.insurance!.reminders)} — ${args.orgName}`
     : !arcBlock && !taskBlock && !recordsBlock && complianceBlock && firstDeadline
       ? `${firstDeadline.deadline.title}: ${firstDeadline.label} — ${args.orgName}`
     : !arcBlock && !taskBlock && recordsBlock
@@ -745,6 +811,7 @@ export async function runDailyDigest(
   let recordsOverdueTotal = 0
   let recordsDueSoonTotal = 0
   let complianceTotal = 0
+  let insuranceTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -841,6 +908,18 @@ export async function runDailyDigest(
     const complianceCount = compliance?.length ?? 0
     complianceTotal += complianceCount
 
+    // BL-132: no query at all while M4_APPLIED is off.
+    let insurance: PolicyReminder[] | null = null
+    try {
+      insurance = await loadInsuranceRenewals(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: insurance renewal check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const insuranceCount = insurance?.length ?? 0
+    insuranceTotal += insuranceCount
+
     const orgWide =
       broken.length > 0 ||
       waitingCount > 0 ||
@@ -848,7 +927,8 @@ export async function runDailyDigest(
       arcDueSoon > 0 ||
       recordsOverdue > 0 ||
       recordsDueSoon > 0 ||
-      complianceCount > 0
+      complianceCount > 0 ||
+      insuranceCount > 0
 
     if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0) continue
     if (orgTasksOverdue > 0 || orgTasksDueSoon > 0) {
@@ -873,6 +953,11 @@ export async function runDailyDigest(
       logger.info(
         `[daily-digest] ${orgId}: ${complianceCount} statutory deadline(s) pending (${[...new Set(compliance!.map((c) => c.deadline.code))].join(', ')})`,
       )
+    }
+
+    if (insuranceCount > 0) {
+      // A count only, never carriers or policy numbers.
+      logger.info(`[daily-digest] ${orgId}: ${insuranceCount} insurance polic${insuranceCount === 1 ? 'y' : 'ies'} expiring or expired`)
     }
 
     for (const mailbox of broken) {
@@ -919,6 +1004,7 @@ export async function runDailyDigest(
               ? { overdue: recordsOverdue, dueSoon: recordsDueSoon, recordsUrl: deps.appUrl('/tickets/records') }
               : null,
           compliance: complianceCount > 0 ? { items: compliance!, dashboardUrl: deps.appUrl('/#compliance-deadlines') } : null,
+          insurance: insuranceCount > 0 ? { reminders: insurance!, insuranceUrl: deps.appUrl('/insurance') } : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -952,6 +1038,7 @@ export async function runDailyDigest(
     recordsOverdue: recordsOverdueTotal,
     recordsDueSoon: recordsDueSoonTotal,
     complianceDeadlines: complianceTotal,
+    insuranceRenewals: insuranceTotal,
     emailed,
     failed,
   }

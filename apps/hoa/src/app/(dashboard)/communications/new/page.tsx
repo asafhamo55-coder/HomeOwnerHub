@@ -15,6 +15,7 @@ import { loadOrFail } from '@/lib/load-or-fail'
 import { parsePropertyParam } from '@/lib/property-scope'
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { BUDGET_NOTICE_FROM } from '@/lib/budget-notice/draft-handoff'
+import { HEARING_NOTICE_FROM } from '@/lib/violation-hearings/notice-handoff'
 import { smsConfigured } from '@/lib/sms'
 import { parseMeetingParam } from '@/lib/meetings/notice-prefill'
 import { loadMeetingNoticeContext, type MeetingNoticeContext } from '@/lib/meetings/notice-queries'
@@ -45,6 +46,8 @@ export default async function NewCommunicationPage({
    * `?draft=<id>`: resume an autosaved draft (BL-102 A9). Wins over the
    * others, since the draft already holds what they pre-filled.
    * `?meeting=<id>`: a meeting notice to all owners (BL-118).
+   * `?from=hearing-notice&property=<id>`: a violation hearing notice to one
+   * home (BL-133), handed over in this tab's sessionStorage.
    */
   searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string; draft?: string; meeting?: string }>
 }) {
@@ -52,7 +55,8 @@ export default async function NewCommunicationPage({
   const resumeDraft = sp.draft ? await loadDraft(sp.draft) : null
   const draftMissing = Boolean(sp.draft) && resumeDraft === null
   const initialPropertyId = resumeDraft ? null : parsePropertyParam(sp.property)
-  const prefillFrom = !resumeDraft && sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : null
+  const prefillFrom =
+    resumeDraft ? null : sp.from === BUDGET_NOTICE_FROM ? BUDGET_NOTICE_FROM : sp.from === HEARING_NOTICE_FROM ? HEARING_NOTICE_FROM : null
   // BL-118: prefill a meeting notice. A resumed draft or another prefill wins.
   const meetingParam = !resumeDraft && !prefillFrom && !sp.followUp ? parseMeetingParam(sp.meeting) : null
   const meetingCtx: MeetingNoticeContext | null = meetingParam ? await loadMeetingNoticeContext(meetingParam) : null

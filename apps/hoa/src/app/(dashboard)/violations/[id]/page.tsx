@@ -40,6 +40,11 @@ import {
   type CureCommitment,
 } from '@/lib/violation-cure-commitment'
 import { checkFine, fineCents } from '@/lib/compliance/statute-drift'
+import { loadBoardHearing, type BoardHearingLoad } from '@/lib/violation-hearings/queries'
+import { HEARING_OUTCOME_LABEL, hearingFineFacts, hearingSteps } from '@/lib/violation-hearings/rules'
+import { currentTimeZone } from '@/lib/association-time-current'
+import { todayIn } from '@/lib/association-time'
+import { HearingCard } from './HearingCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -161,7 +166,7 @@ export default async function ViolationDetailPage({
   // and the state law check on the fine. A failed read hides both (the
   // server action re-checks and refuses on a failed read).
   const rulesP = org ? loadOrgStateRules(supabase, org.id).catch(() => null) : Promise.resolve(null)
-  const [commitmentCard, unit, followUpResult, responses, lawRules] = await Promise.all([
+  const [commitmentCard, unit, followUpResult, responses, lawRules, hearingLoad, timeZone] = await Promise.all([
     org
       ? timed(R, 'violation.cureCommitment', async (): Promise<CommitmentCard | null> => {
           const rules = await rulesP
@@ -206,8 +211,21 @@ export default async function ViolationDetailPage({
         )
       : Promise.resolve([] as BoardResponseThread[]),
     rulesP,
+    // BL-133: the hearing record (M4_APPLIED; no query while it is off).
+    org
+      ? timed(R, 'violation.hearing', () => loadBoardHearing(supabase as never, org.id, v.id))
+      : Promise.resolve<BoardHearingLoad>({ kind: 'off' }),
+    currentTimeZone(),
   ])
-  const lawCheck = lawRules && currentStatus !== 'fined' ? checkFine({ state: lawRules.state, dailyFineCents: fineCents(v.fine_amount) }) : null
+  // A failed hearing read hides the fine check (the server action re-reads
+  // and refuses), rather than showing "no hearing recorded" wrongly.
+  const hearingFacts =
+    hearingLoad.kind === 'off' ? undefined : hearingLoad.kind === 'ok' ? hearingFineFacts(hearingLoad.hearing) : null
+  const lawCheck =
+    lawRules && currentStatus !== 'fined' && hearingLoad.kind !== 'failed'
+      ? checkFine({ state: lawRules.state, dailyFineCents: fineCents(v.fine_amount), hearing: hearingFacts })
+      : null
+  const today = todayIn(timeZone)
   const unitId: string | null = unit.unitId
   const unitLoadFailed = unit.failed
   const followUps = followUpResult?.ok ? ((followUpResult.data ?? []) as unknown as FollowUpRunRow[]) : []
@@ -247,6 +265,14 @@ export default async function ViolationDetailPage({
     if (!fu) continue
     history.push({ id: `fu-${r.id}`, title: `${followUpLabel(fu)} approved by the board`, time: timeEl(r.approved_at), icon: <FileCheck2 />, tone: 'brand' })
   }
+  // BL-133: the hearing's dated steps.
+  const hr = hearingLoad.kind === 'ok' ? hearingLoad.hearing : null
+  if (hr?.requestedAt)
+    history.push({ id: 'hearing-req', title: 'Hearing requested by the owner', time: timeEl(hr.requestedAt), icon: <Flag />, tone: 'warning' })
+  if (hr?.noticeSentOn)
+    history.push({ id: 'hearing-notice', title: 'Hearing notice sent', time: timeEl(`${hr.noticeSentOn}T12:00:00Z`), icon: <Mail />, tone: 'info' })
+  if (hr?.status === 'held' && hr.hearingOn)
+    history.push({ id: 'hearing-held', title: 'Hearing held', meta: hr.outcome ? HEARING_OUTCOME_LABEL[hr.outcome] : undefined, time: timeEl(`${hr.hearingOn}T12:00:00Z`), icon: <Gavel />, tone: 'brand' })
   if (v.fine_start_date)
     history.push({ id: 'fines', title: 'Fines started', meta: v.fine_amount != null ? `$${v.fine_amount}/day` : undefined, time: timeEl(v.fine_start_date), icon: <Gavel />, tone: 'danger' })
   if (v.resolved_at)
@@ -487,6 +513,26 @@ export default async function ViolationDetailPage({
               />
             </CardContent>
           </Card>
+
+          {hearingLoad.kind !== 'off' ? (
+            <HearingCard
+              violation={{
+                id: v.id,
+                propertyId: v.property_id,
+                closed: isClosed,
+                violationType: v.violation_type,
+                description: v.description,
+                ruleCited: v.ccr_section,
+              }}
+              state={lawRules?.state ?? null}
+              associationName={org?.name ?? ''}
+              hearing={hearingLoad.kind === 'ok' ? hearingLoad.hearing : null}
+              loadFailed={hearingLoad.kind === 'failed'}
+              checklist={
+                hearingLoad.kind === 'ok' && hearingLoad.hearing ? hearingSteps(lawRules?.state ?? null, hearingLoad.hearing, today) : null
+              }
+            />
+          ) : null}
 
           {commitmentCard ? (
             <CureCommitmentCard

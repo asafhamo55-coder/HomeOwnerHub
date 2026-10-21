@@ -603,6 +603,94 @@ checks links the same way, so nobody sees a change.
 
 ---
 
+## Section K · Migration 0068, batch M4 (insurance and fine hearings)
+
+File: `migrations/0068_m4_batch.sql`. *Needs:* nothing else in this runbook
+(it uses the board/admin check from migration 0012, the org check from
+0000 and the "my homes" check from 0061, all live). Order against A to J
+does not matter.
+
+What it does, in two parts:
+
+1. **Insurance policies (BL-132).** A new table for the association's
+   insurance policies and fidelity bond: type, insurance company, policy
+   number, coverage limit, deductible, premium, start and end dates, and an
+   optional link to the policy PDF in Documents. Only the board and admins
+   of that HOA can see or change it; owners cannot. A document from another
+   HOA is refused.
+2. **Fine hearings (BL-133).** A new table with one hearing record per
+   violation: when the owner asked for it (and their written statement),
+   the hearing date, time and place, the committee or panel (names, each
+   marked board or owner), the day the notice went out, the outcome, and
+   the findings and fine-due dates. Only the board and admins of that HOA
+   can see or change it. Owners get one thing: a "request a hearing" button
+   that works only on a violation on **their own home** that is still open.
+   A violation from another HOA is refused.
+
+Nothing in the app reads or writes either table until Claude turns on
+`M4_APPLIED` after K4. No existing table is changed.
+
+### K1 · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regclass('public.insurance_policies') IS NOT NULL                 AS insurance_done,
+         to_regclass('public.violation_hearings') IS NOT NULL                 AS hearings_done,
+         to_regprocedure('public.request_violation_hearing(uuid, text)') IS NOT NULL AS request_done,
+         to_regprocedure('public.auth_is_board_or_admin(uuid)') IS NOT NULL    AS board_check_ok,
+         to_regprocedure('public.auth_org_ids()') IS NOT NULL                  AS org_check_ok,
+         to_regprocedure('public.auth_resident_unit_ids()') IS NOT NULL        AS home_check_ok,
+         (SELECT count(*) FROM public.hoa_violations)                          AS violations;
+  ```
+
+- **Does:** shows whether each part is already there, that the three checks it builds on exist, and how many violations there are.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `insurance_done` = false, `hearings_done` = false, `request_done` = false, `board_check_ok` = true, `org_check_ok` = true, `home_check_ok` = true, `violations` = some number.
+- **Send:** the row.
+- **If any `_ok` column is false:** stop and tell Claude (K3 would refuse to run, changing nothing).
+- **If all three `_done` columns are true:** stop, K is done; tell Claude.
+
+### K2 · Nothing to move (no step)
+
+Both tables start empty. There is nothing to copy across, so there is no K2 query.
+
+### K3 · Apply 0068 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0068_m4_batch.sql`. Ask Claude to copy it ("copy step K3").
+- **Does:** creates the two empty tables, their board-only rules, the same-HOA checks, and the owner's "request a hearing" function.
+- **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
+- **Time:** about a second (both tables are new and empty).
+- **Expect:** "Success. No rows returned".
+- **Send:** "K3 done", or the error.
+- **If it errors:** nothing was changed. Send the error.
+
+### K4 · Verify (read-only)
+
+- **Paste:** the K1 query again.
+- **Expect:** one row: `insurance_done` = true, `hearings_done` = true, `request_done` = true, every `_ok` = true, `violations` the same number as in K1.
+- **Then paste, on its own:**
+
+  ```sql
+  SELECT (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'insurance_policies')  AS insurance_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'violation_hearings')  AS hearing_rules,
+         (SELECT relrowsecurity FROM pg_class
+           WHERE oid = 'public.insurance_policies'::regclass)                 AS insurance_locked,
+         (SELECT relrowsecurity FROM pg_class
+           WHERE oid = 'public.violation_hearings'::regclass)                 AS hearings_locked,
+         (SELECT count(*) FROM public.insurance_policies)                     AS policies,
+         (SELECT count(*) FROM public.violation_hearings)                     AS hearings,
+         has_function_privilege('anon', 'public.request_violation_hearing(uuid, text)', 'EXECUTE') AS anon_can_request;
+  ```
+
+- **Expect:** `insurance_rules` = 4, `hearing_rules` = 4, `insurance_locked` = true, `hearings_locked` = true, `policies` = 0, `hearings` = 0, `anon_can_request` = false.
+- **Send:** both rows, and the words **"0068 is applied"**.
+- **Flag Claude flips after K4:** `M4_APPLIED` → `true` (`packages/db/src/m4.ts`), then un-drafts the guide articles `insurance-policies`, `violations-fine-hearing` and `resident-request-hearing`, and deploys hoa + jobs. That turns on, together: the Insurance page (sidebar under Money), the insurance renewal card on the dashboard and the renewal lines in the board's morning email, the coverage check, the Fine hearing card on each violation (with "Draft hearing notice" into Messages), the state law check reading the hearing record, and the owner's "Request a hearing" on their violation page. `tests/integration/security/m4-insurance.test.ts` and `tests/integration/security/m4-hearings.test.ts` cover both parts, including the security rules, in CI.
+
+---
+
 ## App switches after each section
 
 | After | Switch | Where | Who / how |
@@ -617,6 +705,7 @@ checks links the same way, so nobody sees a change.
 | H3 | `SENDER_AUTH_COLUMN_LIVE = true` if not done after E5; `PRICING_V2` stays off until OA-16 | `packages/mailbox/src/auth-results.ts` | Claude, then deploy hoa + jobs |
 | I3 | `RECORDS_REQUESTS_LIVE = true`; `VIOLATION_FINED_STATUS_LIVE = true`; un-draft `resident-records-request` and `tickets-records-requests` | `packages/db/src/records-requests.ts`, `packages/db/src/violation-statuses.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 | J4 | `M3_APPLIED = true` (one flag for all of 0067: BL-136, BL-134, BL-131) | `packages/db/src/m3.ts` | Claude, then deploy hoa + jobs |
+| K4 | `M4_APPLIED = true` (one flag for all of 0068: BL-132, BL-133); un-draft `insurance-policies`, `violations-fine-hearing`, `resident-request-hearing` | `packages/db/src/m4.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs

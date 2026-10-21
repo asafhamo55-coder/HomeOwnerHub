@@ -42,6 +42,7 @@ export default async function ResidentViolationDetailPage({
         threadFailed={home.threadFailed}
         canRespond={home.canRespond}
         attachments={attachments}
+        hearing={home.hearing}
       />
     )
   }
