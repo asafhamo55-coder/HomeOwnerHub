@@ -207,6 +207,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - The ux-ratchet stays green.
 
 ### BL-007 — Close the `ownerships`/`units` RLS hole (migration batch M1)
+  - **Status:** Done: shipped behind M1_APPLIED; M1 applied in prod and the flag on since 2026-10-20.
 - **Groomed 2026-10-20:** Open, needs migration 0063: the policy split is written (c7fa7e23, RLS sweep) and waits for Asaf to apply 0063.
 - **User value:** a resident can't make themselves the owner of a neighbour's unit to read their dues. That matters more once BL-006 and BL-010 show richer per-unit data.
 - **Evidence:** parking lot 2026-10-15, "`ownerships` and `units` are still FOR ALL, org-only". Revisit trigger: "before any resident self-service flow".
@@ -364,6 +365,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - The eval set (`W3-violation-inspector/eval.ts`) gains FL and CA cases.
 
 ### BL-020 — Per-member email consent (CA §4040) (migration batch M1)
+  - **Status:** Done: shipped behind M1_APPLIED; M1 applied in prod and the flag on since 2026-10-20.
 - **Groomed 2026-10-20:** Open, needs migration M1: code is built behind `M1_APPLIED` (431ac157 UI, 65a47f5d send path).
 - **User value:** California boards can lawfully send notices by email, and every board knows who has opted out.
 - **Evidence:** Civ. Code §4040 requires written or email consent that the member can revoke (research §2.4).
@@ -692,6 +694,7 @@ These go beyond the design-system v2 pass:
 - **BL-049 Residents see association documents — Done (c4)** (from BL-015): FL §720.303(4) requires
   posting records in an owners-only area; the resident portal lists none today. No migration.
 - **BL-050 `notice_posted_at` on meetings (migration, batch M1)** (from BL-015): record when a
+  - **Status:** Done: shipped behind M1_APPLIED; M1 applied in prod and the flag on since 2026-10-20.
   - **Groomed 2026-10-20:** Open, needs migration M1: UI built behind `M1_APPLIED` (431ac157).
   meeting notice was posted so the 14-day/48-hour check can confirm compliance, not just
   flag late additions.
@@ -701,6 +704,7 @@ These go beyond the design-system v2 pass:
   - Still open: the Safari print/PDF check needs a human. Waived and written-off charges are
     still left out of month-end delinquency, because nothing records when they were waived.
 - **BL-052 Document visibility enforced by the database (migration, batch M1, security)** (from BL-049):
+  - **Status:** Done: shipped behind M1_APPLIED; M1 applied in prod and the flag on since 2026-10-20.
   - **Groomed 2026-10-20:** Open, needs migration M1: UI built behind `M1_APPLIED` (431ac157).
   residents can still read every `hoa_documents`/`governing_documents` row of their org and sign any
   object under their org's `hoa-documents` prefix (including `<org>/vendors/…`), because 0063 kept
@@ -733,6 +737,7 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-16 (cycle 6)
 
 - **BL-058 Stored bills readable by residents (security, M1 with F-02):** uploaded bills sit in `hoa-documents` under `${orgId}/bills/`, which any org member can read by path. Vendor documents have the same problem. Move them to a board-only bucket or path policy as part of the M1 storage policies.
+  - **Status:** Done: shipped behind M1_APPLIED; M1 applied in prod and the flag on since 2026-10-20.
   - **Groomed 2026-10-20:** Open, needs migration M1 (storage policies).
 - **BL-059 Bill scan follow-ups:**
   - **Groomed 2026-10-20:** Partly done: edit-before-approve shipped (082e6a34), and the /approvals filter redirect fix. Still open, no migration: inbox attachments as a second way into bill scan; one real bill through the text and vision paths; `read-only:bg-subtle` in `packages/ui/src/lib/control.ts` still greys every Select trigger.
@@ -755,6 +760,7 @@ These go beyond the design-system v2 pass:
 ## Added 2026-10-17 (cycles 7–8)
 
 - **BL-063 Retry cap gaps (needs a column, M1):** event alerts that never write a communications row (no association, no recipients, a failed insert) still retry daily. Add `hoa_recurring_events.alert_failed_attempts`.
+  - **Status:** Done: shipped behind M1_APPLIED; M1 applied in prod and the flag on since 2026-10-20.
   - **Groomed 2026-10-20:** Open, needs migration M1 (`alert_failed_attempts`).
 - **BL-064 "Open the books" for partial setups — Done (c9):** trial-balance, periods, coa, invoices/new, cash-flow, income-statement and the Plaid "no funds" alert still say "Contact support" when an association exists but its books are incomplete. Reuse `setUpAssociationCore`. The leases, settings/payments and reminders pages should use `AssociationNotSetUp`.
 - **BL-065 Time zone leftovers (from BL-043): — Done (claude/bl-065)**
@@ -1077,6 +1083,7 @@ These go beyond the design-system v2 pass:
 
 
 - **BL-105 Inbound sender authentication:** `checkSenderForUnit` trusts the From header, which can be forged. Read the inbound provider's SPF/DKIM/DMARC result and treat a failed check as "unverified sender" (no contact-update prefill, a warning in the context panel). No migration if the verdict is available on the stored message; otherwise it waits for migration 0065.
+  - **Status:** Done: SENDER_AUTH_COLUMN_LIVE on since 2026-10-20 (runbook E verified).
   - **Groomed 2026-10-20:** Partly done (cd3c6144), behind `SENDER_AUTH_COLUMN_LIVE = false`. Needs migration 0065 (`docs/specs/2026-10-20-inbound-auth.sql`).
   - **Status (2026-10-20):** the verdict is NOT stored today (Inbox mail is Gmail sync; `inbox_messages` keeps no headers), so it needs a column. Built: the pure parser (`packages/mailbox/src/auth-results.ts`, topmost `Authentication-Results` from `mx.google.com` only → pass / fail / none), ingest writing `sender_auth`, `checkSenderForUnit(…, { threadId })` turning `fail` into `sender_unauthenticated` (no contact-update prefill or filing, balance withheld from drafts and saved replies, red chip in the rail; `none` adds a soft note). All behind `SENDER_AUTH_COLUMN_LIVE = false`. Waits for the owner to apply `docs/specs/2026-10-20-inbound-auth.sql`, then flip the flag and deploy.
 - **BL-106 AI caps for meeting-summary and ask-community (Done 2026-10-20: own buckets `meeting_summary` 5/h, 10/day (Essentials 3/day, provisional: BL-108) and `ask_community` 15/h, 25/day (Essentials 0, Copilot not on the plan); Copilot loop bounded to 1,500 output tokens per step and 6 docs searches; Complete still over 30% (open, see amendment); cost math in the pricing decision's BL-106 amendment; ai-limits.ts comment corrected):** these two board-only AI routes are still uncapped (BL-104 left them out because the decision's cost math doesn't cover them). Measure per-call cost from ai_runs, then amend docs/decisions/2026-10-20-pricing.md with a cap that keeps worst-case AI cost at or below 30% of the band price.
@@ -1102,17 +1109,17 @@ Not counted above: BL-104's module-off pages (M2) and BL-102 Phase B (migrations
 1. ~~**Invoices emailed to the HOA become bill proposals** (BL-059 leftover).~~ **Done 2026-10-20** (see BL-059). Add "Scan as a bill" on an inbox PDF/image attachment, feeding the existing bill-scan proposal into /approvals. Files: `apps/hoa/src/lib/inbox/convert/actions.ts`, `apps/hoa/src/app/(dashboard)/inbox/[id]/ConvertMenu.tsx`, `apps/hoa/src/lib/bill-scan/proposal.ts`, `apps/hoa/src/lib/inbox/attachment-file.ts`.
 2. **California statute text ingestion** (BL-069, adapter part only). A CA adapter behind `StateLawAdapter` reading the leginfo `pubinfo_<year>.zip` bulk data (Civ. Code §§ 4000–6150), so CA violation and collections letters quote verbatim text instead of nothing. Recorded fixtures only, no live calls in CI. First check the statutes tables accept `CA` without a migration. Files: `packages/workflows/src/W30-state-law-brain/sources/` (new `california.ts`, `index.ts`), `packages/jobs/src/state-law-refresh.ts`, `tests/integration/flows/state-law-refresh.test.ts`.
 3. ~~**Dues reminders tell the truth**~~ **Done (2026-10-20):** a run the guard held back for every recipient finishes `cancelled` (0018 has no held status; `finalSendStatus` in `packages/observability/src/send-status.ts`), recipients `suppressed`, no `sent_at`; /communications and the /dues dialog read "held by safety guard (N)"; the reminder email is fluid (no fixed width over 375px). (BL-044 leftovers). A reminder the outbound guard held back for every recipient should read "held by the safety guard", not `failed`; the email preview must not scroll sideways at 375px. Files: `packages/jobs/src/dues-reminders/run.ts`, `apps/hoa/src/lib/dues-reminders/render.ts`, `apps/hoa/src/app/(dashboard)/dues/SendRemindersDialog.tsx`.
-4. **Fix the slowest pages from real numbers** (BL-099 follow-up). Read a week of `[perf]` log lines in Vercel production, then fix the top 3 slow loaders (waterfalls, `select *`, missing streaming). Index ideas go into `docs/specs/2026-10-19-perf-indexes.sql`, never applied by an agent. Files: `apps/hoa/src/lib/perf/timing.ts` and whichever loaders the logs name (likely `apps/hoa/src/lib/dashboard/queries.ts`, `apps/hoa/src/lib/properties/property-360.ts`).
+4. **Fix the slowest pages from real numbers** (BL-099 follow-up). Read a week of `[perf]` log lines in Vercel production, then fix the top 3 slow loaders (waterfalls, `select *`, missing streaming). Index ideas go into `docs/specs/2026-10-19-perf-indexes.sql`, never applied by an agent. Files: `apps/hoa/src/lib/perf/timing.ts` and whichever loaders the logs name (likely `apps/hoa/src/lib/dashboard/queries.ts`, `apps/hoa/src/lib/properties/property-360.ts`). **Status:** Shipped a static pass (0ae633b4). Remaining: fix from a week of real [perf] numbers.
 5. **Cap meeting-summary and ask-community** (BL-106). Measure per-call cost from `ai_runs`, add both routes to `board_ai` (or their own bucket), amend the pricing decision, and fix the `ai-limits.ts` comment that already claims they are capped. Files: `apps/hoa/src/app/api/ai/meeting-summary/route.ts`, `apps/hoa/src/app/api/ai/ask-community/route.ts`, `apps/hoa/src/lib/api/ai-limits.ts`, `docs/decisions/2026-10-20-pricing.md`.
-6. **Communications guides match the new composer** (BL-102 A10). Rewrite the announcement and SMS articles for the one-box composer (drop Topic/HTML), add `communications-urgent-notice.md` and `communications-follow-up.md`, regenerate the guide. Files: `apps/hoa/content/guide/communications/*.md`, `apps/hoa/src/generated/guide.ts`.
-7. **Inbox draft measurement** (BL-101 A10). Record edit distance, blank count and open-to-approve time per approved draft (ids and numbers only), plus a weekly figure for the board digest. Files: `apps/hoa/src/lib/inbox/draft/actions.ts`, `packages/workflows/src/W32-reply-drafter/`, `packages/jobs/src/daily-digest.ts`.
-8. **Product analytics, privacy-safe** (BL-009 remainder). Add Vercel Web Analytics page views on board and resident routes and the 8 named events through an allowlist like `help-events.ts`; update the privacy page. Asaf enables Web Analytics on the project. Files: `apps/hoa/src/app/layout.tsx`, `apps/hoa/src/lib/guide/help-events.ts` (pattern), new `apps/hoa/src/lib/analytics/`, `apps/marketing/src/app/privacy/page.tsx`.
+6. **Communications guides match the new composer** (BL-102 A10). Rewrite the announcement and SMS articles for the one-box composer (drop Topic/HTML), add `communications-urgent-notice.md` and `communications-follow-up.md`, regenerate the guide. Files: `apps/hoa/content/guide/communications/*.md`, `apps/hoa/src/generated/guide.ts`. **Status:** Done (76dcf5b4), live.
+7. **Inbox draft measurement** (BL-101 A10). Record edit distance, blank count and open-to-approve time per approved draft (ids and numbers only), plus a weekly figure for the board digest. Files: `apps/hoa/src/lib/inbox/draft/actions.ts`, `packages/workflows/src/W32-reply-drafter/`, `packages/jobs/src/daily-digest.ts`. **Status:** Done (c6445a9d), live.
+8. **Product analytics, privacy-safe** (BL-009 remainder). Add Vercel Web Analytics page views on board and resident routes and the 8 named events through an allowlist like `help-events.ts`; update the privacy page. Asaf enables Web Analytics on the project. Files: `apps/hoa/src/app/layout.tsx`, `apps/hoa/src/lib/guide/help-events.ts` (pattern), new `apps/hoa/src/lib/analytics/`, `apps/marketing/src/app/privacy/page.tsx`. **Status:** Done (1fb2fcc1), live; turning it on waits on OA-24.
 9. ~~**Grey Select triggers**~~ **Done (2026-10-20):** `controlBase` greys only `[readonly]` controls; the prefixed Input greys its wrapper from the prop; `packages/ui/src/lib/control.test.ts` compiles the class through Tailwind. (BL-059 leftover, design system). `read-only:bg-subtle` in `controlBase` matches non-input elements, so every Select trigger and prefixed Input renders grey. Scope it to real inputs and add a preview test. Files: `packages/ui/src/lib/control.ts`, `packages/ui` Select/Input components.
 10. **Texas and Georgia statute text** (BL-069, adapters). Same pattern as item 2 for TX Prop. Code ch. 202/209 and GA Title 44 ch. 3, which also unblocks the records-roster email rule for TX § 209.005 and GA. Files: `packages/workflows/src/W30-state-law-brain/sources/`, `apps/hoa/src/lib/properties/statutory-roster/law.ts`.
-11. **SMS allowance per plan** (BL-104 item 9). Count this month's SMS segments from existing send rows; over the allowance, skip SMS, still send email, and tell the board why. Behind `PRICING_V2`. Files: `apps/hoa/src/lib/communications/send.ts`, `packages/billing/src/entitlements.ts`.
-12. **Nightly band-sync job** (BL-104 item 5). Recount units; when the band changes, update the subscription quantity with `proration_behavior: 'none'`. Behind `PRICING_V2`; tests only against mocks or the BL-103 sandbox. Files: new `packages/jobs/src/billing-band-sync.ts`, `packages/billing/src/pricing-v2.ts`, `apps/hoa/src/app/api/inngest/route.ts`.
-13. **Renewal notice for grandfathered subscriptions** (BL-104 item 6). Email the board 30 days before term end (new plan and price) and swap the price at term end; board recipients only, through the guard. Files: new `packages/jobs/src/billing-renewal-notice.ts`, `packages/billing/src/grandfathering.ts`.
-14. **⌘K latency measured** (BL-060 leftover). Add timing to `/api/search` through `perfTimer`, and record p50 on the seeded org in CI. Files: `apps/hoa/src/app/api/search/route.ts`, `apps/hoa/src/lib/perf/timing.ts`.
+11. **SMS allowance per plan** (BL-104 item 9). Count this month's SMS segments from existing send rows; over the allowance, skip SMS, still send email, and tell the board why. Behind `PRICING_V2`. Files: `apps/hoa/src/lib/communications/send.ts`, `packages/billing/src/entitlements.ts`. **Status:** Done (18f4de51), behind PRICING_V2.
+12. **Nightly band-sync job** (BL-104 item 5). Recount units; when the band changes, update the subscription quantity with `proration_behavior: 'none'`. Behind `PRICING_V2`; tests only against mocks or the BL-103 sandbox. Files: new `packages/jobs/src/billing-band-sync.ts`, `packages/billing/src/pricing-v2.ts`, `apps/hoa/src/app/api/inngest/route.ts`. **Status:** Done (18f4de51), behind PRICING_V2.
+13. **Renewal notice for grandfathered subscriptions** (BL-104 item 6). Email the board 30 days before term end (new plan and price) and swap the price at term end; board recipients only, through the guard. Files: new `packages/jobs/src/billing-renewal-notice.ts`, `packages/billing/src/grandfathering.ts`. **Status:** Done (18f4de51), behind PRICING_V2.
+14. **⌘K latency measured** (BL-060 leftover). Add timing to `/api/search` through `perfTimer`, and record p50 on the seeded org in CI. Files: `apps/hoa/src/app/api/search/route.ts`, `apps/hoa/src/lib/perf/timing.ts`. **Status:** Done (3b6d2bf6), live.
 15. **CINC aging report → opening balances** (BL-031 remainder). Map a CINC aging export to per-unit opening balances, with the JE proposed through approvals and a dry run of counts and ids. **Blocked until Asaf supplies a real CINC export**; skip it until then. Files: `apps/hoa/src/lib/properties/import.ts`, `apps/hoa/src/app/(dashboard)/properties/import/`, `packages/workflows/src/approvals/`.
 
 Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a vendor COI reply reaches the inbox), the BL-051 Safari print check, and a browser pass on the new convert menu, composer and billing banner.
@@ -1152,6 +1159,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 
    Pain: "HOAs run on oral tradition." Effort M, score 1.60. Files: `apps/hoa/src/app/(dashboard)/settings/handover/` (new), `apps/hoa/src/lib/handover/` (new).
 6. **BL-118 Meeting notice to owners with a calendar invite.** "Send notice" on a scheduled meeting prefills the composer and adds an `.ics` file. It also warns when the date is inside the state minimum notice: FL § 720.303(2)/720.306, CA § 4920, TX § 209.0051, and the bylaws for GA. Write `notice_posted_at` only behind the BL-050 flag. Pain: short notice voids decisions. Effort M, score 1.50. Files: `apps/hoa/src/app/(dashboard)/meetings/[id]/MeetingActions.tsx`, `apps/hoa/src/lib/meetings/notice-law.ts` (new), `apps/hoa/src/lib/ics.ts` (new).
+   - **Status:** Done (5321bbed), live in prod.
 7. **BL-119 Board task list. (Done 2026-10-20: /tasks, My tasks card, digest)** /tasks over `meeting_action_items`, where `meeting_id` is nullable. Assign, due, done, make a task from a ticket or thread, overdue lines in the assignee's digest, and a dashboard card. Pain: burnout, one person carries everything. Effort M, score 1.20. Files: `apps/hoa/src/app/(dashboard)/tasks/` (new), `apps/hoa/src/lib/meeting-action-items.ts`, `packages/jobs/src/daily-digest.ts`.
 8. **BL-120 Reserve snapshot. (Done 2026-10-20: dashboard card, board report section, funds card)** Reserve fund balance, year-to-date contributions vs budget, draws and a 12-month trend on the dashboard and in the monthly board report, from `funds` and `ledger_entries.fund_id`. Pain: underfunded reserves. Effort S–M, score 1.50. Files: `apps/hoa/src/lib/accounting/reserves.ts` (new), `apps/hoa/src/lib/dashboard/queries.ts`, `packages/jobs/src/monthly-board-report/run.ts`.
 9. **BL-121 Year-end CPA package and 1120-H worksheet. (Done 2026-10-20: /accounting/reports/year-end zip, 1120-H worksheet, 1099 candidates)** A zip of TB, GL, statements, AR aging and bank recs, plus:
@@ -1198,6 +1206,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 **(A) No migration.** Each is sized for one worktree agent. Highest value first.
 
 1. **BL-125 Homes added before the association exists are never billed (bug).**
+   - **Status:** Done (ce06406e), live in prod.
    - **Pain:** `/onboarding` creates no association, so `/properties/new` and the import write `units.association_id = NULL`. `setUpAssociationCore` never adopts those units, and dues generation filters on `association_id`, so the homes are silently skipped. The guide says they "can be billed straight away".
    - **Build:**
      - Create the association during onboarding.
@@ -1206,6 +1215,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
    - **Files:** `apps/hoa/src/app/onboarding/actions.ts`, `apps/hoa/src/lib/association-setup.ts`, `apps/hoa/src/lib/properties/lot.ts`, `tests/integration/`.
    - Effort S, value very high, score 6.0.
 2. **BL-127 One setup checklist that tells the truth.**
+   - **Status:** Done (ce06406e), live in prod.
    - **Pain:** the two checklists (4 steps and 6 steps) disagree. "Invite the board" is ticked by inviting a resident. Association and books, Zelle, bank, budget and reminders are missing. `start-board-admin.md` still says "contact support" to import.
    - **Build:**
      - One shared model, with board roles only for the invite step.
@@ -1215,6 +1225,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
    - **Files:** `apps/hoa/src/lib/dashboard/setup-checklist.ts`, `apps/hoa/src/lib/inbox/queries.ts`, `apps/hoa/src/app/onboarding/setup/`, `apps/hoa/content/guide/setup/*.md`.
    - Effort S, score 3.6.
 3. **BL-126 Opening-balance cutover wizard.**
+   - **Status:** Done (6ca4bd79), live in prod.
    - **Pain:** the import screen says "enter opening balances in Accounting", but there is no screen to enter them. Treasurers taking over from a manager can't make the books match the bank.
    - **Build:** `/accounting/opening-balances`:
      - cutover date;
@@ -1228,12 +1239,14 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
    - **Verify first:** the approvals executor takes a multi-line JE.
    - Effort M–L, score 1.5.
 4. **BL-129 Residents see and answer violations on their own home.**
+   - **Status:** Done (9a1d5919), live in prod.
    - **Pain:** own-home violations are read-only rows that don't link anywhere (`resident/page.tsx:353-355`). Disputes go to email, and selective-enforcement claims follow.
    - **Build:** a detail page (rule, letters, cure-by date, photos the board marked shareable), a reply thread, and "I've fixed it — board to confirm".
    - **Files:** `apps/hoa/src/app/resident/violations/[id]/`, `apps/hoa/src/lib/resident-dashboard.ts`, `apps/hoa/src/app/(dashboard)/violations/[id]/`.
    - **No migration:** 0063's `hoa_violations_select` already covers own-property reads. **Verify first** which thread table the reporter view uses.
    - Effort S–M, score 1.6.
 5. **BL-128 Invite every owner at once, and see who hasn't joined.**
+   - **Status:** Done (9a1d5919), live in prod.
    - **Pain:** invites go out one at a time, with no pending list and no resend (`members-invite-board.md`). Imported owners never get access, and unlinked accounts hit a dead end.
    - **Build:**
      - Bulk "Invite owners to the portal": dry-run counts, guarded and throttled, and each account is linked to its unit on accept.
@@ -1349,6 +1362,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
 **Prerequisite (S, no migration):** load CA Civ. Code §§ 5605, 5610, 5615 and 5806 (from the pubinfo zip) and TX Prop. Code §§ 209.0051 and 209.00592–.00594 into fixtures and W30. Until then, CA and TX increase and election rules read "check your governing documents".
 
 1. **BL-137 Dues-rate schedule and assessment-increase notice.** Migration: **yes (M5)**. Effort M. Score 1.33, with a timing override.
+   - **Status:** Built behind M5_APPLIED (5cc0d6c3). Remaining: owner applies 0069 (runbook Section L), then flip the flag.
    - **Pain:** insurance is pushing 2026 dues up 5–15% (R1). CA increase caps and notice windows are commonly missed (R3).
    - **Today:** dues are a flat amount typed in at every billing run (`apps/hoa/src/lib/assessments.ts:30-60`).
    - **Build:**
@@ -1361,6 +1375,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
    - **Files:** `apps/hoa/src/lib/assessments.ts`, `apps/hoa/src/lib/dues-rates/` (new), `apps/hoa/src/app/(dashboard)/dues/`, `packages/jobs/src/` (generation).
    - **Status (2026-10-21): built behind `M5_APPLIED` (false), migration `0069_m5_batch.sql` part 1, runbook Section L.** `dues_rates` (association, `effective_from`, per-home `amount_cents`, monthly/quarterly/semiannual/annual, optional `budget_id`, note; `basis` + `unit_type_amounts` reserved for per-type/per-share). RLS: board/admin write; a resident reads only today's rate for their own home's association (SECURITY DEFINER id helper); same-org/association trigger (23503); `created_by` forced (SEC-N6). App: `/dues/rates` (schedule, add/remove upcoming, % change, state findings, Draft owner notice → composer, nothing auto-sent); Generate dues and Add a due pre-fill from the rate in effect, a different amount writes `dues_rate.override` to audit_log; BL-138 kit's last step opens `/dues/rates?budget=` pre-filled from assessment income ÷ homes. Law (fixtures only): GA Art. 6 has no notice/cap/vote for an increase (§§ 44-3-230(a), 44-3-232.1(a)(5), 44-3-225(a), 44-3-235(a) quoted); FL § 720.303(2)(c)2, § 720.308(1)(a); CA § 5605(a)/(b) from the pubinfo fixture (20% cap check), § 5615 not loaded; TX § 209.0058(a)(4), § 209.0051 not loaded. Not built: money changes through /approvals, packages/jobs generation (no job bills dues today). Guide `dues-rate-schedule` (draft until the flip).
 2. **BL-138 Budget adoption kit.** Migration: no. Effort M. Score 1.60.
+   - **Status:** Done (1f4c1634), live in prod.
    - **Pain:** FL § 720.303(2)(c)2 (fixture): an assessment may not be levied unless the meeting notice says assessments will be considered; special assessments need 14 days plus posting. CA § 5300(a) (fixture): the budget report goes out 30–90 days before fiscal year end, a window that is open now for calendar-year associations.
    - **Build:**
      - An "adopts budget or assessments" flag on a meeting (agenda or `compliance_settings`, no new type), checked in `notice-law.ts`.
@@ -1378,6 +1393,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
    - **Files:** `apps/hoa/src/lib/compliance/director-certs.ts` (new), `apps/hoa/src/components/dashboard/ComplianceDeadlinesCard.tsx`, `apps/hoa/src/app/(dashboard)/settings/handover/`.
    - **Status (2026-10-21): built, no migration.** Signed records under `associations.compliance_settings.director_certifications[user_id]` (HMAC, same secret chain as BL-131) on the org's first FL association by name; certificate link is an https or `/documents` URL (no `hoa_documents` type change). Members card with dates, link and "Mark certified" (audit_log ids only), handover pill, dashboard "Director certification" card and digest block at ≤ 30 days / overdue / 4-year expiry. Fixture check: current (1)(a) accepts only the educational certificate (no written-affidavit option); (1)(c) 5-year retention; CE hours (4 / 8) shown as text, not tracked. Guide `director-certification`.
 4. **BL-140 Fine hearing hard gate (BL-133 leftovers).** Migration: no. Effort M. Score 1.60.
+   - **Status:** Shipped (99e2d3fa, live): hard gate, panel check, digest timers. Remaining: cure-before-hearing.
    - **Today:** Fined with no hearing recorded is only a warning (`ca_hearing_not_recorded`, `fl_hearing_committee` in `apps/hoa/src/lib/compliance/statute-drift.ts`).
    - **Build:**
      - Make it a block in FL and CA, with the existing audited override.
@@ -1397,6 +1413,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - No e-voting.
    - **Files:** `apps/hoa/src/lib/elections/` (new), `apps/hoa/src/app/(dashboard)/meetings/[id]/election/` (new), `apps/hoa/src/lib/meetings/notice-law.ts`.
 6. **BL-142 Insurance renewal comparison and fidelity check (BL-132 leftovers).** Migration: no. Effort S–M. Score 1.60.
+   - **Status:** Shipped (2f857986, live): renewal comparison, fidelity vs funds, owner summary. Remaining: HO-6 notice, handover-kit link.
    - **Pain:** premiums are the main driver of dues increases (R1).
    - **Build:**
      - Premium, limit and deductible vs the prior policy of the same kind.
@@ -1432,6 +1449,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - A line in the monthly board report and the packet.
    - **Files:** `apps/hoa/src/app/(dashboard)/compliance/` (new), `apps/hoa/src/lib/compliance/`, `apps/hoa/src/lib/monthly-report/render.ts`.
 10. **BL-146 Composer polish.** Migration: no. Effort S–M. Score 0.90.
+   - **Status:** Shipped (6df2b5cb): Spanish editor, untick homes, signed status webhook. Remaining: BL-146b (send via Messages API).
     - **Today:**
       - The Spanish version is still a monospace HTML textarea (`communications/new/SpanishVersion.tsx:154-168`).
       - A street sends to every home on it (`AudienceStep.tsx:246-269`).
