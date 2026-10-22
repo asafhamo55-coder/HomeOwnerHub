@@ -29,7 +29,7 @@ this file is the reference it points to.
   - Palette: blue, `#2563EB` primary.
   - Domain: homeownerledger.com (unchanged).
   - "ledger" as an accounting term stays.
-- **App:** https://www.homeownerledger.com. It is moving to app.homeownerledger.com (§5).
+- **App:** https://www.homeownerledger.com. It is moving to https://homeownerledger.online, its own apex domain (owner decision 2026-10-21; §5).
 - **Marketing site:** `apps/marketing`, currently https://homeownerhub.vercel.app. It is not deploying (§5).
 - **Repo:** monorepo, public on GitHub (asafhamo55-coder/HomeOwnerHub). Never put secrets or leaked-key details in it.
 

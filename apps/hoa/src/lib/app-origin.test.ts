@@ -7,10 +7,10 @@ afterEach(() => {
 
 describe('appOrigin', () => {
   it('reads NEXT_PUBLIC_APP_URL, without a trailing slash', () => {
-    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://app.homeownerledger.com/')
-    expect(appOrigin()).toBe('https://app.homeownerledger.com')
-    expect(appUrl('/auth/callback')).toBe('https://app.homeownerledger.com/auth/callback')
-    expect(appUrl('resident/dues')).toBe('https://app.homeownerledger.com/resident/dues')
+    vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://homeownerledger.online/')
+    expect(appOrigin()).toBe('https://homeownerledger.online')
+    expect(appUrl('/auth/callback')).toBe('https://homeownerledger.online/auth/callback')
+    expect(appUrl('resident/dues')).toBe('https://homeownerledger.online/resident/dues')
   })
 
   it('falls back to the pre-split host in production, so nothing moves until the env var does', () => {

@@ -27,7 +27,7 @@ const shortDescription = OTHER_HUBS_ENABLED
 export const metadata: Metadata = {
   // The marketing site's own origin after the domain split (lib/site.ts:
   // NEXT_PUBLIC_SITE_URL, falling back to www). Absolutises canonical and
-  // OG URLs. The app lives on app.homeownerledger.com (lib/app-origin.ts).
+  // OG URLs. The app lives on homeownerledger.online (lib/app-origin.ts).
   metadataBase: new URL(SITE_ORIGIN),
   applicationName: SITE_NAME,
   title: {

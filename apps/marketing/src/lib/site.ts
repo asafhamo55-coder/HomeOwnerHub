@@ -2,7 +2,7 @@
 //
 // Domain split (docs/specs/2026-10-19-domain-split.md): this site serves
 // www.homeownerledger.com (the apex redirects to www); the HOA app serves
-// app.homeownerledger.com (see app-origin.ts). The site origin comes from
+// homeownerledger.online (see app-origin.ts). The site origin comes from
 // NEXT_PUBLIC_SITE_URL so a preview can set its own, and falls back to www.
 // It is never the app host, and never anything off our domain: canonical
 // URLs and OG images must point at the site people actually land on.

@@ -1,4 +1,4 @@
-// Old app links on the marketing domain → the app subdomain.
+// Old app links on the marketing domain → the app on homeownerledger.online.
 //
 // Until the domain split (docs/specs/2026-10-19-domain-split.md) the HOA app
 // served www.homeownerledger.com, so every email already sitting in a

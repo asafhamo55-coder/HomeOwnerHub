@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { APP_ORIGIN } from './lib/app-origin'
 import { appRedirectTarget } from './lib/app-redirects'
 
-// Old app links (the app served www until the domain split) → the app
-// subdomain, path and query kept. See lib/app-redirects.ts.
+// Old app links (the app served www until the domain split) → the app on
+// homeownerledger.online, path and query kept. See lib/app-redirects.ts.
 //
 // 307, not 308: browsers cache a 308 forever, and these paths may one day
 // be wanted back for marketing pages.

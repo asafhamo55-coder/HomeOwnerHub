@@ -89,7 +89,7 @@ export function Hero() {
                 <span className="h-2.5 w-2.5 rounded-full bg-border" />
                 <div className="ml-3 flex items-center gap-2 rounded-md bg-surface px-2.5 py-1 text-xs text-muted ring-1 ring-border/70">
                   <FileText className="h-3 w-3" />
-                  <span className="font-mono">app.homeownerledger.com/ai/ask</span>
+                  <span className="font-mono">homeownerledger.online/ai/ask</span>
                 </div>
                 <span className="ml-auto hidden items-center gap-1 rounded-md bg-success-subtle px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-success ring-1 ring-success/15 sm:inline-flex">
                   <ShieldCheck className="h-3 w-3" />

@@ -1,4 +1,4 @@
-// The HOA app's public origin, e.g. "https://app.homeownerledger.com".
+// The HOA app's public origin, e.g. "https://homeownerledger.online".
 //
 // One place for it (docs/specs/2026-10-19-domain-split.md). Every absolute
 // link the app builds (invites, magic links, Stripe return URLs, email and

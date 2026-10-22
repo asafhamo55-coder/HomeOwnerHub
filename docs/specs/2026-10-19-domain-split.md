@@ -1,15 +1,33 @@
-# Domain split: marketing on www, the app on app.homeownerledger.com
+# Domain split: marketing on www, the app on homeownerledger.online
 
-Owner decision, 2026-10-19:
+Owner decision, 2026-10-19, revised 2026-10-21: the app gets its own apex
+domain, `homeownerledger.online`, instead of `app.homeownerledger.com`.
 
 | Host | Today | After |
 |---|---|---|
 | `homeownerledger.com` | HOA project, redirects to www | marketing project, redirects to www |
 | `www.homeownerledger.com` | HOA app (`home-owner-hub-hoa`) | marketing site (`homeownerhub-marketing`) |
-| `app.homeownerledger.com` | does not resolve | HOA app (`home-owner-hub-hoa`) |
+| `homeownerledger.online` | attached to `home-owner-hub-hoa`, DNS still parked | HOA app (`home-owner-hub-hoa`) |
+| `www.homeownerledger.online` | attached to `home-owner-hub-hoa`, 308 to the apex | unchanged: 308 to the apex |
+| `app.homeownerledger.com` | does not resolve | not used; no DNS record needed |
 
 The inbound and sending email domain (`noreply@homeownerledger.com`,
 `send.homeownerledger.com` MX to Amazon SES via Resend) does not change.
+
+### Why .online, and the email-deliverability caveat
+
+The owner chose a separate apex domain for the app (2026-10-21). The cost is
+in email: every message we send from `@homeownerledger.com` will now link to
+a different, newer domain, on a TLD that spam filters score higher than
+`.com`. A From domain that doesn't match the link domain, plus a young
+`.online` domain, can push portal links and magic links toward spam.
+
+Mitigation: keep sending from `homeownerledger.com` (its SPF, DKIM and
+sending reputation stay intact), and watch Resend's bounce and complaint
+rates for the first weeks after the switch (step 7 onward). If they climb,
+the fallback is to send links through a `homeownerledger.com` path that
+redirects to the app, which the marketing middleware already does for every
+app path.
 
 ## What we found (read-only, 2026-10-19)
 
@@ -42,11 +60,16 @@ The inbound and sending email domain (`noreply@homeownerledger.com`,
 **DNS:** `homeownerledger.com` is registered elsewhere and its
 **nameservers are Network Solutions** (`ns49/ns50.worldnic.com`), not
 Vercel. The records under `vercel dns ls` (including a `*` ALIAS) have no
-effect. `app.homeownerledger.com` currently has no record, so the CNAME has
-to be added **at Network Solutions**. The apex resolves to `76.76.21.21`
+effect. (The earlier plan needed an `app` CNAME there; the app now lives on
+`homeownerledger.online` instead, so it does not.) The apex resolves to `76.76.21.21`
 (Vercel). `www` is a CNAME to `afa3394a804e31cd.vercel-dns-017.com`. Both
 are project-agnostic, so moving them between Vercel projects needs no DNS
 change.
+
+**DNS for `homeownerledger.online`** (2026-10-21) is also at Network
+Solutions. It currently has a parking A record (`208.91.197.27`). Vercel
+asks for an apex A record `@ → 216.198.79.1` (the older `76.76.21.21` also
+works) and `www → afa3394a804e31cd.vercel-dns-017.com`.
 
 ## Dependency inventory: everything that names the www host
 
@@ -63,7 +86,7 @@ change.
 | Stripe webhook endpoint | Stripe dashboard → `/api/webhooks/stripe` | dashboard setting | **Asaf**: change the endpoint URL host to app *before* www moves. Stripe doesn't follow redirects. |
 | Resend webhook (delivery + inbound `email.received`) | Resend dashboard → `/api/webhooks/resend` | dashboard setting | **Asaf**: change it to app before www moves |
 | Inbound email domain | Resend receiving | DNS MX (`send.` subdomain) | none |
-| Inngest serve URL | Inngest Cloud app sync → `/api/inngest` | dashboard setting | **Asaf**: re-sync to `https://app.homeownerledger.com/api/inngest` before www moves |
+| Inngest serve URL | Inngest Cloud app sync → `/api/inngest` | dashboard setting | **Asaf**: re-sync to `https://homeownerledger.online/api/inngest` before www moves |
 | Vercel cron (`/api/cron/recurring-events`) | `apps/hoa/vercel.json` | relative path on the deployment | none |
 | Plaid ingest (`/api/webhooks/plaid`) | Plaid or caller config | dashboard or caller | **Asaf**: check where it's configured and move it to app |
 | Gmail mailbox OAuth redirect | `packages/mailbox/src/oauth.ts` | env `GOOGLE_OAUTH_REDIRECT_URI` + Google Cloud console allow-list | **Asaf**: add the app URI in Google (step 2). Env change (step 3). The callback is session-independent (signed `state`), so a www redirect in flight still completes via the redirect. |
@@ -74,7 +97,7 @@ change.
 | Smoke workflow | `.github/workflows/smoke.yml` | **was hard-coded** → `vars.APP_ORIGIN` | same variable |
 | `scripts/devops.sh`, `scripts/e2e-smoke.ts` | `HOA_URL` env, default www | env + default | flip the default after step 5 (both follow redirects once marketing is on www) |
 | Hub switcher (HOA) | `HoaHubSwitcher.tsx` | env (now `appOrigin()`) | env. PM and Eviction projects read `NEXT_PUBLIC_HOA_URL`; hubs are disabled (BL-097), so updating it is optional. |
-| Marketing "Sign in" | `apps/marketing/src/components/site/brand.tsx` | **was hard-coded www/login** → `NEXT_PUBLIC_APP_URL`, default `https://app.homeownerledger.com` | none needed. Optionally set the env on the marketing project. |
+| Marketing "Sign in" | `apps/marketing/src/components/site/brand.tsx` | **was hard-coded www/login** → `NEXT_PUBLIC_APP_URL`, default `https://homeownerledger.online` | none needed. Optionally set the env on the marketing project. |
 | Marketing `metadataBase` | `apps/marketing/src/app/layout.tsx` | **was `https://ledger.ai`** → `https://www.homeownerledger.com` | done |
 | CSP | none in either app. HOA sends HSTS (`includeSubDomains; preload`), XFO, etc. | n/a | none. Marketing sends no HSTS; adding it is a later nicety. |
 | Cookies | Supabase SSR cookies, no `domain` option | host-only | none. **Sessions don't carry from www to app:** every user signs in once on app. |
@@ -121,8 +144,9 @@ The app's service worker is registered on the **www origin**. After www moves:
   missing from the list, or if an entry would shadow a marketing route.
   A request already on the app host is never redirected (no loops).
 - `apps/marketing/src/lib/app-origin.ts`: the app origin from
-  `NEXT_PUBLIC_APP_URL`, defaulting to `https://app.homeownerledger.com`
-  (never www, which would loop). The "Sign in" links use it. There's no
+  `NEXT_PUBLIC_APP_URL`, defaulting to `https://homeownerledger.online`
+  (never a www host: www.homeownerledger.com would loop, and
+  www.homeownerledger.online only 308s to the apex). The "Sign in" links use it. There's no
   "Get started" link on the site today: all primary CTAs go to `/demo`.
 - Marketing `metadataBase` is now `https://www.homeownerledger.com`.
 - `release-notes.yml` / `smoke.yml` / release-notes `brand.ts` read
@@ -134,44 +158,56 @@ Run steps 1 to 6 in one sitting, at a quiet hour. Steps marked
 **[Claude/Vercel CLI]** can be run by Claude. Steps marked **[Asaf: dashboard]**
 need a human in that dashboard.
 
+Throughout this runbook and the inventory above, "app" means the app's
+host, `https://homeownerledger.online` (not a subdomain of
+homeownerledger.com).
+
 ### 0. Ship this branch [Claude]
 Merge to the prod branch. On deploy, nothing changes: the env var isn't set
 to app yet, and the marketing project isn't connected.
 *Rollback:* revert the merge.
 
-### 1. Put app.homeownerledger.com on the HOA project
-- **[Claude/Vercel CLI]** `vercel domains add app.homeownerledger.com home-owner-hub-hoa`
-  (or `vercel api -X POST /v10/projects/home-owner-hub-hoa/domains -f name=app.homeownerledger.com`).
-- **[Asaf: Network Solutions DNS]** Add a `CNAME app` record pointing to the
-  target Vercel shows for the domain (normally `cname.vercel-dns.com`).
+### 1. Put homeownerledger.online on the HOA project
+- **[Done in Vercel, 2026-10-21]** `homeownerledger.online` is attached to
+  `home-owner-hub-hoa`, and `www.homeownerledger.online` 308-redirects to
+  the apex.
+- **[Asaf: Network Solutions DNS, homeownerledger.online]**
+  - A record: host `@`, value `216.198.79.1` (alternative `76.76.21.21`).
+  - CNAME record: host `www`, value `afa3394a804e31cd.vercel-dns-017.com`.
+  - Delete the parking A record `208.91.197.27`.
+  - No `app` CNAME on `homeownerledger.com` is needed any more.
 - **[Claude]** Wait for verification and the certificate, then check:
-  `curl -fsS https://app.homeownerledger.com/api/health` should report the
-  same `version` as www.
+  `curl -fsS https://homeownerledger.online/api/health` should report the
+  same `version` as www, and `curl -sI https://www.homeownerledger.online/`
+  should 308 to the apex.
 
-Both hosts now serve the same deployment. www is untouched.
-*Rollback:* `vercel domains rm app.homeownerledger.com`, delete the CNAME.
+Both hosts now serve the same deployment. www.homeownerledger.com is
+untouched.
+*Rollback:* `vercel domains rm homeownerledger.online` (and the www alias),
+restore the parking record.
 
 ### 2. Allow the new host everywhere [Asaf: dashboard]
 Do all of this before any env var changes.
 - **Supabase → Auth → URL Configuration:** add
-  `https://app.homeownerledger.com/**` to Redirect URLs. Keep the www
+  `https://homeownerledger.online/**` to Redirect URLs. Keep the www
   entries. Leave **Site URL** on www for now. If your Supabase email
   templates use `{{ .SiteURL }}`, those links reach app through the
   redirect after step 5.
 - **Google Cloud → OAuth client → Authorized redirect URIs:** add
-  `https://app.homeownerledger.com/api/oauth/google/callback`. Keep www.
+  `https://homeownerledger.online/api/oauth/google/callback`. Keep www.
 - **Stripe → Developers → Webhooks:** edit the HOA endpoint's URL to
-  `https://app.homeownerledger.com/api/webhooks/stripe`. Editing the URL
+  `https://homeownerledger.online/api/webhooks/stripe`. Editing the URL
   keeps the signing secret, so `STRIPE_WEBHOOK_SECRET` doesn't change.
   Check the next event delivers 2xx. Checkout and portal URLs come from
   code, so nothing else changes in Stripe.
 - **Resend → Webhooks:** move the endpoint to
-  `https://app.homeownerledger.com/api/webhooks/resend`, keeping the secret.
+  `https://homeownerledger.online/api/webhooks/resend`, keeping the secret.
   If Resend issues a new one, update `RESEND_WEBHOOK_SECRET` in the same
   sitting.
 - **Inngest Cloud → Apps:** re-sync to
-  `https://app.homeownerledger.com/api/inngest`.
-- **Plaid** (if a webhook URL is configured there): move it to app.
+  `https://homeownerledger.online/api/inngest`.
+- **Plaid** (if a webhook URL is configured there): move it to
+  `https://homeownerledger.online/api/webhooks/plaid`.
 
 *Rollback:* each one is additive or a URL edit back to www. The www host
 still serves the app until step 5.
@@ -180,23 +216,23 @@ still serves the app until step 5.
 - **[Claude/Vercel CLI]** On `home-owner-hub-hoa`, production, set these.
   The vars are sensitive, so the steps are rm then add, with values piped
   in and never echoed.
-  - `NEXT_PUBLIC_APP_URL=https://app.homeownerledger.com`
-  - `EMAIL_ASSET_BASE_URL=https://app.homeownerledger.com`
-  - `GOOGLE_OAUTH_REDIRECT_URI=https://app.homeownerledger.com/api/oauth/google/callback`
-  - optional: `NEXT_PUBLIC_HOA_URL=https://app.homeownerledger.com`
+  - `NEXT_PUBLIC_APP_URL=https://homeownerledger.online`
+  - `EMAIL_ASSET_BASE_URL=https://homeownerledger.online`
+  - `GOOGLE_OAUTH_REDIRECT_URI=https://homeownerledger.online/api/oauth/google/callback`
+  - optional: `NEXT_PUBLIC_HOA_URL=https://homeownerledger.online`
 - **[Claude/Vercel CLI]** Redeploy production (`NEXT_PUBLIC_*` is
   inlined at build time). Then check `/api/health` on app for the new
   `version`.
 - **[Claude/Vercel CLI]** On the HOA project, set `www.homeownerledger.com` to
-  **redirect to `app.homeownerledger.com` (307)**, and point the apex
+  **redirect to `homeownerledger.online` (307)**, and point the apex
   redirect at app too:
-  `vercel api -X PATCH /v9/projects/home-owner-hub-hoa/domains/www.homeownerledger.com -F redirect=app.homeownerledger.com -F redirectStatusCode=307`.
+  `vercel api -X PATCH /v9/projects/home-owner-hub-hoa/domains/www.homeownerledger.com -F redirect=homeownerledger.online -F redirectStatusCode=307`.
   This step matters. Magic links are PKCE: the code verifier cookie lives
   on the host where the user asked for the link. Once links point at app, a
   user still signing in on www would get a link that can't be exchanged.
   Redirecting www now puts every sign-in on app. The redirect keeps path
   and query, and webhooks have already moved (step 2).
-- **[Claude/gh]** `gh variable set APP_ORIGIN --body https://app.homeownerledger.com`
+- **[Claude/gh]** `gh variable set APP_ORIGIN --body https://homeownerledger.online`
   (release-notes and smoke workflows).
 
 *Rollback:* restore the three env vars to `https://www.homeownerledger.com`
@@ -214,7 +250,7 @@ new one fixes it.
   reset, and a resident portal page. **Settings → Mailbox → reconnect
   Gmail** confirms the OAuth URI.
 - **[Claude]** `curl -sI https://www.homeownerledger.com/login?redirect=%2Fapprovals`
-  should return 307 to `https://app.homeownerledger.com/login?redirect=%2Fapprovals`.
+  should return 307 to `https://homeownerledger.online/login?redirect=%2Fapprovals`.
 
 Stop here if anything fails. *Rollback:* step 3's rollback.
 
@@ -225,7 +261,7 @@ Stop here if anything fails. *Rollback:* step 3's rollback.
   The CLI equivalent is `vercel git connect` run from a checkout linked to
   that project, but the repo's `.vercel` link points at the wrong project
   (see memory), so the dashboard is safer.
-- **[Claude/Vercel CLI]** Optional: set `NEXT_PUBLIC_APP_URL=https://app.homeownerledger.com`
+- **[Claude/Vercel CLI]** Optional: set `NEXT_PUBLIC_APP_URL=https://homeownerledger.online`
   on the marketing project (it is also the code default). Trigger a
   production deploy and check `https://homeownerhub.vercel.app/` renders
   and `/login` 307s to app.
@@ -246,7 +282,7 @@ nothing user-facing changes.
   ```
   Add them to marketing straight after removing them, so www is down for
   only a few seconds. Vercel won't attach a domain to two projects at once.
-- **[Asaf: Supabase]** Change **Site URL** to `https://app.homeownerledger.com`.
+- **[Asaf: Supabase]** Change **Site URL** to `https://homeownerledger.online`.
 
 *Rollback:* move both domains back to `home-owner-hub-hoa` (www redirecting
 to app, as in step 3, or serving directly) and set Site URL back.
@@ -261,13 +297,17 @@ Each should give a 307 to the same path and query on app:
 - `https://www.homeownerledger.com/email/v1/pool-pass-renewal.png`
   should reach a 200 PNG via `-L`.
 - `https://www.homeownerledger.com/` renders marketing (200), and "Sign in"
-  links to `app…/login`.
-- `https://app.homeownerledger.com/api/health` is ok. Stripe, Resend and
+  links to `https://homeownerledger.online/login`.
+- `https://homeownerledger.online/api/health` is ok. Stripe, Resend and
   Inngest dashboards show recent 2xx deliveries.
 - **[Asaf]** Open the home-screen PWA if installed: it should land in the app.
 
+- **[Claude]** For the first weeks, watch Resend bounce and complaint rates
+  (see "Why .online" above).
+
 Then make one commit flipping the `HOA_URL` default in `scripts/devops.sh`
-and `scripts/e2e-smoke.ts` to app, and updating the comments in smoke.yml.
+and `scripts/e2e-smoke.ts` to `https://homeownerledger.online`, and
+updating the comments in smoke.yml.
 *Rollback:* step 6's rollback.
 
 ### 8. Later (2 to 4 weeks)

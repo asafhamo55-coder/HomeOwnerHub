@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { APP_PATH_SEGMENTS, appRedirectTarget, type RedirectRequest } from './app-redirects'
 import { appOrigin, DEFAULT_APP_ORIGIN } from './app-origin'
 
-const APP = 'https://app.homeownerledger.com'
+const APP = 'https://homeownerledger.online'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const HOA_APP_DIR = path.resolve(here, '../../../hoa/src/app')
 const MARKETING_APP_DIR = path.resolve(here, '../app')
@@ -36,13 +36,13 @@ function routeSegments(appDir: string): string[] {
 describe('appRedirectTarget', () => {
   it('sends an old app path to the app with path and query intact', () => {
     expect(appRedirectTarget(req('/login', { search: '?redirect=%2Fapprovals%3Ftype%3Dbill' }), APP)).toBe(
-      'https://app.homeownerledger.com/login?redirect=%2Fapprovals%3Ftype%3Dbill',
+      'https://homeownerledger.online/login?redirect=%2Fapprovals%3Ftype%3Dbill',
     )
   })
 
   it('keeps a magic-link callback working (code and next params)', () => {
     expect(appRedirectTarget(req('/auth/callback', { search: '?code=abc&next=/resident' }), APP)).toBe(
-      'https://app.homeownerledger.com/auth/callback?code=abc&next=/resident',
+      'https://homeownerledger.online/auth/callback?code=abc&next=/resident',
     )
   })
 
@@ -80,7 +80,8 @@ describe('appRedirectTarget', () => {
   })
 
   it('never redirects a request already on the app host (no loop)', () => {
-    expect(appRedirectTarget(req('/login', { host: 'app.homeownerledger.com' }), APP)).toBeNull()
+    expect(appRedirectTarget(req('/login', { host: 'homeownerledger.online' }), APP)).toBeNull()
+    expect(appRedirectTarget(req('/login', { host: 'HomeownerLedger.Online' }), APP)).toBeNull()
     expect(appRedirectTarget(req('/login', { host: 'WWW.homeownerledger.com' }), 'https://www.homeownerledger.com')).toBeNull()
   })
 
@@ -117,14 +118,15 @@ describe('APP_PATH_SEGMENTS', () => {
 
 describe('appOrigin', () => {
   it('uses the configured origin, dropping any path or trailing slash', () => {
-    expect(appOrigin('https://app.homeownerledger.com/')).toBe(APP)
-    expect(appOrigin('https://app.homeownerledger.com/login')).toBe(APP)
+    expect(appOrigin('https://homeownerledger.online/')).toBe(APP)
+    expect(appOrigin('https://homeownerledger.online/login')).toBe(APP)
   })
 
-  it('falls back to the app subdomain when unset or invalid, never to www', () => {
+  it('falls back to the app apex (homeownerledger.online) when unset or invalid, never to www', () => {
     expect(appOrigin(undefined)).toBe(DEFAULT_APP_ORIGIN)
     expect(appOrigin('')).toBe(DEFAULT_APP_ORIGIN)
     expect(appOrigin('not a url')).toBe(DEFAULT_APP_ORIGIN)
     expect(DEFAULT_APP_ORIGIN).toBe(APP)
+    expect(new URL(DEFAULT_APP_ORIGIN).hostname.startsWith('www.')).toBe(false)
   })
 })
