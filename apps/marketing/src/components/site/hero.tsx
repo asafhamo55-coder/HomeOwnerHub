@@ -34,18 +34,19 @@ export function Hero() {
         >
           <div>
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Built with Madison Park HOA
+              For self-managed HOA boards · Georgia first
             </p>
 
             <h1 className="mt-5 text-balance text-[44px] font-semibold leading-[1.02] tracking-[-0.02em] text-foreground md:text-[52px] lg:text-[60px]">
-              AI that runs the paperwork. The board still runs the HOA.
+              Georgia’s HOA paperwork, drafted from your records. The board still decides.
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground-secondary">
-              Ask any rule question and get the answer with the CC&amp;R
-              section cited. Approve violation letters and scanned bills in
-              one click, and draft announcements from a sentence. Nothing is
-              sent, filed or entered until the board approves.
+              The SB 406 registration kit, the collections notices Georgia
+              requires, quorum and proxy rules, the annual report for owners
+              and late fees within the state cap, prepared from your records.
+              Ask any rule question and get the CC&amp;R section cited. Nothing
+              is sent, filed or entered until the board approves.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -102,7 +103,7 @@ export function Hero() {
             </div>
 
             <p className="mt-4 text-xs text-muted">
-              Every answer cited back to the document. Audit-logged. If your documents don&apos;t cover it, it says so.
+              Sample documents. Every answer cited back to the document. Audit-logged. If your documents don&apos;t cover it, it says so.
             </p>
           </motion.div>
         </motion.div>

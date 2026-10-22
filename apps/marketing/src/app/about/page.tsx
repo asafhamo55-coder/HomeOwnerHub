@@ -7,6 +7,7 @@ import { Footer } from '@/components/site/footer'
 import { HomeImage } from '@/components/site/home-image'
 import { PHOTOS } from '@/lib/photos'
 import { pageMetadata } from '@/lib/site'
+import { STATE_COVERAGE } from '@/lib/state-law'
 
 // BL-097: HOA only. The "three products, one identity" story (PM Hub and
 // Eviction Hub) is gone while those hubs are not offered, and so is the
@@ -41,7 +42,7 @@ const beliefs = [
     Icon: MapPin,
     title: 'State law, not generic templates.',
     body:
-      'Associations live under state statutes. Estoppel certificates, collections letters and the owner budget notice follow the Florida and California rules (collections letters Texas too), and state-law answers cite the Georgia statute. Where the app doesn\'t know a figure, it leaves a blank for the board to fill.',
+      'Associations live under state statutes, and we start with Georgia: the SB 406 registration kit, the collections notices Georgia requires, quorum and proxy rules and the annual report for owners, each citing the section it follows. Florida, California and Texas come next. Where the app doesn\'t know a figure, it leaves a blank for the board to fill. None of it is legal advice.',
   },
 ]
 
@@ -164,10 +165,9 @@ export default function AboutPage() {
             </p>
 
             <div className="mt-12 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-              <Geo label="Georgia" status="State-law answers" />
-              <Geo label="Florida" status="Estoppel, collections, budget notice" />
-              <Geo label="California" status="Estoppel, collections, budget notice, violation rules" />
-              <Geo label="Texas" status="Collections letters" />
+              {STATE_COVERAGE.map((s) => (
+                <Geo key={s.state} label={s.name} status={s.items.join(', ')} />
+              ))}
             </div>
           </div>
         </div>

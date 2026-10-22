@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import { SHIPPED_FEATURES } from './features'
+import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE, OTHER_STATE_ROUTES, STATE_COVERAGE } from './state-law'
 import { SHIPPED_HOA_WORKFLOWS, WORKFLOWS, BAR_TARGETS } from './workflows'
 import { DEFAULT_SITE_ORIGIN, SITEMAP_PATHS, SITE_ORIGIN, isIndexable, pageMetadata, siteOrigin } from './site'
 import { DEFAULT_APP_ORIGIN, appOrigin } from './app-origin'
@@ -140,6 +141,61 @@ describe('round 4: shipped features are on the site, each with proof', () => {
     const src = read('app/pricing/page.tsx')
     for (const s of ['Create from email', 'Resident assistant', 'Collections letters', 'phone preview']) {
       expect(src.toLowerCase(), s).toContain(s.toLowerCase())
+    }
+  })
+})
+
+// BL-157: Georgia is the launch state. The home page and /hoa lead with
+// what the app does for Georgia law, every item backed by an apps/hoa route.
+describe('Georgia first (BL-157)', () => {
+  it('every Georgia feature names an apps/hoa route that exists, and cites the law', () => {
+    expect(GEORGIA_FEATURES.length).toBeGreaterThanOrEqual(5)
+    for (const f of GEORGIA_FEATURES) {
+      expect(hoaRouteExists(f.route), `${f.title}: ${f.route}`).toBe(true)
+      expect(f.citation, f.title).toMatch(/O\.C\.G\.A\.|SB 406/)
+    }
+  })
+
+  it('every Georgia feature that cites a release note cites one that exists', () => {
+    for (const f of GEORGIA_FEATURES.filter((x) => x.release)) {
+      expect(existsSync(path.join(repoRoot, 'docs/releases', `${f.release}.md`)), f.title).toBe(true)
+    }
+  })
+
+  it('covers the owner-named Georgia items', () => {
+    const titles = GEORGIA_FEATURES.map((f) => `${f.title} ${f.body} ${f.citation}`).join('\n')
+    for (const re of [/SB 406 registration/, /44-3-232\(c\)/, /SB 406 § 7/, /quorum/i, /proxy/i, /Annual report/, /late fee/i]) {
+      expect(titles).toMatch(re)
+    }
+  })
+
+  it('other-state items have routes that exist', () => {
+    for (const r of OTHER_STATE_ROUTES) expect(hoaRouteExists(r), r).toBe(true)
+  })
+
+  it('states are listed Georgia first, then FL, CA, TX', () => {
+    expect(STATE_COVERAGE.map((s) => s.state)).toEqual(['GA', 'FL', 'CA', 'TX'])
+  })
+
+  it('keeps the not-legal-advice framing and the condo caveat', () => {
+    expect(GEORGIA_SCOPE_NOTE).toMatch(/isn’t legal advice/)
+    expect(GEORGIA_SCOPE_NOTE).toMatch(/condominium/)
+  })
+
+  it('the home page and /hoa render the Georgia section near the top', () => {
+    const home = code('app/page.tsx')
+    expect(home.indexOf('<GeorgiaFirst')).toBeGreaterThan(home.indexOf('<Hero'))
+    expect(home.indexOf('<GeorgiaFirst')).toBeLessThan(home.indexOf('<ProblemSolution'))
+    const hoa = code('app/hoa/page.tsx')
+    expect(hoa.indexOf('<GeorgiaFirst')).toBeGreaterThan(hoa.indexOf('<HubHero'))
+    expect(hoa.indexOf('<GeorgiaFirst')).toBeLessThan(hoa.indexOf('<HubFeatures'))
+    expect(read('components/site/hero.tsx')).toMatch(/Georgia/)
+  })
+
+  it('no customer is named on a rendered page (no approved case study)', () => {
+    for (const rel of sourceFiles()) {
+      if (rel === 'app/case-studies/madison-park/page.tsx') continue
+      expect(code(rel), rel).not.toMatch(/Madison Park/)
     }
   })
 })

@@ -72,7 +72,7 @@ const sections: { title: string; rows: Row[] }[] = [
       { label: 'AI meeting minutes', hh: 'From your transcript', mgmt: false, vantaca: true, diy: false },
       { label: 'AI ARC review against your guidelines', hh: true, mgmt: false, vantaca: true, diy: false },
       { label: 'Spanish version of announcements', hh: 'Board-reviewed AI draft', mgmt: false, vantaca: 'Not public', diy: false },
-      { label: 'Reserve fund projections', hh: 'Roadmap', mgmt: 'Varies', vantaca: 'Not public', diy: false },
+      { label: 'Reserve fund projections', hh: 'Roadmap (snapshot today)', mgmt: 'Varies', vantaca: 'Not public', diy: false },
       { label: 'Published A/B/C quality bar for every AI workflow', hh: true, mgmt: 'n/a', vantaca: 'Not public', diy: 'n/a' },
     ],
   },
@@ -93,6 +93,7 @@ const sections: { title: string; rows: Row[] }[] = [
       { label: 'No "implementation team" required', hh: true, mgmt: 'n/a', vantaca: false, diy: true },
       { label: 'Built for self-managed boards (not for management firms)', hh: true, mgmt: false, vantaca: false, diy: true },
       { label: 'State-law answers with statute citations', hh: 'Georgia', mgmt: 'n/a', vantaca: false, diy: false },
+      { label: 'Georgia SB 406 registration kit and collections notices', hh: true, mgmt: 'Varies', vantaca: 'Not public', diy: false },
     ],
   },
 ]

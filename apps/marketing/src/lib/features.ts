@@ -48,16 +48,48 @@ export const SHIPPED_FEATURES: readonly ShippedFeature[] = [
     route: '/inbox/[id]',
     release: '2026-10-20-0850-saved-replies-street-messages',
   },
-  // State-law paperwork (releases 2026-10-19-1539, -1606, -1759)
+  // State-law paperwork (releases 2026-10-19-1539, -1606, -1759,
+  // 2026-10-20-1053, 2026-10-21-1130, -1930, -2255). Georgia's own items are
+  // in lib/state-law.ts and render in the "Georgia first" section.
   {
-    text: 'Estoppel certificates filled from the home’s account, with Florida and California deadlines and fee limits',
+    text: 'Estoppel certificates and home-sale paperwork from the home’s account: Georgia’s statement of amounts due, Florida and California estoppel and the Texas resale certificate, each with its deadline and fee limit',
     route: '/properties/[id]/estoppel',
-    release: '2026-10-19-1539-estoppel',
+    release: '2026-10-20-1053-state-law-resale-roster',
   },
   {
-    text: 'Collections letters that follow Florida, California or Texas law, approved in Approvals and printed',
+    text: 'Collections letters that follow Georgia, Florida, California or Texas law, approved in Approvals and printed',
     route: '/properties/[id]/collections-letter',
     release: '2026-10-19-1759-collections-letters',
+  },
+  {
+    text: 'A Compliance page listing what state law asks of your association, with an overdue banner, Georgia first',
+    route: '/compliance',
+    release: '2026-10-21-1930-elections-compliance',
+  },
+  {
+    text: 'Election planner: dates worked back from the meeting for your state, candidates, results, and a print kit with secret ballots',
+    route: '/meetings/[id]/election',
+    release: '2026-10-21-1930-elections-compliance',
+  },
+  {
+    text: 'Annual meeting kit: live quorum counter, check-in, proxy tracking, sign-in sheet and proxy forms',
+    route: '/meetings/[id]/quorum',
+    release: '2026-10-20-1450-tasks-handover-reserves-cpa-quorum',
+  },
+  {
+    text: 'Budget adoption checklist, with Florida and California notice deadlines, and fine hearings recorded before a fine',
+    route: '/accounting/budget/[id]',
+    release: '2026-10-21-1130-budget-hearings-directors',
+  },
+  {
+    text: 'Dues rates and a late-fee policy the board sets, held to the state cap; no late fee until you save one',
+    route: '/settings/late-fees',
+    release: '2026-10-21-2255-dues-rates-late-fees-georgia',
+  },
+  {
+    text: 'Insurance and fidelity bond tracker with renewal reminders, and an insurance summary for owners',
+    route: '/insurance',
+    release: '2026-10-21-1700-insurance-and-georgia-law',
   },
   {
     text: 'The owner budget notice, prepared from your approved budget',
@@ -73,6 +105,16 @@ export const SHIPPED_FEATURES: readonly ShippedFeature[] = [
   { text: 'Import your roster from CSV or Excel, CINC exports included, with a row-by-row preview', route: '/properties/import' },
   { text: 'Set up the association and open the books yourself, from Accounting', route: '/accounting' },
   { text: 'Monthly board packet, reported as of month end', route: '/meetings/[id]/packet' },
+  {
+    text: 'Board tasks from meetings and tickets, a board handover checklist, and a year-end package for your accountant',
+    route: '/tasks',
+    release: '2026-10-20-1450-tasks-handover-reserves-cpa-quorum',
+  },
+  {
+    text: 'Reserve snapshot on the dashboard and in the monthly report: balance, contributions against budget, withdrawals',
+    route: '/accounting/reports/monthly-report',
+    release: '2026-10-20-1450-tasks-handover-reserves-cpa-quorum',
+  },
   { text: 'Month-end board report emailed to the board on the 1st', route: '/accounting/reports/monthly-report' },
   { text: '⌘K search across owners, units, violations, ARC, tickets, documents and meetings', route: '/api/search' },
   { text: 'A built-in user guide with step-by-step articles, and Ask the guide', route: '/help' },

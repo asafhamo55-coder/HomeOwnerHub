@@ -10,6 +10,9 @@ import { motion } from 'framer-motion'
 // Round 4: "180 doors" went too. The repo's own Madison Park runbook says
 // 49 (docs/MADISON_PARK_DEMO.md), so no door count is printed until the
 // board confirms one.
+// BL-157: no customer is named either. /case-studies says no customer has
+// approved a published study, so naming one here would claim an
+// endorsement nobody signed off on.
 const facts = [
   { label: 'Every document answer', value: 'Cited', sub: 'Covenant Brain names the section, or says your documents don’t cover it' },
   { label: 'Every AI draft', value: 'Approvals', sub: 'Letters, bills and minutes wait for the board; announcements send only when you press Send' },
@@ -28,7 +31,7 @@ export function CaseStudy() {
             transition={{ duration: 0.5 }}
           >
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Built with Madison Park HOA
+              Built with volunteer boards
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-[44px] md:leading-[1.05]">
               Built with a real volunteer board, <span className="text-success">not a demo deck.</span>
@@ -67,8 +70,8 @@ export function CaseStudy() {
                 Measured results, when they’re measured
               </p>
               <p className="mt-2 text-xs text-foreground-secondary">
-                We’ll publish Madison Park’s numbers once the board has measured
-                them and signed off. Until then we don’t print any.
+                We’ll publish a board’s numbers once it has measured them and
+                signed off. Until then we don’t print any.
               </p>
             </div>
           </motion.div>
