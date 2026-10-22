@@ -18,9 +18,17 @@
  *   NOT loaded, so those are "check your bylaws".
  * TEXAS — § 209.005 is not in tx-prop-209-2026.txt or the tcss excerpt:
  *   "check your bylaws".
- * GEORGIA — ga-ocga-44-3-art6-2026.txt, § 44-3-231(d), says what records
- *   the association must keep but sets no time to produce them: "check
- *   your bylaws". Every other state: the same.
+ * GEORGIA (BL-152) — ga-ocga-14-3-2026.txt, the Nonprofit Corporation
+ *   Code, for an association incorporated as a Georgia nonprofit
+ *   corporation (§ 44-3-231(d) in the Article 6 snapshot says what to keep
+ *   but sets no time). § 14-3-1602(b), (c): a member may inspect and copy
+ *   on written notice given "at least five business days before" the day
+ *   they want to, so the date shown is the earliest such day. Records in
+ *   § 14-3-1602(a) need only the notice; those in (c) (board minutes,
+ *   accounting records, the membership list) also need a good-faith,
+ *   proper purpose described "with reasonable particularity" ((d)).
+ *   Contracts and "something else" are not named: no date, the categories
+ *   are shown. Every other state: "check your bylaws".
  *
  * Business days skip Saturdays and Sundays only. Public holidays are not
  * skipped, so the date shown can be a day or two EARLIER than the legal
@@ -169,6 +177,114 @@ export const CA_RECORDS_MEMBERSHIP: StatuteCitation = {
   quote: 'Membership list, within the timeframe specified in Section 8330 of the Corporations Code.',
 }
 
+// Georgia, O.C.G.A. § 14-3-1602 (ga-ocga-14-3-2026.txt).
+
+export const GA_RECORDS_KEPT: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(a)',
+  quote: 'A corporation shall keep a copy of the following records:',
+}
+export const GA_RECORDS_ARTICLES: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(a)(1)',
+  quote: 'Its articles or restated articles of incorporation and all amendments to them currently in effect;',
+}
+export const GA_RECORDS_BYLAWS: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(a)(2)',
+  quote: 'Its bylaws or restated bylaws and all amendments to them currently in effect;',
+}
+export const GA_RECORDS_MEMBER_MINUTES: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(a)(5)',
+  quote:
+    'The minutes of all meetings of members, executed waivers of notice of meetings, and executed consents, delivered in writing or by electronic transmission, evidencing all actions taken or approved by the members without a meeting, for the past three years;',
+}
+export const GA_RECORDS_COMMUNICATIONS: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(a)(6)',
+  quote:
+    'All communications in writing or by electronic transmission to members generally within the past three years, including the financial statements furnished for the past three years under Code Section 14-3-1620;',
+}
+export const GA_RECORDS_OFFICERS: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(a)(7)',
+  quote: 'A list of the names and business or home addresses of its current directors and officers; and',
+}
+export const GA_RECORDS_REGISTRATION: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(a)(8)',
+  quote: 'Its most recent annual registration delivered to the Secretary of State under Code Section 14-3-1622.',
+}
+export const GA_RECORDS_ON_NOTICE: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(b)',
+  quote:
+    'A member is entitled to inspect and copy, at a reasonable time and location specified by the corporation, any of the records of the corporation described in subsection (a) of this Code section if the member gives the corporation written notice or a written demand at least five business days before the date on which the member wishes to inspect and copy.',
+}
+export const GA_RECORDS_WITH_PURPOSE: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(c)',
+  quote:
+    'A member is entitled to inspect and copy, at a reasonable time and reasonable location specified by the corporation, any of the following records of the corporation if the member meets the requirements of subsection (d) of this Code section and gives the corporation written notice at least five business days before the date on which the member wishes to inspect and copy:',
+}
+export const GA_RECORDS_BOARD_MINUTES: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(c)(1)',
+  quote:
+    'Excerpts from minutes of any meeting of the board of directors, records of any action of a committee of the board of directors while acting in place of the board of directors on behalf of the corporation, minutes of any meeting of the members, and records of action taken by the members or the board of directors without a meeting, to the extent not subject to inspection under subsection (a) of this Code section;',
+}
+export const GA_RECORDS_ACCOUNTING: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(c)(2)',
+  quote: 'Accounting records of the corporation; and',
+}
+export const GA_RECORDS_MEMBERSHIP_LIST: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(c)(3)',
+  quote: 'Subject to Code Section 14-3-1605, the membership list.',
+}
+export const GA_RECORDS_CONDITIONS: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(d)',
+  quote: 'A member may inspect and copy the records identified in subsection (c) of this Code section only if:',
+}
+export const GA_RECORDS_GOOD_FAITH: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(d)(1)',
+  quote:
+    'The member’s demand is made in good faith and for a proper purpose that is reasonably relevant to the member’s legitimate interest as a member;',
+}
+export const GA_RECORDS_PARTICULARITY: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(d)(2)',
+  quote: 'The member describes with reasonable particularity the purpose and the records the member desires to inspect;',
+}
+export const GA_RECORDS_CONNECTED: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(d)(3)',
+  quote: 'The records are directly connected with this purpose; and',
+}
+export const GA_RECORDS_STATED_USE: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(d)(4)',
+  quote: 'The records are to be used only for the stated purpose.',
+}
+export const GA_RECORDS_RESTRICTIONS: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-1602(e)',
+  quote:
+    'The corporation may impose reasonable restrictions on the confidentiality, use, or distribution of the records described in subsection (c) of this Code section.',
+}
+
+/** § 14-3-1602(b), (c): business days of written notice before the member inspects (law.test.ts checks the words). */
+export const GA_RECORDS_NOTICE_BUSINESS_DAYS = 5
+
+/** /tickets/records, Georgia: which records need only notice and which also need a stated purpose. */
+export const GA_RECORDS_CATEGORIES = {
+  onNotice: {
+    title: 'On five business days’ written notice',
+    rule: GA_RECORDS_ON_NOTICE,
+    records: [
+      GA_RECORDS_ARTICLES,
+      GA_RECORDS_BYLAWS,
+      GA_RECORDS_MEMBER_MINUTES,
+      GA_RECORDS_COMMUNICATIONS,
+      GA_RECORDS_OFFICERS,
+      GA_RECORDS_REGISTRATION,
+    ],
+  },
+  withPurpose: {
+    title: 'Also needs a proper purpose, described with reasonable particularity',
+    rule: GA_RECORDS_WITH_PURPOSE,
+    records: [GA_RECORDS_BOARD_MINUTES, GA_RECORDS_ACCOUNTING, GA_RECORDS_MEMBERSHIP_LIST],
+    conditions: [GA_RECORDS_CONDITIONS, GA_RECORDS_GOOD_FAITH, GA_RECORDS_PARTICULARITY, GA_RECORDS_CONNECTED, GA_RECORDS_STATED_USE],
+    restrictions: GA_RECORDS_RESTRICTIONS,
+  },
+} as const
+
 /** Every quote this module can show — what law.test.ts checks against the fixtures. */
 export const ALL_RECORDS_CITATIONS: readonly StatuteCitation[] = [
   FL_RECORDS_ACCESS,
@@ -178,6 +294,28 @@ export const ALL_RECORDS_CITATIONS: readonly StatuteCitation[] = [
   CA_RECORDS_PRIOR,
   CA_RECORDS_MINUTES,
   CA_RECORDS_MEMBERSHIP,
+]
+
+/** The Georgia quotes, checked against ga-ocga-14-3-2026.txt. */
+export const GA_RECORDS_CITATIONS: readonly StatuteCitation[] = [
+  GA_RECORDS_KEPT,
+  GA_RECORDS_ARTICLES,
+  GA_RECORDS_BYLAWS,
+  GA_RECORDS_MEMBER_MINUTES,
+  GA_RECORDS_COMMUNICATIONS,
+  GA_RECORDS_OFFICERS,
+  GA_RECORDS_REGISTRATION,
+  GA_RECORDS_ON_NOTICE,
+  GA_RECORDS_WITH_PURPOSE,
+  GA_RECORDS_BOARD_MINUTES,
+  GA_RECORDS_ACCOUNTING,
+  GA_RECORDS_MEMBERSHIP_LIST,
+  GA_RECORDS_CONDITIONS,
+  GA_RECORDS_GOOD_FAITH,
+  GA_RECORDS_PARTICULARITY,
+  GA_RECORDS_CONNECTED,
+  GA_RECORDS_STATED_USE,
+  GA_RECORDS_RESTRICTIONS,
 ]
 
 export const CHECK_BYLAWS =
@@ -313,7 +451,52 @@ export function recordsDeadline(input: RecordsDeadlineInput): RecordsDeadline {
     }
   }
 
+  if (state === 'GA') return gaRecordsDeadline(input.kind, input.receivedDay)
+
   return bylaws()
+}
+
+const GA_CORP_ONLY =
+  'This applies if your association is incorporated as a Georgia nonprofit corporation (most are); if it isn’t, check your bylaws.'
+
+const GA_WHEN =
+  'Georgia: an owner may inspect and copy on a date at least five business days after giving written notice, at a reasonable time and location you specify. The date shown is the earliest; be ready by then, or by the later date the owner asked for.'
+
+function gaRecordsDeadline(kind: RecordsKind | null, receivedDay: string): RecordsDeadline {
+  const due = addBusinessDays(receivedDay, GA_RECORDS_NOTICE_BUSINESS_DAYS)
+  const purpose = [GA_RECORDS_WITH_PURPOSE, GA_RECORDS_PARTICULARITY, GA_RECORDS_GOOD_FAITH, GA_RECORDS_RESTRICTIONS]
+  switch (kind) {
+    case 'governing':
+      return {
+        dueDate: due,
+        message: `${GA_WHEN} The articles and bylaws are on notice alone. ${GA_CORP_ONLY}`,
+        citations: [GA_RECORDS_ON_NOTICE, GA_RECORDS_ARTICLES, GA_RECORDS_BYLAWS],
+      }
+    case 'minutes':
+      return {
+        dueDate: due,
+        message: `${GA_WHEN} Members’ meeting minutes from the past three years are on notice alone; board minutes also need the owner to state a proper purpose with reasonable particularity. ${GA_CORP_ONLY}`,
+        citations: [GA_RECORDS_ON_NOTICE, GA_RECORDS_MEMBER_MINUTES, GA_RECORDS_BOARD_MINUTES, ...purpose],
+      }
+    case 'financial':
+      return {
+        dueDate: due,
+        message: `${GA_WHEN} Financial statements sent to members in the past three years are on notice alone; the accounting records also need the owner to state a proper purpose with reasonable particularity. ${GA_CORP_ONLY}`,
+        citations: [GA_RECORDS_ON_NOTICE, GA_RECORDS_COMMUNICATIONS, GA_RECORDS_ACCOUNTING, ...purpose],
+      }
+    case 'owner_list':
+      return {
+        dueDate: due,
+        message: `${GA_WHEN} The membership list also needs the owner to state a proper purpose with reasonable particularity, and is subject to § 14-3-1605, which isn’t loaded in HomeownerHub (ask your attorney about its limits). ${GA_CORP_ONLY}`,
+        citations: [GA_RECORDS_MEMBERSHIP_LIST, ...purpose],
+      }
+    default:
+      return {
+        dueDate: null,
+        message: `Georgia: § 14-3-1602 doesn’t name these records on their own. Compare the request with the two lists on this page, check your bylaws, and ask your attorney. ${GA_CORP_ONLY}`,
+        citations: [GA_RECORDS_ON_NOTICE, GA_RECORDS_WITH_PURPOSE],
+      }
+  }
 }
 
 // ─── Chips and digest ───────────────────────────────────────────────

@@ -60,6 +60,17 @@ loaded rows stay as they are. Refresh it before then, and again after any sessio
    section list and a few known passages — update them to the new law).
 4. Ship, then trigger the GA refresh (OA-9 in docs/owner-actions.md).
 
+## Georgia Nonprofit Corporation Code (Title 14, Ch. 3)
+
+`scripts/fixtures/state-law/ga-ocga-14-3-2026.txt` holds §§ 14-3-701, 14-3-707, 14-3-724, 14-3-1420, 14-3-1601,
+14-3-1602 and 14-3-1622. They are rebuilt from release 86 of Title 14 (Public.Resource.Org, the same release as the
+Article 6 snapshot), with Ga. L. 2023 SB 148 applied. SB 148 restated the whole chapter from July 1, 2023. The header
+records the source URLs, the sha256 of each, and the amendments checked. The app quotes it on /compliance (the Jan 1 – Apr 1
+corporate annual registration and § 14-3-1420(2)) and on /tickets/records (§ 14-3-1602). The unit tests check every quote
+word for word. The State Law Brain does **not** ingest it yet: the GA adapter serves Article 6 only. To refresh, apply
+any later Act the same way (struck text removed, underlined text kept). Check that rebuilding the old text from the Act
+reproduces the current text, then update the header.
+
 ## File format
 
 One JSON object per line. Lines beginning with `//` are ignored as comments.

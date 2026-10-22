@@ -10,6 +10,13 @@
  *  - GA: owners' association registration with the Secretary of State,
  *    O.C.G.A. § 43-17A-2 (Ga. L. 2026, SB 406 § 2), in force 2027-01-01
  *    (SB 406 § 9(a)). Fixture: ga-sb406-2026-registration.txt.
+ *  - GA (BL-152): the nonprofit corporation's annual registration with the
+ *    Secretary of State, due between Jan 1 and Apr 1 every year, O.C.G.A.
+ *    § 14-3-1622(c); administrative dissolution may start once it is 60
+ *    days late, § 14-3-1420(2). Fixture: ga-ocga-14-3-2026.txt. One code per
+ *    filing year (ga-corp-annual-registration-YYYY), so marking 2027 done
+ *    never hides 2028. The year shown is today's, from 2027 (the first
+ *    season after this shipped).
  *  - TX: the management certificate, Tex. Prop. Code § 209.004. A standing
  *    obligation with no calendar date (record it, e-file with TREC within 7
  *    days, amend within 30 days of a change). Fixture:
@@ -73,6 +80,15 @@ export interface ComplianceDeadline {
   fixture: string
   /** Who it applies to, in the board's words. */
   appliesTo: string
+  /**
+   * 'effective' (default): dueOn is the day a rule takes effect.
+   * 'filing': dueOn is the last day of a filing window that opens on
+   * `opensOn`; late from the next day.
+   */
+  dueKind?: 'effective' | 'filing'
+  opensOn?: string
+  /** 'filing' only: days after dueOn when the stated consequence can start. */
+  graceDays?: number
 }
 
 export const COMPLIANCE_DEADLINES: readonly ComplianceDeadline[] = [
@@ -116,6 +132,61 @@ export const COMPLIANCE_DEADLINES: readonly ComplianceDeadline[] = [
   },
 ]
 
+// ─── Georgia: the nonprofit corporation's annual registration (BL-152) ──
+
+const GA_CORP_CODE_RE = /^ga-corp-annual-registration-(\d{4})$/
+/** The first filing season HomeownerHub tracks (BL-152 shipped in late 2026). */
+export const GA_CORP_FIRST_YEAR = 2027
+/** § 14-3-1420(2): administrative dissolution may start this many days after the due date. */
+export const GA_CORP_GRACE_DAYS = 60
+
+export function gaCorpRegistrationCode(year: number): string {
+  return `ga-corp-annual-registration-${year}`
+}
+
+/** The filing year that matters today: this calendar year, never before 2027. */
+export function gaCorpRegistrationYear(todayYmd: string): number {
+  return Math.max(Number(todayYmd.slice(0, 4)), GA_CORP_FIRST_YEAR)
+}
+
+export function gaCorpRegistrationDeadline(year: number): ComplianceDeadline {
+  return {
+    code: gaCorpRegistrationCode(year),
+    state: 'GA',
+    title: `File the corporation’s ${year} annual registration with the Secretary of State`,
+    citation: 'O.C.G.A. § 14-3-1622(c); § 14-3-1420(2)',
+    dueOn: `${year}-04-01`,
+    dueKind: 'filing',
+    opensOn: `${year}-01-01`,
+    graceDays: GA_CORP_GRACE_DAYS,
+    consequence:
+      'If the annual registration is not delivered, with the fees and penalties, within 60 days after it is due, the Secretary of State may start administratively dissolving the corporation (§ 14-3-1420(2)).',
+    whatToDo: [
+      'File the annual registration with the Secretary of State between January 1 and April 1 (§ 14-3-1622(c)), online through the Secretary of State’s Corporations Division.',
+      'List the registered agent and office, the principal office’s mailing address, and the chief executive officer, chief financial officer and secretary (§ 14-3-1622(a)). Make them current on the day you file (§ 14-3-1622(b)).',
+      'A corporation incorporated last year files its first one this season; one incorporated this year follows § 14-3-1622(d). Check the fee and any penalty on the Secretary of State’s page.',
+      'Keep the filed registration: members may ask to see the most recent one (§ 14-3-1602(a)(8)).',
+      'This is separate from the owners’ association registration under SB 406, which renews by December 31.',
+    ],
+    officialUrl: 'https://sos.ga.gov/how-to-guide/how-file-annual-registration',
+    officialLabel: 'Georgia Secretary of State — How to file an annual registration',
+    fixture: 'scripts/fixtures/state-law/ga-ocga-14-3-2026.txt',
+    appliesTo:
+      'Georgia associations incorporated as nonprofit corporations (most are; your articles of incorporation say so). An unincorporated association doesn’t file this.',
+  }
+}
+
+/** A deadline by its code: the fixed list, or a Georgia corporate registration year (2027–2099). */
+export function deadlineByCode(code: unknown): ComplianceDeadline | null {
+  if (typeof code !== 'string') return null
+  const fixed = COMPLIANCE_DEADLINES.find((d) => d.code === code)
+  if (fixed) return fixed
+  const m = GA_CORP_CODE_RE.exec(code)
+  if (!m) return null
+  const year = Number(m[1])
+  return year >= GA_CORP_FIRST_YEAR && year <= 2099 ? gaCorpRegistrationDeadline(year) : null
+}
+
 // ─── State ──────────────────────────────────────────────────────────
 
 const STATE_NAMES: Record<string, ComplianceState> = {
@@ -141,9 +212,21 @@ export function complianceState(
   return null
 }
 
-export function deadlinesForState(state: ComplianceState | null): ComplianceDeadline[] {
+/**
+ * The deadlines that apply in this state. With `todayYmd`, Georgia also
+ * gets the corporation's annual registration for today's filing year.
+ */
+export function deadlinesForState(state: ComplianceState | null, todayYmd?: string): ComplianceDeadline[] {
   if (!state) return []
-  return COMPLIANCE_DEADLINES.filter((d) => d.state === state)
+  const fixed = COMPLIANCE_DEADLINES.filter((d) => d.state === state)
+  if (state === 'GA' && todayYmd) return [...fixed, gaCorpRegistrationDeadline(gaCorpRegistrationYear(todayYmd))]
+  return fixed
+}
+
+/** The code is a deadline for this state (any year, for the Georgia corporate registration). */
+export function deadlineAppliesToState(state: ComplianceState | null, code: unknown): boolean {
+  const d = deadlineByCode(code)
+  return d !== null && state !== null && d.state === state
 }
 
 // ─── Acknowledgments: sign / read / merge ───────────────────────────
@@ -169,7 +252,7 @@ export function complianceAckSecret(env: Record<string, string | undefined> = pr
 }
 
 export function isKnownDeadlineCode(code: unknown): code is string {
-  return typeof code === 'string' && COMPLIANCE_DEADLINES.some((d) => d.code === code)
+  return deadlineByCode(code) !== null
 }
 
 function payload(associationId: string, code: string, doneAt: string, doneBy: string | null): string {
@@ -295,9 +378,9 @@ export function acksToMigrate(
 ): ComplianceDoneRow[] {
   const out: ComplianceDoneRow[] = []
   for (const a of associations) {
-    const applicable = new Set(deadlinesForState(complianceState(a.governingLawState, a.state)).map((d) => d.code))
+    const state = complianceState(a.governingLawState, a.state)
     for (const [code, ack] of readComplianceAcks(a.id, a.complianceSettings, secret)) {
-      if (!applicable.has(code) || done.get(a.id)?.has(code)) continue
+      if (!deadlineAppliesToState(state, code) || done.get(a.id)?.has(code)) continue
       out.push({ organization_id: orgId, association_id: a.id, code, done_at: ack.doneAt, done_by: ack.doneBy })
     }
   }
@@ -347,6 +430,36 @@ export function complianceLabel(dueOn: string | null, daysLeft: number | null): 
   return `In effect since ${formatDueOn(dueOn)}`
 }
 
+/** 'filing' deadlines: late from the day after dueOn, not on it. */
+export function deadlineTone(d: Pick<ComplianceDeadline, 'dueKind'>, daysLeft: number | null): ComplianceTone {
+  if (d.dueKind === 'filing' && daysLeft === 0) return 'soon'
+  return complianceTone(daysLeft)
+}
+
+/**
+ * The label for any deadline. 'filing': "Filing opens Jan 1, 2027 · due
+ * Apr 1, 2027", "Due Apr 1, 2027 (in 12 days)", "Due today (…)", then late,
+ * and past graceDays the consequence's start. Otherwise complianceLabel.
+ */
+export function deadlineLabel(d: ComplianceDeadline, todayYmd: string): string {
+  if (!d.dueOn) return complianceLabel(null, null)
+  const left = daysUntil(todayYmd, d.dueOn)
+  if (d.dueKind !== 'filing') return complianceLabel(d.dueOn, left)
+  const due = formatDueOn(d.dueOn)
+  if (d.opensOn && todayYmd < d.opensOn) return `Filing opens ${formatDueOn(d.opensOn)} · due ${due}`
+  if (left > 0) return `Due ${due} (in ${days(left)})`
+  if (left === 0) return `Due today (${due})`
+  if (d.graceDays === undefined) return `Late since ${due}`
+  const graceEnd = formatDueOn(addCalendarDays(d.dueOn, d.graceDays))
+  return -left <= d.graceDays
+    ? `Late since ${due} · if it isn’t filed by ${graceEnd}, the Secretary of State may start administrative dissolution`
+    : `Late since ${due} · more than ${days(d.graceDays)}: the Secretary of State may start administrative dissolution. File now`
+}
+
+function addCalendarDays(ymd: string, n: number): string {
+  return new Date((dayIndex(ymd) + n) * DAY_MS).toISOString().slice(0, 10)
+}
+
 // ─── What the board sees ────────────────────────────────────────────
 
 export interface ComplianceAssociationInput {
@@ -381,7 +494,7 @@ export function pendingComplianceItems(
 ): PendingComplianceItem[] {
   const out: PendingComplianceItem[] = []
   for (const a of associations) {
-    const applicable = deadlinesForState(complianceState(a.governingLawState, a.state))
+    const applicable = deadlinesForState(complianceState(a.governingLawState, a.state), todayYmd)
     if (applicable.length === 0) continue
     const acks = readComplianceAcks(a.id, a.complianceSettings, secret)
     const rows = done?.get(a.id)
@@ -393,8 +506,8 @@ export function pendingComplianceItems(
         associationName: a.name,
         deadline: d,
         daysLeft,
-        tone: complianceTone(daysLeft),
-        label: complianceLabel(d.dueOn, daysLeft),
+        tone: deadlineTone(d, daysLeft),
+        label: deadlineLabel(d, todayYmd),
       })
     }
   }

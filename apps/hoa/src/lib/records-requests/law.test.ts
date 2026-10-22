@@ -13,6 +13,19 @@ import {
   CHECK_BYLAWS,
   FL_RECORDS_ACCESS,
   FL_RECORDS_DAMAGES,
+  GA_RECORDS_ACCOUNTING,
+  GA_RECORDS_ARTICLES,
+  GA_RECORDS_BOARD_MINUTES,
+  GA_RECORDS_BYLAWS,
+  GA_RECORDS_CATEGORIES,
+  GA_RECORDS_CITATIONS,
+  GA_RECORDS_COMMUNICATIONS,
+  GA_RECORDS_MEMBER_MINUTES,
+  GA_RECORDS_MEMBERSHIP_LIST,
+  GA_RECORDS_NOTICE_BUSINESS_DAYS,
+  GA_RECORDS_ON_NOTICE,
+  GA_RECORDS_PARTICULARITY,
+  GA_RECORDS_WITH_PURPOSE,
   addBusinessDays,
   composeRecordsRequest,
   dueDayOf,
@@ -61,11 +74,45 @@ describe('citations are verbatim from the fixtures', () => {
     expect(ALL_RECORDS_CITATIONS).toHaveLength(7)
   })
 
-  it('TX § 209.005, CA § 4950 and Corp. Code § 8330 are NOT loaded, and GA sets no production deadline', () => {
+  it('Georgia § 14-3-1602: every quote, word for word, inside that section', () => {
+    const t = fixture('ga-ocga-14-3-2026.txt')
+    const start = t.indexOf('=== O.C.G.A. Section 14-3-1602 |')
+    expect(start).toBeGreaterThanOrEqual(0)
+    const end = t.indexOf('\n=== ', start + 1)
+    const s = norm(t.slice(start, end === -1 ? undefined : end))
+    for (const c of GA_RECORDS_CITATIONS) {
+      expect(c.cite.startsWith('O.C.G.A. § 14-3-1602')).toBe(true)
+      expect(s).toContain(norm(c.quote))
+    }
+    expect(new Set(GA_RECORDS_CITATIONS.map((c) => c.quote)).size).toBe(GA_RECORDS_CITATIONS.length)
+    // Everything the Georgia branch and the categories panel can show is in the checked list.
+    const shown = [
+      ...['governing', 'minutes', 'financial', 'owner_list', 'contracts', 'other'].flatMap(
+        (k) => recordsDeadline({ state: 'GA', kind: k as never, period: 'current', receivedDay: '2026-10-20' }).citations,
+      ),
+      GA_RECORDS_CATEGORIES.onNotice.rule,
+      ...GA_RECORDS_CATEGORIES.onNotice.records,
+      GA_RECORDS_CATEGORIES.withPurpose.rule,
+      ...GA_RECORDS_CATEGORIES.withPurpose.records,
+      ...GA_RECORDS_CATEGORIES.withPurpose.conditions,
+      GA_RECORDS_CATEGORIES.withPurpose.restrictions,
+    ]
+    for (const c of shown) expect(GA_RECORDS_CITATIONS).toContain(c)
+  })
+
+  it('Georgia: the five business days in the code match the words', () => {
+    expect(GA_RECORDS_NOTICE_BUSINESS_DAYS).toBe(5)
+    expect(GA_RECORDS_ON_NOTICE.quote).toContain('at least five business days before the date')
+    expect(GA_RECORDS_WITH_PURPOSE.quote).toContain('at least five business days before the date')
+    expect(GA_RECORDS_PARTICULARITY.quote).toContain('with reasonable particularity')
+  })
+
+  it('TX § 209.005, CA § 4950 and Corp. Code § 8330 are NOT loaded; GA Art. 6 sets no production deadline', () => {
     expect(fixture('tx-prop-209-2026.txt')).not.toMatch(/Sec\. 209\.005\./)
     expect(fixture('tcss-pr209-2026-excerpt.htm')).not.toMatch(/Sec\. 209\.005\./)
     expect(fixture('ca-civ-davis-stirling-2026.txt')).not.toContain('=== Civ. Code § 4950.')
     expect(fixture('ca-civ-davis-stirling-2026.txt')).not.toContain('=== Corp')
+    expect(fixture('ga-ocga-14-3-2026.txt')).not.toContain('=== O.C.G.A. Section 14-3-1605 |')
     const ga = fixture('ga-ocga-44-3-art6-2026.txt')
     expect(ga).toContain('the association shall keep:')
     // Its only "business days" deadline is the § 44-3-232 statement of
@@ -113,9 +160,33 @@ describe('recordsDeadline', () => {
     expect(deadline('CA', 'minutes').citations).toContain(CA_RECORDS_MINUTES)
   })
 
-  it('TX, GA, unknown and other states: check your bylaws, no citation', () => {
-    for (const s of ['TX', 'GA', 'NY', null, 'Florida']) {
+  it('TX, unknown and other states: check your bylaws, no citation', () => {
+    for (const s of ['TX', 'NY', null, 'Florida', 'Georgia']) {
       expect(deadline(s, 'financial')).toEqual({ dueDate: null, message: CHECK_BYLAWS, citations: [] })
+    }
+  })
+
+  it('GA: five business days after the notice for named records; (c) records carry the purpose rules', () => {
+    // Tue 2026-10-20 + 5 business days = Tue 2026-10-27
+    for (const kind of ['governing', 'minutes', 'financial', 'owner_list'] as const) {
+      expect(deadline('ga', kind).dueDate).toBe('2026-10-27')
+      expect(deadline('GA', kind).message).toContain('Georgia nonprofit corporation')
+    }
+    expect(deadline('GA', 'governing').citations).toEqual([GA_RECORDS_ON_NOTICE, GA_RECORDS_ARTICLES, GA_RECORDS_BYLAWS])
+    expect(deadline('GA', 'governing').citations).not.toContain(GA_RECORDS_PARTICULARITY)
+    expect(deadline('GA', 'minutes').citations).toEqual(expect.arrayContaining([GA_RECORDS_MEMBER_MINUTES, GA_RECORDS_BOARD_MINUTES, GA_RECORDS_PARTICULARITY]))
+    expect(deadline('GA', 'financial').citations).toEqual(expect.arrayContaining([GA_RECORDS_COMMUNICATIONS, GA_RECORDS_ACCOUNTING, GA_RECORDS_PARTICULARITY]))
+    expect(deadline('GA', 'owner_list').citations).toEqual(expect.arrayContaining([GA_RECORDS_MEMBERSHIP_LIST, GA_RECORDS_PARTICULARITY]))
+    expect(deadline('GA', 'owner_list').citations).not.toContain(GA_RECORDS_ON_NOTICE)
+    // Friday received: the following Friday.
+    expect(recordsDeadline({ state: 'GA', kind: 'governing', period: 'current', receivedDay: '2026-10-23' }).dueDate).toBe('2026-10-30')
+  })
+
+  it('GA: contracts and other records are not named, so no date', () => {
+    for (const kind of ['contracts', 'other', null] as const) {
+      const d = deadline('GA', kind)
+      expect(d.dueDate).toBeNull()
+      expect(d.citations).toEqual([GA_RECORDS_ON_NOTICE, GA_RECORDS_WITH_PURPOSE])
     }
   })
 

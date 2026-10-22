@@ -14,7 +14,10 @@
  *   4. Minutes and financial records (§ 44-3-231(d)).
  *   5. The statement of amounts due within five business days
  *      (§ 44-3-232(d)).
- *   6. What isn't loaded (condominium rules): "check your governing
+ *   6. BL-152: the nonprofit corporation's annual registration (Jan 1 –
+ *      Apr 1, § 14-3-1622(c)), markable per filing year, with the
+ *      § 14-3-1420(2) dissolution risk once it is 60 days late.
+ *   7. What isn't loaded (condominium rules): "check your governing
  *      documents".
  * Rows 3–5 are the Property Owners' Association Act, which covers property
  * submitted to it (§ 44-3-235(a)); each says so.
@@ -41,11 +44,13 @@
  */
 
 import {
-  COMPLIANCE_DEADLINES,
-  complianceLabel,
   complianceState,
-  complianceTone,
   daysUntil,
+  deadlineByCode,
+  deadlineLabel,
+  deadlineTone,
+  gaCorpRegistrationCode,
+  gaCorpRegistrationYear,
   formatDueOn,
   readComplianceAcks,
   type ComplianceAssociationInput,
@@ -73,6 +78,12 @@ import {
   GA_ANNUAL_MEETING,
   GA_ANNUAL_NOTICE_DAYS,
   GA_ANNUAL_REPORT,
+  GA_CORP_DISSOLUTION,
+  GA_CORP_DISSOLUTION_LATE_REGISTRATION,
+  GA_CORP_REGISTRATION_CONTENTS,
+  GA_CORP_REGISTRATION_FIRST,
+  GA_CORP_REGISTRATION_INITIAL,
+  GA_CORP_REGISTRATION_WINDOW,
   GA_MEETING_NOTICE,
   GA_MISSED_ANNUAL_MEETING,
   GA_POA_ACT_SCOPE,
@@ -295,10 +306,10 @@ function deadlineObligation(
   input: ComplianceInput,
   extra: Pick<ComplianceObligation, 'steps' | 'quotes' | 'appliesTo' | 'link'>,
 ): ComplianceObligation {
-  const d = COMPLIANCE_DEADLINES.find((x) => x.code === code)!
+  const d = deadlineByCode(code)!
   const done = deadlineDone(base, code, acks, input)
   const daysLeft = d.dueOn ? daysUntil(input.today, d.dueOn) : null
-  const pending = complianceTone(daysLeft)
+  const pending = deadlineTone(d, daysLeft)
   const tone: ObligationTone = done ? 'done' : pending === 'standing' ? 'unknown' : pending
   return {
     ...base,
@@ -306,7 +317,7 @@ function deadlineObligation(
     kind: 'deadline',
     title: d.title,
     tone,
-    label: done ? doneLabel(done.doneAt) : d.dueOn ? complianceLabel(d.dueOn, daysLeft) : 'Not marked as filed yet',
+    label: done ? doneLabel(done.doneAt) : d.dueOn ? deadlineLabel(d, input.today) : 'Not marked as filed yet',
     dueOn: d.dueOn,
     official: { href: d.officialUrl, label: d.officialLabel },
     deadlineCode: code,
@@ -808,6 +819,26 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
         gaRegistrationUpkeep(base, input.today, standing),
         gaAnnualMeeting(base, input),
         ...gaDuties(base),
+        deadlineObligation(base, gaCorpRegistrationCode(gaCorpRegistrationYear(input.today)), acks, input, {
+          steps: [
+            'Check your articles of incorporation: if the association is a Georgia nonprofit corporation, it files this every year.',
+            'File the annual registration with the Secretary of State between January 1 and April 1, with the current registered agent, office address and officers.',
+            'Mark it done here and attach the filed registration or the receipt as evidence.',
+            'If it is late, file as soon as you can and check the corporation’s status on the Secretary of State’s site.',
+            'This is separate from the SB 406 owners’ association registration above.',
+          ],
+          quotes: [
+            GA_CORP_REGISTRATION_CONTENTS,
+            GA_CORP_REGISTRATION_WINDOW,
+            GA_CORP_REGISTRATION_FIRST,
+            GA_CORP_REGISTRATION_INITIAL,
+            GA_CORP_DISSOLUTION,
+            GA_CORP_DISSOLUTION_LATE_REGISTRATION,
+          ],
+          appliesTo:
+            'Georgia associations incorporated as nonprofit corporations (most are). An unincorporated association doesn’t file this.',
+          link: null,
+        }),
         notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)'),
         ...elections,
       ]

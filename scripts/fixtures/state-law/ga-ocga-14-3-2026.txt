@@ -1,0 +1,156 @@
+# Georgia Nonprofit Corporation Code — O.C.G.A. Title 14, Chapter 3: the sections HomeownerHub quotes or names
+# (§§ 14-3-701, 14-3-707, 14-3-724, 14-3-1420, 14-3-1601, 14-3-1602, 14-3-1622), statute text only.
+#
+# Most Georgia HOAs are incorporated as nonprofit corporations, so this chapter governs them alongside the Property
+# Owners' Association Act (ga-ocga-44-3-art6-2026.txt). Georgia's official Code is published online only through
+# LexisNexis's public-access JavaScript app, which a plain HTTP request cannot read, so the text is rebuilt from the
+# State's own documents:
+#
+# Where the text comes from (retrieved 2026-10-22):
+#   1. The Official Code of Georgia Annotated as released by the State of Georgia in electronic form — release 86
+#      (November 2022), Title 14, as published by Public.Resource.Org under Georgia v. Public.Resource.Org, 590 U.S. 255
+#      (2020) — the same release as the Article 6 snapshot:
+#        https://archive.org/download/gov.ga.ocga.2018/release86.2022.11/gov.ga.ocga.title.14.odt
+#        sha256 d3d03907eb13252da615634598c878c4b251f0ea5d72256a37e342581b92a78e
+#      Only the "Text" block of each section is kept; annotations and Comments are dropped (commentary, not law).
+#   2. Ga. L. 2023, SB 148 (LC 36 5426, "AS PASSED"), signed copy from the Governor's 2023 signed legislation:
+#        https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+#        sha256 321625d73f10c44267319152d2dcd725ac3d22be534e38c62dc80630b2bda720
+#      SB 148 § 1-1 restates all of Chapter 3 with struck text (deleted) and underlined text (inserted). The Act has
+#      no effective-date section, so it took effect July 1, 2023 (O.C.G.A. § 1-3-4). Release 86 predates it.
+#      Every section below is SB 148's text with struck matter removed and underlined matter kept, as enacted. Check
+#      performed: rebuilding the OLD text from the same markup (underlined removed, struck kept) reproduces release 86
+#      word for word for all seven sections, and the paragraph breaks match release 86's. The bill's straight quotes
+#      and "(c)(1)" are set as the Code prints them (’ and "(c) (1)"); no wording is changed.
+#      What SB 148 changed here: § 14-3-701 ("membership corporation"; "chief executive officer"; notice sections
+#      14-3-704 and 14-3-705); old § 14-3-708 (ballots) renumbered § 14-3-707 with a new (b)(2) for director
+#      elections (new § 14-3-708 is action by written consent, not carried here); § 14-3-1420(5) ("this chapter");
+#      § 14-3-1602 new (e) (reasonable restrictions on (c) records), old (e) now (f); § 14-3-1622(a)(4) drops "or
+#      individuals holding similar positions", (e) "domestic corporation or foreign corporation". §§ 14-3-724 and
+#      14-3-1601 are restated unchanged.
+#
+# Amendments checked for 2023–2026: 2023 SB 148 (applied above). 2024–2026: none found to these sections (web search of
+# legis.ga.gov bill text and secondary trackers; HB 1046 and SB 600 (2025–2026), which would have amended Title 14
+# generally, died 2026-04-02). SB 406 (2026) does not touch Title 14. FindLaw's copies of §§ 14-3-1602 and 14-3-1622
+# ("current as of March 28, 2024") match the text below word for word (a cross-check only, not a source). The annual
+# Code Revision bills (typo and cross-reference fixes) were not checked section by section.
+#
+# A board should still confirm a provision against the official Code (LexisNexis public access, via legis.ga.gov →
+# "Georgia Code") before relying on it. Public domain: state statutes and legislative documents.
+# Used by apps/hoa/src/lib/compliance/law.ts and apps/hoa/src/lib/records-requests/law.ts (both test every quote
+# word for word against this file).
+#
+# Format: "#" lines before the first section are comments. "@key: value" lines are snapshot metadata (top) or
+# section metadata (directly under a "=== <citation> | <catchline>" header). Every other line is one paragraph of
+# statute text, verbatim.
+
+@source_name: O.C.G.A. Title 14 Ch. 3, selected sections (State release 86, Nov. 2022; + Ga. L. 2023 SB 148)
+@retrieved: 2026-10-22
+
+=== O.C.G.A. Section 14-3-701 | Annual meeting
+@source_url: https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+@effective_date: 2023-07-01
+@history: Code 1981, § 14-3-701, enacted by Ga. L. 1991, p. 465, § 1; Ga. L. 2021, p. 115, § 4/HB 306; Ga. L. 2023, SB 148, § 1-1.
+(a) A membership corporation shall hold a meeting of members annually at a time stated in or fixed in accordance with the bylaws.
+(b) A membership corporation may hold regular meetings of members at the times stated in or fixed in accordance with the bylaws.
+(c) (1) Except as provided for in paragraph (2) of this subsection, annual and regular meetings of members may be held in or out of this state at the place stated in or fixed in accordance with the bylaws. If no place is stated in or fixed in accordance with the bylaws, annual and regular meetings shall be held at the corporation’s principal office or other suitable place.
+(2) Unless the articles of incorporation or the bylaws provide otherwise, the board of directors may determine that an annual and regular meeting of the members may be held wholly or partially by means of remote communication as authorized and provided for in Code Section 14-3-709.
+(d) At the annual meeting:
+(1) The chief executive officer and chief financial officer shall report on the activities and financial condition of the corporation; and
+(2) The members shall consider and act upon such other matters as may be raised consistent with the notice requirements of Code Sections 14-3-704 and 14-3-705.
+(e) At regular meetings the members shall consider and act upon such matters as may be raised consistent with the notice requirements of Code Sections 14-3-704 and 14-3-705.
+(f) The failure to hold an annual or regular meeting at a time stated in or fixed in accordance with a corporation’s bylaws does not affect the validity of any corporate action.
+
+=== O.C.G.A. Section 14-3-707 | Action taken without meeting (by ballot; numbered § 14-3-708 before Ga. L. 2023, SB 148)
+@source_url: https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+@effective_date: 2023-07-01
+@history: Code 1981, § 14-3-708, enacted by Ga. L. 1991, p. 465, § 1; Ga. L. 2004, p. 508, § 35; Ga. L. 2023, SB 148, § 1-1 (renumbered § 14-3-707).
+(a) Unless prohibited or limited by the articles or bylaws, any action that may be taken at any annual, regular, or special meeting of members may be taken without a meeting if the corporation delivers a ballot in writing or by electronic transmission to every member entitled to vote on the matter.
+(b) A ballot in writing or by electronic transmission shall:
+(1) Set forth each proposed action;
+(2) Provide an opportunity to vote for, or withhold a vote for, each candidate for election as a director, if any; and
+(3) Provide an opportunity to vote for or against each other proposed action.
+(c) Approval by ballot in writing or by electronic transmission pursuant to this Code section shall be valid only when the number of votes cast by ballot equals or exceeds the quorum required to be present at a meeting authorizing the action, and the number of approvals equals or exceeds the number of votes that would be required to approve the matter at a meeting at which the total number of votes cast was the same as the number of votes cast by ballot.
+(d) All solicitations for votes by ballot in writing or by electronic transmission shall:
+(1) Indicate the number of responses needed to meet the quorum requirements;
+(2) State the percentage of approvals necessary to approve each matter other than election of directors; and
+(3) Specify the time by which a ballot must be received by the corporation in order to be counted.
+(e) Except as otherwise provided in the articles or bylaws, a ballot in writing or by electronic transmission may not be revoked.
+
+=== O.C.G.A. Section 14-3-724 | Proxies
+@source_url: https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+@effective_date: 2023-07-01
+@history: Code 1981, § 14-3-724, enacted by Ga. L. 1991, p. 465, § 1; Ga. L. 2004, p. 508, § 37; Ga. L. 2023, SB 148, § 1-1.
+(a) Unless the articles or bylaws prohibit or limit proxy voting, a member may vote in person or by proxy.
+(b) A member or his or her agent or attorney in fact may appoint a proxy to vote or otherwise act for the member by signing an appointment form either personally or by an electronic transmission. An electronic transmission must contain or be accompanied by information from which it can be determined that the member, the member’s agent, or the member’s attorney in fact authorized the electronic transmission.
+(c) An appointment of a proxy is effective when a signed appointment form or electronic transmission of the appointment is received by the secretary or other officer or agent authorized to tabulate votes. An appointment is valid for 11 months unless a different period is expressly provided in the appointment form.
+(d) An appointment of a proxy is revocable by the member.
+(e) The death or incapacity of the member appointing a proxy does not affect the right of the corporation to accept the proxy’s authority unless notice of the death or incapacity is received by the secretary or other officer or agent authorized to tabulate votes before the proxy exercises authority under the appointment.
+(f) Appointment of a proxy is revoked by the person appointing the proxy:
+(1) Attending any meeting and voting in person; or
+(2) Signing and delivering to the secretary or other officer or agent authorized to tabulate proxy votes either a writing stating that the appointment of the proxy is revoked or a subsequent appointment form.
+(g) Subject to Code Section 14-3-727 and any express limitation on the proxy’s authority appearing on the face of the appointment form or in the electronic transmission, a corporation is entitled to accept the proxy’s vote or other action as that of the member making the appointment.
+(h) Any copy, facsimile transmission, or other reliable reproduction of the writing or electronic transmission created pursuant to subsection (b) of this Code section may be substituted or used in lieu of the original writing or electronic transmission for any and all purposes for which the original writing or electronic transmission could be used, provided that such copy, facsimile transmission, or other reproduction shall be a complete reproduction of the entire original writing or electronic transmission.
+(i) A corporation may adopt bylaws authorizing additional means or procedures for members to exercise rights granted by this Code section.
+
+=== O.C.G.A. Section 14-3-1420 | Grounds for administrative dissolution
+@source_url: https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+@effective_date: 2023-07-01
+@history: Code 1981, § 14-3-1420, enacted by Ga. L. 1991, p. 465, § 1; Ga. L. 1993, p. 1231, § 28; Ga. L. 2023, SB 148, § 1-1.
+The Secretary of State may commence a proceeding under Code Section 14-3-1421 to dissolve a corporation administratively if:
+(1) The state revenue commissioner has certified to the Secretary of State that the corporation has failed to file a license or occupation tax return and that a period of one year has expired since the last day permitted for timely filing without the filing and payment of all required license and occupation taxes and penalties by the corporation; provided, however, that dissolution proceedings shall be stayed so long as the corporation is contesting, in good faith, in any appropriate proceeding, the alleged grounds for dissolution;
+(2) The corporation does not deliver its annual registration to the Secretary of State, together with all required fees and penalties, within 60 days after it is due;
+(3) The corporation is without a registered agent or registered office in this state for 60 days or more;
+(4) The corporation does not notify the Secretary of State within 60 days that its registered agent or registered office has been changed, that its registered agent has resigned, or that its registered office has been discontinued; or
+(5) The corporation pays a fee as required to be collected by the Secretary of State pursuant to this chapter by a check or some other form of payment which is dishonored and the corporation or its incorporator or its agent does not submit payment for said dishonored payment within 60 days from notice of nonpayment issued by the Secretary of State.
+
+=== O.C.G.A. Section 14-3-1601 | Required corporate records
+@source_url: https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+@effective_date: 2023-07-01
+@history: Code 1981, § 14-3-1601, enacted by Ga. L. 1991, p. 465, § 1; Ga. L. 2023, SB 148, § 1-1.
+(a) A corporation shall keep as permanent records minutes of all meetings of its members and board of directors, executed consents evidencing all actions taken by the members or board of directors without a meeting, a record of all actions taken by a committee of the board of directors in place of the board of directors on behalf of the corporation, and waivers of notice of all meetings of the board of directors and its committees.
+(b) A corporation shall maintain appropriate accounting records.
+(c) A corporation or its agent shall maintain a record of its members in a form that permits preparation of a list of the name and address of all members, in alphabetical order by class, showing the number of votes each member is entitled to cast.
+(d) A corporation shall maintain its records in written form or in another form capable of conversion into written form within a reasonable time.
+
+=== O.C.G.A. Section 14-3-1602 | Members’ right to copy and inspect records
+@source_url: https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+@effective_date: 2023-07-01
+@history: Code 1981, § 14-3-1602, enacted by Ga. L. 1991, p. 465, § 1; Ga. L. 2004, p. 508, § 62; Ga. L. 2023, SB 148, § 1-1.
+(a) A corporation shall keep a copy of the following records:
+(1) Its articles or restated articles of incorporation and all amendments to them currently in effect;
+(2) Its bylaws or restated bylaws and all amendments to them currently in effect;
+(3) Resolutions adopted by either its members or board of directors increasing or decreasing the number of directors or the classification of directors, or relating to the characteristics, qualifications, rights, limitations, and obligations of members or any class or category of members;
+(4) Resolutions adopted by either its members or board of directors relating to the characteristics, qualifications, rights, limitations, and obligations of members or any class or category of members;
+(5) The minutes of all meetings of members, executed waivers of notice of meetings, and executed consents, delivered in writing or by electronic transmission, evidencing all actions taken or approved by the members without a meeting, for the past three years;
+(6) All communications in writing or by electronic transmission to members generally within the past three years, including the financial statements furnished for the past three years under Code Section 14-3-1620;
+(7) A list of the names and business or home addresses of its current directors and officers; and
+(8) Its most recent annual registration delivered to the Secretary of State under Code Section 14-3-1622.
+(b) A member is entitled to inspect and copy, at a reasonable time and location specified by the corporation, any of the records of the corporation described in subsection (a) of this Code section if the member gives the corporation written notice or a written demand at least five business days before the date on which the member wishes to inspect and copy.
+(c) A member is entitled to inspect and copy, at a reasonable time and reasonable location specified by the corporation, any of the following records of the corporation if the member meets the requirements of subsection (d) of this Code section and gives the corporation written notice at least five business days before the date on which the member wishes to inspect and copy:
+(1) Excerpts from minutes of any meeting of the board of directors, records of any action of a committee of the board of directors while acting in place of the board of directors on behalf of the corporation, minutes of any meeting of the members, and records of action taken by the members or the board of directors without a meeting, to the extent not subject to inspection under subsection (a) of this Code section;
+(2) Accounting records of the corporation; and
+(3) Subject to Code Section 14-3-1605, the membership list.
+(d) A member may inspect and copy the records identified in subsection (c) of this Code section only if:
+(1) The member’s demand is made in good faith and for a proper purpose that is reasonably relevant to the member’s legitimate interest as a member;
+(2) The member describes with reasonable particularity the purpose and the records the member desires to inspect;
+(3) The records are directly connected with this purpose; and
+(4) The records are to be used only for the stated purpose.
+(e) The corporation may impose reasonable restrictions on the confidentiality, use, or distribution of the records described in subsection (c) of this Code section.
+(f) This Code section does not affect:
+(1) The right of a member to inspect records under Code Section 14-3-720 or, if the member is in litigation with the corporation, to the same extent as any other litigant; or
+(2) The power of a court, independently of this chapter, to compel the production of corporate records for examination.
+
+=== O.C.G.A. Section 14-3-1622 | Annual registration of corporation
+@source_url: https://gov.georgia.gov/document/2023-signed-legislation/sb-148/download
+@effective_date: 2023-07-01
+@history: Code 1981, § 14-3-1622, enacted by Ga. L. 1991, p. 465, § 1; Ga. L. 1993, p. 1231, § 29; Ga. L. 1999, p. 405, § 21; Ga. L. 2023, SB 148, § 1-1.
+(a) Each domestic corporation and each foreign corporation authorized to transact business in this state shall deliver to the Secretary of State for filing an annual registration that sets forth:
+(1) The name of the corporation and the state or country under whose law it is incorporated;
+(2) The street address and county of its registered office and the name of its registered agent at that office in this state;
+(3) The mailing address of its principal office, if any; and
+(4) The names and respective addresses of its chief executive officer, chief financial officer, and secretary.
+(b) Information in the annual registration must be current as of the date the annual registration is executed on behalf of the corporation.
+(c) The first annual registration must be delivered to the Secretary of State between January 1 and April 1, or such other date as the Secretary of State may specify by rules or regulations, of the year following the calendar year in which a domestic corporation was incorporated or a foreign corporation was authorized to transact business. Subsequent annual registrations must be delivered to the Secretary of State between January 1 and April 1, or such other date as the Secretary of State may specify by rules or regulations, of the following calendar years.
+(d) The initial annual registration of a domestic corporation shall be filed within 90 days after the day its articles of incorporation are delivered to the Secretary of State for filing. However, the initial annual registration of a domestic corporation whose articles of incorporation are delivered to the Secretary of State for filing subsequent to October 1 shall be filed between January 1 and April 1 of the year next succeeding the calendar year in which its certificate of incorporation is issued by the Secretary of State.
+(e) If an annual registration does not contain the information required by this Code section, the Secretary of State shall promptly notify the reporting domestic corporation or foreign corporation in writing and return the report to it for correction. If the report is corrected to contain the information required by this Code section and delivered to the Secretary of State within 30 days after the effective date of notice, it is deemed to be timely filed.
