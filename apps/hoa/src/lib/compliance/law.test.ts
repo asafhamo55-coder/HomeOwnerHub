@@ -59,6 +59,20 @@ describe('every compliance quote is word for word in the statute text in the rep
     })
   }
 
+  it('BL-154: a quote from a section SB 406 amends on 2027-01-01 still holds in the 2027 text', () => {
+    const ga = fixture('ga-ocga-44-3-art6-2026.txt')
+    const amended = ALL_COMPLIANCE_QUOTES.filter((q) => /^O\.C\.G\.A\. § 44-3-(222|226|235)\b|^O\.C\.G\.A\. § 44-3-232\(c\)/.test(q.cite) && q.fixture === 'ga-ocga-44-3-art6-2026.txt')
+    expect(amended.map((q) => q.cite)).toEqual(['O.C.G.A. § 44-3-235(a)'])
+    for (const q of amended) {
+      const n = /44-3-(\d+)/.exec(q.cite)![1]
+      const head = ga.lastIndexOf(`=== O.C.G.A. Section 44-3-${n} |`)
+      const dated = norm(ga.slice(head, ga.indexOf('\n=== ', head + 1) === -1 ? undefined : ga.indexOf('\n=== ', head + 1)))
+      expect(dated).toContain('@effective_date: 2027-01-01')
+      // In 2027 it opens paragraph (a)(1); "(a)" still cites it.
+      expect(dated).toContain(`(a)(1) ${norm(q.quote)}`)
+    }
+  })
+
   it('no quote is listed twice', () => {
     const seen = new Set(ALL_COMPLIANCE_QUOTES.map((q) => q.quote))
     expect(seen.size).toBe(ALL_COMPLIANCE_QUOTES.length)

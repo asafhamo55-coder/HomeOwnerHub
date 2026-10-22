@@ -16,6 +16,12 @@ import {
   FL_LATE_NOTICE_DAYS,
   GA_232C_REPLACED_ON,
   GA_FEE_NOTICE_DAYS,
+  GA_FORECLOSURE_CAP_CENTS_2027,
+  GA_FORECLOSURE_MONTHS_2027,
+  GA_LIEN_LAPSE_YEARS_2027,
+  GA_PRE_FORECLOSURE_BODY_2027,
+  GA_PRE_FORECLOSURE_DAYS_2027,
+  GA_PRE_FORECLOSURE_QUOTES_2027,
   GA_FEE_NOTICE_QUOTES,
   GA_FORECLOSURE_MIN_CENTS,
   GA_LIEN_LAPSE_YEARS,
@@ -143,8 +149,10 @@ describe('Texas § 209.0064', () => {
   })
 })
 
+const GA_FILE = 'ga-ocga-44-3-art6-2026.txt'
+const sb406_232c = section('ga-sb406-2026-2027-text.txt', '=== SECTION 5. (O.C.G.A. § 44-3-232(c)')
+
 describe('Georgia SB 406 § 7 and O.C.G.A. § 44-3-232 (BL-148)', () => {
-  const GA_FILE = 'ga-ocga-44-3-art6-2026.txt'
   const sb406 = section(GA_FILE, '=== Ga. L. 2026, SB 406, § 7 |')
   const s232 = section(GA_FILE, '=== O.C.G.A. Section 44-3-232 |')
 
@@ -175,14 +183,50 @@ describe('Georgia SB 406 § 7 and O.C.G.A. § 44-3-232 (BL-148)', () => {
     expect(s232).toContain('four years after the assessment or installment first became due and payable')
   })
 
-  it('SB 406 § 5’s 2027 text of § 44-3-232(c) is NOT loaded, so the notice stops on Jan 1, 2027', () => {
+  it('the pre-2027 quotes are the text in force until Jan 1, 2027, and not SB 406 § 5’s', () => {
+    for (const q of GA_PRE_FORECLOSURE_QUOTES.filter((x) => x.cite === 'O.C.G.A. § 44-3-232(c)')) {
+      expect(sb406_232c).not.toContain(squash(q.quote))
+    }
+  })
+})
+
+describe('Georgia § 44-3-232(c) from January 1, 2027 (BL-154: SB 406 § 5, official bill text)', () => {
+  const ACT = 'ga-sb406-2026-2027-text.txt'
+  const sec2 = section(ACT, '=== SECTION 2. (new O.C.G.A. Chapter 43-17A')
+  const in2027 = (q: { cite: string }) =>
+    q.cite.startsWith('O.C.G.A. § 44-3-232(c)') ? sb406_232c : q.cite.startsWith('O.C.G.A. § 43-17A-1(') ? sec2 : q.cite.startsWith('O.C.G.A. § 44-3-232(b)') ? section(GA_FILE, '=== O.C.G.A. Section 44-3-232 |') : ''
+
+  it.each(GA_PRE_FORECLOSURE_QUOTES_2027.map((q) => [`${q.cite} — ${q.quote.slice(0, 40)}`, q] as const))('2027 quote verbatim in its fixture and section: %s', (_cite, q) => {
+    expect(in2027(q)).toContain(squash(q.quote))
+    // (b)(2), the interest cap, is unchanged by SB 406 and stays checked against the snapshot.
+    expect(q.fixture).toBe(q.cite.startsWith('O.C.G.A. § 44-3-232(b)') ? GA_FILE : ACT)
+  })
+
+  it('the numbers match the 2027 text', () => {
     expect(GA_232C_REPLACED_ON).toBe('2027-01-01')
-    expect(fixture(GA_FILE)).toContain('@valid_until: 2027-01-01')
-    expect(fixture(GA_FILE)).toContain('44-3-232(c) and')
-    // The § 44-3-232 record carries only Section 5's opening line: nothing after "as follows:".
-    const t = fixture('ga-ocga-44-3-232-2026.txt')
-    const opening = 'by revising subsection (c) as follows:'
-    expect(t).toContain(opening)
-    expect(t.slice(t.indexOf(opening) + opening.length).trim()).toBe('')
+    expect(section(ACT, '=== SECTION 9.')).toContain('this Act shall become effective on January 1, 2027.')
+    expect(GA_PRE_FORECLOSURE_DAYS_2027).toBe(60)
+    expect(sb406_232c).toContain('(c) Not less than 60 days after notice is sent')
+    expect(sb406_232c).toContain('prior to the sixtieth day following receipt of the notice')
+    expect(GA_FORECLOSURE_CAP_CENTS_2027).toBe(400_000)
+    expect(GA_FORECLOSURE_MONTHS_2027).toBe(12)
+    expect(GA_FORECLOSURE_MIN_CENTS).toBe(200_000)
+    expect(sb406_232c).toContain('at least the lesser of $4,000.00 or an amount equal to 12 months of regular assessments')
+    expect(sb406_232c).toContain('in arrears but not less than $2,000.00')
+    expect(GA_LIEN_LAPSE_YEARS_2027).toBe(6)
+    expect(sb406_232c).toContain('six years after the assessment or installment first became due and payable')
+  })
+
+  it('the letter’s plain-words statement tracks the statute’s required statement', () => {
+    expect(sb406_232c).toContain('shall state that payment of such amount prior to the sixtieth day following receipt of the notice will eliminate the right of foreclosure')
+    expect(GA_PRE_FORECLOSURE_BODY_2027('X')).toContain('prior to the sixtieth day following your receipt of this notice will eliminate the right of foreclosure')
+  })
+
+  it('the snapshot serves the same 2027 text (its dated § 44-3-232 record) and is valid until 2027-07-01', () => {
+    const t = fixture(GA_FILE)
+    expect(t).toContain('@valid_until: 2027-07-01')
+    const dated = squash(t.slice(t.lastIndexOf('=== O.C.G.A. Section 44-3-232 |')).split('\n=== ')[0]!)
+    expect(dated).toContain('@effective_date: 2027-01-01')
+    for (const q of GA_PRE_FORECLOSURE_QUOTES_2027.filter((x) => x.cite.startsWith('O.C.G.A. § 44-3-232(c)'))) expect(dated).toContain(squash(q.quote))
   })
 })

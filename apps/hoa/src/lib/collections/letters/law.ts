@@ -64,17 +64,32 @@
  *   - § 44-3-232(b)(1)–(2): late charge up to the greater of $10.00 or 10%,
  *     interest up to 10% a year, each only to the extent the instrument
  *     provides.
+ *   - BL-154: § 44-3-232(c) as SB 406 § 5 rewrites it from January 1, 2027
+ *     (scripts/fixtures/state-law/ga-sb406-2026-2027-text.txt, the official
+ *     bill with struck words removed): notice not less than 60 days before
+ *     foreclosure, and it must state that paying the amount before the
+ *     sixtieth day after receipt eliminates the right of foreclosure; no
+ *     foreclosure unless the lien is at least the lesser of $4,000.00 or 12
+ *     months of regular assessments, but not less than $2,000.00, counting
+ *     no specific assessment (§ 43-17A-1(10): late charges, fines, damage
+ *     charges) and no other fine or fee; the lien lapses after six years.
+ *     Every GA pre-foreclosure rule picks its text by the letter date
+ *     (gaForeclosureLaw): before 2027 nothing changes.
  *   Georgia sets no statutory form wording, so the letters carry what the
  *   statute requires in plain words and quote the statute verbatim
- *   (GA_FEE_NOTICE_QUOTES, GA_PRE_FORECLOSURE_QUOTES; law.test.ts checks
- *   every quote against the fixture). SB 406 § 5 rewrites § 44-3-232(c)
- *   from January 1, 2027; that text is NOT in the fixtures, so the
- *   pre-foreclosure notice can't be drafted on or after that day.
+ *   (GA_FEE_NOTICE_QUOTES, GA_PRE_FORECLOSURE_QUOTES and
+ *   GA_PRE_FORECLOSURE_QUOTES_2027; law.test.ts checks every quote against
+ *   its fixture).
  *
  * Every other state gets a plain past-due letter with no statutory claims.
  */
 
 import {
+  GA_17A1_SPECIFIC,
+  GA_232C_2027_CONTENTS,
+  GA_232C_2027_LAPSE,
+  GA_232C_2027_MINIMUM,
+  GA_232C_2027_NOTICE,
   GA_232C_CONTENTS,
   GA_232C_LAPSE,
   GA_232C_MINIMUM,
@@ -177,13 +192,38 @@ export const GA_MAX_INTEREST_PERCENT = 10
 export const GA_LIEN_LAPSE_YEARS = 4
 /** Lines whose lien lapses within this many days of the letter date get a warning. */
 export const GA_LAPSE_WARN_DAYS = 180
-/** SB 406 § 5 replaces § 44-3-232(c) from this day; that text is not loaded. */
+/** SB 406 § 5 replaces § 44-3-232(c) from this day (§ 9(a)); both texts are loaded (BL-154). */
 export const GA_232C_REPLACED_ON = '2027-01-01'
+/** § 44-3-232(c) from 2027: "Not less than 60 days after notice is sent". */
+export const GA_PRE_FORECLOSURE_DAYS_2027 = 60
+/** § 44-3-232(c) from 2027: the lien lapses "six years after the assessment or installment first became due". */
+export const GA_LIEN_LAPSE_YEARS_2027 = 6
+/** § 44-3-232(c) from 2027: "the lesser of $4,000.00 or an amount equal to 12 months of regular assessments". */
+export const GA_FORECLOSURE_CAP_CENTS_2027 = 400_000
+/** ... "but not less than $2,000.00": the floor stays GA_FORECLOSURE_MIN_CENTS. */
+export const GA_FORECLOSURE_MONTHS_2027 = 12
+
+/**
+ * The 2027 foreclosure threshold: the lesser of $4,000.00 or 12 months of
+ * regular assessments, but not less than $2,000.00.
+ */
+export function gaForeclosureThresholdCents(twelveMonthsCents: number): number {
+  return Math.max(GA_FORECLOSURE_MIN_CENTS, Math.min(GA_FORECLOSURE_CAP_CENTS_2027, Math.max(0, twelveMonthsCents)))
+}
 
 /** Printed on the fee notice under "What the law requires", verbatim. */
 export const GA_FEE_NOTICE_QUOTES: readonly DriftCitation[] = [GA_SB406_FEES, GA_SB406_NOTICE, GA_SB406_RECEIPT, GA_SB406_ITEMIZED]
-/** Printed on the pre-foreclosure notice, verbatim. */
+/** Printed on the pre-foreclosure notice dated before January 1, 2027, verbatim. */
 export const GA_PRE_FORECLOSURE_QUOTES: readonly DriftCitation[] = [GA_232C_NOTICE, GA_232C_CONTENTS, GA_232C_MINIMUM, GA_232C_LAPSE, GA_232_INTEREST]
+/** Printed on the pre-foreclosure notice dated on or after January 1, 2027, verbatim (BL-154). */
+export const GA_PRE_FORECLOSURE_QUOTES_2027: readonly DriftCitation[] = [
+  GA_232C_2027_NOTICE,
+  GA_232C_2027_CONTENTS,
+  GA_232C_2027_MINIMUM,
+  GA_17A1_SPECIFIC,
+  GA_232C_2027_LAPSE,
+  GA_232_INTEREST,
+]
 
 export const GA_FEE_NOTICE_BODY = (association: string) =>
   `This is the written notice from ${association} under Georgia law (Ga. L. 2026, SB 406 § 7) identifying the outstanding fines and delinquent fees on your account. They are listed below. You have 30 days from the day you receive this notice to pay them.`
@@ -197,9 +237,47 @@ export const GA_FEE_NOTICE_MAILING =
 export const GA_PRE_FORECLOSURE_MAILING =
   'Send by certified mail or statutory overnight delivery, return receipt requested, to the owner both at the lot’s address and at every other address the owner designated to the association in writing (§ 44-3-232(c)). The lien may be foreclosed no sooner than 30 days after it is sent. HomeownerHub has no certified-mail tracking field: add the tracking numbers as a note on the collections case.'
 
-/** On screen from the day the snapshot's § 44-3-232(c) stops being the law. */
-export const GA_2027_NOT_LOADED =
-  'From January 1, 2027, SB 406 § 5 replaces § 44-3-232(c). HomeownerHub hasn’t loaded the new text, so it can’t draft this notice on or after that day. Check with your association’s attorney.'
+/** BL-154: the notice dated on or after January 1, 2027 (SB 406 § 5's text of § 44-3-232(c)). */
+export const GA_PRE_FORECLOSURE_BODY_2027 = (association: string) =>
+  `This is notice from ${association} under O.C.G.A. § 44-3-232(c). The assessments, authorized late charges and interest below are owed on your lot and are secured by the association’s lien. The association may foreclose that lien by court action no sooner than 60 days after this notice is sent. Payment of the amount below prior to the sixtieth day following your receipt of this notice will eliminate the right of foreclosure. To pay, or to discuss your account, contact the association.`
+
+export const GA_PRE_FORECLOSURE_MAILING_2027 =
+  'Send by certified mail or statutory overnight delivery, return receipt requested, to the owner both at the lot’s address and at every other address the owner designated to the association in writing (§ 44-3-232(c)). The lien may be foreclosed no sooner than 60 days after it is sent. HomeownerHub has no certified-mail tracking field: add the tracking numbers as a note on the collections case.'
+
+/** BL-154: from 2027 fines and fees don't count toward the threshold and aren't part of the amount the notice states. */
+export const GA_2027_FINE_NOTE =
+  'Fines and other fees are not listed. Since January 1, 2027 no specific assessment (late charges, fines, damage charges) or other fine or fee counts toward the foreclosure threshold, and this notice states the assessments, authorized late charges and interest (§ 44-3-232(c), § 43-17A-1(10)).'
+
+/** The text of § 44-3-232(c) a GA pre-foreclosure notice dated `letterDate` rests on. */
+export interface GaForeclosureLaw {
+  /** True from January 1, 2027 (SB 406 § 5). */
+  sb406: boolean
+  days: number
+  lapseYears: number
+  quotes: readonly DriftCitation[]
+  body: (association: string) => string
+  mailing: string
+}
+
+export function gaForeclosureLaw(letterDate: string): GaForeclosureLaw {
+  return letterDate >= GA_232C_REPLACED_ON
+    ? {
+        sb406: true,
+        days: GA_PRE_FORECLOSURE_DAYS_2027,
+        lapseYears: GA_LIEN_LAPSE_YEARS_2027,
+        quotes: GA_PRE_FORECLOSURE_QUOTES_2027,
+        body: GA_PRE_FORECLOSURE_BODY_2027,
+        mailing: GA_PRE_FORECLOSURE_MAILING_2027,
+      }
+    : {
+        sb406: false,
+        days: GA_PRE_FORECLOSURE_DAYS,
+        lapseYears: GA_LIEN_LAPSE_YEARS,
+        quotes: GA_PRE_FORECLOSURE_QUOTES,
+        body: GA_PRE_FORECLOSURE_BODY,
+        mailing: GA_PRE_FORECLOSURE_MAILING,
+      }
+}
 
 export const GA_ATTORNEY_FEES_NOTE =
   'Attorney’s fees can’t be collected until the owner has had 30 days from receiving this notice, and the owner must also get an itemized list of the attorney’s fees claimed (SB 406 § 7(f)(3)). Enter that list below, or “None claimed”.'

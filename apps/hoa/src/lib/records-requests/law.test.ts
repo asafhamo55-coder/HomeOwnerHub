@@ -66,11 +66,20 @@ describe('citations are verbatim from the fixtures', () => {
     expect(fixture('tcss-pr209-2026-excerpt.htm')).not.toMatch(/Sec\. 209\.005\./)
     expect(fixture('ca-civ-davis-stirling-2026.txt')).not.toContain('=== Civ. Code § 4950.')
     expect(fixture('ca-civ-davis-stirling-2026.txt')).not.toContain('=== Corp')
-    const ga = fixture('ga-ocga-44-3-art6-2026.txt')
+    const all = fixture('ga-ocga-44-3-art6-2026.txt')
+    // The text in force before 2027: everything before the dated 2027 records (BL-154).
+    const ga = all.slice(0, all.lastIndexOf('=== O.C.G.A. Section 44-3-222 |'))
     expect(ga).toContain('the association shall keep:')
     // Its only "business days" deadline is the § 44-3-232 statement of
     // amounts due, not records; nothing grants inspection or copying.
     expect(ga).not.toMatch(/inspect|examin|photocop/i)
+    // From 2027-01-01, SB 406 § 2 (§ 43-17A-7(1)) gives owners a right to
+    // inspect and copy records, but still sets no time to produce them, so
+    // "check your bylaws" stays right for the deadline.
+    const ch17A = all.slice(all.indexOf('=== Ga. L. 2026, SB 406, § 2 |'))
+    expect(ch17A).toContain('@effective_date: 2027-01-01')
+    expect(ch17A).toContain('(1) Inspect and obtain copies of owners’ association records, accounting records, and other records of the owners’ association upon written demand')
+    expect(ch17A).not.toMatch(/business days|within \d+ days of (the )?(receipt|demand|request)/i)
   })
 })
 
