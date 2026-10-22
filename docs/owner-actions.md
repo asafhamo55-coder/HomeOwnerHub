@@ -335,6 +335,20 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
+### OA-28 · Apply database update 0069 (dues rates, join requests, compliance evidence)
+
+**Urgency:** Soon
+
+**Why it matters:** three finished features are switched off until this update is in the database: dues rates with the owner increase notice, owners asking to join their home, and evidence on the Compliance page. The update has passed every CI test, including the security-review fixes.
+
+**Steps:** in the Supabase SQL editor (production), follow Section L of `docs/specs/2026-10-20-sql-runbook.md`, or ask Claude to copy each step to your clipboard:
+
+1. **L1, L-BL143a and L-BL145a** (read-only): paste each one and send Claude the results.
+2. **L3:** paste the whole `migrations/0069_m5_batch.sql` file and run it once.
+3. **L4, L-BL143c and L-BL145c** (read-only): send Claude all the rows. `hardened_ok` should say true.
+
+Then tell Claude "0069 is applied". Claude switches the three features on and deploys.
+
 ## Done
 
 ### OA-1 · Run the database steps in the SQL runbook (start here)
