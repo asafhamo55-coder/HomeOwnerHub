@@ -41,32 +41,23 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-5 · Move the app to homeownerledger.online
+### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
-**Urgency:** Soon
+**Urgency:** Whenever
 
-**Why it matters:** this splits the marketing site from the app. The app
-moves to its own domain, `https://homeownerledger.online` (decided
-2026-10-21), and marketing stays on `www.homeownerledger.com`. Email keeps
-sending from `homeownerledger.com`. The marketing site has not deployed in
-about 148 days because its Vercel project is not connected to GitHub.
-Already done in Vercel: `homeownerledger.online` is on the HOA project, and
-`www.homeownerledger.online` redirects to it. The `app.homeownerledger.com`
-CNAME from the earlier plan is no longer needed; do not add it.
+**Why it matters:** this splits the marketing site from the app. The app moves to its own domain, `https://homeownerledger.online` (decided 2026-10-21), and marketing stays on `www.homeownerledger.com`. Email keeps sending from `homeownerledger.com`. The marketing site has not deployed in about 148 days because its Vercel project is not connected to GitHub.
 
-**Steps:**
+**Done so far (2026-10-21):** the domain is on the HOA project with a certificate, and https://homeownerledger.online already serves the app. The DNS A record and the Supabase and Google redirect entries are in. Paused here by Asaf; nothing user-facing has changed, and www.homeownerledger.com still serves the app.
 
-1. **DNS (Network Solutions, homeownerledger.online):** add an A record: host `@`, value `216.198.79.1` (the alternative `76.76.21.21` also works).
-2. **DNS (Network Solutions, homeownerledger.online):** add a CNAME record: host `www`, value `afa3394a804e31cd.vercel-dns-017.com`.
-3. **DNS (Network Solutions, homeownerledger.online):** delete the parking A record `208.91.197.27`.
-4. **Supabase:** Authentication → URL Configuration → add `https://homeownerledger.online/**` to Redirect URLs. Keep the www entries for now.
-5. **Google Cloud (OAuth client):** add the authorized redirect URI `https://homeownerledger.online/api/oauth/google/callback`. Keep the www one for now.
-6. **Webhooks, Stripe:** change the HOA endpoint URL to `https://homeownerledger.online/api/webhooks/stripe` (editing the URL keeps the signing secret).
-7. **Webhooks, Resend:** change the endpoint URL to `https://homeownerledger.online/api/webhooks/resend`. If Resend issues a new signing secret, tell Claude.
-8. **Webhooks, Plaid:** if a webhook URL is set, change it to `https://homeownerledger.online/api/webhooks/plaid`.
-9. **Inngest:** re-sync the production app at `https://homeownerledger.online/api/inngest`.
-10. **Vercel (unchanged):** connect the `homeownerhub-marketing` project to GitHub (production branch, root directory `apps/marketing`).
-11. Tell Claude these are done. Claude runs the rest of the runbook (steps 3 to 7).
+**Steps (when you pick this up again):**
+
+1. **DNS (Network Solutions, homeownerledger.online):** fix the `www` CNAME value to exactly `afa3394a804e31cd.vercel-dns-017.com` (no `http://`, no trailing `/`).
+2. **Webhooks, Stripe:** change the HOA endpoint URL to `https://homeownerledger.online/api/webhooks/stripe` (editing the URL keeps the signing secret).
+3. **Webhooks, Resend:** change the endpoint URL to `https://homeownerledger.online/api/webhooks/resend`. If Resend issues a new signing secret, tell Claude.
+4. **Webhooks, Plaid:** if a webhook URL is set, change it to `https://homeownerledger.online/api/webhooks/plaid`.
+5. **Inngest:** re-sync the production app at `https://homeownerledger.online/api/inngest`.
+6. **Vercel:** connect the `homeownerhub-marketing` project to GitHub (production branch `claude/phase1-homeownerhub-setup-MILNu`, root directory `apps/marketing`).
+7. Tell Claude these are done. Claude runs the rest of the runbook (steps 3 to 7).
 
 **Files:** `docs/specs/2026-10-19-domain-split.md`
 
