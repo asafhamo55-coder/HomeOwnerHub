@@ -1888,3 +1888,11 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
    - **Truth pass:** every feature claim checked against shipped code; remove or fix anything not live. Fix the `ledger.ai` contact addresses (domain-split spec, "Unrelated finding").
    - **Georgia first:** the home page and HOA page lead with Georgia (SB 406 registration kit, GA collections letters, quorum/proxy, annual report), FL/CA/TX next.
    - **Status:** built 2026-10-22 (truth pass, Georgia-first home and HOA pages, sitemap/robots, origin constants); merged on claude/quality-oracle. The domain waits on OA-30.
+
+## Round 5 follow-ups (2026-10-22, from BL-149/150/152/154 gaps)
+
+158. **BL-158 Georgia 2027 foreclosure-threshold check on the collections case.** Migration: no. Effort S–M.
+   - **Pain:** from 2027-01-01 a GA association may not foreclose below the lesser of $4,000 or 12 months of regular assessments (never below $2,000). Today the only way to apply that is the letter's "12 months" blank (BL-154).
+   - **Build:** a read-only panel on the collections case for GA associations. It shows the counted balance (regular and special assessments, less unapplied credit, per BL-154's reading), the 12-month figure from the dues-rate schedule (BL-137) where one exists, the threshold, and whether the case is above it. It also shows SB 406's payment order (§ 43-17A-8) as a read-only "how payments should be applied" note. Quotes come only from `ga-sb406-2026-2027-text.txt`. It changes no payment application.
+159. **BL-159 Georgia follow-ups: officer-change clock and the § 14-3-724 proxy quote.** Migration: no. Effort S.
+   - **Build:** `changeMemberRole` (lib/members.ts) starts the BL-151 30-day amended-registration row when a GA association's board role changes (BL-149 "not built"). The quorum kit quotes § 14-3-724 from `ga-ocga-14-3-2026.txt` (BL-150 named it without quoting). Audit rows carry ids and codes only.
