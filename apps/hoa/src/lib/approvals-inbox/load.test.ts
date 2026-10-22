@@ -134,7 +134,7 @@ describe('countPendingApprovals (sidebar badge)', () => {
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(3), ok(1)],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 2, bill: 5, opening: 9, w3: 1, collections: 7, arc: 2, contact: 6, join: 0, vendor: 4 })
+    expect(await countPendingApprovals(db, ORG, { m5: false })).toEqual({ w18: 2, bill: 5, opening: 9, w3: 1, collections: 7, arc: 2, contact: 6, join: 0, vendor: 4 })
     // PR-10: only still-open contact-update tickets of this org.
     const contact = calls.find((c) => c.table === 'tickets')!.ops
     expect(contact).toContainEqual(['eq', ['organization_id', ORG]])
@@ -163,7 +163,7 @@ describe('countPendingApprovals (sidebar badge)', () => {
       tickets: [ok(0)],
       associations: [{ data: [], error: null }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, vendor: 0 })
+    expect(await countPendingApprovals(db, ORG, { m5: false })).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, vendor: 0 })
     expect(calls.some((c) => c.table === 'vendor_compliance')).toBe(false)
   })
 
@@ -174,7 +174,7 @@ describe('countPendingApprovals (sidebar badge)', () => {
       tickets: [ok(0)],
       associations: [{ data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG, { m5: false })).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, vendor: null })
   })
 
   it('a failed count is unknown (null), not zero', async () => {
@@ -185,7 +185,20 @@ describe('countPendingApprovals (sidebar badge)', () => {
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(0), { data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG)).toEqual({ w18: null, bill: 3, opening: 0, w3: 0, collections: 0, arc: 0, contact: null, join: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG, { m5: false })).toEqual({ w18: null, bill: 3, opening: 0, w3: 0, collections: 0, arc: 0, contact: null, join: 0, vendor: null })
+  })
+
+  it('with M5 live, pending join requests are counted; a failed join count is unknown (null)', async () => {
+    const base = () => ({
+      approval_requests: [ok(0), ok(0), ok(0), ok(0)],
+      ai_runs: [ok(0), ok(0)],
+      tickets: [ok(0)],
+      associations: [{ data: [], error: null }],
+    })
+    const live = fakeDb({ ...base(), owner_join_requests: [ok(4)] })
+    expect(await countPendingApprovals(live.db, ORG, { m5: true })).toMatchObject({ join: 4 })
+    const failed = fakeDb({ ...base(), owner_join_requests: [{ data: null, error: err }] })
+    expect(await countPendingApprovals(failed.db, ORG, { m5: true })).toMatchObject({ join: null })
   })
 })
 

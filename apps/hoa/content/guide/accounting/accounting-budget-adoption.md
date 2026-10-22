@@ -44,5 +44,5 @@ Each draft or approved budget has an **Adopt this budget** checklist. It walks t
 ## Good to know
 - The meeting notice comes from the meeting's agenda. Edit the agenda to change what the notice says.
 - California's board-meeting notice period isn't loaded in HomeownerHub, so the checklist doesn't count it. Check your governing documents.
-- Until dues rates can be saved, you enter the amount each time you bill dues.
+- The last step, "Set the new dues rate", opens Dues rates filled in from the approved budget, so billing starts from the new amount.
 - The checklist quotes statutes as text. It isn't legal advice. Check your governing documents and ask your association's attorney.

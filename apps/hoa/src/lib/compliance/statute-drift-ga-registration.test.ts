@@ -105,6 +105,25 @@ describe('collections letters', () => {
     expect(blockingFindings(printed)).toHaveLength(1)
   })
 
+  it('BL-148’s § 7(f) fee notice that lists fees is gated too, alongside its own delivery warning', () => {
+    const after = checkCollectionsLetter(letter({ kind: 'ga_fee_notice', listedChargeTypes: ['regular', 'fine', 'collection_legal'] }))
+    expect(after.findings.map((f) => [f.code, f.severity])).toEqual([
+      ['ga_unregistered_fees', 'block'],
+      ['ga_fee_notice_delivery', 'warn'],
+    ])
+    const before = checkCollectionsLetter(letter({ kind: 'ga_fee_notice', listedChargeTypes: ['fine'], letterDate: BEFORE }))
+    expect(blockingFindings(before)).toEqual([])
+    expect(before.findings.map((f) => f.code)).toContain('ga_unregistered_fees')
+    const registered = checkCollectionsLetter(letter({ kind: 'ga_fee_notice', listedChargeTypes: ['fine'], gaRegistration: { status: 'registered' } }))
+    expect(registered.findings.map((f) => f.code)).toEqual(['ga_fee_notice_delivery'])
+  })
+
+  it('BL-148’s notice before foreclosure is gated even when it lists only dues', () => {
+    const c = checkCollectionsLetter(letter({ kind: 'ga_pre_foreclosure', listedChargeTypes: ['regular'] }))
+    expect(blockingFindings(c).map((f) => f.code)).toEqual(['ga_unregistered_lien'])
+    expect(c.findings.map((f) => f.code)).toContain('ga_foreclosure_notice_delivery')
+  })
+
   it('registered: no finding', () => {
     expect(checkCollectionsLetter(letter({ listedChargeTypes: ['fine'], gaRegistration: { status: 'registered' } })).findings).toEqual([])
   })

@@ -1577,7 +1577,7 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - **Board screen:** /settings/late-fees.
      - **Caps:** GA, FL and CA, enforced at save and in the job. TX has no loaded rule.
      - **Visibility:** each night's charges get an audit row and a digest line, not per-fee Approvals.
-     - **Not built:** the GA interest cap on the collections letter (BL-148) and the dashboard prompt.
+     - **Not built:** the dashboard prompt. (The GA interest cap on the collections letter is built in BL-148.)
    - **Pain:** every association is charged a late fee its declaration may not allow, at a rate nobody chose. In Georgia a late charge is lawful only "to the extent that the instrument provides". It is capped at the greater of $10 or 10% of each assessment or installment (§ 44-3-232(b)(1)). From 2027, an unregistered association can't collect fees at all (BL-149). Fines are driving foreclosures in Georgia news.
    - **Evidence:**
      - fixture `ga-ocga-44-3-art6-2026.txt` § 44-3-232(b)(1)–(2);
@@ -1606,6 +1606,12 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - Policy changes are audited. Fix the guide.
    - **Files:** `packages/jobs/src/hoa-late-fees.ts`, `apps/hoa/src/lib/late-fees/` (new: policy, caps, law), `apps/hoa/src/app/(dashboard)/settings/`, `apps/hoa/content/guide/accounting/accounting-payment-plans.md`.
 2. **BL-148 Georgia collections letters: SB 406 § 7 fee notice and § 44-3-232(c) notice before foreclosure.** Migration: no. Letter kinds are app-only, and events reuse `demand_letter_sent` / `lien_letter_sent` (`lib/collections/statuses.ts:105-118`). Effort M (1.5). Score 2.83 (5 × 0.85 ÷ 1.5).
+   - **Status:** Built on `claude/quality-oracle`, not yet deployed. No migration.
+     - **Kinds:** `ga_fee_notice` (records `demand_letter_sent`; moves the case no further than "Collection letter sent", not to the attorney rung) and `ga_pre_foreclosure` (records `lien_letter_sent`). Quotes are verbatim from `ga-ocga-44-3-art6-2026.txt`, checked by `law.test.ts` and `statute-drift.test.ts`.
+     - **State law check:** the fee notice never blocks itself (delivery warning only). A letter listing attorney's fees clears once a fee notice was printed 30+ days earlier, then warns that the 30 days run from receipt.
+     - **Pre-foreclosure:** lot address plus designated-address BLANK; blocked under $2,000 and for interest above 10%; late charges above the (b)(1) cap flagged; four-year lapse named.
+     - **Gap:** SB 406 § 5's 2027 text of § 44-3-232(c) is not in the fixtures, so the pre-foreclosure notice refuses from 2027-01-01 ("check with your attorney"). BL-154 loads it.
+     - **Gap:** no certified-mail tracking columns exist; the screen says to add the tracking number as a case note. Real tracking fields need a migration.
    - **Pain:** since 2026-07-01 a Georgia association can't collect attorney's fees without first sending a certified notice that lists the fines and fees and gives 30 days to pay. Our state-law check blocks GA letters that list attorney's fees, but the app can't produce that notice, so the block can only be overridden. Georgia news reports:
      - about $8K of dues growing to about $20K with fees;
      - foreclosure over pressure-washing fines.
@@ -1779,6 +1785,13 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
 
      The board edits a short narrative. "Attach to the meeting notice" goes through the guarded composer. No PII.
    - **Files:** `apps/hoa/src/app/(dashboard)/meetings/[id]/annual-report/` (new), `apps/hoa/src/lib/board-packet/sections.ts`, `apps/hoa/src/lib/accounting/reserves.ts`.
+   - **Status:** Built 2026-10-21, no migration; not deployed yet. Board/admin `/meetings/[id]/annual-report` (card on annual meetings), printable, plus "Draft message to owners" → composer `?from=annual-report` (owners, sessionStorage hand-off; nothing auto-sent).
+     - **Sections, all from existing loaders:** income and expenses and budget vs actual (packet financials), balance sheet, reserves (BL-120), next year's budget projection (BL-138 budgets, adopted vs proposed, vs this year), collections as totals/counts/aging only (packet delinquency cut to totals inside its loader), insurance (BL-142 owner columns), compliance titles and status (BL-145), the window's meetings and passed motions from approved minutes with mover/seconder names removed (BL-116), and elections with seats and elected names only (BL-141 signed record).
+     - **Window:** fiscal year to date; in the first 60 days of a new fiscal year, the whole year just closed.
+     - **Owner-safe by construction:** `lib/annual-report/model.ts` rebuilds every section field by field; account names mask bank/routing numbers. The board's narrative is typed on the page and is not stored.
+     - **Law:** GA quotes § 44-3-230(a) and § 44-3-235(a), checked word for word (`lib/annual-report/law.test.ts`). Other states get the same report without GA wording. § 44-3-102 (condos, BL-155) is not loaded and not quoted.
+     - **Tests:** `annual-report-render.test.tsx` renders the page and the message from poisoned inputs and checks that no home, owner, per-home balance, losing candidate, mover, premium, policy number, bank number or evidence file appears.
+     - **Not built:** "Attach to the meeting notice" (the message is a separate draft; print the report to attach it); the narrative is not saved. Guide `annual-report-to-owners`.
 8. **BL-154 SB 406 2027 readiness: dated GA snapshot, foreclosure threshold and payment order.** Migration: no. Effort L (2.5). Score 1.20 (5 × 0.6 ÷ 2.5). Override: deadline 2027-01-01. Absorbs BL-124.
    - **Pain:** on 2027-01-01 Georgia changes these rules (secondary sources):
      - the foreclosure threshold becomes the lesser of $4,000 or 12 months of regular assessments, with a $2,000 floor and fines and fees excluded;

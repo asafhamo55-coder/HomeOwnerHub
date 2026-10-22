@@ -8,7 +8,6 @@ routes: ["/dues/rates", "/dues", "/dues/new", "/accounting/budget/[id]"]
 primary_route: /dues/rates
 keywords: [dues rate, rate schedule, dues increase, assessment increase, new dues, raise dues, increase notice, owner notice, per home, effective date, budget, override, "44-3-230", "720.303", "5605", georgia, florida, california, texas]
 related: [dues-generate-monthly, accounting-budget-adoption, accounting-budget-notice]
-draft: true
 reviewed: 2026-10-21
 ---
 

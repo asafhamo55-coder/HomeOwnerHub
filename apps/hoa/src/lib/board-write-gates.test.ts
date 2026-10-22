@@ -27,6 +27,7 @@ import * as cincAging from './accounting/opening-balances/cinc-actions'
 import * as lateFees from './late-fees/actions'
 import * as gaRegistration from './ga-registration/actions'
 import * as collections from './collections/actions'
+import * as collectionsLetters from './collections/letters/actions'
 import * as hearingActions from './violation-hearings/actions'
 import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
@@ -181,6 +182,10 @@ describe('board-only server actions refuse a resident before touching the databa
     ['getBoardLateFeePolicy (BL-147)', () => lateFees.getBoardLateFeePolicy(), { ok: false, reason: 'forbidden' }],
     ['updateGaRegistration (BL-149: the record the registration gate trusts)', () => gaRegistration.updateGaRegistration({ op: 'decide', associationId: ID, decision: 'register' }), DENIED],
     ['recordCollectionEvent (BL-149: a lien filed runs the registration gate, overrides audited)', () => collections.recordCollectionEvent({ caseId: ID, eventType: 'lien_filed', occurredOn: '2026-10-01', advanceStatus: false }), DENIED],
+    // BL-089 / BL-148: collections letters, incl. the Georgia notices. Audited; nothing is sent.
+    ['saveLetterToApprovals (BL-148: GA notice before attorney’s fees)', () => collectionsLetters.saveLetterToApprovals({ propertyId: ID, kind: 'ga_fee_notice', values: {}, verified: true }), DENIED],
+    ['saveLetterToApprovals (BL-148: GA notice before foreclosure)', () => collectionsLetters.saveLetterToApprovals({ propertyId: ID, kind: 'ga_pre_foreclosure', values: {}, verified: true }), DENIED],
+    ['recordLetterPrinted (BL-089: records the event and audit row)', () => collectionsLetters.recordLetterPrinted({ propertyId: ID, approvalRequestId: ID, verified: true }), DENIED],
     ['saveViolationHearing (BL-133)', () => hearingActions.saveViolationHearing({ violationId: ID } as never), DENIED],
     ['cancelHearingAfterCure (BL-140: cancels a fine hearing, audited)', () => hearingActions.cancelHearingAfterCure({ violationId: ID, reason: 'cured_before_hearing' }), DENIED],
     ['sendTestAlert (service-role audience send)', () => events.sendTestAlert(ID), { ok: false, error: "You don't have permission to perform this action." }],

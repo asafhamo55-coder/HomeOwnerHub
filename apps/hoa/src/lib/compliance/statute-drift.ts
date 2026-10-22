@@ -30,7 +30,8 @@
  *        (§ 209.0062, added for BL-130 from the Texas Legislative
  *        Council's chapter file, retrieved 2026-10-20), and
  *        tcss-pr209-2026-excerpt.htm (§ 209.006).
- *   GA — ga-ocga-44-3-art6-2026.txt: O.C.G.A. § 44-3-223 and Ga. L. 2026,
+ *   GA — ga-ocga-44-3-art6-2026.txt: O.C.G.A. §§ 44-3-223 and 44-3-232(b)–(c)
+ *        (the text in force until January 1, 2027), and Ga. L. 2026,
  *        SB 406 § 7 (attorney's fees; in force July 1, 2026).
  *        ga-sb406-2026-registration.txt: O.C.G.A. § 43-17A-2(a)(2)(A) and
  *        (B)(ii), and SB 406 § 9(a) (BL-149, the registration bar: a
@@ -180,6 +181,43 @@ export const GA_SB406_ITEMIZED: DriftCitation = {
   quote: 'An itemized list of reasonable attorney’s fees claimed.',
   fixture: GA_FILE,
 }
+/** BL-148: the 30 days run from RECEIPT, which the app does not record. */
+export const GA_SB406_RECEIPT: DriftCitation = {
+  cite: 'Ga. L. 2026, SB 406 § 7 (new subsection (f)(2))',
+  quote: 'Lot owners with 30 days from the receipt of the notice required under paragraph (1) of this subsection to pay such outstanding fines or delinquent fees; and',
+  fixture: GA_FILE,
+}
+/** BL-148: § 44-3-232(b)(2), the interest cap a GA letter's rate is checked against. */
+export const GA_232_INTEREST: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(b)(2)',
+  quote:
+    'At a rate not in excess of 10 percent per annum, interest on each assessment or installment thereof and any delinquency or late charge pertaining thereto from the date the same was first due and payable;',
+  fixture: GA_FILE,
+}
+/** BL-148: § 44-3-232(c) as in force until January 1, 2027 (SB 406 § 5 replaces it then; that text is not loaded). */
+export const GA_232C_NOTICE: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c)',
+  quote:
+    'Not less than 30 days after notice is sent by certified mail or statutory overnight delivery, return receipt requested, to the lot owner both at the address of the lot and at any other address or addresses which the lot owner may have designated to the association in writing, the lien may be foreclosed by the association by an action, judgment, and court order for foreclosure in the same manner as other liens for the improvement of real property',
+  fixture: GA_FILE,
+}
+export const GA_232C_CONTENTS: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c)',
+  quote:
+    'The notice provided for in this subsection shall specify the amount of the assessments then due and payable together with authorized late charges and the rate of interest accruing thereon.',
+  fixture: GA_FILE,
+}
+export const GA_232C_MINIMUM: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c)',
+  quote: 'No foreclosure action against a lien arising out of this subsection shall be permitted unless the amount of the lien is at least $2,000.00.',
+  fixture: GA_FILE,
+}
+export const GA_232C_LAPSE: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c)',
+  quote:
+    'The lien for assessments shall lapse and be of no further effect, as to assessments or installments thereof, together with late charges and interest applicable thereto, four years after the assessment or installment first became due and payable.',
+  fixture: GA_FILE,
+}
 
 /** BL-149: the registration bar (Ga. L. 2026, SB 406 § 2, new O.C.G.A. ch. 43-17A). */
 export const GA_SB406_REGISTRATION_BAR: DriftCitation = {
@@ -225,6 +263,12 @@ export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
   GA_SB406_REGISTRATION_BAR,
   GA_SB406_OPT_OUT_BAR,
   GA_SB406_IN_FORCE,
+  GA_SB406_RECEIPT,
+  GA_232_INTEREST,
+  GA_232C_NOTICE,
+  GA_232C_CONTENTS,
+  GA_232C_MINIMUM,
+  GA_232C_LAPSE,
 ]
 
 /** SB 406 § 9(a): the registration bar is in force from this day (BL-149). */
@@ -250,6 +294,8 @@ export const CA_FINE_CAP_CENTS = 10_000
 export const TX_NOTICE_CURE_DAYS = 45
 /** § 720.3085(3)(d)'s form: further action no sooner than 30 days after the notice. */
 export const FL_LATE_NOTICE_WAIT_DAYS = 30
+/** SB 406 § 7(f)(2): 30 days from receipt of the (f)(1) notice. */
+export const GA_FEE_NOTICE_DAYS = 30
 
 // ─── overrides ───────────────────────────────────────────────────────
 
@@ -290,6 +336,9 @@ export const DRIFT_CODES = [
   'ga_unregistered_fine',
   'ga_unregistered_fees',
   'ga_unregistered_lien',
+  'ga_fee_notice_delivery',
+  'ga_attorney_fees_receipt',
+  'ga_foreclosure_notice_delivery',
 ] as const
 export type DriftCode = (typeof DRIFT_CODES)[number]
 
@@ -743,6 +792,9 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
       )
     }
   } else if (state === 'GA') {
+    // BL-149: the registration bar applies to every Georgia letter that asks
+    // for fines or fees (the BL-148 § 7(f) notice included), and to the
+    // notice before foreclosure (it starts foreclosure).
     if (input.gaRegistration && has(FINE_OR_FEE_TYPES)) {
       const reg = gaRegistrationFinding(
         'ga_unregistered_fees',
@@ -751,14 +803,57 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
       )
       if (reg) findings.push(reg)
     }
-    if (has(ATTORNEY_FEE_TYPES) && input.letterDate >= GA_SB406_FEES_FROM) {
+    if (input.gaRegistration && input.kind === 'ga_pre_foreclosure') {
+      const reg = gaRegistrationFinding(
+        'ga_unregistered_lien',
+        { status: input.gaRegistration.status, today: input.letterDate },
+        'a notice before foreclosure',
+      )
+      if (reg) findings.push(reg)
+    }
+    // BL-148: the SB 406 § 7(f) notice is a letter kind of its own. On the
+    // notice itself the fees it lists are what it gives 30 days to pay, so
+    // nothing blocks; what the app can't see (the delivery method and the
+    // day the owner received it) is a warning.
+    if (input.kind === 'ga_fee_notice') {
       findings.push(
         finding(
-          'ga_attorney_fees_prerequisites',
-          'block',
-          'This letter lists attorney’s fees. Since July 1, 2026, before collecting attorney’s fees the association must first send a written notice by certified mail or statutory overnight delivery identifying the outstanding fines or fees, give the owner 30 days from receipt to pay, and provide an itemized list of the fees claimed. HomeownerHub has no record of that notice.',
-          [GA_SB406_FEES, GA_SB406_NOTICE, GA_SB406_ITEMIZED],
-          ['notice_sent_outside_app', 'emergency_conditions'],
+          'ga_fee_notice_delivery',
+          'warn',
+          'Send this notice by certified mail or statutory overnight delivery. The owner’s 30 days to pay run from the day they receive it. HomeownerHub doesn’t record how it was mailed or when it was received: keep the receipt, and add the tracking number and delivery date as a note on the collections case.',
+          [GA_SB406_NOTICE, GA_SB406_RECEIPT],
+        ),
+      )
+    } else if (has(ATTORNEY_FEE_TYPES) && input.letterDate >= GA_SB406_FEES_FROM) {
+      const noticed = input.printed.some((p) => p.kind === 'ga_fee_notice' && atLeast(p.printedOn, GA_FEE_NOTICE_DAYS))
+      if (noticed) {
+        findings.push(
+          finding(
+            'ga_attorney_fees_receipt',
+            'warn',
+            'A Georgia notice before attorney’s fees was printed on this case at least 30 days ago. The 30 days run from the day the owner received it, which HomeownerHub doesn’t record. Confirm the receipt date, and that the owner was given an itemized list of the attorney’s fees claimed.',
+            [GA_SB406_RECEIPT, GA_SB406_ITEMIZED],
+          ),
+        )
+      } else {
+        findings.push(
+          finding(
+            'ga_attorney_fees_prerequisites',
+            'block',
+            'This letter lists attorney’s fees. Since July 1, 2026, before collecting attorney’s fees the association must first send a written notice by certified mail or statutory overnight delivery identifying the outstanding fines or fees, give the owner 30 days from receipt to pay, and provide an itemized list of the fees claimed. No notice before attorney’s fees printed 30 or more days ago is recorded on this case.',
+            [GA_SB406_FEES, GA_SB406_NOTICE, GA_SB406_ITEMIZED],
+            ['notice_sent_outside_app', 'emergency_conditions'],
+          ),
+        )
+      }
+    }
+    if (input.kind === 'ga_pre_foreclosure') {
+      findings.push(
+        finding(
+          'ga_foreclosure_notice_delivery',
+          'warn',
+          'Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the owner at the lot’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than 30 days after it is sent. HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.',
+          [GA_232C_NOTICE],
         ),
       )
     }

@@ -7,7 +7,7 @@ roles: [admin, board]
 routes: ["/compliance/ga-registration"]
 primary_route: /compliance/ga-registration
 keywords: [georgia, ga, secretary of state, sos, registration, register, sb 406, "43-17A-2", registration kit, opt out, nonregistered, renewal, december 31, amended registration, amendment, officers changed, "30 days", confirmation number, filing fee, "$100", financial statement, governing documents, registered agent, fines blocked, fees blocked, lien blocked, unregistered association, "2027"]
-related: [state-law-deadlines, settings-late-fees, dues-collections-case]
+related: [compliance-obligations, election-planner, state-law-deadlines, settings-late-fees, dues-collections-case]
 reviewed: 2026-10-21
 ---
 

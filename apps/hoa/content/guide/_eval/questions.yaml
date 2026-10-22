@@ -350,3 +350,13 @@ questions:
   - { id: n-m06, role: board, expect: communications-drafts, q: "I started a message and closed the tab. Where is my draft?" }
   - { id: n-m07, role: admin, expect: communications-drafts, q: "How do I save a message and finish it later?" }
   - { id: n-m08, role: board, expect: communications-drafts, q: "How do I delete a draft announcement I don't need anymore?", route: /communications }
+  # ── M5 published (2026-10-21): BL-137 rates, BL-143 join, BL-145 evidence, elections
+  - { id: n-j01, role: board, expect: members-ask-to-join, q: "An owner asked to join their home. How do I approve it?" }
+  - { id: n-j02, role: admin, expect: members-ask-to-join, q: "How do I make a join code for an owner?" }
+  - { id: n-j03, role: resident, expect: resident-ask-to-join, q: "My account says no home linked yet. What do I do?" }
+  - { id: n-j04, role: resident, expect: resident-ask-to-join, q: "How do I ask to join my home with a code from the board?" }
+  - { id: n-r01, role: board, expect: dues-rate-schedule, q: "We are raising dues next year. How do I set the new rate and tell owners?" }
+  - { id: n-e01, role: board, expect: election-planner, q: "How do I plan the board election and print the ballots?" }
+  - { id: n-e02, role: admin, expect: election-planner, q: "When do nominations close for the director election?" }
+  - { id: n-o01, role: admin, expect: compliance-obligations, q: "Where do I see which state-law obligations are overdue?" }
+  - { id: n-o02, role: board, expect: compliance-obligations, q: "How do I attach the evidence document when I mark a compliance deadline done?" }

@@ -183,8 +183,8 @@ describe('other states', () => {
 })
 
 describe('the checklist', () => {
-  it('a fresh draft: schedule first, the rest waits, the hand-off links to dues', () => {
-    const kit = buildAdoptionKit(input())
+  it('a fresh draft: schedule first, the rest waits, the hand-off links to dues (flag off)', () => {
+    const kit = buildAdoptionKit(input({ duesRatesLive: false }))
     expect(kit.steps.map((s) => [s.id, s.state])).toEqual([
       ['meeting', 'todo'],
       ['notice', 'waiting'],
@@ -262,7 +262,7 @@ describe('budget season', () => {
 })
 
 describe('BL-137: the hand-off to the dues-rate schedule', () => {
-  it('flag off (the default today): links to Add a due, as before', () => {
+  it('flag off: links to Add a due, as before', () => {
     const s = step(input({ duesRatesLive: false, budget: { id: BUDGET, status: 'approved', periodStart: '2027-01-01' } }), 'rate')
     expect(s.href).toBe('/dues/new')
   })

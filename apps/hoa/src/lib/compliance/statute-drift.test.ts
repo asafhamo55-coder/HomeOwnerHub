@@ -17,9 +17,15 @@ import {
   FL_305_VOTE,
   FL_3085_LATE_NOTICE,
   GA_223_FINES,
+  GA_232C_CONTENTS,
+  GA_232C_LAPSE,
+  GA_232C_MINIMUM,
+  GA_232C_NOTICE,
+  GA_232_INTEREST,
   GA_SB406_FEES,
   GA_SB406_ITEMIZED,
   GA_SB406_NOTICE,
+  GA_SB406_RECEIPT,
   OVERRIDE_REASON_CODES,
   STATUTE_OVERRIDE_ACTION,
   TX_0062_PLAN,
@@ -74,6 +80,7 @@ const gaSb406s7 = between(gaText, '=== Ga. L. 2026, SB 406, § 7 |', '\n=== ')
 const sb406Text = fixture('ga-sb406-2026-registration.txt')
 const gaSb406s2 = between(sb406Text, '=== SECTION 2. (new O.C.G.A. § 43-17A-2,', '\n=== ')
 const gaSb406s9 = between(sb406Text, '=== SECTION 9.', '\n=== ')
+const ga232 = between(gaText, '=== O.C.G.A. Section 44-3-232 |', '\n=== ')
 
 /** The cited section's text, so a quote can't pass by matching a different section. */
 function sectionFor(c: DriftCitation): string {
@@ -85,6 +92,7 @@ function sectionFor(c: DriftCitation): string {
   if (c.cite.startsWith('Tex. Prop. Code § 209.0062')) return tx0062
   if (c.cite.startsWith('Tex. Prop. Code § 209.006(')) return tx006
   if (c.cite.startsWith('O.C.G.A. § 44-3-223')) return ga223
+  if (c.cite.startsWith('O.C.G.A. § 44-3-232(')) return ga232
   if (c.cite.startsWith('Ga. L. 2026, SB 406 § 7')) return gaSb406s7
   if (c.cite.startsWith('O.C.G.A. § 43-17A-2')) return gaSb406s2
   if (c.cite.startsWith('Ga. L. 2026, SB 406 § 9')) return gaSb406s9
@@ -127,6 +135,16 @@ describe('citations are verbatim from the fixtures, in the section they cite', (
     expect(gaSb406s7).toContain(`(f) ${GA_SB406_FEES.quote}`)
     expect(gaSb406s7).toContain(`(1) ${GA_SB406_NOTICE.quote}`)
     expect(gaSb406s7).toContain(`(3) ${GA_SB406_ITEMIZED.quote}`)
+    expect(gaSb406s7).toContain(`(2) ${GA_SB406_RECEIPT.quote}`)
+    expect(ga232).toContain(`(2) ${GA_232_INTEREST.quote}`)
+    expect(ga232).toContain(`(c) ${GA_232C_NOTICE.quote}`)
+    const c = ga232.indexOf('(c) Not less than 30 days')
+    const d = ga232.indexOf('(d) Any lot owner')
+    for (const q of [GA_232C_CONTENTS, GA_232C_MINIMUM, GA_232C_LAPSE]) {
+      const at = ga232.indexOf(q.quote)
+      expect(at, q.quote).toBeGreaterThan(c)
+      expect(at, q.quote).toBeLessThan(d)
+    }
     expect(gaSb406s7).toContain('@effective_date: 2026-07-01')
     expect(ga223).toContain(GA_223_FINES.quote)
   })
@@ -283,6 +301,24 @@ describe('collections letters — Georgia (SB 406 § 7), Florida (§ 720.3085(3)
     expect(block!.overrideReasons).toEqual(['notice_sent_outside_app', 'emergency_conditions', 'attorney_advised'])
     expect(checkCollectionsLetter(letter({ state: 'GA', listedChargeTypes: ['collection_legal'], letterDate: '2026-06-30' })).findings).toEqual([])
     expect(checkCollectionsLetter(letter({ state: 'GA', listedChargeTypes: ['collection_processing'] })).findings).toEqual([])
+  })
+
+  it('GA (BL-148): the fee notice itself never blocks; it warns about delivery and receipt', () => {
+    const c = checkCollectionsLetter(letter({ state: 'GA', kind: 'ga_fee_notice', listedChargeTypes: ['regular', 'fine', 'collection_legal'] }))
+    expect(codes(c)).toEqual(['warn:ga_fee_notice_delivery'])
+    expect(c.findings[0]!.citations).toEqual([GA_SB406_NOTICE, GA_SB406_RECEIPT])
+  })
+
+  it('GA (BL-148): a fee notice printed 30+ days earlier turns the attorney-fee block into a receipt warning', () => {
+    const at = (printedOn: string) =>
+      checkCollectionsLetter(letter({ state: 'GA', listedChargeTypes: ['collection_legal'], printed: [{ kind: 'ga_fee_notice', printedOn }] }))
+    expect(codes(at('2026-09-21'))).toEqual(['block:ga_attorney_fees_prerequisites']) // 29 days
+    expect(codes(at('2026-09-20'))).toEqual(['warn:ga_attorney_fees_receipt']) // 30 days
+    expect(at('2026-09-20').findings[0]!.citations).toEqual([GA_SB406_RECEIPT, GA_SB406_ITEMIZED])
+  })
+
+  it('GA (BL-148): the pre-foreclosure notice warns about certified mail to every address', () => {
+    expect(codes(checkCollectionsLetter(letter({ state: 'GA', kind: 'ga_pre_foreclosure' })))).toEqual(['warn:ga_foreclosure_notice_delivery'])
   })
 
   it('GA: the dues-first rule is listed as not loaded', () => {
