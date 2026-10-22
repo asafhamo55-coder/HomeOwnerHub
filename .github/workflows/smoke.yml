@@ -48,7 +48,7 @@ jobs:
 
       - name: Probe HOA /api/health
         env:
-          # Repo variable; set to https://app.homeownerledger.com at the
+          # Repo variable; set to https://homeownerledger.online at the
           # domain split (docs/specs/2026-10-19-domain-split.md).
           APP_ORIGIN: ${{ vars.APP_ORIGIN || 'https://www.homeownerledger.com' }}
         run: |

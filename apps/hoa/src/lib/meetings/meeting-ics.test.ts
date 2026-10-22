@@ -58,7 +58,7 @@ describe('buildMeetingIcs', () => {
     meetingType: 'regular',
     associationName: 'Maple Grove HOA',
     timeZone: 'America/New_York',
-    origin: 'https://app.homeownerledger.com',
+    origin: 'https://homeownerledger.online',
     now: NOW,
   }
 
@@ -68,9 +68,9 @@ describe('buildMeetingIcs', () => {
     expect(ics).toContain('DTSTART:20261105T003000Z')
     expect(ics).toContain('DTEND:20261105T013000Z')
     expect(unfold(ics)).toContain('LOCATION:Clubhouse\\, 100 Elm St')
-    expect(ics).toContain(`UID:meeting-${MEETING}@app.homeownerledger.com`)
+    expect(ics).toContain(`UID:meeting-${MEETING}@homeownerledger.online`)
     expect(ics).toContain('SUMMARY:Maple Grove HOA: Board meeting')
-    expect(unfold(ics)).toContain('https://app.homeownerledger.com/resident/meetings')
+    expect(unfold(ics)).toContain('https://homeownerledger.online/resident/meetings')
   })
 
   it('no (or a malformed) start time → all-day', () => {

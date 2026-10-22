@@ -242,17 +242,18 @@ describe('metadata: one site origin, canonical URLs, OG on every page', () => {
     expect(siteOrigin('not a url')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://homeownerhub.vercel.app/x')).toBe('https://homeownerhub.vercel.app')
     // Never the app host, never a domain we don't own.
+    expect(siteOrigin('https://homeownerledger.online')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://app.homeownerledger.com')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://ledger.ai')).toBe(DEFAULT_SITE_ORIGIN)
     expect(SITE_ORIGIN).toMatch(/^https?:\/\//)
   })
 
-  it('the app origin is app.homeownerledger.com unless the env sets one', () => {
+  it('the app origin is homeownerledger.online unless the env sets one', () => {
     // Never www: marketing serves www, so a www app origin would loop
     // (docs/specs/2026-10-19-domain-split.md).
-    expect(DEFAULT_APP_ORIGIN).toBe('https://app.homeownerledger.com')
+    expect(DEFAULT_APP_ORIGIN).toBe('https://homeownerledger.online')
     expect(appOrigin(undefined)).toBe(DEFAULT_APP_ORIGIN)
-    expect(appOrigin('https://app.homeownerledger.com/login')).toBe('https://app.homeownerledger.com')
+    expect(appOrigin('https://homeownerledger.online/login')).toBe('https://homeownerledger.online')
   })
 
   it('the layout sets metadataBase from the site origin, with no canonical of its own', () => {

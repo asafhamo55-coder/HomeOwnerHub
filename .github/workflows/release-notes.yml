@@ -60,7 +60,7 @@ jobs:
       REPO: ${{ github.repository }}
       HOA_ENVIRONMENT: 'Production – home-owner-hub-hoa'
       # The app's public origin. Domain split (docs/specs/2026-10-19-domain-split.md):
-      # set the repo variable APP_ORIGIN=https://app.homeownerledger.com once the
+      # set the repo variable APP_ORIGIN=https://homeownerledger.online once the
       # app serves there; until then this is the pre-split host. Also read by
       # scripts/release-notes (the "Live at" link).
       APP_ORIGIN: ${{ vars.APP_ORIGIN || 'https://www.homeownerledger.com' }}
