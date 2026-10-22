@@ -1887,4 +1887,4 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
    - **Code (ours):** the site's own base URL (canonical, sitemap, robots, Open Graph) comes from one setting that defaults to www.homeownerledger.online; sign-in and sign-up links keep pointing at the app at www.homeownerledger.com.
    - **Truth pass:** every feature claim checked against shipped code; remove or fix anything not live. Fix the `ledger.ai` contact addresses (domain-split spec, "Unrelated finding").
    - **Georgia first:** the home page and HOA page lead with Georgia (SB 406 registration kit, GA collections letters, quorum/proxy, annual report), FL/CA/TX next.
-   - **Status:** dispatched 2026-10-22.
+   - **Status:** built 2026-10-22 (truth pass, Georgia-first home and HOA pages, sitemap/robots, origin constants); merged on claude/quality-oracle. The domain waits on OA-30.
