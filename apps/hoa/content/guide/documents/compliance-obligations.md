@@ -8,7 +8,7 @@ routes: ["/compliance"]
 primary_route: /compliance
 keywords: [compliance, obligations, evidence, proof, overdue, deadline, deadlines, state law, georgia, ga, secretary of state, registration, renewal, sb 406, "43-17A-2", annual meeting, "21 days", "44-3-230", minutes, financial records, "44-3-231", statement of amounts due, "44-3-232", texas, management certificate, "209.004", florida, director certificate, "720.3033", california, budget report, "5300", board packet, monthly board report, director elections, election, election results, results notice, "5120", amended registration, officer change, "30 days", missed annual meeting, "5 percent"]
 related: [state-law-deadlines, director-certification, accounting-budget-adoption, annual-meeting-quorum, election-planner, legal-state-law-compliance]
-reviewed: 2026-10-21
+reviewed: 2026-10-22
 ---
 
 **Compliance** lists every state-law obligation HomeownerHub tracks for your association, says where each one stands, and keeps the document that proves the board met it.
@@ -39,6 +39,7 @@ reviewed: 2026-10-21
 
 ## Good to know
 - **Georgia:** registering with the Secretary of State, then renewing every year and amending after an officer change. Also the annual members' meeting with 21 days' notice, minutes and financial records, and a statement of amounts due within five business days. The last three come from the Property Owners' Association Act, which covers property submitted to it. If yours isn't, check your governing documents.
+- **Georgia corporate annual registration:** if the association is incorporated as a Georgia nonprofit corporation (most are), it files an annual registration with the Secretary of State between January 1 and April 1 every year. This is a different filing from the SB 406 registration. Each year has its own row, so marking 2027 done doesn't hide 2028. After April 1 the row turns red. More than 60 days late, the Secretary of State may start administratively dissolving the corporation. The row quotes §§ 14-3-1622 and 14-3-1420 and links the Secretary of State's filing page for the fee.
 - **Georgia annual meeting:** hold it before your fiscal year ends. If the board doesn't, owners holding 5% of the voting power (or your bylaws' figure, never more than 25%) may call it themselves.
 - **Director elections (Georgia, Florida, California, Texas):** one row for each election in the election planner. It shows the next date on the election's timeline, dates that break the rules, and whether the results are recorded. A date that has passed says to check it was done, because HomeownerHub can't tell.
 - **California:** the row turns red if the results notice is more than 15 days late and not recorded as sent.

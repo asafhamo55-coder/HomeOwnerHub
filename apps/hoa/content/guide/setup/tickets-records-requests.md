@@ -6,16 +6,16 @@ topic: communications
 roles: [admin, board]
 routes: ["/tickets/records", "/tickets", "/tickets/[id]"]
 primary_route: /tickets/records
-keywords: [records request, records requests, request records, inspect records, inspection, copies of records, owner list, membership list, books and records, official records, 10 business days, deadline, overdue, statutory deadline, "720.303", "5210", mark fulfilled, fulfilled]
+keywords: [records request, records requests, request records, inspect records, inspection, copies of records, owner list, membership list, books and records, official records, 10 business days, five business days, reasonable particularity, proper purpose, deadline, overdue, statutory deadline, "720.303", "5210", "14-3-1602", Georgia, mark fulfilled, fulfilled]
 related: [tickets-board, properties-records-request-roster]
-reviewed: 2026-10-20
+reviewed: 2026-10-22
 ---
 
 Owners can ask to see the association's records from the portal. **Records requests** lists every request with the deadline your state sets for answering it. The board sees which requests are due soon or late.
 
 ## Before you start
 - Only board admins and board members can see records requests.
-- The deadline uses your association's state. Florida and California deadlines are built in. For every other state, the request shows **Check your bylaws**.
+- The deadline uses your association's state. Florida, California and Georgia deadlines are built in. For every other state, the request shows **Check your bylaws**.
 
 ## Steps
 1. Open **Tickets**, then select [[Records requests]].
@@ -33,6 +33,7 @@ Owners can ask to see the association's records from the portal. **Records reque
 ## Good to know
 - **Florida** (§ 720.303(5)): records must be available within 10 business days of receiving the written request. Minimum damages of $50 a day start on the 11th business day.
 - **California** (§ 5210(b)): current-year records are due within 10 business days, and the previous two years within 30 calendar days. Minutes and the membership list follow other sections that aren't loaded, so those show **Check your bylaws**.
+- **Georgia** (§ 14-3-1602, for an association incorporated as a Georgia nonprofit corporation): an owner may inspect and copy on a date at least five business days after giving written notice. The date shown is the earliest one. Governing documents, members' meeting minutes from the past three years and what was sent to members are available on notice alone. Board minutes, accounting records and the membership list also need the owner to state a proper purpose "with reasonable particularity". Open **Georgia: which records an owner can ask for** at the top of the page for the exact list. Contracts and other records aren't named, so those show **Check your bylaws**.
 - Business days here skip weekends only, not public holidays. The real deadline may be a day or two later than shown, never earlier.
 - The deadline counts from the day the owner sent the request in the portal. A request that arrives by mail is not in this list.
 - This is general information, not legal advice.

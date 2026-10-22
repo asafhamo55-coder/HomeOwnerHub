@@ -95,12 +95,15 @@ describe('pure helpers', () => {
   })
 
   it('pendingComplianceItems: a done row hides the deadline; without rows it is unchanged', () => {
-    expect(pendingComplianceItems([assoc()], '2026-10-20', SECRET)).toHaveLength(1)
+    // Two Georgia items: the SB 406 registration and (BL-152) the corporation's 2027 annual registration.
+    const codes = (d?: Parameters<typeof pendingComplianceItems>[3]) =>
+      pendingComplianceItems([assoc()], '2026-10-20', SECRET, d).map((i) => i.deadline.code)
+    expect(codes()).toEqual([GA_CODE, 'ga-corp-annual-registration-2027'])
     const done = doneRowsByAssociation([{ association_id: GA_ID, code: GA_CODE, done_at: '2026-10-20T00:00:00Z', done_by: 'u' }])
-    expect(pendingComplianceItems([assoc()], '2026-10-20', SECRET, done)).toEqual([])
+    expect(codes(done)).toEqual(['ga-corp-annual-registration-2027'])
     // Another association's row does not count.
     const other = doneRowsByAssociation([{ association_id: 'x', code: GA_CODE, done_at: '2026-10-20T00:00:00Z', done_by: 'u' }])
-    expect(pendingComplianceItems([assoc()], '2026-10-20', SECRET, other)).toHaveLength(1)
+    expect(codes(other)).toHaveLength(2)
   })
 
   it('acksToMigrate lists only verified, applicable acknowledgments with no row', () => {

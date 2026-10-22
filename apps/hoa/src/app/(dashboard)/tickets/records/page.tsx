@@ -4,7 +4,16 @@ import { FileText, MessageSquare, Users } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button, EmptyState, LoadFailed, Page, StatusPill, type StatusTone } from '@homeowner-portal/ui'
 import { loadRecordsRequests, type RecordsRequestRow } from '@/lib/records-requests/queries'
-import { HOLIDAY_NOTE, KIND_SHORT, NOT_LEGAL_ADVICE, RECORDS_FORMATS, type RecordsChip } from '@/lib/records-requests/law'
+import {
+  GA_RECORDS_CATEGORIES,
+  HOLIDAY_NOTE,
+  KIND_SHORT,
+  NOT_LEGAL_ADVICE,
+  RECORDS_FORMATS,
+  normaliseState,
+  type RecordsChip,
+  type StatuteCitation,
+} from '@/lib/records-requests/law'
 import { MarkFulfilledButton } from './MarkFulfilledButton'
 
 export const metadata = { title: 'Records requests' }
@@ -54,9 +63,12 @@ export default async function RecordsRequestsPage() {
     )
   }
 
+  const georgia = normaliseState(result.state) === 'GA' ? <GeorgiaRecordsCategories /> : null
+
   if (result.rows.length === 0) {
     return (
       <Page {...header}>
+        {georgia}
         <EmptyState
           icon={<FileText aria-hidden />}
           title="No records requests yet"
@@ -68,6 +80,7 @@ export default async function RecordsRequestsPage() {
 
   return (
     <Page {...header}>
+      {georgia}
       <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {result.rows.map((r) => (
           <RecordsRequestItem key={r.id} row={r} />
@@ -77,6 +90,55 @@ export default async function RecordsRequestsPage() {
         {HOLIDAY_NOTE} {NOT_LEGAL_ADVICE}
       </p>
     </Page>
+  )
+}
+
+function Quote({ c }: { c: StatuteCitation }) {
+  return (
+    <li>
+      <span className="font-semibold">{c.cite}:</span> “{c.quote}”
+    </li>
+  )
+}
+
+/**
+ * BL-152: which records a Georgia owner may see on notice alone, and which
+ * also need a stated purpose (O.C.G.A. § 14-3-1602). Every line is a quote
+ * checked word for word against scripts/fixtures/state-law/ga-ocga-14-3-2026.txt.
+ */
+function GeorgiaRecordsCategories() {
+  const { onNotice, withPurpose } = GA_RECORDS_CATEGORIES
+  return (
+    <details className="rounded-lg border border-border bg-surface px-4 py-3 text-sm">
+      <summary className="cursor-pointer font-medium">Georgia: which records an owner can ask for, and on what terms</summary>
+      <div className="mt-3 space-y-4 text-xs">
+        <p className="text-foreground-secondary">
+          For an association incorporated as a Georgia nonprofit corporation. If yours isn’t, check your bylaws.
+        </p>
+        <section className="space-y-1.5">
+          <h3 className="text-sm font-semibold">{onNotice.title}</h3>
+          <ul className="space-y-1.5">
+            <Quote c={onNotice.rule} />
+            {onNotice.records.map((c) => (
+              <Quote key={c.cite} c={c} />
+            ))}
+          </ul>
+        </section>
+        <section className="space-y-1.5">
+          <h3 className="text-sm font-semibold">{withPurpose.title}</h3>
+          <ul className="space-y-1.5">
+            <Quote c={withPurpose.rule} />
+            {withPurpose.records.map((c) => (
+              <Quote key={c.cite} c={c} />
+            ))}
+            {withPurpose.conditions.map((c) => (
+              <Quote key={c.cite} c={c} />
+            ))}
+            <Quote c={withPurpose.restrictions} />
+          </ul>
+        </section>
+      </div>
+    </details>
   )
 }
 
