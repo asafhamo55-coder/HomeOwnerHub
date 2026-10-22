@@ -346,7 +346,7 @@ function gaAnnualMeeting(base: Base, input: ComplianceInput): ComplianceObligati
     steps: [
       'Schedule the annual meeting under Meetings (type: Annual).',
       `Send the notice to every owner at least ${GA_ANNUAL_NOTICE_DAYS} days before the meeting, with the time and place.`,
-      'At the meeting, report on the association’s affairs, finances and budget projections.',
+      'At the meeting, report on the association’s affairs, finances and budget projections. The meeting’s Annual report to owners builds it from your books.',
       'File the minutes afterwards.',
       'Hold it before the fiscal year ends: if the board doesn’t, owners holding 5% of the voting power (or the figure in your articles or bylaws, never more than 25%) may call it themselves.',
     ],

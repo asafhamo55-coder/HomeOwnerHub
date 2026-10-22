@@ -1771,6 +1771,13 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
 
      The board edits a short narrative. "Attach to the meeting notice" goes through the guarded composer. No PII.
    - **Files:** `apps/hoa/src/app/(dashboard)/meetings/[id]/annual-report/` (new), `apps/hoa/src/lib/board-packet/sections.ts`, `apps/hoa/src/lib/accounting/reserves.ts`.
+   - **Status:** Built 2026-10-21, no migration; not deployed yet. Board/admin `/meetings/[id]/annual-report` (card on annual meetings), printable, plus "Draft message to owners" → composer `?from=annual-report` (owners, sessionStorage hand-off; nothing auto-sent).
+     - **Sections, all from existing loaders:** income and expenses and budget vs actual (packet financials), balance sheet, reserves (BL-120), next year's budget projection (BL-138 budgets, adopted vs proposed, vs this year), collections as totals/counts/aging only (packet delinquency cut to totals inside its loader), insurance (BL-142 owner columns), compliance titles and status (BL-145), the window's meetings and passed motions from approved minutes with mover/seconder names removed (BL-116), and elections with seats and elected names only (BL-141 signed record).
+     - **Window:** fiscal year to date; in the first 60 days of a new fiscal year, the whole year just closed.
+     - **Owner-safe by construction:** `lib/annual-report/model.ts` rebuilds every section field by field; account names mask bank/routing numbers. The board's narrative is typed on the page and is not stored.
+     - **Law:** GA quotes § 44-3-230(a) and § 44-3-235(a), checked word for word (`lib/annual-report/law.test.ts`). Other states get the same report without GA wording. § 44-3-102 (condos, BL-155) is not loaded and not quoted.
+     - **Tests:** `annual-report-render.test.tsx` renders the page and the message from poisoned inputs and checks that no home, owner, per-home balance, losing candidate, mover, premium, policy number, bank number or evidence file appears.
+     - **Not built:** "Attach to the meeting notice" (the message is a separate draft; print the report to attach it); the narrative is not saved. Guide `annual-report-to-owners`.
 8. **BL-154 SB 406 2027 readiness: dated GA snapshot, foreclosure threshold and payment order.** Migration: no. Effort L (2.5). Score 1.20 (5 × 0.6 ÷ 2.5). Override: deadline 2027-01-01. Absorbs BL-124.
    - **Pain:** on 2027-01-01 Georgia changes these rules (secondary sources):
      - the foreclosure threshold becomes the lesser of $4,000 or 12 months of regular assessments, with a $2,000 floor and fines and fees excluded;

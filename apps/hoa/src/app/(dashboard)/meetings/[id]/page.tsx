@@ -31,6 +31,7 @@ import { meetingDetailColumns } from './columns'
 import { NoticePostedControl } from './NoticePostedControl'
 import { QuorumKitCard } from './QuorumKitCard'
 import { ElectionCard } from './ElectionCard'
+import { AnnualReportCard } from './AnnualReportCard'
 import { minutesBlocks } from './minutes-blocks'
 import { MeetingNoticeSection } from './MeetingNoticeSection'
 
@@ -285,6 +286,9 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
 
           {/* BL-141: board election planner, paper-first. */}
           <ElectionCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
+
+          {/* BL-153: the owner annual report (GA § 44-3-230(a)). */}
+          <AnnualReportCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
 
           <Card>
             <CardHeader>
