@@ -3,28 +3,27 @@ id: members-ask-to-join
 title: Link an owner who asks to join
 summary: An owner whose account isn't linked to a home asks to join with their address or a code from the board, and a board member approves it in Approvals.
 topic: people
-roles: [admin, board, resident]
-routes: ["/join", "/approvals", "/settings/members", "/resident", "/onboarding"]
+roles: [admin, board]
+routes: ["/approvals", "/settings/members"]
 primary_route: /approvals
-keywords: [ask to join, join request, join code, no home linked, link account, link home, claim home, unlinked owner, existing account, owner without home, access code, approve owner]
-related: [members-invite-owners, approvals-queue, resident-portal-basics]
+keywords: [ask to join, join request, requests to join, join code, make a code, no home linked, link account, link home, claim home, unlinked owner, existing account, owner without home, access code, approve owner]
+related: [members-invite-owners, approvals-queue]
 reviewed: 2026-10-21
 ---
 
-Sometimes an owner signs in and sees "No home linked yet". Their account may be new, or it may belong to another HOA. They can ask to join their home, and a board member approves it.
+Sometimes an owner signs in and sees "No home linked yet". Their account may be new, or it may belong to another HOA. They can ask to join their home from that screen, and a board member approves it.
 
 ## Before you start
-- Owners ask from their own signed-in account. Board admins and board members approve.
+- Board admins and board members approve. Owners ask from their own signed-in account.
 - An owner can ask with their street address and ZIP code, or with a join code you give them.
 - Codes are the quickest way when you already know the owner. Each code is for one home.
 
 ## Steps
-1. Owner: on "No home linked yet", select [[Ask to join]]. Without an HOA yet, use the link under **Create your HOA**.
-2. Owner: choose [[My address]] or [[A code from my board]], fill it in and select [[Send to my board]].
-3. Board, for a code: open **Settings**, then **Members**. Under **Join codes**, choose the home and select [[Make a code]]. Copy the code and give it to the owner yourself.
-4. Board: open **Approvals**. Requests are under **Requests to join**.
-5. Read who is asking and for which home. The card says whether their sign-in email matches the owner email on file.
-6. Select [[Approve & link]], or **Reject** with a reason.
+1. To give an owner a code, open **Settings**, then **Members**. Under **Join codes**, choose the home and select [[Make a code]].
+2. Copy the code and give it to the owner yourself. They enter it after selecting [[Ask to join]].
+3. To decide a request, open **Approvals**. Requests are under **Requests to join**.
+4. Read who is asking and for which home. The card says whether their sign-in email matches the owner email on file.
+5. Select [[Approve & link]], or **Reject** with a reason.
 
 ## What happens next
 - Approving makes them a resident of your HOA and links the home to their account. If an owner record on the home has their email, that record is linked. Otherwise a new owner record is added for them.
@@ -32,8 +31,8 @@ Sometimes an owner signs in and sees "No home linked yet". Their account may be 
 - Rejecting links nothing. The decision is kept in the activity log.
 
 ## If something goes wrong
-- "That code didn't work": the code was used, cancelled or is over 30 days old. Make a new one.
-- "You can ask 5 times a day": the owner has used today's requests. They can try tomorrow, or use a code.
+- The owner says "That code didn't work": the code was used, cancelled or is over 30 days old. Make a new one.
+- The owner says "You can ask 5 times a day": they have used today's requests. They can try tomorrow, or use a code.
 - The owner asked but nothing reached Approvals: the address didn't match exactly one home. Check the home's address and ZIP on file, or give them a code.
 
 ## Good to know
