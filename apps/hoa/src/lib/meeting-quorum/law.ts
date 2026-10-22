@@ -3,6 +3,28 @@
  * the text is in scripts/fixtures/state-law; everywhere else the kit says
  * "check your bylaws". General information, not legal advice.
  *
+ * Georgia (launch state, BL-150) — every entry in `quotes` is checked word
+ * for word against ga-ocga-44-3-art6-2026.txt by law.test.ts:
+ *   - § 44-3-228: unless the instrument or bylaws provide otherwise, a
+ *     quorum is present for the whole members' meeting if persons entitled
+ *     to cast MORE THAN one-third of the votes are present at the start.
+ *     The bylaws override, and the kit says so. The counter's target is
+ *     GA_KIT_QUORUM_PCT (33.34%): quorumNeeded(n, 33.34) equals
+ *     floor(n / 3) + 1 for every n up to 5,000 votes, and is never below it
+ *     (law.test.ts).
+ *   - § 44-3-224(a): joint owners. One may vote alone; if more than one
+ *     acts, the vote is cast only as they unanimously agree.
+ *   - § 44-3-224(b): an owner that is not a natural person must vote by
+ *     proxy; a proxy is revocable only by written notice to the association
+ *     (or under §§ 14-2-722 / 14-3-724), and is void if undated or if it
+ *     says it is revocable without that notice. The form therefore carries
+ *     a date line and the notice-only revocation sentence.
+ *   - § 44-3-230(b): no annual meeting by fiscal year end → holders of 5% of
+ *     the voting power (or the bylaws' figure, at most 25%) may call one.
+ *   The Nonprofit Corporation Code (§ 14-3-724: how long a proxy lasts,
+ *   electronic appointment) is NOT in the repo, so it is named, never
+ *   quoted, and the kit says to check the bylaws.
+ *
  * Florida — checked against flsenate-ch720-2026.html:
  *   - § 720.306(1)(a): "Unless a lower number is provided in the bylaws, the
  *     percentage of voting interests required to constitute a quorum at a
@@ -29,15 +51,71 @@
  *     detachable page; the proxyholder casts the vote by secret ballot.
  */
 
+import {
+  GA_CO_OWNERS,
+  GA_MISSED_ANNUAL,
+  GA_PROXY_DATED,
+  GA_QUORUM,
+  electionJurisdiction,
+  type StatuteCitation,
+} from '@/lib/elections/law'
 import { FL_QUORUM_PCT } from '@/lib/properties/statutory-roster/model'
+
+export type { StatuteCitation }
+export { GA_CO_OWNERS, GA_MISSED_ANNUAL, GA_PROXY_DATED, GA_QUORUM }
+
+// ─── Georgia quotes (word for word; law.test.ts) ─────────────────────
+
+export const GA_JOINT_OWNERS_UNANIMOUS: StatuteCitation = {
+  cite: 'O.C.G.A. § 44-3-224(a)',
+  quote:
+    'However, if more than one of those persons is present, or executes a proxy, ballot, or written consent, the vote pertaining to that lot shall be cast only in accordance with their unanimous agreement unless the instrument expressly provides otherwise',
+}
+
+export const GA_ENTITY_OWNER_PROXY: StatuteCitation = {
+  cite: 'O.C.G.A. § 44-3-224(b)',
+  quote:
+    'The votes pertaining to any lot may, and, in the case of any lot owner not a natural person or persons, shall, be cast pursuant to a proxy or proxies duly executed by or on behalf of the lot owner',
+}
+
+export const GA_PROXY_REVOCATION: StatuteCitation = {
+  cite: 'O.C.G.A. § 44-3-224(b)',
+  quote:
+    'No such proxy shall be revocable except as provided in Code Section 14-2-722 or Code Section 14-3-724 or by written notice delivered to the association by the lot owner or by any joint owners of a lot.',
+}
+
+/**
+ * § 44-3-228's "more than one-third", as the percent the counter applies.
+ * quorumNeeded(n, 33.34) = floor(n / 3) + 1 exactly for n ≤ 5,000 votes, and
+ * never less above that (on a very large roster it may ask for a vote or
+ * two more, never one fewer).
+ */
+export const GA_KIT_QUORUM_PCT = 33.34
+
+/** The statute's default quorum, offered as the counter's target when the bylaws are silent. */
+export interface StatuteQuorum {
+  /** The percent the counter uses when the board picks the statute default. */
+  pct: number
+  /** How the "Needed" figure reads with it, e.g. "More than one-third". */
+  counterLabel: string
+  /** The field hint: what the statute says, and that the bylaws control. */
+  rule: string
+}
 
 export interface ProxyLawNote {
   state: string
   title: string
+  /** Printed in the proxy form's footer. */
   lines: string[]
   verified: boolean
-  /** The statute's quorum figure, shown as context only (never a default). */
-  statuteQuorumPct: number | null
+  /** The statute's default quorum, offered (never applied on its own) as the counter's target. */
+  statuteQuorum: StatuteQuorum | null
+  /** Board-facing notes on the kit page (never printed on the owner's form). */
+  boardNotes: string[]
+  /** Sentences printed in the body of the proxy form, above the signatures. */
+  formClauses: string[]
+  /** Word for word from the fixture (law.test.ts), under "What the statute says". */
+  quotes: StatuteCitation[]
   /** Florida: the form needs the meeting's time and place written in. */
   requiresTimeAndPlace: boolean
   /** Florida: a substitute is allowed only if the form says so. */
@@ -52,14 +130,60 @@ export const CHECK_BYLAWS =
 export const KIT_DISCLAIMER =
   'This is general information, not legal advice. Use your governing documents and the current statute, and ask your association’s attorney before relying on a form.'
 
+/** Georgia: the statute's quorum is a default; the governing documents win. */
+export const GA_BYLAWS_OVERRIDE =
+  'Your declaration or bylaws can set a different quorum, and if they do, they control. Use the Georgia default only when they are silent.'
+
 export function proxyLaw(state: string | null): ProxyLawNote {
-  switch (state?.toUpperCase()) {
+  switch (electionJurisdiction(state)) {
+    case 'GA':
+      return {
+        state: 'GA',
+        title: 'Georgia — O.C.G.A. §§ 44-3-224 and 44-3-228',
+        verified: true,
+        statuteQuorum: {
+          pct: GA_KIT_QUORUM_PCT,
+          counterLabel: 'More than one-third',
+          rule: `O.C.G.A. § 44-3-228: unless your declaration or bylaws provide otherwise, the quorum is owners entitled to cast more than one-third of the votes, present at the start of the meeting. ${GA_BYLAWS_OVERRIDE}`,
+        },
+        requiresTimeAndPlace: false,
+        substitutionClause: false,
+        detachableDirections: false,
+        boardNotes: [
+          GA_BYLAWS_OVERRIDE,
+          'Once a quorum is present at the start, Georgia’s Act treats it as present for the whole meeting, so count the room before you begin.',
+          'A proxy must be dated, and it can be revoked only by written notice delivered to the association. Set aside any proxy that isn’t dated, or that says it can be revoked without that notice: Georgia law makes it void.',
+          'A home owned by a company, trust or other entity votes by proxy, signed on the owner’s behalf.',
+          'If a home has more than one owner and more than one of them votes or signs, the home’s vote counts only as they all agree, unless your declaration says otherwise. One owner acting alone casts the home’s vote unless another objects at once.',
+          'If no annual meeting is held by the last day of the fiscal year, owners holding at least 5% of the voting power (or the figure in your articles or bylaws, never more than 25%) may call one with a signed, dated written demand to an officer.',
+          'Georgia’s Nonprofit Corporation Code (§ 14-3-724) also covers proxies for associations incorporated under it, including how long one lasts. HomeownerHub doesn’t hold that text: check your bylaws.',
+        ],
+        formClauses: [
+          'Date this proxy on the signature line below. An undated proxy is void.',
+          'This proxy may be revoked only by written notice delivered to the association by the owner(s) of the home, or as Georgia Code § 14-2-722 or § 14-3-724 provides.',
+          'If more than one owner of the home signs, the home’s vote is cast only as all signing owners agree, unless the declaration provides otherwise.',
+          'An owner that is a company, trust or other entity must vote by proxy: its authorized representative signs for it.',
+        ],
+        quotes: [GA_QUORUM, GA_PROXY_DATED, GA_PROXY_REVOCATION, GA_ENTITY_OWNER_PROXY, GA_CO_OWNERS, GA_JOINT_OWNERS_UNANIMOUS, GA_MISSED_ANNUAL],
+        lines: [
+          '§ 44-3-228: unless your declaration or bylaws provide otherwise, a quorum is present for the whole meeting if owners entitled to cast more than one-third of the votes are present at the start.',
+          '§ 44-3-224(b): a proxy is void if it isn’t dated, or if it says it can be revoked without written notice to the association. An owner that isn’t a person must vote by proxy.',
+          CHECK_BYLAWS,
+        ],
+      }
     case 'FL':
       return {
         state: 'FL',
         title: 'Florida — Fla. Stat. § 720.306',
         verified: true,
-        statuteQuorumPct: FL_QUORUM_PCT,
+        statuteQuorum: {
+          pct: FL_QUORUM_PCT,
+          counterLabel: `${FL_QUORUM_PCT}%`,
+          rule: `Fla. Stat. § 720.306(1)(a) sets ${FL_QUORUM_PCT}% unless your bylaws set a lower number.`,
+        },
+        boardNotes: [],
+        formClauses: [],
+        quotes: [],
         requiresTimeAndPlace: true,
         substitutionClause: true,
         detachableDirections: false,
@@ -75,7 +199,10 @@ export function proxyLaw(state: string | null): ProxyLawNote {
         state: 'CA',
         title: 'California — Civ. Code § 5130',
         verified: true,
-        statuteQuorumPct: null,
+        statuteQuorum: null,
+        boardNotes: [],
+        formClauses: [],
+        quotes: [],
         requiresTimeAndPlace: false,
         substitutionClause: false,
         detachableDirections: true,
@@ -87,10 +214,13 @@ export function proxyLaw(state: string | null): ProxyLawNote {
       }
     default:
       return {
-        state: state?.toUpperCase() || '',
+        state: state?.trim().toUpperCase() || '',
         title: 'Your governing documents',
         verified: false,
-        statuteQuorumPct: null,
+        statuteQuorum: null,
+        boardNotes: [],
+        formClauses: [],
+        quotes: [],
         requiresTimeAndPlace: false,
         substitutionClause: false,
         detachableDirections: false,
@@ -98,3 +228,14 @@ export function proxyLaw(state: string | null): ProxyLawNote {
       }
   }
 }
+
+/** Every quote the quorum kit can show: what law.test.ts checks word for word. */
+export const ALL_QUORUM_CITATIONS: readonly StatuteCitation[] = [
+  GA_QUORUM,
+  GA_PROXY_DATED,
+  GA_PROXY_REVOCATION,
+  GA_ENTITY_OWNER_PROXY,
+  GA_CO_OWNERS,
+  GA_JOINT_OWNERS_UNANIMOUS,
+  GA_MISSED_ANNUAL,
+]

@@ -151,6 +151,11 @@ export function ProxyForm({ header, home, law }: { header: PrintHeader; home: Pr
           time by the person who signed it.
         </p>
       ) : null}
+      {law.formClauses.map((c) => (
+        <p key={c} className="text-sm">
+          {c}
+        </p>
+      ))}
 
       <div className="space-y-4 pt-2">
         {signers.map((o, i) => (

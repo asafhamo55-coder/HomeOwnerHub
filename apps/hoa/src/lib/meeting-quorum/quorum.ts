@@ -35,8 +35,10 @@
  * QUORUM %. Entered by the board. The governing-docs brain (W1) does not
  * extract a quorum figure, so there is no parsed default: the field starts
  * blank and is required before the counter shows "needed". The statute
- * figure (FL § 720.306(1)(a), 30% unless the bylaws set lower) is shown as
- * context only.
+ * figure (FL § 720.306(1)(a), 30% unless the bylaws set lower; GA
+ * § 44-3-228, more than one-third unless the instrument or bylaws say
+ * otherwise) is shown as context, and the board may pick it with one tap
+ * (./law.ts `statuteQuorum`); it is never applied on its own.
  *
  * Pure, and safe in the browser. Signing and storage: ./store.ts (node:crypto).
  */

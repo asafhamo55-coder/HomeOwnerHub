@@ -193,12 +193,22 @@ describe('renderMonthlyReportEmail', () => {
       expect(html).toContain('/compliance')
     })
 
+    it('BL-151: a director elections line from the election planner, and none when no election applies', () => {
+      const { text } = renderMonthlyReportEmail(reportFixture(), links)
+      expect(text).toContain('Director elections: Send the annual meeting notice by Dec 25, 2026')
+      const none = renderMonthlyReportEmail(
+        reportFixture({ compliance: { ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: false, election: null } } }),
+        links,
+      )
+      expect(none.text).not.toContain('Director elections')
+    })
+
     it('overdue obligations read in red; nothing loaded says so in words', () => {
       const overdue = renderMonthlyReportEmail(
         reportFixture({
           compliance: {
             ok: true,
-            data: { open: 1, overdue: 1, done: 0, next: { title: 'Hold the annual members’ meeting, with 21 days’ notice', label: 'No annual meeting since Mar 3, 2025', associationName: 'X' }, nothingTracked: false },
+            data: { open: 1, overdue: 1, done: 0, next: { title: 'Hold the annual members’ meeting, with 21 days’ notice', label: 'No annual meeting since Mar 3, 2025', associationName: 'X' }, nothingTracked: false, election: null },
           },
         }),
         links,
@@ -206,7 +216,7 @@ describe('renderMonthlyReportEmail', () => {
       expect(overdue.text).toContain('Overdue: 1 obligation')
       expect(overdue.html).toContain('#B42318')
       const none = renderMonthlyReportEmail(
-        reportFixture({ compliance: { ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: true } } }),
+        reportFixture({ compliance: { ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: true, election: null } } }),
         links,
       )
       expect(none.text).toContain('None loaded for your state — check your governing documents')

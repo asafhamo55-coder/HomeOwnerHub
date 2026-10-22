@@ -7,7 +7,7 @@ roles: [admin, board]
 routes: ["/meetings/[id]/election", "/meetings/[id]/election/print", "/meetings/[id]"]
 primary_route: /meetings/[id]/election
 keywords: [election, board election, elect directors, directors, candidates, nominations, nomination deadline, ballot, paper ballot, secret ballot, double envelope, two envelopes, inspector of elections, tellers, tally, results, acclamation, uncontested, delinquent candidate, challenge, reconvened meeting, "44-3-230", "44-3-228", "720.306", "5115", "5120", "209.0058", georgia, florida, california, texas]
-related: [annual-meeting-quorum, meetings-send-notice]
+related: [annual-meeting-quorum, meetings-send-notice, compliance-obligations]
 draft: true
 reviewed: 2026-10-21
 ---
@@ -42,6 +42,7 @@ The timeline updates as you fill it in. Once you record when the results were an
 - Florida: a candidate who owes the association anything on the last day to nominate can't be on the ballot. With no more candidates than seats there is no election, and the candidates take their seats even without quorum. A challenge must start within 60 days of the results (Fla. Stat. § 720.306(9)).
 - California: one or three independent inspectors, a general notice 30 days before ballots go out, ballots with two envelopes 30 days before voting closes, results within 15 days (Civ. Code §§ 5110, 5115, 5120).
 - Texas: votes in a contested board election are written and signed (Prop. Code § 209.0058). Texas's notice and nomination rules aren't loaded, so check your governing documents.
+- The **Compliance** page shows each planned election: its next date, dates that break the rules, and whether the results are recorded. In Georgia, once you record the results, it adds a reminder to amend your Secretary of State registration within 30 days if the officers changed (from Jan 1, 2027). The monthly board report carries the same line.
 - Balances are shown on screen only. They're never printed or saved with the election.
 - The ballot never names the voter. The voter signs only the outer envelope.
 - Nothing in the planner sends a message to owners. It's general information, not legal advice.

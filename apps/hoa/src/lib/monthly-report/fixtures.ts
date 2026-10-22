@@ -55,6 +55,7 @@ export function reportFixture(over: Partial<MonthlyReportData> = {}): MonthlyRep
         done: 1,
         next: { title: 'Register with the Georgia Secretary of State', label: 'Takes effect in 92 days (Jan 1, 2027)', associationName: 'Maple Creek HOA' },
         nothingTracked: false,
+        election: { title: 'Director election at the Jan 15, 2027 annual meeting', label: 'Send the annual meeting notice by Dec 25, 2026' },
       },
     },
     ...over,
