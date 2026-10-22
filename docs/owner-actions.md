@@ -121,18 +121,6 @@ and checkout instead of HomeownerHub.
 
 **Files:** `docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md` §11
 
-### OA-10 · Run the S-01 audit query
-
-**Urgency:** Whenever
-
-**Why it matters:** a read-only check that no one used the owner-portal
-"enter as" feature outside their own HOA before that hole was closed.
-
-**Steps:**
-
-1. Ask Claude to copy the S-01 audit query to your clipboard.
-2. Run it on its own in the SQL Editor. It only reads. Send Claude the row count.
-
 ### OA-11 · Decide on text messages (Vonage and 10DLC)
 
 **Urgency:** Whenever
@@ -335,7 +323,11 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
+## Done
+
 ### OA-28 · Apply database update 0069 (dues rates, join requests, compliance evidence)
+
+**Done 2026-10-21:** Asaf ran L1, L-BL143a, L-BL145a, L3 and the combined L4 check; every value as expected (hardened_ok true). M5_APPLIED is on.
 
 **Urgency:** Soon
 
@@ -349,7 +341,19 @@ prices; review it before pitching.
 
 Then tell Claude "0069 is applied". Claude switches the three features on and deploys.
 
-## Done
+### OA-10 · Run the S-01 audit query
+
+**Done 2026-10-21:** run by Asaf; 0 "enter as resident" rows at all, so nothing outside any HOA.
+
+**Urgency:** Whenever
+
+**Why it matters:** a read-only check that no one used the owner-portal
+"enter as" feature outside their own HOA before that hole was closed.
+
+**Steps:**
+
+1. Ask Claude to copy the S-01 audit query to your clipboard.
+2. Run it on its own in the SQL Editor. It only reads. Send Claude the row count.
 
 ### OA-1 · Run the database steps in the SQL runbook (start here)
 
@@ -460,8 +464,6 @@ faster. Nothing breaks without them; pages are just slower as data grows.
 2. Run the pre-check, then the apply section, then the verify section, each on its own. Send Claude the verify output.
 
 **Files:** `docs/specs/2026-10-20-sms-consent.sql`
-
-
 
 ## For Claude: keeping this file current
 
