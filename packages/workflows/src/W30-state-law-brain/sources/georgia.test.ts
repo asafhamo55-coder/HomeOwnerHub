@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { planStatuteSync, type ExistingStatuteRow } from '../plan'
 import { GA_SNAPSHOT } from './georgia-snapshot.generated'
-import { GA_CATEGORY, GA_MIN_SECTIONS, georgiaAdapter, georgiaCovers, parseGeorgiaSnapshot } from './georgia'
+import { GA_CATEGORY, GA_MIN_SECTIONS, gaRecordsInForce, georgiaAdapter, georgiaCovers, parseGeorgiaSnapshot } from './georgia'
 import { adapterFor, SOURCE_STATES } from './index'
 import { normalizeStatuteBody, statuteContentHash } from './normalize'
 import { SourceUnavailableError } from './types'
@@ -22,7 +22,23 @@ const GA_232_D = readFileSync(
   'utf8',
 )
 
+/** SB 406's enacted 2027 text, taken from the official bill PDF (struck words removed, underlined kept). */
+const SB406_2027 = readFileSync(
+  resolve(__dirname, '../../../../../scripts/fixtures/state-law/ga-sb406-2026-2027-text.txt'),
+  'utf8',
+)
+/** One "=== heading" block of the Act fixture, its paragraphs. */
+const actBlock = (head: string) => {
+  const rest = SB406_2027.slice(SB406_2027.indexOf(`=== ${head}`)).split('\n').slice(1)
+  const end = rest.findIndex((l) => l.startsWith('=== '))
+  return rest.slice(0, end === -1 ? undefined : end).filter((l) => l.trim())
+}
+/** The Act keeps straight quotes; the Code prints ’ “ ”. Compare words, not quote style. */
+const plain = (s: string) => s.replace(/[’‘]/g, "'").replace(/[“”]/g, "'")
+
 const BEFORE_EXPIRY = () => new Date('2026-10-20T12:00:00Z')
+const SB406_DAY = () => new Date('2027-01-01T12:00:00Z')
+const SB406_AMENDED = ['222', '226', '232', '235'].map((n) => `O.C.G.A. Section 44-3-${n}`)
 
 const ART6 = [
   '220', '221', '222', '223', '224', '225', '226', '227', '228', '229',
@@ -31,17 +47,20 @@ const ART6 = [
 
 describe('parseGeorgiaSnapshot (committed GA snapshot)', () => {
   const snap = parseGeorgiaSnapshot(FIXTURE)
-  const byCite = new Map(snap.records.map((r) => [r.code_citation, r]))
+  /** The text in force before SB 406 §§ 2–6 (the records without a 2027 date). */
+  const byCite = new Map(gaRecordsInForce(snap.records, '2026-12-31').map((r) => [r.code_citation, r]))
+  const in2027 = new Map(gaRecordsInForce(snap.records, '2027-01-01').map((r) => [r.code_citation, r]))
 
-  it('carries every section of Art. 6, in order, plus SB 406 § 7 — 18 records', () => {
-    expect(snap.records.map((r) => r.code_citation)).toEqual([...ART6, 'Ga. L. 2026, SB 406, § 7'])
+  it('carries every section of Art. 6, SB 406 § 7, then the dated 2027 records — 23 records', () => {
+    expect(snap.records.map((r) => r.code_citation)).toEqual([...ART6, 'Ga. L. 2026, SB 406, § 7', ...SB406_AMENDED, 'Ga. L. 2026, SB 406, § 2'])
+    expect(snap.records.slice(18).every((r) => r.effective_date === '2027-01-01')).toBe(true)
     expect(GA_MIN_SECTIONS).toBe(17)
   })
 
   it('reads the snapshot metadata', () => {
     expect(snap.sourceName).toMatch(/^O\.C\.G\.A\. Title 44 Ch\. 3 Art\. 6 \(State release 86/)
-    expect(snap.retrieved).toBe('2026-10-20')
-    expect(snap.validUntil).toBe('2027-01-01')
+    expect(snap.retrieved).toBe('2026-10-22')
+    expect(snap.validUntil).toBe('2027-07-01')
   })
 
   it('every record has a title, a category, an https source and a normalised body', () => {
@@ -98,11 +117,54 @@ describe('parseGeorgiaSnapshot (committed GA snapshot)', () => {
     expect(s231.slice(5).map((p) => p.slice(0, 3))).toEqual(['(b)', '(c)', '(d)', '(1)', '(2)', '(3)', '(e)', '(f)', '(g)', '(h)'])
   })
 
-  it('does NOT apply SB 406 §§ 3–6 (effective 2027-01-01): § 44-3-232(c) still reads 30 days / $2,000 / four years', () => {
+  it('before 2027-01-01, § 44-3-232(c) still reads 30 days / $2,000 / four years', () => {
     const c = byCite.get('O.C.G.A. Section 44-3-232')!.body.split('\n\n').find((p) => p.startsWith('(c) '))!
     expect(c).toMatch(/^\(c\) Not less than 30 days after notice/)
-    expect(c).toContain('at least $2,000.00')
+    expect(c).toContain('at least $2,000.00.')
     expect(c).toContain('four years after the assessment or installment first became due')
+    expect(byCite.has('Ga. L. 2026, SB 406, § 2')).toBe(false)
+  })
+
+  it('from 2027-01-01, § 44-3-232(c) is SB 406 § 5’s text: 60 days, the new threshold, six years — enacted words only', () => {
+    const c = in2027.get('O.C.G.A. Section 44-3-232')!.body.split('\n\n').find((p) => p.startsWith('(c) '))!
+    expect(c).toMatch(/^\(c\) Not less than 60 days after notice/)
+    expect(c).toContain('payment of such amount prior to the sixtieth day following receipt of the notice will eliminate the right of foreclosure')
+    expect(c).toContain('at least the lesser of $4,000.00 or an amount equal to 12 months of regular assessments')
+    expect(c).toContain('six years after the assessment or installment first became due')
+    // Never struck and inserted words side by side (statute lines only; the headers describe the marks).
+    const text = (f: string) => f.split('\n').filter((l) => !l.startsWith('#')).join('\n')
+    for (const both of ['30 60', 'four six', '$2,000.00 the lesser', 'must shall', 'this such', 'upon either']) {
+      for (const cite of SB406_AMENDED) expect(plain(in2027.get(cite)!.body)).not.toContain(both)
+      expect(text(SB406_2027)).not.toContain(both)
+    }
+  })
+
+  it('each 2027 record is the pre-2027 record with exactly the subsection SB 406 revises, word for word from the Act', () => {
+    const swapped: Record<string, [string, string]> = {
+      'O.C.G.A. Section 44-3-222': ['', 'SECTION 3.'],
+      'O.C.G.A. Section 44-3-226': ['(b) ', 'SECTION 4.'],
+      'O.C.G.A. Section 44-3-232': ['(c) ', 'SECTION 5.'],
+      'O.C.G.A. Section 44-3-235': ['(a) ', 'SECTION 6.'],
+    }
+    for (const [cite, [prefix, section]] of Object.entries(swapped)) {
+      const before = byCite.get(cite)!.body.split('\n\n')
+      const after = in2027.get(cite)!
+      expect(after.effective_date).toBe('2027-01-01')
+      expect(after.source_url).toBe('https://www.legis.ga.gov/api/legislation/document/20252026/248665')
+      expect(after.title).toBe(byCite.get(cite)!.title)
+      const at = prefix ? before.findIndex((p) => p.startsWith(prefix)) : 0
+      const expected = [...before.slice(0, at), ...actBlock(section), ...before.slice(prefix ? at + 1 : before.length)]
+      expect(after.body.split('\n\n').map(plain)).toEqual(expected.map(plain))
+    }
+  })
+
+  it('carries SB 406 § 2 (new ch. 43-17A) from 2027-01-01, word for word from the Act, incl. the payment order', () => {
+    const ch = in2027.get('Ga. L. 2026, SB 406, § 2')!
+    expect(ch.effective_date).toBe('2027-01-01')
+    expect(ch.category).toBe('governance')
+    expect(ch.body.split('\n\n').map(plain)).toEqual(actBlock('SECTION 2.').map(plain))
+    expect(ch.body).toContain('(1) Regular assessments or dues until current;')
+    expect(ch.body).toContain('(10) “Specific assessments” means an assessment imposed on an owner for:')
   })
 
   it('carries SB 406 § 7 (in force 2026-07-01) as its own record', () => {
@@ -122,6 +184,15 @@ describe('parseGeorgiaSnapshot (committed GA snapshot)', () => {
     expect(() => parseGeorgiaSnapshot(head + sec('O.C.G.A. Section 44-5-60'))).toThrow(/outside the adapter's scope/)
     expect(() =>
       parseGeorgiaSnapshot(head + sec('O.C.G.A. Section 44-3-220') + sec('O.C.G.A. Section 44-3-220')),
+    ).toThrow(/duplicate/)
+    const dated = (cite: string, day: string) => `=== ${cite} | T\n@source_url: https://example.test/s\n@effective_date: ${day}\nLater text.\n`
+    // A repeat is allowed only as a later-dated version.
+    expect(parseGeorgiaSnapshot(head + sec('O.C.G.A. Section 44-3-220') + dated('O.C.G.A. Section 44-3-220', '2027-01-01')).records).toHaveLength(2)
+    expect(() =>
+      parseGeorgiaSnapshot(head + dated('O.C.G.A. Section 44-3-220', '2027-01-01') + dated('O.C.G.A. Section 44-3-220', '2027-01-01')),
+    ).toThrow(/duplicate/)
+    expect(() =>
+      parseGeorgiaSnapshot(head + dated('O.C.G.A. Section 44-3-220', '2027-01-01') + sec('O.C.G.A. Section 44-3-220')),
     ).toThrow(/duplicate/)
     expect(() => parseGeorgiaSnapshot(head + '=== O.C.G.A. Section 44-3-220 | T\n@source_url: https://x\n')).toThrow(
       /has no text/,
@@ -150,12 +221,22 @@ describe('georgiaAdapter', () => {
     expect(out.sourceName).toBe(parseGeorgiaSnapshot(FIXTURE).sourceName)
   })
 
-  it('refuses to serve the snapshot from its @valid_until date (SB 406 §§ 3–6 take effect)', async () => {
-    const lastDay = georgiaAdapter({ now: () => new Date('2026-12-31T23:59:59Z') })
-    await expect(lastDay.fetchSections()).resolves.toBeTruthy()
-    const expired = georgiaAdapter({ now: () => new Date('2027-01-01T00:00:00Z') })
+  it('serves the text in force on each side of 2027-01-01 (SB 406 §§ 2–6)', async () => {
+    const lastDay = await georgiaAdapter({ now: () => new Date('2026-12-31T23:59:59Z') }).fetchSections()
+    expect(lastDay.records).toHaveLength(18)
+    expect(lastDay.records.find((r) => r.code_citation === 'O.C.G.A. Section 44-3-232')!.body).toContain('Not less than 30 days')
+    const firstDay = await georgiaAdapter({ now: () => new Date('2027-01-01T00:00:00Z') }).fetchSections()
+    expect(firstDay.records).toHaveLength(19)
+    expect(firstDay.records.map((r) => r.code_citation)).toEqual([...ART6, 'Ga. L. 2026, SB 406, § 7', 'Ga. L. 2026, SB 406, § 2'])
+    expect(firstDay.records.find((r) => r.code_citation === 'O.C.G.A. Section 44-3-232')!.body).toContain('Not less than 60 days')
+    expect(new Set(firstDay.records.map((r) => r.code_citation)).size).toBe(19)
+  })
+
+  it('refuses to serve the snapshot from its @valid_until date (2027-07-01: the 2027 session is unchecked)', async () => {
+    await expect(georgiaAdapter({ now: () => new Date('2027-06-30T23:59:59Z') }).fetchSections()).resolves.toBeTruthy()
+    const expired = georgiaAdapter({ now: () => new Date('2027-07-01T00:00:00Z') })
     await expect(expired.fetchSections()).rejects.toBeInstanceOf(SourceUnavailableError)
-    await expect(expired.fetchSections()).rejects.toThrow(/out of date from 2027-01-01/)
+    await expect(expired.fetchSections()).rejects.toThrow(/out of date from 2027-07-01/)
   })
 
   it('refuses a snapshot missing Art. 6 sections', async () => {
@@ -223,6 +304,26 @@ describe('first refresh against the production GA seed (migrations/seed-state-la
       'O.C.G.A. Section 44-3-236',
     ])
     expect(plan.unchanged).toEqual([])
+  })
+
+  it('the first run on or after 2027-01-01 rewrites only the four amended sections and adds SB 406 § 2', async () => {
+    const before = await georgiaAdapter({ now: BEFORE_EXPIRY }).fetchSections()
+    const loaded: ExistingStatuteRow[] = before.records.map((r, i) => ({
+      id: `ga-${i}`,
+      code_citation: r.code_citation,
+      title: r.title,
+      category: r.category,
+      body: r.body,
+      source_url: r.source_url,
+      source_name: before.sourceName,
+      content_hash: statuteContentHash(r.body),
+      superseded_at: null,
+    }))
+    const { sourceName, records } = await georgiaAdapter({ now: SB406_DAY }).fetchSections()
+    const plan = planStatuteSync({ state: 'GA', sourceName, records, existing: loaded, covers: georgiaCovers })
+    expect(plan.writes.filter((w) => w.kind === 'changed').map((w) => w.record.code_citation)).toEqual(SB406_AMENDED)
+    expect(plan.writes.filter((w) => w.kind === 'added').map((w) => w.record.code_citation)).toEqual(['Ga. L. 2026, SB 406, § 2'])
+    expect(plan.removals).toEqual([])
   })
 
   it('a second run over the text it just wrote is a no-op', async () => {

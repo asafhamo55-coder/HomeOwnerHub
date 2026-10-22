@@ -30,8 +30,10 @@ import {
  *    fallback don't need them). CI's schema replay has no GA statutes of
  *    its own, so this is what fills the `ga-legal` shot. state_statutes is
  *    global (not per-org), so the rows serve every GA org in the stack.
- *    From the snapshot's @valid_until (2027-01-01) the adapter refuses to
- *    serve superseded law; this part then fails soft and logs it.
+ *    The adapter serves the records in force on the run's date (SB 406's
+ *    2027 text from 2027-01-01). From the snapshot's @valid_until
+ *    (2027-07-01) it refuses to serve possibly superseded law; this part
+ *    then fails soft and logs it.
  *
  * CI-only throwaway Supabase. Idempotent (find-or-create); fail-soft per
  * part, so one failed part still returns the vars the others produced.

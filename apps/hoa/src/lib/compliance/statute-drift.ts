@@ -33,6 +33,11 @@
  *   GA — ga-ocga-44-3-art6-2026.txt: O.C.G.A. §§ 44-3-223 and 44-3-232(b)–(c)
  *        (the text in force until January 1, 2027), and Ga. L. 2026,
  *        SB 406 § 7 (attorney's fees; in force July 1, 2026).
+ *        ga-sb406-2026-2027-text.txt (BL-154): SB 406 as passed, the text in
+ *        force from January 1, 2027 — § 5's § 44-3-232(c) (60 days, the new
+ *        foreclosure threshold, six years) and § 2's § 43-17A-1(10) and
+ *        § 43-17A-8 (the order payments are applied in). Each GA rule picks
+ *        its text by the letter date.
  *        ga-sb406-2026-registration.txt: O.C.G.A. § 43-17A-2(a)(2)(A) and
  *        (B)(ii), and SB 406 § 9(a) (BL-149, the registration bar: a
  *        warning before Jan 1, 2027, a block from that day, on fines,
@@ -59,6 +64,8 @@ const TX_0064_FILE = 'tx-prop-209-2026.txt'
 const TX_0062_FILE = 'tx-prop-209-0062-2026.txt'
 const TX_006_FILE = 'tcss-pr209-2026-excerpt.htm'
 const GA_FILE = 'ga-ocga-44-3-art6-2026.txt'
+/** SB 406's enacted text in force from 2027-01-01 (BL-154). */
+export const GA_SB406_2027_FILE = 'ga-sb406-2026-2027-text.txt'
 const GA_SB406_FILE = 'ga-sb406-2026-registration.txt'
 
 export const CA_5850_CAP: DriftCitation = {
@@ -237,6 +244,52 @@ export const GA_SB406_IN_FORCE: DriftCitation = {
   fixture: GA_SB406_FILE,
 }
 
+/** BL-154: § 44-3-232(c) as SB 406 § 5 revises it, in force January 1, 2027. */
+export const GA_232C_2027_NOTICE: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c) (as revised by SB 406 § 5, from January 1, 2027)',
+  quote:
+    'Not less than 60 days after notice is sent by certified mail or statutory overnight delivery, return receipt requested, to the lot owner both at the address of the lot and at any other address or addresses which the lot owner may have designated to the association in writing, the lien may be foreclosed by the association by an action, judgment, and court order for foreclosure in the same manner as other liens for the improvement of real property',
+  fixture: GA_SB406_2027_FILE,
+}
+export const GA_232C_2027_CONTENTS: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c) (as revised by SB 406 § 5, from January 1, 2027)',
+  quote:
+    'The notice provided for in this subsection shall specify the amount of the assessments then due and payable together with authorized late charges and the rate of interest accruing thereon and shall state that payment of such amount prior to the sixtieth day following receipt of the notice will eliminate the right of foreclosure.',
+  fixture: GA_SB406_2027_FILE,
+}
+export const GA_232C_2027_MINIMUM: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c) (as revised by SB 406 § 5, from January 1, 2027)',
+  quote:
+    'No foreclosure action against a lien arising out of this subsection shall be permitted unless the amount of the lien is at least the lesser of $4,000.00 or an amount equal to 12 months of regular assessments, as such term is defined in Code Section 43-17A-1, in arrears but not less than $2,000.00; provided, however, that no specific assessment, as such term is defined in Code Section 43-17A-1, or other fine or fee shall be included in the calculation of the amount of such lien.',
+  fixture: GA_SB406_2027_FILE,
+}
+export const GA_232C_2027_LAPSE: DriftCitation = {
+  cite: 'O.C.G.A. § 44-3-232(c) (as revised by SB 406 § 5, from January 1, 2027)',
+  quote:
+    'The lien for assessments shall lapse and be of no further effect, as to assessments or installments thereof, together with late charges and interest applicable thereto, six years after the assessment or installment first became due and payable.',
+  fixture: GA_SB406_2027_FILE,
+}
+/** BL-154: why late charges and fines don't count toward the 2027 threshold. */
+export const GA_17A1_SPECIFIC: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-1(10) (Ga. L. 2026, SB 406 § 2, from January 1, 2027)',
+  quote:
+    "'Specific assessments' means an assessment imposed on an owner for: (A) Costs incurred by the owners' association to repair or remediate damage caused by such owner to the owners' association, which may include, but shall not be limited to, damage to common areas; or (B) Fees or fines for nonpayment, insufficient payment, or untimely payment of any assessment or for violation of a covenant of the owners' association.",
+  fixture: GA_SB406_2027_FILE,
+}
+/** BL-154: the order every payment must be applied in, from January 1, 2027. */
+export const GA_17A8_ORDER: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-8(a) (Ga. L. 2026, SB 406 § 2, from January 1, 2027)',
+  quote:
+    "All funds remitted by an owner to an owners' association shall be applied by such owners' association to the following expenses by ranking of highest to lowest priority as follows: (1) Regular assessments or dues until current; (2) Special assessments until current; (3) Specific assessments until current; and (4) Other fees and fines.",
+  fixture: GA_SB406_2027_FILE,
+}
+export const GA_17A8_NO_REFUSAL: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-8(b) (Ga. L. 2026, SB 406 § 2, from January 1, 2027)',
+  quote:
+    "No owners' association shall: (1) Refuse to accept payment from an owner in any amount for any assessment; or (2) Assess or collect accelerated assessments against any owner.",
+  fixture: GA_SB406_2027_FILE,
+}
+
 /** Every quote this module can show — what statute-drift.test.ts checks against the fixtures. */
 export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
   CA_5850_CAP,
@@ -269,6 +322,13 @@ export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
   GA_232C_CONTENTS,
   GA_232C_MINIMUM,
   GA_232C_LAPSE,
+  GA_232C_2027_NOTICE,
+  GA_232C_2027_CONTENTS,
+  GA_232C_2027_MINIMUM,
+  GA_232C_2027_LAPSE,
+  GA_17A1_SPECIFIC,
+  GA_17A8_ORDER,
+  GA_17A8_NO_REFUSAL,
 ]
 
 /** SB 406 § 9(a): the registration bar is in force from this day (BL-149). */
@@ -285,6 +345,8 @@ export const FINE_OR_FEE_TYPES = ['fine', 'late_fee', 'lien_filing', 'collection
 
 /** SB 406 § 9(b): § 7 is in force from this day. */
 export const GA_SB406_FEES_FROM = '2026-07-01'
+/** SB 406 § 9(a): §§ 2–6 are in force from this day (the 2027 text of § 44-3-232(c), ch. 43-17A). */
+export const GA_SB406_2027_FROM = '2027-01-01'
 /** § 720.305(2): $100 per violation, $1,000 in the aggregate. */
 export const FL_FINE_CAP_CENTS = 10_000
 export const FL_FINE_AGGREGATE_CENTS = 100_000
@@ -339,6 +401,7 @@ export const DRIFT_CODES = [
   'ga_fee_notice_delivery',
   'ga_attorney_fees_receipt',
   'ga_foreclosure_notice_delivery',
+  'ga_payment_order',
 ] as const
 export type DriftCode = (typeof DRIFT_CODES)[number]
 
@@ -398,7 +461,7 @@ export const NOT_LOADED: Record<string, { fine: string[]; letter: string[] }> = 
   GA: {
     fine: [],
     letter: [
-      'Applying payments to dues first: in SB 406 § 2 (new O.C.G.A. ch. 43-17A), in force January 1, 2027, and not loaded here.',
+      'How this account’s payments were applied: from January 1, 2027, § 43-17A-8 (SB 406 § 2) sets the order, but HomeownerHub doesn’t check the order past payments were applied in.',
     ],
   },
 }
@@ -847,13 +910,27 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
         )
       }
     }
+    const sb406In2027 = input.letterDate >= GA_SB406_2027_FROM
     if (input.kind === 'ga_pre_foreclosure') {
       findings.push(
         finding(
           'ga_foreclosure_notice_delivery',
           'warn',
-          'Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the owner at the lot’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than 30 days after it is sent. HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.',
-          [GA_232C_NOTICE],
+          `Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the owner at the lot’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than ${sb406In2027 ? 60 : 30} days after it is sent. HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.`,
+          [sb406In2027 ? GA_232C_2027_NOTICE : GA_232C_NOTICE],
+        ),
+      )
+    }
+    // BL-154: from January 1, 2027 every payment is applied dues first
+    // (§ 43-17A-8). The app can't see the order past payments were applied
+    // in, and that order decides which charges are still unpaid.
+    if (sb406In2027) {
+      findings.push(
+        finding(
+          'ga_payment_order',
+          'warn',
+          'Since January 1, 2027, Georgia requires every payment to be applied to regular assessments (dues) first, then special assessments, then specific assessments, then other fees and fines, and an association may not refuse a payment in any amount for an assessment. HomeownerHub doesn’t check how this account’s payments were applied. Before sending, confirm they were applied in that order: it can change which charges are still unpaid.',
+          [GA_17A8_ORDER, GA_17A8_NO_REFUSAL],
         ),
       )
     }

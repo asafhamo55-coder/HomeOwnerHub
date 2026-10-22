@@ -76,8 +76,13 @@ describe('Georgia (O.C.G.A. § 44-3, Article 6 snapshot)', () => {
     expect(article.match(/notice of assessment/g)).toHaveLength(1)
   })
 
-  it('the snapshot is valid only until 2027-01-01 (SB 406 §§ 3–6 not applied)', () => {
-    expect(gaText).toContain('@valid_until: 2027-01-01')
+  it('the snapshot carries SB 406’s 2027 text as dated records and is valid until 2027-07-01 (BL-154)', () => {
+    expect(gaText).toContain('@valid_until: 2027-07-01')
+    // SB 406 § 2 (in force 2027-01-01) sets the order payments are applied in and bars refusing a payment, but
+    // no notice period, cap or owner vote for a dues change: the dues-rate rule above is unchanged by it.
+    const ch17A = gaText.slice(gaText.indexOf('=== Ga. L. 2026, SB 406, § 2 |'))
+    expect(ch17A).toContain('@effective_date: 2027-01-01')
+    expect(ch17A).not.toMatch(/notice of (any )?(increase|change) in|percent greater|increase in (the )?(regular )?assessments/i)
   })
 })
 

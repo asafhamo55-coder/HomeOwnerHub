@@ -116,7 +116,12 @@ describe('the day counts come from the quoted text', () => {
 
 describe('what is NOT loaded stays "check your governing documents"', () => {
   it('Georgia Article 6 has no nomination, secret-ballot, inspector or challenge rule', () => {
-    const article = norm(gaText.slice(gaText.indexOf('=== O.C.G.A. Section 44-3-220')))
+    // The text in force before 2027 (BL-154: the dated 2027 records follow it).
+    const article = norm(gaText.slice(gaText.indexOf('=== O.C.G.A. Section 44-3-220'), gaText.lastIndexOf('=== O.C.G.A. Section 44-3-222 |')))
+    // SB 406's 2027 text adds no election rule either: its one new "challenge" is discriminatory practices (§ 43-17A-7(12)).
+    const in2027 = norm(gaText.slice(gaText.lastIndexOf('=== O.C.G.A. Section 44-3-222 |')))
+    expect(in2027).not.toMatch(/\bnominat|secret ballot|inspector|\belection results\b/i)
+    expect(in2027.match(/challeng[a-z]* (?!the validity)[a-z]+/gi)).toEqual(['Challenge discriminatory'])
     expect(article).not.toMatch(/\bnominat/i) // "denominated" (§ 44-3-221) is not a nomination
     expect(article).not.toMatch(/secret ballot/i)
     expect(article).not.toMatch(/inspector/i)
@@ -124,7 +129,7 @@ describe('what is NOT loaded stays "check your governing documents"', () => {
     // The one "challenging" is about amending the instrument (§ 44-3-226), not an election.
     expect(article.match(/challeng/gi)).toHaveLength(1)
     expect(gaSection('44-3-226')).toContain('the party challenging the validity of the adoption of the amendment')
-    expect(gaText).toContain('@valid_until: 2027-01-01')
+    expect(gaText).toContain('@valid_until: 2027-07-01')
   })
 
   it('Georgia Title 14 (nonprofit corporations) is not a fixture', () => {

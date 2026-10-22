@@ -39,7 +39,7 @@ export {
 } from './florida'
 export { californiaAdapter, pubinfoUrl, CA_MIN_SECTIONS } from './california'
 export { texasAdapter, texasChapterUrl, parseTexasChapter, TX_CHAPTERS, TX_MIN_SECTIONS } from './texas'
-export { georgiaAdapter, georgiaCovers, parseGeorgiaSnapshot, GA_MIN_SECTIONS } from './georgia'
+export { georgiaAdapter, georgiaCovers, gaRecordsInForce, parseGeorgiaSnapshot, GA_MIN_SECTIONS } from './georgia'
 
 export const SOURCE_STATES: readonly StatuteState[] = ['FL', 'CA', 'TX', 'GA']
 

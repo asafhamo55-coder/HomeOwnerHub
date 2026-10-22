@@ -16,7 +16,14 @@ import {
   FL_305_COMMITTEE,
   FL_305_VOTE,
   FL_3085_LATE_NOTICE,
+  GA_17A1_SPECIFIC,
+  GA_17A8_NO_REFUSAL,
+  GA_17A8_ORDER,
   GA_223_FINES,
+  GA_232C_2027_CONTENTS,
+  GA_232C_2027_LAPSE,
+  GA_232C_2027_MINIMUM,
+  GA_232C_2027_NOTICE,
   GA_232C_CONTENTS,
   GA_232C_LAPSE,
   GA_232C_MINIMUM,
@@ -25,6 +32,7 @@ import {
   GA_SB406_FEES,
   GA_SB406_ITEMIZED,
   GA_SB406_NOTICE,
+  GA_SB406_2027_FILE,
   GA_SB406_RECEIPT,
   OVERRIDE_REASON_CODES,
   STATUTE_OVERRIDE_ACTION,
@@ -81,9 +89,26 @@ const sb406Text = fixture('ga-sb406-2026-registration.txt')
 const gaSb406s2 = between(sb406Text, '=== SECTION 2. (new O.C.G.A. § 43-17A-2,', '\n=== ')
 const gaSb406s9 = between(sb406Text, '=== SECTION 9.', '\n=== ')
 const ga232 = between(gaText, '=== O.C.G.A. Section 44-3-232 |', '\n=== ')
+/** BL-154: SB 406's enacted 2027 text, from the official bill (struck words removed). */
+const sb406In2027 = fixture('ga-sb406-2026-2027-text.txt')
+const ga232c2027 = between(sb406In2027, '=== SECTION 5. (O.C.G.A. § 44-3-232(c)', '\n=== ')
+/** One section of the new chapter, from its heading line to the next one ("43-17A-2." also appears inside (4)). */
+const ch17A = (n: number) => between(sb406In2027, `\n43-17A-${n}.\n`, `\n43-17A-${n + 1}.\n`)
+/** The snapshot's dated 2027 records (what the State Law Brain serves from that day). */
+const gaDated = (cite: string) => {
+  const head = gaText.lastIndexOf(`=== ${cite} |`)
+  expect(gaText.slice(head).split('\n').slice(0, 3).join('\n')).toContain('@effective_date: 2027-01-01')
+  return squash(gaText.slice(head, gaText.indexOf('\n=== ', head + 1) === -1 ? undefined : gaText.indexOf('\n=== ', head + 1)))
+}
+const plainQuotes = (s: string) => s.replace(/[’‘]/g, "'").replace(/[“”]/g, "'")
 
 /** The cited section's text, so a quote can't pass by matching a different section. */
 function sectionFor(c: DriftCitation): string {
+  if (c.fixture === GA_SB406_2027_FILE) {
+    if (c.cite.startsWith('O.C.G.A. § 44-3-232(c)')) return ga232c2027
+    if (c.cite.startsWith('O.C.G.A. § 43-17A-1(')) return ch17A(1)
+    if (c.cite.startsWith('O.C.G.A. § 43-17A-8(')) return ch17A(8)
+  }
   if (c.cite.startsWith('Cal. Civ. Code § 5850')) return caSection('5850')
   if (c.cite.startsWith('Cal. Civ. Code § 5855')) return caSection('5855')
   if (c.cite.startsWith('Fla. Stat. § 720.3085')) return flSection('Fla. Stat. § 720.3085')
@@ -146,6 +171,26 @@ describe('citations are verbatim from the fixtures, in the section they cite', (
       expect(at, q.quote).toBeLessThan(d)
     }
     expect(gaSb406s7).toContain('@effective_date: 2026-07-01')
+
+    // BL-154: the 2027 quotes, inside the subdivision they name.
+    expect(ga232c2027).toMatch(/^=== SECTION 5\. \(O\.C\.G\.A\. § 44-3-232\(c\), as revised\) \(c\) Not less than 60 days/)
+    expect(ga232c2027).toContain(`(c) ${GA_232C_2027_NOTICE.quote}`)
+    for (const q of [GA_232C_2027_CONTENTS, GA_232C_2027_MINIMUM, GA_232C_2027_LAPSE]) expect(ga232c2027).toContain(q.quote)
+    expect(ch17A(1)).toContain(`(10) ${GA_17A1_SPECIFIC.quote}`)
+    expect(ch17A(8)).toContain(`(a) ${GA_17A8_ORDER.quote}`)
+    expect(ch17A(8)).toContain(`(b) ${GA_17A8_NO_REFUSAL.quote}`)
+    expect(sb406In2027).toContain('https://www.legis.ga.gov/api/legislation/document/20252026/248665')
+  })
+
+  it('BL-154: every 2027 quote is also in the snapshot record the State Law Brain serves from that day', () => {
+    for (const q of [GA_232C_2027_NOTICE, GA_232C_2027_CONTENTS, GA_232C_2027_MINIMUM, GA_232C_2027_LAPSE]) {
+      expect(plainQuotes(gaDated('O.C.G.A. Section 44-3-232'))).toContain(q.quote)
+    }
+    for (const q of [GA_17A1_SPECIFIC, GA_17A8_ORDER, GA_17A8_NO_REFUSAL]) {
+      expect(plainQuotes(gaDated('Ga. L. 2026, SB 406, § 2'))).toContain(q.quote)
+    }
+    // The pre-2027 quotes are NOT the 2027 law.
+    for (const q of [GA_232C_NOTICE, GA_232C_MINIMUM, GA_232C_LAPSE]) expect(ga232c2027).not.toContain(q.quote)
     expect(ga223).toContain(GA_223_FINES.quote)
   })
 
@@ -155,11 +200,9 @@ describe('citations are verbatim from the fixtures, in the section they cite', (
     expect(t).toContain('Retrieved 2026-10-20.')
   })
 
-  it('what NOT_LOADED says is missing really is', () => {
-    // GA's payment-order rule is SB 406 § 2 (ch. 43-17A), in force 2027-01-01, and not in any GA fixture.
-    for (const f of ['ga-ocga-44-3-art6-2026.txt', 'ga-sb406-2026-registration.txt']) {
-      expect(fixture(f)).not.toMatch(/order of priority|priority of application/i)
-    }
+  it('BL-154: GA’s payment order is loaded now (§ 43-17A-8), but how past payments were applied is not checked', () => {
+    expect(ch17A(8)).toContain('by ranking of highest to lowest priority')
+    expect(checkCollectionsLetter(letter({ state: 'GA' })).notLoaded.join(' ')).toContain('doesn’t check the order past payments were applied in')
   })
 })
 
@@ -319,6 +362,29 @@ describe('collections letters — Georgia (SB 406 § 7), Florida (§ 720.3085(3)
 
   it('GA (BL-148): the pre-foreclosure notice warns about certified mail to every address', () => {
     expect(codes(checkCollectionsLetter(letter({ state: 'GA', kind: 'ga_pre_foreclosure' })))).toEqual(['warn:ga_foreclosure_notice_delivery'])
+  })
+
+  it('GA (BL-154): on Dec 31, 2026 the pre-foreclosure warning is the 30-day text; from Jan 1, 2027 the 60-day text', () => {
+    const at = (letterDate: string) =>
+      checkCollectionsLetter(letter({ state: 'GA', kind: 'ga_pre_foreclosure', letterDate, gaRegistration: { status: 'registered' } }))
+    const before = at('2026-12-31').findings.find((f) => f.code === 'ga_foreclosure_notice_delivery')!
+    expect(before.message).toContain('no sooner than 30 days')
+    expect(before.citations).toEqual([GA_232C_NOTICE])
+    const after = at('2027-01-01').findings.find((f) => f.code === 'ga_foreclosure_notice_delivery')!
+    expect(after.message).toContain('no sooner than 60 days')
+    expect(after.citations).toEqual([GA_232C_2027_NOTICE])
+  })
+
+  it('GA (BL-154): every GA letter from Jan 1, 2027 warns about the payment order, never before, never blocking', () => {
+    for (const kind of ['past_due', 'ga_fee_notice', 'ga_pre_foreclosure']) {
+      const at = (letterDate: string) => checkCollectionsLetter(letter({ state: 'GA', kind, letterDate, gaRegistration: { status: 'registered' } }))
+      expect(codes(at('2026-12-31'))).not.toContain('warn:ga_payment_order')
+      const c = at('2027-01-01')
+      expect(codes(c)).toContain('warn:ga_payment_order')
+      expect(c.findings.find((f) => f.code === 'ga_payment_order')!.citations).toEqual([GA_17A8_ORDER, GA_17A8_NO_REFUSAL])
+      expect(blockingFindings(c)).toEqual([])
+    }
+    expect(codes(checkCollectionsLetter(letter({ state: 'FL', letterDate: '2027-01-01' })))).not.toContain('warn:ga_payment_order')
   })
 
   it('GA: the dues-first rule is listed as not loaded', () => {

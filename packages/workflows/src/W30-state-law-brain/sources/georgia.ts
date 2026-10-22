@@ -14,11 +14,18 @@
 // The refresh job treats it like any other source: unchanged text only
 // touches last_checked_at; a refreshed snapshot shows up as `changed`.
 //
+// Dated records (BL-154): a citation may appear more than once, each with
+// its own @effective_date (SB 406 §§ 2–6 take effect 2027-01-01).
+// fetchSections serves, per citation, the latest record whose effective
+// date has arrived (gaRecordsInForce), so the weekly refresh switches the
+// amended sections to the 2027 text by itself, and a record that is not yet
+// in force (SB 406 § 2 before 2027) is not served at all.
+//
 // Expiry: the snapshot carries @valid_until, the first date on which an Act
-// it does not include takes effect (SB 406 §§ 3–6 on 2027-01-01). From that
-// date fetchSections throws instead of serving superseded law. The refresh
-// job reports GA as failed and leaves the loaded rows untouched — loud, and
-// never "every section was repealed".
+// it may not include takes effect. From that date fetchSections throws
+// instead of serving superseded law. The refresh job reports GA as failed
+// and leaves the loaded rows untouched — loud, and never "every section was
+// repealed".
 //
 // Citations use the form already in production ("O.C.G.A. Section
 // 44-3-232", from migrations/seed-state-law-ga.sql), so the first run
@@ -73,6 +80,7 @@ export const GA_CATEGORY: Readonly<Record<string, string>> = {
   'O.C.G.A. Section 44-3-234': 'governance', // Application of article
   'O.C.G.A. Section 44-3-235': 'governance', // Applicability of article
   'Ga. L. 2026, SB 406, § 7': 'dues', // Attorney's-fee prerequisites in collection actions
+  'Ga. L. 2026, SB 406, § 2': 'governance', // New ch. 43-17A: registration, owners' rights, payment order (2027-01-01)
 }
 
 export interface GeorgiaSnapshot {
@@ -154,14 +162,37 @@ export function parseGeorgiaSnapshot(text: string): GeorgiaSnapshot {
   for (const key of ['retrieved', 'valid_until'] as const) {
     if (!DATE_RE.test(meta[key])) throw new Error(`GA snapshot: malformed @${key}`)
   }
-  const seen = new Set<string>()
+  // A citation may repeat only as a later-dated version: each repeat needs an
+  // @effective_date after every earlier record's for that citation.
+  const latest = new Map<string, string>()
   for (const r of records) {
     if (!georgiaCovers(r.code_citation)) throw new Error(`GA snapshot: citation outside the adapter's scope: ${r.code_citation}`)
-    if (seen.has(r.code_citation)) throw new Error(`GA snapshot: duplicate citation ${r.code_citation}`)
-    seen.add(r.code_citation)
+    const prev = latest.get(r.code_citation)
+    if (prev !== undefined && (r.effective_date === null || r.effective_date <= prev)) {
+      throw new Error(`GA snapshot: duplicate citation ${r.code_citation} (a repeat needs a later @effective_date)`)
+    }
+    latest.set(r.code_citation, r.effective_date ?? '')
   }
 
   return { sourceName: meta.source_name, retrieved: meta.retrieved, validUntil: meta.valid_until, records }
+}
+
+/**
+ * The records in force on `today` (YYYY-MM-DD): per citation, the latest
+ * record whose @effective_date is on or before `today` (no date = in force
+ * since before the snapshot). Citations with no record in force yet are
+ * left out. Order follows the snapshot's first record of each citation.
+ */
+export function gaRecordsInForce(records: readonly StatuteRecord[], today: string): StatuteRecord[] {
+  const pick = new Map<string, StatuteRecord>()
+  for (const r of records) {
+    if (r.effective_date !== null && r.effective_date > today) continue
+    const cur = pick.get(r.code_citation)
+    if (!cur || (r.effective_date ?? '') > (cur.effective_date ?? '')) pick.set(r.code_citation, r)
+  }
+  const order: string[] = []
+  for (const r of records) if (pick.has(r.code_citation) && !order.includes(r.code_citation)) order.push(r.code_citation)
+  return order.map((c) => pick.get(c)!)
 }
 
 // ─── Adapter ────────────────────────────────────────────────────────
@@ -188,11 +219,12 @@ export function georgiaAdapter(opts: GeorgiaAdapterOptions = {}): StateLawAdapte
             `(data/statutes/README.md, "Georgia snapshot").`,
         )
       }
-      const codified = snap.records.filter((r) => SECTION_CITATION_RE.test(r.code_citation))
+      const records = gaRecordsInForce(snap.records, today)
+      const codified = records.filter((r) => SECTION_CITATION_RE.test(r.code_citation))
       if (codified.length < GA_MIN_SECTIONS) {
         throw new SourceUnavailableError(`GA snapshot: ${codified.length} sections (< ${GA_MIN_SECTIONS})`)
       }
-      return { sourceName: snap.sourceName, records: snap.records }
+      return { sourceName: snap.sourceName, records }
     },
   }
 }

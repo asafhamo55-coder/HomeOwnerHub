@@ -7,7 +7,7 @@
  * law.test.ts checks every quote word for word against it.
  *
  * GEORGIA (launch state) — ga-ocga-44-3-art6-2026.txt, the Property
- *   Owners' Association Act (snapshot valid until 2027-01-01):
+ *   Owners' Association Act (snapshot valid until 2027-07-01; SB 406's 2027 text as dated records):
  *   - § 44-3-230(a), last sentence: at the annual meeting, "comprehensive
  *     reports of the affairs, finances, and budget projections of the
  *     association shall be made to the lot owners".
