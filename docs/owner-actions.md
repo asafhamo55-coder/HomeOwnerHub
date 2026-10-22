@@ -41,24 +41,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-29 · Give the app's Vercel build more memory (deploys are stuck)
-
-**Urgency:** Urgent
-
-**Why it matters:** the last deploy ran out of memory on Vercel (exit 137)
-during `next build`'s type-check, so production is still on the Oct 21 21:51
-build. Merged and waiting: dues rates, the late-fee policy (no fee until a
-board saves one), join requests, Georgia letters, the GA registration kit,
-the GA annual report, and the fix for the dashboard Refresh error. Claude's
-permissions don't allow it to change Vercel environment variables.
-
-**Steps:**
-
-1. In Vercel, open the project **home-owner-hub-hoa** → **Settings → Environment Variables**.
-2. Add `NODE_OPTIONS` with the value `--max-old-space-size=6144`, as a plain (not sensitive) variable, for **Production** and **Preview**. Save.
-3. Open **Deployments**, find the newest deployment of branch `claude/phase1-homeownerhub-setup-MILNu` (commit 86994ea8, status Error), and click **Redeploy**.
-4. Tell Claude it's done. Claude watches /api/health and finishes the deploy.
-
 ### OA-30 · Point www.homeownerledger.online at the marketing website
 
 **Urgency:** Soon
@@ -75,6 +57,17 @@ The app itself stays at www.homeownerledger.com (OA-5 stays paused).
 2. In Vercel, project **home-owner-hub-hoa** → **Settings → Domains**: remove `www.homeownerledger.online`. Leave `homeownerledger.online` as it is.
 3. In Vercel, project **homeownerhub-marketing** → **Settings → Domains**: add `www.homeownerledger.online` (no redirect). Wait for the green "Valid Configuration".
 4. Tell Claude it's done. Claude checks the site loads with a certificate and switches the site's canonical address to it.
+
+### OA-31 · Restore one SQL file on your Mac (if you didn't empty it on purpose)
+
+**Urgency:** Whenever
+
+**Why it matters:** at the end of the Oct 22 session the local copy of `docs/specs/2026-10-20-inbound-auth.sql` (the inbound sender-check SQL, already applied) was emptied. The emptying was never committed, so GitHub still has the full file. Claude's permissions don't allow it to discard local changes.
+
+**Steps:**
+
+1. In the Claude Code prompt in the repo, type `! git checkout -- docs/specs/2026-10-20-inbound-auth.sql`.
+2. Nothing to report back; Claude sees the file restored.
 
 ### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
@@ -144,6 +137,12 @@ and checkout instead of HomeownerHub.
 **Why it matters:** production only has Georgia's HOA law loaded. Until Florida, California and Texas are loaded, the app says "<State> state law isn't loaded yet" instead of answering law questions for those states. It never answers from memory. Georgia's loaded rows are paraphrased summaries; running GA once replaces them with the statute's exact words (Property Owners' Association Act, 17 sections, plus the 2026 attorney's-fee rule).
 
 **Ready now:** the CA/TX loaders went live on 2026-10-20 at 12:31 ET (deploy 7b1c601b).
+
+**Where it stands (2026-10-22):** steps 1–2 are done (all four states queued from Safari on 2026-10-21). Only the check is left: in the Supabase SQL editor (production) run this read-only query and send Claude the result:
+
+`SELECT state, count(*) FILTER (WHERE superseded_at IS NULL) AS current_sections, count(*) FILTER (WHERE superseded_at IS NOT NULL) AS retired, max(last_checked_at) FROM public.state_statutes WHERE state IN ('GA','FL','CA','TX') GROUP BY state;`
+
+Expected: GA 18 current (+2 retired), FL 36, CA 234, TX 61.
 
 **Steps:**
 
@@ -359,6 +358,26 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-29 · Give the app's Vercel build more memory (deploys are stuck)
+
+**Done 2026-10-22:** Asaf added `NODE_OPTIONS` in Vercel; Claude redeployed by pushing the prod branch.
+
+**Urgency:** Urgent
+
+**Why it matters:** the last deploy ran out of memory on Vercel (exit 137)
+during `next build`'s type-check, so production is still on the Oct 21 21:51
+build. Merged and waiting: dues rates, the late-fee policy (no fee until a
+board saves one), join requests, Georgia letters, the GA registration kit,
+the GA annual report, and the fix for the dashboard Refresh error. Claude's
+permissions don't allow it to change Vercel environment variables.
+
+**Steps:**
+
+1. In Vercel, open the project **home-owner-hub-hoa** → **Settings → Environment Variables**.
+2. Add `NODE_OPTIONS` with the value `--max-old-space-size=6144`, as a plain (not sensitive) variable, for **Production** and **Preview**. Save.
+3. Open **Deployments**, find the newest deployment of branch `claude/phase1-homeownerhub-setup-MILNu` (commit 86994ea8, status Error), and click **Redeploy**.
+4. Tell Claude it's done. Claude watches /api/health and finishes the deploy.
 
 ### OA-28 · Apply database update 0069 (dues rates, join requests, compliance evidence)
 
