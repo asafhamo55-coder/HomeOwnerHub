@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import { SHIPPED_FEATURES } from './features'
 import { SHIPPED_HOA_WORKFLOWS, WORKFLOWS, BAR_TARGETS } from './workflows'
-import { DEFAULT_SITE_ORIGIN, SITE_ORIGIN, pageMetadata, siteOrigin } from './site'
+import { DEFAULT_SITE_ORIGIN, SITEMAP_PATHS, SITE_ORIGIN, isIndexable, pageMetadata, siteOrigin } from './site'
 import { DEFAULT_APP_ORIGIN, appOrigin } from './app-origin'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -235,25 +235,53 @@ describe('legal pages: HOA-only scope (BL-107)', () => {
 })
 
 describe('metadata: one site origin, canonical URLs, OG on every page', () => {
-  it('the site origin is www.homeownerledger.com unless a preview sets its own', () => {
-    expect(DEFAULT_SITE_ORIGIN).toBe('https://www.homeownerledger.com')
+  it('the site origin is www.homeownerledger.online unless a preview sets its own', () => {
+    expect(DEFAULT_SITE_ORIGIN).toBe('https://www.homeownerledger.online')
     expect(siteOrigin(undefined)).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('not a url')).toBe(DEFAULT_SITE_ORIGIN)
+    expect(siteOrigin('https://www.homeownerledger.online/x')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://homeownerhub.vercel.app/x')).toBe('https://homeownerhub.vercel.app')
-    // Never the app host, never a domain we don't own.
+    // Never an app host (the app is www.homeownerledger.com; the .online
+    // apex serves the app too), never a domain we don't own.
+    expect(siteOrigin('https://www.homeownerledger.com')).toBe(DEFAULT_SITE_ORIGIN)
+    expect(siteOrigin('https://homeownerledger.com')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://homeownerledger.online')).toBe(DEFAULT_SITE_ORIGIN)
-    expect(siteOrigin('https://app.homeownerledger.com')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://ledger.ai')).toBe(DEFAULT_SITE_ORIGIN)
     expect(SITE_ORIGIN).toMatch(/^https?:\/\//)
   })
 
-  it('the app origin is homeownerledger.online unless the env sets one', () => {
-    // Never www: marketing serves www, so a www app origin would loop
-    // (docs/specs/2026-10-19-domain-split.md).
-    expect(DEFAULT_APP_ORIGIN).toBe('https://homeownerledger.online')
+  it('the app origin is www.homeownerledger.com unless the env sets one', () => {
+    // BL-157: the app stays on www.homeownerledger.com; sign-in and sign-up
+    // links go there, never to this site.
+    expect(DEFAULT_APP_ORIGIN).toBe('https://www.homeownerledger.com')
     expect(appOrigin(undefined)).toBe(DEFAULT_APP_ORIGIN)
-    expect(appOrigin('https://homeownerledger.online/login')).toBe('https://homeownerledger.online')
+    expect(appOrigin('https://www.homeownerledger.com/login')).toBe('https://www.homeownerledger.com')
+  })
+
+  it('only the production origin is indexable', () => {
+    expect(isIndexable(DEFAULT_SITE_ORIGIN)).toBe(true)
+    expect(isIndexable('https://homeownerhub.vercel.app')).toBe(false)
+    expect(isIndexable('http://localhost:3030')).toBe(false)
+  })
+
+  it('robots.txt and the sitemap come from the site origin', () => {
+    const robots = code('app/robots.ts')
+    expect(robots).toMatch(/isIndexable\(\)/)
+    expect(robots).toMatch(/sitemap: `\$\{SITE_ORIGIN\}\/sitemap\.xml`/)
+    const sitemap = code('app/sitemap.ts')
+    expect(sitemap).toMatch(/SITEMAP_PATHS/)
+    expect(sitemap).toMatch(/\$\{SITE_ORIGIN\}/)
+  })
+
+  it('no hard-coded app or site host in rendered code: both come from one constant', () => {
+    for (const rel of sourceFiles()) {
+      if (rel === 'lib/site.ts' || rel === 'lib/app-origin.ts') continue
+      const src = code(rel)
+      expect(src, `${rel} types homeownerledger.online`).not.toMatch(/homeownerledger\.online/)
+      // Email addresses on homeownerledger.com are fine; a URL is not.
+      expect(src, `${rel} types an app URL`).not.toMatch(/https?:\/\/(www\.)?homeownerledger\.com/)
+    }
   })
 
   it('the layout sets metadataBase from the site origin, with no canonical of its own', () => {
@@ -279,6 +307,10 @@ describe('metadata: one site origin, canonical URLs, OG on every page', () => {
     const src = read(rel)
     expect(src, `${rel} must build metadata with pageMetadata()`).toMatch(/pageMetadata\(/)
     expect(src).toContain(`path: '${route}'`)
+  })
+
+  it('the sitemap lists every rendered page, and nothing else', () => {
+    expect([...SITEMAP_PATHS].sort()).toEqual(rendered.map((p) => p.route).sort())
   })
 
   it('a default OG image exists for every route', () => {

@@ -1,22 +1,24 @@
 // Where this marketing site lives, and the metadata every page shares.
 //
-// Domain split (docs/specs/2026-10-19-domain-split.md): this site serves
-// www.homeownerledger.com (the apex redirects to www); the HOA app serves
-// homeownerledger.online (see app-origin.ts). The site origin comes from
-// NEXT_PUBLIC_SITE_URL so a preview can set its own, and falls back to www.
-// It is never the app host, and never anything off our domain: canonical
-// URLs and OG images must point at the site people actually land on.
+// BL-157 (owner decision 2026-10-22, OA-30): this site serves
+// www.homeownerledger.online. The HOA app stays on www.homeownerledger.com
+// (see app-origin.ts); the apex homeownerledger.online also serves the app
+// (OA-5, paused), so it is not one of this site's hosts. The site origin
+// comes from NEXT_PUBLIC_SITE_URL so a preview can set its own, and falls
+// back to www.homeownerledger.online. It is never an app host, and never
+// anything off our domains: canonical URLs, the sitemap, robots.txt and OG
+// images must point at the site people actually land on.
 //
 // No "@/..." imports here: marketing-truth.test.ts imports this module, and
 // the root vitest config maps "@" to apps/hoa.
 
 import type { Metadata } from 'next'
 
-export const DEFAULT_SITE_ORIGIN = 'https://www.homeownerledger.com'
+export const DEFAULT_SITE_ORIGIN = 'https://www.homeownerledger.online'
 export const SITE_NAME = 'HomeownerHub'
 
 /** Hosts the marketing site may claim as its own origin. */
-const SITE_HOSTS: ReadonlySet<string> = new Set(['www.homeownerledger.com', 'homeownerledger.com'])
+const SITE_HOSTS: ReadonlySet<string> = new Set(['www.homeownerledger.online'])
 
 export function siteOrigin(configured: string | undefined = process.env.NEXT_PUBLIC_SITE_URL): string {
   const value = configured?.trim()
@@ -33,6 +35,44 @@ export function siteOrigin(configured: string | undefined = process.env.NEXT_PUB
 }
 
 export const SITE_ORIGIN = siteOrigin()
+
+/** The site's host without "www.", for display (e.g. the share image). */
+export const SITE_DISPLAY_HOST = new URL(SITE_ORIGIN).host.replace(/^www\./, '')
+
+/**
+ * Whether search engines may index this deployment: only the production
+ * origin. A preview (*.vercel.app) or localhost gets "Disallow: /" so it
+ * never competes with the real site.
+ */
+export function isIndexable(origin: string = SITE_ORIGIN): boolean {
+  return origin === DEFAULT_SITE_ORIGIN
+}
+
+/**
+ * Every page in the sitemap: the routes that render a page of their own.
+ * Redirect-only routes (/case-studies/madison-park) are left out, and so are
+ * /landlords and /eviction while the PM and Eviction hubs are not offered
+ * (BL-097; they redirect to /hoa). marketing-truth.test.ts checks this list
+ * against app/**\/page.tsx so a new page can't be forgotten.
+ */
+export const SITEMAP_PATHS = [
+  '/',
+  '/hoa',
+  '/pricing',
+  '/compare',
+  '/demo',
+  '/about',
+  '/roadmap',
+  '/honesty-bars',
+  '/case-studies',
+  '/security',
+  '/docs',
+  '/blog',
+  '/status',
+  '/privacy',
+  '/terms',
+  '/dpa',
+] as const
 
 /** The default OG image: app/opengraph-image.tsx, 1200x630. */
 export const OG_IMAGE_PATH = '/opengraph-image'

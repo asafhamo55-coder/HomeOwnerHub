@@ -1,11 +1,12 @@
-// Old app links on the marketing domain → the app on homeownerledger.online.
+// App links that land on the marketing site → the app (lib/app-origin.ts).
 //
-// Until the domain split (docs/specs/2026-10-19-domain-split.md) the HOA app
-// served www.homeownerledger.com, so every email already sitting in a
-// resident's inbox links there: magic links (/auth/callback), invites,
-// portal links (/resident/…, /communications/…), RFP and vendor links, and
-// the email images under /email/v1/. Once www serves this site those paths
-// would 404. middleware.ts sends them to the app with path and query intact.
+// BL-157: this site serves www.homeownerledger.online and the app stays on
+// www.homeownerledger.com. Until 2026-10-22 www.homeownerledger.online was
+// attached to the app project, and someone may type or bookmark an app path
+// on it (/login, /resident, a magic link pasted into the wrong tab). Those
+// paths would 404 here, so middleware.ts sends them to the app with path and
+// query intact. It is also what keeps the app reachable from here if the
+// app ever moves (OA-5).
 //
 // APP_PATH_SEGMENTS is every URL-visible top-level segment of apps/hoa/src/app
 // (route groups flattened). app-redirects.test.ts reads that directory and
@@ -65,14 +66,15 @@ export const APP_PATH_SEGMENTS = [
 const SEGMENTS: ReadonlySet<string> = new Set(APP_PATH_SEGMENTS)
 
 // Supabase SSR session cookie, possibly chunked (sb-<ref>-auth-token.0, .1).
-// Host-only, so on www it can only have been set by the app before the split.
+// Host-only, so on this site's host it can only have been set by the app
+// while the app served that host.
 const SUPABASE_SESSION_COOKIE = /^sb-[a-z0-9]+-auth-token(\.\d+)?$/
 
 export interface RedirectRequest {
   pathname: string
   /** Query string including the leading "?", or "". */
   search: string
-  /** Request host, e.g. "www.homeownerledger.com". */
+  /** Request host, e.g. "www.homeownerledger.online". */
   host: string
   cookieNames: readonly string[]
 }
@@ -84,9 +86,9 @@ export interface RedirectRequest {
  *
  * "/" is the one shared path: it is marketing's home page and the app's
  * dashboard (and the installed PWA's start_url). It goes to the app only for
- * a browser still carrying a session cookie from when the app lived here, so
- * a signed-in board member or a home-screen PWA lands in the app, and
- * everyone else sees the marketing site.
+ * a browser still carrying a session cookie from when the app served this
+ * host, so a signed-in board member lands in the app, and everyone else sees
+ * the marketing site.
  */
 export function appRedirectTarget(req: RedirectRequest, appOrigin: string): string | null {
   const app = new URL(appOrigin)

@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og'
+import { SITE_DISPLAY_HOST } from '@/lib/site'
 
 // The default share image for every marketing page (file convention: it
 // applies to this segment and all below it). Text only, in the brand blue,
@@ -36,7 +37,7 @@ export default function OpengraphImage() {
             The board runs the HOA.
           </div>
           <div style={{ marginTop: 28, fontSize: 30, color: '#475569' }}>
-            For self-managed HOA boards · homeownerledger.com
+            {`For self-managed HOA boards · Georgia first · ${SITE_DISPLAY_HOST}`}
           </div>
         </div>
         <div style={{ display: 'flex', height: 12, width: '100%', background: '#2563eb', borderRadius: 6 }} />
