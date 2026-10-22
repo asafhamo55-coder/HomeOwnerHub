@@ -4,8 +4,9 @@
  * BL-126: the opening-balance wizard. Four steps, all in the browser until
  * the last:
  *   1. start date and the bank balance of each fund;
- *   2. what each home owed (paste, a CSV file, or the roster import's
- *      balances), checked line by line against this association's homes;
+ *   2. what each home owed (paste, a CSV file, the roster import's
+ *      balances, or a CINC aging report previewed on the server), checked
+ *      line by line against this association's homes;
  *   3. prepaid assessments and unpaid bills (optional);
  *   4. review: the journal entry, balanced per fund, and the charges.
  * "Send to Approvals" calls proposeOpeningBalances, which rebuilds the same
@@ -47,6 +48,7 @@ import {
 import { clearRosterBalances, readRosterBalances, type RosterBalance } from '@/lib/accounting/opening-balances/handoff'
 import { proposeOpeningBalances } from '@/lib/accounting/opening-balances/actions'
 import type { OpeningPeriod } from '@/lib/accounting/opening-balances/load'
+import { CincAgingImport, type CincAgingUse } from './CincAgingImport'
 
 const STEPS = [
   { id: 'bank', label: 'Bank balances' },
@@ -96,13 +98,21 @@ export function OpeningBalancesWizard({
   const [fileError, setFileError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [serverErrors, setServerErrors] = React.useState<string[]>([])
+  // BL-031: balances taken from a CINC aging report replace the paste box.
+  const [aging, setAging] = React.useState<CincAgingUse | null>(null)
 
   React.useEffect(() => {
     setRoster(readRosterBalances())
   }, [])
 
   const unitIds = React.useMemo(() => new Set(units.map((u) => u.id)), [units])
-  const parsedHomes = React.useMemo(() => parseHomeBalances(homesText, units), [homesText, units])
+  const parsedHomes = React.useMemo(
+    () =>
+      aging
+        ? { rows: aging.rows.map((r) => ({ line: r.line, unitId: r.unitId, label: r.label, cents: r.cents })), errors: [], zero: aging.zero }
+        : parseHomeBalances(homesText, units),
+    [aging, homesText, units],
+  )
   const period = periods.find((p) => p.start_date <= cutover && cutover <= p.end_date) ?? null
 
   const cashErrors = books.funds.filter((f) => amountOf(cash[f.fundId] ?? '') === null).map((f) => f.fundId)
@@ -142,6 +152,12 @@ export function OpeningBalancesWizard({
     setHomesText(rosterBalancesText(roster))
     clearRosterBalances()
     setRoster(null)
+  }
+
+  const applyAging = (use: CincAgingUse) => {
+    setAging(use)
+    // A credit is money an owner paid ahead: suggest it as prepaid, never overwrite what was typed.
+    if (use.creditCents > 0 && prepaid.trim() === '') setPrepaid((use.creditCents / 100).toFixed(2))
   }
 
   const submit = async () => {
@@ -245,7 +261,18 @@ export function OpeningBalancesWizard({
                 under Accounts, or skip this step.
               </Alert>
             ) : null}
-            {roster ? (
+            {aging ? (
+              <Alert variant="info" title="Balances from your CINC aging report">
+                Using {aging.rows.length.toLocaleString('en-US')} {aging.rows.length === 1 ? 'home' : 'homes'} matched from the report.
+                {aging.creditCents > 0 ? ` Credits of ${centsToUsd(aging.creditCents)} are suggested as prepaid assessments in step 3.` : ''}
+                <span className="mt-3 block">
+                  <Button size="sm" variant="secondary" onClick={() => setAging(null)}>
+                    Clear and enter balances another way
+                  </Button>
+                </span>
+              </Alert>
+            ) : null}
+            {!aging && roster ? (
               <Alert variant="info" title="Balances from your roster import">
                 Your roster import had balances for {roster.length.toLocaleString('en-US')} {roster.length === 1 ? 'home' : 'homes'}.
                 <span className="mt-3 block">
@@ -255,32 +282,37 @@ export function OpeningBalancesWizard({
                 </span>
               </Alert>
             ) : null}
-            <Field
-              label="Homes and amounts"
-              hint="Paste from a spreadsheet or type: home, amount — for example “12 Oak Street, 450.00” or “Unit 7, 1,200”. Columns address, unit, amount work too, with or without a heading row."
-            >
-              <Textarea rows={8} value={homesText} onChange={(e) => setHomesText(e.target.value)} spellCheck={false} />
-            </Field>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button variant="secondary" size="sm" asChild>
-                <label className="cursor-pointer">
-                  <Upload aria-hidden />
-                  Upload a CSV
-                  <input
-                    type="file"
-                    accept=".csv,.txt,.tsv,text/csv"
-                    className="sr-only"
-                    onChange={(e) => {
-                      void onFile(e.target.files?.[0])
-                      e.target.value = ''
-                    }}
-                  />
-                </label>
-              </Button>
-              {fileError ? <p className="text-xs font-medium text-danger">{fileError}</p> : null}
-            </div>
+            {!aging ? (
+              <>
+                <CincAgingImport onUse={applyAging} />
+                <Field
+                  label="Homes and amounts"
+                  hint="Paste from a spreadsheet or type: home, amount — for example “12 Oak Street, 450.00” or “Unit 7, 1,200”. Columns address, unit, amount work too, with or without a heading row."
+                >
+                  <Textarea rows={8} value={homesText} onChange={(e) => setHomesText(e.target.value)} spellCheck={false} />
+                </Field>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button variant="secondary" size="sm" asChild>
+                    <label className="cursor-pointer">
+                      <Upload aria-hidden />
+                      Upload a CSV
+                      <input
+                        type="file"
+                        accept=".csv,.txt,.tsv,text/csv"
+                        className="sr-only"
+                        onChange={(e) => {
+                          void onFile(e.target.files?.[0])
+                          e.target.value = ''
+                        }}
+                      />
+                    </label>
+                  </Button>
+                  {fileError ? <p className="text-xs font-medium text-danger">{fileError}</p> : null}
+                </div>
+              </>
+            ) : null}
 
-            {homesText.trim() !== '' ? (
+            {aging || homesText.trim() !== '' ? (
               <div className="grid gap-3 sm:grid-cols-3">
                 <Kpi label="Homes owing" value={parsedHomes.rows.length.toLocaleString('en-US')} />
                 <Kpi label="Total owed" value={centsToUsd(parsedHomes.rows.reduce((n, r) => n + r.cents, 0))} />
