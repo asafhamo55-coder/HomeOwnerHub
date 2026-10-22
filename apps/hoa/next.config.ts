@@ -68,6 +68,13 @@ const config: NextConfig = {
   // 30s is a comfortable balance for a dashboard — raise it for snappier
   // back-nav, lower it if any page must always show second-fresh data.
   experimental: {
+    // Vercel's build container has 8 GB. With the default worker count,
+    // build workers ran beside the full type check and the container was
+    // OOM-killed (exit 137) during "checking validity of types" (deploys
+    // 86994ea8, 9d3b43bc). One worker and webpack's memory optimizations
+    // keep the type check and fit in the container, at some build-time cost.
+    cpus: 1,
+    webpackMemoryOptimizations: true,
     staleTimes: {
       dynamic: 30,
       static: 300,
