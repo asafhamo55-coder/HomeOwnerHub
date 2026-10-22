@@ -8,7 +8,6 @@ routes: ["/meetings/[id]/election", "/meetings/[id]/election/print", "/meetings/
 primary_route: /meetings/[id]/election
 keywords: [election, board election, elect directors, directors, candidates, nominations, nomination deadline, ballot, paper ballot, secret ballot, double envelope, two envelopes, inspector of elections, tellers, tally, results, acclamation, uncontested, delinquent candidate, challenge, reconvened meeting, "44-3-230", "44-3-228", "720.306", "5115", "5120", "209.0058", georgia, florida, california, texas]
 related: [annual-meeting-quorum, meetings-send-notice, compliance-obligations]
-draft: true
 reviewed: 2026-10-21
 ---
 

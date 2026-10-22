@@ -8,7 +8,6 @@ routes: ["/compliance"]
 primary_route: /compliance
 keywords: [compliance, obligations, evidence, proof, overdue, deadline, deadlines, state law, georgia, ga, secretary of state, registration, renewal, sb 406, "43-17A-2", annual meeting, "21 days", "44-3-230", minutes, financial records, "44-3-231", statement of amounts due, "44-3-232", texas, management certificate, "209.004", florida, director certificate, "720.3033", california, budget report, "5300", board packet, monthly board report, director elections, election, election results, results notice, "5120", amended registration, officer change, "30 days", missed annual meeting, "5 percent"]
 related: [state-law-deadlines, director-certification, accounting-budget-adoption, annual-meeting-quorum, election-planner, legal-state-law-compliance]
-draft: true
 reviewed: 2026-10-21
 ---
 

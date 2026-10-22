@@ -8,7 +8,6 @@ routes: ["/join", "/approvals", "/settings/members", "/resident", "/onboarding"]
 primary_route: /approvals
 keywords: [ask to join, join request, join code, no home linked, link account, link home, claim home, unlinked owner, existing account, owner without home, access code, approve owner]
 related: [members-invite-owners, approvals-queue, resident-portal-basics]
-draft: true
 reviewed: 2026-10-21
 ---
 

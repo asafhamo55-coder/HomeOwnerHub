@@ -33,4 +33,4 @@
  * No imports: pure modules, client components and the integration suite
  * import this.
  */
-export const M5_APPLIED: boolean = false
+export const M5_APPLIED: boolean = true
