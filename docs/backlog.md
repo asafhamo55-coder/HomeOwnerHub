@@ -1393,7 +1393,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
    - **Files:** `apps/hoa/src/lib/compliance/director-certs.ts` (new), `apps/hoa/src/components/dashboard/ComplianceDeadlinesCard.tsx`, `apps/hoa/src/app/(dashboard)/settings/handover/`.
    - **Status (2026-10-21): built, no migration.** Signed records under `associations.compliance_settings.director_certifications[user_id]` (HMAC, same secret chain as BL-131) on the org's first FL association by name; certificate link is an https or `/documents` URL (no `hoa_documents` type change). Members card with dates, link and "Mark certified" (audit_log ids only), handover pill, dashboard "Director certification" card and digest block at ≤ 30 days / overdue / 4-year expiry. Fixture check: current (1)(a) accepts only the educational certificate (no written-affidavit option); (1)(c) 5-year retention; CE hours (4 / 8) shown as text, not tracked. Guide `director-certification`.
 4. **BL-140 Fine hearing hard gate (BL-133 leftovers).** Migration: no. Effort M. Score 1.60.
-   - **Status:** Shipped (99e2d3fa, live): hard gate, panel check, digest timers. Cure-before-hearing built on claude/quality-oracle (not yet deployed): resolved-before-hearing offer on the hearing card, FL § 720.305(2)(e) / CA § 5855(c) quotes, board-only `cancelHearingAfterCure`, audited with a reason code. Remaining: none.
+   - **Status:** Done (groomed 2026-10-21 round 5). Hard gate, panel check and digest timers: 99e2d3fa, live since 1d79d562. Cure-before-hearing: cd9ff658, merged 9a9b2bce on claude/quality-oracle (in the 2026-10-21-1930 release note, not yet in prod 83848ece): the resolved-before-hearing offer on the hearing card, FL § 720.305(2)(e) / CA § 5855(c) quotes, board-only `cancelHearingAfterCure`, audited with a reason code. Other states get "check your governing documents". Remaining: none.
    - **Today:** Fined with no hearing recorded is only a warning (`ca_hearing_not_recorded`, `fl_hearing_committee` in `apps/hoa/src/lib/compliance/statute-drift.ts`).
    - **Build:**
      - Make it a block in FL and CA, with the existing audited override.
@@ -1414,7 +1414,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
    - **Files:** `apps/hoa/src/lib/elections/` (new), `apps/hoa/src/app/(dashboard)/meetings/[id]/election/` (new), `apps/hoa/src/lib/meetings/notice-law.ts`.
    - **Status (2026-10-21): built, NO migration** (decision `docs/decisions/2026-10-21-election-planner-no-migration.md`; not in 0069, not behind `M5_APPLIED`). Signed record per meeting in `associations.compliance_settings.meeting_elections` (same HMAC chain as the BL-122 quorum kit; names, ids, dates and counts only — the ledger check is computed per load, board-only, never stored). `/meetings/[id]/election`: seats and dates, a per-state timeline worked back from the meeting day, candidates with the ledger on the nomination deadline, inspectors (CA) / tellers, results with plurality ranking and tie flag, CA quorum outcome and reconvened meeting; `/meetings/[id]/election/print`: ballot (no voter id), two-envelope labels, inspector record (CA) or tally sheet. Law (fixtures only, `lib/elections/law.test.ts` checks every quote): GA §§ 44-3-230(a)/(b), 44-3-228, 44-3-224(a)/(b), 44-3-235(a) (no nomination, secret-ballot, inspector, results or challenge rule in Art. 6 → bylaws); FL § 720.306(2), (5), (8)(b), (9)(a)/(b); CA §§ 5100, 5103, 5105(c)(1)/(d), 5110, 5115, 5120, 5125, 5130(b), 5145(a); TX § 209.0058(a)(2), (c), (d), (d)(3) (§§ 209.0051, 209.00592–.00594 not loaded → governing documents). Also: `notice-law.ts` now checks GA members' meetings (21 days annual / 7 special, § 44-3-230(a)). Meeting page "Board election" card; quorum kit links to it. Guide `election-planner` (draft).
 6. **BL-142 Insurance renewal comparison and fidelity check (BL-132 leftovers).** Migration: no. Effort S–M. Score 1.60.
-   - **Status:** Shipped (2f857986, live): renewal comparison, fidelity vs funds, owner summary. HO-6 notice (composer prefill `?from=ho6-notice`, nothing auto-sent) and handover-kit insurance link built on claude/quality-oracle (not yet deployed). Remaining: none.
+   - **Status:** Done (groomed 2026-10-21 round 5). Renewal comparison, fidelity vs funds, owner summary: 2f857986, merged dafb88a9, live (in 83848ece). HO-6 notice (composer prefill `?from=ho6-notice`, nothing auto-sent) and handover-kit insurance link: cd9ff658, merged 9a9b2bce on claude/quality-oracle (in the 2026-10-21-1930 release note, not yet in prod 83848ece). Remaining: none. CA § 5806 fidelity rule still waits on the CA fixture prerequisite above.
    - **Pain:** premiums are the main driver of dues increases (R1).
    - **Build:**
      - Premium, limit and deductible vs the prior policy of the same kind.
@@ -1424,6 +1424,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - A handover-kit link.
    - **Files:** `apps/hoa/src/lib/insurance/model.ts`, `apps/hoa/src/app/(dashboard)/insurance/`, `apps/hoa/src/lib/accounting/reserves.ts`, `apps/hoa/src/app/(dashboard)/settings/handover/`.
 7. **BL-143 Accept-to-join and self-claim for unlinked owners.** Migration: **yes (M5)**. Effort M. Score 1.07.
+   - **Status:** Built behind M5_APPLIED (groomed 2026-10-21 round 5). 0218dea9, merged 68f1ae91; the no-session guard 9f6d47cb and the test fix 83848ece. In prod since 83848ece with the flag off, so nothing shows. Remaining: Asaf applies 0069 (runbook Section L), then flip `M5_APPLIED`. The auth-callback auto-claim was not built and stays below the line (the code/address ask covers SEC-N4).
    - **Today:**
      - Homes are linked when the invite is sent (`apps/hoa/src/lib/owner-invites-actions.ts:196-219`).
      - An owner who already has an account is never attached (SEC-N4).
@@ -1436,6 +1437,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
    - **Files:** `apps/hoa/src/lib/owner-invites*.ts`, `apps/hoa/src/app/auth/callback/route.ts`, `apps/hoa/src/app/resident/`.
    - **Status (2026-10-21): built behind `M5_APPLIED` (false), migration `0069_m5_batch.sql` part 3, runbook Section L (L-BL143a–c, L4).** Tables `owner_join_requests` (board/admin read; no write policy), `owner_join_codes` (board/admin only; SHA-256 only, single use, 30-day expiry in the app, ≤ 90 in the table; same-org trigger 23503; attribution trigger lets the board only revoke), `owner_join_attempts` (no policy). Functions: `owner_join_claim` (SECURITY DEFINER; address + ZIP (+ unit) or code; answers `sent` whether or not an address matched; 5 claims a rolling day per account, advisory-locked), `owner_join_my_status` (counts only), `owner_join_decide` (board/admin of the request's org, else 42501; approve = resident membership + ownership link (own → on-file email → new `join_request` row), reject needs a reason; audited, ids only). App: `/join` ("Ask to join"), the button on every resident "No home linked yet" (8 screens) and on `/onboarding`, Settings → Members → **Join codes** (make / cancel), `/approvals` **Requests to join** (who, which home, email-vs-owner-on-file check; Approve & link / Reject). No service role anywhere. Integration test `tests/integration/security/m5-join-requests.test.ts`; guide draft `members-ask-to-join`. Not built: auth callback auto-claim (the code/address ask covers SEC-N4 without it).
 8. **BL-144 Bank statement CSV/OFX import and manual bank account.** Migration: no (verify the bank tables accept non-Plaid rows). Effort M. Score 0.93.
+   - **Status:** Done (392c9c2d, merged f936a499), live in prod since 83848ece (release note 2026-10-21-1810). No migration was needed: the Plaid columns are nullable (0006) and 0061 lets board/admin insert. Remaining: none.
    - **Pain:** bank feeds are Plaid only, and many small credit unions or cautious treasurers won't link. Turnover means new accounts and signers (R11).
    - **Build:**
      - Add a manual account.
@@ -1444,6 +1446,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
      - Board-only and audited.
    - **Files:** `apps/hoa/src/app/(dashboard)/accounting/bank/`, `apps/hoa/src/lib/bank-reconciliation.ts`, `apps/hoa/src/lib/bank-import/` (new).
 9. **BL-145 /compliance page with evidence (BL-131 leftover).** Migration: **yes (M5: `compliance_deadlines_done.document_id`)**. Effort M. Score 0.96.
+   - **Status:** Built behind M5_APPLIED (groomed 2026-10-21 round 5). 8ab0af40, merged 6ca7a0f0 on claude/quality-oracle (in the 2026-10-21-1930 release note, not yet in prod 83848ece). The read-only page needs no flag and goes live with that deploy; evidence turns on with `M5_APPLIED` after Asaf applies 0069. Remaining: the "Director elections: Not tracked yet" row (`lib/compliance/obligations.ts:518`) still ignores BL-141, so it moves to round 5 as BL-151.
    - **Build:**
      - A `/compliance` page listing every statutory obligation: GA registration, TX § 209.004, BL-139 certificates, the BL-138 § 5300 window, BL-141 election dates.
      - Evidence document on "Mark as done".
@@ -1452,7 +1455,7 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
    - **Files:** `apps/hoa/src/app/(dashboard)/compliance/` (new), `apps/hoa/src/lib/compliance/`, `apps/hoa/src/lib/monthly-report/render.ts`.
    - **Status (2026-10-21): built, waiting on 0069.** `/compliance` is live read-only (flag off): Georgia first (SoS registration, renewal/amendment, annual meeting + 21-day notice from recorded meetings, minutes and records, § 44-3-232(d) statement), TX § 209.004, FL director certificates summary, CA § 5300(a) window from the adoption checklist; elections and GA condominium rules say "check your governing documents". Every quote checked word for word (`lib/compliance/law.test.ts`). Overdue banner; monthly board report section; board packet section; dashboard card links to it. Evidence (0069 part 4, `compliance_deadlines_done.document_id`, runbook L-BL145) turns on with `M5_APPLIED`; `tests/integration/security/m5-compliance-evidence.test.ts` in CI. Guide draft `compliance-obligations`.
 10. **BL-146 Composer polish.** Migration: no. Effort S–M. Score 0.90.
-   - **Status:** Shipped (6df2b5cb): Spanish editor, untick homes, signed status webhook. Remaining: BL-146b (send via Messages API).
+   - **Status:** Done (groomed 2026-10-21 round 5). BL-146 6df2b5cb, merged cd7b131b: Spanish editor, untick homes, signed status webhook (off). BL-146b c712e484, merged 9e7b2e08: texts go through the Messages API. Both live in prod since 83848ece. Remaining code: none. The owner turns on OA-27 (`SMS_STATUS_WEBHOOK_ENABLED` plus the Messages API status URL) when texting is set up.
     - **Today:**
       - The Spanish version is still a monospace HTML textarea (`communications/new/SpanishVersion.tsx:154-168`).
       - A street sends to every home on it (`AudienceStep.tsx:246-269`).
@@ -1475,3 +1478,286 @@ Migrations through 0068 are applied, and every flag is on. Highest value first; 
 - Reserve study module. Large, needs a migration.
 - E-ballots (CA AB 2159, TX SB 2629), after BL-141.
 - BL-124 GA snapshot refresh (deadline 2027-01-01, schedule mid-December).
+
+## Ranked open work — round 5 (2026-10-21)
+
+**Sources:** web research on 2026-10-21 (URLs in each item's Evidence line), the statute fixtures in `scripts/fixtures/state-law/`, and the code at b0469e51. Every "Today:" line was checked against that commit.
+
+**Georgia first.** Georgia is the launch state. Two Georgia dates drive this round:
+- **SB 406 § 7 has been in force since 2026-07-01.** Attorney's fees need a certified notice and 30 days first.
+- **SB 406 §§ 2–6 take effect 2027-01-01.** They bring registration, the new foreclosure threshold, 60-day notice, a 6-year lien and the payment order.
+
+Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying 0069 (runbook Section L). BL-141 needed no migration.
+
+**Order.** Highest value first. Georgia money and registration come first; they override the raw score because a live job or a legal bar is involved. The Q1 annual-meeting items follow.
+
+**Migration batch M6.** Only BL-156 needs one. Every other item stores in `associations.compliance_settings` or needs no storage. Write M6 only after 0069 is applied.
+
+**Follow-ups checked against the code** (BL-140, 142, 143, 144, 145, 146):
+- **Done, no follow-up:** BL-140, BL-142, BL-144 and BL-146/146b.
+- **BL-143 open:** the auth-callback auto-claim. It stays below the line.
+- **BL-145 open:** its elections row. That is BL-151.
+- **BL-137 open (not in the asked set):** money changes through /approvals, and a dues-generation job. Below the line, after M5.
+
+1. **BL-147 Late-fee policy the board controls, with state caps (Georgia first).** Migration: no. Effort M (1.5). Score 3.00 (I 5 × C 0.9 ÷ 1.5). Override: a live job.
+   - **Pain:** every association is charged a late fee its declaration may not allow, at a rate nobody chose. In Georgia a late charge is lawful only "to the extent that the instrument provides". It is capped at the greater of $10 or 10% of each assessment or installment (§ 44-3-232(b)(1)). From 2027, an unregistered association can't collect fees at all (BL-149). Fines are driving foreclosures in Georgia news.
+   - **Evidence:**
+     - fixture `ga-ocga-44-3-art6-2026.txt` § 44-3-232(b)(1)–(2);
+     - FL § 720.3085(3): "the greater of $25 or 5 percent" (`flsenate-ch720-2026.html`);
+     - https://codes.findlaw.com/ga/title-44-property/ga-code-sect-44-3-232/ ;
+     - https://www.wsbtv.com/news/local/gwinnett-county/hoa-fines-over-400k-issues-like-leaves-ground-homeowners-say-now-its-foreclosing-people/5KXVHXPFI5EJBN3WAB5KARA76Y
+   - **Today:**
+     - `packages/jobs/src/hoa-late-fees.ts:11` hard-codes `HOA_LATE_FEE_RATE = 0.05` ("per-row override later").
+     - `:58-62` selects every open or partial charge with `due_date < today` except `late_fee`. That includes **fines** and payment-plan installments, with no grace period.
+     - `:179-181` computes 5% and posts the charge and its journal entry automatically every night.
+     - No board setting exists. The guide states it as fact (`content/guide/accounting/accounting-payment-plans.md`: "Every night the app adds a one-time 5% late fee").
+   - **Build:**
+     - A late-fee policy in `compliance_settings`:
+       - off / percent / flat;
+       - grace days;
+       - which charge types (fines **off** by default);
+       - an "our declaration authorizes late charges" tick, with the article and section.
+     - The job reads the policy.
+     - Existing associations keep today's 5% until the board saves a policy. Show a one-time banner and a dashboard prompt.
+     - State caps, from quoted fixtures only:
+       - GA: the greater of $10 or 10%;
+       - FL: the greater of $25 or 5%.
+
+       A policy above the cap can't be saved. CA § 5650(b) and TX are not loaded, so they show "check your governing documents".
+     - GA: interest above 10% a year is refused on the collections letter's interest field (§ 44-3-232(b)(2)).
+     - Policy changes are audited. Fix the guide.
+   - **Files:** `packages/jobs/src/hoa-late-fees.ts`, `apps/hoa/src/lib/late-fees/` (new: policy, caps, law), `apps/hoa/src/app/(dashboard)/settings/`, `apps/hoa/content/guide/accounting/accounting-payment-plans.md`.
+2. **BL-148 Georgia collections letters: SB 406 § 7 fee notice and § 44-3-232(c) notice before foreclosure.** Migration: no. Letter kinds are app-only, and events reuse `demand_letter_sent` / `lien_letter_sent` (`lib/collections/statuses.ts:105-118`). Effort M (1.5). Score 2.83 (5 × 0.85 ÷ 1.5).
+   - **Pain:** since 2026-07-01 a Georgia association can't collect attorney's fees without first sending a certified notice that lists the fines and fees and gives 30 days to pay. Our state-law check blocks GA letters that list attorney's fees, but the app can't produce that notice, so the block can only be overridden. Georgia news reports:
+     - about $8K of dues growing to about $20K with fees;
+     - foreclosure over pressure-washing fines.
+   - **Evidence:**
+     - fixture `ga-ocga-44-3-art6-2026.txt` "Ga. L. 2026, SB 406, § 7" (f)(1)–(3) and § 44-3-232(c);
+     - https://www.atlantanewsfirst.com/2026/07/06/georgia-hoas-must-follow-new-rules-attorneys-fees/ ;
+     - https://www.atlantanewsfirst.com/2026/08/26/couple-fights-back-court-save-first-home-20k-hoa-foreclosure/ ;
+     - https://www.atlantanewsfirst.com/2025/09/03/hoa-seeks-foreclose-77-year-olds-home-over-pressure-washing-violations/
+   - **Today:**
+     - `apps/hoa/src/lib/collections/letters/model.ts:54-61`: `letterJurisdiction` knows FL, CA and TX only. GA gets `generic`, and `LETTER_KINDS` has no GA kind.
+     - `letters/law.ts:50` says "Every other state gets a plain past-due letter".
+     - `lib/compliance/statute-drift.ts:648-660` blocks GA attorney's fees with "HomeownerHub has no record of that notice".
+   - **Build:**
+     - `ga_fee_notice` (SB 406 § 7(f)):
+       - itemized outstanding fines and fees;
+       - "30 days from receipt";
+       - certified mail or statutory overnight, shown on screen;
+       - an optional itemized attorney's-fee block for (f)(3).
+
+       It records `demand_letter_sent`, and the drift check clears 30 days after it.
+     - `ga_pre_foreclosure` (§ 44-3-232(c)):
+       - the amount due, late charges and interest rate;
+       - sent to the lot address **and** any designated address;
+       - blocked below the $2,000 minimum;
+       - a warning on installments near the 4-year lapse.
+
+       BL-154 switches it to the 2027 text by date.
+     - GA late charge and interest caps are checked (shared with BL-147).
+     - Approvals work as for the FL letters.
+   - **Files:** `apps/hoa/src/lib/collections/letters/{model,law,actions}.ts`, `apps/hoa/src/lib/compliance/statute-drift.ts`, `apps/hoa/src/app/(dashboard)/properties/[id]/collections-letter/CollectionsLetter.tsx`.
+3. **BL-149 SB 406 registration kit and the registration gate.** Migration: no. Effort M (2). Score 2.00 (5 × 0.8 ÷ 2). Override: a legal bar from 2027-01-01.
+   - **Pain:** from 2027-01-01 a Georgia association that hasn't registered with the Secretary of State may not "collect fines or fees against any owner, or file or record liens or initiate foreclosure proceedings". The filing needs:
+     - officers;
+     - the governing documents;
+     - a financial statement dated no more than a year before filing;
+     - an amendment within 30 days of a change of officers;
+     - renewal by every Dec 31, at $100.
+
+     None of the competitors we checked advertises SB 406 support. PayHOA is publishing Georgia law guides.
+   - **Evidence:**
+     - fixture `ga-sb406-2026-registration.txt` (§ 43-17A-2(a)–(e));
+     - https://www.huntermaclean.com/2026/05/georgia-community-associations-face-major-regulatory-changes-under-sb-406/ ;
+     - https://www.walb.com/2026/05/13/new-georgia-hoa-law-raises-foreclosure-threshold-adds-new-protections/ ;
+     - https://www.payhoa.com/the-guide-to-georgia-hoa-laws/
+   - **Today:**
+     - `lib/compliance/obligations.ts:522-541`: the registration row is text steps only ("Gather a copy of your governing documents… officers, and a recent financial statement"), with `link: null`.
+     - `:289-292`: the amendment after an officer change is a sentence. Nothing triggers it.
+     - `lib/members.ts:502` `changeMemberRole` starts no 30-day clock.
+     - `GA_REGISTRATION_BAR` (`lib/compliance/law.ts:50`) is only quoted on /compliance. Three places ignore it:
+       - the GA fine check (`statute-drift.ts:559-567`, instrument warning only);
+       - the late-fee job;
+       - the lien letters.
+   - **Build:**
+     - **Registration kit,** board-only and printable, at `/compliance/ga-registration`:
+       - name, address and officers from board roles;
+       - a governing-documents checklist from Documents;
+       - a balance sheet and 12-month income statement from the books, dated, with a "more than 1 year old" warning;
+       - the board's register-or-opt-out decision, quoting the (a)(2)(B) consequences.
+     - "Registered on", with evidence through BL-145.
+     - A 30-day amended-registration clock when a board role changes or BL-141 results are recorded (with BL-151).
+     - **The gate,** from 2027-01-01, for GA associations not marked registered:
+       - a `block` finding on fines (statute-drift);
+       - the BL-147 job skips late fees;
+       - GA lien and pre-foreclosure letters are blocked;
+       - every override is audited.
+
+       An opted-out association is also blocked from fines, fees and accelerated assessments.
+   - **Files:** `apps/hoa/src/lib/compliance/{obligations,law,statute-drift}.ts`, `apps/hoa/src/app/(dashboard)/compliance/ga-registration/` (new), `apps/hoa/src/lib/members.ts`, `packages/jobs/src/hoa-late-fees.ts`, `apps/hoa/src/lib/accounting/`.
+4. **BL-150 Georgia quorum and proxy rules in the quorum kit.** Migration: no. Effort S (0.75). Score 3.60 (3 × 0.9 ÷ 0.75). Timing: Q1 annual meetings.
+   - **Pain:** quorum failures stop elections. A Georgia board using the kit gets only "check your bylaws", although the statute sets a default. One Gwinnett HOA reportedly held no board election for about 10 years.
+   - **Evidence:**
+     - fixture § 44-3-228: "more than one-third of the votes are present at the beginning of the meeting"; board quorum is one-half;
+     - fixture § 44-3-224(b): "Any proxy shall be void if it is not dated…", and an owner that isn't a natural person must vote by proxy;
+     - Nonprofit Code § 14-3-724 (proxy valid 11 months; electronic appointment): https://codes.findlaw.com/ga/title-14-corporations-partnerships-and-associations/ga-code-sect-14-3-724/ ;
+     - the WSB story in BL-147.
+   - **Today:**
+     - `apps/hoa/src/lib/meeting-quorum/law.ts:55-97` has FL and CA cases. GA falls to `default`, with `statuteQuorumPct: null` and `CHECK_BYLAWS` (`:50`).
+     - `lib/elections/law.ts` already quotes §§ 44-3-228 and 44-3-224 from the same fixture.
+   - **Build:**
+     - A GA case:
+       - quorum is more than one-third present at the start, "unless the instrument or bylaws provide otherwise";
+       - the counter's target;
+       - a dated-proxy line and revocation text on the form;
+       - an entity-owner note;
+       - joint-owner unanimity (§ 44-3-224(a)).
+     - § 44-3-230(b): when no annual meeting is held by fiscal year end, tell the board that 5% of members may call one. Show it on /compliance too.
+     - Quote tests against the fixture.
+   - **Files:** `apps/hoa/src/lib/meeting-quorum/law.ts`, `apps/hoa/src/app/(dashboard)/meetings/[id]/quorum/`, `apps/hoa/src/lib/compliance/obligations.ts`.
+5. **BL-151 Elections on /compliance, plus the registration amendment after an election (BL-145 × BL-141 follow-up).** Migration: no. Effort S (0.75). Score 3.80 (3 × 0.95 ÷ 0.75).
+   - **Pain:** the Compliance page says director elections are "Not tracked yet", while the election planner now tracks every date. In Georgia, an election that changes officers starts the 30-day SB 406 amendment.
+   - **Evidence:** BL-141 (a17d3a40) and BL-145 (8ab0af40); fixture § 43-17A-2(d).
+   - **Today:**
+     - `lib/compliance/obligations.ts:26`: "director elections are not tracked yet (BL-141)".
+     - `:518`: `notLoaded(base, 'director-elections', 'Director elections', 'Not tracked yet')` for every state.
+     - The planner's record lives in `compliance_settings.meeting_elections` (`lib/elections/store.ts`).
+   - **Build:**
+     - A row per planned election: next timeline date, overdue steps, results recorded. Link to `/meetings/[id]/election`.
+     - CA: results within 15 days (§ 5120(b)).
+     - GA: once results are recorded, an "amend your registration within 30 days" item (shared with BL-149).
+     - A monthly board report line.
+   - **Files:** `apps/hoa/src/lib/compliance/{obligations,overview-load}.ts`, `apps/hoa/src/lib/elections/{store,timeline}.ts`.
+6. **BL-152 Georgia Nonprofit Code pack: the April 1 corporate registration and the records-request clock.** Migration: no. Effort M (1.25). Score 2.56 (4 × 0.8 ÷ 1.25).
+   - **Pain:** a Georgia HOA has two state filings on two calendars:
+     - SB 406 registration, by Dec 31;
+     - the nonprofit corporation's annual registration, Jan 1 – Apr 1 (§ 14-3-1622).
+
+     If the corporate registration is 60 days late, the Secretary of State may dissolve the corporation (§ 14-3-1420). Reinstatement costs $250 plus the past-due registrations. Georgia records requests also get "check your bylaws", though § 14-3-1602 sets 5 business days' written notice and says which records are on demand.
+   - **Evidence:**
+     - https://codes.findlaw.com/ga/title-14-corporations-partnerships-and-associations/ga-code-sect-14-3-1622/ ;
+     - https://codes.findlaw.com/ga/title-14-corporations-partnerships-and-associations/ga-code-sect-14-3-1420/ ;
+     - https://sos.ga.gov/how-to-guide/how-file-annual-registration ;
+     - https://sos.ga.gov/how-to-guide/how-guide-reinstate-entity ;
+     - https://codes.findlaw.com/ga/title-14-corporations-partnerships-and-associations/ga-code-sect-14-3-1602/
+
+     Sources disagree on the fee ($30 or $40), so the app quotes no fee and links the SoS page. We found no reported case of a Georgia HOA dissolved this way.
+   - **Today:**
+     - No Title 14 text exists in `apps/hoa/src/lib` (grep `14-3-`: none).
+     - `lib/compliance/deadlines.ts:80,100` hold only `ga-sos-registration-2027` and `tx-management-certificate`.
+     - `lib/records-requests/law.ts:20-23` and `:267` return "check your bylaws" for GA.
+   - **Build:**
+     - **Prerequisite (S):** a `ga-ocga-14-3-2026.txt` fixture with §§ 14-3-701, 708, 724, 1420, 1601, 1602 and 1622. Use the same Public.Resource.Org release-86 source as the Art. 6 snapshot, add later acts, record the provenance, and add it to the BL-124 refresh.
+     - A GA "annual registration (Jan 1 – Apr 1)" deadline on /compliance and in the digest, with evidence.
+     - A dissolution-risk line from Apr 1 + 60 days.
+     - Records requests:
+       - a 5-business-day clock;
+       - the on-demand vs "reasonable particularity" categories on `/tickets/records`.
+     - Quotes tested word for word.
+   - **Files:** `scripts/fixtures/state-law/`, `apps/hoa/src/lib/compliance/{deadlines,obligations,law}.ts`, `apps/hoa/src/lib/records-requests/law.ts`, `data/statutes/README.md`.
+7. **BL-153 Georgia annual-meeting report for owners (§ 44-3-230(a)).** Migration: no. Effort M (1). Score 2.40 (3 × 0.8 ÷ 1).
+   - **Pain:** at every annual meeting, Georgia requires "comprehensive reports of the affairs, finances, and budget projections of the association". Volunteer treasurers build these by hand. Owners in the Gwinnett story could not get financials.
+   - **Evidence:** fixture § 44-3-230(a) (and § 44-3-102 for condos, see BL-155); the WSB story in BL-147.
+   - **Today:**
+     - `lib/compliance/obligations.ts:312` tells the board to "report on the association's affairs, finances and budget projections", with no tool.
+     - The meeting packet is board-only (`app/(dashboard)/meetings/[id]/packet/page.tsx:4`, `requireBoardOrAdmin`) and carries per-home delinquency and violations (`packet/sections.tsx:241`, `:309`).
+   - **Build:** an owner-safe, printable `/meetings/[id]/annual-report`. It includes:
+     - income and expenses against the budget;
+     - the balance sheet;
+     - the reserve snapshot (BL-120);
+     - next year's budget projection (BL-138);
+     - collections as totals and counts only;
+     - the insurance summary (BL-142);
+     - compliance status (BL-145);
+     - motions passed (BL-116).
+
+     The board edits a short narrative. "Attach to the meeting notice" goes through the guarded composer. No PII.
+   - **Files:** `apps/hoa/src/app/(dashboard)/meetings/[id]/annual-report/` (new), `apps/hoa/src/lib/board-packet/sections.ts`, `apps/hoa/src/lib/accounting/reserves.ts`.
+8. **BL-154 SB 406 2027 readiness: dated GA snapshot, foreclosure threshold and payment order.** Migration: no. Effort L (2.5). Score 1.20 (5 × 0.6 ÷ 2.5). Override: deadline 2027-01-01. Absorbs BL-124.
+   - **Pain:** on 2027-01-01 Georgia changes these rules (secondary sources):
+     - the foreclosure threshold becomes the lesser of $4,000 or 12 months of regular assessments, with a $2,000 floor and fines and fees excluded;
+     - foreclosure notice goes from 30 to 60 days;
+     - the lien lasts 6 years instead of 4;
+     - payments apply in order: regular, then special, then specific assessments, then fees and fines;
+     - associations may not refuse payment or accelerate;
+     - owners can inspect 3 years of financial records and request the insurance certificate;
+     - a Secretary of State complaint process stays collection while it runs.
+
+     Today the GA adapter stops serving law on that date.
+   - **Evidence:**
+     - https://www.news4jax.com/news/local/2026/07/10/georgia-property-owners-bill-of-rights-what-new-hoa-law-means-for-homeowners/ ;
+     - https://www.huntermaclean.com/2026/05/georgia-community-associations-face-major-regulatory-changes-under-sb-406/ ;
+     - https://www.jdsupra.com/legalnews/georgia-property-owners-bill-of-rights-6426556/ ;
+     - SB 406/AP, https://www.legis.ga.gov/api/legislation/document/20252026/248665
+
+     These are secondary sources for §§ 3–6. Load the official text before any rule ships.
+   - **Today:**
+     - `scripts/fixtures/state-law/ga-ocga-44-3-art6-2026.txt:34-39`: §§ 3–6 are "EFFECTIVE JANUARY 1, 2027 and are NOT applied", with `@valid_until` 2027-01-01.
+     - `lib/assessments.ts:510` `markAssessmentPaid` pays whichever charge the board picks.
+     - `lib/pay-by-zelle.ts:254-257` orders pay lines by oldest due date, whatever the type, so a late fee or fine can be paid before a newer regular assessment.
+   - **Build:**
+     - Load §§ 3–6 verbatim from SB 406/AP as dated records (`@effective_date 2027-01-01`), so the snapshot serves both texts.
+     - A foreclosure-threshold calculator on the collections case, excluding fines and fees.
+     - BL-148's letter switches to 60 days and 6 years by date.
+     - GA payment-order allocation for Zelle lines and recorded payments from 2027-01-01, as a pure allocator with a preview.
+     - The insurance-certificate request in records requests.
+     - A "complaint filed, collection stayed" flag on the case, in `compliance_settings` until a table is warranted.
+   - **Files:** `scripts/fixtures/state-law/ga-ocga-44-3-art6-2026.txt`, `packages/workflows/src/W30-state-law-brain/sources/georgia.ts`, `apps/hoa/src/lib/collections/`, `apps/hoa/src/lib/pay-by-zelle.ts`, `apps/hoa/src/lib/assessments.ts`, `data/statutes/README.md`.
+9. **BL-155 Georgia Condominium Act snapshot for condo associations.** Migration: no. Effort L (2.5). Score 1.12 (4 × 0.7 ÷ 2.5).
+   - **Pain:** Atlanta-area condos are a large share of the Georgia market. Today every Georgia condo gets POA Act text or "not loaded". The Condo Act covers:
+     - the lien, late-charge and interest caps (§ 44-3-109);
+     - the $2,000 foreclosure floor (§ 44-3-109);
+     - the 5-business-day statement (§ 44-3-109(d)). Verify on the official text: one source says 10 days.
+     - 21/7-day meeting notice (§ 44-3-102);
+     - records (§ 44-3-106(d));
+     - mandatory replacement-cost property cover and $1M/$2M liability (§ 44-3-107);
+     - a 5-business-day certificate exchange on water claims (§ 44-3-107(c)).
+   - **Evidence:**
+     - https://codes.findlaw.com/ga/title-44-property/ga-code-sect-44-3-109/ ;
+     - https://codes.findlaw.com/ga/title-44-property/ga-code-sect-44-3-107/ ;
+     - https://codes.findlaw.com/ga/title-44-property/ga-code-sect-44-3-106/ ;
+     - https://law.justia.com/codes/georgia/title-44/chapter-3/article-3/section-44-3-102
+   - **Today:**
+     - `lib/compliance/obligations.ts:544` returns `notLoaded(base, 'ga-condominium', …)`.
+     - The fixture header (`ga-ocga-44-3-art6-2026.txt:42-43`) leaves Art. 3 out of scope.
+     - The GA estoppel statement cites only POA Act § 44-3-232(d) (`lib/properties/estoppel/law.ts:65`).
+     - `associations.type` already has `condo` (`lib/platform-admin.ts:917`).
+   - **Build:**
+     - A `ga-ocga-44-3-art3-2026.txt` fixture (release 86 plus later acts).
+     - Branch on `associations.type = 'condo'` in:
+       - compliance;
+       - estoppel;
+       - collections letters (BL-148);
+       - meeting notice;
+       - the insurance check (BL-142).
+     - A "POA Act / Condo Act / declaration only" setting, because a GA HOA not submitted to Art. 6 gets neither statute's lien rules.
+   - **Files:** `scripts/fixtures/state-law/`, `apps/hoa/src/lib/compliance/`, `apps/hoa/src/lib/properties/estoppel/law.ts`, `apps/hoa/src/lib/insurance/model.ts`, `apps/hoa/src/lib/meetings/notice-law.ts`.
+10. **BL-156 Electronic ballots and written consent (after BL-141).** Migration: **yes (M6)**: `ballots`, `ballot_responses` and consent records, with RLS. Effort L (4). Score 0.60 (4 × 0.6 ÷ 4).
+    - **Pain:** paper ballots and proxies are why annual meetings miss quorum. Georgia's Nonprofit Code allows action by written or electronic consent that identifies the member and the date (§ 14-3-708), and proxies appointed electronically (§ 14-3-724). Competitors:
+      - TownSq shipped a Digital Voting upgrade (Oct 2025).
+      - Condo Control (Feb 2026) and Vantaca (Jun 2026) are moving to AI assistants.
+    - **Evidence:**
+      - https://codes.findlaw.com/ga/title-14-corporations-partnerships-and-associations/ga-code-sect-14-3-708/ ;
+      - https://www.townsq.io/new-releases-and-updates/the-new-townsq-community-homepage-is-here ;
+      - https://support.condocontrol.com/hc/en-us/articles/46357058622235-What-s-New-in-Property-Control-February-2026 ;
+      - https://wilmingtonbiz.com/technology/2026/06/09/wilmingtons_vantaca_unveils_new_ai_agent_suite/27567
+    - **Today:**
+      - `lib/elections/model.ts:10`: no e-voting; "ballots are printed, mailed or handed out, and counted by hand".
+      - BL-023 polls (M2) were never built.
+    - **Build (GA first):**
+      - one electronic consent or ballot per home (§ 44-3-224(a) joint owners);
+      - the 10-day effect notice to members who didn't consent (§ 14-3-708);
+      - a secret-ballot option;
+      - an audit trail.
+
+      CA and TX stay paper until AB 2159 / SB 2629 are loaded. Every send goes through the guarded composer.
+    - **Files:** `migrations/0070_m6_*.sql` (new), `apps/hoa/src/lib/elections/`, `apps/hoa/src/app/resident/`, `docs/specs/2026-10-20-sql-runbook.md` (new Section M).
+
+**Below the line:**
+- BL-143 auth-callback auto-claim.
+- BL-137 money changes through /approvals, and a dues-generation job, after M5.
+- AI bank auto-coding. PayHOA shipped AI reconciliation in Jan 2026 (https://www.payhoa.com/?p=9037). Our BL-144 import feeds the manual queue.
+- A resident AI over the governing documents, with citations (Condo Control, Feb 2026). We have the resident assistant; check its citation coverage first.
+- Inbox Phase B: ride along in M6 if there is room.
+- CA § 5650 and TX § 209.0051 fixtures (the round-4 prerequisite).
