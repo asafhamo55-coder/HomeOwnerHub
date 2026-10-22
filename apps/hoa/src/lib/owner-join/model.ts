@@ -184,13 +184,16 @@ export function readDecideOutcome(v: unknown): JoinDecideOutcome | null {
   return v === 'approved' || v === 'rejected' || v === 'already_decided' ? v : null
 }
 
-export const JOIN_REQUEST_COLUMNS = 'id, unit_id, requester_name, requester_email, method, created_at'
+export const JOIN_REQUEST_COLUMNS =
+  'id, unit_id, requester_name, requester_email, requester_email_confirmed, method, created_at'
 
 export interface JoinRequestRow {
   id: string
   unit_id: string
   requester_name: string | null
   requester_email: string | null
+  /** Was the sign-in email confirmed when they asked (0069, SEC3-L2)? Missing = no. */
+  requester_email_confirmed?: boolean | null
   method: string
   created_at: string
 }
@@ -218,19 +221,29 @@ export function homeLabel(u: JoinUnitRow | undefined): string | null {
  * Does the asker's sign-in email match an owner on file for the home?
  * 'match' — an open ownership on the home has that email;
  * 'other' — the home has owners on file, none with that email;
- * 'none'  — no owner on file at all.
+ * 'none'  — no owner on file at all;
+ * 'unverified' — the email matches, but they never confirmed it, so the
+ *   match proves nothing (security review #3, SEC3-L2; the database
+ *   likewise won't link the on-file ownership by an unconfirmed email).
+ * `confirmed` defaults to false: a match counts only when it is known.
  */
-export type OwnerEmailCheck = 'match' | 'other' | 'none'
+export type OwnerEmailCheck = 'match' | 'unverified' | 'other' | 'none'
 
-export function ownerEmailCheck(email: string | null, owners: readonly JoinOwnershipRow[]): OwnerEmailCheck {
+export function ownerEmailCheck(
+  email: string | null,
+  owners: readonly JoinOwnershipRow[],
+  confirmed = false,
+): OwnerEmailCheck {
   if (owners.length === 0) return 'none'
   const e = (email ?? '').trim().toLowerCase()
-  if (e && owners.some((o) => (o.owner_email ?? '').trim().toLowerCase() === e)) return 'match'
+  if (e && owners.some((o) => (o.owner_email ?? '').trim().toLowerCase() === e)) return confirmed ? 'match' : 'unverified'
   return 'other'
 }
 
 export const OWNER_EMAIL_NOTE: Record<OwnerEmailCheck, string> = {
   match: 'Their sign-in email matches the owner email on file for this home.',
+  unverified:
+    'Their sign-in email matches the owner email on file, but they haven’t confirmed that email, so the match proves nothing. Check with the owner before approving.',
   other: 'Their sign-in email is not the owner email on file for this home. Check with the owner before approving.',
   none: 'No owner is on file for this home yet. Check your records before approving.',
 }
@@ -255,7 +268,11 @@ export function joinCard(
     home: homeLabel(unit),
     who: name && email ? `${name} (${email})` : name || email || 'An account with no name or email',
     method: r.method === 'code' ? 'code' : 'address',
-    emailCheck: ownerEmailCheck(r.requester_email, owners.filter((o) => o.unit_id === r.unit_id)),
+    emailCheck: ownerEmailCheck(
+      r.requester_email,
+      owners.filter((o) => o.unit_id === r.unit_id),
+      r.requester_email_confirmed === true,
+    ),
   }
 }
 

@@ -1506,27 +1506,43 @@ Scope: every first-parent merge on `claude/quality-oracle` dated 2026-10-21 (`43
   - The "second click inserts nothing" guarantee holds only when the commits run one after the other.
   - Only a board member can trigger it, and the duplicates show in the matching queue.
   - The proper fix needs a lock or unique key, which means a migration. Deferred.
-- **SEC3-L2 (Low):** `owner_join_claim` copies `auth.users.email` into `requester_email` without checking `email_confirmed_at` (`migrations/0069_m5_batch.sql:588`).
+- **SEC3-L2 (Low, fixed in 0069 before apply):** `owner_join_claim` copies `auth.users.email` into `requester_email` without checking `email_confirmed_at` (`migrations/0069_m5_batch.sql:588`).
   - The board's "sign-in email matches the owner on file" check, and the approve-time link by email (`:697-705`), therefore trust the project's "confirm email" setting.
   - Local `supabase/config.toml:221` has `enable_confirmations = false`. The prod signup flow asks for confirmation.
   - Before 0069 is applied, consider adding `AND au.email_confirmed_at IS NOT NULL`, or showing "unverified" to the board.
-- **SEC3-L3 (Low):** `owner_join_claim` work before its limits (`0069:513-517`, `:569-574`).
+  - **Fix:** `owner_join_requests.requester_email_confirmed` (new column, default false) is set at claim time from `email_confirmed_at`. `owner_join_decide` reads the email only `WHERE email_confirmed_at IS NOT NULL`, checked live at decision time. An unconfirmed email links no on-file ownership and is not written as a new ownership's `owner_email`. The board card (`lib/owner-join/model.ts` `ownerEmailCheck`) shows a matching but unconfirmed email as `unverified`, with a warning; a missing flag counts as unconfirmed.
+  - **Tests:** two CI cases in `m5-join-requests.test.ts` (unconfirmed at claim; confirmed at claim but not at decision), plus a unit case in `model.test.ts`.
+- **SEC3-L3 (Low, fixed in 0069 before apply):** `owner_join_claim` work before its limits (`0069:513-517`, `:569-574`).
   - It normalizes `p_address` and `p_code` in DECLARE, before the 200- and 10-character limits are checked.
   - Each address claim scans every `units` row in every org with three regex functions.
   - It is rate-limited per account, but accounts are free. The matched path also does more work, which is a timing side channel on whether an address exists.
-- **SEC3-L4 (Low):** join-request spam (`0069:591-596`).
+  - **Fix:** the raw inputs are length-checked first (code 32, address 200, ZIP 20, unit 40), and normalising happens only after that. A miss no longer returns straight after the scan: it runs the same ownership, email and name reads as a hit, with no home, so they find nothing. Only the hit's one INSERT differs. The answer is still `sent` in every case.
+  - **Residual:** the scan still evaluates the normalisers on every HOA home, with no expression index. Keeping it that way avoids altering `units` in 0069. The per-account rate limit still applies.
+  - **Tests:** two CI cases: over-limit raw inputs that would otherwise normalise to valid ones are `invalid` and record nothing; and a hit, a miss and an already-linked claim all answer `sent`, one attempt each.
+- **SEC3-L4 (Low, fixed in 0069 before apply):** join-request spam (`0069:591-596`).
   - Any confirmed account can drop up to 5 requests a day into any HOA's /approvals, by address, carrying an attacker-chosen `profiles.full_name`. React escapes it.
   - The units scan is not limited to `hub_type = 'hoa'` orgs.
   - A board member can also approve their own request. This is not an escalation, since the board already writes ownerships, but there is no separation of duties.
-- **SEC3-L5 (Low):** a revoked code can come back (`0069:423-448`). The `owner_join_codes` attribution trigger freezes the hash, the home and the use stamp, but not `revoked_at`. A board member can therefore un-revoke a code through PostgREST.
+  - **Fix:** the scan joins `orgs` on `hub_type = 'hoa'`, the marker from 0000 that `set-active-org.ts` also checks. `owner_join_decide` refuses approval of the caller's own request with 42501, which the app already shows as "That request isn't one you can decide". Another board member or admin approves it. The 5-a-day spam limit is unchanged.
+  - **Tests:** two CI cases (a home in a `pm` org is not found, then is once the org is `hoa`; a board member and an admin each fail to approve their own request, and the other one succeeds). The existing "keeps an existing board role" case had the board member approve their own request. A second board member now decides it, and all of its assertions are unchanged.
+- **SEC3-L5 (Low, fixed in 0069 before apply):** a revoked code can come back (`0069:423-448`). The `owner_join_codes` attribution trigger freezes the hash, the home and the use stamp, but not `revoked_at`. A board member can therefore un-revoke a code through PostgREST.
+  - **Fix:** in the same attribution trigger, for every caller including the service role, an UPDATE that clears or changes a set `revoked_at` raises 23514. The trigger count is unchanged (still 2). The expiry of a revoked code can still move.
+  - **Tests:** one CI case: the board clearing it, the board re-stamping it, and the service role clearing it all fail with 23514, the stamp is unchanged, and the code stays `invalid_code`.
 - **SEC3-L6 (Low):** no replay cache on the Vonage status webhook (`apps/hoa/src/app/api/webhooks/vonage/status/route.ts:68`).
   - A captured signed receipt can be replayed within `MAX_JWT_AGE_SECONDS` (24 h, `sms-inbound.ts:70`).
   - The impact is nil today: timestamps are first-write-wins and status moves forward only.
-- **SEC3-L7 (Low):** phone numbers can leak into a failed text's row (`apps/hoa/src/lib/sms.ts:148`).
+- **SEC3-L7 (Low, fixed):** phone numbers can leak into a failed text's row (`apps/hoa/src/lib/sms.ts:148`).
   - The Vonage error text masks only runs of 7 or more contiguous digits.
   - A number echoed back formatted (`+1 404-555-0100`), or a non-RFC 7807 `err.message` fallback, would land in `communication_recipients.error_message`, which only the board sees.
-- **SEC3-L8 (Low):** lone surrogates in OFX files (`apps/hoa/src/lib/bank-import/parse.ts:451`). `decodeEntities` accepts `&#xD800;`–`&#xDFFF;`. A lone surrogate may make one insert chunk fail, leaving a partial import that is resumable. Refuse the 0xD800–0xDFFF range.
-- **SEC3-L9 (Low, defense in depth):** the board packet reads the meeting by URL id without an org filter (`apps/hoa/src/app/(dashboard)/meetings/[id]/packet/page.tsx:68`).
+  - **Fix:** the new exported `maskPhoneNumbers` masks 7 or more digits, whether contiguous or split by spaces, dashes, dots or parentheses, with or without a leading `+`. It now runs on both the RFC 7807 reason and the `err.message` fallback (capped at 200 characters).
+  - **Tests:** `sms.test.ts` (eight formats masked; status codes and short error numbers kept) and `sms-messages-api.test.ts` (through the real `sendSms`, for both the title and the fallback).
+- **SEC3-L8 (Low, fixed):** lone surrogates in OFX files (`apps/hoa/src/lib/bank-import/parse.ts:451`). `decodeEntities` accepts `&#xD800;`–`&#xDFFF;`. A lone surrogate may make one insert chunk fail, leaving a partial import that is resumable. Refuse the 0xD800–0xDFFF range.
+  - **Fix:** a numeric entity in 0xD800–0xDFFF now decodes to a space, like any other invalid code point. Two surrogate entities that would form a pair are refused too, and a real astral character entity still decodes.
+  - **Tests:** one case in `parse.test.ts` (hex, decimal and paired surrogate entities leave no `\p{Cs}`; `&#x1F600;` survives).
+- **SEC3-L9 (Low, defense in depth, fixed):** the board packet reads the meeting by URL id without an org filter (`apps/hoa/src/app/(dashboard)/meetings/[id]/packet/page.tsx:68`).
   - It passes `meeting.org_id` to the service-role director roster in the BL-145 compliance section (`:123`).
   - This is safe today only because 0063 makes `hoa_meeting_minutes` readable by board members only. Add `.eq('org_id', org.id)`.
+  - **Fix:** the page reads the meeting through `packetMeetingQuery(db, orgId, id)` (`lib/board-packet/queries.ts`), which filters on `id`, on `org_id` = the org from `requireBoardOrAdmin()`, and on not deleted. Another org's meeting id is "not found" before any service-role client is made.
+  - **Tests:** two cases in `queries.test.ts`: the query's filters, and a source check that the page has no unscoped meeting read and calls the gate, then the scoped read, then `createAdminClient()`, in that order.
+- **Not changed:** SEC3-L1, SEC3-L6 and SEC3-L10 stay as recorded here.
 - **SEC3-L10 (Info):** `backlog-email.yml` uploads `preview.html` as a 30-day artifact. On a public repo, any signed-in GitHub user can download it. The content is the already-public `docs/backlog.md`, and the owner's address in the workflow is already public in `next.md`.

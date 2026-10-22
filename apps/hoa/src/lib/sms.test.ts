@@ -75,3 +75,24 @@ describe('sendSms when configured', () => {
     expect(smsSend).not.toHaveBeenCalled()
   })
 })
+
+describe('maskPhoneNumbers (security review #3, SEC3-L7)', () => {
+  it('masks contiguous and formatted phone numbers, and leaves short numbers alone', async () => {
+    const { maskPhoneNumbers } = await load()
+    for (const n of [
+      '14045550100',
+      '+14045550100',
+      '+1 404-555-0100',
+      '404-555-0100',
+      '404.555.0100',
+      '(404) 555-0100',
+      '+1 (404) 555 0100',
+      '555-0100',
+    ]) {
+      expect(maskPhoneNumbers(`Destination ${n} is not whitelisted`), n).toBe('Destination [number] is not whitelisted')
+    }
+    expect(maskPhoneNumbers('Request failed with status code 422')).toBe('Request failed with status code 422')
+    expect(maskPhoneNumbers('error 1120: Invalid sender')).toBe('error 1120: Invalid sender')
+    expect(maskPhoneNumbers('to +1 404-555-0100 and 678.555.0199')).toBe('to [number] and [number]')
+  })
+})

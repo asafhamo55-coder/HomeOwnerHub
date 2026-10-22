@@ -9,7 +9,13 @@ import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
 import { packetPeriod } from '@/lib/board-packet/period'
 import { loadPacketSections } from '@/lib/board-packet/sections'
 import { loadBalanceSheet, loadBudgetsVsActual, loadIncomeStatement } from '@/lib/board-packet/financials'
-import { loadDelinquency, loadOpenArc, loadOpenViolations, loadPreviousMeeting } from '@/lib/board-packet/queries'
+import {
+  loadDelinquency,
+  loadOpenArc,
+  loadOpenViolations,
+  loadPreviousMeeting,
+  packetMeetingQuery,
+} from '@/lib/board-packet/queries'
 import { formatDay, formatDayRange, todayIso } from '@/lib/money/format'
 import { MEETING_TYPE } from '@/lib/status/community'
 import { createAdminClient } from '@homeowner-portal/db'
@@ -56,19 +62,13 @@ interface MeetingRow {
 }
 
 export default async function BoardPacketPage(props: { params: Promise<{ id: string }> }) {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const { id } = await props.params
   const supabase = await getSupabaseServerClient()
 
-  const meetingRes = await loadOrFail(
-    'meeting',
-    supabase
-      .from('hoa_meeting_minutes')
-      .select('id, org_id, meeting_date, meeting_type, ai_summary, status')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .maybeSingle(),
-  )
+  // Scoped to the caller's org in the query itself (SEC3-L9): meeting.org_id
+  // below feeds service-role reads, so it must never be another org's.
+  const meetingRes = await loadOrFail('meeting', packetMeetingQuery(supabase, org.id, id))
   const crumbsFor = (label: string) => [
     { label: 'Meetings', href: '/meetings' },
     { label, href: `/meetings/${id}` },

@@ -733,7 +733,11 @@ section grows with it):
    work once and expire. Every ask, matched or not, is counted: 5 a day per
    account. The answer to an address ask is the same whether or not it
    matched a home, so nobody can use it to find out which addresses exist.
-   The asker never sees a request row. See **L-BL143** below.
+   The asker never sees a request row. Hardened before apply (security
+   review #3, 2026-10-21): a sign-in email counts as matching the owner
+   on file only if the asker confirmed it; only homes in HOA accounts can
+   be found by address; nobody can approve their own request; and a
+   cancelled code stays cancelled. See **L-BL143** below.
 4. **Compliance evidence (BL-145).** One new, optional column on the
    compliance "done" table from Section J: the document (from the HOA's own
    Documents) the board keeps as proof it met a state-law deadline, such as
@@ -933,12 +937,17 @@ on its own, before and after.
          has_function_privilege('authenticated', 'public.owner_join_claim(text, text, text, text)', 'EXECUTE') AS members_can_ask,
          (SELECT count(*) FROM pg_trigger
            WHERE tgname IN ('owner_join_codes_scope', 'owner_join_codes_attribution')) AS code_guards,
-         public.owner_join_norm_address('12 Oak Street.') = public.owner_join_norm_address('12 OAK st') AS address_match_ok;
+         public.owner_join_norm_address('12 Oak Street.') = public.owner_join_norm_address('12 OAK st') AS address_match_ok,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'owner_join_requests'
+                    AND column_name = 'requester_email_confirmed')          AS hardened_ok;
   ```
 
-- **Does:** counts the security rules on the three tables, checks they are locked, empty, closed to signed-out visitors, open to signed-in accounts for asking, that the code checks are in place, and that address matching ignores "Street"/"St" and punctuation.
+- **Does:** counts the security rules on the three tables, checks they are locked, empty, closed to signed-out visitors, open to signed-in accounts for asking, that the code checks are in place, and that address matching ignores "Street"/"St" and punctuation. `hardened_ok` shows the file you pasted is the version hardened by security review #3 (2026-10-21), not an older copy.
 - **Read-only:** yes. **Time:** ~1 s.
-- **Expect:** one row: `code_rules` = 4, `request_rules` = 1, `attempt_rules` = 0, `join_locked` = true, `join_rows` = 0, `anon_can_ask` = false, `anon_can_decide` = false, `members_can_ask` = true, `code_guards` = 2, `address_match_ok` = true.
+- **Expect:** one row: `code_rules` = 4, `request_rules` = 1, `attempt_rules` = 0, `join_locked` = true, `join_rows` = 0, `anon_can_ask` = false, `anon_can_decide` = false, `members_can_ask` = true, `code_guards` = 2, `address_match_ok` = true, `hardened_ok` = true.
+- **If `hardened_ok` is false:** an older copy of the file was pasted. Ask Claude for the current file ("copy step L3") and run L3 again; it is safe to re-run. The hardening is in functions and one new column, so re-running replaces the functions and adds the column.
 - **Send:** the row (with L4).
 - **If `request_rules` is not 1 or `attempt_rules` is not 0:** stop and tell Claude. Requests must be readable by the board only and written by nobody directly; attempts must be readable by nobody.
 

@@ -18,17 +18,22 @@
  *     approve makes the asker a resident and links the home (the on-file
  *     ownership under their email, else a new one), audited; reject needs
  *     a reason (22023); a second decision is 'already_decided';
- *   - anon can call none of the functions.
+ *   - anon can call none of the functions;
+ *   - security review #3 (SEC3-L2..L5): an unconfirmed email never links
+ *     an ownership and shows as unverified; raw inputs over their limits
+ *     are refused unrecorded; only HOA orgs' homes are found; nobody
+ *     approves their own request; a revoked code stays revoked.
  *
  * Fixture rule (fixtures/factory.ts): adminDb() seeds; every RLS assertion
  * about a user runs through that user's own client. Ids and counts only;
  * no PII. The tables are not in the generated Database types until
  * gen:types runs after prod has 0069 (CLAUDE.md footgun 3), hence the casts.
  */
+import { execFileSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { LOCAL_ANON_KEY, LOCAL_SUPABASE_URL } from '../setup/env'
+import { LOCAL_ANON_KEY, LOCAL_DB_URL, LOCAL_SUPABASE_URL } from '../setup/env'
 import { adminDb, makeOrg, mintUser, type OrgFixture, type TestUser } from '../fixtures/factory'
 import { truncateAll } from '../fixtures/truncate'
 import { decideJoinRequest, loadPendingJoins, type JoinDb } from '../../../apps/hoa/src/lib/owner-join/board'
@@ -268,7 +273,10 @@ describe('0069 part 3: requests and decisions (BL-143)', () => {
     await adminDb().from(codes).insert({ organization_id: org.orgId, unit_id: home, code_hash: hash(code), expires_at: inDays(30) } as never)
     expect((await claimCode(board, code)).data).toBe('sent')
     const [req] = await pendingFor(board.id)
-    expect((await rpc(board, 'owner_join_decide', { p_request_id: req!.id, p_approve: true })).data).toBe('approved')
+    // SEC3-L4: nobody approves their own request, so a second board
+    // member decides it (the self-approval refusal is tested below).
+    const board2 = await mintUser(org, 'board')
+    expect((await rpc(board2, 'owner_join_decide', { p_request_id: req!.id, p_approve: true })).data).toBe('approved')
     const { data: member } = await adminDb().from('org_members').select('role').eq('org_id', org.orgId).eq('user_id', board.id).single()
     expect(member).toEqual({ role: 'board' })
     const { data: opened } = await adminDb().from('ownerships').select('owner_user_id, source, valid_to').eq('unit_id', home)
@@ -313,5 +321,171 @@ describe('0069 part 3: requests and decisions (BL-143)', () => {
     }
     const { count } = await adminDb().from(attempts).select('id', { count: 'exact', head: true })
     expect(count).toBe(0)
+  })
+})
+
+/**
+ * Mark a test user's email as never confirmed, straight in auth.users (the
+ * admin API can't unset it). The user's signed-in session keeps working:
+ * PostgREST checks only the JWT. Id-only SQL; the id is checked to be a
+ * UUID before it is put in the statement.
+ */
+function unconfirmEmail(userId: string): void {
+  if (!/^[0-9a-f-]{36}$/.test(userId)) throw new Error('unconfirmEmail: not a uuid')
+  execFileSync(
+    'psql',
+    [LOCAL_DB_URL, '-X', '-v', 'ON_ERROR_STOP=1', '-q', '-c', `UPDATE auth.users SET email_confirmed_at = NULL WHERE id = '${userId}';`],
+    { stdio: ['ignore', 'ignore', 'inherit'], timeout: 15_000 },
+  )
+}
+
+const attemptCount = async () =>
+  (await adminDb().from(attempts).select('id', { count: 'exact', head: true })).count
+
+describe('0069 part 3: security review #3 hardening (SEC3-L2..L5)', () => {
+  it('L2: an unconfirmed email is flagged to the board and never links the on-file ownership', async () => {
+    const { data: own } = await adminDb()
+      .from('ownerships')
+      .insert({ organization_id: org.orgId, unit_id: home, owner_email: stranger.email, valid_from: '2024-01-01' })
+      .select('id')
+      .single()
+
+    // A confirmed asker is recorded as confirmed (the existing "match" path).
+    await claimAddress(resident, '12 Oak Street', '30301')
+    const { data: conf } = await adminDb().from(requests).select('requester_email_confirmed').eq('requester_id' as never, resident.id).single()
+    expect(conf).toEqual({ requester_email_confirmed: true })
+
+    unconfirmEmail(stranger.id)
+    expect((await claimAddress(stranger, '12 Oak Street', '30301')).data).toBe('sent')
+    const { data: flagged } = await adminDb().from(requests).select('id, requester_email_confirmed').eq('requester_id' as never, stranger.id).single()
+    expect(flagged).toMatchObject({ requester_email_confirmed: false })
+    const reqId = (flagged as unknown as { id: string }).id
+
+    // The board's card: the email matches the owner on file, but says so as unverified.
+    const loaded = await loadPendingJoins(board.client as unknown as JoinDb, org.orgId, 50, true)
+    expect(loaded.ok).toBe(true)
+    if (!loaded.ok) return
+    const card = loaded.items.find((i) => i.row.id === reqId)!.card
+    expect(card.emailCheck).toBe('unverified')
+
+    // Approving opens a new ownership; the on-file one stays unlinked, and
+    // the unconfirmed email is not written as an owner email.
+    const r = await decideJoinRequest(board.client as unknown as JoinDb, { requestId: reqId, approve: true }, true)
+    expect(r.ok).toBe(true)
+    const { data: onFile } = await adminDb().from('ownerships').select('owner_user_id').eq('id', own!.id).single()
+    expect(onFile).toEqual({ owner_user_id: null })
+    const { data: opened } = await adminDb()
+      .from('ownerships')
+      .select('owner_email, source')
+      .eq('unit_id', home)
+      .eq('owner_user_id', stranger.id)
+    expect(opened).toEqual([{ owner_email: null, source: 'join_request' }])
+    const { data: audit } = await adminDb().from('audit_log').select('metadata').eq('action', 'members.join_approved').eq('entity_id', reqId).single()
+    expect(audit).toEqual({ metadata: { unit_id: home, method: 'address', link: 'opened' } })
+  })
+
+  it('L2: an email confirmed when they asked but not when the board decides is not used either', async () => {
+    const { data: own } = await adminDb()
+      .from('ownerships')
+      .insert({ organization_id: org.orgId, unit_id: home, owner_email: stranger.email, valid_from: '2024-01-01' })
+      .select('id')
+      .single()
+    await claimAddress(stranger, '12 Oak Street', '30301')
+    const [req] = await pendingFor(stranger.id)
+    unconfirmEmail(stranger.id)
+    expect((await rpc(board, 'owner_join_decide', { p_request_id: req!.id, p_approve: true })).data).toBe('approved')
+    const { data: onFile } = await adminDb().from('ownerships').select('owner_user_id').eq('id', own!.id).single()
+    expect(onFile).toEqual({ owner_user_id: null })
+  })
+
+  it('L3: raw inputs over their limits are refused before normalising, and nothing is recorded', async () => {
+    // Each of these normalises to something valid, so only the raw-length
+    // check refuses them.
+    const longCode = `${'-'.repeat(30)}ABCDEFGHJK`
+    expect((await claimCode(stranger, longCode)).data).toBe('invalid')
+    expect((await claimAddress(stranger, '12 Oak Street', `30301${'-'.repeat(16)}`)).data).toBe('invalid')
+    expect((await claimAddress(stranger, '12 Oak Street', '30301', `4B${' '.repeat(39)}`)).data).toBe('invalid')
+    expect((await claimAddress(stranger, `12 Oak Street${' '.repeat(188)}`, '30301')).data).toBe('invalid')
+    expect(await attemptCount()).toBe(0)
+    expect(await pendingFor(stranger.id)).toHaveLength(0)
+
+    // At the limits they still work.
+    expect((await claimAddress(stranger, `12 Oak Street${' '.repeat(187)}`, `30301${'-'.repeat(15)}`)).data).toBe('sent')
+    expect(await pendingFor(stranger.id)).toHaveLength(1)
+  })
+
+  it('L3: hit, miss and already-linked all answer "sent", one attempt each, and only the hit files a request', async () => {
+    await adminDb().from('ownerships').insert({ organization_id: org.orgId, unit_id: home, owner_user_id: resident.id, valid_from: '2024-01-01' })
+    const linked = await claimAddress(resident, '12 Oak Street', '30301')
+    const miss = await claimAddress(stranger, '99 Nowhere Road', '30301')
+    const hit = await claimAddress(stranger, '12 Oak Street', '30301')
+    expect(linked).toEqual({ data: 'sent', error: null })
+    expect(miss).toEqual(linked)
+    expect(hit).toEqual(linked)
+    expect(await pendingFor(resident.id)).toHaveLength(0)
+    expect(await pendingFor(stranger.id)).toHaveLength(1)
+    expect(await attemptCount()).toBe(3)
+  })
+
+  it('L4: the address scan covers HOA orgs only', async () => {
+    await makeHome(other, '1 Pine Lane', '31201')
+    const { error } = await adminDb().from('orgs').update({ hub_type: 'pm' }).eq('id', other.orgId)
+    expect(error).toBeNull()
+    expect((await claimAddress(stranger, '1 Pine Lane', '31201')).data).toBe('sent')
+    expect(await pendingFor(stranger.id)).toHaveLength(0)
+
+    // The same address in an HOA org is found.
+    await adminDb().from('orgs').update({ hub_type: 'hoa' }).eq('id', other.orgId)
+    expect((await claimAddress(stranger, '1 Pine Lane', '31201')).data).toBe('sent')
+    expect(await pendingFor(stranger.id)).toHaveLength(1)
+  })
+
+  it('L4: a board member or admin cannot approve their own request (42501); another one can', async () => {
+    const admin = await mintUser(org, 'admin')
+    for (const self of [board, admin]) {
+      const code = newCode()
+      await adminDb().from(codes).insert({ organization_id: org.orgId, unit_id: home, code_hash: hash(code), expires_at: inDays(30) } as never)
+      expect((await claimCode(self, code)).data).toBe('sent')
+      const [req] = await pendingFor(self.id)
+      const own = await rpc(self, 'owner_join_decide', { p_request_id: req!.id, p_approve: true })
+      expect(own.error?.code).toBe('42501')
+      expect((await pendingFor(self.id))[0]!.status).toBe('pending')
+      // Through the app's decision code too: the refusal is a sentence, not a success.
+      const viaApp = await decideJoinRequest(self.client as unknown as JoinDb, { requestId: req!.id, approve: true }, true)
+      expect(viaApp.ok).toBe(false)
+      const decider = self === board ? admin : board
+      expect((await rpc(decider, 'owner_join_decide', { p_request_id: req!.id, p_approve: true })).data).toBe('approved')
+    }
+    const { count } = await adminDb().from('audit_log').select('id', { count: 'exact', head: true }).eq('action', 'members.join_approved')
+    expect(count).toBe(2)
+  })
+
+  it('L5: a revoked code cannot be un-revoked or re-stamped, by the board or the service role (23514)', async () => {
+    const code = newCode()
+    const ins = await board.client
+      .from(codes)
+      .insert({ organization_id: org.orgId, unit_id: home, code_hash: hash(code), expires_at: inDays(30) } as never)
+      .select('id')
+      .single()
+    const id = (ins.data as unknown as { id: string }).id
+    const revokedAt = new Date().toISOString()
+    expect((await board.client.from(codes).update({ revoked_at: revokedAt } as never).eq('id' as never, id)).error).toBeNull()
+    const { data: before } = await adminDb().from(codes).select('revoked_at').eq('id' as never, id).single()
+    const stamp = (before as unknown as { revoked_at: string }).revoked_at
+    expect(stamp).not.toBeNull()
+
+    const clear = await board.client.from(codes).update({ revoked_at: null } as never).eq('id' as never, id)
+    expect(clear.error?.code).toBe('23514')
+    const restamp = await board.client.from(codes).update({ revoked_at: inDays(1) } as never).eq('id' as never, id)
+    expect(restamp.error?.code).toBe('23514')
+    const asService = await adminDb().from(codes).update({ revoked_at: null } as never).eq('id' as never, id)
+    expect(asService.error?.code).toBe('23514')
+
+    const { data: after } = await adminDb().from(codes).select('revoked_at').eq('id' as never, id).single()
+    expect(after).toEqual({ revoked_at: stamp })
+    expect((await claimCode(stranger, code)).data).toBe('invalid_code')
+
+    // Only revoked_at is frozen: the expiry of a revoked code can still move.
+    expect((await board.client.from(codes).update({ expires_at: inDays(10) } as never).eq('id' as never, id)).error).toBeNull()
   })
 })

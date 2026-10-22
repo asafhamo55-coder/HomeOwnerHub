@@ -110,22 +110,38 @@ export async function sendSms(
     // or "Non-Whitelisted Destination". Surface that specific reason
     // instead of the generic "Request failed with status code 422".
     const detail = await firstVonageErrorText(err)
+    // The fallback is masked too: a non-RFC 7807 failure can echo the
+    // number in its message (security review #3, SEC3-L7).
     const message =
       detail ??
       (err && typeof err === 'object' && 'message' in err
-        ? String((err as { message: unknown }).message)
+        ? maskPhoneNumbers(String((err as { message: unknown }).message)).slice(0, 200)
         : 'Vonage send failed.')
     return { ok: false, error: message }
   }
 }
 
 /**
+ * Replace anything that looks like a phone number with "[number]" before
+ * it can land in a failed text's row (communication_recipients
+ * .error_message). A number is 7 or more digits, either one contiguous
+ * run or split by spaces, dashes, dots or parentheses, with or without a
+ * leading +: "14045550100", "+1 404-555-0100", "(404) 555.0100". Security
+ * review #3, SEC3-L7 (before it, only contiguous runs were masked). It
+ * errs toward masking: a long digit group in an error text is never
+ * worth keeping.
+ */
+export function maskPhoneNumbers(text: string): string {
+  return text.replace(/\+?\(?\d(?:[ \t.()-]{0,3}\d){6,}\)?/g, '[number]')
+}
+
+/**
  * Pull the reason out of a thrown Vonage Messages API error. The SDK's
  * VetchError keeps the raw fetch Response (body not yet read); its JSON
  * body is { type, title, detail, instance }. Returns the title (a short
- * reason, like the legacy SMS API's errorText), else the detail. Runs of
- * 7+ digits are masked so a number echoed back by Vonage never lands in
- * the row. Returns undefined for anything unrecognizable; never throws.
+ * reason, like the legacy SMS API's errorText), else the detail. Phone
+ * numbers, contiguous or formatted, are masked (maskPhoneNumbers) so a
+ * number echoed back by Vonage never lands in the row. Returns undefined for anything unrecognizable; never throws.
  */
 async function firstVonageErrorText(err: unknown): Promise<string | undefined> {
   if (!err || typeof err !== 'object' || !('response' in err)) return undefined
@@ -145,7 +161,7 @@ async function firstVonageErrorText(err: unknown): Promise<string | undefined> {
         : typeof detail === 'string' && detail.trim()
           ? detail.trim()
           : undefined
-    return reason ? reason.replace(/\d{7,}/g, '[number]').slice(0, 200) : undefined
+    return reason ? maskPhoneNumbers(reason).slice(0, 200) : undefined
   } catch {
     return undefined
   }

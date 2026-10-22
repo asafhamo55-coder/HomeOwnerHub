@@ -210,6 +210,27 @@ describe('OFX / QFX', () => {
     ])
   })
 
+  it('refuses surrogate code points in entities; a real astral character still decodes (SEC3-L8)', () => {
+    const block = (name: string, id: string) =>
+      `<STMTTRN><TRNTYPE>DEBIT</TRNTYPE><DTPOSTED>20261015</DTPOSTED><TRNAMT>-1.00</TRNAMT><FITID>${id}</FITID><NAME>${name}</NAME></STMTTRN>`
+    const text = [
+      '<OFX><BANKTRANLIST>',
+      block('HIGH&#xD800;LOW', 'S1'),
+      block('LOW&#xDFFF;END', 'S2'),
+      block('DEC&#55296;IMAL', 'S3'),
+      block('PAIR&#xD83D;&#xDE00;SPLIT', 'S4'),
+      block('SMILE &#x1F600; OK', 'S5'),
+      '</BANKTRANLIST></OFX>',
+    ].join('\n')
+    const r = ok(parseStatement(text))
+    const names = brief(r).map((b) => String(b[2]))
+    expect(names).toHaveLength(5)
+    // No lone surrogate survives, even when two entities would pair up.
+    for (const n of names) expect(n, n).not.toMatch(/\p{Cs}/u)
+    expect(names.slice(0, 4).map((n) => n.replace(/\s+/g, ' '))).toEqual(['HIGH LOW', 'LOW END', 'DEC IMAL', 'PAIR SPLIT'])
+    expect(names[4]).toContain('\u{1F600}')
+  })
+
   it('an OFX file with no transactions is refused', () => {
     expect(parseStatement('OFXHEADER:100\n<OFX></OFX>')).toEqual({ ok: false, error: 'The OFX file has no transactions in it.' })
   })

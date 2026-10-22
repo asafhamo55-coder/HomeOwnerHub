@@ -165,6 +165,27 @@ export async function loadOpenArc(db: SupabaseClient, orgId: string): Promise<Op
 
 // ─── Previous meeting's action items ────────────────────────────────
 
+/** The packet's meeting, as the page reads it. */
+export const PACKET_MEETING_COLUMNS = 'id, org_id, meeting_date, meeting_type, ai_summary, status'
+
+/**
+ * The query for the packet's own meeting, by URL id AND the caller's org
+ * (security review #3, SEC3-L9). The page then hands `meeting.org_id` to
+ * service-role reads (the BL-145 director roster), so the org filter is
+ * here in the query itself rather than left to 0063's RLS on
+ * hoa_meeting_minutes. Another org's meeting id reads as "not found".
+ * Returns the unawaited query for loadOrFail.
+ */
+export function packetMeetingQuery(db: SupabaseClient, orgId: string, meetingId: string) {
+  return db
+    .from('hoa_meeting_minutes')
+    .select(PACKET_MEETING_COLUMNS)
+    .eq('id', meetingId)
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .maybeSingle()
+}
+
 export interface PacketActionItem {
   id: string
   title: string
