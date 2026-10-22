@@ -14,7 +14,7 @@ related: [dues-generate-monthly, settings-resident-payments]
 reviewed: 2026-10-20
 ---
 
-Use this when an owner paid by check, cash or any other way outside the portal.
+Use this when an owner paid by check (or cheque), cash or any other way outside the portal.
 
 ## Before you start
 - Only board admins and board members can record payments.
