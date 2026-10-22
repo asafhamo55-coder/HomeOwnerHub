@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { LIST_CAP, loadDelinquency, loadOpenArc, loadOpenViolations, loadPreviousMeeting } from './queries'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import {
+  LIST_CAP,
+  PACKET_MEETING_COLUMNS,
+  loadDelinquency,
+  loadOpenArc,
+  loadOpenViolations,
+  loadPreviousMeeting,
+  packetMeetingQuery,
+} from './queries'
 import { readAll } from '@/lib/supabase/read-all'
 import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
 
@@ -207,5 +218,50 @@ describe('loadPreviousMeeting', () => {
   it('no earlier meeting is a real empty result, not a failure', async () => {
     const { db } = fakeDb({ hoa_meeting_minutes: [] })
     expect(await loadPreviousMeeting(db, 'org-1', '2026-10-14')).toEqual({ meeting: null, items: [] })
+  })
+})
+
+describe('the packet’s own meeting (security review #3, SEC3-L9)', () => {
+  it('reads the meeting by id AND the caller’s org, live rows only', async () => {
+    const ops: [string, ...unknown[]][] = []
+    const tables: string[] = []
+    const builder: Record<string, unknown> = {}
+    for (const m of ['select', 'eq', 'is']) {
+      builder[m] = (...args: unknown[]) => {
+        ops.push([m, ...args])
+        return builder
+      }
+    }
+    builder.maybeSingle = () => {
+      ops.push(['maybeSingle'])
+      return Promise.resolve({ data: null, error: null })
+    }
+    const db = {
+      from: (t: string) => {
+        tables.push(t)
+        return builder
+      },
+    } as unknown as SupabaseClient
+
+    expect(await packetMeetingQuery(db, 'org-1', 'm-9')).toEqual({ data: null, error: null })
+    expect(tables).toEqual(['hoa_meeting_minutes'])
+    expect(ops).toContainEqual(['select', PACKET_MEETING_COLUMNS])
+    expect(ops).toContainEqual(['eq', 'id', 'm-9'])
+    expect(ops).toContainEqual(['eq', 'org_id', 'org-1'])
+    expect(ops).toContainEqual(['is', 'deleted_at', null])
+    expect(PACKET_MEETING_COLUMNS.split(', ')).toContain('org_id')
+  })
+
+  it('the packet page reads its meeting through it, with the gate’s org, before any service-role client', () => {
+    const here = path.dirname(fileURLToPath(import.meta.url))
+    const page = readFileSync(path.resolve(here, '../../app/(dashboard)/meetings/[id]/packet/page.tsx'), 'utf8')
+    // No unscoped read of the meeting left in the page.
+    expect(page).not.toMatch(/from\('hoa_meeting_minutes'\)/)
+    const gate = page.indexOf('const { org } = await requireBoardOrAdmin()')
+    const read = page.indexOf('packetMeetingQuery(supabase, org.id, id)')
+    const admin = page.indexOf('createAdminClient()')
+    expect(gate).toBeGreaterThan(-1)
+    expect(read).toBeGreaterThan(gate)
+    expect(admin).toBeGreaterThan(read)
   })
 })

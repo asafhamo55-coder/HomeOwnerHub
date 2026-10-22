@@ -14,6 +14,7 @@ import {
   normaliseUnit,
   normaliseZip,
   ownerEmailCheck,
+  OWNER_EMAIL_NOTE,
   parseClaim,
   readClaimOutcome,
   readDecideOutcome,
@@ -127,6 +128,7 @@ describe('the board’s card', () => {
     unit_id: 'u1',
     requester_name: 'Pat Owner',
     requester_email: 'pat@example.test',
+    requester_email_confirmed: true,
     method: 'address',
     created_at: '2026-10-21T10:00:00Z',
   }
@@ -153,5 +155,19 @@ describe('the board’s card', () => {
     expect(joinCard({ ...row, unit_id: 'u2' }, unit, owners).emailCheck).toBe('other')
     expect(ownerEmailCheck(null, owners)).toBe('other')
     expect(ownerEmailCheck('pat@example.test', [])).toBe('none')
+  })
+
+  it('a matching email counts only when it was confirmed (SEC3-L2)', () => {
+    const owners = [{ unit_id: 'u1', owner_email: 'pat@example.test', owner_user_id: null }]
+    expect(joinCard({ ...row, requester_email_confirmed: false }, unit, owners).emailCheck).toBe('unverified')
+    expect(joinCard({ ...row, requester_email_confirmed: null }, unit, owners).emailCheck).toBe('unverified')
+    const { requester_email_confirmed: _drop, ...noFlag } = row
+    expect(joinCard(noFlag, unit, owners).emailCheck).toBe('unverified')
+    expect(ownerEmailCheck('pat@example.test', owners)).toBe('unverified')
+    expect(ownerEmailCheck('pat@example.test', owners, true)).toBe('match')
+    // Unconfirmed never upgrades a mismatch or an empty file.
+    expect(ownerEmailCheck('someone@example.test', owners, false)).toBe('other')
+    expect(ownerEmailCheck('pat@example.test', [], false)).toBe('none')
+    expect(OWNER_EMAIL_NOTE.unverified).toMatch(/haven’t confirmed/)
   })
 })

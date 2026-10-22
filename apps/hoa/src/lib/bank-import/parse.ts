@@ -448,7 +448,11 @@ function decodeEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{2,6});/gi, (whole, e: string) => {
     if (e[0] === '#') {
       const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
-      return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : ' '
+      // Surrogate code points (0xD800–0xDFFF) are refused like any other
+      // invalid one: a lone surrogate is not valid UTF-8 and can fail an
+      // insert chunk (security review #3, SEC3-L8).
+      const valid = Number.isFinite(code) && code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff)
+      return valid ? String.fromCodePoint(code) : ' '
     }
     return ENTITIES[e.toLowerCase()] ?? whole
   })

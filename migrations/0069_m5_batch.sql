@@ -44,6 +44,11 @@
 --              of the request's org, else 42501) approves — resident
 --              membership plus an ownership link, in one transaction — or
 --              rejects with a reason; both audited (ids only).
+--              Hardened in place before apply (security review #3,
+--              SEC3-L2..L5): the sign-in email counts only when
+--              confirmed; raw input limits come before normalising; the
+--              address scan is HOA orgs only; nobody approves their own
+--              request; a revoked code stays revoked.
 --
 --   4. BL-145  compliance_deadlines_done.document_id: the evidence
 --              document the board attaches when it marks a statutory
@@ -352,6 +357,10 @@ CREATE TABLE IF NOT EXISTS public.owner_join_requests (
   requester_id    uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   requester_email text        CHECK (requester_email IS NULL OR length(requester_email) <= 320),
   requester_name  text        CHECK (requester_name IS NULL OR length(requester_name) <= 200),
+  -- Security review #3 (SEC3-L2): was requester_email confirmed
+  -- (auth.users.email_confirmed_at set) when they asked? The board's
+  -- "email matches the owner on file" signal counts only when it was.
+  requester_email_confirmed boolean NOT NULL DEFAULT false,
   method          text        NOT NULL CHECK (method IN ('address', 'code')),
   code_id         uuid        REFERENCES public.owner_join_codes(id) ON DELETE SET NULL,
   status          text        NOT NULL DEFAULT 'pending'
@@ -363,6 +372,12 @@ CREATE TABLE IF NOT EXISTS public.owner_join_requests (
   CONSTRAINT owner_join_requests_decided CHECK ((status = 'pending') = (decided_at IS NULL)),
   CONSTRAINT owner_join_requests_code_method CHECK (method = 'code' OR code_id IS NULL)
 );
+
+-- For a database where an earlier copy of this file already made the
+-- table: the CREATE above is then skipped, so add the SEC3-L2 column here
+-- (a no-op otherwise). Metadata-only on an empty table.
+ALTER TABLE public.owner_join_requests
+  ADD COLUMN IF NOT EXISTS requester_email_confirmed boolean NOT NULL DEFAULT false;
 
 CREATE UNIQUE INDEX IF NOT EXISTS owner_join_requests_pending_uniq
   ON public.owner_join_requests (requester_id, unit_id)
@@ -420,6 +435,9 @@ CREATE TRIGGER owner_join_codes_scope
 -- `authenticated`) created_by is the caller on INSERT and never changes,
 -- and a code is born unused. On UPDATE only revoked_at and expires_at can
 -- move: the hash, the home and the use stamp stay as they were.
+-- Revocation is final (security review #3, SEC3-L5): once revoked_at is
+-- set, no caller (the service role included) can clear or change it
+-- (23514).
 CREATE OR REPLACE FUNCTION public.owner_join_codes_attribution()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -427,6 +445,14 @@ SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $fn$
 BEGIN
+  -- Nested so OLD is read only on UPDATE.
+  IF tg_op = 'UPDATE' THEN
+    IF old.revoked_at IS NOT NULL
+       AND new.revoked_at IS DISTINCT FROM old.revoked_at THEN
+      RAISE EXCEPTION 'owner_join_codes: a revoked code stays revoked'
+        USING errcode = '23514';
+    END IF;
+  END IF;
   IF current_user = 'authenticated' THEN
     IF tg_op = 'INSERT' THEN
       new.created_by := auth.uid();
@@ -497,6 +523,15 @@ CREATE POLICY owner_join_requests_select ON public.owner_join_requests
 --   'invalid'      the input is not a claim (nothing recorded);
 --   'rate_limited' 5 claims in the last 24 hours (nothing recorded).
 -- Every valid claim, matched or not, is one owner_join_attempts row.
+-- Security review #3:
+--   SEC3-L3  the raw inputs' lengths are checked before any normalising
+--            (code 32, address 200, ZIP 20, unit 40), and a hit and a
+--            miss do the same reads after the scan; only the hit's one
+--            INSERT differs;
+--   SEC3-L4  the address scan covers HOA orgs only (orgs.hub_type =
+--            'hoa', the 0000 marker set-active-org.ts also uses);
+--   SEC3-L2  requester_email_confirmed records whether the asker's email
+--            was confirmed (auth.users.email_confirmed_at).
 CREATE OR REPLACE FUNCTION public.owner_join_claim(
   p_address     text DEFAULT NULL,
   p_postal_code text DEFAULT NULL,
@@ -510,31 +545,45 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $fn$
 DECLARE
-  v_uid     uuid := auth.uid();
-  v_code    text := upper(regexp_replace(COALESCE(p_code, ''), '[^A-Za-z0-9]', '', 'g'));
-  v_addr    text := public.owner_join_norm_address(p_address);
-  v_zip     text := public.owner_join_norm_zip(p_postal_code);
-  v_unit    text := public.owner_join_norm_unit(p_unit);
-  v_by_code boolean;
-  v_count   integer;
-  v_code_id uuid;
-  v_unit_id uuid;
-  v_org     uuid;
-  v_email   text;
-  v_name    text;
+  v_uid       uuid := auth.uid();
+  v_code      text;
+  v_addr      text;
+  v_zip       text;
+  v_unit      text;
+  v_by_code   boolean;
+  v_count     integer;
+  v_code_id   uuid;
+  v_unit_id   uuid;
+  v_org       uuid;
+  v_owned     boolean;
+  v_email     text;
+  v_confirmed boolean;
+  v_name      text;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'owner_join_claim: sign in first' USING errcode = '42501';
   END IF;
+
+  -- SEC3-L3: limits on the raw inputs first, so oversized input costs no
+  -- regex work at all.
+  IF length(COALESCE(p_code, '')) > 32
+     OR length(COALESCE(p_address, '')) > 200
+     OR length(COALESCE(p_postal_code, '')) > 20
+     OR length(COALESCE(p_unit, '')) > 40 THEN
+    RETURN 'invalid';
+  END IF;
+
+  v_code := upper(regexp_replace(COALESCE(p_code, ''), '[^A-Za-z0-9]', '', 'g'));
+  v_addr := public.owner_join_norm_address(p_address);
+  v_zip  := public.owner_join_norm_zip(p_postal_code);
+  v_unit := public.owner_join_norm_unit(p_unit);
 
   v_by_code := v_code <> '';
   IF v_by_code THEN
     IF length(v_code) <> 10 OR v_addr <> '' THEN
       RETURN 'invalid';
     END IF;
-  ELSIF v_addr = '' OR length(v_zip) <> 5
-        OR length(COALESCE(p_address, '')) > 200
-        OR length(COALESCE(p_unit, '')) > 40 THEN
+  ELSIF v_addr = '' OR length(v_zip) <> 5 THEN
     RETURN 'invalid';
   END IF;
 
@@ -569,30 +618,39 @@ BEGIN
     SELECT count(*), (array_agg(u.id))[1], (array_agg(u.organization_id))[1]
       INTO v_count, v_unit_id, v_org
       FROM public.units u
+      JOIN public.orgs og ON og.id = u.organization_id AND og.hub_type = 'hoa'
      WHERE public.owner_join_norm_zip(u.postal_code) = v_zip
        AND public.owner_join_norm_address(u.address_line1) = v_addr
        AND (v_unit = '' OR public.owner_join_norm_unit(u.unit_number) = v_unit);
     IF v_count <> 1 THEN
-      RETURN 'sent';
+      -- No single home: carry on with no home, so the reads below run on
+      -- a miss as on a hit (SEC3-L3); they find nothing for a null home.
+      v_unit_id := NULL;
+      v_org := NULL;
     END IF;
   END IF;
 
   -- Already linked to that home: nothing for the board to decide.
-  IF EXISTS (SELECT 1 FROM public.ownerships o
-              WHERE o.unit_id = v_unit_id
-                AND o.owner_user_id = v_uid
-                AND o.valid_to IS NULL) THEN
+  v_owned := EXISTS (SELECT 1 FROM public.ownerships o
+                      WHERE o.unit_id = v_unit_id
+                        AND o.owner_user_id = v_uid
+                        AND o.valid_to IS NULL);
+
+  SELECT au.email, au.email_confirmed_at IS NOT NULL
+    INTO v_email, v_confirmed
+    FROM auth.users au WHERE au.id = v_uid;
+  SELECT p.full_name INTO v_name FROM public.profiles p WHERE p.id = v_uid;
+
+  IF v_unit_id IS NULL OR v_owned THEN
     RETURN 'sent';
   END IF;
 
-  SELECT au.email INTO v_email FROM auth.users au WHERE au.id = v_uid;
-  SELECT p.full_name INTO v_name FROM public.profiles p WHERE p.id = v_uid;
-
   INSERT INTO public.owner_join_requests
-    (organization_id, unit_id, requester_id, requester_email, requester_name, method, code_id)
+    (organization_id, unit_id, requester_id, requester_email, requester_email_confirmed,
+     requester_name, method, code_id)
   VALUES
-    (v_org, v_unit_id, v_uid, left(v_email, 320), left(v_name, 200),
-     CASE WHEN v_by_code THEN 'code' ELSE 'address' END, v_code_id)
+    (v_org, v_unit_id, v_uid, left(v_email, 320), COALESCE(v_confirmed, false),
+     left(v_name, 200), CASE WHEN v_by_code THEN 'code' ELSE 'address' END, v_code_id)
   ON CONFLICT (requester_id, unit_id) WHERE status = 'pending' DO NOTHING;
 
   RETURN 'sent';
@@ -630,6 +688,11 @@ $fn$;
 -- on file under their sign-in email, else a new ownership row (source
 -- 'join_request'). Reject needs a reason (22023). Audited with ids only.
 -- Returns 'approved', 'rejected' or 'already_decided'.
+-- Security review #3: the sign-in email is used (to link the ownership on
+-- file, and as a new ownership's owner_email) only while it is confirmed
+-- (auth.users.email_confirmed_at IS NOT NULL, SEC3-L2); and nobody
+-- approves their own request (42501, SEC3-L4) — another board member or
+-- admin has to.
 CREATE OR REPLACE FUNCTION public.owner_join_decide(
   p_request_id uuid,
   p_approve    boolean,
@@ -672,6 +735,11 @@ BEGIN
     RETURN 'rejected';
   END IF;
 
+  IF r.requester_id = v_uid THEN
+    RAISE EXCEPTION 'owner_join_decide: another board member must approve your own request'
+      USING errcode = '42501';
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM public.units u
                   WHERE u.id = r.unit_id AND u.organization_id = r.organization_id) THEN
     RAISE EXCEPTION 'owner_join_decide: home is not in this organization' USING errcode = '23503';
@@ -681,7 +749,11 @@ BEGIN
   VALUES (r.organization_id, r.requester_id, 'resident', now())
   ON CONFLICT (org_id, user_id) DO NOTHING;
 
-  SELECT au.email INTO v_email FROM auth.users au WHERE au.id = r.requester_id;
+  -- SEC3-L2: an unconfirmed email proves nothing, so it is not used.
+  SELECT au.email INTO v_email
+    FROM auth.users au
+   WHERE au.id = r.requester_id
+     AND au.email_confirmed_at IS NOT NULL;
 
   SELECT o.id INTO v_own
     FROM public.ownerships o

@@ -43,7 +43,7 @@ describe('loadPendingJoins', () => {
   it('builds each card from the request, its home and the owners on file', async () => {
     const { db } = fakeDb({
       owner_join_requests: {
-        data: [{ id: 'r1', unit_id: 'u1', requester_name: 'Pat', requester_email: 'pat@example.test', method: 'code', created_at: 'T' }],
+        data: [{ id: 'r1', unit_id: 'u1', requester_name: 'Pat', requester_email: 'pat@example.test', requester_email_confirmed: true, method: 'code', created_at: 'T' }],
         count: 3,
       },
       units: { data: [{ id: 'u1', address_line1: '12 Oak St', unit_number: null, city: null }] },

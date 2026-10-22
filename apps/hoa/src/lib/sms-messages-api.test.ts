@@ -129,6 +129,16 @@ describe('sendSms — error handling', () => {
     expect(r).toEqual({ ok: false, error: 'Destination [number] is not whitelisted' })
   })
 
+  it('masks a formatted number in the reason, and in the plain error message fallback (SEC3-L7)', async () => {
+    stubEnv()
+    smsSend.mockRejectedValue(vetchError(422, { title: 'Destination +1 404-555-0100 is not whitelisted' }))
+    const { sendSms } = await freshSms()
+    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Destination [number] is not whitelisted' })
+
+    smsSend.mockRejectedValue(new Error('Could not reach (404) 555.0100'))
+    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Could not reach [number]' })
+  })
+
   it('an unparseable body falls back to the error message', async () => {
     stubEnv()
     smsSend.mockRejectedValue(vetchError(500, '<html>oops</html>'))
