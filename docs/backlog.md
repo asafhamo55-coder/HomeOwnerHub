@@ -1879,3 +1879,12 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
 - A resident AI over the governing documents, with citations (Condo Control, Feb 2026). We have the resident assistant; check its citation coverage first.
 - Inbox Phase B: ride along in M6 if there is room.
 - CA § 5650 and TX § 209.0051 fixtures (the round-4 prerequisite).
+
+## Owner request 2026-10-22: marketing website on www.homeownerledger.online
+
+157. **BL-157 Marketing website at www.homeownerledger.online.** Migration: no. Owner ask (Asaf, 2026-10-22: "start work on the marketing site on www.homeownerledger.online").
+   - **Domain:** OA-30 (DNS CNAME fix + move the hostname from the app project to `homeownerhub-marketing`). The app stays at www.homeownerledger.com; OA-5 stays paused.
+   - **Code (ours):** the site's own base URL (canonical, sitemap, robots, Open Graph) comes from one setting that defaults to www.homeownerledger.online; sign-in and sign-up links keep pointing at the app at www.homeownerledger.com.
+   - **Truth pass:** every feature claim checked against shipped code; remove or fix anything not live. Fix the `ledger.ai` contact addresses (domain-split spec, "Unrelated finding").
+   - **Georgia first:** the home page and HOA page lead with Georgia (SB 406 registration kit, GA collections letters, quorum/proxy, annual report), FL/CA/TX next.
+   - **Status:** dispatched 2026-10-22.

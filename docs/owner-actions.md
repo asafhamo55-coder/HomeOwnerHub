@@ -41,6 +41,41 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-29 · Give the app's Vercel build more memory (deploys are stuck)
+
+**Urgency:** Urgent
+
+**Why it matters:** the last deploy ran out of memory on Vercel (exit 137)
+during `next build`'s type-check, so production is still on the Oct 21 21:51
+build. Merged and waiting: dues rates, the late-fee policy (no fee until a
+board saves one), join requests, Georgia letters, the GA registration kit,
+the GA annual report, and the fix for the dashboard Refresh error. Claude's
+permissions don't allow it to change Vercel environment variables.
+
+**Steps:**
+
+1. In Vercel, open the project **home-owner-hub-hoa** → **Settings → Environment Variables**.
+2. Add `NODE_OPTIONS` with the value `--max-old-space-size=6144`, as a plain (not sensitive) variable, for **Production** and **Preview**. Save.
+3. Open **Deployments**, find the newest deployment of branch `claude/phase1-homeownerhub-setup-MILNu` (commit 86994ea8, status Error), and click **Redeploy**.
+4. Tell Claude it's done. Claude watches /api/health and finishes the deploy.
+
+### OA-30 · Point www.homeownerledger.online at the marketing website
+
+**Urgency:** Soon
+
+**Why it matters:** you asked (2026-10-22) for the marketing website to live at
+www.homeownerledger.online. Today that name doesn't load: its DNS record holds
+a web address (`http://...vercel-dns-017.com/.`) where a plain host name
+belongs, and in Vercel the name is attached to the app project as a redirect.
+The app itself stays at www.homeownerledger.com (OA-5 stays paused).
+
+**Steps:**
+
+1. At Network Solutions, DNS for **homeownerledger.online**: edit the `www` CNAME so its value is exactly `afa3394a804e31cd.vercel-dns-017.com` (no `http://`, no slash). Save.
+2. In Vercel, project **home-owner-hub-hoa** → **Settings → Domains**: remove `www.homeownerledger.online`. Leave `homeownerledger.online` as it is.
+3. In Vercel, project **homeownerhub-marketing** → **Settings → Domains**: add `www.homeownerledger.online` (no redirect). Wait for the green "Valid Configuration".
+4. Tell Claude it's done. Claude checks the site loads with a certificate and switches the site's canonical address to it.
+
 ### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
 **Urgency:** Whenever

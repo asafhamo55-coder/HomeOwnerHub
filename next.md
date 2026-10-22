@@ -14,7 +14,8 @@ this file is the reference it points to.
 > 1. Recreate the hourly cycle cron (`23 * * * *`) with the cycle prompt from `next.md` §3.
 > 2. Schedule a one-shot renewal before the 7-day cron expiry.
 > 3. Check the leftover agent worktrees listed in §6 and finish or re-dispatch that work.
-> 4. Run the cycle.
+> 4. Refresh the product deck and the investor deck (`~/HomeownerHub-decks/`) so they match what is live and merged, then keep them current every cycle (§2 "Presentations stay current").
+> 5. Run the cycle.
 >
 > No approvals are needed for anything. Decide by best practice and record each decision in `docs/decisions/`. Consult an Opus advisor agent when a call is genuinely uncertain. Hold only for steps that need my dashboards, DNS, keys or SQL; list those for me, don't ask.
 
@@ -50,7 +51,8 @@ this file is the reference it points to.
 - **Georgia is the launch state.** FL, CA and TX stay supported, but Georgia comes first when choosing what to build, test, word or demo: GA statute coverage (the O.C.G.A. § 44-3 snapshot, BL-124 refresh before 2027-01-01), the GA Secretary of State registration (SB 406), GA-specific paperwork and copy, and GA examples in the decks and marketing.
 - Before ranking backlog items, ask: "does this help a Georgia board first?"
 
-### Presentations stay current (Asaf, 2026-10-21)
+### Presentations stay current (Asaf, 2026-10-21; repeated 2026-10-22: "always keep the deck for product and for investors up to date")
+- **A standing rule, not a one-off task.** Every cycle checks whether the decks still match the product, and they are refreshed in the same cycle as any deploy or merge that changes a feature, price, brand element, competitor fact or market number.
 - **Always keep the product deck and the investor deck up to date** (`~/HomeownerHub-decks/`, outside the repo) with the latest features, market trends, competitor moves and pricing.
 - Refresh them whenever a deploy changes what they show, and at least once a day during the loop. Put Georgia first in both (launch market, sizing, go-to-market, examples).
 - Never invent traction; keep "ASAF TO FILL" where numbers are unknown.
@@ -96,7 +98,7 @@ this file is the reference it points to.
 
 Use CronCreate `23 * * * *`, recurring, with this prompt:
 
-> HOA product cycle, 24/7 mode. Follow next.md §3 and docs/session-handoff.md "The loop". Rules: NEVER use the local DB (no supabase start, local test:integration, seeds or ui:shots locally); the integration gate is GitHub CI on claude/quality-oracle; never run tests or seeds against prod. Steps: (1) if agents are still running, check on them and deploy any gated tip that is waiting; (2) health check (/api/health) and CI status; (3) pick 2–3 backlog items that need no migration and dispatch one worktree subagent per item; (4) merge into claude/quality-oracle, run local gates (pnpm typecheck, typecheck:integration, test:unit, rtk pnpm build, guide checks), push and wait for CI to go green; (5) deploy at most once per hour: merge the prod branch first, check fast-forward with /usr/bin/git merge-base --is-ancestor, write a docs/releases note (with screenshots) inside the deployed SHA, push with `2>&1 | tail -3` (retry up to 3), poll /api/health for the SHA, and confirm the release-notes/email status; (6) update docs/backlog.md, docs/cycle-log.md and docs/session-handoff.md; (7) report in 3–6 lines. No approvals needed. Hold only for SQL Asaf must paste or keys he must create. No real email or SMS to residents; no PII in output; never force-push prod.
+> HOA product cycle, 24/7 mode. Follow next.md §3 and docs/session-handoff.md "The loop". Rules: NEVER use the local DB (no supabase start, local test:integration, seeds or ui:shots locally); the integration gate is GitHub CI on claude/quality-oracle; never run tests or seeds against prod. Steps: (1) if agents are still running, check on them and deploy any gated tip that is waiting; (2) health check (/api/health) and CI status; (3) pick 2–3 backlog items that need no migration and dispatch one worktree subagent per item; (4) merge into claude/quality-oracle, run local gates (pnpm typecheck, typecheck:integration, test:unit, rtk pnpm build, guide checks), push and wait for CI to go green; (5) deploy at most once per hour: merge the prod branch first, check fast-forward with /usr/bin/git merge-base --is-ancestor, write a docs/releases note (with screenshots) inside the deployed SHA, push with `2>&1 | tail -3` (retry up to 3), poll /api/health for the SHA, and confirm the release-notes/email status; (6) keep the product and investor decks in ~/HomeownerHub-decks/ current: if this cycle shipped or merged anything they show (features, pricing, brand, competitors, market), dispatch a deck-refresh agent (rebuild per its README, Georgia first, no invented traction) — and at least once a day regardless; (7) update docs/backlog.md, docs/cycle-log.md and docs/session-handoff.md; (8) report in 3–6 lines (include deck status). No approvals needed. Hold only for SQL Asaf must paste or keys he must create. No real email or SMS to residents; no PII in output; never force-push prod.
 
 Crons live only for the session and auto-expire after 7 days, so schedule a one-shot renewal.
 
