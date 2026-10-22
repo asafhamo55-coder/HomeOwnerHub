@@ -8,7 +8,7 @@ routes: ["/accounting/payment-plans", "/accounting/payment-plans/new"]
 primary_route: /accounting/payment-plans/new
 keywords: [payment plan, payment plans, plan completed, behind on plan, plan progress, missed installment, installment, installments, monthly payments, pay over time, payment arrangement, payment agreement, behind on dues, past due, delinquent, delinquency, owner can't pay, hardship, catch up, special assessment, spread balance, split balance, arrears, collections, late fee, owes, pay off, pay it off over months, six months, monthly installments, charges replaced, counted twice, double counted, created before 2026-10-19, cancel plan, defaulted plan]
 related: [dues-collections-case, dues-record-payment, dues-generate-monthly]
-reviewed: 2026-10-19
+reviewed: 2026-10-21
 ---
 
 Use this when the board agrees to let an owner pay a past-due balance or a special assessment over several months.
@@ -66,5 +66,5 @@ Use this when the board agrees to let an owner pay a past-due balance or a speci
 - Each installment stands alone: paying extra on one doesn't pay the next.
 - Automatic dues reminders skip a home while its plan is **Active**, even when it is **Behind on plan**. There is no separate plan reminder, so follow up with the owner yourself. You can see how many reminders were skipped in **Settings**, then **Dues reminders**.
 - Once a plan is **Completed**, the home gets automatic dues reminders again like any other home.
-- Late fees are not paused by a plan. Every night the app adds a one-time 5% late fee to each charge still unpaid after its due date, including late installments. Charges the plan replaced are closed, so they get no more late fees.
+- Late fees are not paused by a plan. The app adds a late fee only if your board has turned one on in [late-fee settings](guide:settings-late-fees), at the amount and after the grace period the board chose. Then a late installment gets one late fee like any other charge. With no late-fee policy saved, no late fee is charged. Charges the plan replaced are closed, so they get no late fees.
 - HomeownerHub doesn't send collection letters. To keep a record of letters, liens and attorney work, use the [collections file](guide:dues-collections-case) on the property's page.

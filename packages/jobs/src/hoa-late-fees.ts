@@ -7,11 +7,27 @@ import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import { inngest } from './client'
 import { readAll } from './read-all'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn } from './association-time'
-
-const HOA_LATE_FEE_RATE = 0.05 // 5% — typical default; per-row override later.
+// BL-147: the board's late-fee policy and the state caps. Dependency-free
+// (node:crypto only), relative-path import like daily-digest.ts's, so the
+// job enforces exactly what the settings screen saved and checked.
+import { lateFeeLaw, lateFeeStateOf } from '../../../apps/hoa/src/lib/late-fees/law'
+import {
+  LATE_FEE_NIGHTLY_AUDIT_ACTION,
+  effectiveGraceDays,
+  eligibleChargeTypes,
+  lateCutoff,
+  lateFeeForCharge,
+  lawErrors,
+  policyCharges,
+  type LateFeePolicy,
+} from '../../../apps/hoa/src/lib/late-fees/policy'
+import { lateFeeSettingsSecret, readLateFeePolicy } from '../../../apps/hoa/src/lib/late-fees/store'
 
 /** assessments.source the opening-balances executor writes (migration 0067, BL-136). */
 export const OPENING_BALANCE_SOURCE = 'opening_balance'
+
+/** audit_log.action for one association's nightly run that charged at least one fee. Ids and counts only. */
+export const LATE_FEE_AUDIT_ACTION = LATE_FEE_NIGHTLY_AUDIT_ACTION
 
 /** memo_code `.in()` lists are chunked so the request URL stays small. */
 const MEMO_CHUNK = 150
@@ -25,6 +41,8 @@ export interface DefaultedAssessment {
   fiscal_period_id: string
   amount: number
   assessment_type: string
+  due_date: string
+  payments?: { amount: number }[] | null
 }
 
 function readFailed(what: string, e: QueryError): Error {
@@ -32,9 +50,17 @@ function readFailed(what: string, e: QueryError): Error {
   return new Error(`hoa-late-fees: ${what} read failed (${e.code ?? 'no code'})`)
 }
 
+export interface DefaultsFilter {
+  /** Only these assessment types (BL-147: dues, plus fines when the board includes them). */
+  types: readonly string[]
+  /** Only charges whose due_date is before this day (today minus the grace period). */
+  dueBefore: string
+}
+
 /**
- * Every defaulted, non-late-fee assessment in `associationId` that has no
- * late fee booked yet.
+ * Every open/partial, not deleted, eligible-type assessment in
+ * `associationId` due before `filter.dueBefore`, and which of those have
+ * no late fee booked yet.
  *
  * Both reads page to the end and THROW on failure (BL-047). Before:
  *  - the defaulted read was capped at PostgREST's 1000 rows, so charges
@@ -48,18 +74,20 @@ function readFailed(what: string, e: QueryError): Error {
 export async function findUnchargedDefaults(
   db: Db,
   associationId: string,
-  today: string,
+  filter: DefaultsFilter,
   skipOpeningBalances: boolean = M3_APPLIED,
 ): Promise<{ defaulted: DefaultedAssessment[]; uncharged: DefaultedAssessment[] }> {
+  if (filter.types.length === 0) return { defaulted: [], uncharged: [] }
   const defaulted = await readAll<DefaultedAssessment>(
     (from, to) => {
       let q = db
         .from('assessments')
-        .select('id, unit_id, fiscal_period_id, amount, assessment_type')
+        .select('id, unit_id, fiscal_period_id, amount, assessment_type, due_date, payments(amount)')
         .eq('association_id', associationId)
         .in('status', ['open', 'partial'])
-        .lt('due_date', today)
-        .neq('assessment_type', 'late_fee')
+        .in('assessment_type', [...filter.types])
+        .lt('due_date', filter.dueBefore)
+        .is('deleted_at', null)
       // BL-136 (migration 0067): a balance carried over by the opening-
       // balances approval was late at the previous manager, not here, so it
       // never earns a late fee. `source` is NULL for every other charge, and
@@ -94,13 +122,203 @@ export async function findUnchargedDefaults(
   return { defaulted, uncharged: defaulted.filter((a) => !alreadyCharged.has(`LATE-${a.id}`)) }
 }
 
+const toCents = (n: number) => Math.round(Number(n) * 100)
+
+export interface LateFeeAssociation {
+  id: string
+  organization_id: string
+  state?: string | null
+  governing_law_state?: string | null
+  compliance_settings?: unknown
+}
+
+export type LateFeeRunStatus =
+  /** No saved policy: the safe default, nothing charged (BL-147). */
+  | 'no_policy'
+  /** A policy is stored but its signature does not verify: nothing charged. */
+  | 'unverified'
+  /** Saved but off, unattested, or outside the state rule: nothing charged. */
+  | 'off'
+  | 'no_accounting'
+  | 'read_failed'
+  | 'ran'
+
+export interface LateFeeRunResult {
+  status: LateFeeRunStatus
+  evaluated: number
+  charged: number
+  skipped: number
+  capped: number
+  failed: number
+  totalCents: number
+}
+
+export interface LateFeeRunDeps {
+  secret: string | null
+  log: { warn: (msg: string) => void; info: (msg: string) => void }
+  skipOpeningBalances?: boolean
+}
+
+const EMPTY = { evaluated: 0, charged: 0, skipped: 0, capped: 0, failed: 0, totalCents: 0 }
+
 /**
- * At midnight ET each day, find open/partial assessments past their due
- * date and (a) generate a `late_fee` assessment for each one, (b) post a
- * Dr AR / Cr Late Fee Income JE for it.
+ * One association's night (BL-147). Charges ONLY under a saved, signed,
+ * enabled policy that the board attested the declaration provides for and
+ * that is inside the state rule today. Otherwise nothing is read and
+ * nothing is charged. Each fee is one `late_fee` assessment plus its
+ * Dr AR / Cr Late Fee Income JE, once per charge (memo_code), and a run
+ * that charged anything writes one audit_log row with ids and counts only;
+ * the board's morning digest reads that row.
+ */
+export async function runLateFeesForAssociation(
+  db: Db,
+  assoc: LateFeeAssociation,
+  today: string,
+  deps: LateFeeRunDeps,
+): Promise<LateFeeRunResult> {
+  const read = readLateFeePolicy(assoc.id, assoc.compliance_settings, deps.secret)
+  if (read.state === 'none') return { status: 'no_policy', ...EMPTY }
+  if (read.state === 'unverified') {
+    deps.log.warn(`[hoa-late-fees] ${assoc.id}: stored late-fee policy does not verify; charging nothing`)
+    return { status: 'unverified', ...EMPTY }
+  }
+  const policy: LateFeePolicy = read.policy
+  const law = lateFeeLaw(lateFeeStateOf(assoc))
+  if (!policyCharges(policy, law)) {
+    if (policy.enabled) {
+      // Field names only (never the text the board typed).
+      deps.log.warn(
+        `[hoa-late-fees] ${assoc.id}: policy on but not chargeable (${Object.keys(lawErrors(policy, law)).join(', ') || 'no amount'}); charging nothing`,
+      )
+    }
+    return { status: 'off', ...EMPTY }
+  }
+
+  const refs = await loadAccountingRefs(db, assoc.id)
+  if (!refs) {
+    deps.log.warn(`[hoa-late-fees] ${assoc.id}: accounting not seeded, skipping`)
+    return { status: 'no_accounting', ...EMPTY }
+  }
+
+  // We never compound: late_fee is never an eligible type, so a late fee
+  // that itself goes overdue never spawns another. A failed read charges
+  // NOTHING for this association tonight — never charge from a partial
+  // "already charged" set. Caught so other associations still run.
+  let found: Awaited<ReturnType<typeof findUnchargedDefaults>>
+  try {
+    found = await findUnchargedDefaults(
+      db,
+      assoc.id,
+      { types: eligibleChargeTypes(policy), dueBefore: lateCutoff(today, effectiveGraceDays(policy, law)) },
+      deps.skipOpeningBalances,
+    )
+  } catch (e) {
+    deps.log.warn(`[hoa-late-fees] ${assoc.id}: ${e instanceof Error ? e.message : 'read failed'}; skipping`)
+    return { status: 'read_failed', ...EMPTY }
+  }
+  const { defaulted, uncharged } = found
+  const result: LateFeeRunResult = { status: 'ran', ...EMPTY, evaluated: defaulted.length, skipped: defaulted.length - uncharged.length }
+
+  for (const src of uncharged) {
+    const memoCode = `LATE-${src.id}`
+    // Re-checked per charge: type, grace, unpaid amount and the state cap.
+    const outcome = lateFeeForCharge(
+      policy,
+      law,
+      {
+        assessmentType: src.assessment_type,
+        dueDate: src.due_date,
+        amountCents: toCents(src.amount),
+        paidCents: (src.payments ?? []).reduce((t, p) => t + toCents(p.amount), 0),
+      },
+      today,
+    )
+    if (!outcome.charge) {
+      result.skipped += 1
+      continue
+    }
+    const feeAmount = outcome.feeCents / 100
+
+    const { data: lateFee, error: insErr } = await db
+      .from('assessments')
+      .insert({
+        organization_id: assoc.organization_id,
+        association_id: assoc.id,
+        unit_id: src.unit_id,
+        fiscal_period_id: src.fiscal_period_id,
+        assessment_type: 'late_fee',
+        amount: feeAmount,
+        due_date: today,
+        memo_code: memoCode,
+        status: 'open',
+      })
+      .select('id')
+      .single()
+
+    if (insErr || !lateFee) {
+      result.failed += 1
+      deps.log.warn(`[hoa-late-fees] ${assoc.id}: insert late_fee for ${src.id} failed (${insErr?.code ?? 'no row'})`)
+      continue
+    }
+
+    const je = await postJournalEntry(db, {
+      organizationId: assoc.organization_id,
+      associationId: assoc.id,
+      fiscalPeriodId: src.fiscal_period_id,
+      entryDate: today,
+      memo: `Late fee: ${memoCode}`,
+      source: 'recurring',
+      sourceId: lateFee.id,
+      lines: [
+        { accountId: refs.acctAR, fundId: refs.fundOperating, debit: feeAmount, credit: 0 },
+        { accountId: refs.acctLateFeeIncome, fundId: refs.fundOperating, debit: 0, credit: feeAmount },
+      ],
+    })
+
+    if (!je.ok) {
+      // Roll back the late-fee row so we don't show a charge that
+      // left no ledger trace.
+      await db.from('assessments').delete().eq('id', lateFee.id)
+      result.failed += 1
+      deps.log.warn(`[hoa-late-fees] ${assoc.id}: JE failed for ${memoCode}`)
+      continue
+    }
+
+    result.charged += 1
+    result.totalCents += outcome.feeCents
+    if (outcome.capped) result.capped += 1
+  }
+
+  if (result.charged > 0) {
+    const { error: auditErr } = await db.from('audit_log').insert({
+      action: LATE_FEE_AUDIT_ACTION,
+      org_id: assoc.organization_id,
+      user_id: null,
+      entity_type: 'association',
+      entity_id: assoc.id,
+      metadata: {
+        charged: result.charged,
+        evaluated: result.evaluated,
+        capped: result.capped,
+        failed: result.failed,
+        total_cents: result.totalCents,
+        day: today,
+        policy_saved_at: read.updatedAt,
+      },
+    })
+    if (auditErr) deps.log.warn(`[hoa-late-fees] ${assoc.id}: audit write failed (${auditErr.code ?? 'no code'})`)
+  }
+  return result
+}
+
+/**
+ * At midnight ET each day, for each HOA association with a board-saved
+ * late-fee policy (BL-147), charge one late fee on each eligible charge
+ * past its due date plus the grace period, capped by the state rule.
+ * Associations without a policy are charged nothing.
  *
  * Idempotency lives in `assessments.memo_code` — each late-fee row stamps
- * `LATE-<sourceAssessmentId>`, and the cron skips any source that already
+ * `LATE-<sourceAssessmentId>`, and the run skips any source that already
  * has one. So re-running the same day, or recovering from a partial
  * failure, never double-charges. (memo_code's other use, Pay-by-Zelle
  * matching per ADR-005, uses a different shape `MP-1247-DUES`, so they
@@ -120,16 +338,19 @@ export const hoaLateFeeJob = inngest.createFunction(
     // from it (BL-043). The UTC day was right at midnight Eastern only by
     // accident, and a day early for an association west of Eastern.
     const now = new Date()
+    const secret = lateFeeSettingsSecret()
 
     // All HOA associations — joined to their org so the `hub_type` filter
     // stays applied even though we're now keyed on association_id.
     const { data: associations, error } = await db
       .from('associations')
-      .select(`id, name, organization_id, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`)
+      .select(
+        `id, organization_id, governing_law_state, compliance_settings, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`,
+      )
 
     if (error) {
-      logger.error('[hoa-late-fees] failed to load associations', error)
-      throw new Error(error.message)
+      logger.error('[hoa-late-fees] failed to load associations', { code: error.code })
+      throw new Error(`hoa-late-fees: associations read failed (${error.code ?? 'no code'})`)
     }
 
     const hoaAssocs = (associations ?? []).filter((a) => {
@@ -137,130 +358,22 @@ export const hoaLateFeeJob = inngest.createFunction(
       return org?.hub_type === 'hoa'
     })
 
-    let totalEvaluated = 0
-    let totalCharged = 0
-    let totalSkipped = 0
+    const totals = { evaluated: 0, charged: 0, skipped: 0, capped: 0, notCharged: 0 }
 
     for (const assoc of hoaAssocs) {
-      const result = await step.run(`late-fees-${assoc.id}`, async () => {
-        const today = todayIn(associationTimeZone(assoc), now)
-        // Resolve accounting refs once per association.
-        const refs = await loadAccountingRefs(db, assoc.id)
-        if (!refs) {
-          logger.warn(
-            `[hoa-late-fees] ${assoc.name} ${assoc.id}: accounting not seeded, skipping`,
-          )
-          return { evaluated: 0, charged: 0, skipped: 0 }
-        }
-
-        // Defaulted, non-late-fee assessments. We never compound: a
-        // late_fee that itself goes overdue is not eligible to spawn
-        // another late_fee.
-        // A failed read charges NOTHING for this association tonight (as a
-        // failed defaulted read always did) — never charge from a partial
-        // "already charged" set. Caught here so other associations still run.
-        let found: Awaited<ReturnType<typeof findUnchargedDefaults>>
-        try {
-          found = await findUnchargedDefaults(db, assoc.id, today)
-        } catch (e) {
-          logger.warn(`[hoa-late-fees] ${assoc.id}: ${e instanceof Error ? e.message : 'read failed'}; skipping`)
-          return { evaluated: 0, charged: 0, skipped: 0 }
-        }
-        const { defaulted, uncharged } = found
-        if (defaulted.length === 0) {
-          return { evaluated: 0, charged: 0, skipped: 0 }
-        }
-
-        let charged = 0
-        let skipped = defaulted.length - uncharged.length
-
-        for (const src of uncharged) {
-          const memoCode = `LATE-${src.id}`
-
-          const feeAmount = Math.round(
-            Number(src.amount) * HOA_LATE_FEE_RATE * 100,
-          ) / 100
-          if (feeAmount <= 0) {
-            skipped += 1
-            continue
-          }
-
-          // Late fee inherits the parent's due_date — the original
-          // delinquency moment. Some boards want today's date instead;
-          // making it configurable is out of scope.
-          const { data: lateFee, error: insErr } = await db
-            .from('assessments')
-            .insert({
-              organization_id: assoc.organization_id,
-              association_id: assoc.id,
-              unit_id: src.unit_id,
-              fiscal_period_id: src.fiscal_period_id,
-              assessment_type: 'late_fee',
-              amount: feeAmount,
-              due_date: today,
-              memo_code: memoCode,
-              status: 'open',
-            })
-            .select('id')
-            .single()
-
-          if (insErr || !lateFee) {
-            logger.warn(
-              `[hoa-late-fees] ${assoc.name} insert late_fee for ${src.id} failed: ${insErr?.message}`,
-            )
-            continue
-          }
-
-          const je = await postJournalEntry(db, {
-            organizationId: assoc.organization_id,
-            associationId: assoc.id,
-            fiscalPeriodId: src.fiscal_period_id,
-            entryDate: today,
-            memo: `Late fee: ${memoCode}`,
-            source: 'recurring',
-            sourceId: lateFee.id,
-            lines: [
-              {
-                accountId: refs.acctAR,
-                fundId: refs.fundOperating,
-                debit: feeAmount,
-                credit: 0,
-              },
-              {
-                accountId: refs.acctLateFeeIncome,
-                fundId: refs.fundOperating,
-                debit: 0,
-                credit: feeAmount,
-              },
-            ],
-          })
-
-          if (!je.ok) {
-            // Roll back the late-fee row so we don't show a charge that
-            // left no ledger trace.
-            await db.from('assessments').delete().eq('id', lateFee.id)
-            logger.warn(
-              `[hoa-late-fees] ${assoc.name} JE failed for ${memoCode}: ${je.error}`,
-            )
-            continue
-          }
-
-          charged += 1
-        }
-
-        return { evaluated: defaulted.length, charged, skipped }
-      })
-
-      totalEvaluated += result.evaluated
-      totalCharged += result.charged
-      totalSkipped += result.skipped
+      const result = await step.run(`late-fees-${assoc.id}`, () =>
+        runLateFeesForAssociation(db, assoc as unknown as LateFeeAssociation, todayIn(associationTimeZone(assoc), now), {
+          secret,
+          log: { warn: (m) => logger.warn(m), info: (m) => logger.info(m) },
+        }),
+      )
+      totals.evaluated += result.evaluated
+      totals.charged += result.charged
+      totals.skipped += result.skipped
+      totals.capped += result.capped
+      if (result.status !== 'ran') totals.notCharged += 1
     }
 
-    return {
-      associations: hoaAssocs.length,
-      evaluated: totalEvaluated,
-      charged: totalCharged,
-      skipped: totalSkipped,
-    }
+    return { associations: hoaAssocs.length, ...totals }
   },
 )

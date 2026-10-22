@@ -343,7 +343,7 @@ export function OpeningBalancesWizard({
               <Field
                 label="These balances are due on"
                 required
-                hint="Each home’s opening balance becomes one charge due on this date. Charges still unpaid after their due date get the nightly late fee, so give owners time if the old balance already included late fees."
+                hint="Each home’s opening balance becomes one charge due on this date. Opening balances never get a late fee."
                 error={dueDate !== '' && dueDate < cutover ? 'This can’t be before the start date.' : undefined}
               >
                 <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="max-w-xs" />

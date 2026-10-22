@@ -24,6 +24,7 @@ import * as coiRequest from './vendor-coi-request/actions'
 import * as recordsRequests from './records-requests/actions'
 import * as bankImport from './bank-import/actions'
 import * as cincAging from './accounting/opening-balances/cinc-actions'
+import * as lateFees from './late-fees/actions'
 import * as hearingActions from './violation-hearings/actions'
 import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
@@ -173,6 +174,9 @@ describe('board-only server actions refuse a resident before touching the databa
     ['commitBankImport (BL-144: inserts bank transactions)', () => bankImport.commitBankImport(form({ bankAccountId: ID, file: new Blob(['Date,Amount\n']), fileHash: 'a'.repeat(64) })), { ok: false, error: ACCOUNTING_DENIED }],
     // BL-031: the CINC aging preview reads every home and writes an audit row.
     ['previewCincAging (BL-031: reads the homes, audited)', () => cincAging.previewCincAging(form({ file: new Blob(['Account,Balance\n']) })), { ok: false, error: ACCOUNTING_DENIED }],
+    // BL-147: the late-fee policy the nightly job charges under; audited.
+    ['saveLateFeePolicy (BL-147: sets what the nightly job charges)', () => lateFees.saveLateFeePolicy({ enabled: true, mode: 'percent', percent: '50', flat: '', graceDays: '0', excludeFines: false, declarationAttested: true, declarationRef: 'x' }), DENIED],
+    ['getBoardLateFeePolicy (BL-147)', () => lateFees.getBoardLateFeePolicy(), { ok: false, reason: 'forbidden' }],
     ['saveViolationHearing (BL-133)', () => hearingActions.saveViolationHearing({ violationId: ID } as never), DENIED],
     ['cancelHearingAfterCure (BL-140: cancels a fine hearing, audited)', () => hearingActions.cancelHearingAfterCure({ violationId: ID, reason: 'cured_before_hearing' }), DENIED],
     ['sendTestAlert (service-role audience send)', () => events.sendTestAlert(ID), { ok: false, error: "You don't have permission to perform this action." }],

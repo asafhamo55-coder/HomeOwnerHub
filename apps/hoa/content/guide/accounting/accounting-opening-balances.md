@@ -49,7 +49,7 @@ Use this when you take over the books, from a management company or a spreadshee
 
 ## Good to know
 - You can enter opening balances only once. If they are already posted, correct them with an entry in the ledger. A second opening balance would count everything twice.
-- Charges still unpaid after their due date get the nightly late fee, like any other charge. If the old balances already include late fees, give owners a due date a few weeks out.
+- Opening balances never get a late fee, even when your board has a [late-fee policy](guide:settings-late-fees). The old balance was late at the previous manager, not here.
 - The page warns you if homes already have open charges, or the ledger already has entries. Leave out anything already recorded, or it will be counted twice.
 - Amounts in parentheses, such as "(50.00)", are read as credits.
 - On a CINC aging report, homes in credit aren't charged. Their total is suggested as **Prepaid assessments** in step 3, and you can change it.

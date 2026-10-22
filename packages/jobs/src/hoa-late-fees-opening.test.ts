@@ -41,6 +41,7 @@ function fakeDb(rows: Row[]) {
         b.range = chain((f, t) => (range = [f as number, t as number]))
         b.eq = chain((c, v) => preds.push((r) => r[c as string] === v))
         b.neq = chain((c, v) => preds.push((r) => r[c as string] !== v))
+        b.is = chain((c, v) => preds.push((r) => (r[c as string] ?? null) === v))
         b.lt = chain((c, v) => preds.push((r) => (r[c as string] as string) < (v as string)))
         b.in = chain((c, v) => preds.push((r) => (v as unknown[]).includes(r[c as string])))
         b.or = chain((expr) => {
@@ -66,6 +67,7 @@ function fakeDb(rows: Row[]) {
 }
 
 const TODAY = '2026-10-20'
+const FILTER = { types: ['regular', 'special'], dueBefore: TODAY }
 const base = { association_id: 'assoc-1', status: 'open', due_date: '2026-09-01', assessment_type: 'regular', unit_id: 'u', fiscal_period_id: 'p', amount: 100 }
 const ROWS: Row[] = [
   { ...base, id: 'dues', source: null },
@@ -83,7 +85,7 @@ describe('findUnchargedDefaults and opening balances (BL-136)', () => {
 
   it('flag off: no source filter, so behaviour is exactly as before 0067', async () => {
     const { db, orCalls } = fakeDb(ROWS)
-    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY)
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', FILTER)
     expect(orCalls).toEqual([])
     expect(r.uncharged.map((a) => a.id).sort()).toEqual(['carried', 'dues'])
   })
@@ -91,7 +93,7 @@ describe('findUnchargedDefaults and opening balances (BL-136)', () => {
   it('flag on: a carried-over opening charge is never late-fee eligible; ordinary dues still are', async () => {
     flag.on = true
     const { db, orCalls } = fakeDb(ROWS)
-    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY)
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', FILTER)
     // Once per page of the defaulted read.
     expect(orCalls.length).toBeGreaterThan(0)
     expect(new Set(orCalls)).toEqual(new Set(['source.is.null,source.neq.opening_balance']))
@@ -101,7 +103,7 @@ describe('findUnchargedDefaults and opening balances (BL-136)', () => {
 
   it('the explicit argument wins over the flag', async () => {
     const { db } = fakeDb(ROWS)
-    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY, true)
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', FILTER, true)
     expect(r.defaulted.map((a) => a.id)).toEqual(['dues'])
   })
 })

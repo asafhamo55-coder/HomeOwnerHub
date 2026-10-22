@@ -1572,6 +1572,12 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
 - **BL-137 open (not in the asked set):** money changes through /approvals, and a dues-generation job. Below the line, after M5.
 
 1. **BL-147 Late-fee policy the board controls, with state caps (Georgia first).** Migration: no. Effort M (1.5). Score 3.00 (I 5 × C 0.9 ÷ 1.5). Override: a live job.
+   - **Status:** Built on `claude/quality-oracle`, not yet deployed. No migration.
+     - **Safe default:** no policy means no late fee (`docs/decisions/2026-10-21-late-fee-policy-safe-default.md`). This replaces "keep today's 5%" below.
+     - **Board screen:** /settings/late-fees.
+     - **Caps:** GA, FL and CA, enforced at save and in the job. TX has no loaded rule.
+     - **Visibility:** each night's charges get an audit row and a digest line, not per-fee Approvals.
+     - **Not built:** the GA interest cap on the collections letter (BL-148) and the dashboard prompt.
    - **Pain:** every association is charged a late fee its declaration may not allow, at a rate nobody chose. In Georgia a late charge is lawful only "to the extent that the instrument provides". It is capped at the greater of $10 or 10% of each assessment or installment (§ 44-3-232(b)(1)). From 2027, an unregistered association can't collect fees at all (BL-149). Fines are driving foreclosures in Georgia news.
    - **Evidence:**
      - fixture `ga-ocga-44-3-art6-2026.txt` § 44-3-232(b)(1)–(2);
