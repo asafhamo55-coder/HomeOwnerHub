@@ -116,9 +116,17 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
   - A single test file can time out under load; re-run it alone.
   - The Inngest wiring contract test pins the job count (21 now). Bump it when you add a job.
 
-## 4. State (updated 2026-10-21 15:00 ET)
+## 4. State (updated 2026-10-21 21:05 ET)
 
-- **Live in prod:** `1d79d562` (11:56 ET): budget adoption kit, FL/CA fine hearing gate, FL director certification. Every feature flag is on. Release emails confirmed.
+- **Live in prod:** `61922088` (live at 20:39 ET).
+  - Since 11:56: insurance renewals, fidelity bond vs funds, and the owner insurance page (17:07); bank CSV/OFX import, untick street homes, the Spanish editor, and SMS via the Messages API (18:3x); the election planner, the /compliance page (read-only until M5), cure-before-hearing with the SEC3-M1 fix, and the HO-6 notice (20:39).
+  - Release notes: 2026-10-21-1700, -1810, -1930.
+- **M5 (0069) not applied:**
+  - Parts 1 (BL-137 dues rates), 3 (BL-143 join requests) and 4 (BL-145 evidence) are merged behind `M5_APPLIED=false`. BL-141 needed no migration.
+  - Security review #3 Lows L2–L5 are being fixed inside 0069 before Asaf applies it. Once they land, add an OA for runbook Section L.
+  - After Asaf confirms: flip `packages/db/src/m5.ts`, un-draft `dues-rate-schedule`, `members-ask-to-join` and `compliance-obligations`, and deploy hoa + jobs.
+- **Emails to Asaf:** owner actions (on change, and Mondays 09:07) and the backlog digest (on script change, and Mondays 09:12; 47 open at first send).
+- **New trap:** CI's schema replay re-grants ALL ROUTINES to anon. A SECURITY DEFINER function must refuse a null `auth.uid()` in its own body; a REVOKE is not proof. Never loosen a security test to pass CI: fix the SQL.
 - **Georgia first** (§2): the decks lead with Georgia, and the CI shots include a Georgia demo association. Owner action OA-9 (`state:'GA'`) loads the verbatim Georgia law into prod; until then, prod holds the paraphrased seed.
 - **Database:** the owner applied and Claude verified every runbook section A–K on 2026-10-20 (0063, M1/0064, meeting notices, SMS consent guard, sender_auth, perf indexes, 0065, 0066, 0067, 0068). Owner actions OA-1/2/3/4/17/21 are done.
 - **Flags:** all true: M1_APPLIED, SENDER_AUTH_COLUMN_LIVE, RECORDS_REQUESTS_LIVE, VIOLATION_FINED_STATUS_LIVE, M3_APPLIED, M4_APPLIED. PRICING_V2 stays off until OA-16 (the Stripe prices).

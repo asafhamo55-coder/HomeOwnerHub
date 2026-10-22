@@ -656,3 +656,10 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 
   Gates green (658 files, 8897 tests). 9a9b2bce pushed for CI.
 - **In flight:** BL-141 election planner (0069 part 2). After it lands, Asaf gets runbook Section L (0069: parts 1–4) as one paste.
+
+## 2026-10-21 (19:00 → 21:05) — elections, compliance, security review #3
+
+- **Security review #3:** no High; 1 Medium fixed (SEC3-M1: cure cancel overwrote a hearing changed in between, now conditional on the checked state); L1–L10 recorded. L2–L5 sit in 0069 and are being fixed in place before Asaf applies it.
+- **Deploy held back:** the 19:30 deploy of b0469e51 was stopped so the cure feature wouldn't ship without the SEC3-M1 fix. 61922088 went live at 20:39 instead (Vercel took about 30 min).
+- **Decks refreshed:** product 39 slides, investor 24. Added a "Georgia, as a Georgia board sees it" slide, the GA SoS draft rules (590-13, comments due Nov 2), and the CINC/AppFolio AI launches. No traction invented.
+- **In flight:** round-5 research (GA first) plus backlog grooming; BL-031 CINC aging → opening balances; 0069 hardening.
