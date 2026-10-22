@@ -98,7 +98,8 @@ describe('jurisdiction and kinds', () => {
     expect(letterJurisdiction('fl')).toBe('FL')
     expect(letterJurisdiction(' tx ')).toBe('TX')
     expect(letterJurisdiction('CA')).toBe('CA')
-    expect(letterJurisdiction('GA')).toBe('generic')
+    expect(letterJurisdiction('GA')).toBe('GA')
+    expect(letterJurisdiction('NY')).toBe('generic')
     expect(letterJurisdiction(null)).toBe('generic')
   })
 
@@ -106,11 +107,12 @@ describe('jurisdiction and kinds', () => {
     expect(kindsFor('FL')).toEqual(['fl_late_notice', 'fl_intent_to_lien', 'past_due'])
     expect(kindsFor('CA')).toEqual(['ca_pre_lien', 'past_due'])
     expect(kindsFor('TX')).toEqual(['tx_delinquency', 'past_due'])
+    expect(kindsFor('GA')).toEqual(['ga_fee_notice', 'ga_pre_foreclosure', 'past_due'])
     expect(kindsFor('generic')).toEqual(['past_due'])
   })
 
   it('refuses a statutory letter for a home in another state', () => {
-    const l = buildLetter(fixture({ state: 'GA' }), 'fl_late_notice', TODAY, [])
+    const l = buildLetter(fixture({ state: 'NY' }), 'fl_late_notice', TODAY, [])
     expect(l.waiting).toMatchObject({ ok: false })
     expect(!l.waiting.ok && l.waiting.reason).toContain('for FL associations')
   })

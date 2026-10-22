@@ -29,6 +29,10 @@ import {
   CA_RIGHTS,
   FL_INTENT_BODY,
   FL_LATE_NOTICE_BODY,
+  GA_FEE_NOTICE_BODY,
+  GA_FEE_NOTICE_QUOTES,
+  GA_PRE_FORECLOSURE_BODY,
+  GA_PRE_FORECLOSURE_QUOTES,
   TX_CURE_DAYS,
 } from '@/lib/collections/letters/law'
 import {
@@ -141,7 +145,9 @@ function Draft({ input, today, events, printed }: { input: LetterInput; today: s
           <CardDescription>
             {letter.jurisdiction === 'generic'
               ? 'This association isn’t in a state with a statutory notice here, so the letter is a plain past-due letter.'
-              : `The ${letter.jurisdiction} notices follow the statute’s required wording. Each one also offers a plain past-due letter.`}
+              : letter.jurisdiction === 'GA'
+                ? 'Georgia sets no form wording for these notices. Each one states what the statute requires and quotes the statute word for word. A plain past-due letter is also offered.'
+                : `The ${letter.jurisdiction} notices follow the statute’s required wording. Each one also offers a plain past-due letter.`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -405,6 +411,21 @@ function Approved({
   )
 }
 
+/** BL-148: the Georgia statute text the notice rests on, verbatim (law.test.ts checks each quote). */
+function GeorgiaQuotes({ kind }: { kind: 'ga_fee_notice' | 'ga_pre_foreclosure' }) {
+  const quotes = kind === 'ga_fee_notice' ? GA_FEE_NOTICE_QUOTES : GA_PRE_FORECLOSURE_QUOTES
+  return (
+    <section className="space-y-1 text-xs text-foreground-secondary">
+      <h3 className="font-medium text-foreground">What the law says</h3>
+      {quotes.map((q) => (
+        <p key={q.quote}>
+          {q.cite}: “{q.quote}”
+        </p>
+      ))}
+    </section>
+  )
+}
+
 // ─── the printed letter ──────────────────────────────────────────────
 
 function Value({ field, values, fallback }: { field: CertificateField | undefined; values: FieldValues; fallback?: string }) {
@@ -460,9 +481,20 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
           <p>
             <Value field={field('owners')} values={values} />
           </p>
-          <p>
-            <Value field={field('mailingAddress')} values={values} />
-          </p>
+          {k === 'ga_pre_foreclosure' ? (
+            <>
+              <p>
+                <Value field={field('lotAddress')} values={values} />
+              </p>
+              <p className="text-foreground-secondary">
+                Also sent to: <Value field={field('designatedAddress')} values={values} />
+              </p>
+            </>
+          ) : (
+            <p>
+              <Value field={field('mailingAddress')} values={values} />
+            </p>
+          )}
         </div>
         <h2 id="letter-title" className="pt-2 text-lg font-semibold text-foreground">
           {letter.meta.title}
@@ -497,6 +529,8 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
           The association’s records show the following delinquent amounts on your account. This notice is given under Texas Property Code § 209.0064.
         </p>
       ) : null}
+      {k === 'ga_fee_notice' ? <p className="text-foreground">{GA_FEE_NOTICE_BODY(association)}</p> : null}
+      {k === 'ga_pre_foreclosure' ? <p className="text-foreground">{GA_PRE_FORECLOSURE_BODY(association)}</p> : null}
       {k === 'past_due' ? <p className="text-foreground">Our records show the following amounts past due on your account.</p> : null}
 
       <div className="overflow-x-auto">
@@ -549,6 +583,11 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
                 {lines.map((l) => (
                   <AmountRow key={l.id} label={`${l.label}, due ${formatDay(l.dueDate)}`} cents={l.remainingCents} />
                 ))}
+                {k === 'ga_pre_foreclosure' ? (
+                  <AmountRow label="Interest">
+                    <EnteredCell field={field('interest')} values={values} />
+                  </AmountRow>
+                ) : null}
                 {credit}
                 {total}
               </>
@@ -604,6 +643,23 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
           </p>
         </div>
       ) : null}
+
+      {k === 'ga_pre_foreclosure' ? (
+        <p className="text-foreground">
+          Interest accrues at the rate of <Value field={rate} values={values} /> percent per year.
+        </p>
+      ) : null}
+
+      {k === 'ga_fee_notice' ? (
+        <section className="space-y-1 text-foreground">
+          <h3 className="font-medium">Itemized list of reasonable attorney’s fees claimed</h3>
+          <p>
+            <Value field={field('attorneyFees')} values={values} />
+          </p>
+        </section>
+      ) : null}
+
+      {k === 'ga_fee_notice' || k === 'ga_pre_foreclosure' ? <GeorgiaQuotes kind={k} /> : null}
 
       {k === 'past_due' ? (
         <p className="text-foreground">

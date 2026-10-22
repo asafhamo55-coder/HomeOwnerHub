@@ -25,14 +25,14 @@ export const LETTER_WORKFLOW = 'collections_letters'
 export const LETTER_SUBJECT = 'collections_letter'
 
 /** Mirrors LETTER_KINDS in model.ts (kept here so this file needs no `@/` imports). */
-const KINDS = ['past_due', 'fl_late_notice', 'fl_intent_to_lien', 'ca_pre_lien', 'tx_delinquency'] as const
+const KINDS = ['past_due', 'fl_late_notice', 'fl_intent_to_lien', 'ca_pre_lien', 'tx_delinquency', 'ga_fee_notice', 'ga_pre_foreclosure'] as const
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 export const LetterPayloadSchema = z.object({
   version: z.literal(1),
   kind: z.enum(KINDS),
-  jurisdiction: z.enum(['FL', 'CA', 'TX', 'generic']),
+  jurisdiction: z.enum(['FL', 'CA', 'TX', 'GA', 'generic']),
   caseId: z.string().uuid(),
   propertyId: z.string().uuid(),
   unitId: z.string().uuid().nullable(),
@@ -65,6 +65,8 @@ export const LETTER_KIND_LABELS: Record<LetterPayload['kind'], string> = {
   fl_intent_to_lien: 'Notice of intent to record a claim of lien',
   ca_pre_lien: 'Pre-lien notice',
   tx_delinquency: 'Delinquency notice',
+  ga_fee_notice: 'Notice before attorney’s fees',
+  ga_pre_foreclosure: 'Notice before foreclosure',
 }
 
 export const LETTER_KIND_CITATIONS: Record<LetterPayload['kind'], string | null> = {
@@ -73,6 +75,8 @@ export const LETTER_KIND_CITATIONS: Record<LetterPayload['kind'], string | null>
   fl_intent_to_lien: 'Fla. Stat. § 720.3085(4)',
   ca_pre_lien: 'Cal. Civ. Code § 5660',
   tx_delinquency: 'Tex. Prop. Code § 209.0064',
+  ga_fee_notice: 'Ga. L. 2026, SB 406 § 7 (new subsection (f))',
+  ga_pre_foreclosure: 'O.C.G.A. § 44-3-232(c)',
 }
 
 /** "Notice of late assessment — 14 Oak Lane": the row's summary. */
