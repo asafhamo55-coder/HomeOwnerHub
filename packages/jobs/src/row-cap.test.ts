@@ -75,6 +75,9 @@ function cappedDb(tables: Record<string, Row[]>, failOn?: (table: string, from: 
 const id = (p: string, i: number) => `${p}${String(i).padStart(5, '0')}`
 const TODAY = '2026-10-16'
 
+// BL-147: the board policy's eligible types and grace cutoff.
+const LATE_FILTER = { types: ['regular', 'special'], dueBefore: TODAY }
+
 describe('findUnchargedDefaults (hoa-late-fees)', () => {
   const defaulted = Array.from({ length: 2500 }, (_, i) => ({
     id: id('a', i),
@@ -98,7 +101,7 @@ describe('findUnchargedDefaults (hoa-late-fees)', () => {
 
   it('sees every defaulted charge and every booked fee, in small id chunks', async () => {
     const { db, inLists } = cappedDb({ assessments: [...defaulted, ...fees] })
-    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY)
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', LATE_FILTER)
     expect(r.defaulted).toHaveLength(2500)
     expect(r.uncharged).toHaveLength(1300)
     expect(r.uncharged[0]!.id).toBe(id('a', 1200))
@@ -109,12 +112,12 @@ describe('findUnchargedDefaults (hoa-late-fees)', () => {
     const { db } = cappedDb({ assessments: [...defaulted, ...fees] }, (_t, _f, ops) =>
       ops.filter((o) => o === 'eq').length === 2 && ops.includes('in'),
     )
-    await expect(findUnchargedDefaults(db as never, 'assoc-1', TODAY)).rejects.toThrow(/existing late fees read failed/)
+    await expect(findUnchargedDefaults(db as never, 'assoc-1', LATE_FILTER)).rejects.toThrow(/existing late fees read failed/)
   })
 
   it('a failed later page of defaulted charges throws', async () => {
     const { db } = cappedDb({ assessments: defaulted }, (_t, from) => from === 1000)
-    await expect(findUnchargedDefaults(db as never, 'assoc-1', TODAY)).rejects.toThrow(/defaulted assessments read failed/)
+    await expect(findUnchargedDefaults(db as never, 'assoc-1', LATE_FILTER)).rejects.toThrow(/defaulted assessments read failed/)
   })
 
   // BL-136 (M3_APPLIED, now live): a balance carried over by the opening-
@@ -128,7 +131,7 @@ describe('findUnchargedDefaults (hoa-late-fees)', () => {
 
   it('by default (M3 live) skips opening balances but keeps NULL and other sources', async () => {
     const { db } = cappedDb({ assessments: [...defaulted, ...opening, tagged] })
-    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY)
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', LATE_FILTER)
     expect(r.defaulted).toHaveLength(2501)
     expect(r.defaulted.some((a) => a.id.startsWith('o'))).toBe(false)
     expect(r.defaulted.some((a) => a.id === tagged.id)).toBe(true)
@@ -136,7 +139,7 @@ describe('findUnchargedDefaults (hoa-late-fees)', () => {
 
   it('flag off (pre-M3): issues no source predicate and charges opening balances like any other', async () => {
     const { db } = cappedDb({ assessments: [...defaulted, ...opening] })
-    const r = await findUnchargedDefaults(db as never, 'assoc-1', TODAY, false)
+    const r = await findUnchargedDefaults(db as never, 'assoc-1', LATE_FILTER, false)
     expect(r.defaulted).toHaveLength(2503)
   })
 })

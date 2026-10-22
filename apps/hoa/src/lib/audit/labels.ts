@@ -88,6 +88,8 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   'bank_account.manual_created': { label: 'Added a manual bank account', area: 'accounting' },
   'bank_import.committed': { label: 'Imported a bank statement', area: 'accounting' },
   'opening_balances.cinc_previewed': { label: 'Checked a CINC aging report for opening balances', area: 'accounting' },
+  'late_fee_policy.saved': { label: 'Saved the late-fee policy', area: 'accounting' },
+  'late_fee.nightly_charged': { label: 'Late fees charged under the board’s policy', area: 'accounting' },
   // Collections
   collections_letter_printed: { label: 'Printed a collections letter', area: 'collections' },
   'payment_plan.completed': { label: 'Payment plan paid off', area: 'collections' },
@@ -265,6 +267,22 @@ export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => strin
     if (inserted == null) return null
     const added = `${inserted} ${inserted === 1 ? 'transaction' : 'transactions'} added`
     return duplicates ? `${added} · ${duplicates} already in` : added
+  },
+  'late_fee_policy.saved': (m) => {
+    if (m.enabled !== true) return 'Off'
+    const grace = num(m.grace_days)
+    const pct = num(m.percent_bps)
+    const flat = num(m.flat_cents)
+    const amount = m.mode === 'percent' && pct != null ? `${pct / 100}%` : m.mode === 'flat' && flat != null ? `$${(flat / 100).toFixed(2)}` : null
+    if (amount == null) return 'On'
+    return `On · ${amount}${grace != null ? ` after ${grace} ${grace === 1 ? 'day' : 'days'}` : ''}${m.exclude_fines === false ? ' · fines included' : ''}`
+  },
+  'late_fee.nightly_charged': (m) => {
+    const charged = num(m.charged)
+    const total = num(m.total_cents)
+    if (charged == null) return null
+    const fees = `${charged} ${charged === 1 ? 'fee' : 'fees'}`
+    return total != null ? `${fees} · $${(total / 100).toFixed(2)}` : fees
   },
   'opening_balances.cinc_previewed': (m) => {
     const rows = num(m.rows)

@@ -81,6 +81,9 @@ import {
   type HearingDigestCounts,
   type HearingRecord,
 } from '../../../apps/hoa/src/lib/violation-hearings/rules'
+// BL-147: late fees the nightly job charged under the board's policy. Same
+// dependency-free, relative-path rule.
+import { LATE_FEE_NIGHTLY_AUDIT_ACTION } from '../../../apps/hoa/src/lib/late-fees/policy'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -140,6 +143,11 @@ import {
  * requests waiting more than 7 days to be scheduled, and (FL § 720.305,
  * CA § 5855) hearing notices and written decisions due within 3 days or
  * past their statutory window, linking to /violations. Counts only.
+ *
+ * BL-147: and, when the nightly late-fee job charged fees under the board's
+ * late-fee policy in the last 24 hours, one line with the count and total,
+ * linking to Settings → Late fees. Read from the job's audit_log rows (ids
+ * and counts only). Board members only.
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -209,6 +217,8 @@ export interface DailyDigestResult {
   hearingDeadlines: number
   /** FL directors whose certificate is due within 30 days, overdue or expired, summed across orgs (BL-139). */
   directorCertAlerts: number
+  /** Late fees charged overnight under a board policy, summed across orgs (BL-147). */
+  lateFeesCharged: number
   emailed: number
   failed: number
 }
@@ -810,6 +820,66 @@ export async function loadDirectorCertAlerts(
   return current.map((r) => ({ ...r, name: names.get(r.userId) ?? null }))
 }
 
+// ─── Late fees charged overnight (BL-147) ───────────────────────────
+
+export interface LateFeeDigestSummary {
+  charged: number
+  totalCents: number
+}
+
+/**
+ * Late fees the nightly job charged for this org since `sinceIso`, from its
+ * audit_log rows (counts only). null on a failed read (logged by code) so
+ * a failure never reads as "nothing was charged".
+ */
+export async function loadLateFeeCharges(
+  db: Db,
+  orgId: string,
+  sinceIso: string,
+  logger: DigestLogger,
+): Promise<LateFeeDigestSummary | null> {
+  const { data, error } = await db
+    .from('audit_log')
+    .select('metadata')
+    .eq('org_id', orgId)
+    .eq('action', LATE_FEE_NIGHTLY_AUDIT_ACTION)
+    .gte('created_at', sinceIso)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load late-fee runs`, { code: error.code })
+    return null
+  }
+  let charged = 0
+  let totalCents = 0
+  for (const row of (data ?? []) as Array<{ metadata?: Record<string, unknown> | null }>) {
+    const m = row.metadata ?? {}
+    if (typeof m.charged === 'number' && Number.isInteger(m.charged) && m.charged > 0) charged += m.charged
+    if (typeof m.total_cents === 'number' && Number.isInteger(m.total_cents) && m.total_cents > 0) totalCents += m.total_cents
+  }
+  return { charged, totalCents }
+}
+
+/** "3 late fees charged overnight under your late-fee policy ($75.00 in total)." */
+export function lateFeeDigestLine(s: LateFeeDigestSummary): string {
+  const fees = s.charged === 1 ? '1 late fee' : `${s.charged} late fees`
+  return `${fees} charged overnight under your late-fee policy ($${(s.totalCents / 100).toFixed(2)} in total).`
+}
+
+/** The late-fee block: the one line and the policy link. */
+export function buildLateFeeBlock(args: { summary: LateFeeDigestSummary; policyUrl: string }): {
+  line: string
+  text: string
+  html: string
+} {
+  const line = lateFeeDigestLine(args.summary)
+  const text = [line, `Review the late-fee policy: ${args.policyUrl}`].join('\n')
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid #2563eb;border-radius:6px;padding:16px;margin:16px 0">
+    <p style="margin:0 0 12px">${escapeHtml(line)}</p>
+    <a href="${escapeHtml(args.policyUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Review the late-fee policy</a>
+  </div>`
+  return { line, text, html }
+}
+
 /** The director-certification block: one line per director, what's at stake, and the Members link. */
 export function buildDirectorCertBlock(args: { rows: DirectorCertRow[]; membersUrl: string }): {
   lines: string[]
@@ -861,6 +931,8 @@ export function buildDigestEmail(args: {
   hearings?: { counts: HearingDigestCounts; violationsUrl: string } | null
   /** BL-139: FL director certification. Omitted or empty adds nothing. */
   directorCerts?: { rows: DirectorCertRow[]; membersUrl: string } | null
+  /** BL-147: late fees charged overnight. Omitted or zero adds nothing. */
+  lateFees?: { summary: LateFeeDigestSummary; policyUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -885,6 +957,8 @@ export function buildDigestEmail(args: {
   const directorCertBlock =
     args.directorCerts && args.directorCerts.rows.length > 0 ? buildDirectorCertBlock(args.directorCerts) : null
   if (directorCertBlock) extras.push(directorCertBlock)
+  const lateFeeBlock = args.lateFees && args.lateFees.summary.charged > 0 ? buildLateFeeBlock(args.lateFees) : null
+  if (lateFeeBlock) extras.push(lateFeeBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -907,8 +981,12 @@ export function buildDigestEmail(args: {
   // BL-139: lowest precedence — its own subject only when it is the only block.
   const directorOnly =
     directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
+  // BL-147: lowest precedence — its own subject only when it is the only block.
+  const lateFeesOnly = lateFeeBlock && !directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : lateFeesOnly
+      ? `${args.lateFees!.summary.charged === 1 ? '1 late fee' : `${args.lateFees!.summary.charged} late fees`} charged overnight — ${args.orgName}`
     : directorOnly
       ? `Florida director certification: ${args.directorCerts!.rows.length === 1 ? '1 director' : `${args.directorCerts!.rows.length} directors`} to act on — ${args.orgName}`
     : !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && hearingBlock
@@ -1037,6 +1115,7 @@ export async function runDailyDigest(
   let insuranceTotal = 0
   let hearingTotal = 0
   let directorCertTotal = 0
+  let lateFeeTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -1169,7 +1248,20 @@ export async function runDailyDigest(
     const directorCertCount = directorCerts?.length ?? 0
     directorCertTotal += directorCertCount
 
+    // BL-147: late fees the nightly job charged in the last 24 hours.
+    let lateFees: LateFeeDigestSummary | null = null
+    try {
+      lateFees = await loadLateFeeCharges(db, orgId, new Date(now - 24 * 60 * 60 * 1000).toISOString(), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: late-fee check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const lateFeeCount = lateFees?.charged ?? 0
+    lateFeeTotal += lateFeeCount
+
     const orgWide =
+      lateFeeCount > 0 ||
       directorCertCount > 0 ||
       broken.length > 0 ||
       waitingCount > 0 ||
@@ -1216,6 +1308,11 @@ export async function runDailyDigest(
       logger.info(
         `[daily-digest] ${orgId}: fine hearings — ${hearings!.requestsWaiting} request(s) waiting, ${hearings!.noticeLate} notice(s) late, ${hearings!.noticeDueSoon} notice(s) due soon, ${hearings!.findingsLate} decision(s) late, ${hearings!.findingsDueSoon} decision(s) due soon`,
       )
+    }
+
+    if (lateFeeCount > 0) {
+      // A count only, never which home or charge.
+      logger.info(`[daily-digest] ${orgId}: ${lateFeeCount} late fee(s) charged overnight`)
     }
 
     if (directorCertCount > 0) {
@@ -1273,6 +1370,7 @@ export async function runDailyDigest(
             directorCertCount > 0
               ? { rows: directorCerts!, membersUrl: deps.appUrl('/settings/members#director-certification') }
               : null,
+          lateFees: lateFeeCount > 0 ? { summary: lateFees!, policyUrl: deps.appUrl('/settings/late-fees') } : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -1309,6 +1407,7 @@ export async function runDailyDigest(
     insuranceRenewals: insuranceTotal,
     hearingDeadlines: hearingTotal,
     directorCertAlerts: directorCertTotal,
+    lateFeesCharged: lateFeeTotal,
     emailed,
     failed,
   }
