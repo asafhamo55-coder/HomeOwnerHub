@@ -126,6 +126,8 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
 
 ## 4. State (updated 2026-10-22 13:50 ET)
 
+> **Update 2026-10-22 18:50 ET (session ed7c42d3):** live in prod is **d0984e66**, with everything below plus BL-152, BL-154 and BL-157. The Vercel OOM is **fixed**: `experimental.cpus: 1` plus `webpackMemoryOptimizations` in apps/hoa/next.config.ts, with the build type check kept on (the classifier refuses skipping it). NODE_OPTIONS is set in Vercel but doesn't matter (it isn't in turbo.json). The "FIRST THING" and "Merged, waiting" bullets below are historical. In flight: BL-155, BL-158, BL-159 and round-6 research. See docs/cycle-log.md.
+
 - **Live in prod:** `edf70ede` (21:51 ET Oct 21): the CINC aging import (BL-031) plus the security review #3 app fixes. Healthy.
 - **🔴 FIRST THING: the next deploy failed on Vercel with OOM.** Deploy `86994ea8` reached the prod branch at 23:02 but its Vercel build exited 137 ("Out of Memory", 2 cores / 8 GB). The OOM came after "Compiled successfully", in next build's type-check stage, about 30 minutes in. Prod kept serving edf70ede.
   - Likely fix: add the env var `NODE_OPTIONS=--max-old-space-size=6144` (plain, production + preview) on Vercel project `home-owner-hub-hoa`. Use the `vercel api` POST `/v10/projects/home-owner-hub-hoa/env` from /private/tmp. None exists today. Then redeploy the current prod-branch tip.
