@@ -62,7 +62,7 @@ vi.mock('@/lib/load-or-fail', () => ({
 
 import { attachComplianceEvidence, markComplianceDeadlineDone } from './actions'
 import { attachedDocumentIds, loadComplianceDoneWithEvidence, loadEvidenceDocuments } from './evidence'
-import { loadAnnualMeetings } from './overview-load'
+import { loadAnnualMeetings, loadElectionMeetings } from './overview-load'
 
 const GA = '11111111-1111-4111-8111-111111111111'
 const DOC = '66666666-6666-4666-8666-666666666666'
@@ -173,6 +173,33 @@ describe('loadAnnualMeetings', () => {
     h.answers.push({ table: 'hoa_meeting_minutes', res: { data: null, error: { code: '57014' } } })
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(await loadAnnualMeetings(db, 'org-1', '2026-10-21')).toBeNull()
+    spy.mockRestore()
+  })
+})
+
+describe('loadElectionMeetings (BL-151)', () => {
+  const M1 = 'a1111111-1111-4111-8111-111111111111'
+  const M2 = 'a2222222-2222-4222-8222-222222222222'
+  const assoc = (settings: unknown) => ({ id: GA, name: 'Maple', state: 'GA', governingLawState: null, complianceSettings: settings })
+
+  it('reads only the stored meetings, by id, in this org, not deleted; ignores keys that are not ids', async () => {
+    h.answers.push({
+      table: 'hoa_meeting_minutes',
+      res: { data: [{ id: M1, meeting_date: '2027-01-15', meeting_type: 'annual' }, { id: M2, meeting_date: null, meeting_type: 'special' }], error: null },
+    })
+    const out = await loadElectionMeetings(db, 'org-1', [assoc({ meeting_elections: { [M1]: {}, [M2]: {}, 'not-an-id': {} } })])
+    expect(out).toEqual(new Map([[M1, { id: M1, date: '2027-01-15', type: 'annual' }]]))
+    expect(ops('hoa_meeting_minutes', 'eq').map((c) => c.args)).toContainEqual(['org_id', 'org-1'])
+    expect(ops('hoa_meeting_minutes', 'in')[0]!.args).toEqual(['id', [M1, M2]])
+    expect(ops('hoa_meeting_minutes', 'is')[0]!.args).toEqual(['deleted_at', null])
+  })
+
+  it('no election stored: no read at all; a failed read is null', async () => {
+    expect(await loadElectionMeetings(db, 'org-1', [assoc({})])).toEqual(new Map())
+    expect(h.calls.length).toBe(0)
+    h.answers.push({ table: 'hoa_meeting_minutes', res: { data: null, error: { code: '57014' } } })
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(await loadElectionMeetings(db, 'org-1', [assoc({ meeting_elections: { [M1]: {} } })])).toBeNull()
     spy.mockRestore()
   })
 })

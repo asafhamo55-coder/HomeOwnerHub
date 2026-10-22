@@ -30,7 +30,9 @@ import {
   type CaBudgetInput,
   type ComplianceOverview,
   type DirectorCertInput,
+  type ElectionMeeting,
 } from './obligations'
+import { storedElections } from '../elections/store'
 
 type Db = SupabaseClient<Database>
 
@@ -94,6 +96,42 @@ export async function loadAnnualMeetings(db: LooseDb, orgId: string, today: stri
   }
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * BL-151: the meetings the election planner has stored elections under, in
+ * this org and not deleted. Keys that aren't ids are ignored (the stored
+ * object is unverified until obligations.ts checks each signature). null
+ * when the read fails.
+ */
+export async function loadElectionMeetings(
+  db: LooseDb,
+  orgId: string,
+  associations: readonly ComplianceAssociationInput[],
+): Promise<Map<string, ElectionMeeting> | null> {
+  const ids = [...new Set(associations.flatMap((a) => Object.keys(storedElections(a.complianceSettings))))].filter((id) => UUID.test(id))
+  if (ids.length === 0) return new Map()
+  const { data, error } = (await db
+    .from('hoa_meeting_minutes')
+    .select('id, meeting_date, meeting_type')
+    .eq('org_id', orgId)
+    .in('id', ids)
+    .is('deleted_at', null)) as {
+    data: Array<{ id: string; meeting_date: string | null; meeting_type: string | null }> | null
+    error: { code?: string } | null
+  }
+  if (error) {
+    console.error('[compliance] election meetings read failed', { orgId, code: error.code ?? null })
+    return null
+  }
+  const out = new Map<string, ElectionMeeting>()
+  for (const r of data ?? []) {
+    if (typeof r.meeting_date !== 'string') continue
+    out.set(r.id, { id: r.id, date: r.meeting_date.slice(0, 10), type: r.meeting_type })
+  }
+  return out
+}
+
 export async function loadComplianceOverview(deps: ComplianceLoadDeps): Promise<LoadedCompliance> {
   let q = deps.db
     .from('associations')
@@ -115,13 +153,14 @@ export async function loadComplianceOverview(deps: ComplianceLoadDeps): Promise<
   const states = new Set(associations.map((a) => complianceState(a.governingLawState, a.state)))
   const ca = associations.filter((a) => complianceState(a.governingLawState, a.state) === 'CA')
 
-  const [done, annualMeetings, directorBoard, caBudgets] = await Promise.all([
+  const [done, annualMeetings, directorBoard, caBudgets, electionMeetings] = await Promise.all([
     loadComplianceDoneWithEvidence(deps.db, deps.orgId, { associationId: deps.associationId }),
     states.has('GA') ? loadAnnualMeetings(deps.db, deps.orgId, deps.today) : Promise.resolve(null),
     states.has('FL')
       ? loadDirectorCertBoard({ db: deps.db as unknown as Db, admin: deps.admin as unknown as Db, orgId: deps.orgId, todayYmd: deps.today, secret: deps.secret })
       : Promise.resolve({ kind: 'not_applicable' as const }),
     ca.length > 0 && deps.caBudgets ? deps.caBudgets(ca) : Promise.resolve(new Map<string, CaBudgetInput>()),
+    loadElectionMeetings(deps.db, deps.orgId, associations),
   ])
 
   const directorCerts: DirectorCertInput =
@@ -139,6 +178,7 @@ export async function loadComplianceOverview(deps: ComplianceLoadDeps): Promise<
     annualMeetings,
     directorCerts,
     caBudgets,
+    electionMeetings,
   })
   return { ok: true, overview, documents }
 }

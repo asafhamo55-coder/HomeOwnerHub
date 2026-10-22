@@ -1672,6 +1672,14 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - § 44-3-230(b): when no annual meeting is held by fiscal year end, tell the board that 5% of members may call one. Show it on /compliance too.
      - Quote tests against the fixture.
    - **Files:** `apps/hoa/src/lib/meeting-quorum/law.ts`, `apps/hoa/src/app/(dashboard)/meetings/[id]/quorum/`, `apps/hoa/src/lib/compliance/obligations.ts`.
+   - **Status:** Built 2026-10-21, no migration; not deployed yet.
+     - **GA case in `proxyLaw`:** § 44-3-228 more-than-one-third at the start, "unless the instrument or bylaws provide otherwise". The kit says the bylaws win.
+     - **Counter:** the board can pick the state default in one tap (33.34%). `quorumNeeded` then equals floor(n/3)+1 for every roster up to 5,000 votes, and is never lower above that.
+     - **Form clauses:** a dated-proxy line, notice-only revocation (never "revocable at any time", which would void it), joint-owner unanimity and the entity-owner proxy.
+     - **Board notes card** on the kit page, quoting the statute. § 44-3-230(b) (5% may call a missed annual meeting) appears there and on /compliance's GA annual-meeting row.
+     - **§ 14-3-724** is named but not quoted, since it is not in the repo.
+     - **Tests:** `meeting-quorum/law.test.ts` checks every quote word for word against the fixture subsection.
+     - **Not built:** the board quorum (one-half) is not shown, because the kit is for members' meetings.
 5. **BL-151 Elections on /compliance, plus the registration amendment after an election (BL-145 × BL-141 follow-up).** Migration: no. Effort S (0.75). Score 3.80 (3 × 0.95 ÷ 0.75).
    - **Pain:** the Compliance page says director elections are "Not tracked yet", while the election planner now tracks every date. In Georgia, an election that changes officers starts the 30-day SB 406 amendment.
    - **Evidence:** BL-141 (a17d3a40) and BL-145 (8ab0af40); fixture § 43-17A-2(d).
@@ -1685,6 +1693,17 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - GA: once results are recorded, an "amend your registration within 30 days" item (shared with BL-149).
      - A monthly board report line.
    - **Files:** `apps/hoa/src/lib/compliance/{obligations,overview-load}.ts`, `apps/hoa/src/lib/elections/{store,timeline}.ts`.
+   - **Status:** Built 2026-10-21, no migration; not deployed yet. "Not tracked yet" is gone.
+     - **Election rows (GA/FL/CA/TX):** one row per signed planner election whose meeting still exists. Each shows the next timeline date, any date conflict (red), the passed dates to check, and whether results are recorded. Each links to `/meetings/[id]/election`.
+     - **No election:** the row says "No election planned in HomeownerHub". A failed read says "Couldn't load your elections".
+     - **CA:** the § 5120(b) 15-day results notice turns amber, then overdue.
+     - **GA:** once results are recorded, an amended-registration row appears. The SB 406 fixture supports it: § 43-17A-2(d) says "within 30 days" after a change in officers.
+       - It reads "if the officers changed" and counts from the day the results were recorded.
+       - Before 2027-01-01 it says to put the new officers in the first registration.
+       - Past day 30 it turns "unknown", not overdue, because we can't know whether the officers changed or the filing went in.
+       - It points to the Secretary of State's guidance.
+     - **Monthly board report:** a "Director elections" line (`ComplianceSummary.election`).
+     - **Not built:** the amendment is not markable as done (no deadline code), and `changeMemberRole` still starts no clock. Both stay with BL-149.
 6. **BL-152 Georgia Nonprofit Code pack: the April 1 corporate registration and the records-request clock.** Migration: no. Effort M (1.25). Score 2.56 (4 × 0.8 ÷ 1.25).
    - **Pain:** a Georgia HOA has two state filings on two calendars:
      - SB 406 registration, by Dec 31;

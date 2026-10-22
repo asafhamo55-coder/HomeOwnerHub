@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { signComplianceAck, withComplianceAck, type ComplianceAssociationInput } from './deadlines'
 import { directorCertRows } from './director-certs'
+import { EMPTY_ELECTION, type Election } from '../elections/model'
+import { signElection, withElection } from '../elections/store'
 import { ALL_COMPLIANCE_QUOTES } from './law'
 import {
+  GA_SOS_URL,
   buildComplianceOverview,
   complianceSummary,
   nextGaRenewal,
@@ -35,6 +38,7 @@ function input(over: Partial<ComplianceInput> = {}): ComplianceInput {
     annualMeetings: { lastHeld: null, next: null, nextNoticeSentOn: null },
     directorCerts: { kind: 'not_applicable' },
     caBudgets: new Map(),
+    electionMeetings: new Map(),
     ...over,
   }
 }
@@ -196,11 +200,11 @@ describe('Georgia annual meeting (§ 44-3-230(a))', () => {
 })
 
 describe('other states', () => {
-  it('Texas: the management certificate is markable and standing until done, plus the elections note', () => {
+  it('Texas: the management certificate is markable and standing until done, plus the elections row', () => {
     const o = buildComplianceOverview(input({ associations: [assoc(TX, 'TX')] }))
     const t = find(o, 'tx-management-certificate')
     expect(t).toMatchObject({ tone: 'unknown', label: 'Not marked as filed yet', deadlineCode: 'tx-management-certificate', dueOn: null })
-    expect(o.groups[0]!.obligations.map((x) => x.kind)).toEqual(['deadline', 'not_loaded'])
+    expect(o.groups[0]!.obligations.map((x) => x.kind)).toEqual(['deadline', 'election'])
   })
 
   it('Florida: the director tracker summarised on its association only', () => {
@@ -216,7 +220,7 @@ describe('other states', () => {
       input({ associations: [assoc(FL, 'FL'), assoc(OH, 'FL', 'Second FL')], directorCerts: { kind: 'ok', associationId: FL, rows } }),
     )
     expect(find(o, `${FL}:fl-director-certificates`)).toMatchObject({ tone: 'overdue', label: '1 director overdue or expired' })
-    expect(o.groups.find((g) => g.associationId === OH)!.obligations.map((x) => x.kind)).toEqual(['not_loaded'])
+    expect(o.groups.find((g) => g.associationId === OH)!.obligations.map((x) => x.kind)).toEqual(['election'])
     const failed = buildComplianceOverview(input({ associations: [assoc(FL, 'FL')], directorCerts: { kind: 'failed' } }))
     expect(find(failed, 'fl-director-certificates').tone).toBe('failed')
   })
@@ -273,6 +277,7 @@ describe('complianceSummary (monthly report, board packet)', () => {
       done: 0,
       next: { title: 'Register with the Georgia Secretary of State', label: 'In effect since Jan 1, 2027', associationName: 'HOA 1111' },
       nothingTracked: false,
+      election: { title: 'Director elections', label: 'No election planned in HomeownerHub' },
     })
   })
 
@@ -283,5 +288,180 @@ describe('complianceSummary (monthly report, board packet)', () => {
       next: null,
       nothingTracked: true,
     })
+  })
+})
+
+// ─── BL-151: director elections from the BL-141 planner ──────────────
+
+describe('director elections (BL-151)', () => {
+  const M1 = 'a1111111-1111-4111-8111-111111111111'
+  const C1 = 'c1111111-1111-4111-8111-111111111111'
+  const C2 = 'c2222222-2222-4222-8222-222222222222'
+  const stamp = { updatedAt: '2026-10-01T00:00:00Z', updatedBy: null }
+
+  function settingsWith(assocId: string, e: Partial<Election>, secret = SECRET): Record<string, unknown> {
+    const full: Election = { ...EMPTY_ELECTION, inspectors: [], candidates: [], ...e }
+    return withElection({}, M1, signElection(assocId, M1, full, stamp, secret))
+  }
+  const candidates = (votes: number | null) => [
+    { id: C1, name: 'Candidate One', propertyId: null, nominatedOn: null, onBallot: true, votes },
+    { id: C2, name: 'Candidate Two', propertyId: null, nominatedOn: null, onBallot: true, votes: votes === null ? null : votes + 3 },
+  ]
+  function overview(
+    state: string,
+    e: Partial<Election> | null,
+    over: Partial<ComplianceInput> & { meetingDate?: string; meetingType?: string } = {},
+  ) {
+    const id = state === 'CA' ? CA : state === 'FL' ? FL : state === 'TX' ? TX : GA
+    const { meetingDate = '2027-01-15', meetingType = 'annual', ...rest } = over
+    return buildComplianceOverview(
+      input({
+        associations: [{ ...assoc(id, state), complianceSettings: e ? settingsWith(id, e) : {} }],
+        electionMeetings: new Map([[M1, { id: M1, date: meetingDate, type: meetingType }]]),
+        ...rest,
+      }),
+    )
+  }
+  const election = (o: ReturnType<typeof buildComplianceOverview>) => find(o, `director-election:${M1}`)
+
+  it('replaces "Not tracked yet": with nothing planned, the row says so and links to Meetings', () => {
+    for (const s of ['GA', 'FL', 'CA', 'TX']) {
+      const r = find(overview(s, null), 'director-elections')
+      expect(r).toMatchObject({ kind: 'election', tone: 'unknown', label: 'No election planned in HomeownerHub', link: { href: '/meetings' } })
+    }
+    const all = JSON.stringify(buildComplianceOverview(input({ associations: [assoc(GA, 'GA'), assoc(TX, 'TX'), assoc(FL, 'FL'), assoc(CA, 'CA')] })))
+    expect(all).not.toContain('Not tracked yet')
+  })
+
+  it('a planned Georgia election: the next date on its timeline, linked to the planner', () => {
+    const r = election(overview('GA', { seats: 3 }))
+    expect(r).toMatchObject({
+      kind: 'election',
+      title: 'Director election at the Jan 15, 2027 annual meeting',
+      tone: 'upcoming',
+      label: 'Send the annual meeting notice by Dec 25, 2026',
+      dueOn: '2026-12-25',
+      link: { href: `/meetings/${M1}/election`, label: 'Open the election planner' },
+    })
+  })
+
+  it('a passed date is flagged to check; the next one leads', () => {
+    const r = election(overview('GA', { seats: 3 }, { today: '2026-12-28' }))
+    expect(r.label).toBe('Meeting: vote and count on Jan 15, 2027 · 1 earlier date has passed: check it was done')
+    expect(r.tone).toBe('upcoming')
+  })
+
+  it('held with no results recorded: unknown, never "done"', () => {
+    const r = election(overview('GA', { seats: 2, candidates: candidates(null) }, { today: '2027-01-20' }))
+    expect(r).toMatchObject({ tone: 'unknown', label: 'Held Jan 15, 2027 · results not recorded yet' })
+  })
+
+  it('Georgia: results recorded → done, then the 30-day amended registration if the officers changed', () => {
+    const o = overview('GA', { seats: 2, candidates: candidates(10), resultsAnnouncedOn: '2027-01-16' }, { today: '2027-01-20' })
+    expect(election(o)).toMatchObject({ tone: 'done', label: 'Results recorded · announced Jan 16, 2027' })
+    const a = find(o, `ga-registration-amendment:${M1}`)
+    expect(a).toMatchObject({
+      kind: 'registration_amendment',
+      tone: 'soon',
+      label: 'If the officers changed, file by Feb 15, 2027 (26 days left)',
+      dueOn: '2027-02-15',
+      official: { href: GA_SOS_URL },
+    })
+    expect(a.quotes.map((q) => q.cite)).toContain('O.C.G.A. § 43-17A-2(d)')
+    expect(a.steps.join(' ')).toContain('Secretary of State’s guidance')
+    // The amendment row sits right after its election.
+    const keys = o.groups[0]!.obligations.map((x) => x.key.split(':').slice(1).join(':'))
+    expect(keys.indexOf(`ga-registration-amendment:${M1}`)).toBe(keys.indexOf(`director-election:${M1}`) + 1)
+    // Past the 30 days HomeownerHub can't know whether the officers changed or it was filed.
+    const late = find(
+      overview('GA', { seats: 2, candidates: candidates(10), resultsAnnouncedOn: '2027-01-16' }, { today: '2027-03-01' }),
+      `ga-registration-amendment:${M1}`,
+    )
+    expect(late).toMatchObject({ tone: 'unknown', label: 'Was due Feb 15, 2027 if the officers changed' })
+  })
+
+  it('Georgia: no announcement day counts from the meeting; before Jan 1, 2027 it goes into the first registration', () => {
+    const fromMeeting = find(overview('GA', { seats: 2, candidates: candidates(4) }, { today: '2027-01-20' }), `ga-registration-amendment:${M1}`)
+    expect(fromMeeting.dueOn).toBe('2027-02-14')
+    const early = find(
+      overview('GA', { seats: 2, candidates: candidates(4), resultsAnnouncedOn: '2026-10-02' }, { today: '2026-10-21', meetingDate: '2026-10-01' }),
+      `ga-registration-amendment:${M1}`,
+    )
+    expect(early).toMatchObject({ tone: 'standing', label: 'Registration starts Jan 1, 2027: list the new officers in your first filing', dueOn: null })
+  })
+
+  it('only Georgia gets the amendment row', () => {
+    for (const s of ['FL', 'TX', 'CA']) {
+      const o = overview(s, { seats: 2, candidates: candidates(10), resultsAnnouncedOn: '2027-01-16' }, { today: '2027-01-20' })
+      expect(o.groups[0]!.obligations.some((x) => x.kind === 'registration_amendment')).toBe(false)
+    }
+  })
+
+  it('California: the results notice within 15 days: soon, then overdue, then done once announced', () => {
+    const held = { seats: 2, candidates: candidates(10) }
+    const soon = election(overview('CA', held, { today: '2026-10-10', meetingDate: '2026-10-01' }))
+    expect(soon).toMatchObject({ tone: 'soon', label: 'Send the results notice by Oct 16, 2026 (6 days left)', dueOn: '2026-10-16' })
+    expect(soon.quotes.map((q) => q.cite)).toEqual(['Cal. Civ. Code § 5120(b)'])
+    const late = overview('CA', held, { today: '2026-10-21', meetingDate: '2026-10-01' })
+    expect(election(late)).toMatchObject({ tone: 'overdue', label: 'Results notice was due Oct 16, 2026 · not recorded as sent' })
+    expect(late.overdue.map((x) => x.key)).toContain(election(late).key)
+    const announced = election(overview('CA', { ...held, resultsAnnouncedOn: '2026-10-05' }, { today: '2026-10-21', meetingDate: '2026-10-01' }))
+    expect(announced.tone).toBe('done')
+  })
+
+  it('California: quorum not reached and no reconvened date asks for one', () => {
+    const r = election(overview('CA', { seats: 2, quorumReached: false }, { today: '2026-10-05', meetingDate: '2026-10-01' }))
+    expect(r).toMatchObject({ tone: 'soon', label: 'Quorum not reached · set the reconvened meeting in the planner' })
+  })
+
+  it('dates that break the rule are overdue: "check the dates"', () => {
+    const r = election(overview('CA', { seats: 2, ballotsOutOn: '2027-01-01' }))
+    expect(r.tone).toBe('overdue')
+    expect(r.label).toBe('Check the dates: mail ballots with two envelopes')
+  })
+
+  it('a forged election, or one whose meeting is gone, is ignored; an unreadable meetings list says so', () => {
+    const forged = buildComplianceOverview(
+      input({
+        associations: [{ ...assoc(GA, 'GA'), complianceSettings: settingsWith(GA, { seats: 3 }, 'other-secret') }],
+        electionMeetings: new Map([[M1, { id: M1, date: '2027-01-15', type: 'annual' }]]),
+      }),
+    )
+    expect(find(forged, 'director-elections').label).toBe('No election planned in HomeownerHub')
+    const gone = buildComplianceOverview(input({ associations: [{ ...assoc(GA, 'GA'), complianceSettings: settingsWith(GA, { seats: 3 }) }] }))
+    expect(find(gone, 'director-elections').label).toBe('No election planned in HomeownerHub')
+    const failed = buildComplianceOverview(input({ electionMeetings: null }))
+    expect(find(failed, 'director-elections')).toMatchObject({ tone: 'failed', label: 'Couldn’t load your elections' })
+  })
+
+  it('another association’s signed election never shows on this one', () => {
+    const o = buildComplianceOverview(
+      input({
+        associations: [{ ...assoc(GA, 'GA'), complianceSettings: settingsWith(TX, { seats: 3 }) }],
+        electionMeetings: new Map([[M1, { id: M1, date: '2027-01-15', type: 'annual' }]]),
+      }),
+    )
+    expect(find(o, 'director-elections').label).toBe('No election planned in HomeownerHub')
+  })
+
+  it('a special meeting reads as one', () => {
+    expect(election(overview('GA', { seats: 1 }, { meetingType: 'special' })).title).toBe('Director election at the Jan 15, 2027 special meeting')
+  })
+
+  it('the monthly report line: the most pressing election row', () => {
+    const s = complianceSummary(overview('GA', { seats: 2, candidates: candidates(10), resultsAnnouncedOn: '2027-01-16' }, { today: '2027-01-20' }))
+    expect(s.election).toEqual({
+      title: 'Amend the Secretary of State registration after the Jan 15, 2027 election',
+      label: 'If the officers changed, file by Feb 15, 2027 (26 days left)',
+    })
+    expect(complianceSummary(buildComplianceOverview(input({ associations: [assoc(OH, 'OH')] }))).election).toBeNull()
+  })
+})
+
+describe('Georgia annual meeting: a missed meeting may be called by 5% (BL-150)', () => {
+  it('says so in a step and quotes § 44-3-230(b)', () => {
+    const m = find(buildComplianceOverview(input()), 'ga-annual-meeting')
+    expect(m.steps.join(' ')).toContain('5% of the voting power')
+    expect(m.quotes.map((q) => q.cite)).toContain('O.C.G.A. § 44-3-230(b)')
   })
 })

@@ -82,6 +82,21 @@ describe('ProxyForm', () => {
     expectNoContact(out)
   })
 
+  it('Georgia (BL-150): a dated-proxy line, notice-only revocation, joint and entity owners; never "revoke at any time"', () => {
+    const out = html(<ProxyForm header={header} home={homes[0]!} law={proxyLaw('GA')} />)
+    expect(out).toContain('An undated proxy is void')
+    expect(out).toContain('revoked only by written notice delivered to the association')
+    expect(out).toContain('all signing owners agree')
+    expect(out).toContain('must vote by proxy')
+    expect(out).toContain('§ 44-3-224(b)')
+    expect(out).toContain('§ 44-3-228')
+    // Revocable without notice would make a Georgia proxy void.
+    expect(out).not.toContain('revoked at any time')
+    expect(out).not.toContain('substitute')
+    expect(out).toContain('Date:')
+    expectNoContact(out)
+  })
+
   it('elsewhere: no statute, check your bylaws', () => {
     const out = html(<ProxyForm header={header} home={homes[2]!} law={proxyLaw('TX')} />)
     expect(out).not.toContain('§')

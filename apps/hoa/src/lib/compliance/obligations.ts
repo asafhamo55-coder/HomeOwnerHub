@@ -23,8 +23,13 @@
  * on Members).
  * CALIFORNIA: the BL-138 § 5300(a) annual budget report window, from the
  * next budget's adoption checklist.
- * EVERY STATE: director elections are not tracked yet (BL-141), so "check
- * your governing documents".
+ * GA, FL, CA, TX: director elections (BL-151), one row per election the
+ * BL-141 planner holds (signed, in compliance_settings.meeting_elections):
+ * the next date on its timeline, dates that conflict, and whether results
+ * are recorded. California: the § 5120(b) results notice within 15 days.
+ * Georgia: once results are recorded, the 30-day amended registration
+ * (§ 43-17A-2(d)) if the officers changed, counted from the day the
+ * results were recorded, from Jan 1, 2027 (SB 406 § 9(a)).
  * ANY OTHER STATE: nothing quoted; "check your governing documents".
  *
  * Statute wording only ever comes from ./law.ts (checked word for word);
@@ -43,8 +48,12 @@ import {
   type ComplianceState,
 } from './deadlines'
 import { addDays, addYears, type DirectorCertRow } from './director-certs'
+import { electionJurisdiction } from '@/lib/elections/law'
+import { readElection, storedElections } from '@/lib/elections/store'
+import { electionTimeline, nextStep, type TimelineStep } from '@/lib/elections/timeline'
 import {
   CA_ANNUAL_BUDGET_REPORT,
+  CA_ELECTION_RESULTS,
   CHECK_GOVERNING_DOCS,
   FL_DIRECTOR_CERTIFICATE,
   FL_DIRECTOR_SUSPENSION,
@@ -52,6 +61,7 @@ import {
   GA_ANNUAL_NOTICE_DAYS,
   GA_ANNUAL_REPORT,
   GA_MEETING_NOTICE,
+  GA_MISSED_ANNUAL_MEETING,
   GA_POA_ACT_SCOPE,
   GA_RECORDS_FINANCIAL,
   GA_RECORDS_MINUTES,
@@ -113,6 +123,15 @@ export type CaBudgetInput =
       sent: boolean
     }
 
+/** A meeting an election is stored under (hoa_meeting_minutes). */
+export interface ElectionMeeting {
+  id: string
+  /** YYYY-MM-DD. */
+  date: string
+  /** 'annual' or 'special' (the planner's gate); anything else reads as annual. */
+  type: string | null
+}
+
 export interface ComplianceInput {
   today: string
   associations: readonly ComplianceAssociationInput[]
@@ -127,6 +146,13 @@ export interface ComplianceInput {
   directorCerts: DirectorCertInput
   /** association id → the § 5300(a) status. Only consulted for California. */
   caBudgets: ReadonlyMap<string, CaBudgetInput>
+  /**
+   * BL-151: meeting id → the meeting, for every meeting an election is
+   * stored under (not deleted, in this org). null: the meetings couldn't be
+   * read. The elections themselves come from each association's
+   * compliance_settings, verified with `secret`.
+   */
+  electionMeetings: ReadonlyMap<string, ElectionMeeting> | null
 }
 
 // ─── Output ─────────────────────────────────────────────────────────
@@ -146,7 +172,18 @@ export type ObligationTone =
   /** The rule isn't loaded. */
   | 'not_loaded'
 
-export type ObligationKind = 'deadline' | 'registration_upkeep' | 'annual_meeting' | 'duty' | 'director_certs' | 'ca_budget_report' | 'not_loaded'
+export type ObligationKind =
+  | 'deadline'
+  | 'registration_upkeep'
+  | 'annual_meeting'
+  | 'duty'
+  | 'director_certs'
+  | 'ca_budget_report'
+  /** BL-151: one planned director election, or the "none planned" row. */
+  | 'election'
+  /** BL-151: Georgia's 30-day amended registration after an election. */
+  | 'registration_amendment'
+  | 'not_loaded'
 
 export interface ComplianceObligation {
   /** Unique within the overview. */
@@ -311,8 +348,9 @@ function gaAnnualMeeting(base: Base, input: ComplianceInput): ComplianceObligati
       `Send the notice to every owner at least ${GA_ANNUAL_NOTICE_DAYS} days before the meeting, with the time and place.`,
       'At the meeting, report on the association’s affairs, finances and budget projections.',
       'File the minutes afterwards.',
+      'Hold it before the fiscal year ends: if the board doesn’t, owners holding 5% of the voting power (or the figure in your articles or bylaws, never more than 25%) may call it themselves.',
     ],
-    quotes: [GA_ANNUAL_MEETING, GA_MEETING_NOTICE, GA_ANNUAL_REPORT, GA_POA_ACT_SCOPE],
+    quotes: [GA_ANNUAL_MEETING, GA_MEETING_NOTICE, GA_ANNUAL_REPORT, GA_MISSED_ANNUAL_MEETING, GA_POA_ACT_SCOPE],
     appliesTo: GA_POA_APPLIES,
     official: null,
     deadlineCode: null,
@@ -512,10 +550,178 @@ function caBudgetReport(base: Base, input: ComplianceInput): ComplianceObligatio
   }
 }
 
+// ─── Director elections (BL-151) ────────────────────────────────────
+
+/** SB 406 § 9(a): chapter 17A, and so the amended registration, applies from this day. */
+export const GA_REGISTRATION_IN_FORCE = '2027-01-01'
+/** § 43-17A-2(d): days to file the amended registration after a change of officers. */
+export const GA_AMENDMENT_DAYS = 30
+
+const ELECTION_STEPS = [
+  'Plan the dates, the candidates and the ballots in the meeting’s election planner.',
+  'After the count, record the votes and the day the results were announced there.',
+]
+
+function stepWhen(s: TimelineStep): string {
+  if (!s.date) return s.label
+  const on = formatDueOn(s.date)
+  return s.when === 'by' ? `${s.label} by ${on}` : s.when === 'until' ? `${s.label} until ${on}` : `${s.label} on ${on}`
+}
+
+/** One planned election: the next date, a date conflict, or whether the results are recorded. */
+function electionRow(
+  base: Base,
+  state: ComplianceState,
+  meeting: ElectionMeeting,
+  election: ReturnType<typeof readElection>,
+  today: string,
+): ComplianceObligation {
+  const annual = meeting.type !== 'special'
+  const steps = electionTimeline({
+    jurisdiction: electionJurisdiction(state),
+    meetingType: meeting.type,
+    meetingDate: meeting.date,
+    election,
+    today,
+  })
+  const recorded = election.candidates.some((c) => c.votes !== null)
+  const held = meeting.date < today
+  const common = {
+    ...base,
+    key: `${base.associationId}:director-election:${meeting.id}`,
+    kind: 'election' as const,
+    title: `Director election at the ${formatDueOn(meeting.date)} ${annual ? 'annual' : 'special'} meeting`,
+    steps:
+      state === 'CA'
+        ? [...ELECTION_STEPS, 'Send every member general notice of the tabulated results within 15 days of the election.']
+        : state === 'GA'
+          ? [...ELECTION_STEPS, 'If the new board changes the association’s officers, file an amended registration with the Secretary of State (the row below).']
+          : ELECTION_STEPS,
+    quotes: state === 'CA' ? [CA_ELECTION_RESULTS] : [],
+    appliesTo: null,
+    link: { href: `/meetings/${meeting.id}/election`, label: 'Open the election planner' },
+    official: null,
+    deadlineCode: null,
+    done: null,
+  }
+
+  const conflict = steps.find((s) => s.state === 'conflict')
+  if (conflict) return { ...common, tone: 'overdue', label: `Check the dates: ${conflict.label.toLowerCase()}`, dueOn: conflict.date }
+
+  if (held || meeting.date === today) {
+    if (state === 'CA' && election.quorumReached === false && !election.reconvenedOn) {
+      return { ...common, tone: 'soon', label: 'Quorum not reached · set the reconvened meeting in the planner', dueOn: null }
+    }
+    if (state === 'CA' && !election.resultsAnnouncedOn) {
+      const notice = steps.find((s) => s.key === 'results_notice')
+      if (notice?.date) {
+        const left = daysUntil(today, notice.date)
+        if (left < 0) return { ...common, tone: 'overdue', label: `Results notice was due ${formatDueOn(notice.date)} · not recorded as sent`, dueOn: notice.date }
+        if (held) return { ...common, tone: 'soon', label: `Send the results notice by ${formatDueOn(notice.date)} (${days(left)} left)`, dueOn: notice.date }
+      }
+    }
+    if (recorded) {
+      return {
+        ...common,
+        tone: 'done',
+        label: election.resultsAnnouncedOn ? `Results recorded · announced ${formatDueOn(election.resultsAnnouncedOn)}` : 'Results recorded',
+        dueOn: null,
+      }
+    }
+    if (held) return { ...common, tone: 'unknown', label: `Held ${formatDueOn(meeting.date)} · results not recorded yet`, dueOn: null }
+  }
+
+  const next = nextStep(steps)
+  const passed = steps.filter((s) => s.state === 'done_or_passed').length
+  const check = passed > 0 ? ` · ${passed} earlier ${passed === 1 ? 'date has' : 'dates have'} passed: check ${passed === 1 ? 'it was' : 'they were'} done` : ''
+  if (!next || !next.date) {
+    return { ...common, tone: 'unknown', label: `Meeting ${formatDueOn(meeting.date)} · enter the election dates in the planner${check}`, dueOn: meeting.date }
+  }
+  return { ...common, tone: next.state === 'due_soon' ? 'soon' : 'upcoming', label: `${stepWhen(next)}${check}`, dueOn: next.date }
+}
+
+/** Georgia: the 30-day amended registration once an election's results are recorded. */
+function gaAmendmentRow(base: Base, meeting: ElectionMeeting, recordedOn: string, today: string): ComplianceObligation {
+  const common = {
+    ...base,
+    key: `${base.associationId}:ga-registration-amendment:${meeting.id}`,
+    kind: 'registration_amendment' as const,
+    title: `Amend the Secretary of State registration after the ${formatDueOn(meeting.date)} election`,
+    steps: [
+      'Check whether the election, or the board’s vote on officers after it, changed the association’s officers (or anything else on its registration).',
+      `If it did, file an amended registration statement with the Secretary of State within ${GA_AMENDMENT_DAYS} days of the change. HomeownerHub counts from the day the results were recorded; if the officers changed later, count from that day.`,
+      'File the amended registration in Documents.',
+      'Check the Secretary of State’s guidance and confirm with your association’s attorney.',
+    ],
+    quotes: [GA_REGISTRATION_AMENDMENT, GA_SB406_EFFECTIVE],
+    appliesTo: 'Georgia owners’ associations, including HOAs and condominium associations.',
+    link: { href: '/documents', label: 'Open Documents' },
+    official: { href: GA_SOS_URL, label: GA_SOS_LABEL },
+    deadlineCode: null,
+    done: null,
+  }
+  if (recordedOn < GA_REGISTRATION_IN_FORCE) {
+    return {
+      ...common,
+      tone: 'standing',
+      label: `Registration starts ${formatDueOn(GA_REGISTRATION_IN_FORCE)}: list the new officers in your first filing`,
+      dueOn: null,
+    }
+  }
+  const due = addDays(recordedOn, GA_AMENDMENT_DAYS)
+  const left = daysUntil(today, due)
+  if (left < 0) return { ...common, tone: 'unknown', label: `Was due ${formatDueOn(due)} if the officers changed`, dueOn: due }
+  return { ...common, tone: 'soon', label: `If the officers changed, file by ${formatDueOn(due)} (${days(left)} left)`, dueOn: due }
+}
+
+/**
+ * Every election the planner holds for this association, in meeting order,
+ * with Georgia's amendment after each recorded one. Only elections the
+ * board's signed save wrote count; a meeting that is gone is skipped.
+ */
+function directorElections(
+  base: Base,
+  a: ComplianceAssociationInput,
+  state: ComplianceState,
+  input: ComplianceInput,
+): ComplianceObligation[] {
+  const placeholder = {
+    ...base,
+    key: `${base.associationId}:director-elections`,
+    kind: 'election' as const,
+    title: 'Director elections',
+    steps: ['Open the annual meeting under Meetings and use its election planner for your state’s dates, the candidates and the ballot kit.'],
+    quotes: [],
+    appliesTo: null,
+    link: { href: '/meetings', label: 'Open Meetings' },
+    official: null,
+    deadlineCode: null,
+    done: null,
+    dueOn: null,
+  }
+  if (input.electionMeetings === null) return [{ ...placeholder, tone: 'failed', label: 'Couldn’t load your elections' }]
+  const rows: Array<{ meeting: ElectionMeeting; election: ReturnType<typeof readElection> }> = []
+  for (const meetingId of Object.keys(storedElections(a.complianceSettings))) {
+    const meeting = input.electionMeetings.get(meetingId)
+    if (!meeting) continue
+    const election = readElection(a.id, meetingId, a.complianceSettings, input.secret)
+    if (election.state !== 'saved') continue
+    rows.push({ meeting, election })
+  }
+  if (rows.length === 0) return [{ ...placeholder, tone: 'unknown', label: 'No election planned in HomeownerHub' }]
+  rows.sort((x, y) => x.meeting.date.localeCompare(y.meeting.date) || x.meeting.id.localeCompare(y.meeting.id))
+  return rows.flatMap(({ meeting, election }) => {
+    const row = electionRow(base, state, meeting, election, input.today)
+    const recorded = election.candidates.some((c) => c.votes !== null) && meeting.date <= input.today
+    if (state !== 'GA' || !recorded) return [row]
+    return [row, gaAmendmentRow(base, meeting, election.resultsAnnouncedOn ?? meeting.date, input.today)]
+  })
+}
+
 function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
   const base: Base = { associationId: a.id, associationName: a.name }
   const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
-  const elections = notLoaded(base, 'director-elections', 'Director elections', 'Not tracked yet')
+  const elections = state ? directorElections(base, a, state, input) : []
   switch (state) {
     case 'GA':
       return [
@@ -542,7 +748,7 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
         gaAnnualMeeting(base, input),
         ...gaDuties(base),
         notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)'),
-        elections,
+        ...elections,
       ]
     case 'TX':
       return [
@@ -557,14 +763,14 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
           appliesTo: 'Texas property owners’ associations under Property Code ch. 209 (not condominiums).',
           link: null,
         }),
-        elections,
+        ...elections,
       ]
     case 'FL': {
       const certs = flDirectorCerts(base, input)
-      return [...(certs ? [certs] : []), elections]
+      return [...(certs ? [certs] : []), ...elections]
     }
     case 'CA':
-      return [caBudgetReport(base, input), elections]
+      return [caBudgetReport(base, input), ...elections]
     default:
       return [notLoaded(base, 'state-rules', 'Your state’s rules')]
   }
@@ -599,6 +805,8 @@ export interface ComplianceSummary {
   next: { title: string; label: string; associationName: string } | null
   /** No state rule is loaded for any association. */
   nothingTracked: boolean
+  /** BL-151: the most pressing director-election row (or the GA amendment after one); null when none applies. */
+  election: { title: string; label: string } | null
 }
 
 const OPEN: ReadonlySet<ObligationTone> = new Set(['overdue', 'soon', 'upcoming'])
@@ -607,12 +815,16 @@ const RANK: Record<ObligationTone, number> = { overdue: 0, soon: 1, upcoming: 2,
 export function complianceSummary(o: ComplianceOverview): ComplianceSummary {
   const all = o.groups.flatMap((g) => g.obligations)
   const open = all.filter((x) => OPEN.has(x.tone))
-  const pick = [...open].sort((a, b) => RANK[a.tone] - RANK[b.tone] || (a.dueOn ?? '9999').localeCompare(b.dueOn ?? '9999'))[0]
+  const byUrgency = (a: ComplianceObligation, b: ComplianceObligation) =>
+    RANK[a.tone] - RANK[b.tone] || (a.dueOn ?? '9999').localeCompare(b.dueOn ?? '9999')
+  const pick = [...open].sort(byUrgency)[0]
+  const electionPick = all.filter((x) => x.kind === 'election' || x.kind === 'registration_amendment').sort(byUrgency)[0]
   return {
     open: open.length,
     overdue: open.filter((x) => x.tone === 'overdue').length,
     done: all.filter((x) => x.tone === 'done').length,
     next: pick ? { title: pick.title, label: pick.label, associationName: pick.associationName } : null,
     nothingTracked: all.every((x) => x.tone === 'not_loaded'),
+    election: electionPick ? { title: electionPick.title, label: electionPick.label } : null,
   }
 }

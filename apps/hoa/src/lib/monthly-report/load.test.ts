@@ -104,7 +104,7 @@ describe('loadMonthlyReportData', () => {
     const { db } = fakeDb({})
     const d = await loadMonthlyReportData(db, CTX)
     expect(m.loadComplianceOverview).toHaveBeenCalledWith({ db, admin: db, orgId: 'org-1', associationId: 'assoc-1', today: '2026-10-01' })
-    expect(d.compliance).toEqual({ ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: true } })
+    expect(d.compliance).toEqual({ ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: true, election: null } })
     m.loadComplianceOverview.mockResolvedValue({ ok: false })
     expect((await loadMonthlyReportData(db, CTX)).compliance).toEqual({ ok: false })
   })

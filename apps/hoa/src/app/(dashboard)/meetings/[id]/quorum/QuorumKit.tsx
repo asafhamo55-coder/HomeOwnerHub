@@ -26,6 +26,7 @@ import {
   type ProxyKind,
   type QuorumKit as Kit,
 } from '@/lib/meeting-quorum/quorum'
+import type { StatuteQuorum } from '@/lib/meeting-quorum/law'
 
 export interface KitHomeView {
   propertyId: string
@@ -46,16 +47,15 @@ export function QuorumKit({
   meetingId,
   homes,
   initialKit,
-  statuteQuorumPct,
-  statuteTitle,
+  statuteQuorum,
   reminder,
   asOf,
 }: {
   meetingId: string
   homes: KitHomeView[]
   initialKit: Kit
-  statuteQuorumPct: number | null
-  statuteTitle: string | null
+  /** The statute's default (FL, GA), offered as one tap; null where none is loaded. */
+  statuteQuorum: StatuteQuorum | null
   reminder: { subject: string; body: string }
   asOf: string
 }) {
@@ -142,7 +142,13 @@ export function QuorumKit({
             <Stat
               label="Needed"
               value={count.needed === null ? '—' : count.needed.toLocaleString()}
-              hint={count.pct === null ? 'Enter the quorum % below' : `${count.pct}% of ${count.totalVotes.toLocaleString()} votes`}
+              hint={
+                count.pct === null
+                  ? 'Enter the quorum % below'
+                  : statuteQuorum && count.pct === statuteQuorum.pct
+                    ? `${statuteQuorum.counterLabel} of ${count.totalVotes.toLocaleString()} votes`
+                    : `${count.pct}% of ${count.totalVotes.toLocaleString()} votes`
+              }
             />
             <Stat label="In person" value={count.presentVotes.toLocaleString()} />
             <Stat label="By proxy" value={count.proxyOnlyVotes.toLocaleString()} hint={`${count.proxiesReceived.toLocaleString()} proxies received`} />
@@ -153,11 +159,7 @@ export function QuorumKit({
               label="Quorum (% of all votes)"
               required
               error={pctError}
-              hint={
-                statuteQuorumPct !== null && statuteTitle
-                  ? `From your bylaws. ${statuteTitle} sets ${statuteQuorumPct}% unless your bylaws set a lower number.`
-                  : 'From your bylaws or declaration.'
-              }
+              hint="From your bylaws or declaration."
               className="w-72"
             >
               <Input
@@ -173,6 +175,27 @@ export function QuorumKit({
               {busy === 'pct' ? 'Saving…' : 'Save quorum'}
             </Button>
           </form>
+          {statuteQuorum ? (
+            <div className="space-y-2 text-sm text-foreground-secondary">
+              <p>{statuteQuorum.rule}</p>
+              {kit.quorumPct !== statuteQuorum.pct ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-auto whitespace-normal py-1.5 text-left"
+                  disabled={pending && busy === 'pct'}
+                  onClick={() => {
+                    setPctText(String(statuteQuorum.pct))
+                    setPctError(null)
+                    save('pct', { kind: 'quorum_pct', pct: statuteQuorum.pct }, `Quorum set to the state default: ${statuteQuorum.counterLabel.toLowerCase()} of the votes.`)
+                  }}
+                >
+                  My bylaws are silent: use the state default ({statuteQuorum.counterLabel.toLowerCase()})
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           {count.ignoredEntries > 0 ? (
             <p className="text-xs text-muted">
               {count.ignoredEntries} saved {count.ignoredEntries === 1 ? 'entry is' : 'entries are'} for homes no longer on the roster and

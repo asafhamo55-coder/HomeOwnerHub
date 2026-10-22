@@ -87,11 +87,31 @@ export default async function QuorumKitPage(props: { params: Promise<{ id: strin
           meetingId={id}
           homes={homes}
           initialKit={{ memberMeeting: ctx.kit.memberMeeting, quorumPct: ctx.kit.quorumPct, homes: ctx.kit.homes }}
-          statuteQuorumPct={law.statuteQuorumPct}
-          statuteTitle={law.verified ? law.title : null}
+          statuteQuorum={law.statuteQuorum}
           reminder={reminder}
           asOf={formatDay(ctx.asOf, 'medium')}
         />
+      ) : null}
+      {kitIsOpen(ctx.eligibility) && law.boardNotes.length > 0 ? (
+        <Alert variant="info" title={`${law.title}: quorum and proxies`}>
+          <ul className="list-disc space-y-1 pl-5">
+            {law.boardNotes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+          {law.quotes.length > 0 ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs font-medium">What the statute says ({law.quotes.length})</summary>
+              <ul className="mt-1 space-y-1.5 text-xs">
+                {law.quotes.map((q) => (
+                  <li key={`${q.cite}|${q.quote.slice(0, 24)}`}>
+                    <span className="font-semibold">{q.cite}:</span> “{q.quote}”
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </Alert>
       ) : null}
       {kitIsOpen(ctx.eligibility) ? (
         <p className="text-sm text-foreground-secondary">

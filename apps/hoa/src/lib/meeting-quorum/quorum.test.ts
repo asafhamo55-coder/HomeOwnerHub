@@ -237,7 +237,8 @@ describe('proxyLaw', () => {
   it('Florida cites § 720.306 and gives 30% as context', () => {
     const fl = proxyLaw('fl')
     expect(fl.verified).toBe(true)
-    expect(fl.statuteQuorumPct).toBe(30)
+    expect(fl.statuteQuorum?.pct).toBe(30)
+    expect(fl.statuteQuorum?.rule).toContain('unless your bylaws set a lower number')
     expect(fl.requiresTimeAndPlace).toBe(true)
     expect(fl.lines.join(' ')).toContain('§ 720.306(8)(a)')
   })
@@ -246,11 +247,18 @@ describe('proxyLaw', () => {
     const ca = proxyLaw('CA')
     expect(ca.lines.join(' ')).toContain('§ 5130')
     expect(ca.detachableDirections).toBe(true)
-    expect(ca.statuteQuorumPct).toBeNull()
+    expect(ca.statuteQuorum).toBeNull()
+  })
+
+  it('Georgia (BL-150) cites §§ 44-3-224 and 44-3-228; law.test.ts checks the rest', () => {
+    const ga = proxyLaw('GA')
+    expect(ga.verified).toBe(true)
+    expect(ga.lines.join(' ')).toContain('§ 44-3-228')
+    expect(ga.statuteQuorum?.counterLabel).toBe('More than one-third')
   })
 
   it('anywhere else: no citation, check your bylaws', () => {
-    for (const s of ['TX', 'GA', null]) {
+    for (const s of ['TX', 'OH', null]) {
       const n = proxyLaw(s)
       expect(n.verified).toBe(false)
       expect(n.lines.join(' ')).not.toContain('§')

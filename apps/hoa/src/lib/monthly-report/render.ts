@@ -136,6 +136,7 @@ function complianceBlock(res: Section<ComplianceSummary>, links: MonthlyReportLi
             },
             { label: 'Coming up', value: c.open - c.overdue === 0 ? 'Nothing dated coming up' : plural(c.open - c.overdue, 'obligation') },
             ...(c.next ? [{ label: 'Most pressing', value: `${c.next.title} — ${c.next.label}`, ...(c.overdue > 0 ? { tone: 'danger' as const } : {}) }] : []),
+            ...(c.election ? [{ label: 'Director elections', value: c.election.label }] : []),
           ],
     ),
     failed: 'We couldn’t load your state-law obligations.',

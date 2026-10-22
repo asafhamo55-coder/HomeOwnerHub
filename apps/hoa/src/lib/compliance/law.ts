@@ -1,7 +1,8 @@
 /**
  * BL-145: every statute sentence the /compliance page, the monthly board
- * report and the board packet quote. Pure, no imports beyond the one
- * already-tested California quote, client-safe.
+ * report and the board packet quote. Pure and client-safe; the only imports
+ * are quotes other kits already test (budget adoption, the election
+ * planner), re-checked here against the same fixtures.
  *
  * THE RULE. A quote here is copied word for word from the statute text kept
  * under scripts/fixtures/state-law, and law.test.ts checks each one against
@@ -14,20 +15,24 @@
  *     (e); § 9(a).
  *   ga-ocga-44-3-art6-2026.txt  the Property Owners' Association Act:
  *     § 44-3-230(a) (annual meeting, 21-day notice, annual report),
- *     § 44-3-231(d) (minutes, financial records), § 44-3-235(a) (which
- *     associations the Act covers).
+ *     § 44-3-230(b) (5% of the voting power may call a missed annual
+ *     meeting, BL-150), § 44-3-231(d) (minutes, financial records),
+ *     § 44-3-235(a) (which associations the Act covers).
  *   ga-ocga-44-3-232-2026.txt  § 44-3-232(d), the statement of amounts due
  *     (the current text, as the General Assembly reproduces it).
  * TEXAS  tx-prop-209-004-2026.txt  § 209.004(a), (b-1).
  * FLORIDA  flsenate-ch720-2026.html  § 720.3033(1)(a), (1)(b).
  * CALIFORNIA  ca-civ-davis-stirling-2026.txt  § 5300(a) (shared with the
- *   BL-138 budget adoption kit, which checks it too).
+ *   BL-138 budget adoption kit, which checks it too); § 5120(b), results
+ *   within 15 days (shared with the BL-141 election planner, BL-151).
  *
- * Not loaded, so never quoted: the Georgia Condominium Act (Art. 3), any
- * state's election rules, and everything else not listed above.
+ * Not loaded, so never quoted: the Georgia Condominium Act (Art. 3), and
+ * everything else not listed above. Election rules beyond these two live
+ * in the election planner (lib/elections/law.ts).
  */
 
 import { CA_BUDGET_REPORT } from '@/lib/budget-adoption/law'
+import { CA_RESULTS_NOTICE, GA_MISSED_ANNUAL as ELECTION_GA_MISSED_ANNUAL } from '@/lib/elections/law'
 
 export interface StatuteQuote {
   /** As printed under the quote. */
@@ -128,6 +133,9 @@ export const GA_ANNUAL_REPORT: StatuteQuote = {
   fixture: GA_ART6,
 }
 
+/** BL-150: when no annual meeting is held by fiscal year end, 5% of the voting power may call it. */
+export const GA_MISSED_ANNUAL_MEETING: StatuteQuote = { ...ELECTION_GA_MISSED_ANNUAL, fixture: GA_ART6 }
+
 export const GA_RECORDS_MINUTES: StatuteQuote = {
   cite: 'O.C.G.A. § 44-3-231(d)(1)',
   quote: 'Detailed minutes of all meetings of the members of the association and of the board of directors',
@@ -192,6 +200,9 @@ export const FL_DIRECTOR_SUSPENSION: StatuteQuote = {
 
 export const CA_ANNUAL_BUDGET_REPORT: StatuteQuote = { ...CA_BUDGET_REPORT, fixture: CA_DAVIS_STIRLING }
 
+/** BL-151: the tabulated results go to every member within 15 days of the election. */
+export const CA_ELECTION_RESULTS: StatuteQuote = { ...CA_RESULTS_NOTICE, fixture: CA_DAVIS_STIRLING }
+
 /** Every quote the compliance surfaces can show: what law.test.ts checks. */
 export const ALL_COMPLIANCE_QUOTES: readonly StatuteQuote[] = [
   GA_REGISTRATION_BAR,
@@ -206,6 +217,7 @@ export const ALL_COMPLIANCE_QUOTES: readonly StatuteQuote[] = [
   GA_ANNUAL_MEETING,
   GA_MEETING_NOTICE,
   GA_ANNUAL_REPORT,
+  GA_MISSED_ANNUAL_MEETING,
   GA_RECORDS_MINUTES,
   GA_RECORDS_FINANCIAL,
   GA_STATEMENT_RIGHT,
@@ -215,6 +227,7 @@ export const ALL_COMPLIANCE_QUOTES: readonly StatuteQuote[] = [
   FL_DIRECTOR_CERTIFICATE,
   FL_DIRECTOR_SUSPENSION,
   CA_ANNUAL_BUDGET_REPORT,
+  CA_ELECTION_RESULTS,
 ]
 
 export const CHECK_GOVERNING_DOCS =
