@@ -663,3 +663,21 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Deploy held back:** the 19:30 deploy of b0469e51 was stopped so the cure feature wouldn't ship without the SEC3-M1 fix. 61922088 went live at 20:39 instead (Vercel took about 30 min).
 - **Decks refreshed:** product 39 slides, investor 24. Added a "Georgia, as a Georgia board sees it" slide, the GA SoS draft rules (590-13, comments due Nov 2), and the CINC/AppFolio AI launches. No traction invented.
 - **In flight:** round-5 research (GA first) plus backlog grooming; BL-031 CINC aging → opening balances; 0069 hardening.
+
+## 2026-10-21 21:05 → 2026-10-22 13:50 — M5 applied, Georgia pack, session close
+
+- **Asaf ran 0069 (Section L) step by step.** All 30 checks matched, and M5 is on. OA-10 S-01 audit: 0 rows. OA-9: GA/FL/CA/TX state-law loads queued from Safari (counts not yet verified).
+- **Live:** edf70ede at 21:51 (CINC aging import and the security #3 fixes).
+- **Merged, not live:**
+  - M5 features
+  - BL-147 late-fee policy (no fee without a board policy)
+  - BL-148 GA letters
+  - BL-149 GA registration kit
+  - BL-150/151
+  - BL-153 GA annual report
+  - the daily-digest 500 fix (snapshot write needed the service role)
+- **Deploy 86994ea8 failed on Vercel:** OOM (exit 137) in next build after compile. Prod stayed on edf70ede. The fix is first in next.md §4.
+- **Domain:** homeownerledger.online serves the app with a certificate. Asaf paused the cutover after step 2 (OA-5).
+- **Marketing project:** connected to GitHub via the Vercel API; Claude now manages the site.
+- **Weekly limit:** BL-152 and BL-154 agents stopped mid-research.
+- **Session closed at Asaf's request; next.md updated.**
