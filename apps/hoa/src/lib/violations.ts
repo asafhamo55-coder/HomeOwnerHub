@@ -31,6 +31,9 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { loadBoardHearing, loadBoardRosterNames } from '@/lib/violation-hearings/queries'
 import { hearingFineFacts } from '@/lib/violation-hearings/rules'
 import { normaliseState, type FineHearingFacts } from '@/lib/compliance/statute-drift'
+import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
+import { todayIn } from '@/lib/association-time'
+import { orgTimeZone } from '@/lib/association-time-server'
 
 /**
  * BL-133 (M4_APPLIED): the violation's hearing for the fine check.
@@ -495,10 +498,18 @@ export async function updateViolationStatus(
       } else {
         const rules = await loadOrgStateRules(supabase, gate.orgId)
         block = cureCommitmentPenaltyBlock(rules, await loadCureCommitment(supabase, gate.orgId, parsed.data.violationId))
+        // BL-149: Georgia's SB 406 registration, on the association's today.
+        const registration = await loadGaRegistrationGate(
+          supabase as never,
+          gate.orgId,
+          todayIn(await orgTimeZone(supabase, gate.orgId)),
+        )
+        if (!registration.ok) throw new Error('registration read failed')
         law = checkFine({
           state: rules.state,
           dailyFineCents: fineCents(current.fine_amount),
           hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId, rules.state),
+          gaRegistration: registration.gate,
         })
       }
     } catch {

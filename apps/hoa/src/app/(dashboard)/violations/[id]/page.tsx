@@ -40,6 +40,7 @@ import {
   type CureCommitment,
 } from '@/lib/violation-cure-commitment'
 import { checkFine, fineCents, normaliseState } from '@/lib/compliance/statute-drift'
+import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
 import { createAdminClient } from '@homeowner-portal/db'
 import { loadBoardHearing, loadBoardRosterNames, type BoardHearingLoad } from '@/lib/violation-hearings/queries'
 import { HEARING_OUTCOME_LABEL, hearingFineFacts, hearingSteps } from '@/lib/violation-hearings/rules'
@@ -236,11 +237,21 @@ export default async function ViolationDetailPage({
   // and refuses), rather than showing "no hearing recorded" wrongly.
   const hearingFacts =
     hearingLoad.kind === 'off' ? undefined : hearingLoad.kind === 'ok' ? hearingFineFacts(hearingLoad.hearing, rosterNames) : null
-  const lawCheck =
-    lawRules && currentStatus !== 'fined' && hearingLoad.kind !== 'failed'
-      ? checkFine({ state: lawRules.state, dailyFineCents: fineCents(v.fine_amount), hearing: hearingFacts })
-      : null
   const today = todayIn(timeZone)
+  // BL-149: Georgia's SB 406 registration (a failed read hides the check; the server action re-reads and refuses).
+  const registration =
+    org && normaliseState(lawRules?.state) === 'GA' && currentStatus !== 'fined'
+      ? await loadGaRegistrationGate(supabase as never, org.id, today)
+      : null
+  const lawCheck =
+    lawRules && currentStatus !== 'fined' && hearingLoad.kind !== 'failed' && registration?.ok !== false
+      ? checkFine({
+          state: lawRules.state,
+          dailyFineCents: fineCents(v.fine_amount),
+          hearing: hearingFacts,
+          gaRegistration: registration?.ok ? registration.gate : undefined,
+        })
+      : null
   const unitId: string | null = unit.unitId
   const unitLoadFailed = unit.failed
   const followUps = followUpResult?.ok ? ((followUpResult.data ?? []) as unknown as FollowUpRunRow[]) : []

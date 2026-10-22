@@ -42,6 +42,8 @@ export interface EstoppelContext {
   timeZone: string
   /** The association's today: the certificate's issue day. */
   today: string
+  /** The home's association (the unit's, else the org's first); BL-149 reads its registration. */
+  associationId?: string | null
 }
 
 export async function loadEstoppelInput(
@@ -121,6 +123,7 @@ export async function loadEstoppelInput(
   return {
     timeZone: assoc.timeZone,
     today,
+    associationId: a?.id ?? null,
     input: {
       state,
       associationName: a?.name ?? null,

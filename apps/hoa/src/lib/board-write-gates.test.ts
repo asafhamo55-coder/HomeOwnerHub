@@ -25,6 +25,8 @@ import * as recordsRequests from './records-requests/actions'
 import * as bankImport from './bank-import/actions'
 import * as cincAging from './accounting/opening-balances/cinc-actions'
 import * as lateFees from './late-fees/actions'
+import * as gaRegistration from './ga-registration/actions'
+import * as collections from './collections/actions'
 import * as hearingActions from './violation-hearings/actions'
 import * as attachmentBill from './inbox/attachment-bill'
 import * as rosterExport from '../app/(dashboard)/properties/roster/export/route'
@@ -177,6 +179,8 @@ describe('board-only server actions refuse a resident before touching the databa
     // BL-147: the late-fee policy the nightly job charges under; audited.
     ['saveLateFeePolicy (BL-147: sets what the nightly job charges)', () => lateFees.saveLateFeePolicy({ enabled: true, mode: 'percent', percent: '50', flat: '', graceDays: '0', excludeFines: false, declarationAttested: true, declarationRef: 'x' }), DENIED],
     ['getBoardLateFeePolicy (BL-147)', () => lateFees.getBoardLateFeePolicy(), { ok: false, reason: 'forbidden' }],
+    ['updateGaRegistration (BL-149: the record the registration gate trusts)', () => gaRegistration.updateGaRegistration({ op: 'decide', associationId: ID, decision: 'register' }), DENIED],
+    ['recordCollectionEvent (BL-149: a lien filed runs the registration gate, overrides audited)', () => collections.recordCollectionEvent({ caseId: ID, eventType: 'lien_filed', occurredOn: '2026-10-01', advanceStatus: false }), DENIED],
     ['saveViolationHearing (BL-133)', () => hearingActions.saveViolationHearing({ violationId: ID } as never), DENIED],
     ['cancelHearingAfterCure (BL-140: cancels a fine hearing, audited)', () => hearingActions.cancelHearingAfterCure({ violationId: ID, reason: 'cured_before_hearing' }), DENIED],
     ['sendTestAlert (service-role audience send)', () => events.sendTestAlert(ID), { ok: false, error: "You don't have permission to perform this action." }],

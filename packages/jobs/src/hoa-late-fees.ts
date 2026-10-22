@@ -22,6 +22,9 @@ import {
   type LateFeePolicy,
 } from '../../../apps/hoa/src/lib/late-fees/policy'
 import { lateFeeSettingsSecret, readLateFeePolicy } from '../../../apps/hoa/src/lib/late-fees/store'
+// BL-149: the Georgia SB 406 registration record (signed; same secret chain).
+import { gaGateBlocks, gaUnregistered } from '../../../apps/hoa/src/lib/ga-registration/model'
+import { gaStandingOf } from '../../../apps/hoa/src/lib/ga-registration/store'
 
 /** assessments.source the opening-balances executor writes (migration 0067, BL-136). */
 export const OPENING_BALANCE_SOURCE = 'opening_balance'
@@ -139,6 +142,8 @@ export type LateFeeRunStatus =
   | 'unverified'
   /** Saved but off, unattested, or outside the state rule: nothing charged. */
   | 'off'
+  /** BL-149: Georgia, from 2027-01-01, not recorded as registered with the Secretary of State: nothing charged. */
+  | 'unregistered'
   | 'no_accounting'
   | 'read_failed'
   | 'ran'
@@ -192,6 +197,18 @@ export async function runLateFeesForAssociation(
       )
     }
     return { status: 'off', ...EMPTY }
+  }
+
+  // BL-149: from Jan 1, 2027 a Georgia association that isn't recorded as
+  // registered with the Secretary of State (registration kit, signed) may
+  // not collect fees (§ 43-17A-2(a)(2)(A)); one that opted out may not
+  // assess them ((a)(2)(B)(ii)). Charge nothing. Before that day, nothing changes.
+  if (lateFeeStateOf(assoc) === 'GA' && gaGateBlocks(today)) {
+    const standing = gaStandingOf(assoc.id, assoc.compliance_settings, deps.secret, today)
+    if (gaUnregistered(standing.status)) {
+      deps.log.warn(`[hoa-late-fees] ${assoc.id}: Georgia registration ${standing.status}; charging nothing`)
+      return { status: 'unregistered', ...EMPTY }
+    }
   }
 
   const refs = await loadAccountingRefs(db, assoc.id)

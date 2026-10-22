@@ -71,6 +71,9 @@ const tx006 = between(tx006Html, 'Sec. 209.006.', 'Sec. 209.017.')
 const gaText = fixture('ga-ocga-44-3-art6-2026.txt')
 const ga223 = between(gaText, '=== O.C.G.A. Section 44-3-223 |', '\n=== ')
 const gaSb406s7 = between(gaText, '=== Ga. L. 2026, SB 406, § 7 |', '\n=== ')
+const sb406Text = fixture('ga-sb406-2026-registration.txt')
+const gaSb406s2 = between(sb406Text, '=== SECTION 2. (new O.C.G.A. § 43-17A-2,', '\n=== ')
+const gaSb406s9 = between(sb406Text, '=== SECTION 9.', '\n=== ')
 
 /** The cited section's text, so a quote can't pass by matching a different section. */
 function sectionFor(c: DriftCitation): string {
@@ -83,6 +86,8 @@ function sectionFor(c: DriftCitation): string {
   if (c.cite.startsWith('Tex. Prop. Code § 209.006(')) return tx006
   if (c.cite.startsWith('O.C.G.A. § 44-3-223')) return ga223
   if (c.cite.startsWith('Ga. L. 2026, SB 406 § 7')) return gaSb406s7
+  if (c.cite.startsWith('O.C.G.A. § 43-17A-2')) return gaSb406s2
+  if (c.cite.startsWith('Ga. L. 2026, SB 406 § 9')) return gaSb406s9
   throw new Error(`no section mapped for ${c.cite}`)
 }
 

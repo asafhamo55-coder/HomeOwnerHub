@@ -318,3 +318,50 @@ describe('state caps are enforced again in the job', () => {
     expect(fees(f)[0]!.amount).toBe(25)
   })
 })
+
+describe('BL-149: Georgia, from Jan 1, 2027, only a registered association is charged', () => {
+  const regKit = async (status: 'registered' | 'opted_out' | 'none') => {
+    if (status === 'none') return {}
+    const { signGaRegistration, withGaRegistration } = await import('../../../apps/hoa/src/lib/ga-registration/store')
+    const { EMPTY_GA_REGISTRATION } = await import('../../../apps/hoa/src/lib/ga-registration/model')
+    const record = {
+      ...EMPTY_GA_REGISTRATION,
+      noChange: [],
+      decision: status === 'registered' ? ('register' as const) : ('opt_out' as const),
+      filings:
+        status === 'registered'
+          ? [{ id: 'c0000000-0000-4000-8000-000000000001', kind: 'registration' as const, filedOn: '2027-01-04', confirmation: null, coversYear: 2027, reason: null, meetingId: null }]
+          : [],
+    }
+    return withGaRegistration({}, signGaRegistration(ASSOC, record, { updatedAt: '2027-01-04T12:00:00.000Z', updatedBy: 'user-1' }, SECRET))
+  }
+
+  it('not registered: nothing is read or charged, and the run says why', async () => {
+    const f = fakeDb([{ ...base, id: 'dues-1' }])
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA', await regKit('none')), '2027-01-02', deps)
+    expect(r.status).toBe('unregistered')
+    expect(fees(f)).toHaveLength(0)
+    expect(f.reads).toEqual([])
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('Georgia registration not_registered'))
+  })
+
+  it('opted out: nothing is charged', async () => {
+    const f = fakeDb([{ ...base, id: 'dues-1' }])
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA', await regKit('opted_out')), '2027-01-02', deps)
+    expect(r.status).toBe('unregistered')
+    expect(fees(f)).toHaveLength(0)
+  })
+
+  it('registered in the kit: charged as before', async () => {
+    const f = fakeDb([{ ...base, id: 'dues-1' }])
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA', await regKit('registered')), '2027-01-05', deps)
+    expect(r).toMatchObject({ status: 'ran', charged: 1 })
+  })
+
+  it('before Jan 1, 2027 nothing changes, and other states are never gated', async () => {
+    const f = fakeDb([{ ...base, id: 'dues-1' }])
+    expect((await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA'), '2026-12-31', deps)).status).toBe('ran')
+    const g = fakeDb([{ ...base, id: 'dues-1' }])
+    expect((await runLateFeesForAssociation(g as never, assocWith(policy(), 'TX'), '2027-01-02', deps)).status).toBe('ran')
+  })
+})

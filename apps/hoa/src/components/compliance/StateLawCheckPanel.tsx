@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Scale } from 'lucide-react'
 import { Badge, Field, Select } from '@homeowner-portal/ui'
 import {
@@ -62,6 +63,13 @@ export function StateLawCheckPanel({
                     <span className="font-medium text-foreground">{c.cite}:</span> “{c.quote}”
                   </blockquote>
                 ))}
+                {f.link ? (
+                  <p className="text-xs">
+                    <Link href={f.link.href} className="font-medium text-primary hover:underline">
+                      {f.link.label}
+                    </Link>
+                  </p>
+                ) : null}
                 {f.severity === 'block' && done ? (
                   <p className="text-xs text-foreground-secondary">Board override recorded: {OVERRIDE_REASONS[done.reason]}</p>
                 ) : null}

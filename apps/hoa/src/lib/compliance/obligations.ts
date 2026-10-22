@@ -30,6 +30,10 @@
  * Georgia: once results are recorded, the 30-day amended registration
  * (§ 43-17A-2(d)) if the officers changed, counted from the day the
  * results were recorded, from Jan 1, 2027 (SB 406 § 9(a)).
+ * BL-149: the Georgia registration rows read the board's signed record
+ * from the registration kit (/compliance/ga-registration,
+ * lib/ga-registration): registered, lapsed or opted out, and each
+ * post-election amendment the board filed (or said wasn't needed).
  * ANY OTHER STATE: nothing quoted; "check your governing documents".
  *
  * Statute wording only ever comes from ./law.ts (checked word for word);
@@ -49,6 +53,15 @@ import {
 } from './deadlines'
 import { addDays, addYears, type DirectorCertRow } from './director-certs'
 import { electionJurisdiction } from '@/lib/elections/law'
+import {
+  GA_REGISTRATION_KIT_HREF,
+  amendmentFor,
+  gaRegistrationStanding,
+  gaStandingLabel,
+  type GaRegistrationRecord,
+  type GaRegistrationStanding,
+} from '@/lib/ga-registration/model'
+import { readGaRegistration } from '@/lib/ga-registration/store'
 import { readElection, storedElections } from '@/lib/elections/store'
 import { electionTimeline, nextStep, type TimelineStep } from '@/lib/elections/timeline'
 import {
@@ -207,6 +220,8 @@ export interface ComplianceObligation {
   /** compliance_deadlines_done code: "Mark as done" (and evidence) apply. */
   deadlineCode: string | null
   done: { doneAt: string; evidence: { documentId: string; name: string } | null } | null
+  /** BL-149: the meeting a Georgia amended-registration row answers (registration_amendment only). */
+  meetingId?: string
 }
 
 export interface ComplianceGroup {
@@ -306,22 +321,31 @@ export function nextGaRenewal(today: string): string {
   return `${year}-12-31`
 }
 
-function gaRegistrationUpkeep(base: Base, today: string): ComplianceObligation {
+const KIT_LINK = { href: GA_REGISTRATION_KIT_HREF, label: 'Open the registration kit' }
+
+function gaRegistrationUpkeep(base: Base, today: string, standing: GaRegistrationStanding): ComplianceObligation {
   const due = nextGaRenewal(today)
   const left = daysUntil(today, due)
   const first = due === '2027-12-31' && today < '2027-01-01'
-  const tone: ObligationTone = left <= COMPLIANCE_SOON_DAYS ? 'soon' : 'standing'
+  // BL-149: a renewal already recorded past this Dec 31 means nothing is due now.
+  const renewed = standing.status === 'registered' && standing.coveredThrough !== null && standing.coveredThrough > due
+  const lapsed = standing.status === 'lapsed'
+  const tone: ObligationTone = lapsed ? 'overdue' : renewed ? 'done' : left <= COMPLIANCE_SOON_DAYS ? 'soon' : 'standing'
   return {
     ...base,
     key: `${base.associationId}:ga-registration-upkeep`,
     kind: 'registration_upkeep',
     title: 'Keep the Secretary of State registration current',
     tone,
-    label: first
-      ? `First renewal due ${formatDueOn(due)}`
-      : left === 0
-        ? `Renewal due today (${formatDueOn(due)})`
-        : `Renewal due ${formatDueOn(due)} (in ${days(left)})`,
+    label: lapsed
+      ? gaStandingLabel(standing, formatDueOn)
+      : renewed
+        ? `Renewed · current through ${formatDueOn(standing.coveredThrough!)}`
+        : first
+          ? `First renewal due ${formatDueOn(due)}`
+          : left === 0
+            ? `Renewal due today (${formatDueOn(due)})`
+            : `Renewal due ${formatDueOn(due)} (in ${days(left)})`,
     dueOn: due,
     steps: [
       'Put the renewal on the board calendar every year, well before December 31.',
@@ -330,7 +354,7 @@ function gaRegistrationUpkeep(base: Base, today: string): ComplianceObligation {
     ],
     quotes: [GA_REGISTRATION_RENEWAL, GA_REGISTRATION_AMENDMENT, GA_REGISTRATION_FEE],
     appliesTo: null,
-    link: { href: '/documents', label: 'Open Documents' },
+    link: KIT_LINK,
     official: { href: GA_SOS_URL, label: GA_SOS_LABEL },
     deadlineCode: null,
     done: null,
@@ -640,8 +664,33 @@ function electionRow(
   return { ...common, tone: next.state === 'due_soon' ? 'soon' : 'upcoming', label: `${stepWhen(next)}${check}`, dueOn: next.date }
 }
 
+/**
+ * BL-149: the registration row reads the kit's record too. Registered (or
+ * lapsed, or opted out) there shows here; a compliance_deadlines_done row
+ * still wins for "done" so its evidence controls keep working.
+ */
+function gaRegistrationRow(standing: GaRegistrationStanding, row: ComplianceObligation): ComplianceObligation {
+  if (row.done) return row
+  switch (standing.status) {
+    case 'registered':
+      return { ...row, tone: 'done', label: gaStandingLabel(standing, formatDueOn) }
+    case 'lapsed':
+      return { ...row, tone: 'overdue', label: gaStandingLabel(standing, formatDueOn) }
+    case 'opted_out':
+      return { ...row, tone: 'standing', label: 'Opted out (recorded in the kit) · no fines, fees or accelerated assessments' }
+    default:
+      return row
+  }
+}
+
 /** Georgia: the 30-day amended registration once an election's results are recorded. */
-function gaAmendmentRow(base: Base, meeting: ElectionMeeting, recordedOn: string, today: string): ComplianceObligation {
+function gaAmendmentRow(
+  base: Base,
+  meeting: ElectionMeeting,
+  recordedOn: string,
+  today: string,
+  record: GaRegistrationRecord,
+): ComplianceObligation {
   const common = {
     ...base,
     key: `${base.associationId}:ga-registration-amendment:${meeting.id}`,
@@ -655,10 +704,19 @@ function gaAmendmentRow(base: Base, meeting: ElectionMeeting, recordedOn: string
     ],
     quotes: [GA_REGISTRATION_AMENDMENT, GA_SB406_EFFECTIVE],
     appliesTo: 'Georgia owners’ associations, including HOAs and condominium associations.',
-    link: { href: '/documents', label: 'Open Documents' },
+    link: { href: `${GA_REGISTRATION_KIT_HREF}#amendments`, label: 'Mark it in the registration kit' },
     official: { href: GA_SOS_URL, label: GA_SOS_LABEL },
     deadlineCode: null,
     done: null,
+    meetingId: meeting.id,
+  }
+  // BL-149: the board recorded the amended filing, or that the officers didn't change.
+  const answered = amendmentFor(record, meeting.id)
+  if (answered?.kind === 'filed') {
+    return { ...common, tone: 'done', label: `Amended registration filed ${formatDueOn(answered.filing.filedOn)}`, dueOn: null }
+  }
+  if (answered?.kind === 'no_change') {
+    return { ...common, tone: 'done', label: 'Officers didn’t change · no amendment needed', dueOn: null }
   }
   if (recordedOn < GA_REGISTRATION_IN_FORCE) {
     return {
@@ -710,11 +768,12 @@ function directorElections(
   }
   if (rows.length === 0) return [{ ...placeholder, tone: 'unknown', label: 'No election planned in HomeownerHub' }]
   rows.sort((x, y) => x.meeting.date.localeCompare(y.meeting.date) || x.meeting.id.localeCompare(y.meeting.id))
+  const record = state === 'GA' ? readGaRegistration(a.id, a.complianceSettings, input.secret).record : null
   return rows.flatMap(({ meeting, election }) => {
     const row = electionRow(base, state, meeting, election, input.today)
     const recorded = election.candidates.some((c) => c.votes !== null) && meeting.date <= input.today
-    if (state !== 'GA' || !recorded) return [row]
-    return [row, gaAmendmentRow(base, meeting, election.resultsAnnouncedOn ?? meeting.date, input.today)]
+    if (state !== 'GA' || !recorded || !record) return [row]
+    return [row, gaAmendmentRow(base, meeting, election.resultsAnnouncedOn ?? meeting.date, input.today, record)]
   })
 }
 
@@ -723,13 +782,15 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
   const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
   const elections = state ? directorElections(base, a, state, input) : []
   switch (state) {
-    case 'GA':
+    case 'GA': {
+      const standing = gaRegistrationStanding(readGaRegistration(a.id, a.complianceSettings, input.secret), input.today)
       return [
-        deadlineObligation(base, 'ga-sos-registration-2027', acks, input, {
+        gaRegistrationRow(standing, deadlineObligation(base, 'ga-sos-registration-2027', acks, input, {
           steps: [
             'Decide as a board: register, or opt out in writing (read what an association that opts out can’t collect).',
             'Gather a copy of your governing documents, the association’s name, address and officers, and a recent financial statement.',
             'File the registration statement with the Secretary of State and pay the fee. Its page says filing opens on or after Jan 1, 2027, through an online portal.',
+            'Record the filing day and confirmation number in the registration kit. From Jan 1, 2027, fines, fees and liens are blocked until it is recorded there.',
             'Mark it done here and attach the filed registration or the receipt as evidence.',
             'Confirm the details with your association’s attorney.',
           ],
@@ -742,14 +803,15 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
             GA_REGISTRATION_FEE,
           ],
           appliesTo: 'Georgia owners’ associations, including HOAs and condominium associations.',
-          link: null,
-        }),
-        gaRegistrationUpkeep(base, input.today),
+          link: KIT_LINK,
+        })),
+        gaRegistrationUpkeep(base, input.today, standing),
         gaAnnualMeeting(base, input),
         ...gaDuties(base),
         notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)'),
         ...elections,
       ]
+    }
     case 'TX':
       return [
         deadlineObligation(base, 'tx-management-certificate', acks, input, {

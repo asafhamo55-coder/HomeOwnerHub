@@ -11,8 +11,9 @@
  *
  * GEORGIA (the launch state, the fullest treatment):
  *   ga-sb406-2026-registration.txt  SB 406 (Act 715) § 2, new O.C.G.A.
- *     § 43-17A-2 (a)(2)(A), (a)(2)(B)(ii), (a)(3), (a)(3)(B), (c), (d),
- *     (e); § 9(a).
+ *     § 43-17A-2 (a)(2)(A), (a)(2)(B)(ii), (a)(3), (a)(3)(A), (a)(3)(B),
+ *     (b), (c), (d), (e); § 9(a). (a)(3)(A) and (b) are quoted by the
+ *     BL-149 registration kit.
  *   ga-ocga-44-3-art6-2026.txt  the Property Owners' Association Act:
  *     § 44-3-230(a) (annual meeting, 21-day notice, annual report),
  *     § 44-3-230(b) (5% of the voting power may call a missed annual
@@ -69,6 +70,20 @@ export const GA_REGISTRATION_FILING: StatuteQuote = {
   cite: 'O.C.G.A. § 43-17A-2(a)(3)',
   quote:
     "Each owners' association shall file with the Secretary of State a copy of the governing documents of the owners' association with a registration statement on a form as prescribed by the Secretary of State that shall be signed by the applicant, who shall be an authorized officer or representative of the owners' association.",
+  fixture: GA_SB406,
+}
+
+/** BL-149: what the Secretary of State's form must at least ask for (the registration kit's fill-in sheet). */
+export const GA_REGISTRATION_FORM_MINIMUM: StatuteQuote = {
+  cite: 'O.C.G.A. § 43-17A-2(a)(3)(A)',
+  quote: "The name, address, and officers of the owners' association",
+  fixture: GA_SB406,
+}
+
+/** BL-149: a registration statement takes effect on the day it is filed. */
+export const GA_REGISTRATION_EFFECTIVE_ON_FILING: StatuteQuote = {
+  cite: 'O.C.G.A. § 43-17A-2(b)',
+  quote: 'The date of such filing shall constitute the effective date of the registration statement.',
   fixture: GA_SB406,
 }
 
@@ -208,6 +223,8 @@ export const ALL_COMPLIANCE_QUOTES: readonly StatuteQuote[] = [
   GA_REGISTRATION_BAR,
   GA_REGISTRATION_OPT_OUT,
   GA_REGISTRATION_FILING,
+  GA_REGISTRATION_FORM_MINIMUM,
+  GA_REGISTRATION_EFFECTIVE_ON_FILING,
   GA_REGISTRATION_FINANCIALS,
   GA_REGISTRATION_RENEWAL,
   GA_REGISTRATION_AMENDMENT,

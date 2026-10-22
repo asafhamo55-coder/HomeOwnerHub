@@ -90,6 +90,8 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   'opening_balances.cinc_previewed': { label: 'Checked a CINC aging report for opening balances', area: 'accounting' },
   'late_fee_policy.saved': { label: 'Saved the late-fee policy', area: 'accounting' },
   'late_fee.nightly_charged': { label: 'Late fees charged under the board’s policy', area: 'accounting' },
+  // Records & filings (BL-149)
+  'ga_registration.updated': { label: 'Updated the Georgia Secretary of State registration record', area: 'records' },
   // Collections
   collections_letter_printed: { label: 'Printed a collections letter', area: 'collections' },
   'payment_plan.completed': { label: 'Payment plan paid off', area: 'collections' },
@@ -276,6 +278,30 @@ export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => strin
     const amount = m.mode === 'percent' && pct != null ? `${pct / 100}%` : m.mode === 'flat' && flat != null ? `$${(flat / 100).toFixed(2)}` : null
     if (amount == null) return 'On'
     return `On · ${amount}${grace != null ? ` after ${grace} ${grace === 1 ? 'day' : 'days'}` : ''}${m.exclude_fines === false ? ' · fines included' : ''}`
+  },
+  'ga_registration.updated': (m) => {
+    switch (m.op) {
+      case 'decide':
+        return m.decision === 'register' ? 'Decided to register' : m.decision === 'opt_out' ? 'Recorded the opt-out' : null
+      case 'add_filing':
+        return m.kind === 'registration'
+          ? 'Recorded the registration'
+          : m.kind === 'renewal'
+            ? 'Recorded a renewal'
+            : m.kind === 'amendment'
+              ? 'Recorded an amended registration'
+              : null
+      case 'remove_filing':
+        return 'Removed a filing from the record'
+      case 'no_change':
+        return 'Officers didn’t change after an election'
+      case 'undo_no_change':
+        return 'Undid “officers didn’t change”'
+      case 'details':
+        return 'Updated the fill-in sheet'
+      default:
+        return null
+    }
   },
   'late_fee.nightly_charged': (m) => {
     const charged = num(m.charged)

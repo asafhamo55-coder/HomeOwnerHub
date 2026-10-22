@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LedgerAssessment } from '@/lib/resident-ledger'
 import { memorySupabase } from '@/lib/test-utils/memory-supabase'
 import type { LetterContext } from '@/lib/collections/letters/load'
@@ -275,5 +275,73 @@ describe('collections letter: the print gate', () => {
     state.ctx = letterCtx([{ id: REQUEST, status: 'posted', proposedAt: '2026-10-18T12:00:00Z', decisionReason: null, error: null, payload, printedAt: null }])
     const res = await recordLetterPrinted({ propertyId: PROPERTY, approvalRequestId: REQUEST, verified: true })
     expect(res.ok).toBe(true)
+  })
+})
+
+// ─── BL-149: the Georgia registration gate at the fine ───────────────
+
+describe('levying a fine in Georgia from Jan 1, 2027 (SB 406 registration)', () => {
+  const SECRET = 'gate-test-secret'
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2027-02-01T15:00:00Z'))
+    vi.stubEnv('PAY_SETTINGS_SECRET', SECRET)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllEnvs()
+  })
+
+  async function gaDb(registered: boolean) {
+    let settings: Record<string, unknown> = {}
+    if (registered) {
+      const { signGaRegistration, withGaRegistration } = await import('@/lib/ga-registration/store')
+      const { EMPTY_GA_REGISTRATION } = await import('@/lib/ga-registration/model')
+      const record = {
+        ...EMPTY_GA_REGISTRATION,
+        noChange: [],
+        decision: 'register' as const,
+        filings: [{ id: 'c0000000-0000-4000-8000-000000000001', kind: 'registration' as const, filedOn: '2027-01-04', confirmation: null, coversYear: 2027, reason: null, meetingId: null }],
+      }
+      settings = withGaRegistration({}, signGaRegistration('assoc-1', record, { updatedAt: '2027-01-04T00:00:00Z', updatedBy: null }, SECRET))
+    }
+    state.db = memorySupabase({
+      associations: [{ id: 'assoc-1', organization_id: ORG, name: 'Fixture HOA', state: 'GA', governing_law_state: null, compliance_settings: settings }],
+      hoa_violations: [{ id: VIOLATION, org_id: ORG, status: 'notice_sent', fine_amount: 25 }],
+      violation_hearings: [],
+      org_members: [],
+      profiles: [],
+      audit_log: [],
+    })
+  }
+
+  it('not registered: refused, and nothing is written', async () => {
+    await gaDb(false)
+    const res = await updateViolationStatus({ violationId: VIOLATION, status: 'fined' })
+    expect(res.ok).toBe(false)
+    expect(state.db!.rows('hoa_violations')[0]!.status).toBe('notice_sent')
+    expect(state.db!.rows('audit_log')).toHaveLength(0)
+  })
+
+  it('not registered, attorney advised: the override is audited (codes only), then the fine is levied', async () => {
+    await gaDb(false)
+    const res = await updateViolationStatus({ violationId: VIOLATION, status: 'fined', lawOverrides: { ga_unregistered_fine: 'attorney_advised' } })
+    expect(res).toEqual({ ok: true })
+    const audit = state.db!.rows('audit_log')
+    expect(audit).toHaveLength(1)
+    expect(audit[0]).toMatchObject({
+      action: STATUTE_OVERRIDE_ACTION,
+      entity_id: VIOLATION,
+      metadata: { step: 'fine', state: 'GA', overrides: [{ code: 'ga_unregistered_fine', reason: 'attorney_advised' }] },
+    })
+    expectCodesOnly(audit[0]!.metadata)
+  })
+
+  it('registered in the kit: the fine goes ahead with no override', async () => {
+    await gaDb(true)
+    const res = await updateViolationStatus({ violationId: VIOLATION, status: 'fined' })
+    expect(res).toEqual({ ok: true })
+    expect(state.db!.rows('audit_log')).toHaveLength(0)
   })
 })

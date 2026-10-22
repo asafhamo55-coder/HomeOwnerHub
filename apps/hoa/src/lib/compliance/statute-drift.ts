@@ -32,6 +32,10 @@
  *        tcss-pr209-2026-excerpt.htm (§ 209.006).
  *   GA — ga-ocga-44-3-art6-2026.txt: O.C.G.A. § 44-3-223 and Ga. L. 2026,
  *        SB 406 § 7 (attorney's fees; in force July 1, 2026).
+ *        ga-sb406-2026-registration.txt: O.C.G.A. § 43-17A-2(a)(2)(A) and
+ *        (B)(ii), and SB 406 § 9(a) (BL-149, the registration bar: a
+ *        warning before Jan 1, 2027, a block from that day, on fines,
+ *        letters that list fines or fees, and liens).
  *
  * No `@/` imports: the collections letter payload (proposal.ts), which the
  * approvals inbox loads under tests/integration, reads the override codes.
@@ -54,6 +58,7 @@ const TX_0064_FILE = 'tx-prop-209-2026.txt'
 const TX_0062_FILE = 'tx-prop-209-0062-2026.txt'
 const TX_006_FILE = 'tcss-pr209-2026-excerpt.htm'
 const GA_FILE = 'ga-ocga-44-3-art6-2026.txt'
+const GA_SB406_FILE = 'ga-sb406-2026-registration.txt'
 
 export const CA_5850_CAP: DriftCitation = {
   cite: 'Cal. Civ. Code § 5850(c)',
@@ -176,6 +181,24 @@ export const GA_SB406_ITEMIZED: DriftCitation = {
   fixture: GA_FILE,
 }
 
+/** BL-149: the registration bar (Ga. L. 2026, SB 406 § 2, new O.C.G.A. ch. 43-17A). */
+export const GA_SB406_REGISTRATION_BAR: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-2(a)(2)(A) (Ga. L. 2026, SB 406 § 2)',
+  quote:
+    "Subject to subparagraph (B) of this paragraph, no owners' association or its agent shall collect fines or fees against any owner, or file or record liens or initiate foreclosure proceedings against any lot unless such owners' association is registered pursuant to this Code section.",
+  fixture: GA_SB406_FILE,
+}
+export const GA_SB406_OPT_OUT_BAR: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-2(a)(2)(B)(ii) (Ga. L. 2026, SB 406 § 2)',
+  quote: "No nonregistered owners' association or its agent shall assess or collect fines or fees or accelerated assessments against any owner.",
+  fixture: GA_SB406_FILE,
+}
+export const GA_SB406_IN_FORCE: DriftCitation = {
+  cite: 'Ga. L. 2026, SB 406 § 9(a)',
+  quote: 'Except as provided in subsection (b) of this section, this Act shall become effective on January 1, 2027.',
+  fixture: GA_SB406_FILE,
+}
+
 /** Every quote this module can show — what statute-drift.test.ts checks against the fixtures. */
 export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
   CA_5850_CAP,
@@ -199,7 +222,22 @@ export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
   GA_SB406_FEES,
   GA_SB406_NOTICE,
   GA_SB406_ITEMIZED,
+  GA_SB406_REGISTRATION_BAR,
+  GA_SB406_OPT_OUT_BAR,
+  GA_SB406_IN_FORCE,
 ]
+
+/** SB 406 § 9(a): the registration bar is in force from this day (BL-149). */
+export const GA_REGISTRATION_BAR_FROM = '2027-01-01'
+/** Where the board records its registration (BL-149). */
+export const GA_REGISTRATION_KIT = { href: '/compliance/ga-registration', label: 'Open the Georgia registration kit' } as const
+/**
+ * Ledger charge types that are fines or fees, not assessments (0047's
+ * assessments_assessment_type_check). A letter that lists only 'regular',
+ * 'special' or plan installments asks for assessments, which the
+ * registration bar does not name.
+ */
+export const FINE_OR_FEE_TYPES = ['fine', 'late_fee', 'lien_filing', 'collection_legal', 'collection_letter', 'collection_processing'] as const
 
 /** SB 406 § 9(b): § 7 is in force from this day. */
 export const GA_SB406_FEES_FROM = '2026-07-01'
@@ -249,6 +287,9 @@ export const DRIFT_CODES = [
   'ga_attorney_fees_prerequisites',
   'fl_attorney_fees_without_late_notice',
   'ca_late_charge_with_fine',
+  'ga_unregistered_fine',
+  'ga_unregistered_fees',
+  'ga_unregistered_lien',
 ] as const
 export type DriftCode = (typeof DRIFT_CODES)[number]
 
@@ -262,6 +303,8 @@ export interface DriftFinding {
   citations: DriftCitation[]
   /** For a block: the reasons the board may record to go ahead anyway. Empty for a warning. */
   overrideReasons: OverrideReason[]
+  /** Where the board fixes it in HomeownerHub, when there is such a place (BL-149). */
+  link?: { href: string; label: string }
 }
 
 export interface DriftCheck {
@@ -346,6 +389,51 @@ function notLoadedFor(state: string | null, step: 'fine' | 'letter'): string[] {
   return own[step]
 }
 
+// ─── Georgia registration (BL-149) ──────────────────────────────────
+
+/**
+ * The association's SB 406 registration as lib/ga-registration reads it
+ * (signed, in compliance_settings), and the day it is checked on. Mirrors
+ * GaRegistrationGateInput there; repeated so this file keeps no `@/`
+ * imports. undefined = the caller didn't load it (nothing is checked).
+ */
+export interface GaRegistrationGate {
+  status: 'registered' | 'lapsed' | 'not_registered' | 'opted_out' | 'unverified'
+  /** YYYY-MM-DD: the association's today, or the letter date. */
+  today: string
+}
+
+/**
+ * A Georgia association not recorded as registered: a warning before
+ * Jan 1, 2027, a block from that day (override: attorney advised only,
+ * audited by the caller). `what` names the step in the message.
+ */
+function gaRegistrationFinding(
+  code: 'ga_unregistered_fine' | 'ga_unregistered_fees' | 'ga_unregistered_lien',
+  gate: GaRegistrationGate,
+  what: string,
+): DriftFinding | null {
+  if (gate.status === 'registered') return null
+  const live = gate.today >= GA_REGISTRATION_BAR_FROM
+  const optedOut = gate.status === 'opted_out'
+  const standing =
+    gate.status === 'opted_out'
+      ? 'The board recorded that this association opted out of registering with the Georgia Secretary of State.'
+      : gate.status === 'lapsed'
+        ? 'This association’s Georgia Secretary of State registration, as recorded in HomeownerHub, has lapsed (each registration expires on December 31).'
+        : gate.status === 'unverified'
+          ? 'The registration record in HomeownerHub can’t be verified, so this association counts as not registered with the Georgia Secretary of State.'
+          : 'HomeownerHub has no record that this association is registered with the Georgia Secretary of State.'
+  const rule = optedOut
+    ? 'An association that opts out may not assess or collect fines, fees or accelerated assessments.'
+    : 'An association that isn’t registered may not collect fines or fees, or file or record liens or start foreclosure.'
+  const message = live
+    ? `${standing} ${rule} Since January 1, 2027 this blocks ${what}. If the association is registered, record the filing in the registration kit; otherwise register first.`
+    : `${standing} From January 1, 2027, ${rule.charAt(0).toLowerCase()}${rule.slice(1)} Record the registration in the registration kit before then, or this will block ${what}.`
+  const citations = optedOut ? [GA_SB406_OPT_OUT_BAR, GA_SB406_IN_FORCE] : [GA_SB406_REGISTRATION_BAR, GA_SB406_IN_FORCE]
+  return { ...finding(code, live ? 'block' : 'warn', message, citations), link: { ...GA_REGISTRATION_KIT } }
+}
+
 // ─── fines ───────────────────────────────────────────────────────────
 
 /** hoa_violations.fine_amount (dollars, numeric — may arrive as a string) to cents; null when unset or unreadable. */
@@ -386,6 +474,8 @@ export interface FineCheckInput {
    * on (the pre-0068 messages, unchanged); null = none recorded.
    */
   hearing?: FineHearingFacts | null
+  /** BL-149: Georgia only. undefined = not loaded (nothing checked). */
+  gaRegistration?: GaRegistrationGate
 }
 
 /** What a hearing record still lacks for the FL committee rule; [] = it meets it. */
@@ -557,6 +647,8 @@ export function checkFine(input: FineCheckInput): DriftCheck {
       ),
     )
   } else if (state === 'GA') {
+    const reg = input.gaRegistration ? gaRegistrationFinding('ga_unregistered_fine', input.gaRegistration, 'levying this fine') : null
+    if (reg) findings.push(reg)
     findings.push(
       finding(
         'ga_fine_instrument',
@@ -597,7 +689,12 @@ export interface LetterCheckInput {
   events: readonly { eventType: string; occurredOn: string }[]
   /** Letters on this case already printed. */
   printed: readonly PrintedLetter[]
+  /** BL-149: Georgia only, checked on the letter date. undefined = not loaded (nothing checked). */
+  gaRegistration?: GaRegistrationStatusOnly
 }
+
+/** The letter check reads the status only: the letter date is the day it is checked on. */
+export type GaRegistrationStatusOnly = Pick<GaRegistrationGate, 'status'>
 
 /** A payment-plan entry that offers nothing: blank, or "Not applicable" and the like. */
 export function offersNoPlan(text: string | undefined): boolean {
@@ -646,6 +743,14 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
       )
     }
   } else if (state === 'GA') {
+    if (input.gaRegistration && has(FINE_OR_FEE_TYPES)) {
+      const reg = gaRegistrationFinding(
+        'ga_unregistered_fees',
+        { status: input.gaRegistration.status, today: input.letterDate },
+        'a letter that asks for fines or fees',
+      )
+      if (reg) findings.push(reg)
+    }
     if (has(ATTORNEY_FEE_TYPES) && input.letterDate >= GA_SB406_FEES_FROM) {
       findings.push(
         finding(
@@ -686,6 +791,29 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
   }
 
   return { state, findings, notLoaded: notLoadedFor(state, 'letter') }
+}
+
+// ─── liens (BL-149) ──────────────────────────────────────────────────
+
+export interface LienCheckInput {
+  state: string | null | undefined
+  /** Georgia only. undefined = not loaded (nothing checked). */
+  gaRegistration?: GaRegistrationGate
+}
+
+/**
+ * Before the board records that a lien was filed on a collections case.
+ * Today only Georgia's registration bar applies; other states' lien rules
+ * live in the collections letters (FL, CA) and are not re-checked here.
+ */
+export function checkLien(input: LienCheckInput): DriftCheck {
+  const state = normaliseState(input.state)
+  const findings: DriftFinding[] = []
+  if (state === 'GA' && input.gaRegistration) {
+    const reg = gaRegistrationFinding('ga_unregistered_lien', input.gaRegistration, 'filing or recording a lien')
+    if (reg) findings.push(reg)
+  }
+  return { state, findings, notLoaded: [] }
 }
 
 // ─── the board's override ────────────────────────────────────────────
@@ -730,9 +858,9 @@ export const STATUTE_OVERRIDE_ACTION = 'statute_check.override'
 export function overrideAuditRow(args: {
   orgId: string
   userId: string
-  entityType: 'hoa_violation' | 'collections_letter'
+  entityType: 'hoa_violation' | 'collections_letter' | 'collection_case'
   entityId: string
-  step: 'fine' | 'collections_letter'
+  step: 'fine' | 'collections_letter' | 'lien'
   state: string | null
   applied: AppliedOverride[]
   extra?: Record<string, string | null>

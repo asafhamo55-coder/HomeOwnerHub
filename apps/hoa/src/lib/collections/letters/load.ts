@@ -6,6 +6,7 @@ import { listEventsForCase } from '../queries'
 import type { CollectionStatus } from '../statuses'
 import { LETTER_AUDIT_ENTITY, LETTER_PRINTED } from './audit'
 import type { LetterEvent, LetterInput } from './model'
+import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
 import { LETTER_ACTION, readLetterPayload, type LetterPayload } from './proposal'
 
 /**
@@ -48,7 +49,17 @@ export async function loadLetterContext(supabase: SupabaseClient, orgId: string,
   const ctx = await loadEstoppelInput(supabase, orgId, propertyId)
   if (!ctx) return null
   const live = ctx.input.collectionCase
-  const base = { input: ctx.input, today: ctx.today, collectionCase: live ? { id: live.id, status: live.status } : null }
+  // BL-149: a Georgia association's SB 406 registration, verified here on
+  // the server; the letter's state law check reads the status. A failed
+  // read throws like every other read here (the page says so).
+  let gaRegistration: LetterInput['gaRegistration']
+  if (ctx.input.state === 'GA' && ctx.associationId) {
+    const reg = await loadGaRegistrationGate(supabase as never, orgId, ctx.today, ctx.associationId)
+    if (!reg.ok) throw new Error('collections letters: registration read failed')
+    gaRegistration = reg.standing ? { status: reg.standing.status } : undefined
+  }
+  const input = gaRegistration ? { ...ctx.input, gaRegistration } : ctx.input
+  const base = { input, today: ctx.today, collectionCase: live ? { id: live.id, status: live.status } : null }
   if (!live) return { ...base, events: [], requests: [] }
 
   const db = supabase as unknown as Loose

@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react'
 import { Alert, Button, Card, CardContent, Input, Select, Textarea, Field } from '@homeowner-portal/ui'
 import { recordCollectionEvent } from '@/lib/collections/actions'
+import { StateLawCheckPanel } from '@/components/compliance/StateLawCheckPanel'
+import type { DriftCheck, DriftCode, OverrideReason } from '@/lib/compliance/statute-drift'
 import {
   COLLECTION_EVENT_TYPES,
   collectionEventLabel,
@@ -32,6 +34,10 @@ export function RecordCollectionEvent({
   const [eventType, setEventType] = useState<CollectionEventType>('note')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // BL-149: the state law check the server ran on "Lien filed", and the board's override reasons.
+  const [lawCheck, setLawCheck] = useState<DriftCheck | null>(null)
+  const [lawOverrides, setLawOverrides] = useState<Record<string, string>>({})
+  const [notice, setNotice] = useState<DriftCheck | null>(null)
 
   const implied = statusImpliedBy(eventType)
   // Only offer to move the stage when it would actually change something.
@@ -39,9 +45,19 @@ export function RecordCollectionEvent({
 
   if (!open) {
     return (
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Record an action
-      </Button>
+      <div className="space-y-3">
+        {notice ? <StateLawCheckPanel check={notice} /> : null}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setNotice(null)
+            setOpen(true)
+          }}
+        >
+          Record an action
+        </Button>
+      </div>
     )
   }
 
@@ -64,9 +80,19 @@ export function RecordCollectionEvent({
                 amount: rawAmount === '' ? undefined : Number(rawAmount),
                 actorInitials: String(formData.get('actorInitials') ?? '').trim() || undefined,
                 advanceStatus: formData.get('advanceStatus') === 'on',
+                ...(eventType === 'lien_filed' && Object.keys(lawOverrides).length > 0
+                  ? { lawOverrides: lawOverrides as Record<DriftCode, OverrideReason> }
+                  : {}),
               })
-              if (!result.ok) setError(result.error)
-              else setOpen(false)
+              if (!result.ok) {
+                setError(result.error)
+                setLawCheck(result.lawCheck ?? null)
+              } else {
+                setNotice(result.lawCheck ?? null)
+                setLawCheck(null)
+                setLawOverrides({})
+                setOpen(false)
+              }
             })
           }}
         >
@@ -113,6 +139,22 @@ export function RecordCollectionEvent({
                 <strong className="font-medium">{collectionStatusLabel(implied)}</strong>
               </span>
             </label>
+          ) : null}
+
+          {lawCheck && eventType === 'lien_filed' ? (
+            <StateLawCheckPanel
+              check={lawCheck}
+              overrides={lawOverrides}
+              disabled={pending}
+              onOverride={(code, reason) =>
+                setLawOverrides((prev) => {
+                  const next = { ...prev }
+                  if (reason) next[code] = reason
+                  else delete next[code]
+                  return next
+                })
+              }
+            />
           ) : null}
 
           {error ? <Alert variant="error">{error}</Alert> : null}
