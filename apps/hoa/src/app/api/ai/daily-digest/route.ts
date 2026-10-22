@@ -12,6 +12,7 @@ import { ApiRouteError } from '@/lib/api/errors'
 import { requireRouteBoardOrAdmin } from '@/lib/api/auth'
 import { checkWrite } from '@/lib/api/db'
 import { requireAiQuota } from '@/lib/api/rate-limit'
+import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
 import {
@@ -96,7 +97,16 @@ export const POST = withRoute('ai.daily-digest', async () => {
   // Record today's numbers for tomorrow's comparison. A failed write is a
   // generic 500 (RC-6), raised before the two model calls so a broken
   // database does not also bill them.
-  const snapshot = await writeSnapshot(supabase, orgId, today, {
+  //
+  // Service role, deliberately. dashboard_daily_snapshots has a board/admin
+  // SELECT policy and NO insert policy (0038): writes were always meant to
+  // bypass RLS. Written with the caller's session it was a 42501 for every
+  // board member — logged and ignored until RC-6 made it a 500 on every
+  // Refresh (prod, 2026-10-21). It is safe only because it runs after
+  // requireRouteBoardOrAdmin and the org cross-check above, and the row is
+  // pinned to the gate's orgId with counts this request computed. Reads of
+  // the table above stay on the session client.
+  const snapshot = await writeSnapshot(createAdminClient(), orgId, today, {
     needsReply: triage.needsReply.count,
     oldestWaitingDays: triage.needsReply.oldestWaitingDays,
     untriaged: triage.untriaged.count,

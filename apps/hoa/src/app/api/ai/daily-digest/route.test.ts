@@ -17,8 +17,17 @@ vi.mock('@/lib/accounting/guard', () => ({
 
 // Per-table upsert failures, so a test can force a write error with a
 // message that must never reach the response or a log line.
+//
+// The session client models the REAL policy on dashboard_daily_snapshots
+// (0038): SELECT for board/admin, no INSERT policy at all. A session-client
+// write there is a 42501 for every caller, board included, which is the
+// prod failure of 2026-10-21. Writes to it must go through the service
+// role after the board gate, so the admin client below has its own errors.
 const db = vi.hoisted(() => ({
   upsertError: {} as Record<string, { code: string; message: string } | undefined>,
+  adminUpsertError: {} as Record<string, { code: string; message: string } | undefined>,
+  adminUpserts: [] as Array<{ table: string; row: unknown; opts: unknown }>,
+  sessionUpserts: [] as string[],
   user: { id: 'user-1' } as { id: string } | null,
 }))
 
@@ -32,7 +41,31 @@ vi.mock('@/lib/supabase/server', () => ({
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn(async () => ({ data: null, error: null })),
-      upsert: vi.fn(async () => ({ error: db.upsertError[table] ?? null })),
+      upsert: vi.fn(async () => {
+        db.sessionUpserts.push(table)
+        // No INSERT policy on this table for any session (0038).
+        if (table === 'dashboard_daily_snapshots') {
+          return {
+            error: {
+              code: '42501',
+              message: 'new row violates row-level security policy for table "dashboard_daily_snapshots"',
+            },
+          }
+        }
+        return { error: db.upsertError[table] ?? null }
+      }),
+    })),
+  })),
+}))
+
+vi.mock('@homeowner-portal/db', async (orig) => ({
+  ...(await orig<typeof import('@homeowner-portal/db')>()),
+  createAdminClient: vi.fn(() => ({
+    from: vi.fn((table: string) => ({
+      upsert: vi.fn(async (row: unknown, opts: unknown) => {
+        db.adminUpserts.push({ table, row, opts })
+        return { error: db.adminUpsertError[table] ?? null }
+      }),
     })),
   })),
 }))
@@ -108,13 +141,18 @@ import { POST } from './route'
 import { generateBoardInsights, generateDigestSuggestion } from '@homeowner-portal/ai'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@homeowner-portal/db'
 
 /** The AI half is not under test in the suggestion cases; keep it quiet. */
 beforeEach(() => {
   vi.mocked(generateBoardInsights).mockResolvedValue('[]')
   vi.mocked(generateDigestSuggestion).mockClear()
   db.upsertError = {}
+  db.adminUpsertError = {}
+  db.adminUpserts = []
+  db.sessionUpserts = []
   db.user = { id: 'user-1' }
+  vi.mocked(createAdminClient).mockClear()
 })
 
 const req = () => new Request('http://x/api/ai/daily-digest', { method: 'POST' })
@@ -201,7 +239,7 @@ describe('POST /api/ai/daily-digest conventions (RC-1, RC-2, RC-6, RC-10)', () =
   })
 
   it('fails with the generic 500 when the snapshot write fails, and never logs its message', async () => {
-    db.upsertError.dashboard_daily_snapshots = {
+    db.adminUpsertError.dashboard_daily_snapshots = {
       code: '23514',
       message: 'check constraint violated by value 4200',
     }
@@ -227,6 +265,68 @@ describe('POST /api/ai/daily-digest conventions (RC-1, RC-2, RC-6, RC-10)', () =
 
     expect(body).not.toHaveProperty('error')
     expect(Object.keys(body).sort()).toEqual(['bullets', 'generatedAt', 'insights', 'suggestion'])
+  })
+})
+
+// Prod, 2026-10-21: every board/admin Refresh was a 500 with
+// `[api:daily-digest.snapshot] failed { errorCode: '42501' }`. The snapshot
+// was written with the caller's session, and dashboard_daily_snapshots has
+// no INSERT policy (0038: "writes go through the service role"). The board
+// gate had already passed, so this was never a role problem.
+describe('POST /api/ai/daily-digest snapshot write (42501 regression)', () => {
+  it('a board member gets 200, not the 42501 500, and the snapshot is written', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(200)
+    expect(logged(spy)).not.toContain('42501')
+    expect(db.adminUpserts.map((u) => u.table)).toEqual(['dashboard_daily_snapshots'])
+    spy.mockRestore()
+  })
+
+  it('scopes the service-role write to the org the gate returned, first write wins', async () => {
+    await POST(req())
+
+    const [write] = db.adminUpserts
+    expect(write.row).toMatchObject({ organization_id: 'org-1', counts: { needsReply: 32 } })
+    expect(write.opts).toEqual({
+      onConflict: 'organization_id,captured_on',
+      ignoreDuplicates: true,
+    })
+  })
+
+  it('never writes the snapshot through the session client', async () => {
+    vi.mocked(generateDigestSuggestion).mockResolvedValueOnce('Start with the pond thread')
+
+    await POST(req())
+
+    // The session still writes hoa_digests (board write policy, 0063) and
+    // still READS the baseline; it never writes the snapshot.
+    expect(db.sessionUpserts).toEqual(['hoa_digests'])
+  })
+
+  it('never builds the service-role client for a resident', async () => {
+    vi.mocked(requireBoardOrAdminForAction).mockResolvedValueOnce({
+      ok: false,
+      error: 'Only board members and admins can make this change.',
+    })
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(403)
+    expect(createAdminClient).not.toHaveBeenCalled()
+    expect(db.adminUpserts).toEqual([])
+  })
+
+  it('never builds the service-role client when the session org disagrees with the gate', async () => {
+    const { getCurrentOrg } = await import('@/lib/orgs')
+    vi.mocked(getCurrentOrg).mockResolvedValueOnce({ id: 'org-2', name: 'Other' } as never)
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(403)
+    expect(createAdminClient).not.toHaveBeenCalled()
   })
 })
 

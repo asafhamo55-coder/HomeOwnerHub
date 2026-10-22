@@ -161,6 +161,9 @@ export async function readBaseline(
  * One row per org per day, first write wins. Returns the write's error for
  * the caller to check (the daily-digest route passes it to `checkWrite`,
  * RC-6) rather than swallowing it here.
+ *
+ * `db` must be a service-role client, used only after a board/admin gate:
+ * the table has no INSERT policy (0038), so a session client gets 42501.
  */
 export async function writeSnapshot(
   db: Db,
