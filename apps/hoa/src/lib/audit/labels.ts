@@ -87,6 +87,7 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   'recurring_je.updated': { label: 'Edited a recurring entry', area: 'accounting' },
   'bank_account.manual_created': { label: 'Added a manual bank account', area: 'accounting' },
   'bank_import.committed': { label: 'Imported a bank statement', area: 'accounting' },
+  'opening_balances.cinc_previewed': { label: 'Checked a CINC aging report for opening balances', area: 'accounting' },
   // Collections
   collections_letter_printed: { label: 'Printed a collections letter', area: 'collections' },
   'payment_plan.completed': { label: 'Payment plan paid off', area: 'collections' },
@@ -264,6 +265,12 @@ export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => strin
     if (inserted == null) return null
     const added = `${inserted} ${inserted === 1 ? 'transaction' : 'transactions'} added`
     return duplicates ? `${added} · ${duplicates} already in` : added
+  },
+  'opening_balances.cinc_previewed': (m) => {
+    const rows = num(m.rows)
+    const matched = num(m.matched)
+    if (rows == null || matched == null) return null
+    return `${rows} ${rows === 1 ? 'row' : 'rows'} · ${matched} matched`
   },
   [ACTIVITY_EXPORT_ACTION]: (m) => {
     const rows = num(m.rows)

@@ -228,6 +228,31 @@ function lookupHome(idx: UnitIndex, home: string): Lookup {
   return lookupAddress(idx, home, null)
 }
 
+/**
+ * The same matching rules for other importers (the CINC aging import,
+ * cinc-aging.ts): `address` is address + unit, `key` is an exact unit or
+ * lot number. Both never guess between several homes.
+ */
+export interface UnitMatcher {
+  address(address: string, unit: string | null): Lookup
+  key(key: string): Lookup
+}
+
+export type { Lookup as UnitLookup }
+
+export function createUnitMatcher(units: readonly BooksUnitRow[]): UnitMatcher {
+  const idx = indexUnits(units)
+  return {
+    address: (address, unit) => lookupAddress(idx, address, unit),
+    key: (raw) => {
+      const k = normalizeUnit(raw)
+      if (!k) return { kind: 'none' }
+      const byUnit = one(idx.byUnit.get(k))
+      return byUnit.kind !== 'none' ? byUnit : one(idx.byLot.get(k))
+    },
+  }
+}
+
 type Columns = { home: number } | { address: number; unit: number | null }
 
 const AMOUNT_HEAD = /^(amount|balance|owed|amount owed|balance due|due|total|opening balance|current balance)$/

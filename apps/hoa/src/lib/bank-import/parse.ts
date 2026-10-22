@@ -169,10 +169,10 @@ export function parseStatement(text: string): ParseResult {
 
 // ─── CSV ───────────────────────────────────────────────────────────────
 
-type Delim = ',' | ';' | '\t'
+export type Delim = ',' | ';' | '\t'
 
 /** The delimiter that splits the first lines most consistently. */
-function detectDelimiter(text: string): Delim {
+export function detectDelimiter(text: string): Delim {
   const lines = text.split(/\r\n|\n|\r/, HEADER_SCAN).filter((l) => l.trim() !== '')
   let best: Delim = ','
   let bestScore = -1
@@ -197,7 +197,7 @@ function countOutsideQuotes(line: string, d: string): number {
   return n
 }
 
-interface CsvRow {
+export interface CsvRow {
   line: number
   cells: string[]
   raw: string
@@ -208,7 +208,7 @@ interface CsvRow {
  * refuses the file). Blank lines are dropped; `line` is the 1-based line
  * the row starts on.
  */
-function splitCsv(text: string, delim: Delim, maxRows: number): CsvRow[] | null {
+export function splitCsv(text: string, delim: Delim, maxRows: number): CsvRow[] | null {
   const rows: CsvRow[] = []
   let row: string[] = []
   let field = ''

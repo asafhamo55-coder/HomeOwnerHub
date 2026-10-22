@@ -95,7 +95,7 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
 | 28 | BL-028 | Mobile inspection mode (drive-by capture) | 4 | 0.7 | 3 | **0.93** | no | no | **Done (4b878315)** |
 | 29 | BL-029 | Budget first draft from prior year + actuals | 3 | 0.6 | 2 | **0.90** | no | no | **Done (83dd219d)** |
 | 30 | BL-030 | Per-state violation procedure engine (FL first) | 5 | 0.7 | 4 | **0.88** | **yes (M2)** | no | Open (M2) |
-| 31 | BL-031 | CINC import (homeowner list + aging report) | 4 | 0.6 | 3 | **0.80** | no | no | **Partly (e1014c46)** |
+| 31 | BL-031 | CINC import (homeowner list + aging report) | 4 | 0.6 | 3 | **0.80** | no | no | **Built, no migration (homeowner list e1014c46; aging report 2026-10-21); verify on a real CINC export** |
 | 32 | BL-032 | Mailed letters from the app (violation/collections) | 3 | 0.7 | 3 | **0.70** | yes (M3) | **yes** | Later (M3) |
 | 33 | BL-033 | Law-to-bylaw *findings* report (F phase 1, FL) | 4 | 0.6 | 4 | **0.60** | yes (M3) | no | Later (M3) |
 | 34 | BL-034 | Amenity booking | 3 | 0.8 | 4 | **0.60** | yes (M3) | no | Later (M3) |
@@ -537,13 +537,14 @@ Bucketing follows the score, with explicit overrides noted on the item. "Now" pu
   - Shipped for FL; CA follows.
 
 ### BL-031 — CINC import (homeowner list + aging report)
+- **Status 2026-10-21:** Built, no migration. The aging report remainder ships in the BL-126 wizard (/accounting/opening-balances, step 2, "Upload a CINC aging report"): a board-only server action previews the CSV (2 MB / 5,000 rows, header found under the report title, columns re-mappable, page headers and total rows skipped, cents-exact, reconciled against the report's grand total), matches each row to a home by address or by account number = unit/lot number, lists unmatched rows (download through the formula-guarded CSV writer), and hands matched balances to the wizard, which proposes ONE JE through Approvals; credits are suggested as prepaid. Audit `opening_balances.cinc_previewed` carries counts only. Fabricated fixtures only: the layout is a guess until Asaf supplies a real CINC export, so keep the 0.6 confidence. Not built: storing CINC account numbers on units (would need a migration); re-import idempotency is BL-126's one-proposal-per-date rule.
 - **Groomed 2026-10-20:** Partly done: the homeowner list import with a CINC column preset shipped as properties P4 (e1014c46). Remaining: aging report / opening balances (JE via approvals), still blocked on a real CINC export file. No migration.
 - **User value:** a community leaving a CINC-run management company moves its owners and balances over in minutes, not through hand-written SQL.
 - **Evidence:**
   - Madison Park's data came from CINC aging PDFs through hand-written seeds.
   - CINC exports Excel from the Homeowners list and from Custom Reports (research §2.1).
 - **Effort:** 3 · **Migration:** no (existing tables) · **Keys:** no
-- **Blocked on:** **a real CINC export file from Asaf.** The column layout is unknown, hence the 0.6 confidence.
+- **Blocked on:** nothing for the build; **a real CINC export file from Asaf** to confirm the column layout. The column layout is unknown, hence the 0.6 confidence.
 - **Risk:**
   - Resident PII and opening balances (money).
   - A dry run shows counts and ids only.
@@ -1120,7 +1121,7 @@ Not counted above: BL-104's module-off pages (M2) and BL-102 Phase B (migrations
 12. **Nightly band-sync job** (BL-104 item 5). Recount units; when the band changes, update the subscription quantity with `proration_behavior: 'none'`. Behind `PRICING_V2`; tests only against mocks or the BL-103 sandbox. Files: new `packages/jobs/src/billing-band-sync.ts`, `packages/billing/src/pricing-v2.ts`, `apps/hoa/src/app/api/inngest/route.ts`. **Status:** Done (18f4de51), behind PRICING_V2.
 13. **Renewal notice for grandfathered subscriptions** (BL-104 item 6). Email the board 30 days before term end (new plan and price) and swap the price at term end; board recipients only, through the guard. Files: new `packages/jobs/src/billing-renewal-notice.ts`, `packages/billing/src/grandfathering.ts`. **Status:** Done (18f4de51), behind PRICING_V2.
 14. **⌘K latency measured** (BL-060 leftover). Add timing to `/api/search` through `perfTimer`, and record p50 on the seeded org in CI. Files: `apps/hoa/src/app/api/search/route.ts`, `apps/hoa/src/lib/perf/timing.ts`. **Status:** Done (3b6d2bf6), live.
-15. **CINC aging report → opening balances** (BL-031 remainder). Map a CINC aging export to per-unit opening balances, with the JE proposed through approvals and a dry run of counts and ids. **Blocked until Asaf supplies a real CINC export**; skip it until then. Files: `apps/hoa/src/lib/properties/import.ts`, `apps/hoa/src/app/(dashboard)/properties/import/`, `packages/workflows/src/approvals/`.
+15. **CINC aging report → opening balances** (BL-031 remainder). **Built 2026-10-21 (no migration; see BL-031 status).** Map a CINC aging export to per-unit opening balances, with the JE proposed through approvals and a dry run of counts and ids. **Blocked until Asaf supplies a real CINC export**; skip it until then. Files: `apps/hoa/src/lib/properties/import.ts`, `apps/hoa/src/app/(dashboard)/properties/import/`, `packages/workflows/src/approvals/`.
 
 Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a vendor COI reply reaches the inbox), the BL-051 Safari print check, and a browser pass on the new convert menu, composer and billing banner.
 - **BL-108 Rebalance the per-plan AI budget before PRICING_V2 goes on (Done 2026-10-20: implemented behind PRICING_V2, off, so nothing changes today; decision docs/decisions/2026-10-20-ai-spend-ceiling.md):** under the "every cap saturated" 30% rule, Essentials is left with 0 Copilot questions a day and Complete exceeds 30%. An Opus advisor is reviewing (realistic-use model plus an org monthly AI spend ceiling). The Essentials/Complete numbers for meeting_summary and ask_community are PROVISIONAL until then.
