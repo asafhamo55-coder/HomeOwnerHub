@@ -12,6 +12,7 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { HOA_PRICE_COPY } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
+import { STATE_COVERAGE_SENTENCE } from '@/lib/state-law'
 import { DemoForm } from './demo-form'
 
 export const metadata: Metadata = pageMetadata({
@@ -124,10 +125,8 @@ export default function DemoPage() {
             <Stat label="Setup + roster import" value="Self-serve" sub="CSV or Excel, CINC exports included" />
           </div>
           <p className="mt-10 text-center text-xs text-muted">
-            HomeownerHub works for an HOA in any state. Estoppel certificates,
-            collections letters and the owner budget notice follow Florida and
-            California law, and collections letters Texas law too. Tell us
-            where you are.
+            HomeownerHub works for an HOA in any state. {STATE_COVERAGE_SENTENCE}{' '}
+            Tell us where you are.
           </p>
         </div>
       </section>

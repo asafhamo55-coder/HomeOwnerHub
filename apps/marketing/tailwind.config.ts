@@ -12,7 +12,7 @@ import { BRANDS } from '@homeowner-portal/ui/tokens'
 // No raw palette scales (ink/brand/ember) any more: every colour is a
 // semantic token. The only additions are the two product sub-brands, read
 // from the same token source the PM and Eviction apps use, so the site and
-// the hubs cannot drift. HOA is the default `primary` (indigo).
+// the hubs cannot drift. HOA is the default `primary` (HomeownerHub blue, #2563EB).
 const sharedConfig = createTailwindConfig('hoa')
 
 function rgbChannels(hex: string): string {

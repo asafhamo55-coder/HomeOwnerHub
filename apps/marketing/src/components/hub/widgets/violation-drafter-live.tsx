@@ -18,7 +18,7 @@ const SCENARIOS: Scenario[] = [
     location: '211 Oak St',
     citation: 'CC&R Section 3.4 — Architectural Standards',
     draftLines: [
-      'Your fence at 211 Oak St exceeds the 6-foot height limit specified in Section 3.4 of the Madison Park CC&R.',
+      'Your fence at 211 Oak St exceeds the 6-foot height limit specified in Section 3.4 of your CC&R.',
       'The Architectural Review Committee requires fence modifications to be submitted at least 14 days in advance.',
       'Required action: Submit modification plans to the ARC within 14 days, or return the fence to the approved 6-foot height.',
     ],

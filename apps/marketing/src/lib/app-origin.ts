@@ -1,18 +1,17 @@
 // Where the HOA app lives, as seen from the marketing site.
 //
-// Domain split (docs/specs/2026-10-19-domain-split.md): marketing serves
-// homeownerledger.com and www.homeownerledger.com; the app serves the apex
-// of its own domain, homeownerledger.online (owner decision 2026-10-21; it is
-// not a subdomain of homeownerledger.com). Every "Sign in" link and every
-// redirect of an old app path goes to this origin.
+// BL-157 (owner decision 2026-10-22): the app stays at
+// www.homeownerledger.com, and this site moves to www.homeownerledger.online
+// (lib/site.ts). Moving the app to homeownerledger.online (OA-5) is paused.
+// Every "Sign in" / "Create account" link and every redirect of an old app
+// path goes to this origin, from NEXT_PUBLIC_APP_URL when set.
 //
-// The fallback is the app's post-split host, never a www host. Marketing
-// serves www.homeownerledger.com, so a www.homeownerledger.com fallback would
-// make the redirects in middleware.ts point back at the site that issued
-// them; www.homeownerledger.online only 308s to the apex, so it would add a
-// hop and change the host Supabase and OAuth redirect allow-lists see.
+// The fallback is never this site's own host: middleware.ts redirects app
+// paths here, so pointing it at www.homeownerledger.online would send them
+// back to the site that issued them (appRedirectTarget refuses to redirect a
+// request already on the app host, so it can't loop, but the links would 404).
 
-export const DEFAULT_APP_ORIGIN = 'https://homeownerledger.online'
+export const DEFAULT_APP_ORIGIN = 'https://www.homeownerledger.com'
 
 export function appOrigin(configured: string | undefined = process.env.NEXT_PUBLIC_APP_URL): string {
   const value = configured?.trim()
@@ -25,4 +24,7 @@ export function appOrigin(configured: string | undefined = process.env.NEXT_PUBL
 }
 
 export const APP_ORIGIN = appOrigin()
+/** The app's host, for display (e.g. the address bar in a product mock-up). */
+export const APP_HOST = new URL(APP_ORIGIN).host
 export const SIGN_IN_URL = `${APP_ORIGIN}/login`
+export const SIGN_UP_URL = `${APP_ORIGIN}/signup`

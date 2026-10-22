@@ -4,14 +4,15 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { APP_PATH_SEGMENTS, appRedirectTarget, type RedirectRequest } from './app-redirects'
 import { appOrigin, DEFAULT_APP_ORIGIN } from './app-origin'
+import { DEFAULT_SITE_ORIGIN } from './site'
 
-const APP = 'https://homeownerledger.online'
+const APP = 'https://www.homeownerledger.com'
 const here = path.dirname(fileURLToPath(import.meta.url))
 const HOA_APP_DIR = path.resolve(here, '../../../hoa/src/app')
 const MARKETING_APP_DIR = path.resolve(here, '../app')
 
 function req(pathname: string, over: Partial<RedirectRequest> = {}): RedirectRequest {
-  return { pathname, search: '', host: 'www.homeownerledger.com', cookieNames: [], ...over }
+  return { pathname, search: '', host: 'www.homeownerledger.online', cookieNames: [], ...over }
 }
 
 /** URL-visible top-level segments of a Next app dir: route groups flattened,
@@ -36,13 +37,13 @@ function routeSegments(appDir: string): string[] {
 describe('appRedirectTarget', () => {
   it('sends an old app path to the app with path and query intact', () => {
     expect(appRedirectTarget(req('/login', { search: '?redirect=%2Fapprovals%3Ftype%3Dbill' }), APP)).toBe(
-      'https://homeownerledger.online/login?redirect=%2Fapprovals%3Ftype%3Dbill',
+      'https://www.homeownerledger.com/login?redirect=%2Fapprovals%3Ftype%3Dbill',
     )
   })
 
   it('keeps a magic-link callback working (code and next params)', () => {
     expect(appRedirectTarget(req('/auth/callback', { search: '?code=abc&next=/resident' }), APP)).toBe(
-      'https://homeownerledger.online/auth/callback?code=abc&next=/resident',
+      'https://www.homeownerledger.com/auth/callback?code=abc&next=/resident',
     )
   })
 
@@ -75,14 +76,14 @@ describe('appRedirectTarget', () => {
     expect(appRedirectTarget(req('/residents'), APP)).toBeNull()
   })
 
-  it('works on the apex as well as www', () => {
-    expect(appRedirectTarget(req('/login', { host: 'homeownerledger.com' }), APP)).toBe(`${APP}/login`)
+  it('works on a preview host as well as www.homeownerledger.online', () => {
+    expect(appRedirectTarget(req('/login', { host: 'homeownerhub-marketing.vercel.app' }), APP)).toBe(`${APP}/login`)
   })
 
   it('never redirects a request already on the app host (no loop)', () => {
-    expect(appRedirectTarget(req('/login', { host: 'homeownerledger.online' }), APP)).toBeNull()
-    expect(appRedirectTarget(req('/login', { host: 'HomeownerLedger.Online' }), APP)).toBeNull()
-    expect(appRedirectTarget(req('/login', { host: 'WWW.homeownerledger.com' }), 'https://www.homeownerledger.com')).toBeNull()
+    expect(appRedirectTarget(req('/login', { host: 'www.homeownerledger.com' }), APP)).toBeNull()
+    expect(appRedirectTarget(req('/login', { host: 'WWW.HomeownerLedger.com' }), APP)).toBeNull()
+    expect(appRedirectTarget(req('/login', { host: 'homeownerledger.online' }), 'https://homeownerledger.online')).toBeNull()
   })
 
   it('sends "/" to the app only for a browser holding an old app session cookie', () => {
@@ -118,15 +119,15 @@ describe('APP_PATH_SEGMENTS', () => {
 
 describe('appOrigin', () => {
   it('uses the configured origin, dropping any path or trailing slash', () => {
-    expect(appOrigin('https://homeownerledger.online/')).toBe(APP)
-    expect(appOrigin('https://homeownerledger.online/login')).toBe(APP)
+    expect(appOrigin('https://www.homeownerledger.com/')).toBe(APP)
+    expect(appOrigin('https://www.homeownerledger.com/login')).toBe(APP)
   })
 
-  it('falls back to the app apex (homeownerledger.online) when unset or invalid, never to www', () => {
+  it('falls back to the app (www.homeownerledger.com) when unset or invalid, never to this site', () => {
     expect(appOrigin(undefined)).toBe(DEFAULT_APP_ORIGIN)
     expect(appOrigin('')).toBe(DEFAULT_APP_ORIGIN)
     expect(appOrigin('not a url')).toBe(DEFAULT_APP_ORIGIN)
     expect(DEFAULT_APP_ORIGIN).toBe(APP)
-    expect(new URL(DEFAULT_APP_ORIGIN).hostname.startsWith('www.')).toBe(false)
+    expect(new URL(DEFAULT_APP_ORIGIN).hostname).not.toBe(new URL(DEFAULT_SITE_ORIGIN).hostname)
   })
 })

@@ -11,8 +11,9 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import { SHIPPED_FEATURES } from './features'
+import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE, OTHER_STATE_ROUTES, STATE_COVERAGE } from './state-law'
 import { SHIPPED_HOA_WORKFLOWS, WORKFLOWS, BAR_TARGETS } from './workflows'
-import { DEFAULT_SITE_ORIGIN, SITE_ORIGIN, pageMetadata, siteOrigin } from './site'
+import { DEFAULT_SITE_ORIGIN, SITEMAP_PATHS, SITE_ORIGIN, isIndexable, pageMetadata, siteOrigin } from './site'
 import { DEFAULT_APP_ORIGIN, appOrigin } from './app-origin'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
@@ -144,6 +145,61 @@ describe('round 4: shipped features are on the site, each with proof', () => {
   })
 })
 
+// BL-157: Georgia is the launch state. The home page and /hoa lead with
+// what the app does for Georgia law, every item backed by an apps/hoa route.
+describe('Georgia first (BL-157)', () => {
+  it('every Georgia feature names an apps/hoa route that exists, and cites the law', () => {
+    expect(GEORGIA_FEATURES.length).toBeGreaterThanOrEqual(5)
+    for (const f of GEORGIA_FEATURES) {
+      expect(hoaRouteExists(f.route), `${f.title}: ${f.route}`).toBe(true)
+      expect(f.citation, f.title).toMatch(/O\.C\.G\.A\.|SB 406/)
+    }
+  })
+
+  it('every Georgia feature that cites a release note cites one that exists', () => {
+    for (const f of GEORGIA_FEATURES.filter((x) => x.release)) {
+      expect(existsSync(path.join(repoRoot, 'docs/releases', `${f.release}.md`)), f.title).toBe(true)
+    }
+  })
+
+  it('covers the owner-named Georgia items', () => {
+    const titles = GEORGIA_FEATURES.map((f) => `${f.title} ${f.body} ${f.citation}`).join('\n')
+    for (const re of [/SB 406 registration/, /44-3-232\(c\)/, /SB 406 § 7/, /quorum/i, /proxy/i, /Annual report/, /late fee/i]) {
+      expect(titles).toMatch(re)
+    }
+  })
+
+  it('other-state items have routes that exist', () => {
+    for (const r of OTHER_STATE_ROUTES) expect(hoaRouteExists(r), r).toBe(true)
+  })
+
+  it('states are listed Georgia first, then FL, CA, TX', () => {
+    expect(STATE_COVERAGE.map((s) => s.state)).toEqual(['GA', 'FL', 'CA', 'TX'])
+  })
+
+  it('keeps the not-legal-advice framing and the condo caveat', () => {
+    expect(GEORGIA_SCOPE_NOTE).toMatch(/isn’t legal advice/)
+    expect(GEORGIA_SCOPE_NOTE).toMatch(/condominium/)
+  })
+
+  it('the home page and /hoa render the Georgia section near the top', () => {
+    const home = code('app/page.tsx')
+    expect(home.indexOf('<GeorgiaFirst')).toBeGreaterThan(home.indexOf('<Hero'))
+    expect(home.indexOf('<GeorgiaFirst')).toBeLessThan(home.indexOf('<ProblemSolution'))
+    const hoa = code('app/hoa/page.tsx')
+    expect(hoa.indexOf('<GeorgiaFirst')).toBeGreaterThan(hoa.indexOf('<HubHero'))
+    expect(hoa.indexOf('<GeorgiaFirst')).toBeLessThan(hoa.indexOf('<HubFeatures'))
+    expect(read('components/site/hero.tsx')).toMatch(/Georgia/)
+  })
+
+  it('no customer is named on a rendered page (no approved case study)', () => {
+    for (const rel of sourceFiles()) {
+      if (rel === 'app/case-studies/madison-park/page.tsx') continue
+      expect(code(rel), rel).not.toMatch(/Madison Park/)
+    }
+  })
+})
+
 describe('brand: HomeownerHub only', () => {
   const files = sourceFiles()
 
@@ -235,25 +291,53 @@ describe('legal pages: HOA-only scope (BL-107)', () => {
 })
 
 describe('metadata: one site origin, canonical URLs, OG on every page', () => {
-  it('the site origin is www.homeownerledger.com unless a preview sets its own', () => {
-    expect(DEFAULT_SITE_ORIGIN).toBe('https://www.homeownerledger.com')
+  it('the site origin is www.homeownerledger.online unless a preview sets its own', () => {
+    expect(DEFAULT_SITE_ORIGIN).toBe('https://www.homeownerledger.online')
     expect(siteOrigin(undefined)).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('not a url')).toBe(DEFAULT_SITE_ORIGIN)
+    expect(siteOrigin('https://www.homeownerledger.online/x')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://homeownerhub.vercel.app/x')).toBe('https://homeownerhub.vercel.app')
-    // Never the app host, never a domain we don't own.
+    // Never an app host (the app is www.homeownerledger.com; the .online
+    // apex serves the app too), never a domain we don't own.
+    expect(siteOrigin('https://www.homeownerledger.com')).toBe(DEFAULT_SITE_ORIGIN)
+    expect(siteOrigin('https://homeownerledger.com')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://homeownerledger.online')).toBe(DEFAULT_SITE_ORIGIN)
-    expect(siteOrigin('https://app.homeownerledger.com')).toBe(DEFAULT_SITE_ORIGIN)
     expect(siteOrigin('https://ledger.ai')).toBe(DEFAULT_SITE_ORIGIN)
     expect(SITE_ORIGIN).toMatch(/^https?:\/\//)
   })
 
-  it('the app origin is homeownerledger.online unless the env sets one', () => {
-    // Never www: marketing serves www, so a www app origin would loop
-    // (docs/specs/2026-10-19-domain-split.md).
-    expect(DEFAULT_APP_ORIGIN).toBe('https://homeownerledger.online')
+  it('the app origin is www.homeownerledger.com unless the env sets one', () => {
+    // BL-157: the app stays on www.homeownerledger.com; sign-in and sign-up
+    // links go there, never to this site.
+    expect(DEFAULT_APP_ORIGIN).toBe('https://www.homeownerledger.com')
     expect(appOrigin(undefined)).toBe(DEFAULT_APP_ORIGIN)
-    expect(appOrigin('https://homeownerledger.online/login')).toBe('https://homeownerledger.online')
+    expect(appOrigin('https://www.homeownerledger.com/login')).toBe('https://www.homeownerledger.com')
+  })
+
+  it('only the production origin is indexable', () => {
+    expect(isIndexable(DEFAULT_SITE_ORIGIN)).toBe(true)
+    expect(isIndexable('https://homeownerhub.vercel.app')).toBe(false)
+    expect(isIndexable('http://localhost:3030')).toBe(false)
+  })
+
+  it('robots.txt and the sitemap come from the site origin', () => {
+    const robots = code('app/robots.ts')
+    expect(robots).toMatch(/isIndexable\(\)/)
+    expect(robots).toMatch(/sitemap: `\$\{SITE_ORIGIN\}\/sitemap\.xml`/)
+    const sitemap = code('app/sitemap.ts')
+    expect(sitemap).toMatch(/SITEMAP_PATHS/)
+    expect(sitemap).toMatch(/\$\{SITE_ORIGIN\}/)
+  })
+
+  it('no hard-coded app or site host in rendered code: both come from one constant', () => {
+    for (const rel of sourceFiles()) {
+      if (rel === 'lib/site.ts' || rel === 'lib/app-origin.ts') continue
+      const src = code(rel)
+      expect(src, `${rel} types homeownerledger.online`).not.toMatch(/homeownerledger\.online/)
+      // Email addresses on homeownerledger.com are fine; a URL is not.
+      expect(src, `${rel} types an app URL`).not.toMatch(/https?:\/\/(www\.)?homeownerledger\.com/)
+    }
   })
 
   it('the layout sets metadataBase from the site origin, with no canonical of its own', () => {
@@ -279,6 +363,10 @@ describe('metadata: one site origin, canonical URLs, OG on every page', () => {
     const src = read(rel)
     expect(src, `${rel} must build metadata with pageMetadata()`).toMatch(/pageMetadata\(/)
     expect(src).toContain(`path: '${route}'`)
+  })
+
+  it('the sitemap lists every rendered page, and nothing else', () => {
+    expect([...SITEMAP_PATHS].sort()).toEqual(rendered.map((p) => p.route).sort())
   })
 
   it('a default OG image exists for every route', () => {
