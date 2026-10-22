@@ -1577,7 +1577,7 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - **Board screen:** /settings/late-fees.
      - **Caps:** GA, FL and CA, enforced at save and in the job. TX has no loaded rule.
      - **Visibility:** each night's charges get an audit row and a digest line, not per-fee Approvals.
-     - **Not built:** the GA interest cap on the collections letter (BL-148) and the dashboard prompt.
+     - **Not built:** the dashboard prompt. (The GA interest cap on the collections letter is built in BL-148.)
    - **Pain:** every association is charged a late fee its declaration may not allow, at a rate nobody chose. In Georgia a late charge is lawful only "to the extent that the instrument provides". It is capped at the greater of $10 or 10% of each assessment or installment (§ 44-3-232(b)(1)). From 2027, an unregistered association can't collect fees at all (BL-149). Fines are driving foreclosures in Georgia news.
    - **Evidence:**
      - fixture `ga-ocga-44-3-art6-2026.txt` § 44-3-232(b)(1)–(2);
@@ -1606,6 +1606,12 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - Policy changes are audited. Fix the guide.
    - **Files:** `packages/jobs/src/hoa-late-fees.ts`, `apps/hoa/src/lib/late-fees/` (new: policy, caps, law), `apps/hoa/src/app/(dashboard)/settings/`, `apps/hoa/content/guide/accounting/accounting-payment-plans.md`.
 2. **BL-148 Georgia collections letters: SB 406 § 7 fee notice and § 44-3-232(c) notice before foreclosure.** Migration: no. Letter kinds are app-only, and events reuse `demand_letter_sent` / `lien_letter_sent` (`lib/collections/statuses.ts:105-118`). Effort M (1.5). Score 2.83 (5 × 0.85 ÷ 1.5).
+   - **Status:** Built on `claude/quality-oracle`, not yet deployed. No migration.
+     - **Kinds:** `ga_fee_notice` (records `demand_letter_sent`; moves the case no further than "Collection letter sent", not to the attorney rung) and `ga_pre_foreclosure` (records `lien_letter_sent`). Quotes are verbatim from `ga-ocga-44-3-art6-2026.txt`, checked by `law.test.ts` and `statute-drift.test.ts`.
+     - **State law check:** the fee notice never blocks itself (delivery warning only). A letter listing attorney's fees clears once a fee notice was printed 30+ days earlier, then warns that the 30 days run from receipt.
+     - **Pre-foreclosure:** lot address plus designated-address BLANK; blocked under $2,000 and for interest above 10%; late charges above the (b)(1) cap flagged; four-year lapse named.
+     - **Gap:** SB 406 § 5's 2027 text of § 44-3-232(c) is not in the fixtures, so the pre-foreclosure notice refuses from 2027-01-01 ("check with your attorney"). BL-154 loads it.
+     - **Gap:** no certified-mail tracking columns exist; the screen says to add the tracking number as a case note. Real tracking fields need a migration.
    - **Pain:** since 2026-07-01 a Georgia association can't collect attorney's fees without first sending a certified notice that lists the fines and fees and gives 30 days to pay. Our state-law check blocks GA letters that list attorney's fees, but the app can't produce that notice, so the block can only be overridden. Georgia news reports:
      - about $8K of dues growing to about $20K with fees;
      - foreclosure over pressure-washing fines.

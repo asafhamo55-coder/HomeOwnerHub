@@ -14,6 +14,14 @@ import {
   FL_INTENT_DAYS,
   FL_LATE_NOTICE_BODY,
   FL_LATE_NOTICE_DAYS,
+  GA_232C_REPLACED_ON,
+  GA_FEE_NOTICE_DAYS,
+  GA_FEE_NOTICE_QUOTES,
+  GA_FORECLOSURE_MIN_CENTS,
+  GA_LIEN_LAPSE_YEARS,
+  GA_MAX_INTEREST_PERCENT,
+  GA_PRE_FORECLOSURE_DAYS,
+  GA_PRE_FORECLOSURE_QUOTES,
   TX_CURE_DAYS,
 } from './law'
 
@@ -132,5 +140,49 @@ describe('Texas § 209.0064', () => {
     expect(tx).toContain('specifies each delinquent amount and the total amount of the payment required to make the account current')
     expect(tx).toContain('information regarding availability of a payment plan through the association')
     expect(tx).toContain('provides a period of at least 45 days for the owner to cure the delinquency before further collection action is taken')
+  })
+})
+
+describe('Georgia SB 406 § 7 and O.C.G.A. § 44-3-232 (BL-148)', () => {
+  const GA_FILE = 'ga-ocga-44-3-art6-2026.txt'
+  const sb406 = section(GA_FILE, '=== Ga. L. 2026, SB 406, § 7 |')
+  const s232 = section(GA_FILE, '=== O.C.G.A. Section 44-3-232 |')
+
+  it('both sections are in the snapshot', () => {
+    expect(sb406).toContain('@effective_date: 2026-07-01')
+    expect(s232).toContain('(c) Not less than 30 days after notice is sent')
+  })
+
+  it.each(GA_FEE_NOTICE_QUOTES.map((q) => [q.cite, q] as const))('fee notice quote verbatim in SB 406 § 7: %s', (_cite, q) => {
+    expect(q.fixture).toBe(GA_FILE)
+    expect(sb406).toContain(squash(q.quote))
+  })
+
+  it.each(GA_PRE_FORECLOSURE_QUOTES.map((q) => [`${q.cite} — ${q.quote.slice(0, 40)}`, q] as const))('pre-foreclosure quote verbatim in § 44-3-232: %s', (_cite, q) => {
+    expect(q.fixture).toBe(GA_FILE)
+    expect(s232).toContain(squash(q.quote))
+  })
+
+  it('the numbers match the text', () => {
+    expect(GA_FEE_NOTICE_DAYS).toBe(30)
+    expect(sb406).toContain('Lot owners with 30 days from the receipt of the notice')
+    expect(GA_PRE_FORECLOSURE_DAYS).toBe(30)
+    expect(GA_FORECLOSURE_MIN_CENTS).toBe(200_000)
+    expect(s232).toContain('unless the amount of the lien is at least $2,000.00')
+    expect(GA_MAX_INTEREST_PERCENT).toBe(10)
+    expect(s232).toContain('At a rate not in excess of 10 percent per annum')
+    expect(GA_LIEN_LAPSE_YEARS).toBe(4)
+    expect(s232).toContain('four years after the assessment or installment first became due and payable')
+  })
+
+  it('SB 406 § 5’s 2027 text of § 44-3-232(c) is NOT loaded, so the notice stops on Jan 1, 2027', () => {
+    expect(GA_232C_REPLACED_ON).toBe('2027-01-01')
+    expect(fixture(GA_FILE)).toContain('@valid_until: 2027-01-01')
+    expect(fixture(GA_FILE)).toContain('44-3-232(c) and')
+    // The § 44-3-232 record carries only Section 5's opening line: nothing after "as follows:".
+    const t = fixture('ga-ocga-44-3-232-2026.txt')
+    const opening = 'by revising subsection (c) as follows:'
+    expect(t).toContain(opening)
+    expect(t.slice(t.indexOf(opening) + opening.length).trim()).toBe('')
   })
 })

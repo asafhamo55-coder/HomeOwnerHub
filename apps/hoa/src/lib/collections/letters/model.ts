@@ -41,24 +41,38 @@ import {
   FL_LATE_NOTICE_CITATION,
   FL_LATE_NOTICE_DAYS,
   FL_LATE_NOTICE_MAILING,
+  GA_2027_NOT_LOADED,
+  GA_232C_REPLACED_ON,
+  GA_ATTORNEY_FEES_NOTE,
+  GA_FEE_NOTICE_CITATION,
+  GA_FEE_NOTICE_DAYS,
+  GA_FEE_NOTICE_MAILING,
+  GA_FORECLOSURE_MIN_CENTS,
+  GA_LAPSE_WARN_DAYS,
+  GA_LIEN_LAPSE_YEARS,
+  GA_MAX_INTEREST_PERCENT,
+  GA_PRE_FORECLOSURE_CITATION,
+  GA_PRE_FORECLOSURE_DAYS,
+  GA_PRE_FORECLOSURE_MAILING,
   GENERIC_NOTE,
   TX_CITATION,
   TX_CURE_DAYS,
   TX_MAILING,
 } from './law'
+import { LATE_FEE_LAWS, statutoryCapCents } from '../../late-fees/law'
 
 export { usdCents }
 
 // ─── kinds ───────────────────────────────────────────────────────────
 
-export type LetterJurisdiction = 'FL' | 'CA' | 'TX' | 'generic'
+export type LetterJurisdiction = 'FL' | 'CA' | 'TX' | 'GA' | 'generic'
 
 export function letterJurisdiction(state: string | null | undefined): LetterJurisdiction {
   const s = (state ?? '').trim().toUpperCase()
-  return s === 'FL' || s === 'CA' || s === 'TX' ? s : 'generic'
+  return s === 'FL' || s === 'CA' || s === 'TX' || s === 'GA' ? s : 'generic'
 }
 
-export const LETTER_KINDS = ['past_due', 'fl_late_notice', 'fl_intent_to_lien', 'ca_pre_lien', 'tx_delinquency'] as const
+export const LETTER_KINDS = ['past_due', 'fl_late_notice', 'fl_intent_to_lien', 'ca_pre_lien', 'tx_delinquency', 'ga_fee_notice', 'ga_pre_foreclosure'] as const
 export type LetterKind = (typeof LETTER_KINDS)[number]
 
 export interface LetterMeta {
@@ -77,6 +91,14 @@ export interface LetterMeta {
   jurisdiction: LetterJurisdiction | null
   /** Fines are listed on the letter. */
   listsFines: boolean
+  /**
+   * The case stage printing moves to, when it differs from the one the
+   * event implies (statusImpliedBy). The GA fee notice records a
+   * "demand letter" but is the association's own first certified notice,
+   * not the attorney's: it moves the case to "Collection letter sent" at
+   * most, never to "With attorney".
+   */
+  stage?: CollectionStatus
 }
 
 export const LETTER_META: Record<LetterKind, LetterMeta> = {
@@ -128,6 +150,27 @@ export const LETTER_META: Record<LetterKind, LetterMeta> = {
     eventType: 'collection_letter_sent',
     mailing: TX_MAILING,
     jurisdiction: 'TX',
+    listsFines: true,
+  },
+  ga_fee_notice: {
+    label: 'Notice before attorney’s fees (SB 406, 30 days)',
+    title: 'NOTICE OF OUTSTANDING FINES AND DELINQUENT FEES',
+    citation: GA_FEE_NOTICE_CITATION,
+    description: 'Required before the association can collect or be awarded attorney’s fees. Gives the owner 30 days from receipt to pay.',
+    eventType: 'demand_letter_sent',
+    mailing: GA_FEE_NOTICE_MAILING,
+    jurisdiction: 'GA',
+    listsFines: true,
+    stage: 'collection_letter',
+  },
+  ga_pre_foreclosure: {
+    label: 'Notice before foreclosure (§ 44-3-232(c), 30 days)',
+    title: 'NOTICE OF AMOUNTS DUE BEFORE FORECLOSURE OF LIEN',
+    citation: GA_PRE_FORECLOSURE_CITATION,
+    description: 'Required at least 30 days before the association’s lien is foreclosed. Only for a lien of at least $2,000.',
+    eventType: 'lien_letter_sent',
+    mailing: GA_PRE_FORECLOSURE_MAILING,
+    jurisdiction: 'GA',
     listsFines: true,
   },
 }
@@ -255,6 +298,9 @@ export function waitingCheck(kind: LetterKind, f: LetterFigures, events: LetterE
     }
     return { ok: false, reason: 'No assessment is past due on this account, so there is no debt to notice under § 5660.', earliest: null }
   }
+  if (kind === 'ga_pre_foreclosure' && letterDate >= GA_232C_REPLACED_ON) {
+    return { ok: false, reason: GA_2027_NOT_LOADED, earliest: null }
+  }
   if (kind === 'fl_late_notice' && f.assessmentsCents === 0) {
     return { ok: false, reason: 'No assessment is past due on this account. A notice of late assessment is for a past-due assessment (§ 720.3085(3)(d)).', earliest: null }
   }
@@ -288,6 +334,12 @@ export function waitingCheck(kind: LetterKind, f: LetterFigures, events: LetterE
     }
     return { ok: true, note: `Notice of late assessment recorded on ${formatDay(ready[ready.length - 1]!)}, at least 30 days ago.` }
   }
+  if (kind === 'ga_pre_foreclosure') {
+    return {
+      ok: true,
+      note: `The lien may be foreclosed no sooner than 30 days after this notice is sent (${formatDay(addCalendarDays(letterDate, GA_PRE_FORECLOSURE_DAYS))} if sent on the letter date), and only for a lien of at least ${usdCents(GA_FORECLOSURE_MIN_CENTS)}.`,
+    }
+  }
   if (kind === 'ca_pre_lien') {
     return { ok: true, note: `A lien may be recorded no sooner than 30 days after this notice is mailed (${formatDay(addCalendarDays(letterDate, CA_PRE_LIEN_DAYS))} if mailed on the letter date).` }
   }
@@ -310,9 +362,74 @@ export function letterDeadline(kind: LetterKind, letterDate: string): LetterDead
       return { label: 'Earliest day to record a lien, if mailed on the letter date (30 days)', day: addCalendarDays(letterDate, CA_PRE_LIEN_DAYS) }
     case 'tx_delinquency':
       return { label: 'Cure period ends (45 days)', day: addCalendarDays(letterDate, TX_CURE_DAYS) }
+    case 'ga_fee_notice':
+      return { label: 'Earliest day attorney’s fees can be collected, if the owner receives it on the letter date (30 days from receipt)', day: addCalendarDays(letterDate, GA_FEE_NOTICE_DAYS) }
+    case 'ga_pre_foreclosure':
+      return { label: 'Earliest day to foreclose the lien, if sent on the letter date (30 days)', day: addCalendarDays(letterDate, GA_PRE_FORECLOSURE_DAYS) }
     case 'past_due':
       return null
   }
+}
+
+// ─── Georgia checks on the figures (BL-148) ─────────────────────────
+
+/** `day` plus whole years; Feb 29 falls back to Feb 28 in a common year. */
+export function addYears(day: string, years: number): string {
+  const [y, m, d] = day.split('-').map(Number) as [number, number, number]
+  const year = y + years
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+  const dd = m === 2 && d === 29 && !leap ? 28 : d
+  return `${String(year).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+}
+
+/**
+ * § 44-3-232(b)(1): a late charge may not exceed the greater of $10.00 or
+ * 10% of the assessment it is on. The ledger doesn't link a late fee to
+ * its assessment, so a late fee above the cap for the LARGEST assessment
+ * on the letter is flagged for the board to confirm (BL-147's caps). A
+ * flag, not a block: the fee could be on an assessment already paid and
+ * not listed.
+ */
+export function gaLateChargeNotes(f: LetterFigures): string[] {
+  if (f.lateFeeLines.length === 0) return []
+  const law = LATE_FEE_LAWS.GA
+  const largest = Math.max(0, ...f.assessmentLines.map((l) => l.amountCents))
+  const cap = statutoryCapCents(law, largest)
+  const over = f.lateFeeLines.filter((l) => l.amountCents > cap)
+  if (over.length === 0) return []
+  const one = over.length === 1
+  return [
+    `${one ? 'A late charge on this letter is' : `${over.length} late charges on this letter are`} above ${usdCents(cap)}, the most ${law.citation} allows on the largest assessment listed (the greater of $10.00 or 10%). Only authorized late charges belong on a Georgia notice: confirm ${one ? 'it' : 'them'} against your declaration, or waive the excess first.`,
+  ]
+}
+
+/**
+ * § 44-3-232(c): the lien lapses, as to an assessment and its late
+ * charges and interest, four years after it first became due. Lines whose
+ * lien has lapsed, or lapses within GA_LAPSE_WARN_DAYS, are named.
+ */
+export function gaLapseNotes(f: LetterFigures, letterDate: string): string[] {
+  const lines = [...f.assessmentLines, ...f.lateFeeLines].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  const warnBy = addCalendarDays(letterDate, GA_LAPSE_WARN_DAYS)
+  const lapsed = lines.filter((l) => addYears(l.dueDate, GA_LIEN_LAPSE_YEARS) <= letterDate)
+  const soon = lines.filter((l) => {
+    const on = addYears(l.dueDate, GA_LIEN_LAPSE_YEARS)
+    return on > letterDate && on <= warnBy
+  })
+  const out: string[] = []
+  if (lapsed.length > 0) {
+    const one = lapsed.length === 1
+    out.push(
+      `The lien has lapsed for ${one ? 'one charge' : `${lapsed.length} charges`} first due four or more years ago (the oldest due ${formatDay(lapsed[0]!.dueDate)}). The owner may still owe ${one ? 'it' : 'them'}, but the lien no longer secures ${one ? 'it' : 'them'} (§ 44-3-232(c)). Ask your attorney before relying on ${one ? 'it' : 'them'} in a foreclosure.`,
+    )
+  }
+  if (soon.length > 0) {
+    const one = soon.length === 1
+    out.push(
+      `The lien for ${one ? 'one charge' : `${soon.length} charges`} lapses soon, four years after ${one ? 'it was' : 'each was'} first due: the first on ${formatDay(addYears(soon[0]!.dueDate, GA_LIEN_LAPSE_YEARS))} (§ 44-3-232(c)).`,
+    )
+  }
+  return out
 }
 
 // ─── fields and BLANKs ───────────────────────────────────────────────
@@ -324,6 +441,8 @@ export const ENTERED_MONEY: Record<LetterKind, string[]> = {
   fl_intent_to_lien: ['interest', 'certifiedMail', 'otherCosts'],
   ca_pre_lien: ['collectionCosts', 'attorneyFees', 'interest'],
   tx_delinquency: [],
+  ga_fee_notice: [],
+  ga_pre_foreclosure: ['interest'],
 }
 
 export function letterFields(kind: LetterKind, input: LetterInput): CertificateField[] {
@@ -331,14 +450,30 @@ export function letterFields(kind: LetterKind, input: LetterInput): CertificateF
   const fields: CertificateField[] = [
     { key: 'associationName', label: 'Association name', kind: 'text', value: input.associationName?.trim() || null },
     { key: 'owners', label: 'Owner(s) of record', kind: 'text', value: owners.length > 0 ? owners.join('; ') : null },
-    {
+  ]
+  if (kind === 'ga_pre_foreclosure') {
+    // § 44-3-232(c): sent "both at the address of the lot and at any other
+    // address or addresses which the lot owner may have designated".
+    const home = [input.address?.trim(), input.unitNumber?.trim() ? `Unit ${input.unitNumber.trim()}` : null].filter(Boolean).join(', ')
+    fields.push(
+      { key: 'lotAddress', label: 'The lot’s address', kind: 'textarea', value: home || null, hint: 'The home’s street address, with city, state and ZIP.' },
+      {
+        key: 'designatedAddress',
+        label: 'Other address(es) the owner designated in writing',
+        kind: 'textarea',
+        value: null,
+        hint: 'Every other address the owner gave the association in writing. The notice goes to each one as well as the lot. Write “None” if there are none.',
+      },
+    )
+  } else {
+    fields.push({
       key: 'mailingAddress',
       label: 'Owner’s mailing address',
       kind: 'textarea',
       value: null,
       hint: 'The owner’s last address in the association’s records. If the owner lives at the home, write the home’s address.',
-    },
-  ]
+    })
+  }
   if (kind === 'fl_late_notice' || kind === 'fl_intent_to_lien') {
     fields.push(
       { key: 'parcel', label: 'Parcel (lot/block or parcel number)', kind: 'text', value: input.lotNumber?.trim() ? `Lot ${input.lotNumber.trim()}` : null, hint: 'From the plat or the county property appraiser.' },
@@ -384,6 +519,27 @@ export function letterFields(kind: LetterKind, input: LetterInput): CertificateF
       hint: 'Required if the association is subject to § 209.0062 or its dedicatory instruments require a payment plan offer (§ 209.0064(b)(2)). Otherwise write “Not applicable”.',
     })
   }
+  if (kind === 'ga_fee_notice') {
+    fields.push({
+      key: 'attorneyFees',
+      label: 'Itemized attorney’s fees claimed',
+      kind: 'textarea',
+      value: null,
+      hint: 'SB 406 § 7(f)(3): list each attorney’s fee the association claims, with its amount. Write “None claimed” if there are none yet. This list does not change the total.',
+    })
+  }
+  if (kind === 'ga_pre_foreclosure') {
+    fields.push(
+      { key: 'interest', label: 'Interest owed', kind: 'money', value: null, hint: 'Only if your declaration provides for interest (§ 44-3-232(b)). Enter 0 if none.' },
+      {
+        key: 'interestRate',
+        label: 'Interest rate (percent per year)',
+        kind: 'text',
+        value: null,
+        hint: `The rate in your declaration, at most ${GA_MAX_INTEREST_PERCENT} (§ 44-3-232(b)(2)). Enter 0 if none is charged.`,
+      },
+    )
+  }
   if (kind === 'past_due') {
     fields.push({ key: 'payBy', label: 'Please pay by', kind: 'text', value: null, hint: 'The date you ask the owner to pay by.' })
   }
@@ -411,12 +567,15 @@ export function parsePercent(s: string | undefined): number | null {
 /** Entries the board made that can't be printed as entered (beyond an empty BLANK). */
 export function letterProblems(kind: LetterKind, values: FieldValues): string[] {
   const out: string[] = []
-  if (kind === 'fl_late_notice' || kind === 'fl_intent_to_lien' || kind === 'ca_pre_lien') {
+  if (kind === 'fl_late_notice' || kind === 'fl_intent_to_lien' || kind === 'ca_pre_lien' || kind === 'ga_pre_foreclosure') {
     const raw = (values.interestRate ?? '').trim()
     const rate = parsePercent(raw)
     if (raw && rate === null) out.push('Enter the interest rate as a number, like 18 or 12.5.')
     if (kind === 'ca_pre_lien' && rate !== null && rate > CA_MAX_INTEREST_PERCENT) {
       out.push(`The interest rate can’t be above ${CA_MAX_INTEREST_PERCENT}% a year (§ 5650(b)(3)).`)
+    }
+    if (kind === 'ga_pre_foreclosure' && rate !== null && rate > GA_MAX_INTEREST_PERCENT) {
+      out.push(`The interest rate can’t be above ${GA_MAX_INTEREST_PERCENT}% a year (§ 44-3-232(b)(2)).`)
     }
   }
   if (kind === 'ca_pre_lien') {
@@ -490,6 +649,9 @@ export function buildLetter(input: LetterInput, kind: LetterKind, letterDate: st
     notes.push(`Assessments less than ${figures.delinquentAfterDays} days past due are not delinquent yet (§ 5650(b)) and are left off.`)
   }
   if (kind === 'past_due') notes.push(GENERIC_NOTE)
+  if (kind === 'ga_fee_notice') notes.push(GA_ATTORNEY_FEES_NOTE)
+  if (kind === 'ga_fee_notice' || kind === 'ga_pre_foreclosure') notes.push(...gaLateChargeNotes(figures))
+  if (kind === 'ga_pre_foreclosure') notes.push(...gaLapseNotes(figures, letterDate))
   return {
     kind,
     jurisdiction,
@@ -518,7 +680,11 @@ export function letterBlocked(letter: Letter, values: FieldValues, verified: boo
   if (blanks.length > 0) return 'Fill in every BLANK first.'
   const problems = letterProblems(letter.kind, values)
   if (problems.length > 0) return problems[0]!
-  if ((letterTotals(letter, values).totalCents ?? 0) <= 0) return 'The total owed is not above zero.'
+  const total = letterTotals(letter, values).totalCents ?? 0
+  if (total <= 0) return 'The total owed is not above zero.'
+  if (letter.kind === 'ga_pre_foreclosure' && total < GA_FORECLOSURE_MIN_CENTS) {
+    return `The total is ${usdCents(total)}. Georgia permits no foreclosure of the lien unless it is at least ${usdCents(GA_FORECLOSURE_MIN_CENTS)} (§ 44-3-232(c)), so this notice can’t be sent yet.`
+  }
   if (!verified) return 'Tick “I’ve verified these figures” first.'
   return null
 }
@@ -548,7 +714,7 @@ export function letterChargeIds(letter: Letter): string[] {
  * the attorney.
  */
 export function stageAfterPrint(kind: LetterKind, current: CollectionStatus): CollectionStatus | null {
-  const implied = statusImpliedBy(LETTER_META[kind].eventType)
+  const implied = LETTER_META[kind].stage ?? statusImpliedBy(LETTER_META[kind].eventType)
   if (!implied) return null
   return COLLECTION_STATUSES.indexOf(implied) > COLLECTION_STATUSES.indexOf(current) ? implied : null
 }
@@ -572,8 +738,9 @@ export function printedLetters(records: readonly PrintedLetterRecord[], timeZone
 
 /**
  * BL-130: the state law check on this letter, from the association's
- * stored state (not the letter's jurisdiction, which folds GA into
- * "generic"), the charge types the letter lists, and the case's history.
+ * stored state (not the letter's jurisdiction, which folds every state
+ * without letters of its own into "generic"), the charge types the letter
+ * lists, and the case's history.
  */
 export function letterLawCheck(
   input: Pick<LetterInput, 'state' | 'timeZone'>,

@@ -277,3 +277,74 @@ describe('collections letter: the print gate', () => {
     expect(res.ok).toBe(true)
   })
 })
+
+// ─── BL-148: the Georgia letters through the same two actions ────────
+
+const gaInput: LetterInput = {
+  ...txInput,
+  state: 'GA',
+  address: '9 Magnolia Way',
+  timeZone: 'America/New_York',
+  charges: [charge('a-q1', '2026-01-01', 1_800), charge('fine-1', '2026-05-01', 150, 'fine'), charge('legal-1', '2026-09-15', 400, 'collection_legal')],
+}
+const GA_FEE_VALUES = { mailingAddress: '9 Magnolia Way, Marietta GA', attorneyFees: 'Review, Sep 15: $400', signer: 'Pat Board, President' }
+
+function gaCtx(requests: LetterContext['requests'] = []): LetterContext {
+  return { input: gaInput, today: TODAY, collectionCase: { id: CASE, status: 'monitoring' }, events: [], requests }
+}
+
+function gaFeePayload(): LetterPayload {
+  const l = buildLetter(gaInput, 'ga_fee_notice', TODAY, [])
+  const t = letterTotals(l, GA_FEE_VALUES)
+  return {
+    version: 1,
+    kind: 'ga_fee_notice',
+    jurisdiction: 'GA',
+    caseId: CASE,
+    propertyId: PROPERTY,
+    unitId: UNIT,
+    draftedOn: TODAY,
+    values: blankValues(l, GA_FEE_VALUES),
+    chargeIds: letterChargeIds(l),
+    ledgerCents: t.ledgerCents,
+    enteredCents: t.enteredCents!,
+    totalCents: t.totalCents!,
+    lawFindings: ['ga_fee_notice_delivery'],
+    lawOverrides: [],
+  }
+}
+
+describe('Georgia letters (BL-148)', () => {
+  beforeEach(() => {
+    state.db = memorySupabase({ collection_cases: [{ id: CASE, organization_id: ORG, status: 'monitoring' }], audit_log: [], collection_events: [] })
+    state.proposed = []
+  })
+
+  it('the SB 406 fee notice listing attorney’s fees saves with no override: it is the notice', async () => {
+    state.ctx = gaCtx()
+    const res = await saveLetterToApprovals({ propertyId: PROPERTY, kind: 'ga_fee_notice', values: GA_FEE_VALUES, verified: true })
+    expect(res.ok).toBe(true)
+    const payload = state.proposed[0]!.payload as LetterPayload
+    expect(payload).toMatchObject({ kind: 'ga_fee_notice', jurisdiction: 'GA', lawFindings: ['ga_fee_notice_delivery'], lawOverrides: [] })
+    expect(state.db!.rows('audit_log')).toHaveLength(0)
+  })
+
+  it('a GA past-due letter listing attorney’s fees is still blocked without the notice', async () => {
+    state.ctx = gaCtx()
+    const res = await saveLetterToApprovals({ propertyId: PROPERTY, kind: 'past_due', values: { mailingAddress: 'x', payBy: 'Nov 30', signer: 'Pat Board' }, verified: true })
+    expect(res.ok).toBe(false)
+    expect(state.proposed).toHaveLength(0)
+  })
+
+  it('printing the approved fee notice records a demand letter, moves the case one rung, and audits ids only', async () => {
+    state.ctx = gaCtx([{ id: REQUEST, status: 'posted', proposedAt: '2026-10-19T12:00:00Z', decisionReason: null, error: null, payload: gaFeePayload(), printedAt: null }])
+    const res = await recordLetterPrinted({ propertyId: PROPERTY, approvalRequestId: REQUEST, verified: true })
+    expect(res.ok).toBe(true)
+    expect(state.db!.rows('collection_events')).toMatchObject([{ event_type: 'demand_letter_sent', occurred_on: TODAY }])
+    expect(state.db!.rows('collection_cases')[0]!.status).toBe('collection_letter')
+    const audit = state.db!.rows('audit_log')
+    expect(audit).toHaveLength(1)
+    expect(audit[0]!.metadata).toMatchObject({ kind: 'ga_fee_notice', jurisdiction: 'GA', approval_request_id: REQUEST })
+    expect(JSON.stringify(audit[0])).not.toMatch(/Magnolia|Owner A|Pat Board|Review/)
+  })
+})

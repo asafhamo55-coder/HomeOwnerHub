@@ -47,8 +47,45 @@
  * dedicatory instruments require one, and (3) gives at least 45 days to
  * cure.
  *
+ * GEORGIA (BL-148) — the Property Owners' Association Act snapshot
+ * (scripts/fixtures/state-law/ga-ocga-44-3-art6-2026.txt):
+ *   - Ga. L. 2026, SB 406 § 7, new subsection (f) — in force July 1,
+ *     2026: before collecting attorney's fees, (1) a written notice by
+ *     certified mail or statutory overnight delivery identifying the
+ *     outstanding fines or delinquent fees, (2) 30 days FROM RECEIPT to
+ *     pay, (3) an itemized list of the attorney's fees claimed.
+ *   - O.C.G.A. § 44-3-232(c), the text in force until January 1, 2027:
+ *     notice by certified mail or statutory overnight delivery, return
+ *     receipt requested, to the lot's address AND any address the owner
+ *     designated in writing, not less than 30 days before foreclosure;
+ *     the notice states the assessments due, the authorized late charges
+ *     and the interest rate; no foreclosure under $2,000.00; the lien
+ *     lapses four years after an assessment first became due.
+ *   - § 44-3-232(b)(1)–(2): late charge up to the greater of $10.00 or 10%,
+ *     interest up to 10% a year, each only to the extent the instrument
+ *     provides.
+ *   Georgia sets no statutory form wording, so the letters carry what the
+ *   statute requires in plain words and quote the statute verbatim
+ *   (GA_FEE_NOTICE_QUOTES, GA_PRE_FORECLOSURE_QUOTES; law.test.ts checks
+ *   every quote against the fixture). SB 406 § 5 rewrites § 44-3-232(c)
+ *   from January 1, 2027; that text is NOT in the fixtures, so the
+ *   pre-foreclosure notice can't be drafted on or after that day.
+ *
  * Every other state gets a plain past-due letter with no statutory claims.
  */
+
+import {
+  GA_232C_CONTENTS,
+  GA_232C_LAPSE,
+  GA_232C_MINIMUM,
+  GA_232C_NOTICE,
+  GA_232_INTEREST,
+  GA_SB406_FEES,
+  GA_SB406_ITEMIZED,
+  GA_SB406_NOTICE,
+  GA_SB406_RECEIPT,
+  type DriftCitation,
+} from '../../compliance/statute-drift'
 
 export const LETTER_DISCLAIMER =
   'This is general information, not legal advice. Check every figure against your books and the current statute, and ask your association’s attorney before sending a notice that leads to a lien.'
@@ -122,6 +159,50 @@ export const TX_CURE_DAYS = 45
 
 export const TX_MAILING =
   'Send by certified mail (§ 209.0064(b)). Without this notice the owner cannot be held liable for a collection agent’s fees.'
+
+// ─── Georgia SB 406 § 7 and § 44-3-232(c) (BL-148) ──────────────────
+
+export const GA_FEE_NOTICE_CITATION = 'Ga. L. 2026, SB 406 § 7 (new subsection (f))'
+export const GA_PRE_FORECLOSURE_CITATION = 'O.C.G.A. § 44-3-232(c)'
+
+/** SB 406 § 7(f)(2): "30 days from the receipt of the notice". */
+export const GA_FEE_NOTICE_DAYS = 30
+/** § 44-3-232(c): "Not less than 30 days after notice is sent". */
+export const GA_PRE_FORECLOSURE_DAYS = 30
+/** § 44-3-232(c): "unless the amount of the lien is at least $2,000.00". */
+export const GA_FORECLOSURE_MIN_CENTS = 200_000
+/** § 44-3-232(b)(2): "a rate not in excess of 10 percent per annum". */
+export const GA_MAX_INTEREST_PERCENT = 10
+/** § 44-3-232(c): the lien lapses "four years after the assessment or installment first became due and payable". */
+export const GA_LIEN_LAPSE_YEARS = 4
+/** Lines whose lien lapses within this many days of the letter date get a warning. */
+export const GA_LAPSE_WARN_DAYS = 180
+/** SB 406 § 5 replaces § 44-3-232(c) from this day; that text is not loaded. */
+export const GA_232C_REPLACED_ON = '2027-01-01'
+
+/** Printed on the fee notice under "What the law requires", verbatim. */
+export const GA_FEE_NOTICE_QUOTES: readonly DriftCitation[] = [GA_SB406_FEES, GA_SB406_NOTICE, GA_SB406_RECEIPT, GA_SB406_ITEMIZED]
+/** Printed on the pre-foreclosure notice, verbatim. */
+export const GA_PRE_FORECLOSURE_QUOTES: readonly DriftCitation[] = [GA_232C_NOTICE, GA_232C_CONTENTS, GA_232C_MINIMUM, GA_232C_LAPSE, GA_232_INTEREST]
+
+export const GA_FEE_NOTICE_BODY = (association: string) =>
+  `This is the written notice from ${association} under Georgia law (Ga. L. 2026, SB 406 § 7) identifying the outstanding fines and delinquent fees on your account. They are listed below. You have 30 days from the day you receive this notice to pay them.`
+
+export const GA_PRE_FORECLOSURE_BODY = (association: string) =>
+  `This is notice from ${association} under O.C.G.A. § 44-3-232(c). The amounts below are owed on your lot and are secured by the association’s lien. The association may foreclose that lien by court action no sooner than 30 days after this notice is sent. To pay, or to discuss your account, contact the association.`
+
+export const GA_FEE_NOTICE_MAILING =
+  'Send by certified mail or statutory overnight delivery to the lot owner (SB 406 § 7(f)(1)). The 30 days to pay run from the day the owner receives it, so keep the receipt. HomeownerHub has no certified-mail tracking field: add the tracking number and delivery date as a note on the collections case.'
+
+export const GA_PRE_FORECLOSURE_MAILING =
+  'Send by certified mail or statutory overnight delivery, return receipt requested, to the owner both at the lot’s address and at every other address the owner designated to the association in writing (§ 44-3-232(c)). The lien may be foreclosed no sooner than 30 days after it is sent. HomeownerHub has no certified-mail tracking field: add the tracking numbers as a note on the collections case.'
+
+/** On screen from the day the snapshot's § 44-3-232(c) stops being the law. */
+export const GA_2027_NOT_LOADED =
+  'From January 1, 2027, SB 406 § 5 replaces § 44-3-232(c). HomeownerHub hasn’t loaded the new text, so it can’t draft this notice on or after that day. Check with your association’s attorney.'
+
+export const GA_ATTORNEY_FEES_NOTE =
+  'Attorney’s fees can’t be collected until the owner has had 30 days from receiving this notice, and the owner must also get an itemized list of the attorney’s fees claimed (SB 406 § 7(f)(3)). Enter that list below, or “None claimed”.'
 
 // ─── generic ─────────────────────────────────────────────────────────
 
