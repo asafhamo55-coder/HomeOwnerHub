@@ -15,9 +15,20 @@ runs:
       with:
         version: 2.95.4
 
+    # Docker Hub sometimes answers image pulls with "toomanyrequests" (seen
+    # twice on 2026-10-26). Retry with a back-off instead of failing the run;
+    # images pulled by an earlier attempt are cached, so retries pull less.
     - name: Start Supabase
       shell: bash
-      run: supabase start
+      run: |
+        for attempt in 1 2 3; do
+          if supabase start; then exit 0; fi
+          echo "supabase start failed (attempt $attempt); retrying after $((attempt * 60))s"
+          supabase stop --no-backup || true
+          sleep $((attempt * 60))
+        done
+        echo "supabase start failed after 3 attempts"
+        exit 1
 
     - name: Replay schema from the manifest
       shell: bash
