@@ -58,17 +58,6 @@ The app itself stays at www.homeownerledger.com (OA-5 stays paused).
 3. In Vercel, project **homeownerhub-marketing** → **Settings → Domains**: add `www.homeownerledger.online` (no redirect). Wait for the green "Valid Configuration".
 4. Tell Claude it's done. Claude checks the site loads with a certificate and switches the site's canonical address to it.
 
-### OA-31 · Restore one SQL file on your Mac (if you didn't empty it on purpose)
-
-**Urgency:** Whenever
-
-**Why it matters:** at the end of the Oct 22 session the local copy of `docs/specs/2026-10-20-inbound-auth.sql` (the inbound sender-check SQL, already applied) was emptied. The emptying was never committed, so GitHub still has the full file. Claude's permissions don't allow it to discard local changes.
-
-**Steps:**
-
-1. In the Claude Code prompt in the repo, type `! git checkout -- docs/specs/2026-10-20-inbound-auth.sql`.
-2. Nothing to report back; Claude sees the file restored.
-
 ### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
 **Urgency:** Whenever
@@ -358,6 +347,19 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-31 · Restore one SQL file on your Mac (if you didn't empty it on purpose)
+
+**Done 2026-10-26:** Asaf restored the file with `git checkout`.
+
+**Urgency:** Whenever
+
+**Why it matters:** at the end of the Oct 22 session the local copy of `docs/specs/2026-10-20-inbound-auth.sql` (the inbound sender-check SQL, already applied) was emptied. The emptying was never committed, so GitHub still has the full file. Claude's permissions don't allow it to discard local changes.
+
+**Steps:**
+
+1. In the Claude Code prompt in the repo, type `! git checkout -- docs/specs/2026-10-20-inbound-auth.sql`.
+2. Nothing to report back; Claude sees the file restored.
 
 ### OA-29 · Give the app's Vercel build more memory (deploys are stuck)
 
