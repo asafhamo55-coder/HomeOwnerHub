@@ -41,6 +41,18 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-33 · Re-enter the Stripe test webhook secret
+
+**Urgency:** Soon
+
+**Why it matters:** the Stripe test suite now runs (checkout and subscription tests pass), but its 31 webhook tests skip. The `STRIPE_TEST_WEBHOOK_SECRET` GitHub secret holds a value that doesn't start with `whsec_`. Every webhook signing secret does, so a different value was probably pasted.
+
+**Steps:**
+
+1. In the Stripe dashboard (**Test mode**), open **Developers → Webhooks**, click the test endpoint, and reveal its **Signing secret**. It starts with `whsec_`.
+2. In a terminal in the repo, run `gh secret set STRIPE_TEST_WEBHOOK_SECRET` and paste it when asked. Never paste it into a file.
+3. Tell Claude. Claude reruns the suite and checks the webhook cases run.
+
 ### OA-32 · Download Georgia's proposed HOA rules (and optionally comment by Nov 2)
 
 **Urgency:** Soon
@@ -328,7 +340,7 @@ prices; review it before pitching.
 
 ### OA-6 · Add the Stripe test keys
 
-**Done 2026-10-26 (checked by Claude):** the `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_WEBHOOK_SECRET` GitHub secrets exist, and the Stripe sandbox suite was run. Steps 3–4 (save the test-mode customer portal; which mode the app uses) were not confirmed from here.
+**Done 2026-10-26 (checked by Claude):** the `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_WEBHOOK_SECRET` GitHub secrets exist, and the Stripe sandbox suite ran in test mode (checkout 19/19 and lifecycle 4/4 passed). The webhook cases skipped; see OA-33. Steps 3–4 (save the test-mode customer portal; which mode the app uses) were not confirmed from here.
 
 **Urgency:** Soon
 
