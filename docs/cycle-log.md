@@ -703,3 +703,22 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` โ
   - New: OA-30 (marketing domain) and OA-31 (restore the inbound-auth SQL file).
   - OA-9 now needs only the count query.
 - **next.md:** the deck rule (Asaf, 2026-10-22) is now in the start block, the standing rules and the cycle prompt.
+
+## 2026-10-26: limit reset, Georgia round 6, website redesign, roles
+
+- **Live:**
+  - 5ff18ba4 (14:58): BL-158 GA foreclosure-threshold panel.
+  - e9186eeb (16:02): BL-159 officer-change clock and the ยง 14-3-724 proxy quote.
+  - e1f040c1 (17:03): BL-161 complaint stay; BL-162/164 owners' rights, insurance-certificate request, 3-year financial packet.
+- **CI incidents:**
+  - Docker Hub `toomanyrequests` on `supabase start`, twice. Fixed with a retry and back-off in `.github/actions/local-supabase`.
+  - `docs/backlog.md` round-6 entries had only the id in bold, so the backlog-email test got empty titles. Titles now sit inside the bold.
+  - One integration flake: `approval-layer` "approve called twice" failed once and passed on rerun, with no approvals code changed. Watch it; debug if it recurs.
+- **Agent slip caught:** BL-162/164's typecheck missed TS2344 on `resident/records/new/page.tsx` (its worktree had no `.next` types). Fixed by removing the default on the page's props.
+- **Owner:**
+  - Verified done: OA-30 (marketing site live on www.homeownerledger.online) and OA-6 (Stripe test keys; checkout 19/19 and lifecycle 4/4 pass in test mode).
+  - New: OA-33 (the webhook secret isn't `whsec_`) and OA-32 (proposed 590-13 PDFs).
+  - Not visible from here: the env-var OAs (no project env), dashboard and DB items, and decisions.
+- **Merged, next deploy:** BL-155 GA Condominium Act (Art. 3 fixture) and BL-169 Art. 6 fixture refresh ("may be called").
+- **In flight (Sonnet, per owner):** BL-168 CPA/Attorney/Treasurer roles (M6) and BL-170 marketing redesign.
+- **Owner asks today:** Sonnet 5.5 is the default engine for agents; roles for CPA, attorney and treasurer; "lift the marketing site up dramatically".
