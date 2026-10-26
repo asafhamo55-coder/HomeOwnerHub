@@ -64,7 +64,7 @@ const policies = [
 
 export default function SecurityPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <PageHero

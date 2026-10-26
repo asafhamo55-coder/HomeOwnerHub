@@ -51,7 +51,7 @@ const planned = OTHER_HUBS_ENABLED
 
 export default function BlogPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <PageHero
@@ -94,7 +94,7 @@ export default function BlogPage() {
       <section className="pb-24">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+            <p className="eyebrow text-primary">
               On the editorial roadmap
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">

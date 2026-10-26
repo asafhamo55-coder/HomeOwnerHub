@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function TermsPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
       <PageHero eyebrow="Terms of service" title="Plain-English terms." />
 

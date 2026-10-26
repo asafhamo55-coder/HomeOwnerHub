@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function PrivacyPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
       <PageHero
         eyebrow="Privacy policy"

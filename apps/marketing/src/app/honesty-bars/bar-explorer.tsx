@@ -87,7 +87,7 @@ export function BarExplorer() {
     <section className="py-12">
       <div className="container-page">
         <div className="mb-6 flex items-center justify-between">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+          <p className="eyebrow text-primary">
             Click a bar to filter the workflow list
           </p>
           {activeBar !== 'all' && (
@@ -153,7 +153,7 @@ export function BarExplorer() {
         {/* Workflow list below */}
         <div className="mt-10 rounded-2xl border border-border/70 bg-surface p-6 md:p-8">
           <div className="mb-4 flex items-center justify-between">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+            <p className="eyebrow text-muted">
               {activeBar === 'all' ? 'All workflows' : `Workflows at Bar ${activeBar}`}
             </p>
             <span className="font-mono text-[11px] text-muted">

@@ -35,13 +35,13 @@ export default function RoadmapPage() {
   const planned = WORKFLOWS.filter((w) => w.status === 'planned').length
 
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <section className="relative overflow-hidden pt-32 pb-12">
         <div className="absolute inset-0 -z-10 bg-radial-spot" />
         <div className="container-page text-center">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+          <p className="eyebrow text-primary">
             Public roadmap
           </p>
           <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">

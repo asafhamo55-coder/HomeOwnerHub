@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Search, BookOpen, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -30,12 +30,19 @@ const QUERIES = [
 ]
 
 export function CovenantBrainDemo() {
+  // With "reduce motion" on, skip the typing loop and show the first answer.
+  const reduce = useReducedMotion()
   const [idx, setIdx] = useState(0)
   const [typed, setTyped] = useState('')
   const [phase, setPhase] = useState<'typing' | 'thinking' | 'answering' | 'rest'>('typing')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (reduce) {
+      setTyped(QUERIES[idx].q)
+      setPhase('rest')
+      return
+    }
     const current = QUERIES[idx]
     const target = current.q
     if (phase === 'typing') {
@@ -58,7 +65,7 @@ export function CovenantBrainDemo() {
     return () => {
       if (timer.current) clearTimeout(timer.current)
     }
-  }, [idx, typed, phase])
+  }, [idx, typed, phase, reduce])
 
   const current = QUERIES[idx]
 
@@ -87,6 +94,7 @@ export function CovenantBrainDemo() {
           {QUERIES.map((q, i) => (
             <button
               key={q.q}
+              aria-pressed={i === idx}
               onClick={() => {
                 setIdx(i)
                 setTyped('')

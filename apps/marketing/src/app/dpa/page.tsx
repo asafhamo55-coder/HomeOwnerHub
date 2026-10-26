@@ -14,7 +14,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function DpaPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
       <PageHero
         eyebrow="Data Processing Agreement"

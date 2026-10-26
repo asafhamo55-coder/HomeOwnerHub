@@ -86,14 +86,14 @@ export function ViolationDrafterLive() {
   const scenario = SCENARIOS[idx]
 
   return (
-    <section className="border-y border-border/60 bg-subtle/30 py-20 md:py-24" id="violation-drafter-demo">
+    <section className="section border-y border-border bg-surface" id="violation-drafter-demo">
       <div className="container-page">
         <header className="mb-12 md:flex md:items-end md:justify-between md:gap-12">
           <div className="max-w-xl">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-success">
+            <p className="eyebrow text-success">
               Live · Violation Drafter
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            <h2 className="t-h2 mt-4 text-foreground">
               Photo in. Letter drafted. Board approves in one click.
             </h2>
           </div>
