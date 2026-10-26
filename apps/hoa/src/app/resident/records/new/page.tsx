@@ -3,6 +3,7 @@ import { Home } from 'lucide-react'
 import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
 import { getResidentUnits } from '@/lib/resident'
 import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
+import { RECORDS_KIND_VALUES, type RecordsKind } from '@/lib/records-requests/law'
 import { RecordsRequestForm } from './RecordsRequestForm'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
@@ -13,8 +14,12 @@ export const dynamic = 'force-dynamic'
  * BL-123 (3): an owner asks to see association records. 404 until
  * RECORDS_REQUESTS_LIVE (packages/db/src/records-requests.ts).
  */
-export default async function NewRecordsRequestPage() {
+export default async function NewRecordsRequestPage(props: { searchParams?: Promise<{ kind?: string }> } = {}) {
   if (!RECORDS_REQUESTS_LIVE) notFound()
+  // ?kind= presets "Which records?" (BL-162: /resident/insurance links here
+  // with kind=insurance_certificate). Anything unknown is ignored.
+  const rawKind = (await props.searchParams)?.kind
+  const defaultKind = (RECORDS_KIND_VALUES as readonly string[]).includes(rawKind ?? '') ? (rawKind as RecordsKind) : undefined
   const units = await getResidentUnits()
 
   return (
@@ -34,7 +39,7 @@ export default async function NewRecordsRequestPage() {
         />
       ) : (
         <Panel className="space-y-4 p-5">
-          <RecordsRequestForm units={units} />
+          <RecordsRequestForm units={units} defaultKind={defaultKind} />
         </Panel>
       )}
     </div>

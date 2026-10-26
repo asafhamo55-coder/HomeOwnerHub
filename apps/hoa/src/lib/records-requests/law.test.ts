@@ -26,6 +26,15 @@ import {
   GA_RECORDS_ON_NOTICE,
   GA_RECORDS_PARTICULARITY,
   GA_RECORDS_WITH_PURPOSE,
+  GA_2027_ACCOUNTING_SENTENCE,
+  GA_2027_INSURANCE,
+  GA_2027_RECORDS,
+  GA_2027_RECORDS_CITATIONS,
+  GA_2027_RECORDS_FROM,
+  GA_PROPER_PURPOSE_ASK_ATTORNEY,
+  GA_PROPOSED_RULES_CONFIRM,
+  RECORDS_KINDS,
+  RECORDS_KIND_VALUES,
   addBusinessDays,
   composeRecordsRequest,
   dueDayOf,
@@ -87,7 +96,7 @@ describe('citations are verbatim from the fixtures', () => {
     expect(new Set(GA_RECORDS_CITATIONS.map((c) => c.quote)).size).toBe(GA_RECORDS_CITATIONS.length)
     // Everything the Georgia branch and the categories panel can show is in the checked list.
     const shown = [
-      ...['governing', 'minutes', 'financial', 'owner_list', 'contracts', 'other'].flatMap(
+      ...['governing', 'minutes', 'financial', 'owner_list', 'contracts', 'insurance_certificate', 'other'].flatMap(
         (k) => recordsDeadline({ state: 'GA', kind: k as never, period: 'current', receivedDay: '2026-10-20' }).citations,
       ),
       GA_RECORDS_CATEGORIES.onNotice.rule,
@@ -98,6 +107,27 @@ describe('citations are verbatim from the fixtures', () => {
       GA_RECORDS_CATEGORIES.withPurpose.restrictions,
     ]
     for (const c of shown) expect(GA_RECORDS_CITATIONS).toContain(c)
+  })
+
+  it('Georgia 2027: § 43-17A-7(1) and (2), word for word, inside § 43-17A-7 of the SB 406 text', () => {
+    const t = fixture('ga-sb406-2026-2027-text.txt')
+    const start = t.indexOf('\n43-17A-7.\n')
+    const end = t.indexOf('\n43-17A-8.\n')
+    expect(start).toBeGreaterThan(0)
+    expect(end).toBeGreaterThan(start)
+    const s = t.slice(start, end)
+    expect(GA_2027_RECORDS_CITATIONS).toEqual([GA_2027_RECORDS, GA_2027_INSURANCE])
+    expect(s).toContain(`(1) ${GA_2027_RECORDS.quote}`)
+    expect(s).toContain(`(2) ${GA_2027_INSURANCE.quote}`)
+    expect(GA_2027_RECORDS.quote.endsWith(` ${GA_2027_ACCOUNTING_SENTENCE}`)).toBe(true)
+    expect(GA_2027_RECORDS.cite).toBe('O.C.G.A. § 43-17A-7(1)')
+    expect(GA_2027_INSURANCE.cite).toBe('O.C.G.A. § 43-17A-7(2)')
+    // It sets no day count, so no date is ever taken from it.
+    expect(s).not.toMatch(/business days|within \d+ days/i)
+    expect(t).toContain('this Act shall become effective on January 1, 2027.')
+    expect(GA_2027_RECORDS_FROM).toBe('2027-01-01')
+    // The proposed 590-13 rules are not loaded: no number from them is shown.
+    expect(GA_PROPOSED_RULES_CONFIRM).not.toMatch(/\d+ (business )?days/)
   })
 
   it('Georgia: the five business days in the code match the words', () => {
@@ -197,6 +227,57 @@ describe('recordsDeadline', () => {
       expect(d.dueDate).toBeNull()
       expect(d.citations).toEqual([GA_RECORDS_ON_NOTICE, GA_RECORDS_WITH_PURPOSE])
     }
+  })
+
+  it('GA before 2027: the insurance certificate is not named in § 14-3-1602, so no date; the 2027 right is mentioned, not cited', () => {
+    const d = deadline('GA', 'insurance_certificate')
+    expect(d.dueDate).toBeNull()
+    expect(d.citations).toEqual([GA_RECORDS_ON_NOTICE, GA_RECORDS_WITH_PURPOSE])
+    expect(d.message).toContain('From Jan 1, 2027')
+    expect(d.message).toContain('Georgia nonprofit corporation')
+  })
+
+  it('GA before 2027 is unchanged: nothing cites § 43-17A-7 on Dec 31, 2026', () => {
+    for (const kind of RECORDS_KIND_VALUES) {
+      const d = recordsDeadline({ state: 'GA', kind, period: 'current', receivedDay: '2026-12-31' })
+      expect(d.citations).not.toContain(GA_2027_RECORDS)
+      expect(d.citations).not.toContain(GA_2027_INSURANCE)
+      expect(d.message).not.toContain(GA_PROPOSED_RULES_CONFIRM)
+    }
+  })
+
+  it('GA from 2027: § 43-17A-7(1) alongside § 14-3-1602 for every kind, the Nonprofit Code date kept, 590-13 a Confirm item only', () => {
+    const on = (kind: (typeof RECORDS_KIND_VALUES)[number]) =>
+      recordsDeadline({ state: 'GA', kind, period: 'current', receivedDay: '2027-01-04' })
+    for (const kind of ['governing', 'minutes', 'financial', 'owner_list'] as const) {
+      const d = on(kind)
+      expect(d.dueDate).toBe('2027-01-11')
+      expect(d.citations[0]).toBe(GA_2027_RECORDS)
+      expect(d.citations.slice(1)).toEqual(recordsDeadline({ state: 'GA', kind, period: 'current', receivedDay: '2026-10-20' }).citations)
+      expect(d.message).toContain('whether or not the association is incorporated')
+      expect(d.message).toContain(GA_PROPOSED_RULES_CONFIRM)
+    }
+    expect(on('financial').message).toContain('3-year financial packet')
+    expect(on('financial').message).toContain(GA_PROPER_PURPOSE_ASK_ATTORNEY)
+    expect(on('governing').message).not.toContain(GA_PROPER_PURPOSE_ASK_ATTORNEY)
+    expect(on('contracts').dueDate).toBeNull()
+    expect(on('contracts').citations[0]).toBe(GA_2027_RECORDS)
+  })
+
+  it('GA from 2027: the insurance certificate cites § 43-17A-7(2) only, with no date', () => {
+    const d = recordsDeadline({ state: 'GA', kind: 'insurance_certificate', period: 'current', receivedDay: '2027-01-01' })
+    expect(d).toMatchObject({ dueDate: null, citations: [GA_2027_INSURANCE] })
+    expect(d.message).toContain('sets no number of days')
+  })
+
+  it('the insurance certificate is a form choice and round-trips', () => {
+    expect(RECORDS_KINDS.map((k) => k.value)).toEqual([...RECORDS_KIND_VALUES].sort((a, b) =>
+      RECORDS_KINDS.findIndex((k) => k.value === a) - RECORDS_KINDS.findIndex((k) => k.value === b),
+    ))
+    expect(new Set(RECORDS_KINDS.map((k) => k.value))).toEqual(new Set(RECORDS_KIND_VALUES))
+    const { subject, description } = composeRecordsRequest({ kind: 'insurance_certificate', period: 'current', format: 'electronic', details: 'For my HO-6 agent.' })
+    expect(subject).toBe('Records request: Insurance certificate')
+    expect(parseRecordsRequest(description).kind).toBe('insurance_certificate')
   })
 
   it('an unreadable received day is "check your bylaws"', () => {

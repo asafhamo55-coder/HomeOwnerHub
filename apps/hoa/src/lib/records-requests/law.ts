@@ -39,6 +39,8 @@
  * time zone, so readers take `.slice(0, 10)` and need no zone.
  */
 
+import { GA_OWNER_RIGHTS_FROM, GA_OWNER_RIGHT_INSURANCE, GA_OWNER_RIGHT_RECORDS } from '../owner-rights/law'
+
 // ─── The request ────────────────────────────────────────────────────
 
 export const RECORDS_CATEGORY = 'records_request'
@@ -46,7 +48,25 @@ export const RECORDS_CATEGORY = 'records_request'
 /** What the writes return while RECORDS_REQUESTS_LIVE is off. */
 export const RECORDS_NOT_LIVE = 'Records requests aren’t available yet.'
 
-export type RecordsKind = 'owner_list' | 'financial' | 'minutes' | 'contracts' | 'governing' | 'other'
+export type RecordsKind =
+  | 'owner_list'
+  | 'financial'
+  | 'minutes'
+  | 'contracts'
+  | 'governing'
+  | 'insurance_certificate'
+  | 'other'
+
+/** Every kind, in the order zod and the form accept them. */
+export const RECORDS_KIND_VALUES = [
+  'owner_list',
+  'financial',
+  'minutes',
+  'contracts',
+  'governing',
+  'insurance_certificate',
+  'other',
+] as const satisfies readonly RecordsKind[]
 export type RecordsPeriod = 'current' | 'prior' | 'both'
 export type RecordsFormat = 'inspect' | 'electronic' | 'paper'
 
@@ -56,6 +76,7 @@ export const RECORDS_KINDS: ReadonlyArray<{ value: RecordsKind; label: string }>
   { value: 'owner_list', label: 'Owner list (membership roster)' },
   { value: 'contracts', label: 'Contracts and invoices' },
   { value: 'governing', label: 'Governing documents (declaration, bylaws, rules)' },
+  { value: 'insurance_certificate', label: 'Certificate of insurance' },
   { value: 'other', label: 'Something else' },
 ]
 
@@ -81,6 +102,7 @@ export const KIND_SHORT: Record<RecordsKind, string> = {
   minutes: 'Meeting minutes',
   contracts: 'Contracts and invoices',
   governing: 'Governing documents',
+  insurance_certificate: 'Insurance certificate',
   other: 'Other records',
 }
 
@@ -318,6 +340,33 @@ export const GA_RECORDS_CITATIONS: readonly StatuteCitation[] = [
   GA_RECORDS_RESTRICTIONS,
 ]
 
+// Georgia from 2027-01-01, O.C.G.A. § 43-17A-7(1)–(2) (SB 406; ga-sb406-2026-2027-text.txt).
+// For every Georgia owners' association, incorporated or not. The quotes
+// live in lib/owner-rights/law.ts (the resident rights page shows them too).
+
+export const GA_2027_RECORDS: StatuteCitation = { cite: GA_OWNER_RIGHT_RECORDS.cite, quote: GA_OWNER_RIGHT_RECORDS.quote }
+export const GA_2027_INSURANCE: StatuteCitation = { cite: GA_OWNER_RIGHT_INSURANCE.cite, quote: GA_OWNER_RIGHT_INSURANCE.quote }
+
+/** The sentence of (1) that defines the accounting records (the financial packet quotes it; law.test.ts checks it). */
+export const GA_2027_ACCOUNTING_SENTENCE =
+  'Such accounting records shall be the finalized balance sheet, budget, profit and loss statements, and bank statements for the past three years;'
+
+/** The 2027 quotes, checked against ga-sb406-2026-2027-text.txt. */
+export const GA_2027_RECORDS_CITATIONS: readonly StatuteCitation[] = [GA_2027_RECORDS, GA_2027_INSURANCE]
+
+/** The day § 43-17A-7 takes effect; requests received from then on cite it. */
+export const GA_2027_RECORDS_FROM = GA_OWNER_RIGHTS_FROM
+
+/**
+ * BL-160's proposed Chapter 590-13 rules are not final and their text is not
+ * in the repo, so no day count from them is shown: a Confirm item only.
+ */
+export const GA_PROPOSED_RULES_CONFIRM =
+  'Confirm: the Secretary of State has proposed rules (Chapter 590-13) that may set a time to answer records requests. They are not final; check them before you rely on the date shown.'
+
+export const GA_PROPER_PURPOSE_ASK_ATTORNEY =
+  'Ask your attorney whether § 43-17A-7(1) removes the Nonprofit Code’s proper-purpose requirement for these records. HomeownerHub doesn’t decide this.'
+
 export const CHECK_BYLAWS =
   'The deadline for answering a records request in this state isn’t loaded in HomeownerHub. Check your bylaws and governing documents, and ask your association’s attorney if unsure.'
 
@@ -462,7 +511,43 @@ const GA_CORP_ONLY =
 const GA_WHEN =
   'Georgia: an owner may inspect and copy on a date at least five business days after giving written notice, at a reasonable time and location you specify. The date shown is the earliest; be ready by then, or by the later date the owner asked for.'
 
+const GA_INSURANCE_FROM_2027 =
+  'From Jan 1, 2027, § 43-17A-7(2) gives every Georgia owner the right to a copy of the association’s certificate of insurance on written demand.'
+
+const GA_2027_INTRO =
+  'Georgia, from 2027: § 43-17A-7(1) gives every owner the right to inspect and obtain copies of the association’s records on written demand, whether or not the association is incorporated. It sets no number of days.'
+
+const GA_2027_PACKET =
+  'For accounting records that means the finalized balance sheet, budget, profit and loss statements and bank statements for the past three years: open the 3-year financial packet.'
+
+/**
+ * Georgia. Before 2027-01-01 the Nonprofit Code rule alone (BL-152,
+ * unchanged). From then on § 43-17A-7 is cited alongside it for every
+ * Georgia association; the date shown is still the Nonprofit Code's, the
+ * only loaded text with a day count.
+ */
 function gaRecordsDeadline(kind: RecordsKind | null, receivedDay: string): RecordsDeadline {
+  const base = gaNonprofitRecordsDeadline(kind, receivedDay)
+  if (receivedDay < GA_2027_RECORDS_FROM) {
+    return kind === 'insurance_certificate' ? { ...base, message: `${GA_INSURANCE_FROM_2027} ${base.message}` } : base
+  }
+  if (kind === 'insurance_certificate') {
+    return {
+      dueDate: null,
+      message: `Georgia: on written demand, an owner has the right to a copy of the association’s certificate of insurance for the insurance it holds for the owner’s benefit (§ 43-17A-7(2)). The statute sets no number of days; answer promptly. ${GA_PROPOSED_RULES_CONFIRM}`,
+      citations: [GA_2027_INSURANCE],
+    }
+  }
+  const extra = kind === 'financial' ? ` ${GA_2027_PACKET} ${GA_PROPER_PURPOSE_ASK_ATTORNEY}` : ''
+  return {
+    dueDate: base.dueDate,
+    message: `${GA_2027_INTRO}${extra} The Nonprofit Code also applies: ${base.message} ${GA_PROPOSED_RULES_CONFIRM}`,
+    citations: [GA_2027_RECORDS, ...base.citations],
+  }
+}
+
+/** BL-152: O.C.G.A. § 14-3-1602, for an association incorporated as a Georgia nonprofit corporation. */
+function gaNonprofitRecordsDeadline(kind: RecordsKind | null, receivedDay: string): RecordsDeadline {
   const due = addBusinessDays(receivedDay, GA_RECORDS_NOTICE_BUSINESS_DAYS)
   const purpose = [GA_RECORDS_WITH_PURPOSE, GA_RECORDS_PARTICULARITY, GA_RECORDS_GOOD_FAITH, GA_RECORDS_RESTRICTIONS]
   switch (kind) {

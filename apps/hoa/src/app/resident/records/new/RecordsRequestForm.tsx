@@ -5,15 +5,18 @@ import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
 import { Alert, Button, Field, Select, Textarea, useToast } from '@homeowner-portal/ui'
 import { createRecordsRequest, type CreateRecordsRequestInput } from '@/lib/records-requests/actions'
-import { RECORDS_FORMATS, RECORDS_KINDS, RECORDS_PERIODS } from '@/lib/records-requests/law'
+import { RECORDS_FORMATS, RECORDS_KINDS, RECORDS_PERIODS, type RecordsKind } from '@/lib/records-requests/law'
 import type { ResidentUnit } from '@/lib/resident'
 
-export function RecordsRequestForm({ units }: { units: ResidentUnit[] }) {
+export function RecordsRequestForm({ units, defaultKind }: { units: ResidentUnit[]; defaultKind?: RecordsKind }) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  // BL-162: the insurance certificate has no "which years"; it files as the current year.
+  const [kind, setKind] = useState<string>(defaultKind ?? '')
+  const insurance = kind === 'insurance_certificate'
 
   function handleSubmit(formData: FormData) {
     setError(null)
@@ -21,7 +24,7 @@ export function RecordsRequestForm({ units }: { units: ResidentUnit[] }) {
     const input = {
       unitId: String(formData.get('unit_id') ?? ''),
       kind: String(formData.get('kind') ?? ''),
-      period: String(formData.get('period') ?? ''),
+      period: insurance ? 'current' : String(formData.get('period') ?? ''),
       format: String(formData.get('format') ?? ''),
       details: String(formData.get('details') ?? '').trim(),
     } as CreateRecordsRequestInput
@@ -59,7 +62,7 @@ export function RecordsRequestForm({ units }: { units: ResidentUnit[] }) {
       )}
 
       <Field label="Which records?" required error={fieldErrors.kind}>
-        <Select name="kind" placeholder="Choose one…">
+        <Select name="kind" placeholder="Choose one…" defaultValue={defaultKind} onValueChange={setKind}>
           {RECORDS_KINDS.map((k) => (
             <option key={k.value} value={k.value}>
               {k.label}
@@ -68,15 +71,17 @@ export function RecordsRequestForm({ units }: { units: ResidentUnit[] }) {
         </Select>
       </Field>
 
-      <Field label="Which years?" required error={fieldErrors.period}>
-        <Select name="period" placeholder="Choose one…">
-          {RECORDS_PERIODS.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      {insurance ? null : (
+        <Field label="Which years?" required error={fieldErrors.period}>
+          <Select name="period" placeholder="Choose one…">
+            {RECORDS_PERIODS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
 
       <Field label="Preferred format" required error={fieldErrors.format}>
         <Select name="format" placeholder="Choose one…">
@@ -92,9 +97,18 @@ export function RecordsRequestForm({ units }: { units: ResidentUnit[] }) {
         label="What do you need?"
         required
         error={fieldErrors.details}
-        hint="For example “The 2025 bank statements and the reserve study”. At least 10 characters."
+        hint={
+          insurance
+            ? 'For example “A copy of the master policy certificate for my insurance agent”. At least 10 characters.'
+            : 'For example “The 2025 bank statements and the reserve study”. At least 10 characters.'
+        }
       >
-        <Textarea name="details" rows={5} maxLength={4000} />
+        <Textarea
+          name="details"
+          rows={5}
+          maxLength={4000}
+          defaultValue={defaultKind === 'insurance_certificate' ? 'Please send me a copy of the association’s certificate of insurance.' : undefined}
+        />
       </Field>
 
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">

@@ -12,6 +12,7 @@ import {
   type ResidentDocument,
 } from '@/lib/resident-documents/group'
 import { residentDocumentHref } from '@/lib/resident-documents/visibility'
+import { loadResidentRightsScope } from '@/lib/owner-rights/load'
 import { IconTile, Panel, RowGroup, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
 
 export const metadata = { title: 'Documents' }
@@ -40,7 +41,18 @@ export default async function ResidentDocumentsPage({
   if (!org) return <NoOrgSelected href="/resident" />
 
   const supabase = await getSupabaseServerClient()
-  const res = await tryLoad('association documents', () => fetchResidentDocuments(supabase, org.id))
+  // BL-164: a Georgia association's owners also get the rights page link.
+  // A failed state read only hides the link.
+  const [res, rights] = await Promise.all([
+    tryLoad('association documents', () => fetchResidentDocuments(supabase, org.id)),
+    loadResidentRightsScope(org.id).catch(() => ({ ok: false }) as const),
+  ])
+  const rightsLink =
+    rights.ok && rights.georgia ? (
+      <Button asChild variant="ghost" size="sm">
+        <Link href="/resident/rights">Your rights as an owner</Link>
+      </Button>
+    ) : null
 
   const header = (
     <ScreenHeader title="Documents" subtitle="Your association’s governing documents, always the current version." />
@@ -142,6 +154,7 @@ export default async function ResidentDocumentsPage({
           <Button asChild variant="ghost" size="sm">
             <Link href="/resident/insurance">Association insurance</Link>
           </Button>
+          {rightsLink}
         </div>
       </Panel>
     </div>
