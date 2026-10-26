@@ -108,6 +108,8 @@ function sectionFor(c: DriftCitation): string {
     if (c.cite.startsWith('O.C.G.A. § 44-3-232(c)')) return ga232c2027
     if (c.cite.startsWith('O.C.G.A. § 43-17A-1(')) return ch17A(1)
     if (c.cite.startsWith('O.C.G.A. § 43-17A-8(')) return ch17A(8)
+    if (c.cite.startsWith('O.C.G.A. § 43-17A-5(')) return ch17A(5)
+    if (c.cite.startsWith('Ga. L. 2026, SB 406 § 9')) return between(sb406In2027, '=== SECTION 9.', '\n=== ')
   }
   if (c.cite.startsWith('Cal. Civ. Code § 5850')) return caSection('5850')
   if (c.cite.startsWith('Cal. Civ. Code § 5855')) return caSection('5855')

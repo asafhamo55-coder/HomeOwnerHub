@@ -42,10 +42,19 @@
  *        (B)(ii), and SB 406 § 9(a) (BL-149, the registration bar: a
  *        warning before Jan 1, 2027, a block from that day, on fines,
  *        letters that list fines or fees, and liens).
+ *        BL-161: § 43-17A-5(a)(1), (c), (d) and § 9(a) from the 2027 text —
+ *        the automatic stay while a resident's Secretary of State complaint
+ *        runs (a warning before Jan 1, 2027, a block from that day, on fines
+ *        and letters that list fines or fees for that home).
  *
- * No `@/` imports: the collections letter payload (proposal.ts), which the
+ * No `@/` imports (the one relative import, ../ga-complaints/model, is
+ * dependency-free too): the collections letter payload (proposal.ts), which the
  * approvals inbox loads under tests/integration, reads the override codes.
  */
+
+import { complaintStayOn, gaComplaintStayBlocks, type GaComplaintStayGate } from '../ga-complaints/model'
+
+export type { GaComplaintStayGate }
 
 // ─── citations ───────────────────────────────────────────────────────
 
@@ -290,6 +299,38 @@ export const GA_17A8_NO_REFUSAL: DriftCitation = {
   fixture: GA_SB406_2027_FILE,
 }
 
+/** BL-161: the automatic stay when a resident files a complaint with the Secretary of State. */
+export const GA_17A5_STAY: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-5(c) (Ga. L. 2026, SB 406 § 2, from January 1, 2027)',
+  quote:
+    'The filing of a complaint under this subsection shall act as an automatic stay prohibiting the respondent from collecting or attempting to collect from the complainant any fines or fees that are the subject of the complaint or related to the subject of the complaint.',
+  fixture: GA_SB406_2027_FILE,
+}
+export const GA_17A5_STAY_ENDS: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-5(c) (Ga. L. 2026, SB 406 § 2, from January 1, 2027)',
+  quote:
+    "Such automatic stay shall expire upon the rendering of the hearing officer's conclusions following the hearing; provided, however, that the hearing officer shall be authorized to extend such stay for 15 days after the rendering of his or her conclusions following the hearing.",
+  fixture: GA_SB406_2027_FILE,
+}
+export const GA_17A5_COMPLAINT: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-5(a)(1) (Ga. L. 2026, SB 406 § 2, from January 1, 2027)',
+  quote:
+    "Any person residing in an owners' development claiming that he or she has been damaged by such owners' association's action or inaction may file a complaint with the Secretary of State, who shall appoint a hearing officer to conduct the proceedings.",
+  fixture: GA_SB406_2027_FILE,
+}
+export const GA_17A5_FEE: DriftCitation = {
+  cite: 'O.C.G.A. § 43-17A-5(d) (Ga. L. 2026, SB 406 § 2, from January 1, 2027)',
+  quote:
+    'The nonprevailing party in a hearing conducted under this Code section shall be required to pay an administrative service fee of $100.00 to the Secretary of State by order of the Secretary of State.',
+  fixture: GA_SB406_2027_FILE,
+}
+/** SB 406 § 9(a), from the 2027 text (the same words as the registration fixture's). */
+export const GA_SB406_2027_IN_FORCE: DriftCitation = {
+  cite: 'Ga. L. 2026, SB 406 § 9(a)',
+  quote: 'Except as provided in subsection (b) of this section, this Act shall become effective on January 1, 2027.',
+  fixture: GA_SB406_2027_FILE,
+}
+
 /** Every quote this module can show — what statute-drift.test.ts checks against the fixtures. */
 export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
   CA_5850_CAP,
@@ -329,6 +370,11 @@ export const ALL_DRIFT_CITATIONS: readonly DriftCitation[] = [
   GA_17A1_SPECIFIC,
   GA_17A8_ORDER,
   GA_17A8_NO_REFUSAL,
+  GA_17A5_STAY,
+  GA_17A5_STAY_ENDS,
+  GA_17A5_COMPLAINT,
+  GA_17A5_FEE,
+  GA_SB406_2027_IN_FORCE,
 ]
 
 /** SB 406 § 9(a): the registration bar is in force from this day (BL-149). */
@@ -402,6 +448,7 @@ export const DRIFT_CODES = [
   'ga_attorney_fees_receipt',
   'ga_foreclosure_notice_delivery',
   'ga_payment_order',
+  'ga_complaint_stay',
 ] as const
 export type DriftCode = (typeof DRIFT_CODES)[number]
 
@@ -546,6 +593,32 @@ function gaRegistrationFinding(
   return { ...finding(code, live ? 'block' : 'warn', message, citations), link: { ...GA_REGISTRATION_KIT } }
 }
 
+// ─── Georgia complaint stay (BL-161) ────────────────────────────────
+
+/**
+ * A Secretary of State complaint recorded for this unit whose stay runs on
+ * `day` (or a record that can't be verified): a warning before Jan 1,
+ * 2027, a block from that day (override: attorney advised only, audited by
+ * the caller). The app can't tell which fines or fees relate to the
+ * complaint, so it holds back all of them for the unit.
+ */
+function gaComplaintStayFinding(gate: GaComplaintStayGate, day: string, what: string): DriftFinding | null {
+  const stay = complaintStayOn(gate, day)
+  if (stay.kind === 'none') return null
+  const live = gaComplaintStayBlocks(day)
+  const standing =
+    stay.kind === 'unverified'
+      ? 'The Secretary of State complaint record in HomeownerHub can’t be verified, so a stay can’t be ruled out for this home.'
+      : `A complaint with the Georgia Secretary of State is recorded for this home (filed ${stay.filedOn}), and its automatic stay ${
+          stay.lastDay === null ? 'runs until the hearing officer’s conclusions are recorded' : `runs through ${stay.lastDay}`
+        }.`
+  const rule = 'While the stay runs, the association may not collect or try to collect from the complainant fines or fees that are the subject of the complaint or related to it.'
+  const message = live
+    ? `${standing} ${rule} HomeownerHub can’t tell which charges relate to the complaint, so this blocks ${what}. Record the conclusions on the collections case when the hearing officer renders them.`
+    : `${standing} From January 1, 2027, ${rule.charAt(0).toLowerCase()}${rule.slice(1)} Before then this is a warning only; from that day it will block ${what}.`
+  return finding('ga_complaint_stay', live ? 'block' : 'warn', message, [GA_17A5_STAY, GA_17A5_STAY_ENDS, GA_SB406_2027_IN_FORCE])
+}
+
 // ─── fines ───────────────────────────────────────────────────────────
 
 /** hoa_violations.fine_amount (dollars, numeric — may arrive as a string) to cents; null when unset or unreadable. */
@@ -588,6 +661,8 @@ export interface FineCheckInput {
   hearing?: FineHearingFacts | null
   /** BL-149: Georgia only. undefined = not loaded (nothing checked). */
   gaRegistration?: GaRegistrationGate
+  /** BL-161: Georgia only, the violation's home, checked on `today`. undefined = not loaded (nothing checked). */
+  gaComplaintStay?: GaComplaintStayGate & { today: string }
 }
 
 /** What a hearing record still lacks for the FL committee rule; [] = it meets it. */
@@ -761,6 +836,8 @@ export function checkFine(input: FineCheckInput): DriftCheck {
   } else if (state === 'GA') {
     const reg = input.gaRegistration ? gaRegistrationFinding('ga_unregistered_fine', input.gaRegistration, 'levying this fine') : null
     if (reg) findings.push(reg)
+    const stay = input.gaComplaintStay ? gaComplaintStayFinding(input.gaComplaintStay, input.gaComplaintStay.today, 'levying this fine') : null
+    if (stay) findings.push(stay)
     findings.push(
       finding(
         'ga_fine_instrument',
@@ -803,6 +880,8 @@ export interface LetterCheckInput {
   printed: readonly PrintedLetter[]
   /** BL-149: Georgia only, checked on the letter date. undefined = not loaded (nothing checked). */
   gaRegistration?: GaRegistrationStatusOnly
+  /** BL-161: Georgia only, this home's recorded complaints, checked on the letter date. undefined = not loaded. */
+  gaComplaintStay?: GaComplaintStayGate
 }
 
 /** The letter check reads the status only: the letter date is the day it is checked on. */
@@ -865,6 +944,12 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
         'a letter that asks for fines or fees',
       )
       if (reg) findings.push(reg)
+    }
+    // BL-161: while a complaint's stay runs, no letter that asks this home
+    // for fines or fees; a dues-only letter is not barred.
+    if (input.gaComplaintStay && has(FINE_OR_FEE_TYPES)) {
+      const stay = gaComplaintStayFinding(input.gaComplaintStay, input.letterDate, 'a letter that asks this home for fines or fees')
+      if (stay) findings.push(stay)
     }
     if (input.gaRegistration && input.kind === 'ga_pre_foreclosure') {
       const reg = gaRegistrationFinding(

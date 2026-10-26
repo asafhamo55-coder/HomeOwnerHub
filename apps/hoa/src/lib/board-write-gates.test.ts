@@ -26,6 +26,7 @@ import * as bankImport from './bank-import/actions'
 import * as cincAging from './accounting/opening-balances/cinc-actions'
 import * as lateFees from './late-fees/actions'
 import * as gaRegistration from './ga-registration/actions'
+import * as gaComplaints from './ga-complaints/actions'
 import * as collections from './collections/actions'
 import * as collectionsLetters from './collections/letters/actions'
 import * as hearingActions from './violation-hearings/actions'
@@ -181,6 +182,9 @@ describe('board-only server actions refuse a resident before touching the databa
     ['saveLateFeePolicy (BL-147: sets what the nightly job charges)', () => lateFees.saveLateFeePolicy({ enabled: true, mode: 'percent', percent: '50', flat: '', graceDays: '0', excludeFines: false, declarationAttested: true, declarationRef: 'x' }), DENIED],
     ['getBoardLateFeePolicy (BL-147)', () => lateFees.getBoardLateFeePolicy(), { ok: false, reason: 'forbidden' }],
     ['updateGaRegistration (BL-149: the record the registration gate trusts)', () => gaRegistration.updateGaRegistration({ op: 'decide', associationId: ID, decision: 'register' }), DENIED],
+    ['updateGaComplaint (BL-161: add — the record the complaint-stay gate trusts)', () => gaComplaints.updateGaComplaint({ op: 'add', unitId: ID, filedOn: '2027-01-02', subject: 'both' }), DENIED],
+    ['updateGaComplaint (BL-161: conclude — ends the stay)', () => gaComplaints.updateGaComplaint({ op: 'conclude', unitId: ID, complaintId: ID, conclusionsOn: '2027-02-01' }), DENIED],
+    ['updateGaComplaint (BL-161: remove)', () => gaComplaints.updateGaComplaint({ op: 'remove', unitId: ID, complaintId: ID }), DENIED],
     ['recordCollectionEvent (BL-149: a lien filed runs the registration gate, overrides audited)', () => collections.recordCollectionEvent({ caseId: ID, eventType: 'lien_filed', occurredOn: '2026-10-01', advanceStatus: false }), DENIED],
     // BL-089 / BL-148: collections letters, incl. the Georgia notices. Audited; nothing is sent.
     ['saveLetterToApprovals (BL-148: GA notice before attorney’s fees)', () => collectionsLetters.saveLetterToApprovals({ propertyId: ID, kind: 'ga_fee_notice', values: {}, verified: true }), DENIED],

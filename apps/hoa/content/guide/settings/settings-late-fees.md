@@ -39,6 +39,7 @@ A percent is taken of the amount still unpaid on the charge. The board's morning
 
 ## Good to know
 - HomeownerHub enforces your state's limit when you save and again each night. **Georgia:** a late charge is allowed only if your declaration provides for one, up to $10 or 10% of the late amount, whichever is greater (O.C.G.A. § 44-3-232(b)(1)).
+- **Georgia, from January 1, 2027:** a home with a Secretary of State complaint recorded on its collections file is charged no late fee while the complaint's stay runs (§ 43-17A-5(c)). Other homes are charged as usual. Before that day nothing changes.
 - **Florida:** a late charge only if the declaration or bylaws provide for one, up to $25 or 5%, whichever is greater (Fla. Stat. § 720.3085(3)(a)).
 - **California:** up to $10 or 10%, whichever is greater, and not before 15 days after the due date (Cal. Civ. Code § 5650(b)).
 - **Other states, including Texas:** HomeownerHub has no rule loaded. Check your governing documents. No limit applies beyond what the board sets.

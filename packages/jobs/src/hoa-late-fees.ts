@@ -25,6 +25,9 @@ import { lateFeeSettingsSecret, readLateFeePolicy } from '../../../apps/hoa/src/
 // BL-149: the Georgia SB 406 registration record (signed; same secret chain).
 import { gaGateBlocks, gaUnregistered } from '../../../apps/hoa/src/lib/ga-registration/model'
 import { gaStandingOf } from '../../../apps/hoa/src/lib/ga-registration/store'
+// BL-161: the Secretary of State complaints the board recorded (signed; same secret chain).
+import { gaComplaintStayBlocks, stayedUnitsOn } from '../../../apps/hoa/src/lib/ga-complaints/model'
+import { readGaComplaints } from '../../../apps/hoa/src/lib/ga-complaints/store'
 
 /** assessments.source the opening-balances executor writes (migration 0067, BL-136). */
 export const OPENING_BALANCE_SOURCE = 'opening_balance'
@@ -144,6 +147,8 @@ export type LateFeeRunStatus =
   | 'off'
   /** BL-149: Georgia, from 2027-01-01, not recorded as registered with the Secretary of State: nothing charged. */
   | 'unregistered'
+  /** BL-161: Georgia, from 2027-01-01, a complaint record that doesn't verify (a stay can't be ruled out): nothing charged. */
+  | 'complaints_unverified'
   | 'no_accounting'
   | 'read_failed'
   | 'ran'
@@ -156,6 +161,8 @@ export interface LateFeeRunResult {
   capped: number
   failed: number
   totalCents: number
+  /** BL-161: charges skipped because the unit's complaint stay runs today (also counted in `skipped`). */
+  stayed: number
 }
 
 export interface LateFeeRunDeps {
@@ -164,7 +171,7 @@ export interface LateFeeRunDeps {
   skipOpeningBalances?: boolean
 }
 
-const EMPTY = { evaluated: 0, charged: 0, skipped: 0, capped: 0, failed: 0, totalCents: 0 }
+const EMPTY = { evaluated: 0, charged: 0, skipped: 0, capped: 0, failed: 0, totalCents: 0, stayed: 0 }
 
 /**
  * One association's night (BL-147). Charges ONLY under a saved, signed,
@@ -211,6 +218,20 @@ export async function runLateFeesForAssociation(
     }
   }
 
+  // BL-161: from Jan 1, 2027, while a resident's Secretary of State
+  // complaint runs, the association may not collect fines or fees from them
+  // (§ 43-17A-5(c)); a late fee on that unit is charged nothing. A record
+  // that doesn't verify can't rule a stay out: charge nothing tonight.
+  let stayed: ReadonlySet<string> = new Set()
+  if (lateFeeStateOf(assoc) === 'GA' && gaComplaintStayBlocks(today)) {
+    const units = stayedUnitsOn(readGaComplaints(assoc.id, assoc.compliance_settings, deps.secret), today)
+    if (units === 'all') {
+      deps.log.warn(`[hoa-late-fees] ${assoc.id}: Secretary of State complaint record does not verify; charging nothing`)
+      return { status: 'complaints_unverified', ...EMPTY }
+    }
+    stayed = units
+  }
+
   const refs = await loadAccountingRefs(db, assoc.id)
   if (!refs) {
     deps.log.warn(`[hoa-late-fees] ${assoc.id}: accounting not seeded, skipping`)
@@ -237,6 +258,11 @@ export async function runLateFeesForAssociation(
   const result: LateFeeRunResult = { status: 'ran', ...EMPTY, evaluated: defaulted.length, skipped: defaulted.length - uncharged.length }
 
   for (const src of uncharged) {
+    if (stayed.has(src.unit_id)) {
+      result.skipped += 1
+      result.stayed += 1
+      continue
+    }
     const memoCode = `LATE-${src.id}`
     // Re-checked per charge: type, grace, unpaid amount and the state cap.
     const outcome = lateFeeForCharge(
@@ -321,10 +347,13 @@ export async function runLateFeesForAssociation(
         total_cents: result.totalCents,
         day: today,
         policy_saved_at: read.updatedAt,
+        ...(result.stayed > 0 ? { stayed: result.stayed } : {}),
       },
     })
     if (auditErr) deps.log.warn(`[hoa-late-fees] ${assoc.id}: audit write failed (${auditErr.code ?? 'no code'})`)
   }
+  // Count only: never a unit id or an owner in the log.
+  if (result.stayed > 0) deps.log.info(`[hoa-late-fees] ${assoc.id}: ${result.stayed} charge(s) skipped under a Georgia complaint stay`)
   return result
 }
 

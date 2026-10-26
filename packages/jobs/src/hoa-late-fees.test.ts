@@ -365,3 +365,62 @@ describe('BL-149: Georgia, from Jan 1, 2027, only a registered association is ch
     expect((await runLateFeesForAssociation(g as never, assocWith(policy(), 'TX'), '2027-01-02', deps)).status).toBe('ran')
   })
 })
+
+describe('BL-161: Georgia, from Jan 1, 2027, a unit under a Secretary of State complaint stay is skipped', () => {
+  const U1 = 'a0000000-0000-4000-8000-000000000001'
+  const U2 = 'a0000000-0000-4000-8000-000000000002'
+  const setup = async (complaints: 'running' | 'concluded' | 'forged') => {
+    const { signGaRegistration, withGaRegistration } = await import('../../../apps/hoa/src/lib/ga-registration/store')
+    const { EMPTY_GA_REGISTRATION } = await import('../../../apps/hoa/src/lib/ga-registration/model')
+    const { signGaComplaints, withGaComplaints } = await import('../../../apps/hoa/src/lib/ga-complaints/store')
+    const reg = withGaRegistration(
+      {},
+      signGaRegistration(
+        ASSOC,
+        {
+          ...EMPTY_GA_REGISTRATION,
+          noChange: [],
+          decision: 'register',
+          filings: [{ id: 'c0000000-0000-4000-8000-000000000001', kind: 'registration', filedOn: '2026-12-01', confirmation: null, coversYear: 2027, reason: null, meetingId: null }],
+        },
+        { updatedAt: '2026-12-01T12:00:00.000Z', updatedBy: 'user-1' },
+        SECRET,
+      ),
+    )
+    if (complaints === 'forged') return { ...reg, ga_sos_complaints: { v: 1, record: { units: {} }, updated_at: 'x', updated_by: null, sig: 'bad' } }
+    const c = { id: 'd0000000-0000-4000-8000-000000000001', filedOn: '2026-12-10', subject: 'fees' as const, conclusionsOn: complaints === 'concluded' ? '2027-01-03' : null, extended: false }
+    return withGaComplaints(reg, signGaComplaints(ASSOC, { units: { [U1]: [c] } }, { updatedAt: '2026-12-10T12:00:00.000Z', updatedBy: 'user-1' }, SECRET))
+  }
+  const seed = () => [
+    { ...base, id: 'dues-u1', unit_id: U1 },
+    { ...base, id: 'dues-u2', unit_id: U2 },
+  ]
+
+  it('while the stay runs: the stayed unit is charged nothing, the others are', async () => {
+    const f = fakeDb(seed())
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA', await setup('running')), '2027-01-05', deps)
+    expect(r).toMatchObject({ status: 'ran', charged: 1, stayed: 1, skipped: 1 })
+    expect(fees(f).map((x) => x.unit_id)).toEqual([U2])
+    expect(f.audit[0]!.metadata).toMatchObject({ charged: 1, stayed: 1 })
+  })
+
+  it('after the conclusions the unit is charged again', async () => {
+    const f = fakeDb(seed())
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA', await setup('concluded')), '2027-01-05', deps)
+    expect(r).toMatchObject({ status: 'ran', charged: 2, stayed: 0 })
+  })
+
+  it('before Jan 1, 2027 the stay changes nothing (warning only, on screen)', async () => {
+    const f = fakeDb(seed())
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA', await setup('running')), '2026-12-31', deps)
+    expect(r).toMatchObject({ status: 'ran', charged: 2, stayed: 0 })
+  })
+
+  it('a record that doesn’t verify: nothing is read or charged', async () => {
+    const f = fakeDb(seed())
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy(), 'GA', await setup('forged')), '2027-01-05', deps)
+    expect(r.status).toBe('complaints_unverified')
+    expect(fees(f)).toHaveLength(0)
+    expect(f.reads).toEqual([])
+  })
+})

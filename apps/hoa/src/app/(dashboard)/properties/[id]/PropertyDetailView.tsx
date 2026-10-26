@@ -72,6 +72,7 @@ import { ActiveTabIntoView } from './ActiveTabIntoView'
 import { AddResidentForm } from './AddResidentForm'
 import { CollectionsSection } from './CollectionsSection'
 import type { GaThresholdRead } from './GaThresholdPanel'
+import type { GaComplaintRead } from './GaComplaintPanel'
 import { EnterPortalButton } from './EnterPortalButton'
 import { LogNoteDialog } from './LogNoteDialog'
 import { PropertyActions } from './PropertyActions'
@@ -129,10 +130,12 @@ export interface PropertyDetailViewProps {
   planStandings?: Promise<Part<Record<string, PlanStandingView>>> | null
   /** BL-158: the Georgia foreclosure-threshold read (board/admin with an open case only); null or omitted hides it. */
   gaThreshold?: GaThresholdRead | null
+  /** BL-161: the Georgia Secretary of State complaint record (board/admin with a unit only); null or omitted hides it. */
+  gaComplaints?: GaComplaintRead | null
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent, planStandings, gaThreshold = null } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -267,7 +270,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
               </Button>
             }
           >
-            <MoneySection data={data} planStandings={planStandings ?? null} aging={aging} today={today} unitId={unitId} duesHref={scoped('/dues')} letterHref={canManage ? propertyHref(pid, { collectionsLetter: true }) : null} gaThreshold={canManage ? gaThreshold : null} />
+            <MoneySection data={data} planStandings={planStandings ?? null} aging={aging} today={today} unitId={unitId} duesHref={scoped('/dues')} letterHref={canManage ? propertyHref(pid, { collectionsLetter: true }) : null} gaThreshold={canManage ? gaThreshold : null} gaComplaints={canManage ? gaComplaints : null} />
           </Section>
 
           <Section
@@ -727,6 +730,7 @@ function MoneySection({
   duesHref,
   letterHref,
   gaThreshold,
+  gaComplaints,
 }: {
   data: Property360
   planStandings: Promise<Standings> | null
@@ -738,6 +742,8 @@ function MoneySection({
   letterHref: string | null
   /** BL-158: the Georgia threshold read; null when the viewer isn't board/admin. */
   gaThreshold: GaThresholdRead | null
+  /** BL-161: the Georgia complaint record read; null when the viewer isn't board/admin. */
+  gaComplaints: GaComplaintRead | null
 }) {
   const stats = data.stats
   const lastPayment = data.payments?.ok ? (data.payments.data[0] ?? null) : null
@@ -889,6 +895,7 @@ function MoneySection({
             today={today}
             letterHref={letterHref}
             gaThreshold={gaThreshold}
+            gaComplaints={gaComplaints}
           />
         )}
       </div>
