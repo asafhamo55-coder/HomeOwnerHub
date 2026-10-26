@@ -29,6 +29,8 @@ import {
   CA_RIGHTS,
   FL_INTENT_BODY,
   FL_LATE_NOTICE_BODY,
+  GA_CONDO_PRE_FORECLOSURE_BODY,
+  GA_CONDO_PRE_FORECLOSURE_QUOTES,
   GA_FEE_NOTICE_BODY,
   GA_FEE_NOTICE_QUOTES,
   GA_PRE_FORECLOSURE_BODY,
@@ -54,6 +56,7 @@ import {
   type PrintedLetterRecord,
 } from '@/lib/collections/letters/model'
 import type { LetterPayload } from '@/lib/collections/letters/proposal'
+import { isGaCondo } from '@/lib/ga-condo/law'
 import { Blank, BlankInput } from '../estoppel/EstoppelCertificate'
 
 export interface LetterRequestView {
@@ -104,7 +107,8 @@ export function CollectionsLetter({
 function Draft({ input, today, events, printed }: { input: LetterInput; today: string; events: LetterEvent[]; printed: PrintedLetterRecord[] }) {
   const router = useRouter()
   const toast = useToast()
-  const kinds = kindsFor(letterJurisdiction(input.state))
+  // BL-155: a Georgia condominium gets the Condominium Act's notice.
+  const kinds = kindsFor(letterJurisdiction(input.state), isGaCondo(input.state, input.associationType))
   const [kind, setKind] = useState<LetterKind>(kinds[0]!)
   const [values, setValues] = useState<FieldValues>({})
   const [verified, setVerified] = useState(false)
@@ -412,8 +416,9 @@ function Approved({
 }
 
 /** BL-148: the Georgia statute text the notice rests on, verbatim (law.test.ts checks each quote). */
-function GeorgiaQuotes({ kind }: { kind: 'ga_fee_notice' | 'ga_pre_foreclosure' }) {
-  const quotes = kind === 'ga_fee_notice' ? GA_FEE_NOTICE_QUOTES : GA_PRE_FORECLOSURE_QUOTES
+function GeorgiaQuotes({ kind }: { kind: 'ga_fee_notice' | 'ga_pre_foreclosure' | 'ga_condo_pre_foreclosure' }) {
+  const quotes =
+    kind === 'ga_fee_notice' ? GA_FEE_NOTICE_QUOTES : kind === 'ga_condo_pre_foreclosure' ? GA_CONDO_PRE_FORECLOSURE_QUOTES : GA_PRE_FORECLOSURE_QUOTES
   return (
     <section className="space-y-1 text-xs text-foreground-secondary">
       <h3 className="font-medium text-foreground">What the law says</h3>
@@ -481,7 +486,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
           <p>
             <Value field={field('owners')} values={values} />
           </p>
-          {k === 'ga_pre_foreclosure' ? (
+          {k === 'ga_pre_foreclosure' || k === 'ga_condo_pre_foreclosure' ? (
             <>
               <p>
                 <Value field={field('lotAddress')} values={values} />
@@ -531,6 +536,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
       ) : null}
       {k === 'ga_fee_notice' ? <p className="text-foreground">{GA_FEE_NOTICE_BODY(association)}</p> : null}
       {k === 'ga_pre_foreclosure' ? <p className="text-foreground">{GA_PRE_FORECLOSURE_BODY(association)}</p> : null}
+      {k === 'ga_condo_pre_foreclosure' ? <p className="text-foreground">{GA_CONDO_PRE_FORECLOSURE_BODY(association)}</p> : null}
       {k === 'past_due' ? <p className="text-foreground">Our records show the following amounts past due on your account.</p> : null}
 
       <div className="overflow-x-auto">
@@ -583,7 +589,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
                 {lines.map((l) => (
                   <AmountRow key={l.id} label={`${l.label}, due ${formatDay(l.dueDate)}`} cents={l.remainingCents} />
                 ))}
-                {k === 'ga_pre_foreclosure' ? (
+                {k === 'ga_pre_foreclosure' || k === 'ga_condo_pre_foreclosure' ? (
                   <AmountRow label="Interest">
                     <EnteredCell field={field('interest')} values={values} />
                   </AmountRow>
@@ -644,7 +650,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
         </div>
       ) : null}
 
-      {k === 'ga_pre_foreclosure' ? (
+      {k === 'ga_pre_foreclosure' || k === 'ga_condo_pre_foreclosure' ? (
         <p className="text-foreground">
           Interest accrues at the rate of <Value field={rate} values={values} /> percent per year.
         </p>
@@ -659,7 +665,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
         </section>
       ) : null}
 
-      {k === 'ga_fee_notice' || k === 'ga_pre_foreclosure' ? <GeorgiaQuotes kind={k} /> : null}
+      {k === 'ga_fee_notice' || k === 'ga_pre_foreclosure' || k === 'ga_condo_pre_foreclosure' ? <GeorgiaQuotes kind={k} /> : null}
 
       {k === 'past_due' ? (
         <p className="text-foreground">

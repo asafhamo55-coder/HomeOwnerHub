@@ -20,13 +20,16 @@ import {
   FL_RESPONSE_BUSINESS_DAYS,
   flEffectiveDays,
   flFeeCap,
+  GA_CONDO_RESPONSE_BUSINESS_DAYS,
   GA_RESPONSE_BUSINESS_DAYS,
+  gaCondoFeeCap,
   gaFeeCap,
   TX_RESPONSE_BUSINESS_DAYS,
   txFeeCap,
   type FeeCap,
   type FlDelivery,
 } from './law'
+import { isGaCondo } from '@/lib/ga-condo/law'
 
 // ─── input ───────────────────────────────────────────────────────────
 
@@ -84,6 +87,12 @@ export interface EstoppelInput {
   planInstallmentIds: string[]
   collectionCase: EstoppelCase | null
   timeZone: string
+  /**
+   * BL-155: associations.type ('hoa' | 'condo' | 'coop'). A Georgia
+   * 'condo' gets the Condominium Act's § 44-3-109(d) statement instead of
+   * the POA Act's § 44-3-232(d). Absent or anything else: unchanged.
+   */
+  associationType?: string | null
 }
 
 export interface EstoppelRequest {
@@ -209,7 +218,8 @@ export interface Deadlines {
   expeditedMissed: boolean
 }
 
-export function deadlines(j: Jurisdiction, req: EstoppelRequest): Deadlines {
+/** `condo`: a Georgia condominium association (§ 44-3-109(d) instead of § 44-3-232(d)). */
+export function deadlines(j: Jurisdiction, req: EstoppelRequest, condo = false): Deadlines {
   const { requestDate, issueDate } = req
   if (j === 'FL') {
     const responseDue = addBusinessDays(requestDate, FL_RESPONSE_BUSINESS_DAYS)
@@ -229,7 +239,8 @@ export function deadlines(j: Jurisdiction, req: EstoppelRequest): Deadlines {
     }
   }
   if (j === 'TX' || j === 'GA') {
-    const days = j === 'TX' ? TX_RESPONSE_BUSINESS_DAYS : GA_RESPONSE_BUSINESS_DAYS
+    const gaCondo = j === 'GA' && condo
+    const days = j === 'TX' ? TX_RESPONSE_BUSINESS_DAYS : gaCondo ? GA_CONDO_RESPONSE_BUSINESS_DAYS : GA_RESPONSE_BUSINESS_DAYS
     const responseDue = addBusinessDays(requestDate, days)
     return {
       requestDate,
@@ -238,7 +249,9 @@ export function deadlines(j: Jurisdiction, req: EstoppelRequest): Deadlines {
       responseRule:
         j === 'TX'
           ? `${days} business days after the written request is received and verified (§ 207.003(a))`
-          : `${days} business days from the receipt of the written request (§ 44-3-232(d))`,
+          : gaCondo
+            ? `${days} business days from the receipt of the written request (§ 44-3-109(d))`
+            : `${days} business days from the receipt of the written request (§ 44-3-232(d))`,
       holidaysSkipped: holidaysBetween(requestDate, responseDue),
       expeditedDue: null,
       effectiveDays: null,
@@ -404,7 +417,8 @@ export interface ViolationDisclosure {
  * - TX § 207.003(b)(11): "any conditions on the owner's property that the
  *   … board has actual knowledge are in violation" — knowledge, not
  *   notice, so every open violation on record is listed.
- * - GA § 44-3-232(d) asks only for amounts due, and the generic statement
+ * - GA § 44-3-232(d) (§ 44-3-109(d) for a condominium) asks only for
+ *   amounts due, and the generic statement
  *   follows no statute: every open violation on record is listed, as the
  *   records show it.
  */
@@ -569,7 +583,24 @@ export function fieldsFor(j: Jurisdiction, input: EstoppelInput, f: Figures): Ce
       },
     )
   }
-  if (j === 'GA') {
+  if (j === 'GA' && isGaCondo(input.state, input.associationType)) {
+    fields.push(
+      {
+        key: 'condoAct',
+        label: 'Is the condominium submitted to the Georgia Condominium Act?',
+        kind: 'yesno',
+        value: null,
+        hint: 'Your recorded declaration submits the property to the Act (§ 44-3-71(7)). § 44-3-109(d) applies only then.',
+      },
+      {
+        key: 'instrumentFee',
+        label: 'Do the condominium instruments provide for a fee for this statement?',
+        kind: 'yesno',
+        value: null,
+        hint: 'Georgia allows a fee of up to $10.00 only if the condominium instruments provide for it (§ 44-3-109(d)).',
+      },
+    )
+  } else if (j === 'GA') {
     fields.push(
       {
         key: 'poaAct',
@@ -647,6 +678,8 @@ export interface FeeCheck {
 export interface StatuteAnswers {
   /** GA: the association is submitted to the POA Act. */
   poaAct?: boolean | null
+  /** GA condominium (BL-155): the property is submitted to the Condominium Act. */
+  condoAct?: boolean | null
   /** GA: the declaration provides for a statement fee. */
   feeAuthorized?: boolean | null
 }
@@ -654,8 +687,9 @@ export interface StatuteAnswers {
 const yesNo = (v: string | undefined): boolean | null => (v === 'Yes' ? true : v === 'No' ? false : null)
 
 /** The StatuteAnswers in the board's BLANK entries. */
-export function statuteAnswers(j: Jurisdiction, values: FieldValues): StatuteAnswers {
+export function statuteAnswers(j: Jurisdiction, values: FieldValues, condo = false): StatuteAnswers {
   if (j !== 'GA') return {}
+  if (condo) return { condoAct: yesNo(values.condoAct?.trim()), feeAuthorized: yesNo(values.instrumentFee?.trim()) }
   return { poaAct: yesNo(values.poaAct?.trim()), feeAuthorized: yesNo(values.instrumentFee?.trim()) }
 }
 
@@ -665,14 +699,36 @@ export function statuteAnswers(j: Jurisdiction, values: FieldValues): StatuteAns
  * the print rather than issue a statement citing a statute that doesn't
  * apply. An unanswered question is a BLANK, handled by blanksLeft.
  */
-export function statuteProblem(j: Jurisdiction, a: StatuteAnswers): string | null {
+export function statuteProblem(j: Jurisdiction, a: StatuteAnswers, condo = false): string | null {
+  if (j === 'GA' && condo) {
+    return a.condoAct === false
+      ? '§ 44-3-109(d) applies only to condominiums submitted to the Georgia Condominium Act. Ask your association’s attorney what statement to give instead.'
+      : null
+  }
   if (j === 'GA' && a.poaAct === false) {
     return '§ 44-3-232(d) applies only to associations submitted to the Georgia Property Owners’ Association Act. Ask your association’s attorney what statement to give instead.'
   }
   return null
 }
 
-export function checkFee(j: Jurisdiction, d: Deadlines, f: Figures, req: EstoppelRequest, feeCents: number | null, answers: StatuteAnswers = {}): FeeCheck {
+export function checkFee(
+  j: Jurisdiction,
+  d: Deadlines,
+  f: Figures,
+  req: EstoppelRequest,
+  feeCents: number | null,
+  answers: StatuteAnswers = {},
+  condo = false,
+): FeeCheck {
+  if (j === 'GA' && condo) {
+    const cap = gaCondoFeeCap()
+    if (feeCents === null) return { cap, problem: null }
+    if (feeCents > cap.totalCents) return { cap, problem: `The fee is above the statutory cap of ${usdCents(cap.totalCents)} (§ 44-3-109(d)).` }
+    if (feeCents > 0 && answers.feeAuthorized !== true) {
+      return { cap, problem: 'Georgia allows a fee only if the condominium instruments provide for one (§ 44-3-109(d)). Enter $0, or answer Yes if they do.' }
+    }
+    return { cap, problem: null }
+  }
   if (j === 'TX') {
     const cap = txFeeCap()
     if (feeCents === null) return { cap, problem: null }
@@ -701,6 +757,8 @@ export function checkFee(j: Jurisdiction, d: Deadlines, f: Figures, req: Estoppe
 
 export interface Certificate {
   jurisdiction: Jurisdiction
+  /** BL-155: a Georgia condominium association (§ 44-3-109(d)); false everywhere else. */
+  gaCondo: boolean
   deadlines: Deadlines
   figures: Figures
   fields: CertificateField[]
@@ -708,11 +766,13 @@ export interface Certificate {
 
 export function buildCertificate(input: EstoppelInput, req: EstoppelRequest): Certificate {
   const j = jurisdictionOf(input.state)
-  const d = deadlines(j, req)
-  // GA § 44-3-232(d): the statement covers amounts due at the end of the
-  // five-business-day period, so charges falling due by then are marked.
+  const gaCondo = j === 'GA' && isGaCondo(input.state, input.associationType)
+  const d = deadlines(j, req, gaCondo)
+  // GA § 44-3-232(d) (and § 44-3-109(d) for a condominium): the statement
+  // covers amounts due at the end of the five-business-day period, so
+  // charges falling due by then are marked.
   const figures = computeFigures(input, req.issueDate, d.effectiveThrough ?? (j === 'GA' ? d.responseDue : null))
-  return { jurisdiction: j, deadlines: d, figures, fields: fieldsFor(j, input, figures) }
+  return { jurisdiction: j, gaCondo, deadlines: d, figures, fields: fieldsFor(j, input, figures) }
 }
 
 /** Problems with the request the board entered, or null. */

@@ -6,9 +6,9 @@ topic: settings
 roles: [admin, board]
 routes: ["/insurance"]
 primary_route: /insurance
-keywords: [insurance, ho-6, ho6, ho-3, owner insurance, condo insurance, walls-in, loss assessment, what does the master policy cover, insurance notice to owners, renewal comparison, premium increase, premium went up, previous term, fidelity bond amount, bond enough, bond adequacy, owner insurance summary, policy, policies, fidelity bond, crime policy, bond, master policy, property insurance, general liability, d&o, directors and officers, flood, earthquake, umbrella, workers comp, renewal, expires, expiry, deductible, coverage, "720.3033", "5300", "5806", budget report]
+keywords: [insurance, ho-6, ho6, ho-3, owner insurance, condo insurance, walls-in, loss assessment, what does the master policy cover, insurance notice to owners, renewal comparison, premium increase, premium went up, previous term, fidelity bond amount, bond enough, bond adequacy, owner insurance summary, policy, policies, fidelity bond, crime policy, bond, master policy, property insurance, general liability, d&o, directors and officers, flood, earthquake, umbrella, workers comp, renewal, expires, expiry, deductible, coverage, "720.3033", "5300", "5806", budget report, georgia, condominium, condo association insurance, "44-3-107", replacement cost, "$1 million", "$2 million", water claim, certificate of insurance]
 related: [documents-governing-and-ask, accounting-reserves, resident-insurance-summary, insurance-ho6-notice]
-reviewed: 2026-10-21
+reviewed: 2026-10-26
 ---
 
 Keep every policy the association carries in one list, so a renewal never slips by and the board can answer "are we covered?" quickly.
@@ -37,7 +37,8 @@ Keep every policy the association carries in one list, so a renewal never slips 
 - The **Coverage check** shows what your state's law, as loaded in HomeownerHub, says about the policies you recorded. It quotes the statute word for word and never blocks anything.
 - **Florida:** Fla. Stat. § 720.3033(5) requires insurance or a fidelity bond for everyone who controls or spends the association's money, covering the most money held at any one time. The members can vote each year to waive it.
 - **California:** Civ. Code § 5300(b)(9) asks the annual budget report to summarize the property, general liability, earthquake, flood and fidelity policies, with the insurer, the limit and the deductible. The check tells you which of these are missing. HomeownerHub doesn't have the text of § 5806 (the fidelity minimum), so for that, check your governing documents.
-- **Other states:** the coverage check says to check your governing documents and ask your insurance agent.
+- **Georgia condominiums:** the Georgia Condominium Act (§ 44-3-107) requires property insurance for the full insurable replacement cost of the buildings, and general liability of at least $1 million per occurrence and $2 million aggregate. The check warns if either policy isn't recorded, or if the recorded liability limit is under $1 million. It reads that limit as the per-occurrence limit, so confirm the aggregate on the declarations page. It also reminds you that on a water claim, the association sends its certificate of insurance within five business days of a unit owner's written request.
+- **Other states, and Georgia HOAs:** the coverage check says to check your governing documents and ask your insurance agent.
 - Only board members and admins see this page. Owners see a short summary in their portal under **Documents**, then **Association insurance**: the kind of each policy in force, the insurance company, the limit and the deductible. Never the premium or the policy number.
 - To tell owners what the master policy covers and suggest HO-6 coverage, select [[Draft HO-6 notice]]. It's optional, and nothing is sent until you send it from **Messages**.
 - Use **Notes** for exclusions or the broker's contact.

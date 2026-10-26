@@ -25,7 +25,16 @@ export const LETTER_WORKFLOW = 'collections_letters'
 export const LETTER_SUBJECT = 'collections_letter'
 
 /** Mirrors LETTER_KINDS in model.ts (kept here so this file needs no `@/` imports). */
-const KINDS = ['past_due', 'fl_late_notice', 'fl_intent_to_lien', 'ca_pre_lien', 'tx_delinquency', 'ga_fee_notice', 'ga_pre_foreclosure'] as const
+const KINDS = [
+  'past_due',
+  'fl_late_notice',
+  'fl_intent_to_lien',
+  'ca_pre_lien',
+  'tx_delinquency',
+  'ga_fee_notice',
+  'ga_pre_foreclosure',
+  'ga_condo_pre_foreclosure',
+] as const
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
@@ -67,6 +76,7 @@ export const LETTER_KIND_LABELS: Record<LetterPayload['kind'], string> = {
   tx_delinquency: 'Delinquency notice',
   ga_fee_notice: 'Notice before attorney’s fees',
   ga_pre_foreclosure: 'Notice before foreclosure',
+  ga_condo_pre_foreclosure: 'Notice before foreclosure (condominium)',
 }
 
 export const LETTER_KIND_CITATIONS: Record<LetterPayload['kind'], string | null> = {
@@ -77,6 +87,7 @@ export const LETTER_KIND_CITATIONS: Record<LetterPayload['kind'], string | null>
   tx_delinquency: 'Tex. Prop. Code § 209.0064',
   ga_fee_notice: 'Ga. L. 2026, SB 406 § 7 (new subsection (f))',
   ga_pre_foreclosure: 'O.C.G.A. § 44-3-232(c)',
+  ga_condo_pre_foreclosure: 'O.C.G.A. § 44-3-109(c)',
 }
 
 /** "Notice of late assessment — 14 Oak Lane": the row's summary. */

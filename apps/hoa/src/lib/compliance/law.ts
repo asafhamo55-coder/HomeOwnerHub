@@ -27,9 +27,13 @@
  *   BL-138 budget adoption kit, which checks it too); § 5120(b), results
  *   within 15 days (shared with the BL-141 election planner, BL-151).
  *
- * Not loaded, so never quoted: the Georgia Condominium Act (Art. 3), and
- * everything else not listed above. Election rules beyond these two live
- * in the election planner (lib/elections/law.ts).
+ * The Georgia Condominium Act (Art. 3) rows a 'condo' association gets
+ * (BL-155) quote lib/ga-condo/law.ts, checked word for word against
+ * ga-ocga-44-3-art3-2026.txt by lib/ga-condo/law.test.ts; they are not
+ * repeated here (several match the POA Act's wording exactly).
+ *
+ * Not loaded, so never quoted: everything else not listed above. Election
+ * rules beyond these two live in the election planner (lib/elections/law.ts).
  */
 
 import { CA_BUDGET_REPORT } from '@/lib/budget-adoption/law'

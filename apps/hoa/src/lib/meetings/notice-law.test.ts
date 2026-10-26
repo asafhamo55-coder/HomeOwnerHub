@@ -13,6 +13,7 @@ import {
   FL_BOARD_POSTED,
   FL_MEMBERS,
   FL_SPECIAL_ASSESSMENT,
+  GA_CONDO_MEMBERS,
   GA_MEMBERS,
   checkMeetingNotice,
   daysUntil,
@@ -63,8 +64,17 @@ describe('citations are verbatim from the fixtures', () => {
     expect(norm(t.slice(start, t.indexOf('\n=== ', start + 1)))).toContain(GA_MEMBERS.quote)
   })
 
+  it('Georgia condominiums: § 44-3-102 (BL-155), from the Art. 3 fixture', () => {
+    const t = fixture('ga-ocga-44-3-art3-2026.txt')
+    const start = t.indexOf('=== O.C.G.A. Section 44-3-102 |')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(norm(t.slice(start, t.indexOf('\n=== ', start + 1)))).toContain(GA_CONDO_MEMBERS.quote)
+    expect(GA_CONDO_MEMBERS.cite).toBe('O.C.G.A. § 44-3-102')
+    expect(GA_CONDO_MEMBERS.quote).toContain('shall state the time, place, and purpose of such meeting')
+  })
+
   it('every exported citation is covered above', () => {
-    expect(ALL_NOTICE_CITATIONS).toHaveLength(8)
+    expect(ALL_NOTICE_CITATIONS).toHaveLength(9)
   })
 
   it('CA § 4920 and TX § 209.0051 are NOT loaded — so they are "check your bylaws"', () => {
@@ -169,6 +179,43 @@ describe('other states', () => {
       expect(c.message).toBe(CHECK_BYLAWS)
       expect(c.citations).toEqual([])
     }
+  })
+})
+
+describe('Georgia condominium associations (BL-155)', () => {
+  const condo = (meetingType: string | null, meetingDate: string, associationType: string | null = 'condo') =>
+    checkMeetingNotice({ state: 'GA', associationType, meetingType, meetingDate, today: '2026-10-20' })
+
+  it('annual: 21 days under § 44-3-102, never § 44-3-230', () => {
+    expect(condo('annual', '2026-11-09')).toMatchObject({ level: 'short', daysAhead: 20, minDays: 21 })
+    expect(condo('annual', '2026-11-10')).toMatchObject({ level: 'ok', daysAhead: 21, minDays: 21 })
+    for (const d of ['2026-11-09', '2026-11-10']) {
+      const c = condo('annual', d)
+      expect(c.citations).toEqual([GA_CONDO_MEMBERS])
+      expect(c.citations.map((x) => x.cite).join(' ')).not.toContain('44-3-230')
+      expect(c.message).toContain('time, place and purpose')
+    }
+  })
+
+  it('special: 7 days, a caution under it (it may be a board meeting), with the purpose', () => {
+    expect(condo('special', '2026-10-26')).toMatchObject({ level: 'caution', daysAhead: 6, minDays: 7, citations: [GA_CONDO_MEMBERS] })
+    expect(condo('special', '2026-10-27')).toMatchObject({ level: 'ok', daysAhead: 7, citations: [GA_CONDO_MEMBERS] })
+  })
+
+  it('board and emergency meetings: check your bylaws, nothing cited', () => {
+    for (const t of ['regular', 'emergency', null]) expect(condo(t, '2026-10-21')).toMatchObject({ level: 'bylaws', citations: [] })
+  })
+
+  it('a Georgia HOA, co-op or unknown type keeps the POA Act text unchanged', () => {
+    for (const type of ['hoa', 'coop', null, undefined]) {
+      const c = checkMeetingNotice({ state: 'GA', associationType: type, meetingType: 'annual', meetingDate: '2026-11-09', today: '2026-10-20' })
+      expect(c).toEqual(at('GA', 'annual', '2026-11-09'))
+      expect(c.citations).toEqual([GA_MEMBERS])
+    }
+  })
+
+  it('a condo outside Georgia gets nothing from the Georgia Act', () => {
+    expect(checkMeetingNotice({ state: 'TX', associationType: 'condo', meetingType: 'annual', meetingDate: '2026-11-09', today: '2026-10-20' })).toMatchObject({ level: 'bylaws', citations: [] })
   })
 })
 

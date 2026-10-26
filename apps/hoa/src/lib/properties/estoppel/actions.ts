@@ -30,7 +30,14 @@ const PrintSchema = z.object({
    * "does the declaration provide for a fee?" (model.statuteAnswers).
    * Booleans only, never free text.
    */
-  statute: z.object({ poaAct: z.boolean().nullable().optional(), feeAuthorized: z.boolean().nullable().optional() }).optional(),
+  statute: z
+    .object({
+      poaAct: z.boolean().nullable().optional(),
+      // BL-155: a Georgia condominium answers the Condominium Act question instead.
+      condoAct: z.boolean().nullable().optional(),
+      feeAuthorized: z.boolean().nullable().optional(),
+    })
+    .optional(),
 })
 
 export type PrintResult = { ok: true } | { ok: false; error: string }
@@ -76,13 +83,17 @@ export async function recordEstoppelPrinted(input: z.input<typeof PrintSchema>):
   const cert = buildCertificate(loaded.input, req)
   if (!snapshotMatches(cert, v.figures)) return { ok: false, error: FIGURES_CHANGED }
   const answers = v.statute ?? {}
-  // GA: the statement cites § 44-3-232(d), which needs a Yes to the POA Act.
-  const statute = statuteProblem(cert.jurisdiction, answers)
+  // GA: the statement cites § 44-3-232(d), which needs a Yes to the POA Act;
+  // a condominium's cites § 44-3-109(d), which needs a Yes to the Condominium Act (BL-155).
+  const statute = statuteProblem(cert.jurisdiction, answers, cert.gaCondo)
   if (statute) return { ok: false, error: statute }
-  if (cert.jurisdiction === 'GA' && answers.poaAct !== true) {
+  if (cert.jurisdiction === 'GA' && cert.gaCondo && answers.condoAct !== true) {
+    return { ok: false, error: 'Answer whether the condominium is submitted to the Georgia Condominium Act.' }
+  }
+  if (cert.jurisdiction === 'GA' && !cert.gaCondo && answers.poaAct !== true) {
     return { ok: false, error: 'Answer whether the association is submitted to the Georgia Property Owners’ Association Act.' }
   }
-  const fee = checkFee(cert.jurisdiction, cert.deadlines, cert.figures, req, v.feeCents, answers)
+  const fee = checkFee(cert.jurisdiction, cert.deadlines, cert.figures, req, v.feeCents, answers, cert.gaCondo)
   if (fee.problem) return { ok: false, error: fee.problem }
 
   const audit = await recordEstoppelAudit(supabase, {

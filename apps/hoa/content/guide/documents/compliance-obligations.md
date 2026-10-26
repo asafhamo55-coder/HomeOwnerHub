@@ -6,9 +6,9 @@ topic: documents
 roles: [admin, board]
 routes: ["/compliance"]
 primary_route: /compliance
-keywords: [compliance, obligations, evidence, proof, overdue, deadline, deadlines, state law, georgia, ga, secretary of state, registration, renewal, sb 406, "43-17A-2", annual meeting, "21 days", "44-3-230", minutes, financial records, "44-3-231", statement of amounts due, "44-3-232", texas, management certificate, "209.004", florida, director certificate, "720.3033", california, budget report, "5300", board packet, monthly board report, director elections, election, election results, results notice, "5120", amended registration, officer change, "30 days", missed annual meeting, "5 percent"]
+keywords: [compliance, obligations, evidence, proof, overdue, deadline, deadlines, state law, georgia, ga, secretary of state, registration, renewal, sb 406, "43-17A-2", annual meeting, "21 days", "44-3-230", minutes, financial records, "44-3-231", statement of amounts due, "44-3-232", texas, management certificate, "209.004", florida, director certificate, "720.3033", california, budget report, "5300", board packet, monthly board report, director elections, election, election results, results notice, "5120", amended registration, officer change, "30 days", missed annual meeting, "5 percent", condominium, condo, condo association, georgia condominium act, "44-3-102", "44-3-106", "44-3-107", "44-3-109", "15 percent", condo insurance, replacement cost, "$1 million", water claim, certificate of insurance]
 related: [state-law-deadlines, director-certification, accounting-budget-adoption, annual-meeting-quorum, election-planner, legal-state-law-compliance]
-reviewed: 2026-10-21
+reviewed: 2026-10-26
 ---
 
 **Compliance** lists every state-law obligation HomeownerHub tracks for your association, says where each one stands, and keeps the document that proves the board met it.
@@ -45,5 +45,8 @@ reviewed: 2026-10-21
 - **Georgia, after the results are recorded:** a row to amend your Secretary of State registration within 30 days if the officers changed. HomeownerHub counts from the day the results were recorded; if the board picks officers later, count from that day. Before Jan 1, 2027 it says to list the new officers in your first registration. Check the Secretary of State's guidance.
 - **Texas:** the management certificate. **Florida:** director education certificates (tracked on Members). **California:** the annual budget report window (from the budget's adoption checklist).
 - The monthly board report adds a **Director elections** line with the most pressing election item.
-- Georgia's condominium rules aren't loaded. The page says "check your governing documents" for those.
+- **Georgia condominiums:** if your association is set up as a condo, the annual meeting, records and statement rows come from the Georgia Condominium Act instead: 21 days' notice stating the time, place and purpose (§ 44-3-102), minutes and financial records (§ 44-3-106(d)), and the statement of amounts due within five business days (§ 44-3-109(d)). The 5% rule above doesn't apply. Instead, a condominium instrument recorded on or after July 1, 1990 must let 15% of the unit owners call a meeting.
+- **Georgia condominiums, insurance:** a row lists the cover the Act requires: property insurance for the full replacement cost of the buildings, general liability of at least $1 million per occurrence and $2 million aggregate, and the certificate of insurance within five business days when a unit owner asks about a water claim (§ 44-3-107).
+- The registration rows are the same for an HOA and a condo: SB 406 covers condominium associations too.
+- A Georgia association set up as an HOA still gets a "Georgia Condominium Act rules" row that says to check your governing documents.
 - The page quotes statutes word for word. It isn't legal advice. Ask your association's attorney.

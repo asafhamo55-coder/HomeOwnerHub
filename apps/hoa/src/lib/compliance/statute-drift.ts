@@ -40,7 +40,10 @@
  *
  * No `@/` imports: the collections letter payload (proposal.ts), which the
  * approvals inbox loads under tests/integration, reads the override codes.
+ * (../ga-condo/law is relative and import-free, so that still holds.)
  */
+
+import { GA_CONDO_FORECLOSURE_NOTICE } from '../ga-condo/law'
 
 // ─── citations ───────────────────────────────────────────────────────
 
@@ -339,6 +342,7 @@ export const DRIFT_CODES = [
   'ga_fee_notice_delivery',
   'ga_attorney_fees_receipt',
   'ga_foreclosure_notice_delivery',
+  'ga_condo_foreclosure_notice_delivery',
 ] as const
 export type DriftCode = (typeof DRIFT_CODES)[number]
 
@@ -740,6 +744,13 @@ export interface LetterCheckInput {
   printed: readonly PrintedLetter[]
   /** BL-149: Georgia only, checked on the letter date. undefined = not loaded (nothing checked). */
   gaRegistration?: GaRegistrationStatusOnly
+  /**
+   * BL-155: a Georgia condominium association. The SB 406 § 7 attorney's-fee
+   * rules are added to an Article 6 section, and Article 6 does not govern
+   * condominium associations (§ 44-3-235(b)), so they are not checked; the
+   * registration bar (Title 43 Ch. 17A) still is.
+   */
+  gaCondo?: boolean
 }
 
 /** The letter check reads the status only: the letter date is the day it is checked on. */
@@ -803,7 +814,7 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
       )
       if (reg) findings.push(reg)
     }
-    if (input.gaRegistration && input.kind === 'ga_pre_foreclosure') {
+    if (input.gaRegistration && (input.kind === 'ga_pre_foreclosure' || input.kind === 'ga_condo_pre_foreclosure')) {
       const reg = gaRegistrationFinding(
         'ga_unregistered_lien',
         { status: input.gaRegistration.status, today: input.letterDate },
@@ -815,7 +826,9 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
     // notice itself the fees it lists are what it gives 30 days to pay, so
     // nothing blocks; what the app can't see (the delivery method and the
     // day the owner received it) is a warning.
-    if (input.kind === 'ga_fee_notice') {
+    if (input.gaCondo) {
+      // BL-155: no SB 406 § 7 checks for a condominium (see LetterCheckInput.gaCondo).
+    } else if (input.kind === 'ga_fee_notice') {
       findings.push(
         finding(
           'ga_fee_notice_delivery',
@@ -854,6 +867,16 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
           'warn',
           'Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the owner at the lot’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than 30 days after it is sent. HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.',
           [GA_232C_NOTICE],
+        ),
+      )
+    }
+    if (input.kind === 'ga_condo_pre_foreclosure') {
+      findings.push(
+        finding(
+          'ga_condo_foreclosure_notice_delivery',
+          'warn',
+          'Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the unit owner at the unit’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than 30 days after it is sent. HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.',
+          [GA_CONDO_FORECLOSURE_NOTICE],
         ),
       )
     }

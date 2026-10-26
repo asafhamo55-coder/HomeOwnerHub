@@ -76,7 +76,28 @@
  *   the board confirms. HB 1222 (2026), which would have added a
  *   § 44-3-232.2 statement of account with a $250 cap, was not enacted;
  *   SB 406 (2026, Act 715) changed § 44-3-232(c) only.
+ *
+ * GEORGIA CONDOMINIUMS (BL-155) — an association whose type is 'condo'
+ * gets the Georgia Condominium Act instead, O.C.G.A. § 44-3-109(d),
+ * quoted from scripts/fixtures/state-law/ga-ocga-44-3-art3-2026.txt (the
+ * State's release 86 text; no later act amends § 44-3-109) via
+ * lib/ga-condo/law.ts:
+ *   - the same written request to the registered office, stating an
+ *     address, for "the amount of assessments past due and unpaid together
+ *     with late charges and interest";
+ *   - due "within five business days from the receipt of such request"
+ *     (BL-155's open question, five or ten, is settled by the official
+ *     text: five business days); failing that, the lien is extinguished as
+ *     to the purchaser's or lender's interest;
+ *   - binding on the association and every unit owner;
+ *   - "a fee not exceeding $10.00" only "if the condominium instruments so
+ *     provided".
+ *   It applies to property submitted to the Condominium Act, which the
+ *   board confirms. The POA Act does not apply to condominium associations
+ *   (§ 44-3-235(b)), so a condo statement never cites § 44-3-232(d).
  */
+
+import { GA_CONDO_STATEMENT_BUSINESS_DAYS, GA_CONDO_STATEMENT_FEE_CAP_CENTS } from '@/lib/ga-condo/law'
 
 export const VERIFY_DISCLAIMER =
   'This is general information, not legal advice. Verify every figure against your books and the current statute, and ask your association’s attorney before relying on it.'
@@ -214,4 +235,28 @@ export const GA_NOTES = [
 
 export const GA_FEE_NOTES = [
   'A fee of not more than $10.00 may be required before the statement is issued, and only if the declaration provides for it (§ 44-3-232(d)). If it doesn’t, enter $0.',
+]
+
+// ─── Georgia condominiums § 44-3-109(d) (BL-155) ─────────────────────
+
+export const GA_CONDO_CITATION = 'O.C.G.A. § 44-3-109(d)'
+/** § 44-3-109(d): within five business days from the receipt of the request. */
+export const GA_CONDO_RESPONSE_BUSINESS_DAYS = GA_CONDO_STATEMENT_BUSINESS_DAYS
+
+export function gaCondoFeeCap(): FeeCap {
+  return {
+    totalCents: GA_CONDO_STATEMENT_FEE_CAP_CENTS,
+    lines: [{ label: 'Statement fee, only if the condominium instruments provide for one (§ 44-3-109(d))', cents: GA_CONDO_STATEMENT_FEE_CAP_CENTS }],
+  }
+}
+
+export const GA_CONDO_NOTES = [
+  'This is the statement of amounts due under the Georgia Condominium Act, § 44-3-109(d): the assessments past due and unpaid, with late charges and interest. The other figures here are from the association’s records.',
+  'The request must be in writing, delivered to the association’s registered office, and give an address for the statement (§ 44-3-109(d)).',
+  'If the statement isn’t mailed or furnished within five business days of receiving the request, the assessment lien is extinguished as to the purchaser’s or lender’s interest in that transaction (§ 44-3-109(d)).',
+  'The statement binds the association and every unit owner (§ 44-3-109(d)).',
+]
+
+export const GA_CONDO_FEE_NOTES = [
+  'A fee of not more than $10.00 may be required before the statement is issued, and only if the condominium instruments provide for it (§ 44-3-109(d)). If they don’t, enter $0.',
 ]

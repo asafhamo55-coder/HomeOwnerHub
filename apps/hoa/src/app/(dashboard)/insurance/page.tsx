@@ -60,7 +60,7 @@ export default async function InsurancePage() {
   const [policies, documents, assocRes] = await Promise.all([
     loadInsurancePolicies(db, org.id),
     loadInsuranceDocumentOptions(db, org.id),
-    loadOrFail('associations', supabase.from('associations').select('id, name, state').eq('organization_id', org.id).order('name')),
+    loadOrFail('associations', supabase.from('associations').select('id, name, state, type').eq('organization_id', org.id).order('name')),
   ])
 
   if (policies === null || !assocRes.ok) {
@@ -72,17 +72,19 @@ export default async function InsurancePage() {
   }
 
   const today = todayIn(timeZone)
-  const associations = ((assocRes.data ?? []) as Array<{ id: string; name: string | null; state: string | null }>).map((a) => ({
+  const associations = ((assocRes.data ?? []) as Array<{ id: string; name: string | null; state: string | null; type: string | null }>).map((a) => ({
     id: a.id,
     name: a.name?.trim() || 'Your association',
     state: a.state,
+    // BL-155: a Georgia 'condo' gets the § 44-3-107 checks.
+    type: a.type ?? null,
   }))
   const reminders = policyReminders(policies, today)
   // One coverage check per association, over its own policies plus any not
   // tied to an association.
-  const checks = (associations.length > 0 ? associations : [{ id: null, name: 'Your association', state: null }]).map((a) => {
+  const checks = (associations.length > 0 ? associations : [{ id: null, name: 'Your association', state: null, type: null }]).map((a) => {
     const own: InsurancePolicy[] = policies.filter((p) => p.associationId === null || p.associationId === a.id)
-    return { associationId: a.id, associationName: a.name, check: coverageCheck(a.state, own, today) }
+    return { associationId: a.id, associationName: a.name, check: coverageCheck(a.state, own, today, { associationType: a.type }) }
   })
   const renewals = renewalComparisons(policies, today)
   const fidelityRows = await Promise.all(
