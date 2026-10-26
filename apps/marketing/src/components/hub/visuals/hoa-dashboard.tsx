@@ -10,7 +10,7 @@ export function HoaDashboardVisual() {
         <span className="h-2 w-2 rounded-full bg-border" />
         <span className="h-2 w-2 rounded-full bg-border" />
         <span className="h-2 w-2 rounded-full bg-border" />
-        <span className="ml-3 text-[10px] text-muted">Madison Park HOA · Daily Digest</span>
+        <span className="ml-3 text-[10px] text-muted">Sample HOA · Daily Digest</span>
         <span className="ml-auto inline-flex items-center gap-1 rounded bg-success-subtle px-1.5 py-0.5 text-[9px] font-semibold text-success ring-1 ring-success/15">
           <CheckCircle2 className="h-2.5 w-2.5" />
           All clear

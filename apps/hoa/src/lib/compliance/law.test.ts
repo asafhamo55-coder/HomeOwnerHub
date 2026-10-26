@@ -8,6 +8,10 @@ import {
   CA_ANNUAL_BUDGET_REPORT,
   FL_DIRECTOR_CERTIFICATE,
   GA_ANNUAL_NOTICE_DAYS,
+  GA_CORP_DISSOLUTION_DAYS,
+  GA_CORP_DISSOLUTION_LATE_REGISTRATION,
+  GA_CORP_REGISTRATION_DUE_MMDD,
+  GA_CORP_REGISTRATION_WINDOW,
   GA_MEETING_NOTICE,
   GA_REGISTRATION_BAR,
   GA_REGISTRATION_RENEWAL,
@@ -42,7 +46,7 @@ function sectionFor(q: StatuteQuote): string {
   if ((m = /^O\.C\.G\.A\. § 43-17A-2/.exec(q.cite))) return block(text, 'SECTION 2. (new O.C.G.A. § 43-17A-2')
   if ((m = /^Ga\. L\. 2026, SB 406 § 9/.exec(q.cite))) return block(text, 'SECTION 9.')
   if ((m = /^O\.C\.G\.A\. § 44-3-232\(d\)/.exec(q.cite))) return block(text, 'HB 1222 (2026) reproduction of § 44-3-232(d)')
-  if ((m = /^O\.C\.G\.A\. § (44-3-\d+)/.exec(q.cite))) return block(text, `O.C.G.A. Section ${m[1]} |`)
+  if ((m = /^O\.C\.G\.A\. § ((?:44|14)-3-\d+)/.exec(q.cite))) return block(text, `O.C.G.A. Section ${m[1]} |`)
   if ((m = /^Tex\. Prop\. Code § (209\.\d+)/.exec(q.cite))) return block(text, `Tex. Prop. Code § ${m[1]} |`)
   if ((m = /^Fla\. Stat\. § (720\.\d+)/.exec(q.cite))) {
     return norm(fl.find((r) => r.code_citation === `Fla. Stat. § ${m![1]}`)?.body ?? '')
@@ -58,6 +62,20 @@ describe('every compliance quote is word for word in the statute text in the rep
       expect(sectionFor(q)).toContain(norm(q.quote))
     })
   }
+
+  it('BL-154: a quote from a section SB 406 amends on 2027-01-01 still holds in the 2027 text', () => {
+    const ga = fixture('ga-ocga-44-3-art6-2026.txt')
+    const amended = ALL_COMPLIANCE_QUOTES.filter((q) => /^O\.C\.G\.A\. § 44-3-(222|226|235)\b|^O\.C\.G\.A\. § 44-3-232\(c\)/.test(q.cite) && q.fixture === 'ga-ocga-44-3-art6-2026.txt')
+    expect(amended.map((q) => q.cite)).toEqual(['O.C.G.A. § 44-3-235(a)'])
+    for (const q of amended) {
+      const n = /44-3-(\d+)/.exec(q.cite)![1]
+      const head = ga.lastIndexOf(`=== O.C.G.A. Section 44-3-${n} |`)
+      const dated = norm(ga.slice(head, ga.indexOf('\n=== ', head + 1) === -1 ? undefined : ga.indexOf('\n=== ', head + 1)))
+      expect(dated).toContain('@effective_date: 2027-01-01')
+      // In 2027 it opens paragraph (a)(1); "(a)" still cites it.
+      expect(dated).toContain(`(a)(1) ${norm(q.quote)}`)
+    }
+  })
 
   it('no quote is listed twice', () => {
     const seen = new Set(ALL_COMPLIANCE_QUOTES.map((q) => q.quote))
@@ -80,6 +98,12 @@ describe('the numbers the page computes with match the words', () => {
     const text = fixture('ga-ocga-44-3-232-2026.txt')
     expect(block(text, 'HB 512 (2025) reproduction of § 44-3-232(d)')).toContain(norm(GA_STATEMENT_DEADLINE.quote))
     expect(GA_STATEMENT_DEADLINE.quote).toContain('within five business days')
+  })
+
+  it('GA (BL-152): the corporation registers January 1 to April 1; dissolution may start 60 days after it is due', () => {
+    expect(GA_CORP_REGISTRATION_DUE_MMDD).toBe('04-01')
+    expect(GA_CORP_REGISTRATION_WINDOW.quote).toContain('between January 1 and April 1')
+    expect(GA_CORP_DISSOLUTION_LATE_REGISTRATION.quote).toContain(`within ${GA_CORP_DISSOLUTION_DAYS} days after it is due`)
   })
 
   it('FL: 90 days after election; CA: 30 to 90 days before the fiscal year ends', () => {

@@ -13,7 +13,14 @@ import {
   complianceState,
   complianceTone,
   daysUntil,
+  deadlineAppliesToState,
+  deadlineByCode,
+  deadlineLabel,
+  deadlineTone,
   deadlinesForState,
+  gaCorpRegistrationDeadline,
+  gaCorpRegistrationYear,
+  isKnownDeadlineCode,
   pendingComplianceItems,
   readComplianceAcks,
   signComplianceAck,
@@ -29,6 +36,7 @@ const GA_ID = '11111111-1111-4111-8111-111111111111'
 const TX_ID = '22222222-2222-4222-8222-222222222222'
 const GA_CODE = 'ga-sos-registration-2027'
 const TX_CODE = 'tx-management-certificate'
+const GA_CORP_2027 = 'ga-corp-annual-registration-2027'
 
 function assoc(over: Partial<ComplianceAssociationInput> = {}): ComplianceAssociationInput {
   return { id: GA_ID, name: 'Peachtree Commons', state: 'GA', governingLawState: null, complianceSettings: {}, ...over }
@@ -97,6 +105,7 @@ describe('state filtering', () => {
     )
     expect(items.map((i) => [i.associationId, i.deadline.code])).toEqual([
       [GA_ID, GA_CODE],
+      [GA_ID, GA_CORP_2027],
       [TX_ID, TX_CODE],
     ])
   })
@@ -138,9 +147,10 @@ describe('deadline math', () => {
       '2026-10-20',
       SECRET,
     )
-    expect(items.map((i) => i.deadline.code)).toEqual([GA_CODE, TX_CODE])
+    expect(items.map((i) => i.deadline.code)).toEqual([GA_CODE, GA_CORP_2027, TX_CODE])
     expect(items[0]).toMatchObject({ daysLeft: 73, tone: 'upcoming', label: 'Takes effect in 73 days (Jan 1, 2027)' })
-    expect(items[1]).toMatchObject({ daysLeft: null, tone: 'standing' })
+    expect(items[1]).toMatchObject({ daysLeft: 163, tone: 'upcoming', label: 'Filing opens Jan 1, 2027 · due Apr 1, 2027' })
+    expect(items[2]).toMatchObject({ daysLeft: null, tone: 'standing' })
   })
 })
 
@@ -150,7 +160,9 @@ describe('acknowledgment signature', () => {
   it('a signed acknowledgment hides the deadline', () => {
     const settings = withComplianceAck({}, GA_CODE, signComplianceAck(GA_ID, GA_CODE, stamp, SECRET))
     expect(readComplianceAcks(GA_ID, settings, SECRET).get(GA_CODE)).toEqual(stamp)
-    expect(pendingComplianceItems([assoc({ complianceSettings: settings })], '2026-10-20', SECRET)).toEqual([])
+    expect(pendingComplianceItems([assoc({ complianceSettings: settings })], '2026-10-20', SECRET).map((i) => i.deadline.code)).toEqual([
+      GA_CORP_2027,
+    ])
   })
 
   it('a forged, tampered, cross-association or wrong-secret value does not hide it', () => {
@@ -164,7 +176,7 @@ describe('acknowledgment signature', () => {
     ]
     for (const settings of cases) {
       expect(readComplianceAcks(GA_ID, settings, SECRET).size).toBe(0)
-      expect(pendingComplianceItems([assoc({ complianceSettings: settings })], '2026-10-20', SECRET)).toHaveLength(1)
+      expect(pendingComplianceItems([assoc({ complianceSettings: settings })], '2026-10-20', SECRET)).toHaveLength(2)
     }
     const signed = withComplianceAck({}, GA_CODE, good)
     expect(readComplianceAcks(GA_ID, signed, 'other-secret').size).toBe(0)
@@ -215,7 +227,7 @@ describe('digest items and line', () => {
     expect(at('2026-10-02')).toEqual([])
     expect(at('2026-10-03')).toEqual([GA_CODE])
     expect(at('2026-10-20')).toEqual([GA_CODE])
-    expect(at('2027-02-01')).toEqual([GA_CODE])
+    expect(at('2027-02-01')).toEqual([GA_CODE, GA_CORP_2027])
   })
 
   it('reads as one countdown line with the exact citation', () => {
@@ -223,5 +235,65 @@ describe('digest items and line', () => {
     expect(complianceDigestLine(item!)).toBe(
       'Peachtree Commons: Register with the Georgia Secretary of State — takes effect in 73 days (Jan 1, 2027). O.C.G.A. § 43-17A-2 (Ga. L. 2026, SB 406 (Act 715) § 2; effective Jan 1, 2027, § 9(a)).',
     )
+  })
+})
+
+describe('BL-152: the Georgia corporation’s annual registration (O.C.G.A. § 14-3-1622(c), § 14-3-1420(2))', () => {
+  const corp = gaCorpRegistrationDeadline(2027)
+
+  it('one code per filing year, Georgia only, 2027 onward', () => {
+    expect(corp).toMatchObject({ code: GA_CORP_2027, state: 'GA', dueOn: '2027-04-01', opensOn: '2027-01-01', dueKind: 'filing', graceDays: 60 })
+    expect(deadlineByCode('ga-corp-annual-registration-2031')?.dueOn).toBe('2031-04-01')
+    expect(isKnownDeadlineCode(GA_CORP_2027)).toBe(true)
+    for (const bad of ['ga-corp-annual-registration-2026', 'ga-corp-annual-registration-27', 'ga-corp-annual-registration-2100', 'GA-corp-annual-registration-2027']) {
+      expect(isKnownDeadlineCode(bad), bad).toBe(false)
+    }
+    expect(deadlineAppliesToState('GA', GA_CORP_2027)).toBe(true)
+    expect(deadlineAppliesToState('TX', GA_CORP_2027)).toBe(false)
+    expect(deadlineAppliesToState('GA', TX_CODE)).toBe(false)
+    expect(deadlineAppliesToState(null, GA_CODE)).toBe(false)
+    expect(() => signComplianceAck(GA_ID, GA_CORP_2027, { doneAt: '2027-02-01T00:00:00Z', doneBy: null }, SECRET)).not.toThrow()
+  })
+
+  it('the year is today’s, never before 2027; without a day only the fixed list', () => {
+    expect(gaCorpRegistrationYear('2026-10-20')).toBe(2027)
+    expect(gaCorpRegistrationYear('2027-12-31')).toBe(2027)
+    expect(gaCorpRegistrationYear('2028-01-01')).toBe(2028)
+    expect(deadlinesForState('GA').map((d) => d.code)).toEqual([GA_CODE])
+    expect(deadlinesForState('GA', '2028-03-01').map((d) => d.code)).toEqual([GA_CODE, 'ga-corp-annual-registration-2028'])
+    expect(deadlinesForState('TX', '2028-03-01').map((d) => d.code)).toEqual([TX_CODE])
+  })
+
+  it('labels and tones through the season: due on April 1 itself, late after, dissolution risk after day 60', () => {
+    const at = (today: string) => ({ label: deadlineLabel(corp, today), tone: deadlineTone(corp, daysUntil(today, '2027-04-01')) })
+    expect(at('2026-12-31')).toEqual({ label: 'Filing opens Jan 1, 2027 · due Apr 1, 2027', tone: 'upcoming' })
+    expect(at('2027-01-01')).toEqual({ label: 'Due Apr 1, 2027 (in 90 days)', tone: 'upcoming' })
+    expect(at('2027-03-31')).toEqual({ label: 'Due Apr 1, 2027 (in 1 day)', tone: 'soon' })
+    expect(at('2027-04-01')).toEqual({ label: 'Due today (Apr 1, 2027)', tone: 'soon' })
+    expect(at('2027-04-02').tone).toBe('overdue')
+    expect(at('2027-04-02').label).toBe(
+      'Late since Apr 1, 2027 · if it isn’t filed by May 31, 2027, the Secretary of State may start administrative dissolution',
+    )
+    expect(at('2027-05-31').label).toContain('if it isn’t filed by May 31, 2027')
+    expect(at('2027-06-01').label).toBe(
+      'Late since Apr 1, 2027 · more than 60 days: the Secretary of State may start administrative dissolution. File now',
+    )
+  })
+
+  it('marking 2027 done never hides 2028', () => {
+    const stamp = { doneAt: '2027-02-01T15:00:00.000Z', doneBy: 'user-1' }
+    const settings = withComplianceAck({}, GA_CORP_2027, signComplianceAck(GA_ID, GA_CORP_2027, stamp, SECRET))
+    const codes = (today: string) =>
+      pendingComplianceItems([assoc({ complianceSettings: settings })], today, SECRET).map((i) => i.deadline.code)
+    expect(codes('2027-03-01')).toEqual([GA_CODE])
+    expect(codes('2028-01-02')).toEqual([GA_CODE, 'ga-corp-annual-registration-2028'])
+  })
+
+  it('names the Title 14 fixture, which holds both sections it cites', () => {
+    const text = readFileSync(resolve(REPO_ROOT, corp.fixture), 'utf8')
+    expect(text).toContain('=== O.C.G.A. Section 14-3-1622 | Annual registration of corporation')
+    expect(text).toContain('=== O.C.G.A. Section 14-3-1420 | Grounds for administrative dissolution')
+    expect(text).toContain('Subsequent annual registrations must be delivered to the Secretary of State between January 1 and April 1')
+    expect(text).toContain('within 60 days after it is due;')
   })
 })

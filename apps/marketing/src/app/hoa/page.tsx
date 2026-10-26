@@ -13,13 +13,15 @@ import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
 import { SHIPPED_FEATURES } from '@/lib/features'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { pageMetadata } from '@/lib/site'
+import { GeorgiaFirst } from '@/components/site/georgia-first'
+import { STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
 export const metadata: Metadata = pageMetadata({
   // The root layout's template appends " · HomeownerHub", so with the other
   // hubs hidden the product name would just repeat.
   title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME} — AI for volunteer boards` : 'AI for volunteer boards',
   description:
-    'Run a self-managed HOA without a management company. Covenant Brain, violation and collections letters, AI-drafted announcements, a shared inbox, a resident assistant, accounting and a month-end board report — all in one place.',
+    'Run a self-managed HOA without a management company, Georgia first: the SB 406 registration kit, Georgia collections notices, quorum and proxies and the annual report for owners. Plus Covenant Brain, violation letters, AI-drafted announcements, a shared inbox, a resident assistant, accounting and a month-end board report.',
   path: '/hoa',
 })
 
@@ -35,9 +37,13 @@ const ALSO_INCLUDED = SHIPPED_FEATURES.map((f) => f.text)
 
 // Backlog items (docs/backlog.md). Not available today. Spanish
 // announcements (BL-025) and AI ARC review (BL-024/027/079) shipped and moved
-// to the workflow cards above (BL-090).
+// to the workflow cards above (BL-090). The reserve snapshot shipped
+// (2026-10-20-1450); projections have not. Electronic ballots are BL-156;
+// Georgia condominiums (Condo Act) are on the backlog too.
 const NOT_YET = [
-  'Reserve fund tracking and projections', // BL-037
+  'Reserve fund projections', // BL-037
+  'Electronic ballots and written consent', // BL-156
+  'Georgia condominium (Condo Act) rules',
 ]
 
 export default function HoaPage() {
@@ -47,11 +53,11 @@ export default function HoaPage() {
 
       <HubHero
         theme={theme}
-        eyebrow={`${HOA_PRODUCT_NAME} · for volunteer boards`}
+        eyebrow={`${HOA_PRODUCT_NAME} · for volunteer boards · Georgia first`}
         title="Run your HOA without a management company."
-        subtitle="Covenant questions, violation letters, announcements, inbox replies, minutes, bills and the month-end report — drafted by AI, approved by the board, cited to the document. Built with Madison Park HOA."
+        subtitle="Georgia’s SB 406 registration, collections notices, quorum and proxies, the annual report for owners and late fees within the cap. Then covenant questions, violation letters, announcements, inbox replies, minutes, bills and the month-end report. Drafted from your records, approved by the board, cited to the document."
         primaryCta={{ label: 'Book a 10-min board demo', href: '/demo' }}
-        secondaryCta={{ label: 'See the workflows', href: '#features' }}
+        secondaryCta={{ label: 'See the Georgia tools', href: '#georgia' }}
         visual={<HoaDashboardVisual />}
         stats={[
           { value: String(SHIPPED_HOA_WORKFLOWS.length), label: 'AI workflows live' },
@@ -59,6 +65,8 @@ export default function HoaPage() {
           { value: 'Self-serve', label: 'Setup + roster import' },
         ]}
       />
+
+      <GeorgiaFirst />
 
       <ViolationDrafterLive />
 
@@ -146,7 +154,7 @@ export default function HoaPage() {
             icon: 'Scale',
             bar: 'C',
             title: 'State-law answers',
-            body: 'HOA-law questions answered with citations to the statute. Georgia today; Florida is being added.',
+            body: `HOA-law questions answered with citations to the statute, and it says so when the statute doesn’t cover it. ${STATE_LAW_ANSWERS_NOTE}`,
           },
           {
             icon: 'ClipboardCheck',
@@ -214,7 +222,7 @@ export default function HoaPage() {
         description="Ten minutes is all we need. We pre-load your CC&R, show you Covenant Brain answering your actual rules, and let the board decide."
         primary={{ label: 'Book a board demo', href: '/demo' }}
         secondary={{ label: 'See pricing', href: '/pricing' }}
-        footnote="Six-month free pilot for HOAs · No data migration · Built in Atlanta"
+        footnote="Six-month free pilot for HOAs · No data migration · Built in Atlanta · Not legal advice"
       />
 
       <Footer />

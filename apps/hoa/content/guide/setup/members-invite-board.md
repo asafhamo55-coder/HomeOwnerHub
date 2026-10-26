@@ -37,7 +37,7 @@ They get an email with a sign-in link. If they already have a HomeownerHub login
 - "You can't demote the last admin. Promote someone else first.": every HOA needs at least one admin.
 
 ## Good to know
-- **Change a role:** in the Members list, pick a new role from the dropdown on their row. It saves as soon as you pick. Only admins can do this.
+- **Change a role:** in the Members list, pick a new role from the dropdown on their row. It saves as soon as you pick. Only admins can do this. In Georgia, moving someone onto or off the board (Resident to Board or Admin, or back) also adds a row to amend your Secretary of State registration within 30 days. See [Register your Georgia association with the Secretary of State](guide:ga-registration-kit).
 - **Remove someone:** use the trash button on their row and confirm. You can't remove yourself or the last admin.
 - The setup checklist's [[Invite the board]] step is done once someone besides you is on the Members list as an Admin or Board member. Inviting a resident doesn't count.
 - Invitations nobody has accepted yet are listed under **Pending invitations**, where you can resend or revoke them. To invite every owner on your roster at once, see [Invite every owner to the portal at once](guide:members-invite-owners).

@@ -8,6 +8,7 @@ import { cn } from '@/lib/cn'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING, PRICING_V2 } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
+import { STATE_COVERAGE_SENTENCE, STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
 export const metadata: Metadata = pageMetadata({
   title: `Pricing — ${HOA_PRICE_COPY.title}`,
@@ -39,7 +40,10 @@ const HOA_FEATURE_LIST: Array<{ text: string; complete?: true }> = [
   { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073, /accounting/reports/monthly-report
   { text: 'Shared Gmail inbox with AI reply drafts, saved replies and Create from email', complete: true }, // /inbox, /inbox/[id], W32
   { text: 'Accounting: general ledger, bank feeds, reconciliation', complete: true }, // /accounting
-  { text: 'Collections letters (FL, CA, TX), estoppel certificates and the owner budget notice', complete: true }, // /properties/[id]/collections-letter, /properties/[id]/estoppel, /accounting/budget/[id]/notice
+  { text: 'Georgia: SB 406 registration kit, quorum and proxy rules, and the annual report for owners' }, // /compliance/ga-registration, /meetings/[id]/quorum/proxies, /meetings/[id]/annual-report
+  { text: 'State-law Compliance page, election planner and annual meeting kit' }, // /compliance, /meetings/[id]/election, /meetings/[id]/quorum
+  { text: 'Collections letters (GA, FL, CA, TX), estoppel and resale certificates and the owner budget notice', complete: true }, // /properties/[id]/collections-letter, /properties/[id]/estoppel, /accounting/budget/[id]/notice
+  { text: 'Late-fee policy the board sets, held to the state cap', complete: true }, // /settings/late-fees
   { text: 'AI bill scan into the approvals queue', complete: true }, // /accounting/invoices/new, W36
   { text: 'Vendor onboarding, RFPs and AI bid comparison', complete: true }, // /vendors, /rfps, W21–W23
   { text: 'AI ARC review: resident pre-check, cited board review, decision letters' }, // /arc, /resident/arc/new, BL-024/027/079
@@ -60,7 +64,8 @@ const COMPLETE_FEATURES = ['Everything in Essentials, plus:', ...HOA_FEATURE_LIS
 // Spanish (BL-025) and AI ARC review (BL-024/027/079) shipped: they are in
 // HOA_FEATURES above (BL-090).
 const HOA_ROADMAP = [
-  'Reserve fund tracking', // BL-037
+  'Reserve fund projections', // BL-037 (the reserve snapshot shipped)
+  'Electronic ballots and written consent', // BL-156
 ]
 
 const ANNUAL_BULLETS = [
@@ -168,7 +173,7 @@ const allFaqs = [
   },
   {
     q: 'What if my HOA is in a state you don\'t support yet?',
-    a: 'Dues, violations, documents, accounting, announcements and the inbox work for an HOA in any state. The state-specific parts: the state-law assistant covers Georgia today, and Florida (Chapter 720) is being added now. Estoppel certificates, collections letters and the owner budget notice follow Florida and California law, and collections letters Texas law too. If you want yours next, get on a demo and tell us.',
+    a: `Dues, violations, documents, accounting, announcements and the inbox work for an HOA in any state. ${STATE_COVERAGE_SENTENCE} State-law answers: ${STATE_LAW_ANSWERS_NOTE} If you want yours next, get on a demo and tell us.`,
   },
   {
     // Eviction Hub only — dropped below while it is not offered (BL-097).

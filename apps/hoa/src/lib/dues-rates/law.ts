@@ -6,7 +6,7 @@
  * law.test.ts checks every quote word for word against it.
  *
  * GEORGIA — ga-ocga-44-3-art6-2026.txt (Property Owners' Association Act,
- *   O.C.G.A. §§ 44-3-220 to 44-3-235; snapshot valid until 2027-01-01).
+ *   O.C.G.A. §§ 44-3-220 to 44-3-235; snapshot valid until 2027-07-01, with SB 406’s 2027 text as dated records).
  *   Read in full for assessments: Article 6 sets NO notice period, NO cap
  *   and NO owner vote for a change in assessments. What it does say:
  *   - § 44-3-235(a): the article applies only to property submitted to it.

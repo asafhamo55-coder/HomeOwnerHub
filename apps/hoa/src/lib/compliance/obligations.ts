@@ -14,7 +14,10 @@
  *   4. Minutes and financial records (§ 44-3-231(d)).
  *   5. The statement of amounts due within five business days
  *      (§ 44-3-232(d)).
- *   6. What isn't loaded (condominium rules): "check your governing
+ *   6. BL-152: the nonprofit corporation's annual registration (Jan 1 –
+ *      Apr 1, § 14-3-1622(c)), markable per filing year, with the
+ *      § 14-3-1420(2) dissolution risk once it is 60 days late.
+ *   7. What isn't loaded (condominium rules): "check your governing
  *      documents".
  * Rows 3–5 are the Property Owners' Association Act, which covers property
  * submitted to it (§ 44-3-235(a)); each says so.
@@ -47,6 +50,9 @@
  * from the registration kit (/compliance/ga-registration,
  * lib/ga-registration): registered, lapsed or opted out, and each
  * post-election amendment the board filed (or said wasn't needed).
+ * BL-159: the same 30-day amendment row after each board role change made
+ * in Settings → Members (changeMemberRole writes it into that signed
+ * record), counted from the day the role changed.
  * ANY OTHER STATE: nothing quoted; "check your governing documents".
  *
  * Statute wording only ever comes from ./law.ts (checked word for word);
@@ -54,11 +60,13 @@
  */
 
 import {
-  COMPLIANCE_DEADLINES,
-  complianceLabel,
   complianceState,
-  complianceTone,
   daysUntil,
+  deadlineByCode,
+  deadlineLabel,
+  deadlineTone,
+  gaCorpRegistrationCode,
+  gaCorpRegistrationYear,
   formatDueOn,
   readComplianceAcks,
   type ComplianceAssociationInput,
@@ -71,6 +79,7 @@ import {
   amendmentFor,
   gaRegistrationStanding,
   gaStandingLabel,
+  type GaOfficerChange,
   type GaRegistrationRecord,
   type GaRegistrationStanding,
 } from '@/lib/ga-registration/model'
@@ -86,6 +95,12 @@ import {
   GA_ANNUAL_MEETING,
   GA_ANNUAL_NOTICE_DAYS,
   GA_ANNUAL_REPORT,
+  GA_CORP_DISSOLUTION,
+  GA_CORP_DISSOLUTION_LATE_REGISTRATION,
+  GA_CORP_REGISTRATION_CONTENTS,
+  GA_CORP_REGISTRATION_FIRST,
+  GA_CORP_REGISTRATION_INITIAL,
+  GA_CORP_REGISTRATION_WINDOW,
   GA_MEETING_NOTICE,
   GA_MISSED_ANNUAL_MEETING,
   GA_POA_ACT_SCOPE,
@@ -326,10 +341,10 @@ function deadlineObligation(
   input: ComplianceInput,
   extra: Pick<ComplianceObligation, 'steps' | 'quotes' | 'appliesTo' | 'link'>,
 ): ComplianceObligation {
-  const d = COMPLIANCE_DEADLINES.find((x) => x.code === code)!
+  const d = deadlineByCode(code)!
   const done = deadlineDone(base, code, acks, input)
   const daysLeft = d.dueOn ? daysUntil(input.today, d.dueOn) : null
-  const pending = complianceTone(daysLeft)
+  const pending = deadlineTone(d, daysLeft)
   const tone: ObligationTone = done ? 'done' : pending === 'standing' ? 'unknown' : pending
   return {
     ...base,
@@ -337,7 +352,7 @@ function deadlineObligation(
     kind: 'deadline',
     title: d.title,
     tone,
-    label: done ? doneLabel(done.doneAt) : d.dueOn ? complianceLabel(d.dueOn, daysLeft) : 'Not marked as filed yet',
+    label: done ? doneLabel(done.doneAt) : d.dueOn ? deadlineLabel(d, input.today) : 'Not marked as filed yet',
     dueOn: d.dueOn,
     official: { href: d.officialUrl, label: d.officialLabel },
     deadlineCode: code,
@@ -788,8 +803,48 @@ function gaAmendmentRow(
     done: null,
     meetingId: meeting.id,
   }
+  return gaAmendmentStatus(common, meeting.id, recordedOn, today, record)
+}
+
+/**
+ * BL-159: Georgia's 30-day amended registration after a board role change
+ * made in Settings → Members (changeMemberRole). Same row and same answers
+ * as after an election, keyed by the change's id; any amended registration
+ * filed on or after the change's day also covers it.
+ */
+function gaOfficerChangeRow(base: Base, change: GaOfficerChange, today: string, record: GaRegistrationRecord): ComplianceObligation {
+  const common = {
+    ...base,
+    key: `${base.associationId}:ga-registration-amendment:${change.id}`,
+    kind: 'registration_amendment' as const,
+    title: `Amend the Secretary of State registration after the ${formatDueOn(change.on)} board change`,
+    steps: [
+      'Someone joined or left the board on the Members page. Check whether that changed the association’s officers on its registration.',
+      `If it did, file an amended registration statement with the Secretary of State within ${GA_AMENDMENT_DAYS} days of the change. HomeownerHub counts from the day the role changed in HomeownerHub.`,
+      'File the amended registration in Documents.',
+      'Check the Secretary of State’s guidance and confirm with your association’s attorney.',
+    ],
+    quotes: [GA_REGISTRATION_AMENDMENT, GA_SB406_EFFECTIVE],
+    appliesTo: 'Georgia owners’ associations, including HOAs and condominium associations.',
+    link: { href: `${GA_REGISTRATION_KIT_HREF}#amendments`, label: 'Mark it in the registration kit' },
+    official: { href: GA_SOS_URL, label: GA_SOS_LABEL },
+    deadlineCode: null,
+    done: null,
+    meetingId: change.id,
+  }
+  return gaAmendmentStatus(common, change.id, change.on, today, record)
+}
+
+/** The tone and label of an amended-registration row: answered, not yet in force, open, or past day 30. */
+function gaAmendmentStatus(
+  common: Omit<ComplianceObligation, 'tone' | 'label' | 'dueOn'>,
+  triggerId: string,
+  recordedOn: string,
+  today: string,
+  record: GaRegistrationRecord,
+): ComplianceObligation {
   // BL-149: the board recorded the amended filing, or that the officers didn't change.
-  const answered = amendmentFor(record, meeting.id)
+  const answered = amendmentFor(record, triggerId)
   if (answered?.kind === 'filed') {
     return { ...common, tone: 'done', label: `Amended registration filed ${formatDueOn(answered.filing.filedOn)}`, dueOn: null }
   }
@@ -855,6 +910,13 @@ function directorElections(
   })
 }
 
+/** BL-159: one amended-registration row per board role change in the signed record, oldest first. */
+function gaOfficerChangeRows(base: Base, a: ComplianceAssociationInput, input: ComplianceInput): ComplianceObligation[] {
+  const read = readGaRegistration(a.id, a.complianceSettings, input.secret)
+  if (read.state !== 'saved') return []
+  return (read.record.officerChanges ?? []).map((c) => gaOfficerChangeRow(base, c, input.today, read.record))
+}
+
 function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
   const base: Base = { associationId: a.id, associationName: a.name }
   const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
@@ -887,9 +949,30 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
         gaRegistrationUpkeep(base, input.today, standing),
         gaAnnualMeeting(base, input, condo),
         ...gaDuties(base, condo),
+        deadlineObligation(base, gaCorpRegistrationCode(gaCorpRegistrationYear(input.today)), acks, input, {
+          steps: [
+            'Check your articles of incorporation: if the association is a Georgia nonprofit corporation, it files this every year.',
+            'File the annual registration with the Secretary of State between January 1 and April 1, with the current registered agent, office address and officers.',
+            'Mark it done here and attach the filed registration or the receipt as evidence.',
+            'If it is late, file as soon as you can and check the corporation’s status on the Secretary of State’s site.',
+            'This is separate from the SB 406 owners’ association registration above.',
+          ],
+          quotes: [
+            GA_CORP_REGISTRATION_CONTENTS,
+            GA_CORP_REGISTRATION_WINDOW,
+            GA_CORP_REGISTRATION_FIRST,
+            GA_CORP_REGISTRATION_INITIAL,
+            GA_CORP_DISSOLUTION,
+            GA_CORP_DISSOLUTION_LATE_REGISTRATION,
+          ],
+          appliesTo:
+            'Georgia associations incorporated as nonprofit corporations (most are). An unincorporated association doesn’t file this.',
+          link: null,
+        }),
         // BL-155: a condo association gets the Condominium Act rows above instead.
         ...(condo ? [] : [notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)')]),
         ...elections,
+        ...gaOfficerChangeRows(base, a, input),
       ]
     }
     case 'TX':

@@ -5,7 +5,7 @@ import {
   GA_SB406_OPT_OUT_BAR,
   GA_SB406_REGISTRATION_BAR,
   blockingFindings,
-  checkCollectionsLetter,
+  checkCollectionsLetter as checkLetter,
   checkFine,
   checkLien,
   resolveOverrides,
@@ -73,6 +73,16 @@ describe('fines', () => {
 })
 
 describe('collections letters', () => {
+  // BL-154: from Jan 1, 2027 every GA letter also carries the § 43-17A-8
+  // payment-order warning (statute-drift.test.ts). These cases are about
+  // registration, so they set it aside — after checking it is a warning.
+  const checkCollectionsLetter = (input: LetterCheckInput) => {
+    const c = checkLetter(input)
+    const order = c.findings.filter((f) => f.code === 'ga_payment_order')
+    expect(order.every((f) => f.severity === 'warn')).toBe(true)
+    expect(order).toHaveLength(input.letterDate >= AFTER ? 1 : 0)
+    return { ...c, findings: c.findings.filter((f) => f.code !== 'ga_payment_order') }
+  }
   const letter = (over: Partial<LetterCheckInput>): LetterCheckInput => ({
     state: 'GA',
     kind: 'past_due',

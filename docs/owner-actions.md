@@ -58,16 +58,17 @@ The app itself stays at www.homeownerledger.com (OA-5 stays paused).
 3. In Vercel, project **homeownerhub-marketing** → **Settings → Domains**: add `www.homeownerledger.online` (no redirect). Wait for the green "Valid Configuration".
 4. Tell Claude it's done. Claude checks the site loads with a certificate and switches the site's canonical address to it.
 
-### OA-31 · Restore one SQL file on your Mac (if you didn't empty it on purpose)
+### OA-32 · Download Georgia's proposed HOA rules (and optionally comment by Nov 2)
 
-**Urgency:** Whenever
+**Urgency:** Soon
 
-**Why it matters:** at the end of the Oct 22 session the local copy of `docs/specs/2026-10-20-inbound-auth.sql` (the inbound sender-check SQL, already applied) was emptied. The emptying was never committed, so GitHub still has the full file. Claude's permissions don't allow it to discard local changes.
+**Why it matters:** the Georgia Secretary of State has proposed rules (chapter 590-13) for the new HOA registration and complaint process. They are planned to take effect Jan 1, 2027. The state's website blocks automated downloads, so Claude can't read the official text, and the app must not quote rules it hasn't seen (BL-160). Comments are due **Monday, Nov 2**; hearings are Nov 4–5.
 
 **Steps:**
 
-1. In the Claude Code prompt in the repo, type `! git checkout -- docs/specs/2026-10-20-inbound-auth.sql`.
-2. Nothing to report back; Claude sees the file restored.
+1. In Safari, open https://sos.ga.gov/page/hoa-rules and download every proposed-rule PDF on the page.
+2. Put them in the repo folder `scripts/fixtures/state-law/ga-sos-590-13-proposed/` (or just tell Claude where they are in Downloads). Claude turns them into a quoted fixture and builds the "Proposed rules (not in force)" card.
+3. Optional, your decision: send a short written comment to HOA@sos.ga.gov by Nov 2. Points that matter to small volunteer boards: let records be delivered electronically, let meeting notice go by email where owners agree, and keep the registration filing simple for associations without a manager. Claude can draft it once the PDFs are in.
 
 ### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
@@ -358,6 +359,19 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-31 · Restore one SQL file on your Mac (if you didn't empty it on purpose)
+
+**Done 2026-10-26:** Asaf restored the file with `git checkout`.
+
+**Urgency:** Whenever
+
+**Why it matters:** at the end of the Oct 22 session the local copy of `docs/specs/2026-10-20-inbound-auth.sql` (the inbound sender-check SQL, already applied) was emptied. The emptying was never committed, so GitHub still has the full file. Claude's permissions don't allow it to discard local changes.
+
+**Steps:**
+
+1. In the Claude Code prompt in the repo, type `! git checkout -- docs/specs/2026-10-20-inbound-auth.sql`.
+2. Nothing to report back; Claude sees the file restored.
 
 ### OA-29 · Give the app's Vercel build more memory (deploys are stuck)
 

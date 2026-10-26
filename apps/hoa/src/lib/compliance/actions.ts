@@ -29,7 +29,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   COMPLIANCE_DONE_TABLE,
   complianceState,
-  deadlinesForState,
+  deadlineAppliesToState,
   isKnownDeadlineCode,
   signComplianceAck,
   withComplianceAck,
@@ -106,9 +106,7 @@ export async function markComplianceDeadlineDone(input: {
   if (!res.ok) return { ok: false, error: 'Couldn’t load your association. Try again.' }
   const row = ((res.data ?? []) as AssocRow[]).find((r) => r.id === input.associationId)
   if (!row) return { ok: false, error: 'That association isn’t part of your organization.' }
-  const applies = deadlinesForState(complianceState(row.governing_law_state, row.state)).some(
-    (d) => d.code === input.code,
-  )
+  const applies = deadlineAppliesToState(complianceState(row.governing_law_state, row.state), input.code)
   if (!applies) return { ok: false, error: 'That deadline doesn’t apply to this association’s state.' }
 
   const {

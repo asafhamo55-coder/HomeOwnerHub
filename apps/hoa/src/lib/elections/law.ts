@@ -9,7 +9,7 @@
  *
  * GEORGIA (launch state) — ga-ocga-44-3-art6-2026.txt, the Property
  *   Owners' Association Act (O.C.G.A. §§ 44-3-220 to 44-3-235; snapshot
- *   valid until 2027-01-01). Article 6 governs the members' MEETING, not the
+ *   valid until 2027-07-01; SB 406's 2027 text adds no election rule). Article 6 governs the members' MEETING, not the
  *   election procedure:
  *   - § 44-3-230(a): members meet at least annually; 21 days' notice of an
  *     annual or regularly scheduled meeting, 7 days for any other, stating

@@ -33,9 +33,8 @@ import {
   GA_CONDO_PRE_FORECLOSURE_QUOTES,
   GA_FEE_NOTICE_BODY,
   GA_FEE_NOTICE_QUOTES,
-  GA_PRE_FORECLOSURE_BODY,
-  GA_PRE_FORECLOSURE_QUOTES,
   TX_CURE_DAYS,
+  gaForeclosureLaw,
 } from '@/lib/collections/letters/law'
 import {
   LETTER_META,
@@ -46,6 +45,7 @@ import {
   letterBlocked,
   letterJurisdiction,
   letterLawCheck,
+  letterMeta,
   letterProblems,
   letterTotals,
   usdCents,
@@ -168,8 +168,8 @@ function Draft({ input, today, events, printed }: { input: LetterInput; today: s
                     setVerified(false)
                     setLawOverrides({})
                   }}
-                  label={LETTER_META[k].label}
-                  description={`${LETTER_META[k].description}${LETTER_META[k].citation ? ` (${LETTER_META[k].citation})` : ''}`}
+                  label={letterMeta(k, today).label}
+                  description={`${letterMeta(k, today).description}${letterMeta(k, today).citation ? ` (${letterMeta(k, today).citation})` : ''}`}
                 />
               ))}
             </ChoiceGroup>
@@ -291,7 +291,7 @@ function Facts({ letter }: { letter: Letter }) {
         {letter.notes.map((n) => (
           <p key={n}>{n}</p>
         ))}
-        <p>Printing records “{LETTER_META[letter.kind].label}” on the collections case, dated the day it prints. If you mail it on a later day, add a note with the mailing date.</p>
+        <p>Printing records “{letter.meta.label}” on the collections case, dated the day it prints. If you mail it on a later day, add a note with the mailing date.</p>
       </CardContent>
     </Card>
   )
@@ -415,10 +415,19 @@ function Approved({
   )
 }
 
-/** BL-148: the Georgia statute text the notice rests on, verbatim (law.test.ts checks each quote). */
-function GeorgiaQuotes({ kind }: { kind: 'ga_fee_notice' | 'ga_pre_foreclosure' | 'ga_condo_pre_foreclosure' }) {
+/**
+ * BL-148: the Georgia statute text the notice rests on, verbatim (law.test.ts
+ * checks each quote). BL-154: the notice before foreclosure quotes the
+ * § 44-3-232(c) in force on its letter date. BL-155: a condominium's notice
+ * quotes § 44-3-109 (lib/ga-condo/law.test.ts checks each quote).
+ */
+function GeorgiaQuotes({ kind, letterDate }: { kind: 'ga_fee_notice' | 'ga_pre_foreclosure' | 'ga_condo_pre_foreclosure'; letterDate: string }) {
   const quotes =
-    kind === 'ga_fee_notice' ? GA_FEE_NOTICE_QUOTES : kind === 'ga_condo_pre_foreclosure' ? GA_CONDO_PRE_FORECLOSURE_QUOTES : GA_PRE_FORECLOSURE_QUOTES
+    kind === 'ga_fee_notice'
+      ? GA_FEE_NOTICE_QUOTES
+      : kind === 'ga_condo_pre_foreclosure'
+        ? GA_CONDO_PRE_FORECLOSURE_QUOTES
+        : gaForeclosureLaw(letterDate).quotes
   return (
     <section className="space-y-1 text-xs text-foreground-secondary">
       <h3 className="font-medium text-foreground">What the law says</h3>
@@ -535,7 +544,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
         </p>
       ) : null}
       {k === 'ga_fee_notice' ? <p className="text-foreground">{GA_FEE_NOTICE_BODY(association)}</p> : null}
-      {k === 'ga_pre_foreclosure' ? <p className="text-foreground">{GA_PRE_FORECLOSURE_BODY(association)}</p> : null}
+      {k === 'ga_pre_foreclosure' ? <p className="text-foreground">{gaForeclosureLaw(letter.letterDate).body(association)}</p> : null}
       {k === 'ga_condo_pre_foreclosure' ? <p className="text-foreground">{GA_CONDO_PRE_FORECLOSURE_BODY(association)}</p> : null}
       {k === 'past_due' ? <p className="text-foreground">Our records show the following amounts past due on your account.</p> : null}
 
@@ -665,7 +674,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
         </section>
       ) : null}
 
-      {k === 'ga_fee_notice' || k === 'ga_pre_foreclosure' || k === 'ga_condo_pre_foreclosure' ? <GeorgiaQuotes kind={k} /> : null}
+      {k === 'ga_fee_notice' || k === 'ga_pre_foreclosure' || k === 'ga_condo_pre_foreclosure' ? <GeorgiaQuotes kind={k} letterDate={letter.letterDate} /> : null}
 
       {k === 'past_due' ? (
         <p className="text-foreground">

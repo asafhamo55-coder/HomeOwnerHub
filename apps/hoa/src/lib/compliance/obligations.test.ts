@@ -68,9 +68,46 @@ describe('Georgia comes first and gets the fullest list', () => {
       'ga-annual-meeting',
       'ga-records',
       'ga-statement-of-amounts-due',
+      'ga-corp-annual-registration-2027',
       'ga-condominium',
       'director-elections',
     ])
+  })
+
+  it('BL-152: the corporation’s annual registration — markable per year, Jan 1 – Apr 1, then the dissolution risk', () => {
+    const at = (today: string, over: Partial<ComplianceInput> = {}) => buildComplianceOverview(input({ today, ...over }))
+    const before = find(at('2026-10-21'), 'ga-corp-annual-registration-2027')
+    expect(before).toMatchObject({
+      kind: 'deadline',
+      deadlineCode: 'ga-corp-annual-registration-2027',
+      tone: 'upcoming',
+      dueOn: '2027-04-01',
+      label: 'Filing opens Jan 1, 2027 · due Apr 1, 2027',
+      link: null,
+    })
+    expect(before.official?.href).toBe('https://sos.ga.gov/how-to-guide/how-file-annual-registration')
+    expect(before.quotes.map((q) => q.cite)).toEqual([
+      'O.C.G.A. § 14-3-1622(a)',
+      'O.C.G.A. § 14-3-1622(c)',
+      'O.C.G.A. § 14-3-1622(c)',
+      'O.C.G.A. § 14-3-1622(d)',
+      'O.C.G.A. § 14-3-1420',
+      'O.C.G.A. § 14-3-1420(2)',
+    ])
+    expect(before.quotes.every((q) => q.fixture === 'ga-ocga-14-3-2026.txt')).toBe(true)
+    expect(before.appliesTo).toContain('nonprofit corporations')
+    expect(find(at('2027-03-15'), 'ga-corp-annual-registration-2027').tone).toBe('soon')
+    expect(find(at('2027-04-01'), 'ga-corp-annual-registration-2027').tone).toBe('soon')
+    const late = at('2027-06-01')
+    const r = find(late, 'ga-corp-annual-registration-2027')
+    expect(r.tone).toBe('overdue')
+    expect(r.label).toContain('administrative dissolution')
+    expect(late.overdue.map((x) => x.key)).toContain(r.key)
+    // Done for 2027 (a row, with evidence): done all year; 2028 is its own code.
+    const doneIn = at('2027-06-01', { done: done(GA, 'ga-corp-annual-registration-2027', DOC) })
+    expect(find(doneIn, 'ga-corp-annual-registration-2027').tone).toBe('done')
+    const next = at('2028-01-05', { done: done(GA, 'ga-corp-annual-registration-2027', DOC) })
+    expect(find(next, 'ga-corp-annual-registration-2028')).toMatchObject({ tone: 'upcoming', label: 'Due Apr 1, 2028 (in 87 days)' })
   })
 
   it('the registration is markable, dated Jan 1, 2027, and upcoming before then', () => {
@@ -272,7 +309,8 @@ describe('complianceSummary (monthly report, board packet)', () => {
       input({ today: '2027-01-02', annualMeetings: { lastHeld: '2026-03-03', next: null, nextNoticeSentOn: null } }),
     )
     expect(complianceSummary(o)).toEqual({
-      open: 2,
+      // SB 406 registration (overdue), the annual meeting, and (BL-152) the 2027 corporate registration.
+      open: 3,
       overdue: 1,
       done: 0,
       next: { title: 'Register with the Georgia Secretary of State', label: 'In effect since Jan 1, 2027', associationName: 'HOA 1111' },

@@ -13,7 +13,12 @@
  *   - for an amendment after a recorded election (BL-151), the meeting it
  *     answers, or that the officers did not change;
  *   - the mailing address and registered agent the board typed, for the
- *     printed fill-in sheet (the app holds neither anywhere else).
+ *     printed fill-in sheet (the app holds neither anywhere else);
+ *   - BL-159: each day a member's role moved onto or off the board through
+ *     Settings → Members (`officerChanges`, written by changeMemberRole,
+ *     ids and days only). Each starts the same 30-day amended-registration
+ *     row an election does, answered the same way (an amendment filing or
+ *     "officers didn't change", keyed by the change's id).
  *
  * WHAT IT MEANS (gaRegistrationStanding). Every registration statement
  * expires on December 31 (§ 43-17A-2(c)). HomeownerHub counts a filing as
@@ -46,6 +51,7 @@ export const MAX_FILINGS = 40
 export const MAX_NO_CHANGE = 20
 export const MAX_CONFIRMATION = 64
 export const MAX_DETAIL = 200
+export const MAX_OFFICER_CHANGES = 20
 
 export type GaDecision = 'register' | 'opt_out'
 export type GaFilingKind = 'registration' | 'renewal' | 'amendment'
@@ -81,6 +87,13 @@ export interface GaFiling {
   meetingId: string | null
 }
 
+/** BL-159: a board seat changed in HomeownerHub on this day (no name, no role: an id and the day). */
+export interface GaOfficerChange {
+  id: string
+  /** YYYY-MM-DD, the association's day the role changed. */
+  on: string
+}
+
 export interface GaRegistrationRecord {
   decision: GaDecision | null
   /** YYYY-MM-DD the board recorded its decision, or null. */
@@ -90,6 +103,12 @@ export interface GaRegistrationRecord {
   noChange: string[]
   mailingAddress: string | null
   registeredAgent: string | null
+  /**
+   * BL-159: board role changes awaiting (or answered by) an amendment.
+   * Optional and left out when empty, so a record saved before BL-159
+   * signs and verifies exactly as it did.
+   */
+  officerChanges?: GaOfficerChange[]
 }
 
 export const EMPTY_GA_REGISTRATION: GaRegistrationRecord = {
@@ -145,6 +164,22 @@ export function isGaFiling(v: unknown): v is GaFiling {
   return isYear(f.coversYear) && f.reason === null && f.meetingId === null
 }
 
+export function isGaOfficerChange(v: unknown): v is GaOfficerChange {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false
+  const c = v as Record<string, unknown>
+  return typeof c.id === 'string' && UUID.test(c.id) && isCalendarDay(c.on)
+}
+
+function isOfficerChanges(v: unknown): boolean {
+  if (v === undefined) return true
+  return (
+    Array.isArray(v) &&
+    v.length <= MAX_OFFICER_CHANGES &&
+    v.every(isGaOfficerChange) &&
+    new Set((v as GaOfficerChange[]).map((c) => c.id)).size === v.length
+  )
+}
+
 export function isGaRegistrationRecord(v: unknown): v is GaRegistrationRecord {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return false
   const r = v as Record<string, unknown>
@@ -159,12 +194,14 @@ export function isGaRegistrationRecord(v: unknown): v is GaRegistrationRecord {
     r.noChange.length <= MAX_NO_CHANGE &&
     r.noChange.every((id) => typeof id === 'string' && UUID.test(id)) &&
     isDetail(r.mailingAddress) &&
-    isDetail(r.registeredAgent)
+    isDetail(r.registeredAgent) &&
+    isOfficerChanges(r.officerChanges)
   )
 }
 
 /** Only the record's own fields, in a fixed order (what the signature covers). */
 export function cleanGaRegistration(r: GaRegistrationRecord): GaRegistrationRecord {
+  const changes = (r.officerChanges ?? []).map((c) => ({ id: c.id, on: c.on }))
   return {
     decision: r.decision,
     decidedOn: r.decidedOn,
@@ -180,6 +217,8 @@ export function cleanGaRegistration(r: GaRegistrationRecord): GaRegistrationReco
     noChange: [...r.noChange],
     mailingAddress: r.mailingAddress,
     registeredAgent: r.registeredAgent,
+    // Absent when empty: a pre-BL-159 record's signature covers no such key.
+    ...(changes.length > 0 ? { officerChanges: changes } : {}),
   }
 }
 
@@ -289,14 +328,43 @@ export function gaStandingLabel(s: GaRegistrationStanding, formatDay: (ymd: stri
 
 // ─── amendments after an election (BL-151) ───────────────────────────
 
-/** The amendment the board recorded for this meeting's election, or that none was needed. */
+/**
+ * The amendment the board recorded for this meeting's election (or, BL-159,
+ * this board role change), or that none was needed. A filing answers its
+ * trigger by id (`meetingId`). For a role change, any amended registration
+ * filed on or after the change's day also covers it: that filing lists the
+ * officers as they stood then.
+ */
 export function amendmentFor(
   record: GaRegistrationRecord,
   meetingId: string,
 ): { kind: 'filed'; filing: GaFiling } | { kind: 'no_change' } | null {
   const filing = record.filings.find((f) => f.kind === 'amendment' && f.meetingId === meetingId)
   if (filing) return { kind: 'filed', filing }
-  return record.noChange.includes(meetingId) ? { kind: 'no_change' } : null
+  if (record.noChange.includes(meetingId)) return { kind: 'no_change' }
+  const change = (record.officerChanges ?? []).find((c) => c.id === meetingId)
+  if (change) {
+    const later = record.filings.find((f) => f.kind === 'amendment' && f.filedOn >= change.on)
+    if (later) return { kind: 'filed', filing: later }
+  }
+  return null
+}
+
+// ─── board role changes (BL-159) ─────────────────────────────────────
+
+/** A seat on the board as the kit counts it: the board and admin roles (the names on its fill-in sheet). */
+export function isBoardSeat(role: string | null | undefined): boolean {
+  return role === 'board' || role === 'admin'
+}
+
+/** Someone moved onto or off the board. Board ↔ admin is an app permission, not an officer change. */
+export function boardSeatChanged(from: string | null | undefined, to: string | null | undefined): boolean {
+  return isBoardSeat(from) !== isBoardSeat(to)
+}
+
+/** An earlier change on the same day that nothing has answered yet: one row covers both. */
+export function openOfficerChangeOn(record: GaRegistrationRecord, on: string): GaOfficerChange | null {
+  return (record.officerChanges ?? []).find((c) => c.on === on && amendmentFor(record, c.id) === null) ?? null
 }
 
 // ─── edits (the server action applies one, then signs) ───────────────
@@ -308,6 +376,8 @@ export type GaRegistrationEdit =
   | { op: 'no_change'; meetingId: string }
   | { op: 'undo_no_change'; meetingId: string }
   | { op: 'details'; mailingAddress: string | null; registeredAgent: string | null }
+  /** BL-159: changeMemberRole moved someone onto or off the board. */
+  | { op: 'officer_change'; change: GaOfficerChange }
 
 export type GaEditResult = { ok: true; record: GaRegistrationRecord } | { ok: false; error: string }
 
@@ -346,5 +416,17 @@ export function applyGaRegistrationEdit(record: GaRegistrationRecord, edit: GaRe
       return { ok: true, record: { ...r, noChange: r.noChange.filter((id) => id !== edit.meetingId) } }
     case 'details':
       return { ok: true, record: { ...r, mailingAddress: edit.mailingAddress, registeredAgent: edit.registeredAgent } }
+    case 'officer_change': {
+      if (!isGaOfficerChange(edit.change)) return { ok: false, error: 'Invalid input.' }
+      // Same day and still open: the existing row already covers it.
+      if (openOfficerChangeOn(r, edit.change.on)) return { ok: true, record: r }
+      const kept = r.officerChanges ?? []
+      if (kept.some((c) => c.id === edit.change.id)) return { ok: true, record: r }
+      // Full: the oldest change goes (its 30 days are long past by then).
+      const changes = [...kept, edit.change]
+        .sort((a, b) => a.on.localeCompare(b.on) || a.id.localeCompare(b.id))
+        .slice(-MAX_OFFICER_CHANGES)
+      return { ok: true, record: { ...r, officerChanges: changes } }
+    }
   }
 }

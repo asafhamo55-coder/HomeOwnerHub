@@ -25,9 +25,9 @@ const shortDescription = OTHER_HUBS_ENABLED
   : 'AI for self-managed HOA boards. Less paperwork.'
 
 export const metadata: Metadata = {
-  // The marketing site's own origin after the domain split (lib/site.ts:
-  // NEXT_PUBLIC_SITE_URL, falling back to www). Absolutises canonical and
-  // OG URLs. The app lives on homeownerledger.online (lib/app-origin.ts).
+  // The marketing site's own origin (lib/site.ts: NEXT_PUBLIC_SITE_URL,
+  // falling back to www.homeownerledger.online). Absolutises canonical and
+  // OG URLs. The app lives on www.homeownerledger.com (lib/app-origin.ts).
   metadataBase: new URL(SITE_ORIGIN),
   applicationName: SITE_NAME,
   title: {

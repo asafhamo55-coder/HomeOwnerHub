@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { Hero } from '@/components/site/hero'
+import { GeorgiaFirst } from '@/components/site/georgia-first'
 import { LogoStrip } from '@/components/site/logo-strip'
 import { ProblemSolution } from '@/components/site/problem-solution'
 import { ProductsBento } from '@/components/site/products-bento'
@@ -21,7 +22,7 @@ import { SITE_NAME, pageMetadata } from '@/lib/site'
 const home = pageMetadata({
   title: SITE_NAME,
   description:
-    'AI for self-managed HOA boards: cited answers from your governing documents, violation letters, announcements, a shared inbox and the books, with the board approving every draft.',
+    'AI for self-managed HOA boards, Georgia first: the SB 406 registration kit, Georgia collections notices, quorum and proxies, the annual report for owners, plus cited answers from your governing documents, violation letters, announcements and the books. The board approves every draft.',
   path: '/',
 })
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default function HomePage() {
       <Nav />
       <Hero />
       <LogoStrip />
+      <GeorgiaFirst moreHref={{ label: 'Everything for Georgia boards', href: '/hoa#georgia' }} />
       <ProblemSolution />
       <ProductsBento />
       <Agents />

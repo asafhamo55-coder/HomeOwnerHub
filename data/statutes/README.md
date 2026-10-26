@@ -47,14 +47,23 @@ The snapshot header records every source document (URL, sha256, retrieval date) 
 Today it is the State's own electronic O.C.G.A. release 86 (Nov. 2022, via Public.Resource.Org), with Ga. L. 2024
 HB 220 applied to §§ 44-3-223, 44-3-230 and 44-3-231(a), plus Ga. L. 2026 SB 406 § 7 as its own record.
 
-It carries `@valid_until: 2027-01-01`, the day SB 406 §§ 3–6 amend §§ 44-3-222, 44-3-226(b), 44-3-232(c) and
-44-3-235(a). From that date the GA adapter refuses to serve it: the refresh job reports GA as failed and the
-loaded rows stay as they are. Refresh it before then, and again after any session that amends Article 6:
+SB 406 §§ 2–6 take effect 2027-01-01. They are carried as DATED records (BL-154): §§ 44-3-222, 44-3-226,
+44-3-232 and 44-3-235 appear a second time with `@effective_date: 2027-01-01` (the release-86 text with the Act's
+revised subsection swapped in), and `Ga. L. 2026, SB 406, § 2` (new ch. 43-17A) appears with that date only. The
+adapter serves, per citation, the latest record whose effective date has arrived, so the weekly refresh switches to
+the 2027 text by itself. Their text comes from `scripts/fixtures/state-law/ga-sb406-2026-2027-text.txt`, the
+official bill PDF with struck words removed and underlined words kept (its header records how, and the check that
+rebuilding the old text reproduces release 86).
+
+The snapshot carries `@valid_until: 2027-07-01`, the usual effective date of the 2027 session's Acts. From that date
+the GA adapter refuses to serve it: the refresh job reports GA as failed and the loaded rows stay as they are. Before
+then, check the 2027 session for Acts amending Article 6 (or ch. 43-17A) and refresh:
 
 1. Get the current text of each changed section: the Act as passed on legis.ga.gov (struck text removed,
    underlined text kept, applied to the snapshot's current text), or a newer State release of Title 44 if
    Public.Resource.Org publishes one (https://archive.org/details/gov.ga.ocga.2018). Compare against the
-   official Code (LexisNexis public access, via legis.ga.gov → "Georgia Code").
+   official Code (LexisNexis public access, via legis.ga.gov → "Georgia Code"). A change that takes effect later
+   can go in as a dated record (`@effective_date`), as SB 406 §§ 2–6 did.
 2. Edit the snapshot: section text (one paragraph per line), its `@source_url`, `@effective_date` and `@history`;
    the header's source list; `@retrieved`; and `@valid_until` (the next known effective date of an Act not yet
    applied, or a date about a year out). When the Code places SB 406 § 7, move its text into that section and
@@ -62,6 +71,17 @@ loaded rows stay as they are. Refresh it before then, and again after any sessio
 3. Run `pnpm exec tsx scripts/build-ga-statute-snapshot.ts`, then the unit tests (georgia.test.ts pins the
    section list and a few known passages — update them to the new law).
 4. Ship, then trigger the GA refresh (OA-9 in docs/owner-actions.md).
+
+## Georgia Nonprofit Corporation Code (Title 14, Ch. 3)
+
+`scripts/fixtures/state-law/ga-ocga-14-3-2026.txt` holds §§ 14-3-701, 14-3-707, 14-3-724, 14-3-1420, 14-3-1601,
+14-3-1602 and 14-3-1622. They are rebuilt from release 86 of Title 14 (Public.Resource.Org, the same release as the
+Article 6 snapshot), with Ga. L. 2023 SB 148 applied. SB 148 restated the whole chapter from July 1, 2023. The header
+records the source URLs, the sha256 of each, and the amendments checked. The app quotes it on /compliance (the Jan 1 – Apr 1
+corporate annual registration and § 14-3-1420(2)) and on /tickets/records (§ 14-3-1602). The unit tests check every quote
+word for word. The State Law Brain does **not** ingest it yet: the GA adapter serves Article 6 only. To refresh, apply
+any later Act the same way (struck text removed, underlined text kept). Check that rebuilding the old text from the Act
+reproduces the current text, then update the header.
 
 ## File format
 

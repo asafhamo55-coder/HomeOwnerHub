@@ -71,6 +71,7 @@ const POA_KEYS = [
   'ga-annual-meeting',
   'ga-records',
   'ga-statement-of-amounts-due',
+  'ga-corp-annual-registration-2027',
   'ga-condominium',
   'director-elections',
 ]
@@ -86,6 +87,7 @@ describe('a Georgia condominium association', () => {
       'ga-records',
       'ga-statement-of-amounts-due',
       'ga-condo-insurance',
+      'ga-corp-annual-registration-2027',
       'director-elections',
     ])
     expect(os.some((x) => x.kind === 'not_loaded')).toBe(false)

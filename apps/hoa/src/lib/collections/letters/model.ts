@@ -41,7 +41,7 @@ import {
   FL_LATE_NOTICE_CITATION,
   FL_LATE_NOTICE_DAYS,
   FL_LATE_NOTICE_MAILING,
-  GA_2027_NOT_LOADED,
+  GA_2027_FINE_NOTE,
   GA_232C_REPLACED_ON,
   GA_ATTORNEY_FEES_NOTE,
   GA_CONDO_PRE_FORECLOSURE_CITATION,
@@ -54,15 +54,16 @@ import {
   GA_LIEN_LAPSE_YEARS,
   GA_MAX_INTEREST_PERCENT,
   GA_PRE_FORECLOSURE_CITATION,
-  GA_PRE_FORECLOSURE_DAYS,
   GA_PRE_FORECLOSURE_MAILING,
   GENERIC_NOTE,
+  gaForeclosureLaw,
+  gaForeclosureThresholdCents,
   TX_CITATION,
   TX_CURE_DAYS,
   TX_MAILING,
 } from './law'
 import { LATE_FEE_LAWS, statutoryCapCents } from '../../late-fees/law'
-import { GA_CONDO_LATE_CHARGE, isGaCondo } from '../../ga-condo/law'
+import { GA_CONDO_FORECLOSURE_MIN_CENTS, GA_CONDO_LATE_CHARGE, GA_CONDO_NOTICE_DAYS, isGaCondo } from '../../ga-condo/law'
 
 export { usdCents }
 
@@ -213,6 +214,25 @@ export function isGaForeclosureKind(kind: LetterKind): kind is 'ga_pre_foreclosu
 }
 
 /**
+ * BL-154: the letter's meta on its date. Only the GA notice before
+ * foreclosure changes: from January 1, 2027 (SB 406 § 5) it is a 60-day
+ * notice with the new threshold, and it no longer lists fines or fees.
+ * The condominium notice (BL-155, § 44-3-109(c)) does not change: SB 406
+ * amends no section of Article 3.
+ */
+export function letterMeta(kind: LetterKind, letterDate: string): LetterMeta {
+  if (kind !== 'ga_pre_foreclosure' || letterDate < GA_232C_REPLACED_ON) return LETTER_META[kind]
+  return {
+    ...LETTER_META.ga_pre_foreclosure,
+    label: 'Notice before foreclosure (§ 44-3-232(c), 60 days)',
+    description:
+      'Required at least 60 days before the association’s lien is foreclosed. Only once the assessments in arrears reach the lesser of $4,000 or 12 months of dues (at least $2,000), not counting fines or fees.',
+    mailing: gaForeclosureLaw(letterDate).mailing,
+    listsFines: false,
+  }
+}
+
+/**
  * The letters a state's association can draft, statutory ones first.
  * `gaCondo` (BL-155): a Georgia condominium association gets the
  * Condominium Act letters instead of the POA Act ones.
@@ -292,8 +312,9 @@ export function letterFigures(input: LetterInput, kind: LetterKind, letterDate: 
   const assessmentLines = pastDue.filter((l) => ASSESSMENT_TYPES.has(l.type) && delinquent(l))
   const lateFeeLines = pastDue.filter((l) => l.type === 'late_fee')
   const rest = pastDue.filter((l) => !ASSESSMENT_TYPES.has(l.type) && l.type !== 'late_fee')
-  const otherLines = LETTER_META[kind].listsFines ? rest : []
-  const omittedLines = [...(LETTER_META[kind].listsFines ? [] : rest), ...pastDue.filter((l) => ASSESSMENT_TYPES.has(l.type) && !delinquent(l))]
+  const listsFines = letterMeta(kind, letterDate).listsFines
+  const otherLines = listsFines ? rest : []
+  const omittedLines = [...(listsFines ? [] : rest), ...pastDue.filter((l) => ASSESSMENT_TYPES.has(l.type) && !delinquent(l))]
 
   const assessmentsCents = sum(assessmentLines)
   const lateFeesCents = sum(lateFeeLines)
@@ -347,9 +368,6 @@ export function waitingCheck(kind: LetterKind, f: LetterFigures, events: LetterE
     }
     return { ok: false, reason: 'No assessment is past due on this account, so there is no debt to notice under § 5660.', earliest: null }
   }
-  if (kind === 'ga_pre_foreclosure' && letterDate >= GA_232C_REPLACED_ON) {
-    return { ok: false, reason: GA_2027_NOT_LOADED, earliest: null }
-  }
   if (kind === 'fl_late_notice' && f.assessmentsCents === 0) {
     return { ok: false, reason: 'No assessment is past due on this account. A notice of late assessment is for a past-due assessment (§ 720.3085(3)(d)).', earliest: null }
   }
@@ -383,11 +401,21 @@ export function waitingCheck(kind: LetterKind, f: LetterFigures, events: LetterE
     }
     return { ok: true, note: `Notice of late assessment recorded on ${formatDay(ready[ready.length - 1]!)}, at least 30 days ago.` }
   }
-  if (isGaForeclosureKind(kind)) {
-    // § 44-3-232(c) and § 44-3-109(c) set the same 30 days and $2,000.00.
+  if (kind === 'ga_condo_pre_foreclosure') {
+    // BL-155: § 44-3-109(c), unchanged by SB 406: 30 days and $2,000.00.
     return {
       ok: true,
-      note: `The lien may be foreclosed no sooner than 30 days after this notice is sent (${formatDay(addCalendarDays(letterDate, GA_PRE_FORECLOSURE_DAYS))} if sent on the letter date), and only for a lien of at least ${usdCents(GA_FORECLOSURE_MIN_CENTS)}.`,
+      note: `The lien may be foreclosed no sooner than 30 days after this notice is sent (${formatDay(addCalendarDays(letterDate, GA_CONDO_NOTICE_DAYS))} if sent on the letter date), and only for a lien of at least ${usdCents(GA_CONDO_FORECLOSURE_MIN_CENTS)} (§ 44-3-109(c)).`,
+    }
+  }
+  if (kind === 'ga_pre_foreclosure') {
+    const law = gaForeclosureLaw(letterDate)
+    const by = formatDay(addCalendarDays(letterDate, law.days))
+    return {
+      ok: true,
+      note: law.sb406
+        ? `The lien may be foreclosed no sooner than 60 days after this notice is sent (${by} if sent on the letter date), and only once the regular and special assessments in arrears reach the lesser of $4,000.00 or 12 months of regular assessments, but at least $2,000.00. Fines, fees and other specific assessments don’t count (§ 44-3-232(c) as revised by SB 406 § 5).`
+        : `The lien may be foreclosed no sooner than 30 days after this notice is sent (${by} if sent on the letter date), and only for a lien of at least ${usdCents(GA_FORECLOSURE_MIN_CENTS)}.`,
     }
   }
   if (kind === 'ca_pre_lien') {
@@ -414,9 +442,12 @@ export function letterDeadline(kind: LetterKind, letterDate: string): LetterDead
       return { label: 'Cure period ends (45 days)', day: addCalendarDays(letterDate, TX_CURE_DAYS) }
     case 'ga_fee_notice':
       return { label: 'Earliest day attorney’s fees can be collected, if the owner receives it on the letter date (30 days from receipt)', day: addCalendarDays(letterDate, GA_FEE_NOTICE_DAYS) }
-    case 'ga_pre_foreclosure':
+    case 'ga_pre_foreclosure': {
+      const days = gaForeclosureLaw(letterDate).days
+      return { label: `Earliest day to foreclose the lien, if sent on the letter date (${days} days)`, day: addCalendarDays(letterDate, days) }
+    }
     case 'ga_condo_pre_foreclosure':
-      return { label: 'Earliest day to foreclose the lien, if sent on the letter date (30 days)', day: addCalendarDays(letterDate, GA_PRE_FORECLOSURE_DAYS) }
+      return { label: 'Earliest day to foreclose the lien, if sent on the letter date (30 days)', day: addCalendarDays(letterDate, GA_CONDO_NOTICE_DAYS) }
     case 'past_due':
       return null
   }
@@ -458,33 +489,73 @@ export function gaLateChargeNotes(f: LetterFigures, condo = false): string[] {
 
 /**
  * § 44-3-232(c): the lien lapses, as to an assessment and its late
- * charges and interest, four years after it first became due. Lines whose
- * lien has lapsed, or lapses within GA_LAPSE_WARN_DAYS, are named.
+ * charges and interest, four years after it first became due — six years
+ * from January 1, 2027 (SB 406 § 5). Lines whose lien has lapsed, or
+ * lapses within GA_LAPSE_WARN_DAYS, are named.
+ *
+ * From 2027, a charge whose four years ran out BEFORE January 1, 2027
+ * lapsed under the law then in force. Whether SB 406's six years revive
+ * that lien is not something the statute text answers, so such a charge is
+ * named separately and the board is sent to its attorney.
  */
 export function gaLapseNotes(f: LetterFigures, letterDate: string, condo = false): string[] {
-  // BL-155: § 44-3-109(c) sets the same four-year lapse for a condominium.
+  // BL-155: § 44-3-109(c) keeps four years for a condominium; SB 406 amends no section of Article 3.
+  const years = condo ? GA_LIEN_LAPSE_YEARS : gaForeclosureLaw(letterDate).lapseYears
+  const word = years === GA_LIEN_LAPSE_YEARS ? 'four' : 'six'
   const cite = condo ? '§ 44-3-109(c)' : '§ 44-3-232(c)'
   const lines = [...f.assessmentLines, ...f.lateFeeLines].sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   const warnBy = addCalendarDays(letterDate, GA_LAPSE_WARN_DAYS)
-  const lapsed = lines.filter((l) => addYears(l.dueDate, GA_LIEN_LAPSE_YEARS) <= letterDate)
+  const lapsedBefore2027 =
+    years === GA_LIEN_LAPSE_YEARS ? [] : lines.filter((l) => addYears(l.dueDate, GA_LIEN_LAPSE_YEARS) < GA_232C_REPLACED_ON)
+  const lapsed = lines.filter((l) => !lapsedBefore2027.includes(l) && addYears(l.dueDate, years) <= letterDate)
   const soon = lines.filter((l) => {
-    const on = addYears(l.dueDate, GA_LIEN_LAPSE_YEARS)
+    if (lapsedBefore2027.includes(l)) return false
+    const on = addYears(l.dueDate, years)
     return on > letterDate && on <= warnBy
   })
   const out: string[] = []
+  if (lapsedBefore2027.length > 0) {
+    const one = lapsedBefore2027.length === 1
+    out.push(
+      `The lien for ${one ? 'one charge' : `${lapsedBefore2027.length} charges`} lapsed before January 1, 2027, four years after ${one ? 'it was' : 'each was'} first due (the oldest due ${formatDay(lapsedBefore2027[0]!.dueDate)}), under the § 44-3-232(c) then in force. SB 406 lengthened the period to six years from that date; ask your attorney whether the lien secures ${one ? 'it' : 'them'} before relying on ${one ? 'it' : 'them'} in a foreclosure.`,
+    )
+  }
   if (lapsed.length > 0) {
     const one = lapsed.length === 1
     out.push(
-      `The lien has lapsed for ${one ? 'one charge' : `${lapsed.length} charges`} first due four or more years ago (the oldest due ${formatDay(lapsed[0]!.dueDate)}). The owner may still owe ${one ? 'it' : 'them'}, but the lien no longer secures ${one ? 'it' : 'them'} (${cite}). Ask your attorney before relying on ${one ? 'it' : 'them'} in a foreclosure.`,
+      `The lien has lapsed for ${one ? 'one charge' : `${lapsed.length} charges`} first due ${word} or more years ago (the oldest due ${formatDay(lapsed[0]!.dueDate)}). The owner may still owe ${one ? 'it' : 'them'}, but the lien no longer secures ${one ? 'it' : 'them'} (${cite}). Ask your attorney before relying on ${one ? 'it' : 'them'} in a foreclosure.`,
     )
   }
   if (soon.length > 0) {
     const one = soon.length === 1
     out.push(
-      `The lien for ${one ? 'one charge' : `${soon.length} charges`} lapses soon, four years after ${one ? 'it was' : 'each was'} first due: the first on ${formatDay(addYears(soon[0]!.dueDate, GA_LIEN_LAPSE_YEARS))} (${cite}).`,
+      `The lien for ${one ? 'one charge' : `${soon.length} charges`} lapses soon, ${word} years after ${one ? 'it was' : 'each was'} first due: the first on ${formatDay(addYears(soon[0]!.dueDate, years))} (${cite}).`,
     )
   }
   return out
+}
+
+/** Ledger types that are assessments for the 2027 threshold (§ 43-17A-1(8)–(9)); not specific assessments. */
+const GA_THRESHOLD_TYPES = new Set(['regular', 'special'])
+
+export interface GaForeclosureCount {
+  /** Regular and special assessments in arrears, less unapplied credit: what counts toward the threshold. */
+  countedCents: number
+  /** Payment-plan installments on the letter, left out of the count (they may carry fees). */
+  planCents: number
+}
+
+/**
+ * BL-154: what counts toward the 2027 threshold. "No specific assessment
+ * ... or other fine or fee shall be included": late charges, fines,
+ * damage charges and collection fees are out. Payment-plan installments
+ * are out too, because a plan can bundle fees and the ledger can't tell.
+ * Interest is out: it is not an assessment.
+ */
+export function gaForeclosureCount(f: LetterFigures): GaForeclosureCount {
+  const counted = f.assessmentLines.filter((l) => GA_THRESHOLD_TYPES.has(l.type)).reduce((t, l) => t + l.remainingCents, 0)
+  const planCents = f.assessmentLines.filter((l) => l.type === 'plan_installment').reduce((t, l) => t + l.remainingCents, 0)
+  return { countedCents: Math.max(0, counted + f.creditCents), planCents }
 }
 
 // ─── fields and BLANKs ───────────────────────────────────────────────
@@ -501,7 +572,7 @@ export const ENTERED_MONEY: Record<LetterKind, string[]> = {
   ga_condo_pre_foreclosure: ['interest'],
 }
 
-export function letterFields(kind: LetterKind, input: LetterInput): CertificateField[] {
+export function letterFields(kind: LetterKind, input: LetterInput, letterDate?: string): CertificateField[] {
   const owners = input.owners.map((o) => o.trim()).filter(Boolean)
   const fields: CertificateField[] = [
     { key: 'associationName', label: 'Association name', kind: 'text', value: input.associationName?.trim() || null },
@@ -594,6 +665,15 @@ export function letterFields(kind: LetterKind, input: LetterInput): CertificateF
       hint: 'SB 406 § 7(f)(3): list each attorney’s fee the association claims, with its amount. Write “None claimed” if there are none yet. This list does not change the total.',
     })
   }
+  if (kind === 'ga_pre_foreclosure' && letterDate !== undefined && letterDate >= GA_232C_REPLACED_ON) {
+    fields.push({
+      key: 'regularYear',
+      label: GA_REGULAR_YEAR_LABEL,
+      kind: 'money',
+      value: null,
+      hint: 'Your regular assessment (dues) for one year, e.g. $250 a month → $3,000. Not special or specific assessments. It sets the foreclosure threshold: the lesser of $4,000 or this amount, but at least $2,000 (§ 44-3-232(c)). Not printed on the letter.',
+    })
+  }
   if (kind === 'ga_pre_foreclosure') {
     fields.push(
       { key: 'interest', label: 'Interest owed', kind: 'money', value: null, hint: 'Only if your declaration provides for interest (§ 44-3-232(b)). Enter 0 if none.' },
@@ -624,6 +704,8 @@ export function letterFields(kind: LetterKind, input: LetterInput): CertificateF
   fields.push({ key: 'signer', label: 'Signed by (name and title)', kind: 'text', value: null, hint: 'A board member, officer or the association’s manager.' })
   return fields
 }
+
+export const GA_REGULAR_YEAR_LABEL = '12 months of regular assessments (dues) for this lot'
 
 export const CA_DELINQUENT_DAYS_LABEL = `Days after due date an assessment is delinquent (per your declaration; at least ${CA_DELINQUENT_AFTER_DAYS})`
 
@@ -716,7 +798,7 @@ export interface Letter {
  */
 export function buildLetter(input: LetterInput, kind: LetterKind, letterDate: string, events: LetterEvent[], values: FieldValues = {}): Letter {
   const jurisdiction = letterJurisdiction(input.state)
-  const meta = LETTER_META[kind]
+  const meta = letterMeta(kind, letterDate)
   const figures = letterFigures(input, kind, letterDate, parseDelinquentDays(values.delinquentDays) ?? CA_DELINQUENT_AFTER_DAYS)
   const gaCondo = isGaCondo(input.state, input.associationType)
   const allowed = kindsFor(jurisdiction, gaCondo).includes(kind)
@@ -734,7 +816,18 @@ export function buildLetter(input: LetterInput, kind: LetterKind, letterDate: st
       : { ok: false, reason: `This letter is for ${meta.jurisdiction} associations, and this home’s association is not in ${meta.jurisdiction}.`, earliest: null }
   const notes: string[] = []
   if (figures.omittedLines.some((l) => !ASSESSMENT_TYPES.has(l.type))) {
-    notes.push(kind === 'ca_pre_lien' ? CA_FINE_NOTE : FL_FINE_NOTE)
+    notes.push(kind === 'ca_pre_lien' ? CA_FINE_NOTE : kind === 'ga_pre_foreclosure' ? GA_2027_FINE_NOTE : FL_FINE_NOTE)
+  }
+  if (kind === 'ga_pre_foreclosure' && letterDate >= GA_232C_REPLACED_ON) {
+    const { countedCents, planCents } = gaForeclosureCount(figures)
+    notes.push(
+      `Counted toward the foreclosure threshold: ${usdCents(countedCents)} of regular and special assessments in arrears${figures.creditCents !== 0 ? ', less unapplied payments and credits' : ''}. Late charges, interest, fines and fees don’t count (§ 44-3-232(c)).`,
+    )
+    if (planCents > 0) {
+      notes.push(
+        `Payment-plan installments (${usdCents(planCents)}) aren’t counted toward the threshold, because a plan can include fees and HomeownerHub can’t tell. If the plan is only for regular or special assessments, ask your attorney whether they count.`,
+      )
+    }
   }
   if (kind === 'ca_pre_lien' && figures.omittedLines.some((l) => ASSESSMENT_TYPES.has(l.type))) {
     notes.push(`Assessments less than ${figures.delinquentAfterDays} days past due are not delinquent yet (§ 5650(b)) and are left off.`)
@@ -749,7 +842,7 @@ export function buildLetter(input: LetterInput, kind: LetterKind, letterDate: st
     meta,
     letterDate,
     figures,
-    fields: letterFields(kind, input),
+    fields: letterFields(kind, input, letterDate),
     waiting,
     deadline: letterDeadline(kind, letterDate),
     notes,
@@ -773,9 +866,20 @@ export function letterBlocked(letter: Letter, values: FieldValues, verified: boo
   if (problems.length > 0) return problems[0]!
   const total = letterTotals(letter, values).totalCents ?? 0
   if (total <= 0) return 'The total owed is not above zero.'
-  if (isGaForeclosureKind(letter.kind) && total < GA_FORECLOSURE_MIN_CENTS) {
-    const cite = letter.kind === 'ga_condo_pre_foreclosure' ? '§ 44-3-109(c)' : '§ 44-3-232(c)'
-    return `The total is ${usdCents(total)}. Georgia permits no foreclosure of the lien unless it is at least ${usdCents(GA_FORECLOSURE_MIN_CENTS)} (${cite}), so this notice can’t be sent yet.`
+  if (letter.kind === 'ga_condo_pre_foreclosure' && total < GA_CONDO_FORECLOSURE_MIN_CENTS) {
+    // BL-155: § 44-3-109(c), unchanged by SB 406.
+    return `The total is ${usdCents(total)}. Georgia permits no foreclosure of the lien unless it is at least ${usdCents(GA_CONDO_FORECLOSURE_MIN_CENTS)} (§ 44-3-109(c)), so this notice can’t be sent yet.`
+  }
+  if (letter.kind === 'ga_pre_foreclosure' && letter.letterDate >= GA_232C_REPLACED_ON) {
+    const twelve = parseMoneyCents(values.regularYear ?? '')
+    if (twelve === null) return `Enter ${GA_REGULAR_YEAR_LABEL.toLowerCase()} as an amount.`
+    const threshold = gaForeclosureThresholdCents(twelve)
+    const { countedCents } = gaForeclosureCount(letter.figures)
+    if (countedCents < threshold) {
+      return `The regular and special assessments in arrears total ${usdCents(countedCents)}. Since January 1, 2027, Georgia permits no foreclosure of the lien unless it is at least ${usdCents(threshold)}: the lesser of $4,000.00 or 12 months of regular assessments (${usdCents(twelve)}), but not less than $2,000.00, counting no fine, fee or other specific assessment (§ 44-3-232(c)). So this notice can’t be sent yet.`
+    }
+  } else if (letter.kind === 'ga_pre_foreclosure' && total < GA_FORECLOSURE_MIN_CENTS) {
+    return `The total is ${usdCents(total)}. Georgia permits no foreclosure of the lien unless it is at least ${usdCents(GA_FORECLOSURE_MIN_CENTS)} (§ 44-3-232(c)), so this notice can’t be sent yet.`
   }
   if (!verified) return 'Tick “I’ve verified these figures” first.'
   return null

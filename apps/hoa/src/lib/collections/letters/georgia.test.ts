@@ -10,14 +10,26 @@ import {
   letterBlocked,
   letterDeadline,
   letterFigures,
+  gaForeclosureCount,
+  letterBlanks,
   letterLawCheck,
+  letterMeta,
   letterProblems,
   letterTotals,
   stageAfterPrint,
   type LetterInput,
 } from './model'
 import { LETTER_KIND_CITATIONS, LETTER_KIND_LABELS, readLetterPayload } from './proposal'
-import { GA_2027_NOT_LOADED, GA_FEE_NOTICE_BODY, GA_PRE_FORECLOSURE_BODY } from './law'
+import {
+  GA_2027_FINE_NOTE,
+  GA_FEE_NOTICE_BODY,
+  GA_PRE_FORECLOSURE_BODY,
+  GA_PRE_FORECLOSURE_BODY_2027,
+  GA_PRE_FORECLOSURE_QUOTES,
+  GA_PRE_FORECLOSURE_QUOTES_2027,
+  gaForeclosureLaw,
+  gaForeclosureThresholdCents,
+} from './law'
 
 /**
  * BL-148: the Georgia collections letters — the SB 406 § 7(f) notice
@@ -184,14 +196,6 @@ describe('the § 44-3-232(c) notice before foreclosure', () => {
     expect(c.findings.map((f) => `${f.severity}:${f.code}`)).toEqual(['block:ga_attorney_fees_prerequisites', 'warn:ga_foreclosure_notice_delivery'])
   })
 
-  it('refused from January 1, 2027: SB 406 § 5’s new text is not loaded', () => {
-    const l = buildLetter(gaInput(), 'ga_pre_foreclosure', '2027-01-01', [])
-    expect(l.waiting).toEqual({ ok: false, reason: GA_2027_NOT_LOADED, earliest: null })
-    expect(GA_2027_NOT_LOADED).toContain('Check with your association’s attorney')
-    expect(buildLetter(gaInput(), 'ga_pre_foreclosure', '2026-12-31', []).waiting.ok).toBe(true)
-    // The fee notice (SB 406 § 7, in force since July 1, 2026) is not affected.
-    expect(buildLetter(gaInput(), 'ga_fee_notice', '2027-01-01', []).waiting.ok).toBe(true)
-  })
 
   it('names charges whose lien has lapsed or lapses within 180 days (four years after first due)', () => {
     expect(addYears('2022-10-21', 4)).toBe('2026-10-21')
@@ -217,3 +221,122 @@ describe('the § 44-3-232(c) notice before foreclosure', () => {
     expect(note).toContain('O.C.G.A. § 44-3-232(b)(1)')
   })
 })
+
+// ─── BL-154: SB 406 § 5's § 44-3-232(c), in force January 1, 2027 ───
+
+describe('the notice before foreclosure switches to SB 406 § 5’s text on January 1, 2027', () => {
+  const DEC31 = '2026-12-31'
+  const JAN1 = '2027-01-01'
+  const MID_JAN = '2027-01-15'
+  const V2027 = { ...FORECLOSURE_VALUES, regularYear: '2400' }
+
+  it('Dec 31, 2026 is exactly as before: 30 days, the $2,000 minimum, four years, fines listed, no new BLANK', () => {
+    const l = buildLetter(gaInput(), 'ga_pre_foreclosure', DEC31, [])
+    expect(l.waiting.ok).toBe(true)
+    expect(l.meta).toBe(LETTER_META.ga_pre_foreclosure)
+    expect(l.meta.label).toBe('Notice before foreclosure (§ 44-3-232(c), 30 days)')
+    expect(letterDeadline('ga_pre_foreclosure', DEC31)).toEqual({ label: 'Earliest day to foreclose the lien, if sent on the letter date (30 days)', day: '2027-01-30' })
+    expect(l.fields.some((f) => f.key === 'regularYear')).toBe(false)
+    expect(l.figures.otherLines.map((x) => x.id)).toEqual(['fine-1', 'legal-1'])
+    expect(gaForeclosureLaw(DEC31)).toMatchObject({ sb406: false, days: 30, lapseYears: 4, quotes: GA_PRE_FORECLOSURE_QUOTES })
+    expect(gaForeclosureLaw(DEC31).body('X')).toBe(GA_PRE_FORECLOSURE_BODY('X'))
+    expect(letterBlocked(l, FORECLOSURE_VALUES, true)).toBeNull()
+  })
+
+  it('from Jan 1, 2027 it can be drafted again (no longer refused), as a 60-day notice', () => {
+    const l = buildLetter(gaInput(), 'ga_pre_foreclosure', JAN1, [])
+    expect(l.waiting.ok).toBe(true)
+    expect(l.waiting.ok && l.waiting.note).toContain('no sooner than 60 days')
+    expect(l.meta.label).toBe('Notice before foreclosure (§ 44-3-232(c), 60 days)')
+    expect(letterMeta('ga_pre_foreclosure', JAN1).description).toContain('lesser of $4,000 or 12 months of dues')
+    expect(l.meta.mailing).toContain('no sooner than 60 days after it is sent')
+    expect(letterDeadline('ga_pre_foreclosure', JAN1)).toEqual({ label: 'Earliest day to foreclose the lien, if sent on the letter date (60 days)', day: '2027-03-02' })
+    expect(gaForeclosureLaw(JAN1)).toMatchObject({ sb406: true, days: 60, lapseYears: 6, quotes: GA_PRE_FORECLOSURE_QUOTES_2027 })
+    // The other GA letter and other kinds keep their meta.
+    expect(letterMeta('ga_fee_notice', JAN1)).toBe(LETTER_META.ga_fee_notice)
+    expect(buildLetter(gaInput(), 'ga_fee_notice', JAN1, []).waiting.ok).toBe(true)
+  })
+
+  it('the 2027 letter states that paying before the sixtieth day after receipt ends the right of foreclosure', () => {
+    const body = GA_PRE_FORECLOSURE_BODY_2027('Peachtree Fixture HOA')
+    expect(body).toContain('no sooner than 60 days after this notice is sent')
+    expect(body).toContain('Payment of the amount below prior to the sixtieth day following your receipt of this notice will eliminate the right of foreclosure.')
+    expect(gaForeclosureLaw(JAN1).body('X')).toBe(GA_PRE_FORECLOSURE_BODY_2027('X'))
+  })
+
+  it('from 2027 it lists the assessments and late charges only: fines and fees are left off, with a note', () => {
+    const l = buildLetter(gaInput(), 'ga_pre_foreclosure', MID_JAN, [])
+    expect(l.figures.otherLines).toEqual([])
+    expect(l.figures.omittedLines.map((x) => x.id).sort()).toEqual(['fine-1', 'legal-1'])
+    expect(l.figures.lateFeeLines.map((x) => x.id)).toEqual(['lf-1'])
+    expect(l.notes).toContain(GA_2027_FINE_NOTE)
+    expect(letterTotals(l, V2027).totalCents).toBe(240_000 + 6_000 + 2_500)
+    // Without fees listed, the attorney's-fee block no longer applies to this notice.
+    const c = letterLawCheck({ ...gaInput(), gaRegistration: { status: 'registered' } }, l, V2027, [], [])
+    expect(c.findings.map((f) => `${f.severity}:${f.code}`)).toEqual(['warn:ga_foreclosure_notice_delivery', 'warn:ga_payment_order'])
+    expect(blockingFindings(c)).toEqual([])
+  })
+
+  it('asks for 12 months of regular assessments (a BLANK, not printed) and won’t save without it', () => {
+    const l = buildLetter(gaInput(), 'ga_pre_foreclosure', MID_JAN, [])
+    const f = l.fields.find((x) => x.key === 'regularYear')!
+    expect(f).toMatchObject({ kind: 'money', value: null })
+    expect(letterBlanks(l, FORECLOSURE_VALUES)).toContain(f.label)
+    expect(letterBlocked(l, FORECLOSURE_VALUES, true)).toBe('Fill in every BLANK first.')
+    expect(letterBlocked(l, V2027, true)).toBeNull()
+  })
+
+  it('the threshold: the lesser of $4,000 or 12 months of dues, never below $2,000', () => {
+    expect(gaForeclosureThresholdCents(300_000)).toBe(300_000)
+    expect(gaForeclosureThresholdCents(600_000)).toBe(400_000)
+    expect(gaForeclosureThresholdCents(120_000)).toBe(200_000)
+    expect(gaForeclosureThresholdCents(0)).toBe(200_000)
+  })
+
+  it('blocks below the threshold, counting only regular and special assessments in arrears (no late charges, fines, fees or interest)', () => {
+    const l = buildLetter(gaInput(), 'ga_pre_foreclosure', MID_JAN, [])
+    expect(gaForeclosureCount(l.figures)).toEqual({ countedCents: 240_000, planCents: 0 })
+    // $3,000 a year of dues: threshold $3,000 > $2,400 counted, although the letter's total is above it.
+    const msg = letterBlocked(l, { ...V2027, regularYear: '3000', interest: '900' }, true)
+    expect(msg).toContain('total $2,400.00')
+    expect(msg).toContain('at least $3,000.00')
+    expect(msg).toContain('§ 44-3-232(c)')
+    expect(letterBlocked(l, { ...V2027, regularYear: '1200' }, true)).toBeNull() // $2,000 floor
+    // Dues of $1,900 and $5,000 of fines: still under the $2,000 floor.
+    const fines = gaInput({ charges: [charge('q1', '2026-06-01', 1_900), charge('f', '2026-06-01', 5_000, 'fine'), charge('lf', '2026-06-15', 190, 'late_fee')] })
+    const lf = buildLetter(fines, 'ga_pre_foreclosure', MID_JAN, [])
+    expect(letterBlocked(lf, { ...V2027, regularYear: '1000' }, true)).toContain('at least $2,000.00')
+    // The same account on Dec 31, 2026: the old rule counts the whole lien (fines included).
+    expect(letterBlocked(buildLetter(fines, 'ga_pre_foreclosure', DEC31, []), FORECLOSURE_VALUES, true)).toBeNull()
+  })
+
+  it('a special assessment counts; unapplied credit is taken off; plan installments are left out with a note', () => {
+    const mixed = gaInput({
+      charges: [charge('q1', '2026-03-01', 1_500), charge('sp', '2026-05-01', 1_000, 'special'), charge('pi', '2026-08-01', 700, 'plan_installment')],
+    })
+    const l = buildLetter(mixed, 'ga_pre_foreclosure', MID_JAN, [])
+    expect(gaForeclosureCount(l.figures)).toEqual({ countedCents: 250_000, planCents: 70_000 })
+    expect(l.notes.some((n) => n.startsWith('Payment-plan installments ($700.00) aren’t counted'))).toBe(true)
+    expect(l.notes.some((n) => n.startsWith('Counted toward the foreclosure threshold: $2,500.00'))).toBe(true)
+  })
+
+  it('lapse: six years from 2027; a lien whose four years ran out before 2027 is sent to the attorney', () => {
+    const old = gaInput({
+      charges: [charge('gone', '2022-06-01', 900), charge('kept', '2023-03-01', 900), charge('new', '2026-01-01', 900)],
+    })
+    // Dec 31, 2026: four years; 2022-06-01 lapsed on 2026-06-01, 2023-03-01 lapses within 180 days.
+    const dec = gaLapseNotes(buildLetter(old, 'ga_pre_foreclosure', DEC31, []).figures, DEC31)
+    expect(dec[0]).toContain('first due four or more years ago')
+    expect(dec[1]).toContain('lapses soon, four years after it was first due: the first on Mar 1, 2027')
+    // Jan 15, 2027: 2022-06-01 lapsed before the change (attorney); 2023-03-01 now runs to 2029.
+    const jan = gaLapseNotes(buildLetter(old, 'ga_pre_foreclosure', MID_JAN, []).figures, MID_JAN)
+    expect(jan).toHaveLength(1)
+    expect(jan[0]).toContain('lapsed before January 1, 2027, four years after it was first due (the oldest due Jun 1, 2022)')
+    expect(jan[0]).toContain('ask your attorney')
+    // Late 2028: the 2023 dues lapse six years after, on Mar 1, 2029.
+    const later = gaLapseNotes(buildLetter(old, 'ga_pre_foreclosure', '2028-12-01', []).figures, '2028-12-01')
+    expect(later.some((n) => n.includes('lapses soon, six years after it was first due: the first on Mar 1, 2029'))).toBe(true)
+    expect(gaLapseNotes(buildLetter(old, 'ga_pre_foreclosure', '2029-03-01', []).figures, '2029-03-01').some((n) => n.includes('first due six or more years ago'))).toBe(true)
+  })
+})
+

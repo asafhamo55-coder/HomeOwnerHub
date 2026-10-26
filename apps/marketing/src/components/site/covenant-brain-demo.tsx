@@ -22,10 +22,10 @@ const QUERIES = [
   },
   {
     q: 'Can we fine a homeowner for late lawn care?',
-    citation: 'Bylaws Section 4.1 + GA OCGA Section 44-3-223',
+    citation: 'Bylaws Section 4.1 + O.C.G.A. § 44-3-223',
     answer:
-      'Yes, if you follow the notice-and-hearing process in Bylaws Section 4.1: (1) written notice describing the violation, (2) at least 14 days to cure, (3) opportunity for a hearing. Georgia law requires the fine schedule to be in your published rules.',
-    chips: ['Bylaws Sec. 4.1', '14-day cure', 'Hearing required'],
+      'Yes, if your declaration allows fines: Georgia’s POA Act lets an association fine only to the extent its declaration provides, for rules that were given to owners (§ 44-3-223). Bylaws Section 4.1 sets your process: (1) written notice describing the violation, (2) at least 14 days to cure, (3) a chance for a hearing.',
+    chips: ['Bylaws Sec. 4.1', '§ 44-3-223', 'Hearing'],
   },
 ]
 
@@ -153,7 +153,7 @@ export function CovenantBrainDemo() {
               </div>
               <div className="mt-3 flex items-center justify-between rounded-xl border border-border bg-subtle/40 px-3 py-2">
                 <span className="text-[11px] text-muted">
-                  Source: Madison Park HOA · CC&amp;R (1996, restated 2024)
+                  Source: sample community · CC&amp;R and bylaws
                 </span>
                 <span className="text-[11px] font-medium text-foreground-secondary">View in document →</span>
               </div>

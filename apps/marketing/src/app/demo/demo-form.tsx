@@ -38,7 +38,7 @@ export function DemoForm() {
       <Field
         label="HOA or community name"
         name="hoa"
-        placeholder="Madison Park HOA"
+        placeholder="Your association’s name"
         required
         error={errors.hoa}
       />

@@ -182,6 +182,18 @@ async function main(): Promise<void> {
     console.warn(`[ingest] No records found in ${fixturePath}`)
     return
   }
+  // Upserts are keyed on (state, code_citation): a file carrying dated
+  // versions of one citation (data/statutes/ga.jsonl, BL-154) would load
+  // whichever comes last, in force or not. --from-source picks by date.
+  const citations = records.map((r) => r.code_citation)
+  const repeated = citations.filter((c, i) => citations.indexOf(c) !== i)
+  if (repeated.length > 0) {
+    console.error(
+      `[ingest] ${fixturePath} lists ${[...new Set(repeated)].join(', ')} more than once (dated versions). ` +
+        `Use --from-source, which loads the version in force.`,
+    )
+    process.exit(1)
+  }
 
   console.log(`[ingest] ${state}: ${records.length} statutes from ${fixturePath}`)
   if (!HF_TOKEN) {

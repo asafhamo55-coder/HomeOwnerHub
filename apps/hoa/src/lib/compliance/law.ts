@@ -21,6 +21,10 @@
  *     § 44-3-235(a) (which associations the Act covers).
  *   ga-ocga-44-3-232-2026.txt  § 44-3-232(d), the statement of amounts due
  *     (the current text, as the General Assembly reproduces it).
+ *   ga-ocga-14-3-2026.txt  the Nonprofit Corporation Code (BL-152):
+ *     § 14-3-1622(a), (c), (d) (the corporation's annual registration,
+ *     Jan 1 – Apr 1) and § 14-3-1420 opening and (2) (administrative
+ *     dissolution 60 days after it is due).
  * TEXAS  tx-prop-209-004-2026.txt  § 209.004(a), (b-1).
  * FLORIDA  flsenate-ch720-2026.html  § 720.3033(1)(a), (1)(b).
  * CALIFORNIA  ca-civ-davis-stirling-2026.txt  § 5300(a) (shared with the
@@ -51,6 +55,7 @@ export interface StatuteQuote {
 const GA_SB406 = 'ga-sb406-2026-registration.txt'
 const GA_ART6 = 'ga-ocga-44-3-art6-2026.txt'
 const GA_232 = 'ga-ocga-44-3-232-2026.txt'
+const GA_14_3 = 'ga-ocga-14-3-2026.txt'
 const TX_209_004 = 'tx-prop-209-004-2026.txt'
 const FL_720 = 'flsenate-ch720-2026.html'
 const CA_DAVIS_STIRLING = 'ca-civ-davis-stirling-2026.txt'
@@ -181,6 +186,54 @@ export const GA_STATEMENT_DEADLINE: StatuteQuote = {
   fixture: GA_232,
 }
 
+// ─── Georgia: Nonprofit Corporation Code (O.C.G.A. § 14-3), BL-152 ───
+
+export const GA_CORP_REGISTRATION_CONTENTS: StatuteQuote = {
+  cite: 'O.C.G.A. § 14-3-1622(a)',
+  quote:
+    'Each domestic corporation and each foreign corporation authorized to transact business in this state shall deliver to the Secretary of State for filing an annual registration that sets forth:',
+  fixture: GA_14_3,
+}
+
+export const GA_CORP_REGISTRATION_FIRST: StatuteQuote = {
+  cite: 'O.C.G.A. § 14-3-1622(c)',
+  quote:
+    'The first annual registration must be delivered to the Secretary of State between January 1 and April 1, or such other date as the Secretary of State may specify by rules or regulations, of the year following the calendar year in which a domestic corporation was incorporated or a foreign corporation was authorized to transact business.',
+  fixture: GA_14_3,
+}
+
+export const GA_CORP_REGISTRATION_WINDOW: StatuteQuote = {
+  cite: 'O.C.G.A. § 14-3-1622(c)',
+  quote:
+    'Subsequent annual registrations must be delivered to the Secretary of State between January 1 and April 1, or such other date as the Secretary of State may specify by rules or regulations, of the following calendar years.',
+  fixture: GA_14_3,
+}
+
+export const GA_CORP_REGISTRATION_INITIAL: StatuteQuote = {
+  cite: 'O.C.G.A. § 14-3-1622(d)',
+  quote:
+    'The initial annual registration of a domestic corporation shall be filed within 90 days after the day its articles of incorporation are delivered to the Secretary of State for filing.',
+  fixture: GA_14_3,
+}
+
+export const GA_CORP_DISSOLUTION: StatuteQuote = {
+  cite: 'O.C.G.A. § 14-3-1420',
+  quote: 'The Secretary of State may commence a proceeding under Code Section 14-3-1421 to dissolve a corporation administratively if:',
+  fixture: GA_14_3,
+}
+
+export const GA_CORP_DISSOLUTION_LATE_REGISTRATION: StatuteQuote = {
+  cite: 'O.C.G.A. § 14-3-1420(2)',
+  quote:
+    'The corporation does not deliver its annual registration to the Secretary of State, together with all required fees and penalties, within 60 days after it is due;',
+  fixture: GA_14_3,
+}
+
+/** § 14-3-1622(c): the window closes April 1 (law.test.ts checks the words). */
+export const GA_CORP_REGISTRATION_DUE_MMDD = '04-01'
+/** § 14-3-1420(2): days after the due date before administrative dissolution may start. */
+export const GA_CORP_DISSOLUTION_DAYS = 60
+
 /** § 44-3-230(a): days of notice before an annual or regularly scheduled meeting (law.test.ts checks the words). */
 export const GA_ANNUAL_NOTICE_DAYS = 21
 
@@ -243,6 +296,12 @@ export const ALL_COMPLIANCE_QUOTES: readonly StatuteQuote[] = [
   GA_RECORDS_FINANCIAL,
   GA_STATEMENT_RIGHT,
   GA_STATEMENT_DEADLINE,
+  GA_CORP_REGISTRATION_CONTENTS,
+  GA_CORP_REGISTRATION_FIRST,
+  GA_CORP_REGISTRATION_WINDOW,
+  GA_CORP_REGISTRATION_INITIAL,
+  GA_CORP_DISSOLUTION,
+  GA_CORP_DISSOLUTION_LATE_REGISTRATION,
   TX_CERTIFICATE_RECORD,
   TX_CERTIFICATE_TREC,
   FL_DIRECTOR_CERTIFICATE,

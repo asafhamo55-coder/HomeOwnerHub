@@ -125,3 +125,49 @@ describe('BL-151’s amended registration is markable from the kit', () => {
     expect(a).toMatchObject({ tone: 'done', label: 'Officers didn’t change · no amendment needed' })
   })
 })
+
+describe('BL-159: a board role change starts the same 30-day row', () => {
+  const CH = 'e1111111-1111-4111-8111-111111111111'
+  const change = { id: CH, on: '2027-03-10' }
+
+  it('open: counts 30 days from the day the role changed, markable in the kit', () => {
+    const a = find(overview(settings({ officerChanges: [change] }), '2027-03-15'), `ga-registration-amendment:${CH}`)
+    expect(a).toMatchObject({
+      kind: 'registration_amendment',
+      tone: 'soon',
+      dueOn: '2027-04-09',
+      meetingId: CH,
+      link: { href: '/compliance/ga-registration#amendments' },
+      title: 'Amend the Secretary of State registration after the Mar 10, 2027 board change',
+    })
+    expect(a.label).toBe('If the officers changed, file by Apr 9, 2027 (25 days left)')
+  })
+
+  it('past day 30: unknown, not overdue', () => {
+    expect(find(overview(settings({ officerChanges: [change] }), '2027-04-20'), `ga-registration-amendment:${CH}`).tone).toBe('unknown')
+  })
+
+  it('answered in the kit: by its own filing, by "officers didn’t change", or by any amendment filed since', () => {
+    const own = filing({ id: 'd0000000-0000-4000-8000-000000000004', kind: 'amendment', filedOn: '2027-03-20', coversYear: null, reason: 'officers', meetingId: CH })
+    expect(find(overview(settings({ officerChanges: [change], filings: [own] }), '2027-03-21'), CH).tone).toBe('done')
+    expect(find(overview(settings({ officerChanges: [change], noChange: [CH] }), '2027-03-21'), CH).tone).toBe('done')
+    const later = filing({ id: 'd0000000-0000-4000-8000-000000000005', kind: 'amendment', filedOn: '2027-03-12', coversYear: null, reason: 'other', meetingId: null })
+    expect(find(overview(settings({ officerChanges: [change], filings: [later] }), '2027-03-21'), CH).label).toBe('Amended registration filed Mar 12, 2027')
+    // An amendment filed BEFORE the change can't list the new officers.
+    const earlier = { ...later, filedOn: '2027-03-01' }
+    expect(find(overview(settings({ officerChanges: [change], filings: [earlier] }), '2027-03-21'), CH).tone).toBe('soon')
+  })
+
+  it('before 2027: list the new officers in the first filing', () => {
+    const a = find(overview(settings({ officerChanges: [{ id: CH, on: '2026-11-01' }] }), '2026-11-02'), CH)
+    expect(a.tone).toBe('standing')
+    expect(a.label).toContain('list the new officers in your first filing')
+  })
+
+  it('an unverified record shows no role-change row', () => {
+    const s = settings({ officerChanges: [change] })
+    const tampered = { ga_registration: { ...(s.ga_registration as object), sig: 'f00d' } }
+    const rows = overview(tampered, '2027-03-15').groups.flatMap((g) => g.obligations)
+    expect(rows.some((x) => x.key.endsWith(CH))).toBe(false)
+  })
+})
