@@ -53,7 +53,7 @@ export function DemoForm() {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover disabled:opacity-70"
+        className="btn btn-primary btn-lg w-full disabled:opacity-70"
       >
         {pending ? (
           <>
@@ -91,7 +91,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-xs font-semibold text-foreground-secondary" htmlFor={name}>
+      <label className="text-sm font-semibold text-foreground" htmlFor={name}>
         {label}
         {required && <span className="ml-1 text-danger">*</span>}
       </label>
@@ -103,10 +103,10 @@ function Field({
         required={required}
         aria-invalid={Boolean(error)}
         className={cn(
-          'mt-1.5 w-full rounded-xl border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
+          'mt-1.5 min-h-12 w-full rounded-xl border bg-surface px-3.5 py-2.5 text-base text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
           error
             ? 'border-danger/40 focus:border-danger focus:ring-danger/15'
-            : 'border-border focus:border-primary focus:ring-primary/15',
+            : 'border-input focus:border-primary focus:ring-primary/20',
         )}
       />
       {error && <p className="mt-1 text-xs text-danger">{error}</p>}
