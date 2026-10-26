@@ -9,6 +9,8 @@ import {
 } from '@/lib/collections/statuses'
 import { RecordCollectionEvent } from './RecordCollectionEvent'
 import { OpenCollectionCase } from './OpenCollectionCase'
+import { Suspense } from 'react'
+import { GaThresholdPanel, type GaThresholdRead } from './GaThresholdPanel'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
@@ -35,6 +37,7 @@ export function CollectionsSection({
   closedCases,
   today,
   letterHref = null,
+  gaThreshold = null,
 }: {
   unitId: string | null
   openCase: CollectionCase | null
@@ -44,6 +47,12 @@ export function CollectionsSection({
   today: string
   /** BL-089: the collections letter page; null hides the button (not board/admin). */
   letterHref?: string | null
+  /**
+   * BL-158: the Georgia foreclosure-threshold read, streamed; null hides
+   * the panel (not board/admin, or no open case). The panel renders
+   * nothing outside Georgia.
+   */
+  gaThreshold?: GaThresholdRead | null
 }) {
   // No bridged unit means no case can exist: collection_cases.unit_id is
   // NOT NULL and references units(id). Say so plainly rather than showing
@@ -99,6 +108,12 @@ export function CollectionsSection({
           </Button>
           <span className="text-xs text-muted">Built from the ledger and your state’s rules. Goes to Approvals; printed, never emailed.</span>
         </div>
+      ) : null}
+
+      {gaThreshold ? (
+        <Suspense fallback={<p className="px-1 text-xs text-muted">Checking the Georgia foreclosure threshold…</p>}>
+          <GaThresholdPanel read={gaThreshold} />
+        </Suspense>
       ) : null}
 
       <RecordCollectionEvent caseId={openCase.id} currentStatus={openCase.status} today={today} />
