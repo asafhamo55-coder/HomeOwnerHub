@@ -17,6 +17,7 @@ import { PropertyDetailView } from './PropertyDetailView'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { loadEmailConsent } from '@/lib/email-consent'
 import { timed } from '@/lib/perf/timing'
+import { loadGaThreshold } from '@/lib/collections/ga-threshold-load'
 
 export const metadata = { title: 'Property' }
 export const dynamic = 'force-dynamic'
@@ -95,12 +96,21 @@ export default async function PropertyDetailPage({
           ),
         ).then((s) => (s.ok ? { ok: true as const, data: s.data } : { ok: false as const }))
       : null
+  // BL-158: the Georgia foreclosure-threshold panel, board/admin only and
+  // only with an open case (the same gate as the collections letter). Not
+  // awaited: only the panel waits for it. Outside Georgia it resolves null.
+  const hasOpenCase = loaded.data.collections?.ok === true && loaded.data.collections.data.openCase !== null
+  const gaThreshold =
+    canManage && hasOpenCase
+      ? timed(R, 'property.gaThreshold', () => tryLoad('georgia foreclosure threshold', () => loadGaThreshold(supabase, ctx.org.id, asPropertyId(rawId))))
+      : null
   const consent = !consentRes ? undefined : !consentRes.ok ? ('failed' as const) : consentRes.available ? consentRes.consent : undefined
 
   return (
     <PropertyDetailView
       data={loaded.data}
       planStandings={planStandings}
+      gaThreshold={gaThreshold}
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}
