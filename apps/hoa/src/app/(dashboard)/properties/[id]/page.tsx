@@ -18,6 +18,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { loadEmailConsent } from '@/lib/email-consent'
 import { timed } from '@/lib/perf/timing'
 import { loadGaThreshold } from '@/lib/collections/ga-threshold-load'
+import { loadGaComplaintView } from '@/lib/ga-complaints/load'
 
 export const metadata = { title: 'Property' }
 export const dynamic = 'force-dynamic'
@@ -104,6 +105,16 @@ export default async function PropertyDetailPage({
     canManage && hasOpenCase
       ? timed(R, 'property.gaThreshold', () => tryLoad('georgia foreclosure threshold', () => loadGaThreshold(supabase, ctx.org.id, asPropertyId(rawId))))
       : null
+  // BL-161: the Georgia Secretary of State complaint record for this home,
+  // board/admin only, with or without an open case (a stay also holds back
+  // fines). Not awaited; outside Georgia it resolves null.
+  const complaintUnitId = loaded.data.unit.ok ? loaded.data.unit.data.unitId : null
+  const gaComplaints =
+    canManage && complaintUnitId
+      ? timed(R, 'property.gaComplaints', () =>
+          tryLoad('georgia complaint record', () => loadGaComplaintView(supabase as never, ctx.org.id, complaintUnitId, today)),
+        )
+      : null
   const consent = !consentRes ? undefined : !consentRes.ok ? ('failed' as const) : consentRes.available ? consentRes.consent : undefined
 
   return (
@@ -111,6 +122,7 @@ export default async function PropertyDetailPage({
       data={loaded.data}
       planStandings={planStandings}
       gaThreshold={gaThreshold}
+      gaComplaints={gaComplaints}
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}

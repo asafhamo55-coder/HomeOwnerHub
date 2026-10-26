@@ -32,6 +32,8 @@ import { loadBoardHearing, loadBoardRosterNames } from '@/lib/violation-hearings
 import { hearingFineFacts } from '@/lib/violation-hearings/rules'
 import { normaliseState, type FineHearingFacts } from '@/lib/compliance/statute-drift'
 import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
+import { loadGaComplaintGate } from '@/lib/ga-complaints/load'
+import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 
@@ -487,7 +489,7 @@ export async function updateViolationStatus(
     try {
       const { data: current, error: curErr } = await supabase
         .from('hoa_violations')
-        .select('status, fine_amount')
+        .select('status, fine_amount, property_id')
         .eq('id', parsed.data.violationId)
         .eq('org_id', gate.orgId)
         .maybeSingle()
@@ -499,17 +501,24 @@ export async function updateViolationStatus(
         const rules = await loadOrgStateRules(supabase, gate.orgId)
         block = cureCommitmentPenaltyBlock(rules, await loadCureCommitment(supabase, gate.orgId, parsed.data.violationId))
         // BL-149: Georgia's SB 406 registration, on the association's today.
-        const registration = await loadGaRegistrationGate(
-          supabase as never,
-          gate.orgId,
-          todayIn(await orgTimeZone(supabase, gate.orgId)),
-        )
+        const today = todayIn(await orgTimeZone(supabase, gate.orgId))
+        const registration = await loadGaRegistrationGate(supabase as never, gate.orgId, today)
         if (!registration.ok) throw new Error('registration read failed')
+        // BL-161: a Secretary of State complaint's automatic stay on this
+        // home (every unit the property bridges to), on the same day.
+        let gaComplaintStay: Parameters<typeof checkFine>[0]['gaComplaintStay']
+        if (normaliseState(rules.state) === 'GA' && current.property_id) {
+          const units = await resolveUnitForProperty(supabase, gate.orgId, asPropertyId(current.property_id as string))
+          const stay = await loadGaComplaintGate(supabase as never, gate.orgId, units.unitIds)
+          if (!stay.ok) throw new Error('complaint read failed')
+          if (stay.gate) gaComplaintStay = { ...stay.gate, today }
+        }
         law = checkFine({
           state: rules.state,
           dailyFineCents: fineCents(current.fine_amount),
           hearing: await hearingForFineCheck(supabase, gate.orgId, parsed.data.violationId, rules.state),
           gaRegistration: registration.gate,
+          gaComplaintStay,
         })
       }
     } catch {

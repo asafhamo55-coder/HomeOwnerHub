@@ -24,7 +24,7 @@ import {
 import { addCalendarDays } from '@/lib/properties/estoppel/business-days'
 import { buildLedger } from '@/lib/resident-ledger'
 import { dayOf } from '@/lib/association-time'
-import { checkCollectionsLetter, type DriftCheck, type GaRegistrationStatusOnly, type PrintedLetter } from '@/lib/compliance/statute-drift'
+import { checkCollectionsLetter, type DriftCheck, type GaComplaintStayGate, type GaRegistrationStatusOnly, type PrintedLetter } from '@/lib/compliance/statute-drift'
 import { COLLECTION_STATUSES, statusImpliedBy, type CollectionEventType, type CollectionStatus } from '../statuses'
 import {
   CA_CITATION,
@@ -255,6 +255,8 @@ export type LetterInput = Pick<
    * server (loadLetterContext). Set for Georgia associations only.
    */
   gaRegistration?: GaRegistrationStatusOnly
+  /** BL-161: this home's Secretary of State complaints (verified on the server). Georgia only. */
+  gaComplaintStay?: GaComplaintStayGate
 }
 
 /** A recorded collections event (collection_events), as the waiting rule reads it. */
@@ -939,7 +941,7 @@ export function printedLetters(records: readonly PrintedLetterRecord[], timeZone
  * lists, and the case's history.
  */
 export function letterLawCheck(
-  input: Pick<LetterInput, 'state' | 'associationType' | 'timeZone' | 'gaRegistration'>,
+  input: Pick<LetterInput, 'state' | 'associationType' | 'timeZone' | 'gaRegistration' | 'gaComplaintStay'>,
   letter: Letter,
   values: FieldValues,
   events: LetterEvent[],
@@ -948,6 +950,7 @@ export function letterLawCheck(
   const f = letter.figures
   return checkCollectionsLetter({
     gaRegistration: input.gaRegistration,
+    gaComplaintStay: input.gaComplaintStay,
     state: input.state,
     // BL-155: the SB 406 § 7 fee rules are Article 6's, not a condominium's.
     gaCondo: isGaCondo(input.state, input.associationType),

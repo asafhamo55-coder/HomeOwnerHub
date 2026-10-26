@@ -11,6 +11,7 @@ import { RecordCollectionEvent } from './RecordCollectionEvent'
 import { OpenCollectionCase } from './OpenCollectionCase'
 import { Suspense } from 'react'
 import { GaThresholdPanel, type GaThresholdRead } from './GaThresholdPanel'
+import { GaComplaintPanel, type GaComplaintRead } from './GaComplaintPanel'
 
 function money(n: number): string {
   return n.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
@@ -38,6 +39,7 @@ export function CollectionsSection({
   today,
   letterHref = null,
   gaThreshold = null,
+  gaComplaints = null,
 }: {
   unitId: string | null
   openCase: CollectionCase | null
@@ -53,7 +55,18 @@ export function CollectionsSection({
    * nothing outside Georgia.
    */
   gaThreshold?: GaThresholdRead | null
+  /**
+   * BL-161: the home's Secretary of State complaint record, streamed; null
+   * hides it (not board/admin, or no unit). Renders nothing outside Georgia.
+   */
+  gaComplaints?: GaComplaintRead | null
 }) {
+  const complaints = gaComplaints ? (
+    <Suspense fallback={<p className="px-1 text-xs text-muted">Checking for a Secretary of State complaint…</p>}>
+      <GaComplaintPanel read={gaComplaints} />
+    </Suspense>
+  ) : null
+
   // No bridged unit means no case can exist: collection_cases.unit_id is
   // NOT NULL and references units(id). Say so plainly rather than showing
   // an "Open a case" button that would fail on submit.
@@ -76,6 +89,7 @@ export function CollectionsSection({
           description="Open a case to record collection letters, lien notices, and attorney activity for this property."
         />
         <OpenCollectionCase unitId={unitId} today={today} />
+        {complaints}
         {closedCases.length > 0 ? <ClosedCases cases={closedCases} /> : null}
       </div>
     )
@@ -115,6 +129,8 @@ export function CollectionsSection({
           <GaThresholdPanel read={gaThreshold} />
         </Suspense>
       ) : null}
+
+      {complaints}
 
       <RecordCollectionEvent caseId={openCase.id} currentStatus={openCase.status} today={today} />
 

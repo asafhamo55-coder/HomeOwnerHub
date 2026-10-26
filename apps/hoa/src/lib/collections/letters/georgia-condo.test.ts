@@ -149,6 +149,16 @@ describe('the § 44-3-109(c) notice before foreclosure', () => {
     expect(c.findings.map((f) => f.code)).toContain('ga_unregistered_lien')
   })
 
+  it('BL-161: the SB 406 complaint stay blocks a condo letter that lists fines or fees (§ 43-17A-5 covers condominiums)', () => {
+    const date = '2027-02-01'
+    const l = buildLetter(condoInput(), 'ga_condo_pre_foreclosure', date, [])
+    const stay = { verified: true, complaints: [{ filedOn: '2027-01-15', conclusionsOn: null, extended: false }] }
+    const c = letterLawCheck(condoInput({ gaComplaintStay: stay }), l, VALUES, [], [])
+    expect(c.findings.find((f) => f.code === 'ga_complaint_stay')?.severity).toBe('block')
+    const none = letterLawCheck(condoInput({ gaComplaintStay: { verified: true, complaints: [] } }), l, VALUES, [], [])
+    expect(none.findings.map((f) => f.code)).not.toContain('ga_complaint_stay')
+  })
+
   it('lapse and late-charge notes cite the Condominium Act', () => {
     const old = condoInput({ charges: [charge('old', '2022-10-01', 2_400), charge('lf', '2022-10-15', 500, 'late_fee')] })
     const l = buildLetter(old, 'ga_condo_pre_foreclosure', TODAY, [])

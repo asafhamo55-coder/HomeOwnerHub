@@ -41,6 +41,7 @@ import {
 } from '@/lib/violation-cure-commitment'
 import { checkFine, fineCents, normaliseState } from '@/lib/compliance/statute-drift'
 import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
+import { loadGaComplaintGate } from '@/lib/ga-complaints/load'
 import { createAdminClient } from '@homeowner-portal/db'
 import { loadBoardHearing, loadBoardRosterNames, type BoardHearingLoad } from '@/lib/violation-hearings/queries'
 import { HEARING_OUTCOME_LABEL, hearingFineFacts, hearingSteps } from '@/lib/violation-hearings/rules'
@@ -243,13 +244,19 @@ export default async function ViolationDetailPage({
     org && normaliseState(lawRules?.state) === 'GA' && currentStatus !== 'fined'
       ? await loadGaRegistrationGate(supabase as never, org.id, today)
       : null
+  // BL-161: a Secretary of State complaint's stay on this home (a failed read hides the check; the server action re-reads and refuses).
+  const complaintStay =
+    org && normaliseState(lawRules?.state) === 'GA' && currentStatus !== 'fined' && unit.unitId
+      ? await loadGaComplaintGate(supabase as never, org.id, [unit.unitId])
+      : null
   const lawCheck =
-    lawRules && currentStatus !== 'fined' && hearingLoad.kind !== 'failed' && registration?.ok !== false
+    lawRules && currentStatus !== 'fined' && hearingLoad.kind !== 'failed' && registration?.ok !== false && complaintStay?.ok !== false
       ? checkFine({
           state: lawRules.state,
           dailyFineCents: fineCents(v.fine_amount),
           hearing: hearingFacts,
           gaRegistration: registration?.ok ? registration.gate : undefined,
+          gaComplaintStay: complaintStay?.ok && complaintStay.gate ? { ...complaintStay.gate, today } : undefined,
         })
       : null
   const unitId: string | null = unit.unitId
