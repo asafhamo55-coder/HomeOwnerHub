@@ -22,6 +22,9 @@ import { orgTimeZone } from '@/lib/association-time-server'
 import { requireBoardOrAdmin, type Role } from '@/lib/auth'
 import { checkOrgOwned } from '@/lib/org-owned'
 import { appUrl } from '@/lib/app-origin'
+import { paySettingsSecret } from '@/lib/pay-by-zelle'
+import { GA_REGISTRATION_KIT_HREF, boardSeatChanged } from '@/lib/ga-registration/model'
+import { startGaOfficerChangeClock } from '@/lib/ga-registration/officer-change'
 
 export type MemberRole = Role
 
@@ -514,22 +517,25 @@ export async function changeMemberRole(
   }
   const supabase = await getSupabaseServerClient()
 
+  // The role before the change: the last-admin guard and BL-159's
+  // Georgia officer-change clock both need it.
+  const { data: targetRow } = await supabase
+    .from('org_members')
+    .select('role')
+    .eq('org_id', org.id)
+    .eq('user_id', parsed.data.user_id)
+    .maybeSingle<{ role: string }>()
+  const previousRole = targetRow?.role ?? null
+
   // Guard against removing the last admin. Count current admins in org.
   if (parsed.data.role !== 'admin') {
-    const { count, data: target } = await supabase
+    const { count } = await supabase
       .from('org_members')
       .select('role', { count: 'exact' })
       .eq('org_id', org.id)
       .eq('role', 'admin')
-    void target
     if ((count ?? 0) <= 1) {
-      const { data: targetRow } = await supabase
-        .from('org_members')
-        .select('role')
-        .eq('org_id', org.id)
-        .eq('user_id', parsed.data.user_id)
-        .maybeSingle<{ role: string }>()
-      if (targetRow?.role === 'admin') {
+      if (previousRole === 'admin') {
         return {
           ok: false,
           error: 'You can\'t demote the last admin. Promote someone else first.',
@@ -549,6 +555,33 @@ export async function changeMemberRole(
   if (!updated || updated.length === 0) {
     return { ok: false, error: 'Role was not changed. Refresh and try again.' }
   }
+
+  // BL-159: someone moved onto or off the board of a Georgia association
+  // starts the 30-day amended-registration row (§ 43-17A-2(d)). The role
+  // change stands either way; a failure here is logged (ids and codes).
+  if (boardSeatChanged(previousRole, parsed.data.role)) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    const clock = await startGaOfficerChangeClock({
+      db: supabase,
+      orgId: org.id,
+      actorId: user?.id ?? null,
+      memberId: parsed.data.user_id,
+      from: previousRole,
+      to: parsed.data.role,
+      today: todayIn(await orgTimeZone(supabase, org.id)),
+      secret: paySettingsSecret(),
+    }).catch((e: unknown) => {
+      console.error('[members] ga officer change failed', { orgId: org.id, code: e instanceof Error ? e.name : 'unknown' })
+      return { kind: 'failed' as const, associationIds: [] }
+    })
+    if (clock.kind !== 'not_needed') {
+      revalidatePath('/compliance')
+      revalidatePath(GA_REGISTRATION_KIT_HREF)
+    }
+  }
+
   revalidatePath('/settings/members')
   return { ok: true }
 }

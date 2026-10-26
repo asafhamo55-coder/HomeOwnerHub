@@ -358,10 +358,11 @@ function Kit({ data, today }: { data: KitData; today: string }) {
         <CardContent className="space-y-4">
           <Quote q={KIT_QUOTES.amendment} />
           {data.amendments === null ? (
-            <p className="text-sm text-foreground-secondary">Couldn’t load your elections. Refresh the page.</p>
+            <p className="text-sm text-foreground-secondary">Couldn’t load your elections and board changes. Refresh the page.</p>
           ) : data.amendments.length === 0 ? (
             <p className="text-sm text-foreground-secondary">
-              No election with recorded results needs one. After an election, record the results in its election planner and it appears here.
+              Nothing needs one yet. One appears here after an election’s results are recorded in its election planner, or when someone joins
+              or leaves the board in Settings → Members.
             </p>
           ) : (
             <ul className="divide-y divide-border">
