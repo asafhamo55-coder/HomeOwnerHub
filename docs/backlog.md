@@ -1941,3 +1941,9 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
      - SEO metadata and structured data, and the Search Console verification tag (OA-35);
      - a weekly analytics digest to Asaf (counts only).
    - **Status:** dispatched 2026-10-26 (Sonnet).
+
+172. **BL-172 SEO content program (primary growth channel, ongoing).** Migration: no. Owner decision (Asaf, 2026-10-26: "invest the most in SEO"). Plan: `docs/decisions/2026-10-26-seo-primary-growth-channel.md`.
+   - **Content:** Georgia law guides, free templates and tools, self-managed-HOA how-tos, factual comparison pages, and local pages only where there is real local substance. FL, CA and TX follow.
+   - **Cadence:** at least 3 new or improved pages a day through a Sonnet SEO agent; a weekly full-site SEO audit; every deploy's release note lists the new pages.
+   - **Quality:** official-fixture quotes only (tested); shipped features only; "not legal advice"; a demo or tool CTA on every page.
+   - **Status:** starts once BL-171's technical base lands.

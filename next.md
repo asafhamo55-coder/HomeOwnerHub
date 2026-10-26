@@ -52,6 +52,12 @@ this file is the reference it points to.
 - **Georgia is the launch state.** FL, CA and TX stay supported, but Georgia comes first when choosing what to build, test, word or demo: GA statute coverage (the O.C.G.A. § 44-3 snapshot, BL-124 refresh before 2027-01-01), the GA Secretary of State registration (SB 406), GA-specific paperwork and copy, and GA examples in the decks and marketing.
 - Before ranking backlog items, ask: "does this help a Georgia board first?"
 
+### SEO is the primary growth channel (Asaf, 2026-10-26: "invest the most in SEO")
+- The marketing site's main job is ranking for what Georgia boards search, then turning visitors into demo requests.
+- Every day the loop dispatches a Sonnet SEO agent that ships at least 3 new or improved pages (BL-172). A full SEO audit runs weekly.
+- Quote law only from the official fixtures; describe shipped features only.
+- Plan and quality bar: `docs/decisions/2026-10-26-seo-primary-growth-channel.md`.
+
 ### Presentations stay current (Asaf, 2026-10-21; repeated 2026-10-22: "always keep the deck for product and for investors up to date")
 - **A standing rule, not a one-off task.** Every cycle checks whether the decks still match the product, and they are refreshed in the same cycle as any deploy or merge that changes a feature, price, brand element, competitor fact or market number.
 - **Always keep the product deck and the investor deck up to date** (`~/HomeownerHub-decks/`, outside the repo) with the latest features, market trends, competitor moves and pricing.

@@ -31,6 +31,8 @@ Georgia's SB 406 creates new obligations for every association:
 
 Volunteer boards are searching for exactly these answers this quarter, and HomeownerHub already does each one. The message is: **"Get your HOA ready for SB 406 before January 1."**
 
+**Owner decision (2026-10-26): "invest the most in SEO".** Search is the primary channel; see `docs/decisions/2026-10-26-seo-primary-growth-channel.md` and BL-172. The other channels below support it.
+
 ## Channels, in order
 
 | # | Channel | What we do | Owner | Cost |
