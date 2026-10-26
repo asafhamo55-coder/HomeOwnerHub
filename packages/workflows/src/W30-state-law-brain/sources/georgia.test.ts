@@ -59,7 +59,7 @@ describe('parseGeorgiaSnapshot (committed GA snapshot)', () => {
 
   it('reads the snapshot metadata', () => {
     expect(snap.sourceName).toMatch(/^O\.C\.G\.A\. Title 44 Ch\. 3 Art\. 6 \(State release 86/)
-    expect(snap.retrieved).toBe('2026-10-22')
+    expect(snap.retrieved).toBe('2026-10-26')
     expect(snap.validUntil).toBe('2027-07-01')
   })
 
@@ -84,6 +84,19 @@ describe('parseGeorgiaSnapshot (committed GA snapshot)', () => {
     expect(byCite.get('O.C.G.A. Section 44-3-220')!.body).toBe(
       'This article shall be known and may be cited as the “Georgia Property Owners’ Association Act.”',
     )
+  })
+
+  it('carries the 2025 SB 153 and 2026 HB 1268 Code-revision fixes (BL-169)', () => {
+    const body = (c: string) => byCite.get(`O.C.G.A. Section ${c}`)!.body
+    expect(body('44-3-230')).toContain('such meeting may be called by the holders')
+    expect(body('44-3-230')).not.toContain('may called')
+    expect(body('44-3-231')).toContain('are complied with; or for any other remedy')
+    expect(body('44-3-231')).not.toContain('compiled')
+    expect(body('44-3-221')).toContain('that the term “owners and lessees,”')
+    expect(body('44-3-225')).toContain('provided, however, that, if the grantor')
+    expect(body('44-3-226')).toContain('provided, however, that, upon the conveyance for value')
+    expect(body('44-3-226')).toContain('As used in this subparagraph, the term “conveyance for value”')
+    expect(body('44-3-234')).toContain('created pursuant to or submitted pursuant to this article.')
   })
 
   it('§ 44-3-232(d) matches the two bill reproductions recorded independently in ga-ocga-44-3-232-2026.txt', () => {

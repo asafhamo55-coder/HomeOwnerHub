@@ -73,7 +73,7 @@ export const GA_MEMBER_NOTICE: StatuteCitation = {
 export const GA_MISSED_ANNUAL: StatuteCitation = {
   cite: 'O.C.G.A. § 44-3-230(b)',
   quote:
-    'In the event an association fails to hold an annual meeting on or before the last day of the association’s fiscal year, such meeting may called by the holders of at least 5 percent of the voting power of the association',
+    'In the event an association fails to hold an annual meeting on or before the last day of the association’s fiscal year, such meeting may be called by the holders of at least 5 percent of the voting power of the association',
 }
 
 export const GA_QUORUM: StatuteCitation = {

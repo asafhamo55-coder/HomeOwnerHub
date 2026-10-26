@@ -42,7 +42,8 @@ exercised end-to-end. Before relying on the State Law Brain in production:
 
 The snapshot header records every source document (URL, sha256, retrieval date) and the amendments checked.
 Today it is the State's own electronic O.C.G.A. release 86 (Nov. 2022, via Public.Resource.Org), with Ga. L. 2024
-HB 220 applied to §§ 44-3-223, 44-3-230 and 44-3-231(a), plus Ga. L. 2026 SB 406 § 7 as its own record.
+HB 220 applied to §§ 44-3-223, 44-3-230 and 44-3-231(a), the Code-revision Acts Ga. L. 2025 SB 153 (§§ 44-3-230(b),
+231(a)(4)) and Ga. L. 2026 HB 1268 (§§ 44-3-221, 225, 226, 234; BL-169), plus Ga. L. 2026 SB 406 § 7 as its own record.
 
 SB 406 §§ 2–6 take effect 2027-01-01. They are carried as DATED records (BL-154): §§ 44-3-222, 44-3-226,
 44-3-232 and 44-3-235 appear a second time with `@effective_date: 2027-01-01` (the release-86 text with the Act's
