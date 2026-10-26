@@ -1896,3 +1896,18 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
    - **Build:** a read-only panel on the collections case for GA associations. It shows the counted balance (regular and special assessments, less unapplied credit, per BL-154's reading), the 12-month figure from the dues-rate schedule (BL-137) where one exists, the threshold, and whether the case is above it. It also shows SB 406's payment order (§ 43-17A-8) as a read-only "how payments should be applied" note. Quotes come only from `ga-sb406-2026-2027-text.txt`. It changes no payment application.
 159. **BL-159 Georgia follow-ups: officer-change clock and the § 14-3-724 proxy quote.** Migration: no. Effort S.
    - **Build:** `changeMemberRole` (lib/members.ts) starts the BL-151 30-day amended-registration row when a GA association's board role changes (BL-149 "not built"). The quorum kit quotes § 14-3-724 from `ga-ocga-14-3-2026.txt` (BL-150 named it without quoting). Audit rows carry ids and codes only.
+
+## Ranked open work — round 6 (2026-10-26)
+
+Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-round-6.md`. Georgia first. Summary, ranked:
+
+1. **BL-160** GA proposed 590-13 rules: a "Proposed rules (not in force)" card on /compliance. Migration: no. **Waits on OA-32** (official PDFs; sos.ga.gov blocks our fetchers). Comments are due Nov 2.
+2. **BL-161** SB 406 automatic stay on a Secretary of State complaint (§ 43-17A-5(c)): a board-only "complaint filed" record, fines and fee letters blocked, late fees skipped. Migration: no. In force 2027-01-01.
+3. **BL-162** GA owners' records rights from 2027 (§ 43-17A-7(1)–(2)): a 3-year financial packet and an insurance-certificate request kind. Migration: no.
+4. **BL-163** Apply SB 406's payment order (§ 43-17A-8) in the Zelle pay lines and in a new "record one payment" split. Migration: no. In force 2027-01-01. Touches money: needs careful review.
+5. **BL-164** GA owners' rights page in the resident portal (the § 43-17A-7 rights, quoted). Migration: no. Ships with BL-162.
+6. **BL-165** Conflict-of-interest disclosure at bid award and contract approval (§ 43-17A-7(10)). Migration: no.
+7. **BL-166** Certified-mail tracking fields on collection events. Migration: **yes (M6, with BL-156)**.
+8. **BL-167** 1099-NEC and 1120-H deadlines on /compliance and in the digest. Migration: no. Not Georgia-specific.
+
+**Status 2026-10-26:** dispatched BL-162+BL-164 together, then BL-161.
