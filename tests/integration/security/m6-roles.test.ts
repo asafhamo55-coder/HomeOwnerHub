@@ -311,8 +311,8 @@ describe('0070 CPA: read-only accounting', () => {
   it('owner names only: cpa_owner_names gives unit and name, refuses an expired or foreign caller', async () => {
     const { data, error } = await cpa.client.rpc('cpa_owner_names' as never, { p_org_id: org.orgId } as never)
     expect(error).toBeNull()
-    expect(Object.keys((data as Array<Record<string, unknown>>)[0]!).sort()).toEqual(['owner_name', 'unit_id'])
-    expect((data as unknown[]).length).toBe(2)
+    expect(Object.keys((data as unknown as Array<Record<string, unknown>>)[0]!).sort()).toEqual(['owner_name', 'unit_id'])
+    expect((data as unknown as unknown[]).length).toBe(2)
     for (const u of [cpaExpired, attorney, otherCpa, resident, board]) {
       const r = await u.client.rpc('cpa_owner_names' as never, { p_org_id: org.orgId } as never)
       expect(r.error?.code).toBe('42501')
@@ -392,7 +392,7 @@ describe('0070 attorney: assigned matters only', () => {
       p_matter_id: ids.case,
     } as never)
     expect(error).toBeNull()
-    const row = (data as Array<Record<string, unknown>>)[0]!
+    const row = (data as unknown as Array<Record<string, unknown>>)[0]!
     expect(Object.keys(row).sort()).toEqual(['address_line1', 'address_line2', 'city', 'owner_name', 'postal_code', 'state'])
     expect(row.owner_name).toBe('Test Owner')
     const unassigned = await attorney.client.rpc('attorney_matter_party' as never, {

@@ -12,7 +12,7 @@ import { LetterForm, NoteForm, UploadForm } from '@/components/pro/AttorneyForms
 export const metadata = { title: 'Matter' }
 export const dynamic = 'force-dynamic'
 
-type Loose = { from(t: string): { select(c: string): { eq(c: string, v: string): { maybeSingle(): Promise<{ data: Record<string, unknown> | null }> } } } }
+type Loose = { from(t: string): { select(c: string): { eq(c: string, v: string): { maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { code?: string } | null }> } } } }
 
 const SHOWN = ['status', 'opened_on', 'closed_on', 'violation_type', 'severity', 'category', 'attorney_firm', 'attorney_reference', 'created_at']
 
@@ -25,7 +25,8 @@ export default async function MatterPage({ params }: { params: Promise<{ type: s
 
   // The matter is read with the attorney's own session: unassigned = no row = 404.
   const table = matter.type === 'collections_case' ? 'collection_cases' : matter.type === 'violation' ? 'hoa_violations' : 'tickets'
-  const { data: row } = await (supabase as unknown as Loose).from(table).select('*').eq('id', matter.id).maybeSingle()
+  const { data: row, error: rowError } = await (supabase as unknown as Loose).from(table).select('*').eq('id', matter.id).maybeSingle()
+  if (rowError) throw new Error(`matter read failed (${rowError.code ?? 'error'})`)
   if (!row) notFound()
 
   const party = await loadMatterParty(supabase, org.id, matter.type, matter.id)

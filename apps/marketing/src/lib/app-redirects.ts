@@ -53,6 +53,8 @@ export const APP_PATH_SEGMENTS = [
   'join',
   'offline',
   'onboarding',
+  // BL-168 professional access (CPA, attorney)
+  'pro',
   'resident',
   'rfp-bid',
   'vendor-onboard',

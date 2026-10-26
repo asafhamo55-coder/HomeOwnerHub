@@ -39,6 +39,9 @@ const OTHER_HANDLERS = {
   // BL-143 join requests (security/m5-join-requests.test.ts).
   approveJoin: notUsed,
   rejectJoin: notUsed,
+  // BL-168 professionals' items.
+  approvePro: notUsed,
+  rejectPro: notUsed,
   // BL-089 collections letters.
   approveLetter: notUsed,
   rejectLetter: notUsed,

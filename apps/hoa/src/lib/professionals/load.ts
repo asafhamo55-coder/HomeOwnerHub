@@ -7,6 +7,7 @@
 
 import { createAdminClient } from '@homeowner-portal/db'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { readAllResult } from '@/lib/supabase/read-all'
 import { readOfficerTitle, MATTER_LABEL, type MatterType, type OfficerTitle } from './model'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -226,7 +227,13 @@ export interface CpaOverview {
 export async function loadCpaOverview(db: Db, orgId: string): Promise<{ ok: true; data: CpaOverview } | { ok: false }> {
   const [periods, assessments, entries, accounts, funds, owners, reviews] = await Promise.all([
     loadOrFail('pro: periods', db.from('fiscal_periods').select('id, association_id, start_date, end_date, status').order('start_date', { ascending: false }).limit(20)),
-    loadOrFail('pro: receivables', db.from('assessments').select('unit_id, amount, status').in('status', ['open', 'overdue', 'partial']).limit(5000)),
+    // Every open charge, page by page: a summed total must never be a truncated one.
+    loadOrFail(
+      'pro: receivables',
+      readAllResult<{ unit_id: string | null; amount: number | string }>((from, to) =>
+        db.from('assessments').select('unit_id, amount, status').in('status', ['open', 'overdue', 'partial']).order('id').range(from, to),
+      ),
+    ),
     loadOrFail('pro: entries', db.from('journal_entries').select('id, entry_number, entry_date, memo, status').order('entry_date', { ascending: false }).limit(25)),
     loadOrFail('pro: accounts', db.from('chart_of_accounts').select('id, association_id, account_number, account_name').eq('is_active', true).order('account_number').limit(400)),
     loadOrFail('pro: funds', db.from('funds').select('id, association_id, code, name').eq('is_active', true).limit(50)),

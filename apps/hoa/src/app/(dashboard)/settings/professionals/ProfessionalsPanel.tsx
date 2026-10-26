@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Send } from 'lucide-react'
-import { Alert, Button, Checkbox, Field, Fieldset, Input, Select } from '@homeowner-portal/ui'
+import { Alert, Button, Checkbox, Field, Fieldset, Input, Select, useConfirm } from '@homeowner-portal/ui'
 import {
   assignMatter,
   inviteProfessional,
@@ -142,6 +142,7 @@ export function InviteProfessionalForm({ today, options }: { today: string; opti
 
 export function ProfessionalRowView({ row, today, options, note }: { row: ProfessionalRow; today: string; options: MatterOption[]; note: string }) {
   const { pending, msg, run } = useRun()
+  const confirm = useConfirm()
   const [renewOn, setRenewOn] = useState(addDays(today, DEFAULT_EXPIRY_DAYS[row.role]))
   const [matterKey, setMatterKey] = useState('')
   const label = (type: string, id: string) => options.find((o) => o.type === type && o.id === id)?.label ?? `${type} ${id.slice(0, 8)}`
@@ -159,8 +160,14 @@ export function ProfessionalRowView({ row, today, options, note }: { row: Profes
           size="sm"
           variant="secondary"
           loading={pending}
-          onClick={() => {
-            if (window.confirm('Remove this person’s access now?')) run(() => revokeProfessional(row.userId), 'Access removed.')
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Remove access?',
+              description: 'They lose access to this HOA right away. Their earlier submissions stay on the record.',
+              confirmLabel: 'Remove access',
+              destructive: true,
+            })
+            if (ok) run(() => revokeProfessional(row.userId), 'Access removed.')
           }}
         >
           Remove access
