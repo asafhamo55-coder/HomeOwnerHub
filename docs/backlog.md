@@ -1911,3 +1911,12 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
 8. **BL-167 1099-NEC and 1120-H deadlines on /compliance and in the digest.** Migration: no. Not Georgia-specific.
 
 **Status 2026-10-26:** dispatched BL-162+BL-164 together, then BL-161.
+
+## Owner request 2026-10-26: CPA, attorney and treasurer access
+
+168. **BL-168 Professional and officer roles: CPA, Attorney, Treasurer.** Migration: **yes (M6, with BL-156 and BL-166)**. Owner ask (Asaf, 2026-10-26). Design: `docs/specs/2026-10-26-professional-roles.md`.
+   - **CPA:** read-only accounting plus exports. Can mark a period "reviewed" and propose adjusting entries, which post only after board approval. Time-boxed grant.
+   - **Attorney:** sees only the matters the board assigns (collections cases, violations and hearings, records requests). Adds notes and documents and drafts letters, which the board approves. Optional general-counsel read access to governing documents and compliance. Time-boxed grant.
+   - **Treasurer:** a board member with an officer title. Money approvals and bank-reconciliation sign-off route to the Treasurer, with dual control above a board-set amount. Titles also feed the GA registration kit's officer list.
+   - "Trusery" was read as Treasurer (decision in the spec). If a trustee was meant, that's an owner label, not a role.
+   - **Status 2026-10-26:** designed. Build the app behind `M6_APPLIED` plus the M6 SQL, then Asaf applies it.
