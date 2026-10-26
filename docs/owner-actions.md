@@ -41,23 +41,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-30 · Point www.homeownerledger.online at the marketing website
-
-**Urgency:** Soon
-
-**Why it matters:** you asked (2026-10-22) for the marketing website to live at
-www.homeownerledger.online. Today that name doesn't load: its DNS record holds
-a web address (`http://...vercel-dns-017.com/.`) where a plain host name
-belongs, and in Vercel the name is attached to the app project as a redirect.
-The app itself stays at www.homeownerledger.com (OA-5 stays paused).
-
-**Steps:**
-
-1. At Network Solutions, DNS for **homeownerledger.online**: edit the `www` CNAME so its value is exactly `afa3394a804e31cd.vercel-dns-017.com` (no `http://`, no slash). Save.
-2. In Vercel, project **home-owner-hub-hoa** → **Settings → Domains**: remove `www.homeownerledger.online`. Leave `homeownerledger.online` as it is.
-3. In Vercel, project **homeownerhub-marketing** → **Settings → Domains**: add `www.homeownerledger.online` (no redirect). Wait for the green "Valid Configuration".
-4. Tell Claude it's done. Claude checks the site loads with a certificate and switches the site's canonical address to it.
-
 ### OA-32 · Download Georgia's proposed HOA rules (and optionally comment by Nov 2)
 
 **Urgency:** Soon
@@ -89,23 +72,6 @@ The app itself stays at www.homeownerledger.com (OA-5 stays paused).
 7. Tell Claude these are done. Claude runs the rest of the runbook (steps 3 to 7).
 
 **Files:** `docs/specs/2026-10-19-domain-split.md`
-
-### OA-6 · Add the Stripe test keys
-
-**Urgency:** Soon
-
-**Why it matters:** with these, the automatic checks can rehearse real
-checkouts in Stripe's test mode, so payment bugs are caught before
-customers hit them.
-
-**Steps:**
-
-1. In the Stripe dashboard, switch to **Test mode** and copy the test secret key and the test webhook signing secret.
-2. In a terminal in the repo, run `gh secret set STRIPE_TEST_SECRET_KEY` and paste the key when asked. Then `gh secret set STRIPE_TEST_WEBHOOK_SECRET` and paste the webhook secret. Never paste them into a file.
-3. Still in test mode, open **Settings → Billing → Customer portal** and click **Save** once.
-4. Check live vs test mode: a checkout link that contains `cs_live_` is live. Tell Claude which one the app uses today.
-
-**Files:** `docs/specs/2026-10-19-stripe-sandbox.md`
 
 ### OA-7 · Confirm the scheduled-messages job in Inngest
 
@@ -359,6 +325,44 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-6 · Add the Stripe test keys
+
+**Done 2026-10-26 (checked by Claude):** the `STRIPE_TEST_SECRET_KEY` and `STRIPE_TEST_WEBHOOK_SECRET` GitHub secrets exist, and the Stripe sandbox suite was run. Steps 3–4 (save the test-mode customer portal; which mode the app uses) were not confirmed from here.
+
+**Urgency:** Soon
+
+**Why it matters:** with these, the automatic checks can rehearse real
+checkouts in Stripe's test mode, so payment bugs are caught before
+customers hit them.
+
+**Steps:**
+
+1. In the Stripe dashboard, switch to **Test mode** and copy the test secret key and the test webhook signing secret.
+2. In a terminal in the repo, run `gh secret set STRIPE_TEST_SECRET_KEY` and paste the key when asked. Then `gh secret set STRIPE_TEST_WEBHOOK_SECRET` and paste the webhook secret. Never paste them into a file.
+3. Still in test mode, open **Settings → Billing → Customer portal** and click **Save** once.
+4. Check live vs test mode: a checkout link that contains `cs_live_` is live. Tell Claude which one the app uses today.
+
+**Files:** `docs/specs/2026-10-19-stripe-sandbox.md`
+
+### OA-30 · Point www.homeownerledger.online at the marketing website
+
+**Done 2026-10-26 (checked by Claude):** www.homeownerledger.online resolves to Vercel, is attached to `homeownerhub-marketing`, and serves the marketing site (HTTP 200; canonical URLs use the .online origin).
+
+**Urgency:** Soon
+
+**Why it matters:** you asked (2026-10-22) for the marketing website to live at
+www.homeownerledger.online. Today that name doesn't load: its DNS record holds
+a web address (`http://...vercel-dns-017.com/.`) where a plain host name
+belongs, and in Vercel the name is attached to the app project as a redirect.
+The app itself stays at www.homeownerledger.com (OA-5 stays paused).
+
+**Steps:**
+
+1. At Network Solutions, DNS for **homeownerledger.online**: edit the `www` CNAME so its value is exactly `afa3394a804e31cd.vercel-dns-017.com` (no `http://`, no slash). Save.
+2. In Vercel, project **home-owner-hub-hoa** → **Settings → Domains**: remove `www.homeownerledger.online`. Leave `homeownerledger.online` as it is.
+3. In Vercel, project **homeownerhub-marketing** → **Settings → Domains**: add `www.homeownerledger.online` (no redirect). Wait for the green "Valid Configuration".
+4. Tell Claude it's done. Claude checks the site loads with a certificate and switches the site's canonical address to it.
 
 ### OA-31 · Restore one SQL file on your Mac (if you didn't empty it on purpose)
 
