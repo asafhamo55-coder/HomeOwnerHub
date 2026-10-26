@@ -62,8 +62,18 @@ Submitted at ${new Date().toISOString()}
 `.trim()
 
   if (!apiKey) {
-    // Dev mode: no Resend key configured. Log to the server console so the
-    // submission is visible during local development, then succeed.
+    // In production a missing key must not look like success: the request
+    // would be lost while the visitor is told it went through (found
+    // 2026-10-26: the marketing project had no RESEND_API_KEY).
+    if (process.env.VERCEL_ENV === 'production') {
+      console.error('[demo-request] RESEND_API_KEY not set in production; request not delivered')
+      return {
+        status: 'error',
+        message: 'We couldn\'t send your request. Please email support@homeownerledger.com directly.',
+      }
+    }
+    // Dev mode: log to the server console so the submission is visible
+    // during local development, then succeed.
     console.log('[demo-request] RESEND_API_KEY not set — logging only')
     console.log(summary)
     return { status: 'success' }
