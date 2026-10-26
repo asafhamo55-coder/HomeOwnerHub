@@ -23,7 +23,8 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadArcSection, loadBillSection, loadContactSection, loadJoinSection, loadLetterSection, loadOpeningSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadArcSection, loadBillSection, loadContactSection, loadJoinSection, loadLetterSection, loadOpeningSection, loadProSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import {
   APPROVAL_SOURCES,
   SOURCE_META,
@@ -83,12 +84,16 @@ const SOURCE_LOADERS: Record<ApprovalSource, (orgId: string, orgName: string) =>
   ),
   contact: cache((orgId: string) => timed(R, 'approvals.contact', async () => loadContactSection(await db(), orgId, { submitterEmails: authSubmitterEmails }))),
   join: cache((orgId: string) => timed(R, 'approvals.join', async () => loadJoinSection(await db(), orgId))),
+  pro: cache((orgId: string) => timed(R, 'approvals.pro', async () => loadProSection(await db(), orgId))),
   vendor: cache(() =>
     timed(R, 'approvals.vendor', () =>
       listVendorsResult().then(vendorSection, () => ({ source: 'vendor', ok: false }) as const),
     ),
   ),
 }
+
+/** The tabs and sections shown: the professionals' one only once M6 is applied (BL-168). */
+const VISIBLE_SOURCES = APPROVAL_SOURCES.filter((s) => s !== 'pro' || M6_APPLIED)
 
 const vendorCountsByAssociation = cache((orgId: string) =>
   timed(R, 'approvals.vendorCountsByAssociation', async () => loadVendorCountsByAssociation(await db(), orgId)),
@@ -104,7 +109,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   // this keeps the page safe if it is ever mounted elsewhere.
   const { org } = await requireBoardOrAdmin()
   const filter = parseApprovalFilter((await searchParams).type)
-  const shown = filter === 'all' ? APPROVAL_SOURCES : APPROVAL_SOURCES.filter((s) => s === filter)
+  const shown = filter === 'all' ? VISIBLE_SOURCES : VISIBLE_SOURCES.filter((s) => s === filter)
 
   // Start every read now, so the tabs, the pill and the sections all wait
   // on reads that are already in flight.
@@ -158,7 +163,7 @@ async function StreamedTabs({ orgId, orgName, filter }: { orgId: string; orgName
 function ApprovalTabs({ filter, inbox }: { filter: ApprovalFilter; inbox: Inbox | null }) {
   const tabs = [
     { label: 'All', href: '/approvals', active: filter === 'all', badge: inbox?.total || null },
-    ...APPROVAL_SOURCES.map((s) => ({
+    ...VISIBLE_SOURCES.map((s) => ({
       label: SOURCE_META[s].tab,
       href: `/approvals?type=${s}`,
       active: filter === s,

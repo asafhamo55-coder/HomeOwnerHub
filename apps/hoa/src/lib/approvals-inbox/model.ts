@@ -28,6 +28,13 @@
 //          to be linked to a home, by address or a board code (BL-143,
 //          migration 0069 part 3, M5_APPLIED). Decided by owner_join_decide
 //          with the board's own client (lib/owner-join/board.ts).
+//   pro    approval_requests rows (action_type 'pro.*', status
+//          'proposed') — what an outside CPA or attorney sent the board:
+//          a review note, a proposed adjusting entry, a matter note, an
+//          upload, a draft letter (BL-168, migration 0070, M6_APPLIED).
+//          Approving a CPA's entry posts it; the rest are accepted onto
+//          the record and send nothing. Money items go to the Treasurer
+//          first, and above the board's amount need two sign-offs.
 //   vendor the W21 vendor approval queue (/vendors/approval-queue):
 //          compliant prospects plus yellow/red/missing compliance.
 //
@@ -53,8 +60,9 @@ import {
 import { FIELD_LABEL, HELD_REASON, planContactApply } from '../contact-updates/model'
 import type { ContactEntry, ContactTicketRow } from '../contact-updates/apply'
 import type { JoinCard } from '../owner-join/model'
+import { PRO_ACTION_LABEL, isProAction, proDetail, readProPayload } from '../professionals/model'
 
-export const APPROVAL_SOURCES = ['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'join', 'vendor'] as const
+export const APPROVAL_SOURCES = ['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'join', 'pro', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -144,6 +152,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueLabel: 'Open members',
     what: 'requests to join',
   },
+  pro: {
+    title: 'From your professionals',
+    tab: 'Professionals',
+    description:
+      'Notes, proposed entries, uploads and draft letters from your CPA and attorney. Nothing is posted or sent until a board member approves. A money item goes to the Treasurer first, and above the amount you set it needs two board members.',
+    queueHref: '/settings/professionals',
+    queueLabel: 'Open professionals',
+    what: 'items from your professionals',
+  },
   vendor: {
     title: 'Vendors',
     tab: 'Vendors',
@@ -173,10 +190,12 @@ export type InboxDecisionTarget =
   | { kind: 'contact'; ticketId: string; canApprove: boolean }
   /** BL-143: approve links the asker to the home (owner_join_decide); reject records why. */
   | { kind: 'join'; requestId: string }
+  /** BL-168: a CPA's or attorney's item. Approve posts a CPA entry or accepts the note/upload/draft; money goes to the Treasurer first (lib/professionals/signoff.ts). */
+  | { kind: 'pro'; approvalRequestId: string }
 
 /** The id the decision endpoint takes for a target. */
 export function decisionId(d: InboxDecisionTarget): string {
-  if (d.kind === 'w18' || d.kind === 'bill' || d.kind === 'collections' || d.kind === 'opening') return d.approvalRequestId
+  if (d.kind === 'w18' || d.kind === 'bill' || d.kind === 'collections' || d.kind === 'opening' || d.kind === 'pro') return d.approvalRequestId
   if (d.kind === 'w3' || d.kind === 'arc') return d.runId
   if (d.kind === 'contact') return d.ticketId
   if (d.kind === 'join') return d.requestId
@@ -487,6 +506,41 @@ export function openingItems(rows: OpeningProposalRow[]): InboxItem[] {
       confidenceLabel: null,
       href: OPENING_HREF,
       decision: payload ? { kind: 'opening' as const, approvalRequestId: r.id } : null,
+    }
+  })
+}
+
+export interface ProProposalRow {
+  id: string
+  summary: string
+  amount: number | string | null
+  proposed_at: string
+  action_type: string
+  payload: unknown
+}
+
+/**
+ * BL-168 items from the board's professionals. The title is the
+ * professional's own one-line summary; the detail says what approving
+ * does. An unreadable payload gets no one-click decision.
+ */
+export function proItems(rows: ProProposalRow[]): InboxItem[] {
+  return rows.map((r) => {
+    const payload = isProAction(r.action_type) ? readProPayload(r.action_type, r.payload) : null
+    const label = isProAction(r.action_type) ? PRO_ACTION_LABEL[r.action_type] : 'Item from a professional'
+    return {
+      source: 'pro' as const,
+      id: r.id,
+      title: r.summary || label,
+      detail: payload ? `${label}. ${proDetail(r.action_type, payload)}` : `${label}. This item can’t be read. Reject it and ask for it again.`,
+      amount: num(r.amount),
+      amountNote: payload?.kind === 'entry' ? 'total debits' : null,
+      createdAt: r.proposed_at,
+      reasoning: null,
+      citations: [],
+      confidenceLabel: null,
+      href: '/settings/professionals',
+      decision: payload ? { kind: 'pro' as const, approvalRequestId: r.id } : null,
     }
   })
 }

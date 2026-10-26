@@ -13,6 +13,8 @@ import { loadOrFail } from '../load-or-fail'
 import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
 import { OPENING_ACTION } from '../accounting/opening-balances/proposal'
+import { PRO_ACTION_LIST } from '../professionals/model'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
 import { contactTicketsQuery, loadContactEntries, type ContactDeps, type ContactTicketRow } from '../contact-updates/apply'
 import { countPendingJoins, loadPendingJoins, type JoinDb } from '../owner-join/board'
@@ -24,6 +26,8 @@ import {
   joinItems,
   letterItems,
   openingItems,
+  proItems,
+  type ProProposalRow,
   type LetterProposalRow,
   type OpeningProposalRow,
   type ArcRunRow,
@@ -131,6 +135,29 @@ export async function loadOpeningSection(db: InboxDb, orgId: string): Promise<In
   if (!res.ok) return { source: 'opening', ok: false }
   const rows = (res.data ?? []) as unknown as OpeningProposalRow[]
   return { source: 'opening', ok: true, items: openingItems(rows), total: res.count ?? rows.length }
+}
+
+/**
+ * BL-168: items from the board's CPA and attorney, oldest first. Same read
+ * rule as W18 (board/admin of the org). Flag off: empty, without a query —
+ * nothing writes a pro.* row until M6_APPLIED.
+ */
+export async function loadProSection(db: InboxDb, orgId: string, live: boolean = M6_APPLIED): Promise<InboxSection> {
+  if (!live) return { source: 'pro', ok: true, items: [], total: 0 }
+  const res = await loadOrFail(
+    'approvals: professionals',
+    db
+      .from('approval_requests')
+      .select('id, summary, amount, proposed_at, action_type, payload', { count: 'exact' })
+      .eq('organization_id', orgId)
+      .in('action_type', PRO_ACTION_LIST)
+      .eq('status', 'proposed')
+      .order('proposed_at', { ascending: true })
+      .range(0, SECTION_LIMIT - 1),
+  )
+  if (!res.ok) return { source: 'pro', ok: false }
+  const rows = (res.data ?? []) as unknown as ProProposalRow[]
+  return { source: 'pro', ok: true, items: proItems(rows), total: res.count ?? rows.length }
 }
 
 export async function loadW3Section(db: InboxDb, orgId: string): Promise<InboxSection> {
@@ -258,14 +285,14 @@ async function loadAssociations(db: InboxDb, orgId: string) {
  * means the vendor list is empty, so 0. A failed count is null — unknown,
  * never 0.
  */
-export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { m5?: boolean } = {}): Promise<SourceCounts> {
+export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { m5?: boolean; m6?: boolean } = {}): Promise<SourceCounts> {
   const vendorCount = async (): Promise<number | null> => {
     const assocs = await loadAssociations(db, orgId)
     if (!assocs.ok) return null
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, bill, opening, w3, collections, arc, contact, join, vendor] = await Promise.all([
+  const [w18, bill, opening, w3, collections, arc, contact, join, pro, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -323,10 +350,21 @@ export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { 
     ),
     loadOrFail('approvals badge: contact updates', contactTicketsQuery(db, orgId, { head: true })),
     countPendingJoins(db as unknown as JoinDb, orgId, opts.m5 ?? M5_APPLIED),
+    (opts.m6 ?? M6_APPLIED)
+      ? loadOrFail(
+          'approvals badge: professionals',
+          db
+            .from('approval_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('organization_id', orgId)
+            .in('action_type', PRO_ACTION_LIST)
+            .eq('status', 'proposed'),
+        )
+      : Promise.resolve({ ok: true as const, count: 0 }),
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), bill: count(bill), opening: count(opening), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), join, vendor }
+  return { w18: count(w18), bill: count(bill), opening: count(opening), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), join, pro: count(pro), vendor }
 }
 
 /**

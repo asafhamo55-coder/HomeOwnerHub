@@ -54,7 +54,7 @@ const ALLOWLIST: Record<string, string> = {
 
 /** Gates that refuse by themselves (throw / redirect / return a denial). */
 const GATE =
-  /\b(?:requireBoardOrAdminForAction|requireBoardOrAdmin|requireAdmin|requireResident|requirePlatformAdmin|requireRoute\w+|getImpersonationTarget|getResidentActor)\s*\(/
+  /\b(?:requireBoardOrAdminForAction|requireProfessionalForAction|requireBoardOrAdmin|requireAdmin|requireResident|requirePlatformAdmin|requireRoute\w+|getImpersonationTarget|getResidentActor)\s*\(/
 
 /** Role lookups: a gate only when the result is compared (roleLookupGates). */
 const ROLE_LOOKUP = /\b(?:getCurrentUserRole|getCurrentUserRoleInOrg|isPlatformAdmin)\s*\(/g

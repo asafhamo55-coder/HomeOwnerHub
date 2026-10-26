@@ -26,7 +26,9 @@ import { paySettingsSecret } from '@/lib/pay-by-zelle'
 import { GA_REGISTRATION_KIT_HREF, boardSeatChanged } from '@/lib/ga-registration/model'
 import { startGaOfficerChangeClock } from '@/lib/ga-registration/officer-change'
 
-export type MemberRole = Role
+// The three member roles. Professionals (cpa, attorney) are not members
+// (BL-168) and are managed by lib/professionals.
+export type MemberRole = Extract<Role, 'admin' | 'board' | 'resident'>
 
 export interface MemberRow {
   user_id: string
@@ -164,7 +166,9 @@ export async function listMembers(): Promise<MemberRow[]> {
     }
   }
 
-  return rows.map((r) => {
+  // Professionals (cpa, attorney; BL-168) are listed on Settings →
+  // Professionals, never here: this list offers role changes and removal.
+  return rows.filter((r) => r.role !== 'cpa' && r.role !== 'attorney').map((r) => {
     const email = r.profile?.email ?? authBackfill.get(r.user_id) ?? null
     return {
       user_id: r.user_id,

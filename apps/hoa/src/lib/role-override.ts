@@ -19,13 +19,15 @@ import { getCurrentUserRoleInOrg, type Role } from '@/lib/auth'
 import { ROLE_OVERRIDE_COOKIE } from '@/lib/session-cookies'
 
 const COOKIE = ROLE_OVERRIDE_COOKIE
-const VALID: Role[] = ['admin', 'board', 'resident']
+// Only the three member roles can be previewed (never cpa or attorney).
+type OverrideRole = 'admin' | 'board' | 'resident'
+const VALID: OverrideRole[] = ['admin', 'board', 'resident']
 
-export async function getRoleOverride(): Promise<Role | null> {
+export async function getRoleOverride(): Promise<OverrideRole | null> {
   const store = await cookies()
   const value = store.get(COOKIE)?.value
   if (!value) return null
-  if (VALID.includes(value as Role)) return value as Role
+  if (VALID.includes(value as OverrideRole)) return value as OverrideRole
   return null
 }
 
@@ -42,7 +44,7 @@ export async function getEffectiveRoleInOrg(orgId: string): Promise<Role | null>
 // Server action: set the override. Refuses unless the calling user's
 // REAL role is admin. Then redirects to the role's home so the UI
 // switches immediately.
-export async function setRoleOverride(role: Role): Promise<void> {
+export async function setRoleOverride(role: OverrideRole): Promise<void> {
   if (!VALID.includes(role)) return
 
   const supabase = await getSupabaseServerClient()

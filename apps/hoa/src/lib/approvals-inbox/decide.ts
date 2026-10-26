@@ -67,6 +67,8 @@ import { OPENING_ACTION } from '../accounting/opening-balances/proposal'
 import { openingExecutor } from '../accounting/opening-balances/executor'
 import { approveContactUpdate, rejectContactUpdate, type ContactDeps } from '../contact-updates/apply'
 import { decideJoinRequest, type JoinDb } from '../owner-join/board'
+import { proExecutor } from '../professionals/executor'
+import { PRO_ACTION_LIST } from '../professionals/model'
 import { canUseApprovals } from './model'
 import type { InboxDb } from './load'
 
@@ -91,12 +93,21 @@ export interface InboxDecisionHandlers {
   rejectContact(ticketId: string, reason: string): Promise<Simple & { message?: string }>
   approveJoin(requestId: string): Promise<InboxDecisionOutcome>
   rejectJoin(requestId: string, reason: string): Promise<InboxDecisionOutcome>
+  approvePro(approvalRequestId: string): Promise<DecisionResult>
+  rejectPro(approvalRequestId: string, reason: string): Promise<DecisionResult>
+  /**
+   * BL-168 (M6_APPLIED): Treasurer routing and dual control, run just
+   * before a money item (a scanned bill, a proposed entry) is approved.
+   * null = carry on and approve; otherwise the outcome to show instead.
+   * Absent = no routing (today's behaviour).
+   */
+  moneyGate?(approvalRequestId: string): Promise<InboxDecisionOutcome | null>
 }
 
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact', 'join']),
+  kind: z.enum(['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact', 'join', 'pro']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -186,6 +197,25 @@ export function openingHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDe
   }
 }
 
+/**
+ * BL-168: items from a CPA or attorney. Same shape as openingHandlers: the
+ * kind check runs on the decider's RLS client before the claim (any pro.*
+ * action), and the executor map holds only the pro executor for each pro
+ * action type, so no other proposal can be claimed through here.
+ */
+export function proHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDecisionHandlers, 'approvePro' | 'rejectPro'> {
+  const executors = Object.fromEntries(PRO_ACTION_LIST.map((a) => [a, proExecutor]))
+  const isPro = async (id: string): Promise<boolean> => {
+    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    return !error && typeof data?.action_type === 'string' && PRO_ACTION_LIST.includes(data.action_type)
+  }
+  const notPro = { ok: false as const, error: 'That approval item isn’t from a professional.' }
+  return {
+    approvePro: async (id) => ((await isPro(id)) ? approveRequest(userDb, adminDb, id, executors) : notPro),
+    rejectPro: async (id, reason) => ((await isPro(id)) ? rejectRequest(userDb, id, reason) : notPro),
+  }
+}
+
 /** PR-10: contact updates, decided with the decider's own RLS client. */
 export function contactHandlers(
   userDb: InboxDb,
@@ -232,6 +262,26 @@ export async function decideApprovalFor(
   const reason = parsed.data.reason?.trim() ?? ''
 
   if (decision === 'reject' && !reason) return { ok: false, error: 'A reason is required to reject.' }
+
+  // BL-168: money goes to the Treasurer first; a first signature on a
+  // dual-control item is recorded, not approved.
+  if (decision === 'approve' && (kind === 'bill' || kind === 'pro') && handlers.moneyGate) {
+    const gated = await handlers.moneyGate(id)
+    if (gated) return gated
+  }
+
+  if (kind === 'pro') {
+    if (decision === 'reject') {
+      const r = await handlers.rejectPro(id, reason)
+      return r.ok ? { ok: true, message: 'Rejected. Nothing was posted or sent. The professional sees your reason.' } : { ok: false, error: r.error }
+    }
+    const r = await handlers.approvePro(id)
+    if (!r.ok) return { ok: false, error: r.error }
+    return {
+      ok: true,
+      message: r.alreadyDecided ? 'Already approved.' : 'Approved. Nothing was sent. A proposed entry is posted to the ledger.',
+    }
+  }
 
   if (kind === 'vendor') {
     if (decision === 'reject') {

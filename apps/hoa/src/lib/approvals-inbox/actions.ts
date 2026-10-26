@@ -12,7 +12,10 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { makeBillExecutor } from '@/lib/bill-scan/executor'
 import { billInvoiceExists } from '@/lib/bill-scan/load'
 import { M5_APPLIED } from '@homeowner-portal/db/m5'
-import { billHandlers, contactHandlers, decideApprovalFor, joinHandlers, letterHandlers, openingHandlers, postingHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
+import { moneyGate, type SignoffDb } from '@/lib/professionals/signoff'
+import { PRO_AUDIT } from '@/lib/professionals/model'
+import { billHandlers, contactHandlers, decideApprovalFor, joinHandlers, letterHandlers, openingHandlers, postingHandlers, proHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
 /**
  * The one decision endpoint behind /approvals (BL-014). It only routes:
@@ -47,6 +50,7 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     ...billHandlers(supabase, adminDb, billExecutor),
     ...letterHandlers(supabase, adminDb),
     ...openingHandlers(supabase, adminDb),
+    ...proHandlers(supabase, adminDb),
     approveVendor,
     rejectVendor,
     approveViolationDraft,
@@ -57,6 +61,28 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     ...contactHandlers(supabase, { orgId: gate.orgId, deciderId: user.id, deciderRole: gate.role }, { submitterEmails: authSubmitterEmails }),
     // BL-143: the board's own RLS client; owner_join_decide refuses non-board callers.
     ...joinHandlers(supabase, M5_APPLIED),
+    // BL-168: Treasurer routing and dual control on the decider's own RLS
+    // client; absent with M6_APPLIED false (no routing, as today).
+    ...(M6_APPLIED
+      ? {
+          moneyGate: async (requestId: string) => {
+            const gated = await moneyGate(supabase as unknown as SignoffDb, { orgId: gate.orgId, requestId, deciderId: user.id })
+            // A sign-off was recorded unless the gate refused (ok:false) or had nothing to do for a non-money item.
+            if (gated === null || gated.ok) {
+              const { error } = await supabase.from('audit_log').insert({
+                org_id: gate.orgId,
+                user_id: user.id,
+                action: PRO_AUDIT.signoff,
+                entity_type: 'approval_request',
+                entity_id: requestId,
+                metadata: { outcome: gated === null ? 'approved' : 'recorded' },
+              })
+              if (error) console.warn('[approvals] signoff audit failed', { code: error.code })
+            }
+            return gated
+          },
+        }
+      : {}),
   })
 
   revalidatePath('/approvals')
@@ -79,6 +105,10 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
     revalidatePath('/accounting', 'layout')
     revalidatePath('/dues')
     revalidatePath('/properties', 'layout')
+  } else if (input.kind === 'pro') {
+    revalidatePath('/accounting', 'layout')
+    revalidatePath('/settings/professionals')
+    revalidatePath('/pro', 'layout')
   } else if (input.kind === 'collections') {
     revalidatePath('/properties', 'layout')
   } else if (input.kind === 'w3') {

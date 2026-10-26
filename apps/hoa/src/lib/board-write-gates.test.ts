@@ -26,6 +26,8 @@ import * as bankImport from './bank-import/actions'
 import * as cincAging from './accounting/opening-balances/cinc-actions'
 import * as lateFees from './late-fees/actions'
 import * as gaRegistration from './ga-registration/actions'
+import * as professionals from './professionals/actions'
+import { PRO_DENIED } from './professionals/guard'
 import * as collections from './collections/actions'
 import * as collectionsLetters from './collections/letters/actions'
 import * as hearingActions from './violation-hearings/actions'
@@ -181,6 +183,23 @@ describe('board-only server actions refuse a resident before touching the databa
     ['saveLateFeePolicy (BL-147: sets what the nightly job charges)', () => lateFees.saveLateFeePolicy({ enabled: true, mode: 'percent', percent: '50', flat: '', graceDays: '0', excludeFines: false, declarationAttested: true, declarationRef: 'x' }), DENIED],
     ['getBoardLateFeePolicy (BL-147)', () => lateFees.getBoardLateFeePolicy(), { ok: false, reason: 'forbidden' }],
     ['updateGaRegistration (BL-149: the record the registration gate trusts)', () => gaRegistration.updateGaRegistration({ op: 'decide', associationId: ID, decision: 'register' }), DENIED],
+    // BL-168: the board's side of professional and officer roles. Each is
+    // board/admin only; a resident is refused before any client is built.
+    ['inviteProfessional (BL-168)', () => professionals.inviteProfessional({ email: 'a@example.test', role: 'cpa', expiresOn: '2027-01-01' }), DENIED],
+    ['renewProfessional (BL-168)', () => professionals.renewProfessional(ID, '2027-01-01'), DENIED],
+    ['revokeProfessional (BL-168)', () => professionals.revokeProfessional(ID), DENIED],
+    ['setGeneralCounsel (BL-168)', () => professionals.setGeneralCounsel(ID, true), DENIED],
+    ['assignMatter (BL-168)', () => professionals.assignMatter(ID, { type: 'violation', id: ID }), DENIED],
+    ['unassignMatter (BL-168)', () => professionals.unassignMatter(ID), DENIED],
+    ['setOfficerTitle (BL-168)', () => professionals.setOfficerTitle(ID, 'treasurer'), DENIED],
+    ['setDualControlAmount (BL-168)', () => professionals.setDualControlAmount(5000), DENIED],
+    // ...and the professionals' own actions refuse a resident (and, in
+    // professionals/gates.test.ts, a board member and the wrong professional).
+    ['cpaMarkPeriodReviewed (BL-168)', () => professionals.cpaMarkPeriodReviewed({ fiscalPeriodId: ID, note: 'x' }), { ok: false, error: PRO_DENIED }],
+    ['cpaProposeEntry (BL-168)', () => professionals.cpaProposeEntry({}), { ok: false, error: PRO_DENIED }],
+    ['attorneyAddNote (BL-168)', () => professionals.attorneyAddNote({ matter: { type: 'violation', id: ID }, body: 'x' }), { ok: false, error: PRO_DENIED }],
+    ['attorneyDraftLetter (BL-168)', () => professionals.attorneyDraftLetter({ matter: { type: 'violation', id: ID }, subject: 'x', body: 'x' }), { ok: false, error: PRO_DENIED }],
+    ['attorneyUploadDocument (BL-168)', () => professionals.attorneyUploadDocument(form({ matterType: 'violation', matterId: ID })), { ok: false, error: PRO_DENIED }],
     ['recordCollectionEvent (BL-149: a lien filed runs the registration gate, overrides audited)', () => collections.recordCollectionEvent({ caseId: ID, eventType: 'lien_filed', occurredOn: '2026-10-01', advanceStatus: false }), DENIED],
     // BL-089 / BL-148: collections letters, incl. the Georgia notices. Audited; nothing is sent.
     ['saveLetterToApprovals (BL-148: GA notice before attorney’s fees)', () => collectionsLetters.saveLetterToApprovals({ propertyId: ID, kind: 'ga_fee_notice', values: {}, verified: true }), DENIED],

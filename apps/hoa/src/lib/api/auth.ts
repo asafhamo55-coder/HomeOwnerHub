@@ -12,6 +12,7 @@
 // Every org id a handler uses comes from these, never from the request body.
 
 import { getCurrentUserRole, type Role } from '@/lib/auth'
+import { isProfessionalRole } from '@/lib/roles'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import type { CurrentOrg } from '@/lib/orgs'
 import { isPlatformAdmin } from '@/lib/platform-admin'
@@ -35,8 +36,30 @@ async function noOrgOrSignedOut(): Promise<never> {
   throw new ApiRouteError('forbidden', NO_ORG, { reason: 'no_org' })
 }
 
-/** Any member of the caller's current HOA org, residents included. For resident-facing surfaces only. */
-export async function requireRouteMember(): Promise<{ orgId: string; role: Role; org: CurrentOrg }> {
+/**
+ * Any member of the caller's current HOA org, residents included. For
+ * resident-facing surfaces only. An outside professional (cpa, attorney;
+ * BL-168) is not a member and is refused here: these surfaces read
+ * resident-visible data through the caller's own session, and a
+ * professional's reach is the explicit RLS grant, nothing broader.
+ */
+export async function requireRouteMember(): Promise<{
+  orgId: string
+  role: 'admin' | 'board' | 'resident'
+  org: CurrentOrg
+}> {
+  const ctx = await getCurrentUserRole()
+  if (!ctx) return noOrgOrSignedOut()
+  if (isProfessionalRole(ctx.role)) throw new ApiRouteError('forbidden', 'This is not available to your role.')
+  return { orgId: ctx.org.id, role: ctx.role, org: ctx.org }
+}
+
+/**
+ * Any signed-in role of the current org, professionals included. Only for
+ * surfaces that read no tenant data (the help drawer: a static guide
+ * corpus). Never use it to gate data.
+ */
+export async function requireRouteAnyRole(): Promise<{ orgId: string; role: Role; org: CurrentOrg }> {
   const ctx = await getCurrentUserRole()
   if (!ctx) return noOrgOrSignedOut()
   return { orgId: ctx.org.id, role: ctx.role, org: ctx.org }
