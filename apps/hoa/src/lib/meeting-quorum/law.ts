@@ -21,9 +21,14 @@
  *     a date line and the notice-only revocation sentence.
  *   - § 44-3-230(b): no annual meeting by fiscal year end → holders of 5% of
  *     the voting power (or the bylaws' figure, at most 25%) may call one.
- *   The Nonprofit Corporation Code (§ 14-3-724: how long a proxy lasts,
- *   electronic appointment) is NOT in the repo, so it is named, never
- *   quoted, and the kit says to check the bylaws.
+ *   BL-159: the Nonprofit Corporation Code's § 14-3-724 is quoted word for
+ *   word from ga-ocga-14-3-2026.txt: (a) proxies allowed unless the
+ *   articles or bylaws prohibit or limit them, (b) electronic appointment,
+ *   (c) valid 11 months unless the form says otherwise, (f) revoked by
+ *   voting in person or delivering a revocation or a later proxy. It
+ *   applies only to associations incorporated as Georgia nonprofit
+ *   corporations, and the kit says so (check the articles). The printed
+ *   form is unchanged: it already defers to § 14-3-724 for revocation.
  *
  * Florida — checked against flsenate-ch720-2026.html:
  *   - § 720.306(1)(a): "Unless a lower number is provided in the bylaws, the
@@ -84,6 +89,42 @@ export const GA_PROXY_REVOCATION: StatuteCitation = {
     'No such proxy shall be revocable except as provided in Code Section 14-2-722 or Code Section 14-3-724 or by written notice delivered to the association by the lot owner or by any joint owners of a lot.',
 }
 
+// ─── Georgia Nonprofit Corporation Code (BL-159; ga-ocga-14-3-2026.txt) ──
+// Only for associations incorporated as Georgia nonprofit corporations.
+
+export const GA_NONPROFIT_PROXY_ALLOWED: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-724(a)',
+  quote: 'Unless the articles or bylaws prohibit or limit proxy voting, a member may vote in person or by proxy.',
+}
+
+export const GA_NONPROFIT_PROXY_ELECTRONIC: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-724(b)',
+  quote:
+    'A member or his or her agent or attorney in fact may appoint a proxy to vote or otherwise act for the member by signing an appointment form either personally or by an electronic transmission.',
+}
+
+export const GA_NONPROFIT_PROXY_TERM: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-724(c)',
+  quote: 'An appointment is valid for 11 months unless a different period is expressly provided in the appointment form.',
+}
+
+export const GA_NONPROFIT_PROXY_REVOKED: StatuteCitation = {
+  cite: 'O.C.G.A. § 14-3-724(f)',
+  quote:
+    'Appointment of a proxy is revoked by the person appointing the proxy: (1) Attending any meeting and voting in person; or (2) Signing and delivering to the secretary or other officer or agent authorized to tabulate proxy votes either a writing stating that the appointment of the proxy is revoked or a subsequent appointment form.',
+}
+
+export const GA_NONPROFIT_PROXY_QUOTES: readonly StatuteCitation[] = [
+  GA_NONPROFIT_PROXY_ALLOWED,
+  GA_NONPROFIT_PROXY_ELECTRONIC,
+  GA_NONPROFIT_PROXY_TERM,
+  GA_NONPROFIT_PROXY_REVOKED,
+]
+
+/** BL-159: who § 14-3-724 covers, said wherever the kit shows it. */
+export const GA_NONPROFIT_PROXY_NOTE =
+  'If your association is incorporated as a Georgia nonprofit corporation (most are: check your articles of incorporation), the Nonprofit Corporation Code § 14-3-724 also applies. Unless the articles or bylaws prohibit or limit proxies, an owner may vote by proxy, signed personally or sent electronically. A proxy is valid for 11 months unless the form states a different period, and it is revoked when the owner votes in person at a meeting, or delivers a written revocation or a later proxy to whoever counts the votes. An unincorporated association: check your bylaws.'
+
 /**
  * § 44-3-228's "more than one-third", as the percent the counter applies.
  * quorumNeeded(n, 33.34) = floor(n / 3) + 1 exactly for n ≤ 5,000 votes, and
@@ -139,7 +180,7 @@ export function proxyLaw(state: string | null): ProxyLawNote {
     case 'GA':
       return {
         state: 'GA',
-        title: 'Georgia — O.C.G.A. §§ 44-3-224 and 44-3-228',
+        title: 'Georgia — O.C.G.A. §§ 44-3-224 and 44-3-228 (and § 14-3-724 for nonprofit corporations)',
         verified: true,
         statuteQuorum: {
           pct: GA_KIT_QUORUM_PCT,
@@ -156,7 +197,7 @@ export function proxyLaw(state: string | null): ProxyLawNote {
           'A home owned by a company, trust or other entity votes by proxy, signed on the owner’s behalf.',
           'If a home has more than one owner and more than one of them votes or signs, the home’s vote counts only as they all agree, unless your declaration says otherwise. One owner acting alone casts the home’s vote unless another objects at once.',
           'If no annual meeting is held by the last day of the fiscal year, owners holding at least 5% of the voting power (or the figure in your articles or bylaws, never more than 25%) may call one with a signed, dated written demand to an officer.',
-          'Georgia’s Nonprofit Corporation Code (§ 14-3-724) also covers proxies for associations incorporated under it, including how long one lasts. HomeownerHub doesn’t hold that text: check your bylaws.',
+          GA_NONPROFIT_PROXY_NOTE,
         ],
         formClauses: [
           'Date this proxy on the signature line below. An undated proxy is void.',
@@ -164,7 +205,16 @@ export function proxyLaw(state: string | null): ProxyLawNote {
           'If more than one owner of the home signs, the home’s vote is cast only as all signing owners agree, unless the declaration provides otherwise.',
           'An owner that is a company, trust or other entity must vote by proxy: its authorized representative signs for it.',
         ],
-        quotes: [GA_QUORUM, GA_PROXY_DATED, GA_PROXY_REVOCATION, GA_ENTITY_OWNER_PROXY, GA_CO_OWNERS, GA_JOINT_OWNERS_UNANIMOUS, GA_MISSED_ANNUAL],
+        quotes: [
+          GA_QUORUM,
+          GA_PROXY_DATED,
+          GA_PROXY_REVOCATION,
+          GA_ENTITY_OWNER_PROXY,
+          GA_CO_OWNERS,
+          GA_JOINT_OWNERS_UNANIMOUS,
+          GA_MISSED_ANNUAL,
+          ...GA_NONPROFIT_PROXY_QUOTES,
+        ],
         lines: [
           '§ 44-3-228: unless your declaration or bylaws provide otherwise, a quorum is present for the whole meeting if owners entitled to cast more than one-third of the votes are present at the start.',
           '§ 44-3-224(b): a proxy is void if it isn’t dated, or if it says it can be revoked without written notice to the association. An owner that isn’t a person must vote by proxy.',
@@ -238,4 +288,5 @@ export const ALL_QUORUM_CITATIONS: readonly StatuteCitation[] = [
   GA_CO_OWNERS,
   GA_JOINT_OWNERS_UNANIMOUS,
   GA_MISSED_ANNUAL,
+  ...GA_NONPROFIT_PROXY_QUOTES,
 ]

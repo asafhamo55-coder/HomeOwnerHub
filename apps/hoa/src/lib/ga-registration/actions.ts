@@ -139,6 +139,9 @@ function auditMetadata(edit: GaRegistrationEdit): Record<string, string | number
       return { op: edit.op, meeting_id: edit.meetingId }
     case 'details':
       return { op: 'details' }
+    // BL-159: written by changeMemberRole (./officer-change.ts), never by this action.
+    case 'officer_change':
+      return { op: 'officer_change', change_id: edit.change.id }
   }
 }
 

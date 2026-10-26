@@ -44,6 +44,7 @@ reviewed: 2026-10-22
 - **Director elections (Georgia, Florida, California, Texas):** one row for each election in the election planner. It shows the next date on the election's timeline, dates that break the rules, and whether the results are recorded. A date that has passed says to check it was done, because HomeownerHub can't tell.
 - **California:** the row turns red if the results notice is more than 15 days late and not recorded as sent.
 - **Georgia, after the results are recorded:** a row to amend your Secretary of State registration within 30 days if the officers changed. HomeownerHub counts from the day the results were recorded; if the board picks officers later, count from that day. Before Jan 1, 2027 it says to list the new officers in your first registration. Check the Secretary of State's guidance.
+- **Georgia, after a board change:** when an admin moves someone onto or off the board on **Members**, the same 30-day row appears, counted from the day the role changed. Mark it in the registration kit.
 - **Texas:** the management certificate. **Florida:** director education certificates (tracked on Members). **California:** the annual budget report window (from the budget's adoption checklist).
 - The monthly board report adds a **Director elections** line with the most pressing election item.
 - Georgia's condominium rules aren't loaded. The page says "check your governing documents" for those.

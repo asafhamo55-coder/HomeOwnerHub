@@ -31,6 +31,7 @@ The **Georgia registration kit** helps the board register the association with t
 - The kit shows **Registered**, with the day and the year the registration covers.
 - On **Compliance**, the registration row shows done, and the renewal row shows the next Dec 31.
 - After an election, record its results in the election planner. An amendment row appears under **Amendments**. Select [[Record the amended filing]] once you've filed, or [[Officers didn’t change]] if nothing changed. Either marks the row done on **Compliance**.
+- When an admin moves someone onto or off the board on **Members**, an amendment row for that day appears under **Amendments** too. It counts 30 days from the day the role changed. Mark it the same way. An amended filing recorded on or after that day also marks it done. Switching someone between board member and admin doesn't add a row.
 - Every change goes in the activity log, with no dates, numbers or names.
 
 ## If something goes wrong

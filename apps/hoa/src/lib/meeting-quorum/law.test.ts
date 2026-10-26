@@ -2,7 +2,14 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { ALL_QUORUM_CITATIONS, GA_BYLAWS_OVERRIDE, GA_KIT_QUORUM_PCT, proxyLaw } from './law'
+import {
+  ALL_QUORUM_CITATIONS,
+  GA_BYLAWS_OVERRIDE,
+  GA_KIT_QUORUM_PCT,
+  GA_NONPROFIT_PROXY_NOTE,
+  GA_NONPROFIT_PROXY_QUOTES,
+  proxyLaw,
+} from './law'
 import { MAX_KIT_HOMES, quorumNeeded } from './quorum'
 
 /**
@@ -37,7 +44,28 @@ function gaSubsection(n: string, sub: string): string {
   return norm(out.join(' '))
 }
 
+// BL-159: § 14-3-724 lives in the Nonprofit Corporation Code snapshot.
+const nonprofitText = readFileSync(path.join(root, 'scripts/fixtures/state-law/ga-ocga-14-3-2026.txt'), 'utf8')
+
+/** The same subsection cut, over the Title 14 snapshot. */
+function nonprofitSubsection(n: string, sub: string): string {
+  const start = nonprofitText.indexOf(`=== O.C.G.A. Section ${n} |`)
+  expect(start, n).toBeGreaterThanOrEqual(0)
+  const end = nonprofitText.indexOf('\n=== ', start + 1)
+  const lines = nonprofitText.slice(start, end === -1 ? undefined : end).split('\n')
+  const i = lines.findIndex((l) => l.startsWith(`(${sub}) `))
+  expect(i, `${n}(${sub})`).toBeGreaterThanOrEqual(0)
+  const out = [lines[i]!]
+  for (const l of lines.slice(i + 1)) {
+    if (/^\([a-z]\) /.test(l)) break
+    out.push(l)
+  }
+  return norm(out.join(' '))
+}
+
 function sectionFor(cite: string): string {
+  const np = /^O\.C\.G\.A\. § (14-3-\d+)\(([a-z])\)$/.exec(cite)
+  if (np) return nonprofitSubsection(np[1]!, np[2]!)
   const m = /^O\.C\.G\.A\. § (44-3-\d+)(?:\(([a-z])\))?$/.exec(cite)
   if (!m) throw new Error(`unknown citation ${cite}`)
   return m[2] ? gaSubsection(m[1]!, m[2]) : gaSection(m[1]!)
@@ -106,16 +134,47 @@ describe('Georgia: the statute default, and the bylaws override', () => {
     expect(form).not.toMatch(/revoked at any time/i)
   })
 
-  it('tells the board 5% may call a missed annual meeting, and that the Nonprofit Code is not loaded', () => {
+  it('tells the board 5% may call a missed annual meeting', () => {
     const notes = ga.boardNotes.join(' ')
     expect(notes).toContain('5% of the voting power')
     expect(notes).toContain('never more than 25%')
-    expect(notes).toContain('§ 14-3-724')
-    expect(notes).toContain('check your bylaws')
     expect(ga.quotes.map((q) => q.cite)).toContain('O.C.G.A. § 44-3-230(b)')
   })
+})
 
-  it('the Nonprofit Code is named but never quoted (it is not in the repo)', () => {
-    expect(ALL_QUORUM_CITATIONS.every((c) => !c.cite.includes('14-3'))).toBe(true)
+describe('Georgia: § 14-3-724 (BL-159), for associations incorporated as nonprofit corporations', () => {
+  const ga = proxyLaw('GA')
+
+  it('quotes (a), (b), (c) and (f) word for word from the Title 14 snapshot', () => {
+    expect(GA_NONPROFIT_PROXY_QUOTES.map((q) => q.cite)).toEqual([
+      'O.C.G.A. § 14-3-724(a)',
+      'O.C.G.A. § 14-3-724(b)',
+      'O.C.G.A. § 14-3-724(c)',
+      'O.C.G.A. § 14-3-724(f)',
+    ])
+    for (const q of GA_NONPROFIT_PROXY_QUOTES) {
+      expect(sectionFor(q.cite)).toContain(norm(q.quote))
+      expect(ga.quotes).toContain(q)
+      expect(ALL_QUORUM_CITATIONS).toContain(q)
+    }
+    // The quote really is the 11-month term, not a paraphrase.
+    expect(sectionFor('O.C.G.A. § 14-3-724(c)')).toContain('An appointment is valid for 11 months')
+  })
+
+  it('says it applies to associations incorporated as Georgia nonprofit corporations, and points the rest to the bylaws', () => {
+    expect(ga.boardNotes).toContain(GA_NONPROFIT_PROXY_NOTE)
+    expect(GA_NONPROFIT_PROXY_NOTE).toContain('incorporated as a Georgia nonprofit corporation')
+    expect(GA_NONPROFIT_PROXY_NOTE).toContain('§ 14-3-724')
+    expect(GA_NONPROFIT_PROXY_NOTE).toContain('11 months')
+    expect(GA_NONPROFIT_PROXY_NOTE).toContain('check your bylaws')
+    expect(ga.title).toContain('14-3-724 for nonprofit corporations')
+  })
+
+  it('the printed form still never says the proxy is revocable at will', () => {
+    expect(ga.formClauses.join(' ')).not.toMatch(/revocable at any time|revoked at any time/i)
+  })
+
+  it('a citation that is not in either snapshot fails the check', () => {
+    expect(() => sectionFor('O.C.G.A. § 14-3-799(z)')).toThrow()
   })
 })

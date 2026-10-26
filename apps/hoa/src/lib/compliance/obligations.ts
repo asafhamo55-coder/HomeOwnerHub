@@ -37,6 +37,9 @@
  * from the registration kit (/compliance/ga-registration,
  * lib/ga-registration): registered, lapsed or opted out, and each
  * post-election amendment the board filed (or said wasn't needed).
+ * BL-159: the same 30-day amendment row after each board role change made
+ * in Settings → Members (changeMemberRole writes it into that signed
+ * record), counted from the day the role changed.
  * ANY OTHER STATE: nothing quoted; "check your governing documents".
  *
  * Statute wording only ever comes from ./law.ts (checked word for word);
@@ -63,6 +66,7 @@ import {
   amendmentFor,
   gaRegistrationStanding,
   gaStandingLabel,
+  type GaOfficerChange,
   type GaRegistrationRecord,
   type GaRegistrationStanding,
 } from '@/lib/ga-registration/model'
@@ -721,8 +725,48 @@ function gaAmendmentRow(
     done: null,
     meetingId: meeting.id,
   }
+  return gaAmendmentStatus(common, meeting.id, recordedOn, today, record)
+}
+
+/**
+ * BL-159: Georgia's 30-day amended registration after a board role change
+ * made in Settings → Members (changeMemberRole). Same row and same answers
+ * as after an election, keyed by the change's id; any amended registration
+ * filed on or after the change's day also covers it.
+ */
+function gaOfficerChangeRow(base: Base, change: GaOfficerChange, today: string, record: GaRegistrationRecord): ComplianceObligation {
+  const common = {
+    ...base,
+    key: `${base.associationId}:ga-registration-amendment:${change.id}`,
+    kind: 'registration_amendment' as const,
+    title: `Amend the Secretary of State registration after the ${formatDueOn(change.on)} board change`,
+    steps: [
+      'Someone joined or left the board on the Members page. Check whether that changed the association’s officers on its registration.',
+      `If it did, file an amended registration statement with the Secretary of State within ${GA_AMENDMENT_DAYS} days of the change. HomeownerHub counts from the day the role changed in HomeownerHub.`,
+      'File the amended registration in Documents.',
+      'Check the Secretary of State’s guidance and confirm with your association’s attorney.',
+    ],
+    quotes: [GA_REGISTRATION_AMENDMENT, GA_SB406_EFFECTIVE],
+    appliesTo: 'Georgia owners’ associations, including HOAs and condominium associations.',
+    link: { href: `${GA_REGISTRATION_KIT_HREF}#amendments`, label: 'Mark it in the registration kit' },
+    official: { href: GA_SOS_URL, label: GA_SOS_LABEL },
+    deadlineCode: null,
+    done: null,
+    meetingId: change.id,
+  }
+  return gaAmendmentStatus(common, change.id, change.on, today, record)
+}
+
+/** The tone and label of an amended-registration row: answered, not yet in force, open, or past day 30. */
+function gaAmendmentStatus(
+  common: Omit<ComplianceObligation, 'tone' | 'label' | 'dueOn'>,
+  triggerId: string,
+  recordedOn: string,
+  today: string,
+  record: GaRegistrationRecord,
+): ComplianceObligation {
   // BL-149: the board recorded the amended filing, or that the officers didn't change.
-  const answered = amendmentFor(record, meeting.id)
+  const answered = amendmentFor(record, triggerId)
   if (answered?.kind === 'filed') {
     return { ...common, tone: 'done', label: `Amended registration filed ${formatDueOn(answered.filing.filedOn)}`, dueOn: null }
   }
@@ -788,6 +832,13 @@ function directorElections(
   })
 }
 
+/** BL-159: one amended-registration row per board role change in the signed record, oldest first. */
+function gaOfficerChangeRows(base: Base, a: ComplianceAssociationInput, input: ComplianceInput): ComplianceObligation[] {
+  const read = readGaRegistration(a.id, a.complianceSettings, input.secret)
+  if (read.state !== 'saved') return []
+  return (read.record.officerChanges ?? []).map((c) => gaOfficerChangeRow(base, c, input.today, read.record))
+}
+
 function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
   const base: Base = { associationId: a.id, associationName: a.name }
   const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
@@ -841,6 +892,7 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
         }),
         notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)'),
         ...elections,
+        ...gaOfficerChangeRows(base, a, input),
       ]
     }
     case 'TX':
