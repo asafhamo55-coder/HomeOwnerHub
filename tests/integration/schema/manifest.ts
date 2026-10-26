@@ -107,6 +107,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // compliance_deadlines_done.document_id (security/m5-compliance-evidence.test.ts).
   // One file, one entry: later parts append to it.
   '0069_m5_batch.sql',
+  // M6: BL-168 professional and officer roles (security/m6-roles.test.ts).
+  // One file, one entry: BL-156 and BL-166 append to it.
+  '0070_m6_roles.sql',
 ]
 
 /**

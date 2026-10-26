@@ -12,7 +12,8 @@
     "./violation-statuses": "./src/violation-statuses.ts",
     "./m3": "./src/m3.ts",
     "./m4": "./src/m4.ts",
-    "./m5": "./src/m5.ts"
+    "./m5": "./src/m5.ts",
+    "./m6": "./src/m6.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

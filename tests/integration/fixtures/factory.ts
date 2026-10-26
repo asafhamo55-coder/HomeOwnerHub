@@ -181,7 +181,11 @@ export async function makeUnit(f: OrgFixture): Promise<string> {
  */
 export async function mintUser(
   f: OrgFixture,
-  role: 'admin' | 'board' | 'resident',
+  role: 'admin' | 'board' | 'resident' | 'cpa' | 'attorney',
+  // BL-168 (0070): a cpa or attorney needs an expiry; a board member may
+  // carry an officer title. The columns are not in the generated Database
+  // types until gen:types runs after prod has 0070, hence the cast below.
+  extra: { accessExpiresAt?: string; generalCounsel?: boolean; officerTitle?: string } = {},
 ): Promise<TestUser> {
   const db = adminDb()
   // Reserved TLD — can never route to a real inbox.
@@ -211,7 +215,14 @@ export async function mintUser(
   // migrates it to ('admin','board','resident').
   const { error: memberErr } = await db
     .from('org_members')
-    .insert({ org_id: f.orgId, user_id: id, role })
+    .insert({
+      org_id: f.orgId,
+      user_id: id,
+      role,
+      ...(extra.accessExpiresAt ? { access_expires_at: extra.accessExpiresAt } : {}),
+      ...(extra.generalCounsel ? { general_counsel: true } : {}),
+      ...(extra.officerTitle ? { officer_title: extra.officerTitle } : {}),
+    } as never)
   if (memberErr) throw new Error(`mintUser: org_members insert failed: ${memberErr.message}`)
 
   // A FRESH client per user. Sharing one would leak sessions between
