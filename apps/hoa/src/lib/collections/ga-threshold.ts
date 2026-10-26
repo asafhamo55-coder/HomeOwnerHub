@@ -26,6 +26,7 @@ import {
 import { annualCents, rateInEffect, rateLabel, type DuesRate } from '@/lib/dues-rates/model'
 import { GA_232C_REPLACED_ON, GA_FORECLOSURE_CAP_CENTS_2027, GA_FORECLOSURE_MIN_CENTS, gaForeclosureThresholdCents } from './letters/law'
 import { gaForeclosureCount, letterFigures, letterJurisdiction, type LetterInput } from './letters/model'
+import { isGaCondo } from '@/lib/ga-condo/law'
 
 /** Quoted under the threshold, verbatim from the SB 406 fixture. */
 export const GA_THRESHOLD_PANEL_QUOTES: readonly DriftCitation[] = [GA_232C_2027_MINIMUM, GA_17A1_SPECIFIC]
@@ -70,6 +71,13 @@ export interface GaThreshold2027 {
 }
 
 export interface GaThresholdView {
+  /**
+   * BL-155: a Georgia condominium association. The threshold is the POA
+   * Act's (§ 44-3-232(c)), which does not govern condominiums
+   * (§ 44-3-235(b)), so the panel shows only the § 43-17A-8 payment-order
+   * note, which covers condominium associations too (§ 43-17A-1(6)).
+   */
+  condo: boolean
   asOf: string
   /** True from January 1, 2027: the 2027 rule is the rule in force. */
   sb406InForce: boolean
@@ -103,10 +111,15 @@ export function threshold2027Status(countedCents: number, twelve: TwelveMonths):
 
 /**
  * The panel for one home on `asOf` (the association's today), or null when
- * the home's association isn't in Georgia.
+ * the home's association isn't in Georgia. For a condominium association
+ * (BL-155) `condo` is set and the page shows only the payment-order note:
+ * § 44-3-232(c) and its SB 406 threshold are the Property Owners'
+ * Association Act's, which does not govern condominiums (§ 44-3-235(b)); a
+ * condominium's lien rule is § 44-3-109(c) (the condo collections letter).
  */
 export function gaThresholdView(input: LetterInput, asOf: string, dues: { rates: readonly DuesRate[] | null; live: boolean }): GaThresholdView | null {
   if (letterJurisdiction(input.state) !== 'GA') return null
+  const condo = isGaCondo(input.state, input.associationType)
   const figures = letterFigures(input, 'ga_pre_foreclosure', asOf)
   const { countedCents, planCents } = gaForeclosureCount(figures)
   const excludedCents = [...figures.lateFeeLines, ...figures.otherLines, ...figures.omittedLines]
@@ -116,10 +129,11 @@ export function gaThresholdView(input: LetterInput, asOf: string, dues: { rates:
   const sb406InForce = asOf >= GA_232C_REPLACED_ON
   const lienCents = Math.max(0, figures.ledgerCents)
   return {
+    condo,
     asOf,
     sb406InForce,
     changesOn: GA_232C_REPLACED_ON,
-    current: sb406InForce
+    current: sb406InForce || condo
       ? null
       : { lienCents, floorCents: GA_FORECLOSURE_MIN_CENTS, status: lienCents >= GA_FORECLOSURE_MIN_CENTS ? 'at_or_above' : 'below' },
     rule2027: {

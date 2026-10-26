@@ -12,9 +12,27 @@
  * (scripts/fixtures/state-law), checked word for word by model.test.ts:
  *   FL — flsenate-ch720-2026.html: Fla. Stat. § 720.3033(5).
  *   CA — ca-civ-davis-stirling-2026.txt: Civ. Code § 5300(b)(9).
+ *   GA condominium associations (BL-155, associations.type = 'condo') —
+ *     ga-ocga-44-3-art3-2026.txt: § 44-3-107(a)(1) (property cover at full
+ *     insurable replacement cost), (a)(2) ($1 million per occurrence,
+ *     $2 million aggregate general liability), (c)(1)–(2) (certificates of
+ *     insurance within five business days on a water claim). The quotes
+ *     live in ../ga-condo/law.ts (itself import-free, so the digest's
+ *     relative import still resolves). A Georgia HOA or co-op gets "check
+ *     your governing documents", as before.
  * Cal. Civ. Code § 5806 (the fidelity minimum) is NOT in the fixtures, so
  * the app says "check your governing documents" for it instead.
  */
+
+import {
+  GA_CONDO_LIABILITY_AGGREGATE_CENTS,
+  GA_CONDO_LIABILITY_INSURANCE,
+  GA_CONDO_LIABILITY_OCCURRENCE_CENTS,
+  GA_CONDO_PROPERTY_INSURANCE,
+  GA_CONDO_WATER_CERTIFICATE,
+  GA_CONDO_WATER_OWNER_CERTIFICATE,
+  isGaCondo,
+} from '../ga-condo/law'
 
 // ─── kinds ───────────────────────────────────────────────────────────
 
@@ -238,7 +256,22 @@ export const CA_5300_SUMMARY: InsuranceCitation = {
   fixture: CA_FILE,
 }
 
-export const ALL_INSURANCE_CITATIONS: readonly InsuranceCitation[] = [FL_3033_BOND, FL_3033_AMOUNT, FL_3033_WAIVER, CA_5300_SUMMARY]
+/** BL-155: § 44-3-107 for a Georgia condominium association (the same objects as ../ga-condo/law.ts). */
+export const GA_CONDO_107_PROPERTY: InsuranceCitation = GA_CONDO_PROPERTY_INSURANCE
+export const GA_CONDO_107_LIABILITY: InsuranceCitation = GA_CONDO_LIABILITY_INSURANCE
+export const GA_CONDO_107_WATER_ASSOCIATION: InsuranceCitation = GA_CONDO_WATER_CERTIFICATE
+export const GA_CONDO_107_WATER_OWNER: InsuranceCitation = GA_CONDO_WATER_OWNER_CERTIFICATE
+
+export const ALL_INSURANCE_CITATIONS: readonly InsuranceCitation[] = [
+  FL_3033_BOND,
+  FL_3033_AMOUNT,
+  FL_3033_WAIVER,
+  CA_5300_SUMMARY,
+  GA_CONDO_107_PROPERTY,
+  GA_CONDO_107_LIABILITY,
+  GA_CONDO_107_WATER_ASSOCIATION,
+  GA_CONDO_107_WATER_OWNER,
+]
 
 export const CHECK_GOVERNING_DOCUMENTS =
   'HomeownerHub has no loaded statute text on insurance for this. Check your governing documents and ask your insurance agent or the association’s attorney.'
@@ -283,7 +316,77 @@ function normaliseState(state: string | null | undefined): string | null {
  * only: the app can't see the declarations page or what the association
  * voted, so nothing here blocks anything.
  */
-export function coverageCheck(state: string | null | undefined, policies: readonly InsurancePolicy[], today: string): CoverageCheck {
+export interface CoverageCheckOptions {
+  /** BL-155: associations.type; a Georgia 'condo' gets the § 44-3-107 checks. */
+  associationType?: string | null
+}
+
+function usd(cents: number): string {
+  return `$${(cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+}
+
+/** BL-155: § 44-3-107 for a Georgia condominium association. */
+function gaCondoFindings(active: readonly InsurancePolicy[]): CoverageFinding[] {
+  const findings: CoverageFinding[] = []
+  if (!active.some((p) => p.kind === 'property')) {
+    findings.push({
+      code: 'ga_condo_property_missing',
+      severity: 'warn',
+      message:
+        'No master property policy in force is recorded. A Georgia condominium association must insure every building in the condominium for its full insurable replacement cost, less deductibles. Record the policy here, with its declarations page.',
+      citations: [GA_CONDO_107_PROPERTY],
+    })
+  }
+  const liability = active.filter((p) => p.kind === 'liability')
+  if (liability.length === 0) {
+    findings.push({
+      code: 'ga_condo_liability_missing',
+      severity: 'warn',
+      message: `No general liability policy in force is recorded. A Georgia condominium association must carry at least ${usd(GA_CONDO_LIABILITY_OCCURRENCE_CENTS)} for a single occurrence and ${usd(GA_CONDO_LIABILITY_AGGREGATE_CENTS)} aggregate.`,
+      citations: [GA_CONDO_107_LIABILITY],
+    })
+  } else {
+    const limits = liability.map((p) => p.coverageLimitCents)
+    const best = Math.max(...limits.map((l) => l ?? -1))
+    if (limits.every((l) => l === null)) {
+      findings.push({
+        code: 'ga_condo_liability_limit_unknown',
+        severity: 'info',
+        message: `The general liability limit isn’t recorded. Enter it, and check the declarations page shows at least ${usd(GA_CONDO_LIABILITY_OCCURRENCE_CENTS)} for a single occurrence and ${usd(GA_CONDO_LIABILITY_AGGREGATE_CENTS)} aggregate.`,
+        citations: [GA_CONDO_107_LIABILITY],
+      })
+    } else if (best < GA_CONDO_LIABILITY_OCCURRENCE_CENTS) {
+      findings.push({
+        code: 'ga_condo_liability_below_minimum',
+        severity: 'warn',
+        message: `The general liability limit recorded is ${usd(best)}, below the ${usd(GA_CONDO_LIABILITY_OCCURRENCE_CENTS)} a single occurrence needs. HomeownerHub reads the recorded limit as the per-occurrence limit; check the declarations page, including the ${usd(GA_CONDO_LIABILITY_AGGREGATE_CENTS)} aggregate.`,
+        citations: [GA_CONDO_107_LIABILITY],
+      })
+    } else {
+      findings.push({
+        code: 'ga_condo_liability_aggregate',
+        severity: 'info',
+        message: `The recorded general liability limit meets the ${usd(GA_CONDO_LIABILITY_OCCURRENCE_CENTS)} single-occurrence minimum. HomeownerHub reads it as the per-occurrence limit; confirm the ${usd(GA_CONDO_LIABILITY_AGGREGATE_CENTS)} aggregate on the declarations page.`,
+        citations: [GA_CONDO_107_LIABILITY],
+      })
+    }
+  }
+  findings.push({
+    code: 'ga_condo_water_certificates',
+    severity: 'info',
+    message:
+      'Water claims: when a unit owner asks in writing, send a copy of the association’s certificate of insurance within five business days of receiving the request. The association can ask a unit owner for theirs on the same terms.',
+    citations: [GA_CONDO_107_WATER_ASSOCIATION, GA_CONDO_107_WATER_OWNER],
+  })
+  return findings
+}
+
+export function coverageCheck(
+  state: string | null | undefined,
+  policies: readonly InsurancePolicy[],
+  today: string,
+  opts: CoverageCheckOptions = {},
+): CoverageCheck {
   const st = normaliseState(state)
   const active = policies.filter((p) => isActive(p, today))
   const findings: CoverageFinding[] = []
@@ -335,6 +438,8 @@ export function coverageCheck(state: string | null | undefined, policies: readon
       message: `How much fidelity coverage is required: ${CHECK_GOVERNING_DOCUMENTS}`,
       citations: [],
     })
+  } else if (isGaCondo(state, opts.associationType)) {
+    findings.push(...gaCondoFindings(active))
   } else {
     findings.push({ code: 'check_governing_documents', severity: 'info', message: CHECK_GOVERNING_DOCUMENTS, citations: [] })
   }

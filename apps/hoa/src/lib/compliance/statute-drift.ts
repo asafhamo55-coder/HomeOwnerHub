@@ -50,8 +50,10 @@
  * No `@/` imports (the one relative import, ../ga-complaints/model, is
  * dependency-free too): the collections letter payload (proposal.ts), which the
  * approvals inbox loads under tests/integration, reads the override codes.
+ * (../ga-condo/law is relative and import-free, so that still holds.)
  */
 
+import { GA_CONDO_FORECLOSURE_NOTICE } from '../ga-condo/law'
 import { complaintStayOn, gaComplaintStayBlocks, type GaComplaintStayGate } from '../ga-complaints/model'
 
 export type { GaComplaintStayGate }
@@ -448,6 +450,7 @@ export const DRIFT_CODES = [
   'ga_attorney_fees_receipt',
   'ga_foreclosure_notice_delivery',
   'ga_payment_order',
+  'ga_condo_foreclosure_notice_delivery',
   'ga_complaint_stay',
 ] as const
 export type DriftCode = (typeof DRIFT_CODES)[number]
@@ -880,6 +883,13 @@ export interface LetterCheckInput {
   printed: readonly PrintedLetter[]
   /** BL-149: Georgia only, checked on the letter date. undefined = not loaded (nothing checked). */
   gaRegistration?: GaRegistrationStatusOnly
+  /**
+   * BL-155: a Georgia condominium association. The SB 406 § 7 attorney's-fee
+   * rules are added to an Article 6 section, and Article 6 does not govern
+   * condominium associations (§ 44-3-235(b)), so they are not checked; the
+   * registration bar (Title 43 Ch. 17A) still is.
+   */
+  gaCondo?: boolean
   /** BL-161: Georgia only, this home's recorded complaints, checked on the letter date. undefined = not loaded. */
   gaComplaintStay?: GaComplaintStayGate
 }
@@ -946,12 +956,13 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
       if (reg) findings.push(reg)
     }
     // BL-161: while a complaint's stay runs, no letter that asks this home
-    // for fines or fees; a dues-only letter is not barred.
+    // for fines or fees; a dues-only letter is not barred. Ch. 17A covers
+    // condominium associations too (BL-155), so this runs for them as well.
     if (input.gaComplaintStay && has(FINE_OR_FEE_TYPES)) {
       const stay = gaComplaintStayFinding(input.gaComplaintStay, input.letterDate, 'a letter that asks this home for fines or fees')
       if (stay) findings.push(stay)
     }
-    if (input.gaRegistration && input.kind === 'ga_pre_foreclosure') {
+    if (input.gaRegistration && (input.kind === 'ga_pre_foreclosure' || input.kind === 'ga_condo_pre_foreclosure')) {
       const reg = gaRegistrationFinding(
         'ga_unregistered_lien',
         { status: input.gaRegistration.status, today: input.letterDate },
@@ -963,7 +974,9 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
     // notice itself the fees it lists are what it gives 30 days to pay, so
     // nothing blocks; what the app can't see (the delivery method and the
     // day the owner received it) is a warning.
-    if (input.kind === 'ga_fee_notice') {
+    if (input.gaCondo) {
+      // BL-155: no SB 406 § 7 checks for a condominium (see LetterCheckInput.gaCondo).
+    } else if (input.kind === 'ga_fee_notice') {
       findings.push(
         finding(
           'ga_fee_notice_delivery',
@@ -1016,6 +1029,16 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
           'warn',
           'Since January 1, 2027, Georgia requires every payment to be applied to regular assessments (dues) first, then special assessments, then specific assessments, then other fees and fines, and an association may not refuse a payment in any amount for an assessment. HomeownerHub doesn’t check how this account’s payments were applied. Before sending, confirm they were applied in that order: it can change which charges are still unpaid.',
           [GA_17A8_ORDER, GA_17A8_NO_REFUSAL],
+        ),
+      )
+    }
+    if (input.kind === 'ga_condo_pre_foreclosure') {
+      findings.push(
+        finding(
+          'ga_condo_foreclosure_notice_delivery',
+          'warn',
+          'Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the unit owner at the unit’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than 30 days after it is sent. HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.',
+          [GA_CONDO_FORECLOSURE_NOTICE],
         ),
       )
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LedgerAssessment, LedgerPayment } from '@/lib/resident-ledger'
-import { flFeeCap } from './law'
+import { flFeeCap, GA_CONDO_FEE_NOTES, GA_CONDO_NOTES } from './law'
 import {
   blanksLeft,
   buildCertificate,
@@ -475,6 +475,53 @@ describe('Georgia § 44-3-232(d) statement of amounts due', () => {
     expect(checkFee('GA', c.deadlines, c.figures, r, 1_000, { feeAuthorized: false }).problem).toMatch(/declaration provides/)
     expect(checkFee('GA', c.deadlines, c.figures, r, 1_000).problem).toMatch(/declaration provides/)
     expect(checkFee('GA', c.deadlines, c.figures, r, 0, { feeAuthorized: false }).problem).toBeNull()
+  })
+})
+
+describe('BL-155: a Georgia condominium gets § 44-3-109(d), an HOA keeps § 44-3-232(d)', () => {
+  const condo = (over: Partial<EstoppelInput> = {}) => fixture({ state: 'GA', associationType: 'condo', ...over })
+
+  it('5 business days from receipt under § 44-3-109(d), never § 44-3-232', () => {
+    const c = buildCertificate(condo(), req())
+    expect(c.gaCondo).toBe(true)
+    expect(c.deadlines.responseDue).toBe('2026-10-19')
+    expect(c.deadlines.responseRule).toMatch(/§ 44-3-109\(d\)/)
+    expect(JSON.stringify(c)).not.toContain('44-3-232')
+    expect(GA_CONDO_NOTES.join(' ')).not.toContain('44-3-232')
+    expect(GA_CONDO_FEE_NOTES.join(' ')).not.toContain('44-3-232')
+    expect(GA_CONDO_NOTES.join(' ')).toContain('five business days')
+  })
+
+  it('asks about the Condominium Act instead of the POA Act; a No stops the statement', () => {
+    const c = buildCertificate(condo(), req())
+    expect(c.fields.filter((f) => f.value === null).map((f) => f.key)).toEqual(['requestor', 'parcel', 'transferFee', 'fee', 'signer', 'condoAct', 'instrumentFee'])
+    expect(statuteAnswers('GA', { condoAct: 'Yes', instrumentFee: 'No' }, true)).toEqual({ condoAct: true, feeAuthorized: false })
+    expect(statuteProblem('GA', { condoAct: false }, true)).toMatch(/Georgia Condominium Act/)
+    expect(statuteProblem('GA', { condoAct: true }, true)).toBeNull()
+    expect(statuteProblem('GA', { condoAct: null }, true)).toBeNull()
+    // the POA answer means nothing to a condo statement
+    expect(statuteProblem('GA', { poaAct: false }, true)).toBeNull()
+  })
+
+  it('fee: $10.00 at most, and only if the condominium instruments provide for one', () => {
+    const r = req()
+    const c = buildCertificate(condo(), r)
+    expect(checkFee('GA', c.deadlines, c.figures, r, 1_000, { feeAuthorized: true }, true)).toMatchObject({ cap: { totalCents: 1_000 }, problem: null })
+    expect(checkFee('GA', c.deadlines, c.figures, r, 1_001, { feeAuthorized: true }, true).problem).toMatch(/§ 44-3-109\(d\)/)
+    expect(checkFee('GA', c.deadlines, c.figures, r, 1_000, { feeAuthorized: false }, true).problem).toMatch(/condominium instruments/)
+    expect(checkFee('GA', c.deadlines, c.figures, r, 0, {}, true).problem).toBeNull()
+  })
+
+  it('an HOA, a co-op and an untyped Georgia association keep the POA Act statement', () => {
+    for (const associationType of ['hoa', 'coop', null, undefined]) {
+      const c = buildCertificate(fixture({ state: 'GA', associationType }), req())
+      expect(c.gaCondo).toBe(false)
+      expect(c.deadlines.responseRule).toMatch(/§ 44-3-232\(d\)/)
+      expect(c.fields.map((f) => f.key)).toContain('poaAct')
+      expect(c.fields.map((f) => f.key)).not.toContain('condoAct')
+    }
+    // a condo outside Georgia is not the Georgia Act
+    expect(buildCertificate(fixture({ state: 'FL', associationType: 'condo' }), req()).gaCondo).toBe(false)
   })
 })
 

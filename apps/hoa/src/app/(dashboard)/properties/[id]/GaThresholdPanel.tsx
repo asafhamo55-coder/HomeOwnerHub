@@ -58,6 +58,8 @@ export function GaThresholdCards({ view }: { view: GaThresholdView }) {
   const changes = formatDay(view.changesOn)
   return (
     <div className="space-y-3">
+      {/* BL-155: a condominium gets the payment-order note only; the threshold is the POA Act's. */}
+      {view.condo ? null : (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle as="h4">Georgia foreclosure threshold</CardTitle>
@@ -113,6 +115,7 @@ export function GaThresholdCards({ view }: { view: GaThresholdView }) {
           <p className="text-xs text-muted">This panel only shows figures. It doesn’t decide whether to foreclose: ask your association’s attorney first.</p>
         </CardContent>
       </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -121,7 +124,7 @@ export function GaThresholdCards({ view }: { view: GaThresholdView }) {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p className="text-foreground-secondary">
-            {view.current ? `From ${changes}, ` : `Since ${changes}, `}
+            {view.asOf < view.changesOn ? `From ${changes}, ` : `Since ${changes}, `}
             Georgia law (§ 43-17A-8, SB 406 § 2) says every payment from an owner is applied in this order:
           </p>
           <ol className="list-decimal space-y-1 pl-5 text-foreground-secondary">

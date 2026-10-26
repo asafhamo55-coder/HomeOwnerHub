@@ -74,6 +74,26 @@ export const LATE_FEE_LAWS: Readonly<Record<'GA' | 'FL' | 'CA', LateFeeLaw>> = {
   },
 }
 
+/**
+ * BL-155: a Georgia association whose type is 'condo' is governed by the
+ * Georgia Condominium Act, not the POA Act (§ 44-3-235(b)). § 44-3-109(b)(1)
+ * sets the same cap, quoted from ga-ocga-44-3-art3-2026.txt.
+ */
+export const GA_CONDO_LATE_FEE_LAW: LateFeeLaw = {
+  state: 'GA',
+  stateName: 'Georgia',
+  citation: 'O.C.G.A. § 44-3-109(b)(1)',
+  fixture: 'ga-ocga-44-3-art3-2026.txt',
+  quotes: [
+    '(b) To the extent that the condominium instruments provide, the personal obligation of the unit owner and the lien for assessments shall also include:',
+    '(1) A late or delinquency charge not in excess of the greater of $10.00 or 10 percent of the amount of each assessment or installment thereof not paid when due;',
+  ],
+  requiresInstrument: true,
+  floorCents: 1000,
+  percent: 10,
+  minGraceDays: 0,
+}
+
 /** Shown where no rule is loaded. */
 export const NO_LOADED_RULE_NOTE =
   'HomeownerHub has no late-charge rule loaded for your state. Check your governing documents (and your association’s attorney) for what you may charge. No cap applies beyond what the board sets here.'
@@ -83,8 +103,10 @@ export function lateFeeStateOf(a: { state?: string | null; governing_law_state?:
   return (a?.governing_law_state ?? a?.state ?? '').trim().toUpperCase() || null
 }
 
-export function lateFeeLaw(state: string | null | undefined): LateFeeLaw | null {
+/** `type` is associations.type: a Georgia 'condo' gets § 44-3-109(b)(1) (BL-155). */
+export function lateFeeLaw(state: string | null | undefined, type?: string | null): LateFeeLaw | null {
   const s = (state ?? '').trim().toUpperCase()
+  if (s === 'GA' && (type ?? '').trim().toLowerCase() === 'condo') return GA_CONDO_LATE_FEE_LAW
   return s === 'GA' || s === 'FL' || s === 'CA' ? LATE_FEE_LAWS[s] : null
 }
 

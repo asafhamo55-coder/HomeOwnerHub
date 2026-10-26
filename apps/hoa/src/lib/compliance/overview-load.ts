@@ -67,6 +67,8 @@ interface AssocRow {
   state: string | null
   governing_law_state: string | null
   compliance_settings: unknown
+  /** BL-155: 'hoa' | 'condo' | 'coop'; a Georgia 'condo' gets the Condominium Act rows. */
+  type: string | null
 }
 
 /** The org's annual members' meetings: the last before today, the next from today, and its notice. */
@@ -135,7 +137,7 @@ export async function loadElectionMeetings(
 export async function loadComplianceOverview(deps: ComplianceLoadDeps): Promise<LoadedCompliance> {
   let q = deps.db
     .from('associations')
-    .select('id, name, state, governing_law_state, compliance_settings')
+    .select('id, name, state, governing_law_state, compliance_settings, type')
     .eq('organization_id', deps.orgId)
   if (deps.associationId) q = q.eq('id', deps.associationId)
   const res = (await q) as { data: AssocRow[] | null; error: { code?: string } | null }
@@ -149,6 +151,7 @@ export async function loadComplianceOverview(deps: ComplianceLoadDeps): Promise<
     state: r.state,
     governingLawState: r.governing_law_state,
     complianceSettings: r.compliance_settings,
+    type: r.type ?? null,
   }))
   const states = new Set(associations.map((a) => complianceState(a.governingLawState, a.state)))
   const ca = associations.filter((a) => complianceState(a.governingLawState, a.state) === 'CA')

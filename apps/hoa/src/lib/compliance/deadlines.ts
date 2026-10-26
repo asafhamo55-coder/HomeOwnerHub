@@ -468,6 +468,8 @@ export interface ComplianceAssociationInput {
   state: string | null
   governingLawState: string | null
   complianceSettings: unknown
+  /** BL-155: associations.type ('hoa' | 'condo' | 'coop'). Absent or not 'condo': the POA Act rows. */
+  type?: string | null
 }
 
 export interface PendingComplianceItem {

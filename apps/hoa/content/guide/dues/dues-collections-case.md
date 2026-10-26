@@ -29,7 +29,7 @@ Use this when an owner's account is seriously past due and the board starts send
 ## What happens next
 - The stage shows at the top of the case and in the **Collections** box on the property's page.
 - Each action is added to **Activity**, newest dates first, with the date you entered.
-- In Georgia, the open case shows a **Georgia foreclosure threshold** panel and a **How payments should be applied** note. Both are read-only.
+- In Georgia, the open case shows a **Georgia foreclosure threshold** panel and a **How payments should be applied** note. Both are read-only. A condominium association gets only the payment-order note, which covers condominiums too: the threshold is in the Property Owners' Association Act. A condominium's lien can be foreclosed only if it is at least $2,000, under the Georgia Condominium Act (§ 44-3-109(c)), and SB 406 doesn't change that.
 - Before January 1, 2027, the panel shows today's rule: the lien can't be foreclosed unless it is at least $2,000. It says the rule changes on January 1, 2027, and shows the case against the new rule.
 - From January 1, 2027, the threshold is the lesser of $4,000 or 12 months of regular assessments, but never under $2,000. Only regular and special assessments in arrears count, less unapplied payments. Late charges, fines, fees and payment-plan installments don't count.
 - The 12 months of dues come from your dues rate schedule. Without a rate, the panel shows the threshold as $2,000 to $4,000.

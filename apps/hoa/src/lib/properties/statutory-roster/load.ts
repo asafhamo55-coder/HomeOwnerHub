@@ -29,7 +29,7 @@ function readTable<T>(db: Loose, table: string, columns: string, orgColumn: stri
   )
 }
 
-interface AssocRow { id: string; name: string | null; state: string | null; governing_law_state: string | null }
+interface AssocRow { id: string; name: string | null; state: string | null; governing_law_state: string | null; type?: string | null }
 interface PropRow { id: string; address: string | null; unit_number: string | null; owner_name: string | null; owner_email: string | null; owner_phone: string | null }
 interface UnitRow { id: string; association_id: string | null; lot_number: string | null; notes: string | null }
 interface OwnRow { id: string; unit_id: string; owner_name: string | null; owner_email: string | null; owner_phone: string | null; ownership_pct: number | null; valid_from: string; valid_to: string | null }
@@ -50,7 +50,7 @@ const stateOf = (a: AssocRow | undefined) => (a?.governing_law_state ?? a?.state
 
 /** The org's association zone and name, for "today" before the full read. */
 export async function readRosterAssociations(supabase: SupabaseClient, orgId: string): Promise<{ rows: AssocRow[]; primary: AssocRow | undefined; timeZone: string }> {
-  const rows = await readTable<AssocRow>(supabase as unknown as Loose, 'associations', 'id, name, state, governing_law_state', 'organization_id', orgId)
+  const rows = await readTable<AssocRow>(supabase as unknown as Loose, 'associations', 'id, name, state, governing_law_state, type', 'organization_id', orgId)
   const primary = [...rows].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))[0]
   return { rows, primary, timeZone: associationTimeZone(primary ? { state: primary.state } : null) }
 }

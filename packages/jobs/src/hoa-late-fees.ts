@@ -136,6 +136,8 @@ export interface LateFeeAssociation {
   state?: string | null
   governing_law_state?: string | null
   compliance_settings?: unknown
+  /** BL-155: associations.type; a Georgia 'condo' is capped under § 44-3-109(b)(1). */
+  type?: string | null
 }
 
 export type LateFeeRunStatus =
@@ -195,7 +197,7 @@ export async function runLateFeesForAssociation(
     return { status: 'unverified', ...EMPTY }
   }
   const policy: LateFeePolicy = read.policy
-  const law = lateFeeLaw(lateFeeStateOf(assoc))
+  const law = lateFeeLaw(lateFeeStateOf(assoc), assoc.type)
   if (!policyCharges(policy, law)) {
     if (policy.enabled) {
       // Field names only (never the text the board typed).
@@ -391,7 +393,7 @@ export const hoaLateFeeJob = inngest.createFunction(
     const { data: associations, error } = await db
       .from('associations')
       .select(
-        `id, organization_id, governing_law_state, compliance_settings, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`,
+        `id, organization_id, governing_law_state, compliance_settings, type, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`,
       )
 
     if (error) {

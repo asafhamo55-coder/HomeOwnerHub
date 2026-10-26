@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { LATE_FEE_LAWS, NO_LOADED_RULE_NOTE, lateFeeLaw, lateFeeStateOf, statutoryCapCents } from './law'
+import { GA_CONDO_LATE_FEE_LAW, LATE_FEE_LAWS, NO_LOADED_RULE_NOTE, lateFeeLaw, lateFeeStateOf, statutoryCapCents } from './law'
 
 // BL-147: every late-charge rule is quoted word for word from a statute
 // fixture. If a fixture is refreshed and the text changes, this fails and
@@ -73,5 +73,25 @@ describe('statutoryCapCents: the greater of the floor or the percent', () => {
   it('FL: $25 below $500 late, 5% above', () => {
     expect(statutoryCapCents(LATE_FEE_LAWS.FL, 10_000)).toBe(2500)
     expect(statutoryCapCents(LATE_FEE_LAWS.FL, 100_000)).toBe(5000)
+  })
+})
+
+describe('BL-155: a Georgia condominium is capped under § 44-3-109(b)(1)', () => {
+  it('quotes § 44-3-109(b)(1) word for word from the Article 3 fixture, inside § 44-3-109', () => {
+    const text = fixture('ga-ocga-44-3-art3-2026.txt')
+    const start = text.indexOf('=== O.C.G.A. Section 44-3-109 |')
+    const section = text.slice(start, text.indexOf('\n=== ', start + 1))
+    expect(start).toBeGreaterThanOrEqual(0)
+    for (const q of GA_CONDO_LATE_FEE_LAW.quotes) expect(section).toContain(q)
+    expect(GA_CONDO_LATE_FEE_LAW.quotes[1]).toContain('the greater of $10.00 or 10 percent')
+    expect(GA_CONDO_LATE_FEE_LAW).toMatchObject({ citation: 'O.C.G.A. § 44-3-109(b)(1)', requiresInstrument: true, floorCents: 1000, percent: 10, minGraceDays: 0 })
+  })
+
+  it('only a Georgia condo gets it; an HOA, co-op or untyped Georgia association keeps § 44-3-232(b)(1)', () => {
+    expect(lateFeeLaw('GA', 'condo')).toBe(GA_CONDO_LATE_FEE_LAW)
+    expect(lateFeeLaw('ga', ' Condo ')).toBe(GA_CONDO_LATE_FEE_LAW)
+    for (const t of ['hoa', 'coop', null, undefined]) expect(lateFeeLaw('GA', t)).toBe(LATE_FEE_LAWS.GA)
+    expect(lateFeeLaw('FL', 'condo')).toBe(LATE_FEE_LAWS.FL)
+    expect(lateFeeLaw('TX', 'condo')).toBeNull()
   })
 })

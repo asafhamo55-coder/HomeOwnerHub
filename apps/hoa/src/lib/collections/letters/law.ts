@@ -81,6 +81,24 @@
  *   GA_PRE_FORECLOSURE_QUOTES_2027; law.test.ts checks every quote against
  *   its fixture).
  *
+ * GEORGIA CONDOMINIUMS (BL-155) — a Georgia association whose type is
+ * 'condo' gets the Georgia Condominium Act instead
+ * (scripts/fixtures/state-law/ga-ocga-44-3-art3-2026.txt, quotes in
+ * lib/ga-condo/law.ts):
+ *   - O.C.G.A. § 44-3-109(c): the same notice (certified mail or statutory
+ *     overnight delivery, return receipt requested, to the unit's address
+ *     AND any address the owner designated in writing, not less than 30
+ *     days before foreclosure; the assessments due, authorized late
+ *     charges and the interest rate), the same $2,000.00 floor and the
+ *     same four-year lapse;
+ *   - § 44-3-109(b)(1)–(2): the same late-charge and 10% interest caps.
+ *   SB 406 does NOT amend Article 3, so this notice is NOT cut off on
+ *   January 1, 2027. SB 406 § 7 (attorney's-fee prerequisites) is added to
+ *   an Article 6 section, and Article 6 does not govern condominium
+ *   associations (§ 44-3-235(b)), so a condo gets no § 7 fee notice. The
+ *   SB 406 registration bar (Title 43 Ch. 17A) does cover condominiums and
+ *   is checked as for any Georgia association.
+ *
  * Every other state gets a plain past-due letter with no statutory claims.
  */
 
@@ -101,6 +119,13 @@ import {
   GA_SB406_RECEIPT,
   type DriftCitation,
 } from '../../compliance/statute-drift'
+import {
+  GA_CONDO_FORECLOSURE_FLOOR,
+  GA_CONDO_FORECLOSURE_NOTICE,
+  GA_CONDO_INTEREST,
+  GA_CONDO_LIEN_LAPSE,
+  GA_CONDO_NOTICE_CONTENTS,
+} from '../../ga-condo/law'
 
 export const LETTER_DISCLAIMER =
   'This is general information, not legal advice. Check every figure against your books and the current statute, and ask your association’s attorney before sending a notice that leads to a lien.'
@@ -281,6 +306,25 @@ export function gaForeclosureLaw(letterDate: string): GaForeclosureLaw {
 
 export const GA_ATTORNEY_FEES_NOTE =
   'Attorney’s fees can’t be collected until the owner has had 30 days from receiving this notice, and the owner must also get an itemized list of the attorney’s fees claimed (SB 406 § 7(f)(3)). Enter that list below, or “None claimed”.'
+
+// ─── Georgia condominiums § 44-3-109(c) (BL-155) ─────────────────────
+
+export const GA_CONDO_PRE_FORECLOSURE_CITATION = 'O.C.G.A. § 44-3-109(c)'
+
+/** Printed on the condominium pre-foreclosure notice, verbatim (lib/ga-condo/law.test.ts checks each). */
+export const GA_CONDO_PRE_FORECLOSURE_QUOTES: readonly DriftCitation[] = [
+  GA_CONDO_FORECLOSURE_NOTICE,
+  GA_CONDO_NOTICE_CONTENTS,
+  GA_CONDO_FORECLOSURE_FLOOR,
+  GA_CONDO_LIEN_LAPSE,
+  GA_CONDO_INTEREST,
+]
+
+export const GA_CONDO_PRE_FORECLOSURE_BODY = (association: string) =>
+  `This is notice from ${association} under O.C.G.A. § 44-3-109(c), part of the Georgia Condominium Act. The amounts below are owed on your unit and are secured by the association’s lien. The association may foreclose that lien by court action no sooner than 30 days after this notice is sent. To pay, or to discuss your account, contact the association.`
+
+export const GA_CONDO_PRE_FORECLOSURE_MAILING =
+  'Send by certified mail or statutory overnight delivery, return receipt requested, to the unit owner both at the unit’s address and at every other address the owner designated to the association in writing (§ 44-3-109(c)). The lien may be foreclosed no sooner than 30 days after it is sent. HomeownerHub has no certified-mail tracking field: add the tracking numbers as a note on the collections case.'
 
 // ─── generic ─────────────────────────────────────────────────────────
 

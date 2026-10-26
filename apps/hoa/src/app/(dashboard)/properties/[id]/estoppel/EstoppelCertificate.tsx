@@ -31,6 +31,9 @@ import {
   FL_DELIVERY_LABELS,
   FL_FEE_NOTES,
   GA_CITATION,
+  GA_CONDO_CITATION,
+  GA_CONDO_FEE_NOTES,
+  GA_CONDO_NOTES,
   GA_FEE_NOTES,
   GA_NOTES,
   TX_CITATION,
@@ -89,9 +92,10 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
   const cert = useMemo(() => buildCertificate(input, req), [input, req.requestDate, req.issueDate, req.delivery, req.expedited])
   const j = cert.jurisdiction
   const feeCents = parseMoneyCents(values.fee ?? '')
-  const answers = statuteAnswers(j, values)
-  const fee = checkFee(j, cert.deadlines, cert.figures, req, feeCents, answers)
-  const statute = statuteProblem(j, answers)
+  // BL-155: a Georgia condominium asks about the Condominium Act and cites § 44-3-109(d).
+  const answers = statuteAnswers(j, values, cert.gaCondo)
+  const fee = checkFee(j, cert.deadlines, cert.figures, req, feeCents, answers, cert.gaCondo)
+  const statute = statuteProblem(j, answers, cert.gaCondo)
   const blanks = blanksLeft(cert.fields, values)
   const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }))
 
@@ -186,7 +190,7 @@ export function EstoppelCertificate({ input, today }: { input: EstoppelInput; to
                         {l.label}: {usdCents(l.cents)}
                       </li>
                     ))}
-                    {(FEE_NOTES[j] ?? []).map((n) => (
+                    {((cert.gaCondo ? GA_CONDO_FEE_NOTES : FEE_NOTES[j]) ?? []).map((n) => (
                       <li key={n}>{n}</li>
                     ))}
                   </ul>
@@ -250,7 +254,9 @@ function DeadlineSummary({ cert }: { cert: Certificate }) {
             ? 'Today is after the 10-business-day deadline, so no fee may be charged for this certificate (§ 720.30851(4)).'
             : cert.jurisdiction === 'TX'
               ? 'Today is after the 10-business-day deadline, so no fee may be charged for this certificate (§ 207.003(c-1)).'
-              : cert.jurisdiction === 'GA'
+              : cert.jurisdiction === 'GA' && cert.gaCondo
+                ? 'Today is after the 5-business-day deadline. Under § 44-3-109(d) the assessment lien is extinguished as to the buyer’s or lender’s interest in this transaction. Ask your association’s attorney.'
+                : cert.jurisdiction === 'GA'
                 ? 'Today is after the 5-business-day deadline. Under § 44-3-232(d) the assessment lien is extinguished as to the buyer’s or lender’s interest in this transaction. Ask your association’s attorney.'
                 : 'Today is after the 10-day deadline in § 4530(a)(1).'}
         </Alert>
@@ -403,7 +409,9 @@ export function CertificateDocument({ cert, input, values, printClass }: { cert:
         ? 'For the resale disclosure under Cal. Civ. Code § 4525(a)(4)–(5)'
         : j === 'TX'
           ? `Issued under ${TX_CITATION}`
-          : j === 'GA'
+          : j === 'GA' && cert.gaCondo
+            ? `Issued under ${GA_CONDO_CITATION} (Georgia Condominium Act)`
+            : j === 'GA'
             ? `Issued under ${GA_CITATION} (Georgia Property Owners’ Association Act)`
             : 'Statement of the association’s records for this home'
   // Charges marked in the not-yet-due list: FL, the effective period; GA,
@@ -529,7 +537,12 @@ export function CertificateDocument({ cert, input, values, printClass }: { cert:
               <Line field={field('foreclosure')} values={values} />
             </>
           ) : null}
-          {j === 'GA' ? (
+          {j === 'GA' && cert.gaCondo ? (
+            <>
+              <Line field={field('condoAct')} values={values} />
+              <Line field={field('instrumentFee')} values={values} />
+            </>
+          ) : j === 'GA' ? (
             <>
               <Line field={field('poaAct')} values={values} />
               <Line field={field('instrumentFee')} values={values} />
@@ -588,7 +601,7 @@ export function CertificateDocument({ cert, input, values, printClass }: { cert:
         <section className="space-y-2">
           <h3 className="font-semibold text-foreground">About this statement</h3>
           <ul className="list-disc space-y-1 pl-5 text-xs text-muted">
-            {GA_NOTES.map((n) => (
+            {(cert.gaCondo ? GA_CONDO_NOTES : GA_NOTES).map((n) => (
               <li key={n}>{n}</li>
             ))}
           </ul>

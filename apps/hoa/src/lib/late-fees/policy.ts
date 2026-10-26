@@ -141,7 +141,7 @@ export function lawErrors(policy: LateFeePolicy, law: LateFeeLaw | null): Record
  * floor can be saved: the job cuts each fee to the cap for that charge
  * (lateFeeForCharge), and the screen says so.
  */
-export function validateLateFeePolicy(input: LateFeePolicyInput, state: string | null): LateFeeValidateResult {
+export function validateLateFeePolicy(input: LateFeePolicyInput, state: string | null, type?: string | null): LateFeeValidateResult {
   const fieldErrors: Record<string, string> = {}
   const enabled = input.enabled === true
   const mode: LateFeeMode = input.mode === 'flat' ? 'flat' : 'percent'
@@ -184,7 +184,7 @@ export function validateLateFeePolicy(input: LateFeePolicyInput, state: string |
     declarationAttested: input.declarationAttested === true,
     declarationRef: ref,
   }
-  Object.assign(fieldErrors, { ...lawErrors(value, lateFeeLaw(state)), ...fieldErrors })
+  Object.assign(fieldErrors, { ...lawErrors(value, lateFeeLaw(state, type)), ...fieldErrors })
   return Object.keys(fieldErrors).length > 0 ? { ok: false, fieldErrors } : { ok: true, value }
 }
 

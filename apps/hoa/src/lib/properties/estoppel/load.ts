@@ -127,6 +127,8 @@ export async function loadEstoppelInput(
     input: {
       state,
       associationName: a?.name ?? null,
+      // BL-155: a Georgia condominium gets § 44-3-109(d), not § 44-3-232(d).
+      associationType: a?.type ?? null,
       propertyId: prop.id,
       address: (prop.address ?? '').trim(),
       unitNumber: prop.unit_number?.trim() || null,
