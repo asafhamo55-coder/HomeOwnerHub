@@ -45,6 +45,7 @@ this file is the reference it points to.
   - At most **one prod deploy per hour**.
   - Never force-push the prod branch.
 - **Always work through teams of subagents** (worktree-isolated), with the main session coordinating. Keep about 3–4 agents running in parallel.
+- **Default engine: Sonnet 5.5** (Asaf, 2026-10-26: "use Sonnet 5.5 as default engine"). Dispatch every subagent with `model: "sonnet"`. Use Opus only as the advisor for a genuinely uncertain call. The main session's own model is Asaf's `/model` choice.
 - **Hold only for manual steps** Asaf alone can do: SQL in Supabase, keys or accounts, DNS, and the Vercel, Stripe, Google or Supabase dashboards. List the exact steps for him; don't ask permission.
 
 ### Go-to-market: we begin with Georgia (Asaf, 2026-10-21)
