@@ -1,7 +1,4 @@
-'use client'
-
-import { motion } from 'framer-motion'
-import { AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 
 const problems = [
@@ -15,7 +12,7 @@ const problems = [
 ]
 
 const solutions = [
-  { line: 'Covenant Brain answers any rule question — with the section cited.' },
+  { line: 'Covenant Brain answers any rule question, with the section cited.' },
   { line: 'Violation Drafter writes the letter. The board approves it in one click from Approvals.' },
   { line: 'Paste the meeting transcript and AI drafts board-ready minutes for the board to approve.' },
   { line: 'On the 1st, the board gets a month-end report: cash, dues collected, overdue balances, budget and violations.' },
@@ -25,68 +22,49 @@ const solutions = [
 
 export function ProblemSolution() {
   return (
-    <section className="py-24 md:py-32">
+    <section className="section">
       <div className="container-page">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-accent-fg">
-            The work that nobody volunteered for
-          </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Volunteer boards spend their evenings on paperwork. That paperwork is what AI is for.
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="eyebrow">The work nobody volunteered for</p>
+          <h2 className="t-h2 mt-4 text-foreground">
+            Volunteers shouldn’t spend their evenings on paperwork.{' '}
+            <span className="t-serif text-primary">That’s what AI is for.</span>
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-muted">
+          <p className="t-lead mt-5">
             {OTHER_HUBS_ENABLED
               ? 'HOA boards, landlords, and operators all do the same paperwork — at different stages of the same life cycle. We built one system that handles all of it.'
-              : 'Rules, notices, minutes and money — the same paperwork every self-managed board does. We built one system that handles all of it.'}
+              : 'Rules, notices, minutes and money: the same paperwork every self-managed board does, handled in one system.'}
           </p>
         </div>
 
-        <div className="mt-16 grid gap-6 md:grid-cols-2">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.5 }}
-            className="rounded-2xl border border-border/70 bg-surface p-8 ring-card"
-          >
-            <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-danger-subtle text-danger">
-                <AlertTriangle className="h-4 w-4" />
-              </span>
-              Today
-            </div>
-            <ul className="space-y-4">
-              {problems.map((p, i) => (
-                <li key={i} className="flex gap-3 text-sm leading-relaxed text-foreground-secondary">
-                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted" />
+        <div className="mt-14 grid gap-5 lg:grid-cols-2">
+          <div className="card p-7 md:p-9">
+            <h3 className="text-sm font-semibold text-muted">Today</h3>
+            <ul className="mt-5 space-y-4">
+              {problems.map((p) => (
+                <li key={p} className="flex gap-3 text-[15px] leading-relaxed text-foreground-secondary">
+                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-danger-subtle text-danger">
+                    <X className="h-3 w-3" aria-hidden />
+                  </span>
                   {p}
                 </li>
               ))}
             </ul>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="rounded-2xl border border-primary/70 bg-gradient-to-br from-surface via-surface to-primary-subtle/60 p-8 ring-card"
-          >
-            <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-success-subtle text-success">
-                <CheckCircle2 className="h-4 w-4" />
-              </span>
-              With HomeownerHub
-            </div>
-            <ul className="space-y-4">
-              {solutions.map((s, i) => (
-                <li key={i} className="flex gap-3 text-sm leading-relaxed text-foreground">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                  <span>{s.line}</span>
+          <div className="relative rounded-[1.25rem] border border-primary/25 bg-gradient-to-br from-primary-subtle via-surface to-surface p-7 shadow-[0_24px_50px_-30px_hsl(var(--primary)/0.55)] md:p-9">
+            <h3 className="text-sm font-semibold text-primary">With HomeownerHub</h3>
+            <ul className="mt-5 space-y-4">
+              {solutions.map((s) => (
+                <li key={s.line} className="flex gap-3 text-[15px] leading-relaxed text-foreground">
+                  <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success-subtle text-success">
+                    <Check className="h-3 w-3" aria-hidden />
+                  </span>
+                  {s.line}
                 </li>
               ))}
             </ul>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

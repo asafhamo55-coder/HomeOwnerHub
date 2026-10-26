@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Inter, JetBrains_Mono, Instrument_Serif } from 'next/font/google'
 import './globals.css'
+import { MotionProvider } from '@/components/site/motion-provider'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { SITE_NAME, SITE_ORIGIN } from '@/lib/site'
 
@@ -10,7 +11,16 @@ const inter = Inter({
   display: 'swap',
 })
 
-const jetbrainsMono = JetBrains_Mono({
+// Display face, used only for the one italic phrase in a headline.
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  style: 'italic',
+  variable: '--font-display',
+  display: 'swap',
+})
+
+const jetbrainsMono =JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
   display: 'swap',
@@ -56,8 +66,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="bg-surface text-foreground">{children}</body>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable}`}>
+      <body className="bg-background text-foreground">
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
+        <MotionProvider>{children}</MotionProvider>
+      </body>
     </html>
   )
 }

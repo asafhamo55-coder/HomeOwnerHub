@@ -102,7 +102,7 @@ function CellIcon({ value }: { value: Cell }) {
   if (value === 'partial') {
     return (
       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-warning-subtle text-warning ring-1 ring-warning/15">
-        <Minus className="h-4 w-4" />
+        <Minus className="h-4 w-4" aria-hidden /><span className="sr-only">Partly</span>
       </span>
     )
   }
@@ -112,35 +112,69 @@ function CellIcon({ value }: { value: Cell }) {
   if (value === true) {
     return (
       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-success-subtle text-success ring-1 ring-success/15">
-        <Check className="h-4 w-4" />
+        <Check className="h-4 w-4" aria-hidden /><span className="sr-only">Yes</span>
       </span>
     )
   }
   return (
     <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-subtle text-muted ring-1 ring-border">
-      <X className="h-4 w-4" />
+      <X className="h-4 w-4" aria-hidden /><span className="sr-only">No</span>
     </span>
   )
 }
 
 export default function ComparePage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <PageHero
         eyebrow="HomeownerHub vs the alternatives"
         title={
           <>
-            The comparison your board can send around.
+            The comparison your board <span className="t-serif text-primary">can send around.</span>
           </>
         }
         subtitle="Self-managed HOA boards have three real options: hire a management company, buy software built for management firms, or fight a spreadsheet. Here's how HomeownerHub stacks up on each. Where a competitor doesn't publish something, we say so."
       />
 
-      <section className="py-8">
+      <section className="pb-8 pt-2">
         <div className="container-page">
-          <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface ring-card">
+          {/* Phones: each capability is a small card, HomeownerHub first. */}
+          <div className="space-y-8 md:hidden">
+            {sections.map((s) => (
+              <div key={s.title}>
+                <h2 className="eyebrow mb-3">{s.title}</h2>
+                <ul className="space-y-3">
+                  {s.rows.map((r) => (
+                    <li key={r.label} className="card p-4">
+                      <p className="text-[15px] font-semibold text-foreground">{r.label}</p>
+                      <dl className="mt-3 grid grid-cols-2 gap-2">
+                        {columns.map((c) => (
+                          <div
+                            key={c.key}
+                            className={cn(
+                              'rounded-xl px-3 py-2.5',
+                              c.key === 'hh' ? 'col-span-2 bg-primary-subtle' : 'bg-subtle/70',
+                            )}
+                          >
+                            <dt className={cn('text-xs font-semibold', c.key === 'hh' ? 'text-primary' : 'text-muted')}>
+                              {c.name}
+                            </dt>
+                            <dd className="mt-1.5 flex min-h-7 items-center">
+                              <CellIcon value={r[c.key]} />
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="card hidden overflow-hidden md:block">
             <div className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr] border-b border-border/70 bg-subtle/40">
               <div className="px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-muted">
                 Capability
@@ -194,7 +228,7 @@ export default function ComparePage() {
         </div>
       </section>
 
-      <section className="py-24">
+      <section className="section">
         <div className="container-page">
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
             <SummaryCard
@@ -216,19 +250,19 @@ export default function ComparePage() {
         </div>
       </section>
 
-      <section className="bg-subtle/40 py-20">
+      <section className="section bg-surface">
         <div className="container-page text-center">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+          <p className="eyebrow">
             Next step
           </p>
-          <h2 className="mx-auto mt-3 max-w-2xl text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+          <h2 className="t-h2 mx-auto mt-4 max-w-2xl text-foreground">
             Ten minutes. Your CC&R. Your board.
           </h2>
           <Link
             href="/demo"
-            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover hover:shadow-md"
+            className="btn btn-primary btn-lg mt-9"
           >
-            Book a demo
+            Start free pilot
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -241,9 +275,9 @@ export default function ComparePage() {
 
 function SummaryCard({ title, body, note }: { title: string; body: string; note: string }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-surface p-7 ring-card">
-      <h3 className="text-lg font-semibold tracking-tight text-foreground">{title}</h3>
-      <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">{body}</p>
+    <div className="card p-7">
+      <h3 className="t-h3 text-foreground">{title}</h3>
+      <p className="mt-3 text-[15px] leading-relaxed text-foreground-secondary">{body}</p>
       <div className="mt-5 rounded-xl border border-primary/25 bg-primary-subtle/40 p-3">
         <p className="text-xs font-medium text-primary">{note}</p>
       </div>

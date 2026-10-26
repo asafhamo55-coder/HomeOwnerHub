@@ -28,7 +28,7 @@ const services = [
 
 export default function StatusPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <PageHero

@@ -32,7 +32,7 @@ export function HubPersona({
   bullets,
 }: HubPersonaProps) {
   return (
-    <section className="bg-subtle/40 py-24 md:py-32">
+    <section className="section bg-subtle/60">
       <div className="container-page">
         <div className="grid gap-12 md:grid-cols-[1fr,1.1fr] md:items-center">
           <motion.div
@@ -41,13 +41,13 @@ export function HubPersona({
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.5 }}
           >
-            <p className={cn('text-sm font-semibold uppercase tracking-wider', theme.accentText)}>
+            <p className={cn('eyebrow', theme.accentText)}>
               {eyebrow}
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            <h2 className="t-h2 mt-4 text-foreground">
               {title}
             </h2>
-            <p className="mt-5 text-lg leading-relaxed text-muted">{description}</p>
+            <p className="t-lead mt-5">{description}</p>
 
             <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {bullets.map((b) => (
@@ -69,7 +69,7 @@ export function HubPersona({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="rounded-2xl border border-border/70 bg-surface p-8 ring-card"
+            className="card p-8 md:p-10"
           >
             {persona ? (
               <>

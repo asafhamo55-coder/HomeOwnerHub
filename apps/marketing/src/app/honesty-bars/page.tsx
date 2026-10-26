@@ -45,7 +45,7 @@ const movement = [
 
 export default function HonestyBarsPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <PageHero
@@ -63,7 +63,7 @@ export default function HonestyBarsPage() {
       <section className="py-20">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+            <p className="eyebrow text-primary">
               Movement between bars
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
