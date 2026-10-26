@@ -1920,3 +1920,13 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Treasurer:** a board member with an officer title. Money approvals and bank-reconciliation sign-off route to the Treasurer, with dual control above a board-set amount. Titles also feed the GA registration kit's officer list.
    - "Trusery" was read as Treasurer (decision in the spec). If a trustee was meant, that's an owner label, not a role.
    - **Status 2026-10-26:** designed. Build the app behind `M6_APPLIED` plus the M6 SQL, then Asaf applies it.
+
+## Added 2026-10-26 (owner ask and a finding)
+
+169. **BL-169 Refresh the GA Article 6 fixture with the 2025 and 2026 Code revisions.** Migration: no. Found by BL-155.
+   - `ga-ocga-44-3-art6-2026.txt` misses 2025 SB 153 (§ 44-3-230(b) "may called" becomes "may be called"; § 44-3-231(a)(4)) and 2026 HB 1268 (§§ 44-3-221, 225, 226, 234). Its header wrongly says "2025 none found". `lib/elections/law.ts` quotes "may called".
+   - Fix: apply both Acts from the official signed copies, re-verify every Article 6 quote and the dated snapshot (BL-154), and update the header.
+170. **BL-170 Marketing website visual redesign.** Migration: no. Owner ask (Asaf, 2026-10-26: "it looks terrible … lift it up dramatically").
+   - A design system plus a redesign of home, /hoa, /pricing, /about, /compare and /demo, with product mockups built from real screens.
+   - The truth rules from BL-157 stay. Before/after screenshots go in the release note.
+   - **Status:** dispatched 2026-10-26 (Sonnet).
