@@ -41,6 +41,33 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-34 · Let demo requests from the website reach you (urgent)
+
+**Urgency:** Urgent
+
+**Why it matters:** the website's "Book a demo" form emails you through Resend. The marketing project in Vercel has no settings, so until now every demo request was dropped while the visitor was told it went through. The site now shows "please email support@…" instead, but requests still won't reach you until this is done.
+
+**Steps:**
+
+1. In Vercel, open the project **homeownerhub-marketing** → **Settings → Environment Variables**.
+2. Add these for **Production** (and Preview if you like):
+   - `RESEND_API_KEY`: the same value as in the app project `home-owner-hub-hoa` (copy it from there).
+   - `EMAIL_FROM`: `HomeownerHub <support@homeownerledger.com>`
+   - `DEMO_INBOX_EMAIL`: the address that should receive demo requests (e.g. asafhamo55@gmail.com).
+3. Redeploy the marketing project (Deployments → latest → Redeploy) and tell Claude. Claude sends one test request and checks it arrives.
+
+### OA-35 · Turn on website analytics and Google Search Console
+
+**Urgency:** Soon
+
+**Why it matters:** we can't see how many people visit, which pages bring them, or how many click "Book a demo". Search Console gets the new Georgia guide pages into Google quickly.
+
+**Steps:**
+
+1. In Vercel, open **homeownerhub-marketing** → **Analytics** → **Enable** (Web Analytics; cookieless, no banner needed).
+2. Go to https://search.google.com/search-console, add the property `https://www.homeownerledger.online`, and choose **HTML tag**. Send Claude the tag's `content` value (it isn't secret); Claude adds it to the site.
+3. After Claude deploys, click **Verify**, then **Sitemaps → add `sitemap.xml`**.
+
 ### OA-33 · Re-enter the Stripe test webhook secret
 
 **Urgency:** Soon

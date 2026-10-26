@@ -1930,3 +1930,14 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - A design system plus a redesign of home, /hoa, /pricing, /about, /compare and /demo, with product mockups built from real screens.
    - The truth rules from BL-157 stay. Before/after screenshots go in the release note.
    - **Status:** dispatched 2026-10-26 (Sonnet).
+
+171. **BL-171 Marketing growth: measurement, demo funnel, Georgia SB 406 guides and readiness check.** Migration: no. Owner ask (Asaf, 2026-10-26). Plan: `docs/specs/2026-10-26-marketing-growth-plan.md`.
+   - **Done 2026-10-26:** a demo request no longer fakes success in production when email isn't configured. Delivery waits on OA-34.
+   - **Build:**
+     - Vercel Web Analytics and conversion events;
+     - a "Book a demo" button in the header and at the end of each page, and a short demo form;
+     - a `/georgia` hub and 6–8 guide pages, quoting the official text only;
+     - the SB 406 readiness check;
+     - SEO metadata and structured data, and the Search Console verification tag (OA-35);
+     - a weekly analytics digest to Asaf (counts only).
+   - **Status:** dispatched 2026-10-26 (Sonnet).
