@@ -90,7 +90,7 @@ beforeEach(() => {
 
 describe('flag off', () => {
   it('/resident/records/new is a 404 and reads nothing', async () => {
-    await expect(NewRecordsRequestPage()).rejects.toThrow('NEXT_NOT_FOUND')
+    await expect(NewRecordsRequestPage({})).rejects.toThrow('NEXT_NOT_FOUND')
     expect(reads.n).toBe(0)
   })
 
@@ -148,7 +148,7 @@ describe('flag on', () => {
   })
 
   it('the resident form renders for a signed-in resident', async () => {
-    const el = await NewRecordsRequestPage()
+    const el = await NewRecordsRequestPage({})
     expect(el).toBeTruthy()
     expect(reads.n).toBe(1)
   })

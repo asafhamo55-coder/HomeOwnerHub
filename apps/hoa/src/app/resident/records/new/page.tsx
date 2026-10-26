@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
  * BL-123 (3): an owner asks to see association records. 404 until
  * RECORDS_REQUESTS_LIVE (packages/db/src/records-requests.ts).
  */
-export default async function NewRecordsRequestPage(props: { searchParams?: Promise<{ kind?: string }> } = {}) {
+export default async function NewRecordsRequestPage(props: { searchParams?: Promise<{ kind?: string }> }) {
   if (!RECORDS_REQUESTS_LIVE) notFound()
   // ?kind= presets "Which records?" (BL-162: /resident/insurance links here
   // with kind=insurance_certificate). Anything unknown is ignored.
