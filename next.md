@@ -153,6 +153,7 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
 >   - OA-32: GA 590-13 PDFs (comments due Nov 2).
 > - **Next SEO batch (BL-172):** templates, how-tos, the attorney/CPA referral page, in the new restyle.
 > - **Known:** the approval-layer integration test flaked once. Watch it.
+> - **Vercel OOM, 2026-10-27:** 41b7c353 was OOM-killed again as the code grew. Fixed in 68260baf (live): next build type-checks via `apps/hoa/tsconfig.build.json` (shipped code only, tests excluded). Measured with tsc: 3.0 GB down to 2.1 GB; build peak RSS 5.74 GB down to 4.64 GB. Also on: `webpackBuildWorker` (Sentry's webpack config had silently turned it off). If OOM returns, the next options are the Vercel enhanced build machine (owner, paid) or shrinking big generated TS (guide.ts).
 
 > **Update 2026-10-22 18:50 ET (session ed7c42d3):** live in prod is **d0984e66**, with everything below plus BL-152, BL-154 and BL-157. The Vercel OOM is **fixed**: `experimental.cpus: 1` plus `webpackMemoryOptimizations` in apps/hoa/next.config.ts, with the build type check kept on (the classifier refuses skipping it). NODE_OPTIONS is set in Vercel but doesn't matter (it isn't in turbo.json). The "FIRST THING" and "Merged, waiting" bullets below are historical. In flight: BL-155, BL-158, BL-159 and round-6 research. See docs/cycle-log.md.
 
