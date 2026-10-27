@@ -9,7 +9,7 @@ import type { Nudge } from '@/lib/announcements/nudge'
 
 /**
  * BL-173: the dashboard's way into "New announcement". Always offers the
- * button; when an occasion is within 7 days it also suggests it ("Halloween
+ * button; when an occasion is inside its lead window (3 to 14 days, per occasion) it also suggests it ("Halloween
  * is Friday") with a one-tap start and a "Not now" that hides it for this
  * association (signed, no migration). Board-facing only; the section that
  * renders it checks the role.
@@ -40,6 +40,11 @@ export function AnnouncementCard({ nudge }: { nudge: Nudge | null }) {
               <>
                 <p className="text-sm font-medium text-foreground">{nudge.headline}</p>
                 <p className="text-sm text-muted">{nudge.prompt}</p>
+                {nudge.others.length > 0 ? (
+                  <p className="text-xs text-muted">
+                    +{nudge.others.length} more coming up: {nudge.others.map((o) => o.name).join(', ')}
+                  </p>
+                ) : null}
               </>
             ) : (
               <>

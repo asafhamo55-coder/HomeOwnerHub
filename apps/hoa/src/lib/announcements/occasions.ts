@@ -63,6 +63,11 @@ export interface Occasion {
   category: AnnouncementCategory
   /** Sending a text is on by default (when texting is set up). */
   urgent: boolean
+  /**
+   * Date-only occasions reached from the dashboard nudge (?occasion=<id>) or
+   * a typed sentence, not shown as a tile on the "New announcement" grid.
+   */
+  hiddenFromGrid?: boolean
   /** Which optional fields the draft screen offers. */
   asks: readonly OccasionField[]
   detailLabel?: string
@@ -535,7 +540,342 @@ export const OCCASIONS: readonly Occasion[] = [
       ],
     },
   },
+  {
+    id: 'mlk-day',
+    label: 'Martin Luther King Jr. Day',
+    blurb: 'A short note of remembrance',
+    icon: 'flag',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add? (office or trash schedule)',
+    keywords: ['martin luther king', 'mlk'],
+    en: {
+      subject: 'Martin Luther King Jr. Day',
+      lead: 'Hello neighbors! On Martin Luther King Jr. Day, {assoc} remembers a leader who worked for fairness and dignity for everyone.',
+      more: [
+        'Some offices and services may be closed or run on a different schedule today.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Día de Martin Luther King Jr.',
+      lead: '¡Hola vecinos! En el Día de Martin Luther King Jr., {assoc} recuerda a un líder que trabajó por la justicia y la dignidad de todas las personas.',
+      more: [
+        'Algunas oficinas y servicios pueden estar cerrados o tener un horario distinto hoy.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'presidents-day',
+    label: 'Presidents\' Day',
+    blurb: 'A holiday note and schedule',
+    icon: 'flag',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add? (office or trash schedule)',
+    keywords: ['presidents day', 'president\'s day', 'presidents\' day'],
+    en: {
+      subject: 'Presidents\' Day',
+      lead: 'Hello neighbors! Wishing everyone a relaxed Presidents\' Day weekend from all of us at {assoc}.',
+      more: [
+        'Some offices and services may be closed or run on a different schedule today.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Día de los Presidentes',
+      lead: '¡Hola vecinos! Les deseamos un fin de semana tranquilo por el Día de los Presidentes, de parte de todos en {assoc}.',
+      more: [
+        'Algunas oficinas y servicios pueden estar cerrados o tener un horario distinto hoy.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'juneteenth',
+    label: 'Juneteenth',
+    blurb: 'A respectful holiday note',
+    icon: 'party-popper',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add? (office or trash schedule)',
+    keywords: ['juneteenth'],
+    en: {
+      subject: 'Juneteenth',
+      lead: 'Hello neighbors! Today is Juneteenth, which marks the end of slavery in the United States. {assoc} wishes you a thoughtful day.',
+      more: [
+        'Some offices and services may be closed or run on a different schedule today.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Juneteenth',
+      lead: '¡Hola vecinos! Hoy es Juneteenth, que conmemora el fin de la esclavitud en Estados Unidos. {assoc} les desea un día de reflexión.',
+      more: [
+        'Algunas oficinas y servicios pueden estar cerrados o tener un horario distinto hoy.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'veterans-day',
+    label: 'Veterans Day',
+    blurb: 'Thank those who served',
+    icon: 'flag',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add? (office or trash schedule, a local event)',
+    keywords: ['veterans day', 'veterans', 'veteran'],
+    en: {
+      subject: 'Veterans Day',
+      lead: 'Hello neighbors! On Veterans Day, {assoc} says thank you to every neighbor who has served in the armed forces.',
+      more: [
+        'Some offices and services may be closed or run on a different schedule today.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Día de los Veteranos',
+      lead: '¡Hola vecinos! En el Día de los Veteranos, {assoc} agradece a cada vecino que ha servido en las fuerzas armadas.',
+      more: [
+        'Algunas oficinas y servicios pueden estar cerrados o tener un horario distinto hoy.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'mothers-day',
+    label: 'Mother\'s Day',
+    blurb: 'A warm greeting',
+    icon: 'gift',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add?',
+    keywords: ['mother\'s day', 'mothers day'],
+    en: {
+      subject: 'Happy Mother\'s Day',
+      lead: 'Hello neighbors! Happy Mother\'s Day from {assoc} to everyone who is celebrating, remembering, or caring for someone today.',
+      more: [
+        'We hope your day is full of warmth and good company.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Feliz Día de las Madres',
+      lead: '¡Hola vecinos! Feliz Día de las Madres de parte de {assoc} para todos los que hoy celebran, recuerdan o cuidan a alguien.',
+      more: [
+        'Esperamos que tengan un día lleno de cariño y buena compañía.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'fathers-day',
+    label: 'Father\'s Day',
+    blurb: 'A warm greeting',
+    icon: 'gift',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add?',
+    keywords: ['father\'s day', 'fathers day'],
+    en: {
+      subject: 'Happy Father\'s Day',
+      lead: 'Hello neighbors! Happy Father\'s Day from {assoc} to everyone who is celebrating, remembering, or caring for someone today.',
+      more: [
+        'We hope your day is full of warmth and good company.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Feliz Día del Padre',
+      lead: '¡Hola vecinos! Feliz Día del Padre de parte de {assoc} para todos los que hoy celebran, recuerdan o cuidan a alguien.',
+      more: [
+        'Esperamos que tengan un día lleno de cariño y buena compañía.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'earth-day',
+    label: 'Earth Day',
+    blurb: 'Cleanup, planting, recycling',
+    icon: 'sprout',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['date', 'time', 'place', 'detail'],
+    detailLabel: 'Cleanup details, what to bring, if any',
+    keywords: ['earth day', 'cleanup', 'clean-up', 'clean up'],
+    en: {
+      subject: 'Earth Day{shortWhen}',
+      lead: 'Hello neighbors! Happy Earth Day from {assoc}. Join us in taking care of our shared spaces{when}{where}.',
+      more: [
+        'Small things help: recycle right, pick up litter you see, and conserve water where you can.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Día de la Tierra{shortWhen}',
+      lead: '¡Hola vecinos! Feliz Día de la Tierra de parte de {assoc}. Los invitamos a cuidar nuestros espacios compartidos{when}{where}.',
+      more: [
+        'Los pequeños gestos ayudan: reciclar bien, recoger la basura que vean y ahorrar agua cuando puedan.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'valentines-day',
+    label: 'Valentine\'s Day',
+    blurb: 'A light, friendly greeting',
+    icon: 'gift',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add?',
+    keywords: ['valentine'],
+    en: {
+      subject: 'Happy Valentine\'s Day',
+      lead: 'Hello neighbors! Happy Valentine\'s Day from {assoc}. Here is to good neighbors and kind words.',
+      more: [
+        'Wishing you a warm and happy day.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Feliz Día de San Valentín',
+      lead: '¡Hola vecinos! Feliz Día de San Valentín de parte de {assoc}. Un brindis por los buenos vecinos y las palabras amables.',
+      more: [
+        'Les deseamos un día cálido y feliz.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'dst-ends',
+    label: 'Clocks go back',
+    blurb: 'Daylight saving ends: clocks and smoke alarms',
+    icon: 'sun',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add?',
+    keywords: ['daylight saving ends', 'fall back', 'clocks back', 'set clocks back'],
+    en: {
+      subject: 'Clocks go back this Sunday',
+      lead: 'Hello neighbors! Daylight saving time ends this Sunday. Turn your clocks back one hour before bed on Saturday night.',
+      more: [
+        'It is also a good time to test your smoke and carbon monoxide alarms and replace their batteries if needed.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Se atrasa el reloj este domingo',
+      lead: '¡Hola vecinos! El horario de verano termina este domingo. Atrasen sus relojes una hora antes de dormir el sábado por la noche.',
+      more: [
+        'Es también un buen momento para probar sus alarmas de humo y de monóxido de carbono y cambiar las baterías si hace falta.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'dst-starts',
+    label: 'Clocks go forward',
+    blurb: 'Daylight saving starts: clocks and smoke alarms',
+    icon: 'sun',
+    category: 'community',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add?',
+    keywords: ['daylight saving starts', 'spring forward', 'clocks forward', 'set clocks forward'],
+    en: {
+      subject: 'Clocks go forward this Sunday',
+      lead: 'Hello neighbors! Daylight saving time starts this Sunday. Turn your clocks forward one hour before bed on Saturday night.',
+      more: [
+        'It is also a good time to test your smoke and carbon monoxide alarms and replace their batteries if needed.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Se adelanta el reloj este domingo',
+      lead: '¡Hola vecinos! El horario de verano comienza este domingo. Adelanten sus relojes una hora antes de dormir el sábado por la noche.',
+      more: [
+        'Es también un buen momento para probar sus alarmas de humo y de monóxido de carbono y cambiar las baterías si hace falta.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
+  {
+    id: 'fire-prevention',
+    label: 'Fire Prevention Week',
+    blurb: 'Smoke alarms and safe habits',
+    icon: 'megaphone',
+    category: 'emergency',
+    urgent: false,
+    hiddenFromGrid: true,
+    asks: ['detail'],
+    detailLabel: 'Anything to add? (a drill, a visit from the fire department)',
+    keywords: ['fire prevention', 'smoke alarm', 'smoke detector', 'fire safety'],
+    en: {
+      subject: 'Fire Prevention Week',
+      lead: 'Hello neighbors! It is Fire Prevention Week. Please test your smoke alarms this week and replace any that are more than 10 years old.',
+      more: [
+        '- Keep walkways, exits and stairwells clear.\n- Never leave cooking unattended.\n- Plan two ways out of your home and know where to meet.',
+        'Call 911 in an emergency.',
+        '{detail}',
+        SIGN_EN,
+      ],
+    },
+    es: {
+      subject: 'Semana de Prevención de Incendios',
+      lead: '¡Hola vecinos! Es la Semana de Prevención de Incendios. Por favor prueben sus alarmas de humo esta semana y cambien las que tengan más de 10 años.',
+      more: [
+        '- Mantengan despejados los caminos, las salidas y las escaleras.\n- Nunca dejen la cocina desatendida.\n- Planifiquen dos salidas de su hogar y un lugar de encuentro.',
+        'Llamen al 911 en caso de emergencia.',
+        '{detail}',
+        SIGN_ES,
+      ],
+    },
+  },
 ]
+
+/** The tiles on the "New announcement" grid. */
+export const GRID_OCCASIONS: readonly Occasion[] = OCCASIONS.filter((o) => !o.hiddenFromGrid)
 
 /** A typed sentence that matches no occasion. */
 export const CUSTOM_OCCASION_ID = 'custom'

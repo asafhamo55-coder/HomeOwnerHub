@@ -21,9 +21,9 @@ const ASSOCS = ['Lakeside HOA', 'The Very Long Named Heritage Oaks at Riverbend 
 const PLACEHOLDER = /\{|\}|\[\s*\w*\s*\]|undefined|null|NaN/
 
 describe('occasion templates', () => {
-  it('offers 12 to 16 occasions with unique ids', () => {
+  it('offers 12 to 30 occasions with unique ids', () => {
     expect(OCCASIONS.length).toBeGreaterThanOrEqual(12)
-    expect(OCCASIONS.length).toBeLessThanOrEqual(16)
+    expect(OCCASIONS.length).toBeLessThanOrEqual(30)
     expect(new Set(OCCASIONS.map((o) => o.id)).size).toBe(OCCASIONS.length)
   })
 
