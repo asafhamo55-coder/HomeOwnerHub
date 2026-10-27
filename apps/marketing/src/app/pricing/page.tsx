@@ -35,7 +35,7 @@ const HOA_FEATURE_LIST: Array<{ text: string; complete?: true }> = [
   { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073, /accounting/reports/monthly-report
   { text: 'Shared Gmail inbox with AI reply drafts, saved replies and Create from email', complete: true }, // /inbox, /inbox/[id], W32
   { text: 'Accounting: general ledger, bank feeds, reconciliation', complete: true }, // /accounting
-  { text: 'Georgia: SB 406 registration kit, quorum and proxy rules, and the annual report for owners' }, // /compliance/ga-registration, /meetings/[id]/quorum/proxies, /meetings/[id]/annual-report
+  { text: 'State law built in (GA, FL, CA, TX), including Georgia’s SB 406 registration kit, quorum and proxy rules, and the annual report for owners' }, // /compliance/ga-registration, /meetings/[id]/quorum/proxies, /meetings/[id]/annual-report
   { text: 'State-law Compliance page, election planner and annual meeting kit' }, // /compliance, /meetings/[id]/election, /meetings/[id]/quorum
   { text: 'Collections letters (GA, FL, CA, TX), estoppel and resale certificates and the owner budget notice', complete: true }, // /properties/[id]/collections-letter, /properties/[id]/estoppel, /accounting/budget/[id]/notice
   { text: 'Late-fee policy the board sets, held to the state cap', complete: true }, // /settings/late-fees

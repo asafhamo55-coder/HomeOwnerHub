@@ -23,21 +23,21 @@ export interface PageMetaEntry {
 
 export const TITLE_SUFFIX = ` · ${SITE_NAME}`
 
-export const HOME_TITLE = 'HomeownerHub — AI for self-managed HOA boards'
+export const HOME_TITLE = 'HomeownerHub — AI workspace for HOA boards'
 
 export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   '/': {
     title: HOME_TITLE,
     absoluteTitle: true,
     description:
-      'AI for self-managed HOA boards, Georgia first: SB 406 registration kit, collections notices, cited answers from your documents. The board approves each draft.',
+      'The self-service AI workspace for self-managed HOA boards: dues, violations, announcements, books and documents in one place. AI drafts, the board approves.',
   },
   '/hoa': {
     // The layout template appends " · HomeownerHub", so with the other hubs
     // hidden the product name would just repeat.
-    title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME} — AI for volunteer boards` : 'AI for volunteer boards',
+    title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME} — AI workspace for HOA boards` : 'AI workspace for volunteer HOA boards',
     description:
-      'Run a self-managed HOA without a management company, Georgia first: the SB 406 registration kit, collections notices, proxies, violation letters, reports.',
+      'Run a self-managed HOA without a management company: AI drafts letters, notices, minutes and replies from your records, the board approves. State law built in.',
   },
   '/pricing': {
     title: `Pricing — ${HOA_PRICE_COPY.title}`,
@@ -55,6 +55,11 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     title: 'Book a demo — 20 minutes for your board',
     description:
       'Send us your CC&R. We pre-load it. We show Covenant Brain answering your actual rules. Your board decides.',
+  },
+  '/states': {
+    title: 'State HOA laws built in: GA, FL, CA and TX',
+    description:
+      'The HomeownerHub workspace follows state HOA law for Georgia, Florida, California and Texas: notices, certificates, deadlines and caps, with the statute cited.',
   },
   '/georgia': {
     title: 'Georgia HOA law guides (SB 406) for boards',

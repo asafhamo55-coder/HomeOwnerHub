@@ -36,7 +36,7 @@ const beliefs = [
     Icon: MapPin,
     title: 'State law, not generic templates.',
     body:
-      'Associations live under state statutes, and we start with Georgia: the SB 406 registration kit, the collections notices Georgia requires, quorum and proxy rules and the annual report for owners, each citing the section it follows. Florida, California and Texas come next. Where the app doesn\'t know a figure, it leaves a blank for the board to fill. None of it is legal advice.',
+      'Associations live under state statutes, so the workspace follows the law of Georgia, Florida, California and Texas, with each draft citing the section it follows. Georgia has the deepest tools, including the SB 406 registration kit. Where the app doesn\'t know a figure, it leaves a blank for the board to fill. None of it is legal advice.',
   },
 ]
 

@@ -1,5 +1,5 @@
 // What the HOA app does for each state's law, as the marketing site says it.
-// ONE source for the "Georgia first" section on the home page and /hoa, the
+// ONE source for the "State law built in" section on the home page and /hoa, the
 // state list on /about, and the state lines on /demo and /pricing.
 //
 // Truth rule (BL-002, BL-042, BL-157): every entry is something a board can
@@ -142,6 +142,52 @@ export const STATE_COVERAGE: readonly StateCoverage[] = [
   },
 ]
 
+/**
+ * One card per state for the "State law built in" section (home, /hoa) and
+ * the /states page. Product first (2026-10-27 positioning): states are a
+ * benefit, so each gets one line. Georgia's card links to the SB 406 hub;
+ * the others have no hub yet, so they link to their /states section. Every
+ * line only restates STATE_COVERAGE items.
+ */
+export interface StateCard {
+  state: string
+  name: string
+  benefit: string
+  href: string
+  cta: string
+}
+
+export const STATE_CARDS: readonly StateCard[] = [
+  {
+    state: 'GA',
+    name: 'Georgia',
+    benefit: 'SB 406 registration kit, the notices Georgia requires before attorney’s fees and foreclosure, quorum and proxies, and the late-fee cap.',
+    href: '/georgia',
+    cta: 'Georgia SB 406 hub',
+  },
+  {
+    state: 'FL',
+    name: 'Florida',
+    benefit: 'Estoppel certificates, collections letters, the budget notice, fine hearings and the late-fee cap.',
+    href: '/states#florida',
+    cta: 'See Florida',
+  },
+  {
+    state: 'CA',
+    name: 'California',
+    benefit: 'Estoppel packet, collections letters, the budget notice window, fine hearings and the election print kit.',
+    href: '/states#california',
+    cta: 'See California',
+  },
+  {
+    state: 'TX',
+    name: 'Texas',
+    benefit: 'The resale certificate and collections letters.',
+    href: '/states#texas',
+    cta: 'See Texas',
+  },
+]
+
 /** Routes behind STATE_COVERAGE items outside Georgia, for the truth test. */
 export const OTHER_STATE_ROUTES: readonly string[] = [
   '/properties/[id]/estoppel',
@@ -156,7 +202,7 @@ export const OTHER_STATE_ROUTES: readonly string[] = [
 
 /** One sentence for /demo and the /pricing FAQ. */
 export const STATE_COVERAGE_SENTENCE =
-  'Georgia comes first: the SB 406 registration kit, the collections notices Georgia requires, quorum and proxy rules, the annual report for owners and the late-fee cap. Florida and California get estoppel certificates, collections letters, the budget notice, fine hearings and late-fee caps; Texas gets the resale certificate and collections letters.'
+  'State law is built in. Georgia gets the SB 406 registration kit, the collections notices Georgia requires, quorum and proxy rules, the annual report for owners and the late-fee cap; Florida and California get estoppel certificates, collections letters, the budget notice, fine hearings and late-fee caps; Texas gets the resale certificate and collections letters.'
 
 /** State-law answers: Georgia's statute is loaded in production today. */
 export const STATE_LAW_ANSWERS_NOTE =

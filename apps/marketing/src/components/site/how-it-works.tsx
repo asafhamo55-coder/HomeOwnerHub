@@ -34,7 +34,7 @@ export function HowItWorks() {
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow">How it works</p>
           <h2 className="t-h2 mt-4 text-foreground">
-            From a pile of PDFs to cited answers,{' '}
+            From a pile of PDFs to a working workspace,{' '}
             <span className="t-serif text-primary">no implementation team.</span>
           </h2>
           <p className="t-lead mt-5">Four steps, designed for a volunteer board on a Tuesday night.</p>

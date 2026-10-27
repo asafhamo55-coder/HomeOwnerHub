@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import { SHIPPED_FEATURES } from './features'
-import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE, OTHER_STATE_ROUTES, STATE_COVERAGE } from './state-law'
+import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE, OTHER_STATE_ROUTES, STATE_CARDS, STATE_COVERAGE } from './state-law'
 import { SHIPPED_HOA_WORKFLOWS, WORKFLOWS, BAR_TARGETS } from './workflows'
 import { DEFAULT_SITE_ORIGIN, SITEMAP_PATHS, SITE_ORIGIN, isIndexable, pageMetadata, siteOrigin } from './site'
 import { DEFAULT_APP_ORIGIN, appOrigin } from './app-origin'
@@ -145,9 +145,10 @@ describe('round 4: shipped features are on the site, each with proof', () => {
   })
 })
 
-// BL-157: Georgia is the launch state. The home page and /hoa lead with
-// what the app does for Georgia law, every item backed by an apps/hoa route.
-describe('Georgia first (BL-157)', () => {
+// BL-157: Georgia is the launch state and its tools are real; every state
+// item is backed by an apps/hoa route. (Positioning changed 2026-10-27:
+// the site leads with the product, see the order tests below.)
+describe('State law coverage (BL-157)', () => {
   it('every Georgia feature names an apps/hoa route that exists, and cites the law', () => {
     expect(GEORGIA_FEATURES.length).toBeGreaterThanOrEqual(5)
     for (const f of GEORGIA_FEATURES) {
@@ -182,14 +183,49 @@ describe('Georgia first (BL-157)', () => {
     expect(GEORGIA_SCOPE_NOTE).toMatch(/condominium/)
   })
 
-  it('the home page and /hoa render the Georgia section near the top', () => {
+  // 2026-10-27 owner decision: the website leads with the product; state
+  // law is ONE section, Georgia's SB 406 hub one card among four.
+  it('the home page leads with the product and has one state-law section, in the agreed order', () => {
     const home = code('app/page.tsx')
-    expect(home.indexOf('<GeorgiaFirst')).toBeGreaterThan(home.indexOf('<Hero'))
-    expect(home.indexOf('<GeorgiaFirst')).toBeLessThan(home.indexOf('<ProblemSolution'))
+    const order = ['<Hero', '<Pillars', '<HowItWorks', '<StateLawBuiltIn', '<TrustSecurity', '<PricingTeaser', '<CtaCloser']
+    const at = order.map((t) => home.indexOf(t))
+    expect(at.every((i) => i >= 0), order.join(' ')).toBe(true)
+    expect([...at].sort((x, y) => x - y)).toEqual(at)
+    expect(home.match(/<StateLawBuiltIn/g)).toHaveLength(1)
+  })
+
+  it('/hoa shows state law as one section, after the product features', () => {
     const hoa = code('app/hoa/page.tsx')
-    expect(hoa.indexOf('<GeorgiaFirst')).toBeGreaterThan(hoa.indexOf('<HubHero'))
-    expect(hoa.indexOf('<GeorgiaFirst')).toBeLessThan(hoa.indexOf('<HubFeatures'))
-    expect(read('components/site/hero.tsx')).toMatch(/Georgia/)
+    expect(hoa.match(/<StateLawBuiltIn/g)).toHaveLength(1)
+    expect(hoa.indexOf('<StateLawBuiltIn')).toBeGreaterThan(hoa.indexOf('<HubFeatures'))
+  })
+
+  it('the hero headline is the product, not a state', () => {
+    const hero = code('components/site/hero.tsx')
+    expect(hero).toMatch(/AI workspace for self-managed HOA boards/)
+    expect(hero).not.toMatch(/Georgia/)
+    expect(code('app/hoa/page.tsx')).not.toMatch(/Georgia first|georgia-first/i)
+  })
+
+  it('the state-law cards list GA first, then FL, CA, TX, and match the coverage list', () => {
+    expect(STATE_CARDS.map((c) => c.state)).toEqual(['GA', 'FL', 'CA', 'TX'])
+    expect(STATE_CARDS[0]!.href).toBe('/georgia')
+    for (const c of STATE_CARDS) {
+      const cov = STATE_COVERAGE.find((x) => x.state === c.state)!
+      expect(cov.name).toBe(c.name)
+      expect(c.benefit.length, c.state).toBeLessThanOrEqual(170)
+    }
+    // Texas is the thin one: its card may only name what STATE_COVERAGE lists.
+    expect(STATE_CARDS.find((c) => c.state === 'TX')!.benefit.toLowerCase()).toMatch(/resale certificate/)
+  })
+
+  it('nav and footer say "State laws" and link /states; the Georgia hub stays linked from the footer', () => {
+    expect(read('components/site/nav.tsx')).toContain("label: 'State laws'")
+    expect(read('components/site/nav.tsx')).not.toMatch(/label: 'Georgia'/)
+    const footer = read('components/site/footer.tsx')
+    expect(footer).toContain("href: '/states'")
+    expect(footer).toContain("href: '/georgia'")
+    expect(SITEMAP_PATHS).toContain('/states')
   })
 
   it('no customer is named on a rendered page (no approved case study)', () => {
