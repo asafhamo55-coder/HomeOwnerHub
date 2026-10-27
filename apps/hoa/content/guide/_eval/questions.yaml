@@ -367,3 +367,8 @@ questions:
   - { id: n-a02, role: admin, expect: communications-community-announcement, q: "What is the quickest way to wish everyone happy holidays?" }
   - { id: n-a03, role: board, expect: communications-community-announcement, q: "The dashboard keeps suggesting a notice for Thanksgiving. How do I hide that suggestion?" }
   - { id: n-a04, role: board, expect: communications-community-announcement, q: "I want to remind everyone about pet waste and leashes. Is there a ready-made message?" }
+
+  # BL-176: association state and type
+  - { id: s-01, role: admin, expect: settings-association-state-type, q: "Where do I change which state our community is in?" }
+  - { id: s-02, role: admin, expect: settings-association-state-type, q: "We picked the wrong state when we set up the association. How do I fix it?", route: /settings/association }
+  - { id: s-03, role: board, expect: settings-association-state-type, q: "Can I switch our association from HOA to condominium?" }

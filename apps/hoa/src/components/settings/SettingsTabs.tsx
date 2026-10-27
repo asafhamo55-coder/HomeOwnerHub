@@ -8,6 +8,7 @@ type SettingsPath =
   | '/settings/reminders'
   | '/settings/vendors'
   | '/settings/late-fees'
+  | '/settings/association'
   | '/settings/mailbox'
   | '/settings/billing'
   | '/settings/data'
@@ -29,6 +30,7 @@ const ITEMS: Array<{ label: string; href: SettingsPath; adminOnly: boolean }> = 
   { label: 'Dues reminders', href: '/settings/reminders', adminOnly: false },
   { label: 'Vendors', href: '/settings/vendors', adminOnly: false },
   { label: 'Late fees', href: '/settings/late-fees', adminOnly: false },
+  { label: 'Association', href: '/settings/association', adminOnly: false },
   { label: 'HOA mailbox', href: '/settings/mailbox', adminOnly: true },
   { label: 'Billing', href: '/settings/billing', adminOnly: false },
   { label: 'Your data', href: '/settings/data', adminOnly: false },

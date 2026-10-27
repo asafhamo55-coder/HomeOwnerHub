@@ -104,6 +104,10 @@ describe('buildSetupChecklist', () => {
   it('links the steps that were missing (BL-127) to the page that does them', () => {
     const byKey = Object.fromEntries(buildSetupChecklist(NOTHING).steps.map((s) => [s.key, s]))
     expect(byKey.association!.href).toBe('/accounting/periods')
+    expect(byKey.association!.secondary).toEqual({
+      href: '/settings/association',
+      label: 'Confirm your state and association type',
+    })
     expect(byKey.payments!.href).toBe('/settings/payments')
     expect(byKey.bank!.href).toBe('/accounting/bank')
   })

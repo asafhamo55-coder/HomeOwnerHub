@@ -145,6 +145,9 @@ const STEP_COPY: Record<SetupChecklistKey, StepCopy> = {
     // books" (association, no books) — whichever is missing.
     href: '/accounting/periods',
     cta: 'Set up',
+    // BL-176: the state and type decide which law applies; they were only
+    // ever chosen once, in the create form.
+    secondary: { href: '/settings/association', label: 'Confirm your state and association type' },
     guide: 'dues-generate-monthly',
   },
   properties: { ...PROPERTIES_STEP_COPY, guide: 'setup-properties-residents' },
