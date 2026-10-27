@@ -60,6 +60,9 @@ vi.mock('@/lib/email-consent', () => ({
 vi.mock('@/lib/sms-consent', () => ({
   loadTextMessagesState: h.track('loadTextMessagesState', () => 'failed'),
 }))
+vi.mock('@/lib/language-preference', () => ({
+  loadMyLanguage: h.track('loadMyLanguage', () => ({ ok: true, language: null, otherOrg: false })),
+}))
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => {
     const q: Record<string, unknown> = {}
@@ -92,7 +95,7 @@ describe('/resident/account loads in parallel (BL-099)', () => {
     const page = ResidentAccountPage()
     await settle()
     expect(h.state.started).toEqual(
-      expect.arrayContaining(['profiles', 'loadEmailConsent', 'loadTextMessagesState']),
+      expect.arrayContaining(['profiles', 'loadEmailConsent', 'loadTextMessagesState', 'loadMyLanguage']),
     )
     h.state.release()
     expect(await page).toBeTruthy()

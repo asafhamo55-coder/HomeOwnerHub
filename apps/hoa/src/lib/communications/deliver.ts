@@ -27,6 +27,8 @@ import { appUrl } from '@/lib/app-origin'
 import { buildEmailPayloads } from './email-payloads'
 import { buildRecipientBag } from './merge-bag'
 import { renderSmsText } from './sms-render'
+import { isBilingual, type LanguagePreference } from './bilingual'
+import { loadLanguagePreferences } from './recipient-language'
 import { renderTemplateStrict, type MergeBag } from './templates'
 
 type Db = SupabaseClient<Database>
@@ -38,6 +40,8 @@ export interface QueuedRecipientRow {
   phone: string | null
   recipient_name: string | null
   unit_id: string | null
+  /** Lets the resident's preferred language be looked up (BL-025). */
+  user_id?: string | null
 }
 
 export interface DeliverInput {
@@ -97,6 +101,13 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
   const smsGate = input.recipients.some((r) => r.channel === 'sms')
     ? await smsAllowanceGate(db, input.organizationId)
     : null
+
+  // Preferred languages, one batched read, and only for a bilingual body.
+  const languages = isBilingual(bodyHtml)
+    ? await loadLanguagePreferences(db, input.recipients.map((r) => r.user_id))
+    : new Map<string, 'en' | 'es'>()
+  const languageOf = (r: QueuedRecipientRow): LanguagePreference =>
+    (r.user_id ? languages.get(r.user_id) : undefined) ?? null
 
   async function deliverOne(recipient: QueuedRecipientRow): Promise<Outcome> {
     const bag = buildRecipientBag({
@@ -167,11 +178,11 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
       // message in the portal (composeSmsBody, which the wizard's hint
       // describes).
       const portalLink = appUrl(`/communications/${commId}`)
-      // BL-025: a bilingual body sends both languages only when both fit
-      // whole in one text; otherwise English only (the portal link carries
+      // BL-025: a resident who chose a language gets just that one. Otherwise
+      // a bilingual body sends both languages only when both fit whole in one text; otherwise English only (the portal link carries
       // the Spanish). The wizard warns the board when that will happen.
       // Shared with the phone preview (BL-102 A7), so the two cannot drift.
-      const smsBody = renderSmsText({ subject, html, text, portalLink }).body
+      const smsBody = renderSmsText({ subject, html, text, portalLink, language: languageOf(recipient) }).body
       const result = await sendSms({ to: phone, body: smsBody }, outbound)
       if (result.ok) {
         await db
@@ -220,7 +231,7 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
   const emailTargets = input.recipients.filter((r) => r.channel === 'email' && r.email)
   if (emailTargets.length > 0) {
     const { payloads, owners } = buildEmailPayloads({
-      recipients: emailTargets,
+      recipients: emailTargets.map((r) => ({ ...r, language: languageOf(r) })),
       subject: subjectSource,
       bodyHtml,
       bodyText,

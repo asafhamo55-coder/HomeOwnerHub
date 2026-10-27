@@ -19,6 +19,8 @@ import { getTemplate } from '@/lib/community-templates/registry'
 import { resolveAudience, stripAudienceForPersist, type AudienceDefinition, type ResolvedRecipient } from './audience'
 import { deliverableChannels, planOfficialNotice, type PaperNoticeSummary } from './official-notice'
 import { buildEmailPayloads } from './email-payloads'
+import { isBilingual } from './bilingual'
+import { loadLanguagePreferences } from './recipient-language'
 import { buildRecipientBag } from './merge-bag'
 import { recoverFromRenderedSubject, unresolvedFields } from './merge-recovery'
 import { normalizeSuppliedFields } from './supplied-fields'
@@ -466,7 +468,7 @@ export async function sendCommunication(
   const { data: insertedRecipients, error: recErr } = await supabase
     .from('communication_recipients')
     .insert(recipientInserts)
-    .select('id, channel, email, phone, recipient_name, unit_id')
+    .select('id, channel, email, phone, recipient_name, unit_id, user_id')
   if (recErr || !insertedRecipients) {
     await supabase
       .from('communications')
@@ -605,7 +607,7 @@ export async function getResendPreflight(
 
   const { data: failedRows, error: recErr } = await supabase
     .from('communication_recipients')
-    .select('id, email, recipient_name, unit_id')
+    .select('id, email, recipient_name, unit_id, user_id')
     .eq('communication_id', comm.id)
     .eq('organization_id', org.id)
     .eq('channel', 'email')
@@ -735,7 +737,7 @@ export async function resendFailedRecipients(
 
   const { data: failedRows, error: recErr } = await supabase
     .from('communication_recipients')
-    .select('id, email, recipient_name, unit_id')
+    .select('id, email, recipient_name, unit_id, user_id')
     .eq('communication_id', comm.id)
     .eq('organization_id', org.id)
     // email only — SMS and portal are out of scope (see the doc comment).
@@ -784,8 +786,12 @@ export async function resendFailedRecipients(
     }
   }
 
+  // BL-025: same per-resident language the first send used.
+  const languages = isBilingual(comm.body_html)
+    ? await loadLanguagePreferences(supabase, targets.map((r) => r.user_id))
+    : new Map<string, 'en' | 'es'>()
   const { payloads, owners, failures } = buildEmailPayloads({
-    recipients: targets,
+    recipients: targets.map((r) => ({ ...r, language: (r.user_id ? languages.get(r.user_id) : undefined) ?? null })),
     subject: comm.subject,
     bodyHtml: comm.body_html,
     bodyText: comm.body_text,

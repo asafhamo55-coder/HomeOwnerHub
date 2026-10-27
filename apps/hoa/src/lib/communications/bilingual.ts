@@ -15,11 +15,8 @@ export type CommLanguage = 'en' | 'es'
 
 /**
  * A resident's preferred language, or null when we do not know it.
- *
- * Seam for M-P1: there is no per-resident language field yet, so every
- * recipient is `null` today and gets both languages. When M-P1 adds the
- * column, `recipientLanguagePreference` reads it and `bodyForLanguage`
- * already knows what to do with each answer.
+ * `resident_communication_preferences.language` supplies it (see
+ * ./recipient-language.ts); null gets both languages, as before.
  */
 export type LanguagePreference = CommLanguage | null
 
@@ -86,9 +83,23 @@ export function isBilingual(html: string): boolean {
   return splitBilingualHtml(html).spanish !== null
 }
 
-/** M-P1 seam: always null until residents have a language field. */
-export function recipientLanguagePreference(_recipient: unknown): LanguagePreference {
-  return null
+/** The languages a resident can choose, in the order the card lists them. */
+export const COMM_LANGUAGES: readonly CommLanguage[] = ['en', 'es']
+
+export const COMM_LANGUAGE_LABELS: Record<CommLanguage, string> = {
+  en: 'English',
+  es: 'Español',
+}
+
+/** Anything that is not a supported code is "unknown" (null). */
+export function normalizeLanguage(value: unknown): LanguagePreference {
+  return value === 'en' || value === 'es' ? value : null
+}
+
+/** The recipient's language when the caller attached one, else null. */
+export function recipientLanguagePreference(recipient: unknown): LanguagePreference {
+  if (typeof recipient !== 'object' || recipient === null) return null
+  return normalizeLanguage((recipient as { language?: unknown }).language)
 }
 
 /**

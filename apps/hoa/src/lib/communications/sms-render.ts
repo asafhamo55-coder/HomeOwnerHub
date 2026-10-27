@@ -14,7 +14,7 @@
 
 import { htmlToSmsBody } from '@/lib/sms'
 import { composeSmsBody } from './sms-body'
-import { composeBilingualSms, htmlToPlainText, splitBilingualHtml } from './bilingual'
+import { composeBilingualSms, htmlToPlainText, splitBilingualHtml, type LanguagePreference } from './bilingual'
 
 export interface RenderSmsInput {
   /** Rendered subject (merge fields already filled). */
@@ -24,6 +24,8 @@ export interface RenderSmsInput {
   /** Rendered plain-text body, when the message has one. */
   text?: string
   portalLink: string
+  /** The resident's preferred language; null/absent keeps the BL-025 default. */
+  language?: LanguagePreference
 }
 
 export interface RenderedSms {
@@ -34,8 +36,22 @@ export interface RenderedSms {
   englishOnly: boolean
 }
 
-export function renderSmsText({ subject, html, text, portalLink }: RenderSmsInput): RenderedSms {
+function oneLineText(html: string): string {
+  return htmlToPlainText(html).replace(/\s+/g, ' ').trim()
+}
+
+export function renderSmsText({ subject, html, text, portalLink, language }: RenderSmsInput): RenderedSms {
   const parts = splitBilingualHtml(html)
+  if (parts.spanish && language) {
+    // A chosen language gets one language, through the normal composer: it
+    // is still at most SMS_MAX_CHARS and shortens with the portal link.
+    const chosen =
+      language === 'es'
+        ? { subject: parts.spanish.subject || subject, body: oneLineText(parts.spanish.html) }
+        : { subject, body: oneLineText(parts.englishHtml) }
+    const body = composeSmsBody({ ...chosen, portalLink })
+    return { body, shortened: body.includes(portalLink), englishOnly: false }
+  }
   if (parts.spanish) {
     const bilingual = composeBilingualSms({
       subject,
