@@ -21,6 +21,9 @@ const h = vi.hoisted(() => ({
   paid: vi.fn(async (_i: unknown): Promise<Record<string, unknown>> => ({ ok: true })),
 }))
 
+// M7_APPLIED is true in production. This file covers the sequential
+// (flag OFF) path; the atomic-RPC path is lump-payment-rpc.test.ts.
+vi.mock('@homeowner-portal/db/m7', () => ({ M7_APPLIED: false }))
 vi.mock('@/lib/auth', () => ({
   getCurrentUserRole: vi.fn(async () =>
     h.role === null ? null : { role: h.role, org: { id: 'org-1', name: 'Test HOA', hub_type: 'hoa', plan: 'pro', doors_count: 1 } },

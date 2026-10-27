@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@homeowner-portal/db/m6', () => ({ M6_APPLIED: true }))
 
-import { runDailyDigest, type DailyDigestDeps } from './daily-digest'
+import { BOARD_ROLES, runDailyDigest, type DailyDigestDeps } from './daily-digest'
 
 /**
  * BL-168 follow-up, flag ON (mocked). The CPA's proposed entries and review
@@ -111,5 +111,31 @@ describe('runDailyDigest with M6 on', () => {
     const { res, sendEmail } = await run(BOARD, { entry: 0, review: 0 })
     expect(res).toMatchObject({ proTreasurerItems: 0, emailed: 0 })
     expect(sendEmail).not.toHaveBeenCalled()
+  })
+
+  it('SECURITY: the recipient query is board/admin only; a CPA or attorney is never emailed, even with a profile email and an expiring grant', async () => {
+    const members = [
+      ...BOARD,
+      { user_id: 'cpa-1', role: 'cpa', officer_title: null, access_expires_at: inDays(5) },
+      { user_id: 'atty-1', role: 'attorney', officer_title: null, access_expires_at: inDays(5) },
+    ]
+    const { sendEmail, calls } = await run(members, { entry: 1, review: 1 })
+    const roleQueries = calls.filter((c) => c.table === 'org_members' && c.method === 'in').map((c) => c.args)
+    // The professional-notices read asks for the roles it must count; the recipient read must not.
+    expect(roleQueries).toContainEqual(['role', [...BOARD_ROLES]])
+    expect(roleQueries).toContainEqual(['role', ['admin', 'board', 'cpa', 'attorney']])
+    const profileIds = calls.filter((c) => c.table === 'profiles' && c.method === 'in').flatMap((c) => c.args[1] as string[])
+    expect(profileIds).not.toContain('cpa-1')
+    expect(profileIds).not.toContain('atty-1')
+    expect(Object.keys(sentTo(sendEmail))).not.toContain('cpa-1')
+    expect(Object.keys(sentTo(sendEmail))).not.toContain('atty-1')
+  })
+
+  it('absent case: with no notices and nothing broken, the only org_members read is the professional-notices one, and no recipient lookup happens', async () => {
+    const { sendEmail, calls } = await run(BOARD, { entry: 0, review: 0 })
+    expect(sendEmail).not.toHaveBeenCalled()
+    const reads = calls.filter((c) => c.table === 'org_members' && c.method === 'in').map((c) => c.args)
+    expect(reads).toEqual([['role', ['admin', 'board', 'cpa', 'attorney']]])
+    expect(calls.some((c) => c.table === 'profiles')).toBe(false)
   })
 })
