@@ -87,6 +87,9 @@ runs:
       run: |
         set -euo pipefail
         for attempt in 1 2 3; do
+          # Attempts 1-2 pull from public.ecr.aws; the last one falls back to
+          # ghcr.io, since each registry has throttled us on its own day.
+          if [ "$attempt" = 3 ]; then export SUPABASE_INTERNAL_IMAGE_REGISTRY=ghcr.io; fi
           if supabase start -x "$SUPABASE_EXCLUDE"; then exit 0; fi
           echo "supabase start failed (attempt $attempt); retrying after $((attempt * 60))s"
           supabase stop --no-backup || true
