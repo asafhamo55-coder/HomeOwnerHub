@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react'
 import { Check, Sparkles, Lock } from 'lucide-react'
 import { Alert, Badge, Button, Card, CardContent, StatusPill, cn } from '@homeowner-portal/ui'
-import { PRICING, billingSummary, formatUsd } from '@homeowner-portal/billing'
+import { PRICING, billingSummary, formatUsd } from '@homeowner-portal/billing/pure'
 import { billingPriceCopy } from './price-display'
 import {
   startHoaCheckout,

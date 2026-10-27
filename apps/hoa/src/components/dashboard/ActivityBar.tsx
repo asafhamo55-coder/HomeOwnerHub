@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts as ReactECharts } from '@/components/charts/LazyECharts'
 import {
   Card,
   CardContent,

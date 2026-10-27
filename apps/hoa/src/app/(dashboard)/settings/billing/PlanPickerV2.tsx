@@ -22,7 +22,7 @@ import {
   planPriceUsd,
   type BillingCadence,
   type HoaPlanId,
-} from '@homeowner-portal/billing'
+} from '@homeowner-portal/billing/pure'
 import { startHoaCheckout, type BillingActionResult } from '@/lib/billing'
 
 const initial: BillingActionResult = {}

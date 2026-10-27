@@ -13,7 +13,7 @@ import {
   effectivePlan,
   planAnnualSavingsUsd,
   planPriceUsd,
-} from '@homeowner-portal/billing'
+} from '@homeowner-portal/billing/pure'
 
 // Display strings for Settings → Billing. Every amount comes from
 // billingSummary(), which is the Stripe Price's unit_amount × quantity in

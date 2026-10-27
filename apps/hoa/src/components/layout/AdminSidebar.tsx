@@ -20,7 +20,6 @@ import {
   SidebarNav,
   SidebarSection,
 } from '@homeowner-portal/ui'
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
 
 interface AdminSidebarProps {
@@ -61,6 +60,8 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
   const pathname = usePathname()
 
   async function handleSignOut() {
+    // Lazy: keeps @supabase/ssr + auth-js (~150 kB) out of every page's shared JS.
+    const { getSupabaseBrowserClient } = await import('@/lib/supabase/browser')
     const supabase = getSupabaseBrowserClient()
     // Impersonation / role-override cookies are HTTPOnly: clear server-side.
     await clearSessionCookiesOnSignOut().catch(() => {})

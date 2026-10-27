@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts as ReactECharts } from '@/components/charts/LazyECharts'
 import { Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
 import type { DonutSegment } from '@/lib/dashboard/charts'
 

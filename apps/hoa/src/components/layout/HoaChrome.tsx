@@ -31,12 +31,13 @@ import {
 } from '@homeowner-portal/ui'
 import { fetchRecordSearch } from '@/lib/search/client'
 import type { RecordType } from '@/lib/search/types'
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
 import { askGuideCommand, helpArticleCommands, type PaletteHelpArticle } from '@/components/guide/palette-help'
 import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_CREATE, HOA_NAV } from './nav'
 
 async function signOut() {
+  // Lazy: keeps @supabase/ssr + auth-js (~150 kB) out of every page's shared JS.
+  const { getSupabaseBrowserClient } = await import('@/lib/supabase/browser')
   const supabase = getSupabaseBrowserClient()
   // Impersonation / role-override cookies are HTTPOnly: clear server-side.
   await clearSessionCookiesOnSignOut().catch(() => {})
