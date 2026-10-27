@@ -34,6 +34,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 # Explicit `shell: bash` makes every run step `bash -eo pipefail`, so
 # `pnpm … | tee log` fails when pnpm fails (the implicit default shell has
@@ -87,6 +88,17 @@ jobs:
       - name: Chromium system deps
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
+
+      # Supabase images come from ghcr.io. Anonymous pulls hit its rate limit
+      # ("toomanyrequests", 2026-10-26/27, even with the retry in
+      # local-supabase). Authenticated pulls with the job's own GITHUB_TOKEN
+      # get a much higher limit; no extra secret needed.
+      - name: Log in to ghcr.io (image pulls)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Local Supabase + schema replay
         uses: ./.github/actions/local-supabase
