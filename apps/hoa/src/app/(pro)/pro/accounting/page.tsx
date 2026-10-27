@@ -6,6 +6,8 @@ import { getSignedInUser } from '@/lib/orgs'
 import { writeProAudit } from '@/lib/professionals/audit'
 import { loadCpaOverview } from '@/lib/professionals/load'
 import { PRO_AUDIT } from '@/lib/professionals/model'
+import { CPA_EXPORT_KINDS, CPA_EXPORT_LABEL } from '@/lib/professionals/cpa-export'
+import { ExportDownloadButton } from '@/components/export/ExportDownloadButton'
 import { usd } from '@/lib/money/format'
 import { EntryForm, ReviewForm } from '@/components/pro/CpaForms'
 
@@ -55,6 +57,35 @@ export default async function CpaAccountingPage() {
                 {p.reviewed ? <StatusPill tone="success" size="sm" label="Reviewed by CPA" /> : null}
               </div>
               {!p.reviewed ? <ReviewForm fiscalPeriodId={p.id} /> : null}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle as="h2">Download as CSV</CardTitle>
+          <CardDescription>
+            Exactly what you can read here, for one fiscal period: the trial balance, general ledger detail and AR aging (owner names only, no contact details). Each download is recorded in the activity log.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {periods.length === 0 ? <p className="text-sm text-foreground-secondary">No fiscal periods yet.</p> : null}
+          {periods.map((p) => (
+            <div key={p.id} className="space-y-2 border-t border-border pt-4 first:border-t-0 first:pt-0">
+              <p className="text-sm font-medium">
+                {p.start} to {p.end}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {CPA_EXPORT_KINDS.map((kind) => (
+                  <ExportDownloadButton
+                    key={kind}
+                    url={`/api/accounting/cpa-export?kind=${kind}&periodId=${p.id}`}
+                    label={CPA_EXPORT_LABEL[kind]}
+                    fallbackName={`${kind.replace(/_/g, '-')}-${p.end}.csv`}
+                  />
+                ))}
+              </div>
             </div>
           ))}
         </CardContent>

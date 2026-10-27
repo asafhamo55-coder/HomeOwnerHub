@@ -75,6 +75,20 @@ export async function requireRouteBoardOrAdmin(
   return noOrgOrSignedOut()
 }
 
+/**
+ * An active CPA (BL-168). Expired grants resolve to no role at all, so they
+ * get 403 no_org here. Admins and board members are refused too: this gate
+ * is for the professional's own read-only surfaces. Before M6_APPLIED no CPA
+ * role resolves, so nobody passes.
+ */
+export async function requireRouteCpa(denied = 'This is only available to your CPA.'): Promise<{ orgId: string; userId: string }> {
+  const ctx = await getCurrentUserRole()
+  if (!ctx) return noOrgOrSignedOut()
+  if (ctx.role !== 'cpa') throw new ApiRouteError('forbidden', denied)
+  const { userId } = await requireRouteUser()
+  return { orgId: ctx.org.id, userId }
+}
+
 /** Platform staff (platform_admins). Not an org role. */
 export async function requireRoutePlatformAdmin(): Promise<{ userId: string }> {
   const { userId } = await requireRouteUser()

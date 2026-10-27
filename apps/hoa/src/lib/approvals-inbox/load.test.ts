@@ -202,6 +202,72 @@ describe('countPendingApprovals (sidebar badge)', () => {
   })
 })
 
+describe('countPendingApprovals: Treasurer-routed professional items (BL-168 follow-up)', () => {
+  const ok = (n: number): Resp => ({ data: null, error: null, count: n })
+  const base = () => ({
+    approval_requests: [ok(0), ok(0), ok(0), ok(0)],
+    ai_runs: [ok(0), ok(0)],
+    tickets: [ok(0)],
+    associations: [{ data: [], error: null }] as Resp[],
+  })
+  const members = (rows: Array<{ user_id: string; role: string; officer_title: string | null }>): Resp => ({ data: rows, error: null })
+  const ROWS = [
+    { user_id: 'u-adm', role: 'admin', officer_title: null },
+    { user_id: 'u-tre', role: 'board', officer_title: 'treasurer' },
+    { user_id: 'u-brd', role: 'board', officer_title: null },
+  ]
+  const proActions = (calls: ReturnType<typeof fakeDb>['calls']) => {
+    const pro = calls.filter((c) => c.table === 'approval_requests').at(-1)!
+    return pro.ops.find(([op]) => op === 'in')![1][1] as string[]
+  }
+
+  it('flag off: no professionals query and no org_members read, whoever is viewing', async () => {
+    const { db, calls } = fakeDb(base())
+    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false, viewerId: 'u-brd' })).toMatchObject({ pro: 0 })
+    expect(calls.some((c) => c.table === 'org_members')).toBe(false)
+    expect(calls.filter((c) => c.table === 'approval_requests')).toHaveLength(4)
+  })
+
+  it('flag on, no viewer: every professional item counts, as before', async () => {
+    const { db, calls } = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(6)] })
+    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true })).toMatchObject({ pro: 6 })
+    expect(proActions(calls)).toContain('pro.journal_entry')
+    expect(calls.some((c) => c.table === 'org_members')).toBe(false)
+  })
+
+  it('flag on: the Treasurer’s badge includes the CPA’s entries and review notes', async () => {
+    const { db, calls } = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(3)], org_members: [members(ROWS)] })
+    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true, viewerId: 'u-tre' })).toMatchObject({ pro: 3 })
+    expect(proActions(calls)).toEqual(expect.arrayContaining(['pro.journal_entry', 'pro.cpa_review', 'pro.note']))
+    const m = calls.find((c) => c.table === 'org_members')!.ops
+    expect(m).toContainEqual(['eq', ['org_id', ORG]])
+  })
+
+  it('flag on: another board member’s badge leaves the CPA items out (attorney items stay)', async () => {
+    const { db, calls } = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(1)], org_members: [members(ROWS)] })
+    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true, viewerId: 'u-brd' })).toMatchObject({ pro: 1 })
+    const actions = proActions(calls)
+    expect(actions).not.toContain('pro.journal_entry')
+    expect(actions).not.toContain('pro.cpa_review')
+    expect(actions).toEqual(expect.arrayContaining(['pro.note', 'pro.attachment', 'pro.letter_draft']))
+  })
+
+  it('flag on, no Treasurer: the admin is the recipient and a board member is not', async () => {
+    const noTreasurer = [ROWS[0]!, ROWS[2]!]
+    const admin = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(2)], org_members: [members(noTreasurer)] })
+    await countPendingApprovals(admin.db, ORG, { m5: false, m6: true, viewerId: 'u-adm' })
+    expect(proActions(admin.calls)).toContain('pro.journal_entry')
+    const board = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(2)], org_members: [members(noTreasurer)] })
+    await countPendingApprovals(board.db, ORG, { m5: false, m6: true, viewerId: 'u-brd' })
+    expect(proActions(board.calls)).not.toContain('pro.journal_entry')
+  })
+
+  it('flag on: a failed members read makes the professionals count unknown, not 0', async () => {
+    const { db } = fakeDb({ ...base(), org_members: [{ data: null, error: err }] })
+    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true, viewerId: 'u-brd' })).toMatchObject({ pro: null })
+  })
+})
+
 describe('loadVendorCountsByAssociation (BL-048 multi-association breakdown)', () => {
   const ok = (n: number): Resp => ({ data: null, error: null, count: n })
 

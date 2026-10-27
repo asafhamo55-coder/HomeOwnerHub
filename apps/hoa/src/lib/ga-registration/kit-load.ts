@@ -16,6 +16,8 @@ import type { ComplianceObligation } from '@/lib/compliance/obligations'
 import type { LooseDb } from '@/lib/compliance/evidence'
 import { gaRegistrationStanding, type GaRegistrationRecord, type GaRegistrationStanding } from './model'
 import { gaRegistrationSecret, readGaRegistration } from './store'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
+import { kitOfficers, loadOfficerTitles, type KitBoardMember, type KitOfficer } from './kit-officers'
 
 interface AssocRow {
   id: string
@@ -42,8 +44,10 @@ export interface KitData {
   standing: GaRegistrationStanding
   /** Units on file for the association; null when the read failed. */
   unitCount: number | null
-  /** Board and admin names; null when the read failed. */
-  board: Array<{ name: string; role: 'board' | 'admin' }> | null
+  /** Board and admin names, with officer titles once M6_APPLIED; null when the read failed. */
+  board: KitOfficer[] | null
+  /** True when officer titles come from HomeownerHub (M6_APPLIED and the read worked); false = titles by hand. */
+  titlesFromHoa: boolean
   /** Declaration, bylaws and rules in Documents; null when the read failed. */
   documents: KitDocument[] | null
   /** BL-151's amended-registration rows for this association; null when the read failed. */
@@ -61,6 +65,8 @@ export async function loadRegistrationKit(deps: {
   orgId: string
   today: string
   associationId?: string | null
+  /** BL-168 follow-up: officer titles on the officer list. Defaults to M6_APPLIED. */
+  titlesLive?: boolean
 }): Promise<KitLoad> {
   const res = (await deps.db
     .from('associations')
@@ -93,7 +99,7 @@ export async function loadRegistrationKit(deps: {
       () => null,
     ),
     listBoardMembers().then(
-      (rows) => rows.map((m) => ({ name: m.fullName, role: m.role })).sort((a, b) => a.name.localeCompare(b.name)),
+      (rows): KitBoardMember[] => rows.map((m) => ({ userId: m.userId, name: m.fullName, role: m.role })),
       () => null,
     ),
     (deps.db
@@ -112,6 +118,8 @@ export async function loadRegistrationKit(deps: {
     loadComplianceOverview({ db: deps.db, admin: deps.admin, orgId: deps.orgId, today: deps.today, associationId: row.id, secret }),
   ])
 
+  const titles = board ? await loadOfficerTitles(deps.db, deps.orgId, board.map((m) => m.userId), deps.titlesLive ?? M6_APPLIED) : null
+
   const amendments = overview.ok
     ? overview.overview.groups.flatMap((g) => g.obligations.filter((o) => o.kind === 'registration_amendment'))
     : null
@@ -125,7 +133,8 @@ export async function loadRegistrationKit(deps: {
       recordState: read.state,
       standing: gaRegistrationStanding(read, deps.today),
       unitCount: units,
-      board,
+      board: board ? kitOfficers(board, titles) : null,
+      titlesFromHoa: titles !== null,
       documents,
       amendments,
     },

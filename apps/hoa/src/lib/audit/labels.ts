@@ -120,6 +120,7 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   'pro.matter_unassigned': { label: 'Took a matter away from the attorney', area: 'access' },
   'pro.matter_viewed': { label: 'The attorney opened a matter', area: 'access' },
   'pro.accounting_viewed': { label: 'The CPA opened the accounting records', area: 'access' },
+  'pro.accounting_exported': { label: 'The CPA downloaded an accounting export', area: 'access' },
   'pro.proposed': { label: 'A professional sent something to Approvals', area: 'access' },
   'officer.title_set': { label: 'Set a board member’s officer title', area: 'access' },
   'dual_control.set': { label: 'Changed the two-signature amount', area: 'accounting' },

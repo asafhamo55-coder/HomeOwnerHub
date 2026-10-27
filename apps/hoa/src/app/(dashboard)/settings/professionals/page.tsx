@@ -6,7 +6,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { currentTimeZone } from '@/lib/association-time-current'
 import { todayIn } from '@/lib/association-time'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
-import { expiryNote } from '@/lib/professionals/model'
+import { expiryLabel } from '@/lib/professionals/model'
 import { loadDualControlCents, loadMatterOptions, loadOfficers, loadPendingInvites, loadProfessionals } from '@/lib/professionals/load'
 import { DualControlForm, InviteProfessionalForm, OfficerTitles, PendingInviteRow, ProfessionalRowView } from './ProfessionalsPanel'
 
@@ -60,7 +60,7 @@ export default async function ProfessionalsPage() {
                   row={r}
                   today={today}
                   options={options.ok ? options.options : []}
-                  note={expiryNote(r.accessExpiresAt, today)}
+                  note={expiryLabel(r.accessExpiresAt, today)}
                 />
               ))}
             </ul>

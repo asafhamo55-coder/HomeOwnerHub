@@ -76,6 +76,15 @@ export function expiryNote(expiresOn: string | null, today: string): string {
   return `ends in ${days} day${days === 1 ? '' : 's'}`
 }
 
+/** Settings → Professionals: "Expires in 12 days", "Expires today", "Expired", or "No end date". */
+export function expiryLabel(expiresOn: string | null, today: string): string {
+  if (!expiresOn) return 'No end date'
+  const days = daysBetween(today, expiresOn.slice(0, 10))
+  if (days < 0) return 'Expired'
+  if (days === 0) return 'Expires today'
+  return `Expires in ${days} day${days === 1 ? '' : 's'}`
+}
+
 // ─── matters ─────────────────────────────────────────────────────────
 
 export const MATTER_TYPES = ['collections_case', 'violation', 'records_request'] as const
@@ -423,6 +432,7 @@ export const PRO_AUDIT = {
   matterUnassigned: 'pro.matter_unassigned',
   matterViewed: 'pro.matter_viewed',
   accountingViewed: 'pro.accounting_viewed',
+  accountingExported: 'pro.accounting_exported',
   proposed: 'pro.proposed',
   titleSet: 'officer.title_set',
   dualControlSet: 'dual_control.set',
