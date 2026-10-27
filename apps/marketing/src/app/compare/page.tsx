@@ -8,13 +8,9 @@ import { PageHero } from '@/components/site/page-hero'
 import { cn } from '@/lib/cn'
 import { HOA_PRICE_COPY, annualBillUsd, formatUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'HomeownerHub vs management companies, Vantaca, and DIY',
-  description:
-    'The comparison your board can send around: AI workflows, HomeownerHub’s checkout price, and what the alternatives publish.',
-  path: '/compare',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/compare']!, path: '/compare' })
 
 type Cell = boolean | 'partial' | string
 

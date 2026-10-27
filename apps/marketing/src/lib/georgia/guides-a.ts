@@ -5,9 +5,9 @@ const PUBLISHED = '2026-10-26'
 export const REGISTRATION: Guide = {
   slug: 'registration-2027',
   title: 'Georgia HOA registration in 2027: what SB 406 asks of your board',
-  metaTitle: 'Georgia HOA registration 2027 (SB 406): a guide for boards',
+  metaTitle: 'Georgia HOA registration 2027 (SB 406) guide',
   description:
-    'Georgia’s SB 406 requires owners’ associations to register with the Secretary of State from January 1, 2027. What to file, what it costs, when to renew, and what happens if you do not.',
+    'SB 406 requires Georgia associations to register with the Secretary of State from January 1, 2027. What to file, the cost, when to renew, and the penalties.',
   eyebrow: 'SB 406 · Registration',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
@@ -123,9 +123,9 @@ export const REGISTRATION: Guide = {
 export const ATTORNEY_FEE_NOTICE: Guide = {
   slug: 'attorney-fee-notice',
   title: 'Georgia’s attorney’s-fee notice: the 30-day letter your HOA must send first',
-  metaTitle: 'Georgia HOA attorney’s fee notice (SB 406 § 7) explained',
+  metaTitle: 'Georgia HOA attorney’s fee notice explained',
   description:
-    'Since July 1, 2026, a Georgia association must send a written notice and wait 30 days from receipt before it can collect or be awarded attorney’s fees. What the notice must do, step by step.',
+    'Since July 1, 2026, a Georgia association must send a written notice and wait 30 days from receipt before collecting or being awarded attorney’s fees.',
   eyebrow: 'SB 406 · Collections',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
@@ -226,9 +226,9 @@ export const ATTORNEY_FEE_NOTICE: Guide = {
 export const FORECLOSURE_THRESHOLD: Guide = {
   slug: 'foreclosure-threshold-2027',
   title: 'Georgia HOA foreclosure threshold in 2027: 60 days, a new minimum and a six-year lien',
-  metaTitle: 'Georgia HOA foreclosure threshold 2027 (SB 406) explained',
+  metaTitle: 'Georgia HOA foreclosure threshold 2027 guide',
   description:
-    'From January 1, 2027, a Georgia HOA must give 60 days’ notice before foreclosing and the lien must reach the lesser of $4,000 or 12 months of dues, never under $2,000. How it works, with examples.',
+    'From January 1, 2027, a Georgia HOA must give 60 days’ notice before foreclosing; the lien must reach the lesser of $4,000 or 12 months of dues, min $2,000.',
   eyebrow: 'SB 406 · Foreclosure',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
@@ -330,9 +330,9 @@ export const FORECLOSURE_THRESHOLD: Guide = {
 export const OWNERS_RIGHTS: Guide = {
   slug: 'owners-rights-2027',
   title: 'Georgia homeowners’ rights in 2027: the twelve rights in SB 406',
-  metaTitle: 'Georgia owners’ rights 2027 (SB 406): the twelve rights explained',
+  metaTitle: 'Georgia owners’ rights 2027 (SB 406)',
   description:
-    'SB 406 lists twelve rights every Georgia owner has from January 1, 2027, including records, meetings and foreclosure process. The full text, and what a volunteer board should prepare.',
+    'SB 406 lists twelve rights every Georgia owner has from January 1, 2027, including records, meetings and foreclosure process. The text and how to prepare.',
   eyebrow: 'SB 406 · Owners’ rights',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,

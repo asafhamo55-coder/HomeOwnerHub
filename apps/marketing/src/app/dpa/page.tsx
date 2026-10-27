@@ -4,13 +4,9 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Data Processing Agreement',
-  description:
-    'HomeownerHub\'s DPA for customers needing a formal data-processing addendum.',
-  path: '/dpa',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/dpa']!, path: '/dpa' })
 
 export default function DpaPage() {
   return (

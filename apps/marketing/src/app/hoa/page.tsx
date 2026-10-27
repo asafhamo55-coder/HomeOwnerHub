@@ -13,17 +13,11 @@ import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
 import { SHIPPED_FEATURES } from '@/lib/features'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 import { GeorgiaFirst } from '@/components/site/georgia-first'
 import { STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
-export const metadata: Metadata = pageMetadata({
-  // The root layout's template appends " · HomeownerHub", so with the other
-  // hubs hidden the product name would just repeat.
-  title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME} — AI for volunteer boards` : 'AI for volunteer boards',
-  description:
-    'Run a self-managed HOA without a management company, Georgia first: the SB 406 registration kit, Georgia collections notices, quorum and proxies and the annual report for owners. Plus Covenant Brain, violation letters, AI-drafted announcements, a shared inbox, a resident assistant, accounting and a month-end board report.',
-  path: '/hoa',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/hoa']!, path: '/hoa' })
 
 const theme = HUBS.hoa
 

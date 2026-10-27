@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { Scale, FileText, Mail, Gavel, ShieldCheck, Lock, AlertTriangle } from 'lucide-react'
 
 type Stage = 'intake' | 'notice' | 'attorney' | 'service' | 'filing'
@@ -167,7 +167,7 @@ export function CaseProgressLive() {
             </div>
 
             <AnimatePresence mode="wait">
-              <motion.div
+              <m.div
                 key={active.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -217,7 +217,7 @@ export function CaseProgressLive() {
                   <Meta label="Tenant ID" value="riley_t_88_ridge" />
                   <Meta label="Jurisdiction" value="Fulton County, GA" />
                 </div>
-              </motion.div>
+              </m.div>
             </AnimatePresence>
           </div>
         </div>

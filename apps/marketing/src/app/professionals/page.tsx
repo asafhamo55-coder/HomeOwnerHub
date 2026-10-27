@@ -10,12 +10,9 @@ import { formatDate } from '@/components/georgia/guide-page'
 import { breadcrumbLd, faqLd } from '@/lib/jsonld'
 import { PLANNED, PROFESSIONALS_FAQS, PROFESSIONALS_META, PROFESSIONALS_PATH, PROFESSIONALS_UPDATED, SHARE_TODAY } from '@/lib/professionals'
 import { SITE_ORIGIN, pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: PROFESSIONALS_META.title,
-  description: PROFESSIONALS_META.description,
-  path: '/professionals', // must equal PROFESSIONALS_PATH (tests check the literal)
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/professionals']!, path: '/professionals' })
 
 export default function ProfessionalsPage() {
   return (

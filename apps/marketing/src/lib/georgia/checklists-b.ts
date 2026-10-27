@@ -10,9 +10,9 @@ import type { Checklist } from './checklists'
 export const VIOLATION_NOTICE_CHECKLIST: Checklist = {
   slug: 'violation-notice-checklist',
   title: 'Georgia HOA violation notice checklist',
-  metaTitle: 'Free Georgia HOA violation notice checklist (printable)',
+  metaTitle: 'Free Georgia HOA violation notice checklist',
   description:
-    'A free, printable checklist for a fair HOA violation notice in Georgia. Each item is tagged as statute (quoted from O.C.G.A. § 44-3-223) or best practice. No sign-up.',
+    'A free, printable checklist for a fair HOA violation notice in Georgia. Each item is tagged statute (O.C.G.A. § 44-3-223) or best practice. No sign-up.',
   eyebrow: 'Free checklist · Print it',
   intro: [
     'Use this before a violation letter or a fine goes out. Every item is tagged. “Statute” means it traces to a section quoted word for word at the bottom of the page. “Best practice” is our plain-language suggestion for a fair, easy-to-defend notice. It is not a legal requirement.',
@@ -124,9 +124,9 @@ export const BOARD_AGENDA_TEMPLATE: Checklist = {
   slug: 'hoa-board-meeting-agenda',
   path: '/templates/hoa-board-meeting-agenda',
   title: 'HOA board meeting agenda template',
-  metaTitle: 'Free HOA board meeting agenda template (printable, any state)',
+  metaTitle: 'Free HOA board meeting agenda template',
   description:
-    'A free, printable agenda for an HOA board meeting in any state: quorum, conflicts, treasurer’s report, violations, old and new business, action items. No sign-up.',
+    'A free, printable agenda for an HOA board meeting in any state: quorum, conflicts, treasurer’s report, violations, business, action items. No sign-up.',
   eyebrow: 'Free template · Print it',
   intro: [
     'A good agenda keeps a volunteer board to an hour. This one works in any state: print it, cross out what does not apply, and add the items your own bylaws require.',

@@ -15,9 +15,9 @@ export const PROFESSIONALS_PATH = '/professionals'
 export const PROFESSIONALS_UPDATED = '2026-10-26'
 
 export const PROFESSIONALS_META = {
-  title: 'For HOA attorneys and CPAs: work with self-managed boards',
+  title: 'HOA attorneys and CPAs: work with boards',
   description:
-    'Professional seats for HOA attorneys and CPAs are coming soon. Today a board can hand you the year-end package, the monthly report and the meeting packet. Ask us about early access.',
+    'Seats for HOA attorneys and CPAs are coming soon. A board can hand you the year-end package, monthly report, meeting packet. Ask for early access.',
 }
 
 export interface ShippedShare {

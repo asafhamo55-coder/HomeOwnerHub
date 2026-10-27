@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { Search, BookOpen, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
@@ -117,7 +117,7 @@ export function CovenantBrainDemo() {
       <div className="relative min-h-[360px] bg-surface p-6">
         <AnimatePresence mode="wait">
           {phase === 'thinking' && (
-            <motion.div
+            <m.div
               key="thinking"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -127,10 +127,10 @@ export function CovenantBrainDemo() {
               <ThinkingLine label="Reading CC&R..." />
               <ThinkingLine label="Matching covenant rules..." delay={0.2} />
               <ThinkingLine label="Composing answer with citations..." delay={0.4} />
-            </motion.div>
+            </m.div>
           )}
           {(phase === 'answering' || phase === 'rest') && (
-            <motion.div
+            <m.div
               key={`answer-${idx}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -165,7 +165,7 @@ export function CovenantBrainDemo() {
                 </span>
                 <span className="text-[11px] font-medium text-foreground-secondary">View in document →</span>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
@@ -175,7 +175,7 @@ export function CovenantBrainDemo() {
 
 function ThinkingLine({ label, delay = 0 }: { label: string; delay?: number }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay }}
@@ -186,6 +186,6 @@ function ThinkingLine({ label, delay = 0 }: { label: string; delay?: number }) {
         <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
       </span>
       {label}
-    </motion.div>
+    </m.div>
   )
 }

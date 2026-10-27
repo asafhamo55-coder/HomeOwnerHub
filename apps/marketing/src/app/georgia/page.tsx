@@ -9,14 +9,10 @@ import { TrackedLink } from '@/components/site/tracked-link'
 import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE } from '@/lib/state-law'
 import { GENERAL_LINKS, GEORGIA_LINKS, GUIDE_LIST } from '@/lib/georgia'
 import { SITE_ORIGIN, pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 import { breadcrumbLd } from '@/lib/jsonld'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Georgia HOA law guides for volunteer boards (SB 406)',
-  description:
-    'Plain-language guides to Georgia’s SB 406 for HOA boards: registration, the attorney’s-fee notice, the 2027 foreclosure threshold, owners’ rights, late fees and complaints, plus free checklists.',
-  path: '/georgia',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/georgia']!, path: '/georgia' })
 
 const tools = GEORGIA_LINKS.filter((l) => l.kind === 'tool')
 
