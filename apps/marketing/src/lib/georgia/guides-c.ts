@@ -133,7 +133,7 @@ export const FIRST_90_DAYS: Guide = {
       a: 'For collections, foreclosure, document amendments and the registration decision, yes. A self-managed board uses an attorney for judgment calls and does the routine work itself.',
     },
   ],
-  related: ['registration-2027', 'violation-notice-checklist', 'hoa-board-meeting-agenda', 'late-fee-limits', 'hoa-treasurer-duties'],
+  related: ['registration-2027', 'violation-notice-checklist', 'hoa-board-meeting-agenda', 'late-fee-limits', 'hoa-treasurer-duties', 'annual-meeting-quorum-proxies', 'records-inspection-requests'],
   hoaDoes: [
     {
       text: 'The Compliance page lists what Georgia law asks of your association, with an overdue banner, so the yearly obligations are on one calendar.',

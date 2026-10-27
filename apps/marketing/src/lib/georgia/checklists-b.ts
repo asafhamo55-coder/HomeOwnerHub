@@ -115,7 +115,7 @@ export const VIOLATION_NOTICE_CHECKLIST: Checklist = {
       a: 'No. It is a list of what a fair notice should cover. Your attorney can turn it into a template that matches your documents.',
     },
   ],
-  related: ['complaint-process', 'late-fee-limits', 'readiness'],
+  related: ['complaint-process', 'late-fee-limits', 'readiness', 'fines-and-violation-hearings', 'hoa-violation-letter-georgia'],
   datePublished: '2026-10-26',
   dateModified: '2026-10-26',
 }
@@ -169,7 +169,103 @@ export const BOARD_AGENDA_TEMPLATE: Checklist = {
       a: 'Your bylaws decide. In Georgia, for a property owners’ association, the statute sets one-half of the votes of the board unless the instrument or bylaws specify a larger percentage, as quoted below.',
     },
   ],
-  related: ['annual-meeting-notice-checklist', 'hoa-treasurer-duties', 'self-managed-hoa-georgia-first-90-days'],
+  related: ['annual-meeting-notice-checklist', 'hoa-treasurer-duties', 'self-managed-hoa-georgia-first-90-days', 'annual-meeting-quorum-proxies'],
   datePublished: '2026-10-26',
   dateModified: '2026-10-26',
+}
+
+// SEO batch 3: a printable violation letter. The letter text states facts and
+// leaves every legal detail (fine amount, response period, hearing step) as a
+// blank to take from the association's own documents. It quotes no law; the
+// statute behind the checklist is quoted below it, word for word.
+export const VIOLATION_LETTER_TEMPLATE: Checklist = {
+  slug: 'hoa-violation-letter-georgia',
+  path: '/templates/hoa-violation-letter-georgia',
+  title: 'HOA violation letter template for Georgia',
+  metaTitle: 'Free HOA violation letter template, Georgia',
+  description:
+    'A free, printable first-notice violation letter for a Georgia HOA, with a check-before-you-send list. Fill in the blanks from your own documents. No sign-up.',
+  eyebrow: 'Free template · Print it',
+  intro: [
+    'Use this for a first notice about a rule violation. Print the page, fill in the bracketed blanks, and have the board approve the letter before it goes out. The letter is written to be calm and factual, and it leaves every legal detail blank on purpose.',
+    'Georgia’s Property Owners’ Association Act leaves the fine amount, the response period and any hearing step to your own declaration and bylaws. Copy those from your documents, not from this page. This is a template, not legal advice. Have your attorney review it once and keep that version as your master copy.',
+  ],
+  howTo: true,
+  items: [
+    { basis: 'practice', text: 'Read the rule in your declaration, bylaws or rules, and note the section number.', detail: 'Cite the section in the letter. A notice that names no rule is hard to defend.' },
+    { basis: 'statute', text: 'Confirm the rule is in the instrument, or is a reasonable rule adopted under it and provided to the owners.', detail: 'The statute requires compliance with reasonable rules adopted under the instrument that have been provided to the lot owners.' },
+    { basis: 'practice', text: 'Record what you saw: the date, the place, and who saw it.', detail: 'Attach a dated photo if you have one. Describe the facts, not your opinion of the owner.' },
+    { basis: 'statute', text: 'Check that your documents authorize fines before the letter mentions one.', detail: 'Fines are allowed if and to the extent the instrument provides. If the letter is only a warning, leave the fine line out.' },
+    { basis: 'practice', text: 'Take the response period, the fine amount and any hearing step from your documents and write them in the blanks.', detail: 'This template sets none. If your documents are silent, ask your attorney.' },
+    { basis: 'practice', text: 'Address it to the owner of record at the address in your records, and add the lot and the date.' },
+    { basis: 'practice', text: 'Offer a way to resolve it: a named contact, a phone number or email, and a date to reply by.' },
+    { basis: 'practice', text: 'Have the board approve the letter, and record the approval in the minutes.' },
+    { basis: 'practice', text: 'Send it the way your documents require, and keep a copy with the proof of delivery.', detail: 'If your documents are silent, use a method you can prove, such as certified mail.' },
+    { basis: 'statute', text: 'From January 1, 2027: make sure the association is registered before any fine is collected.', detail: 'An unregistered association may not collect fines or fees from an owner.' },
+  ],
+  letter: {
+    heading: 'The letter',
+    intro: 'Replace each [bracket]. Delete any line your documents do not support.',
+    lines: [
+      '[Association name]',
+      '[Association mailing address]',
+      '[Date]',
+      '',
+      '[Owner name(s) as they appear in your records]',
+      '[Lot or property address] ([Lot number])',
+      '',
+      'Re: Notice of possible violation of [section number and name of the declaration, bylaws or rule]',
+      '',
+      'Dear [Owner name],',
+      '',
+      'The board of [Association name] is writing about the property at [address]. On [date of observation], [name or title] observed [plain description of what was seen, with the place]. [Photo attached, if you have one.]',
+      '',
+      'Section [number] of [the declaration / the bylaws / the rules and regulations] says: [copy the exact words of the rule from your document].',
+      '',
+      'We ask that you [what the owner should do] by [date taken from your documents]. If you believe this notice is mistaken, or you need more time, please write to [name and title] at [email or address], or call [phone], by [reply date], and tell us.',
+      '',
+      '[Include only if your documents provide for it: If the matter is not resolved, the board may [the step your documents allow, such as a fine of the amount your documents set]. You may [ask for a hearing / respond in writing] as described in [section number].]',
+      '',
+      'This letter is not a final decision. It is a request to talk about the issue. Thank you for helping us keep the community a good place to live.',
+      '',
+      'Sincerely,',
+      '[Name], [title]',
+      'On behalf of the Board of Directors of [Association name]',
+    ],
+  },
+  quotesHeading: 'The statute behind the checklist',
+  quotes: ['fineAuth', 'reasonableRules', 'nonRegBar'],
+  faqs: [
+    {
+      q: 'Is this the letter every Georgia HOA must send?',
+      a: 'No. Georgia’s statute does not prescribe a form for a violation letter. Your declaration and bylaws decide what a notice must say and how it must be delivered. This template leaves those details blank so you can take them from your documents.',
+    },
+    {
+      q: 'Can the letter threaten a fine?',
+      a: 'Only if your documents provide for fines. The statute allows fines if and to the extent the instrument provides. If the documents are silent, a warning with no fine is the safer first step; ask your attorney.',
+    },
+    {
+      q: 'Is a hearing required before a fine in Georgia?',
+      a: 'The sections of the Property Owners’ Association Act that we hold do not require one. Your documents may. Our fines and hearings guide explains the difference.',
+    },
+    {
+      q: 'Should the first letter be sent by certified mail?',
+      a: 'The statute sets no delivery method for a first violation notice. Follow your documents. If they are silent, certified mail gives you proof of delivery.',
+    },
+  ],
+  related: ['fines-and-violation-hearings', 'violation-notice-checklist', 'late-fee-limits', 'hoa-board-meeting-agenda'],
+  hoaDoes: [
+    {
+      text: 'Board members can walk the community with a phone, choose what is wrong at each home and take photos. Each one becomes a draft violation letter for the board to review, and nothing goes to the owner.',
+      route: '/inspect',
+      release: '2026-10-18-0535-inspect-inbox',
+    },
+    {
+      text: 'On a violation’s page, the board can draft a second notice, a hearing notice, a fine notice or a decision letter. Every letter waits in Approvals, and nothing is sent to the homeowner.',
+      route: '/violations/[id]',
+      release: '2026-10-19-1404-follow-up-letters',
+    },
+  ],
+  datePublished: '2026-10-27',
+  dateModified: '2026-10-27',
 }

@@ -92,7 +92,7 @@ export const LATE_FEES: Guide = {
       a: 'The Condominium Act sets the same cap for unit owners, for late charges that the condominium instruments provide for.',
     },
   ],
-  related: ['foreclosure-threshold-2027', 'attorney-fee-notice', 'condo-vs-hoa-law', 'readiness', 'hoa-treasurer-duties'],
+  related: ['foreclosure-threshold-2027', 'attorney-fee-notice', 'condo-vs-hoa-law', 'readiness', 'hoa-treasurer-duties', 'fines-and-violation-hearings'],
   hoaDoes: [
     {
       text: 'No late fee is charged until the board saves a late-fee policy. Georgia’s cap is checked when the policy is saved, and a policy over the cap cannot be saved.',
@@ -291,7 +291,7 @@ export const COMPLAINT_PROCESS: Guide = {
       a: 'Chapter 43-17A takes effect on January 1, 2027.',
     },
   ],
-  related: ['owners-rights-2027', 'attorney-fee-notice', 'late-fee-limits', 'readiness', 'violation-notice-checklist'],
+  related: ['owners-rights-2027', 'attorney-fee-notice', 'late-fee-limits', 'readiness', 'violation-notice-checklist', 'fines-and-violation-hearings', 'records-inspection-requests'],
   hoaDoes: [
     {
       text: 'A “Secretary of State complaint” card on each home’s collections file records the filing date and the hearing officer’s conclusions. From January 1, 2027, while the stay runs, the app blocks fines and collection letters that list fines or fees for that home and charges it no late fees. Before 2027 it only warns. The only override is “attorney advised,” and every override is logged.',

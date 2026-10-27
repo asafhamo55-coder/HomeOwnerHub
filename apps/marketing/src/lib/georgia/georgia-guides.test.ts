@@ -94,9 +94,9 @@ describe('statute quotes are verbatim', () => {
 })
 
 describe('guides', () => {
-  it('there are 6 to 8 guides', () => {
+  it('there are 6 to 11 guides', () => {
     expect(GUIDE_LIST.length).toBeGreaterThanOrEqual(6)
-    expect(GUIDE_LIST.length).toBeLessThanOrEqual(8)
+    expect(GUIDE_LIST.length).toBeLessThanOrEqual(11)
   })
 
   it('covers the owner-named topics', () => {
@@ -170,6 +170,15 @@ describe('guides', () => {
     expect(count).toBeGreaterThan(10)
   })
 
+  it('every checklist "what HomeownerHub does" line names an app route and a release note that exist', () => {
+    for (const c of Object.values(CHECKLISTS)) {
+      for (const h of c.hoaDoes ?? []) {
+        expect(hoaRouteExists(h.route), `${c.slug}: ${h.route}`).toBe(true)
+        expect(existsSync(path.join(repoRoot, 'docs/releases', `${h.release}.md`)), `${c.slug}: ${h.release}`).toBe(true)
+      }
+    }
+  })
+
   it('the condo guide describes the shipped condominium support (BL-155), not "not covered"', () => {
     const g = GUIDE_LIST.find((x) => x.slug === 'condo-vs-hoa-law')!
     expect(g.hoaDoes.length).toBeGreaterThan(0)
@@ -191,11 +200,12 @@ describe('guides', () => {
 })
 
 describe('checklists', () => {
-  it('four printable checklists exist', () => {
+  it('five printable checklists and templates exist', () => {
     expect(Object.keys(CHECKLISTS).sort()).toEqual([
       'annual-meeting-notice-checklist',
       'attorney-fee-notice-checklist',
       'hoa-board-meeting-agenda',
+      'hoa-violation-letter-georgia',
       'violation-notice-checklist',
     ])
     for (const c of Object.values(CHECKLISTS)) expect(c.items.length).toBeGreaterThanOrEqual(8)
@@ -383,5 +393,67 @@ describe('/professionals (BL-168 seats are not live)', () => {
     expect(page).toMatch(/faqLd\(PROFESSIONALS_FAQS\)/)
     expect(page).toMatch(/breadcrumbLd\(/)
     expect(PROFESSIONALS_FAQS.length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+// SEO batch 3: quorum and proxies, records requests, fines and hearings, and
+// the violation letter template.
+describe('SEO batch 3', () => {
+  const slugs = ['annual-meeting-quorum-proxies', 'records-inspection-requests', 'fines-and-violation-hearings']
+
+  it('the three guides are in the Georgia hub with their own paths and HowTo data', () => {
+    for (const s of slugs) {
+      const g = GUIDE_LIST.find((x) => x.slug === s)!
+      expect(g, s).toBeTruthy()
+      expect(pathOf(g)).toBe(`/georgia/${s}`)
+      expect(g.howTo).toBe(true)
+      expect(GEORGIA_PATHS).toContain(`/georgia/${s}`)
+    }
+  })
+
+  it('the new quotes pin the numbers the guides rely on', () => {
+    expect(QUOTES.memberQuorum.quote).toMatch(/more than one-third of the votes/)
+    expect(QUOTES.proxy11.quote).toMatch(/valid for 11 months/)
+    expect(QUOTES.memberInspect.quote).toMatch(/at least five business days/)
+    expect(QUOTES.proxyVoid.quote).toMatch(/void if it is not dated/)
+  })
+
+  it('a doctored batch 3 quote is caught', () => {
+    const q = QUOTES.proxy11
+    expect(fixture(q.fixture)).not.toContain(squash(q.quote.replace('11 months', '12 months')))
+  })
+
+  it('each guide says plainly what the fixtures do not hold and points to the documents or an attorney', () => {
+    for (const s of slugs) {
+      const g = GUIDE_LIST.find((x) => x.slug === s)!
+      const text = JSON.stringify(g.sections)
+      expect(text, s).toMatch(/cannot tell you/)
+      expect(text, s).toMatch(/attorney/)
+    }
+  })
+
+  it('the fines guide does not invent a hearing requirement or a fine amount', () => {
+    const g = GUIDE_LIST.find((x) => x.slug === 'fines-and-violation-hearings')!
+    const text = JSON.stringify([g.summary, g.sections, g.faqs])
+    expect(text).toMatch(/do not require a hearing/)
+    expect(text).not.toMatch(/\$\d/)
+  })
+
+  it('the fines guide says the app requires hearings before a fine only in Florida and California', () => {
+    const g = GUIDE_LIST.find((x) => x.slug === 'fines-and-violation-hearings')!
+    expect(JSON.stringify(g.hoaDoes)).toMatch(/only in Florida and California/)
+  })
+
+  it('the violation letter template sets no fine amount, response period or hearing step', () => {
+    const c = CHECKLISTS['hoa-violation-letter-georgia']!
+    expect(c.path).toBe('/templates/hoa-violation-letter-georgia')
+    expect(c.howTo).toBe(true)
+    expect(c.letter!.lines.length).toBeGreaterThan(15)
+    const text = JSON.stringify([c.letter, c.items])
+    expect(text).not.toMatch(/\$\d/)
+    expect(text).not.toMatch(/\b\d+[- ]days?\b/)
+    expect(c.items.length).toBeGreaterThanOrEqual(8)
+    for (const i of c.items) expect(['statute', 'practice'], i.text).toContain(i.basis)
+    expect(c.intro.join(' ')).toMatch(/not legal advice/)
   })
 })

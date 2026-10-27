@@ -4,6 +4,7 @@
 import { ATTORNEY_FEE_NOTICE, FORECLOSURE_THRESHOLD, OWNERS_RIGHTS, REGISTRATION } from './guides-a'
 import { COMPLAINT_PROCESS, CONDO_VS_HOA, LATE_FEES } from './guides-b'
 import { FIRST_90_DAYS, TREASURER_DUTIES } from './guides-c'
+import { FINES_HEARINGS, QUORUM_PROXIES, RECORDS_REQUESTS } from './guides-d'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -19,6 +20,9 @@ export const GUIDE_LIST: readonly Guide[] = [
   CONDO_VS_HOA,
   COMPLAINT_PROCESS,
   FIRST_90_DAYS,
+  QUORUM_PROXIES,
+  RECORDS_REQUESTS,
+  FINES_HEARINGS,
 ]
 
 /** Guides that live outside /georgia (BL-172 batch 2). */
@@ -87,6 +91,13 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: '/templates/hoa-board-meeting-agenda',
     title: 'HOA board meeting agenda template (printable)',
     blurb: 'A one-page agenda for any state: quorum, conflicts, treasurer’s report, violations, action items.',
+    kind: 'tool',
+  },
+  {
+    slug: 'hoa-violation-letter-georgia',
+    path: '/templates/hoa-violation-letter-georgia',
+    title: 'HOA violation letter template for Georgia (printable)',
+    blurb: 'A calm first-notice letter with a check-before-you-send list. Every legal detail is a blank for your own documents.',
     kind: 'tool',
   },
 ]

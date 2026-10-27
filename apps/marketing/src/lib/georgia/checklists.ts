@@ -1,5 +1,6 @@
 import type { QuoteId } from '../georgia-quotes'
-import { BOARD_AGENDA_TEMPLATE, VIOLATION_NOTICE_CHECKLIST } from './checklists-b'
+import type { HoaDoes } from './types'
+import { BOARD_AGENDA_TEMPLATE, VIOLATION_LETTER_TEMPLATE, VIOLATION_NOTICE_CHECKLIST } from './checklists-b'
 
 export interface Checklist {
   slug: string
@@ -20,6 +21,12 @@ export interface Checklist {
   path?: string
   /** Heading above the quotes. Default: "The statute behind this checklist". */
   quotesHeading?: string
+  /** A fill-in letter, printed after the checklist. Blanks are [in brackets]; it quotes no law. */
+  letter?: { heading: string; intro: string; lines: string[] }
+  /** Emit HowTo JSON-LD built from the checklist items. */
+  howTo?: boolean
+  /** What HomeownerHub does about this: only what has shipped. */
+  hoaDoes?: HoaDoes[]
 }
 
 export const FEE_NOTICE_CHECKLIST: Checklist = {
@@ -83,7 +90,7 @@ export const MEETING_NOTICE_CHECKLIST: Checklist = {
     { q: 'How much notice does a Georgia HOA annual meeting need?', a: 'At least 21 days in advance of any annual or regularly scheduled meeting, and at least seven days for any other meeting.' },
     { q: 'Can we email the notice?', a: 'The statute allows notice issued electronically in accordance with the Uniform Electronic Transactions Act. Check your bylaws and your owners’ consent practices with your attorney.' },
   ],
-  related: ['owners-rights-2027', 'registration-2027', 'hoa-board-meeting-agenda', 'readiness'],
+  related: ['owners-rights-2027', 'registration-2027', 'hoa-board-meeting-agenda', 'readiness', 'annual-meeting-quorum-proxies'],
   datePublished: '2026-10-26',
   dateModified: '2026-10-26',
 }
@@ -93,4 +100,5 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [MEETING_NOTICE_CHECKLIST.slug]: MEETING_NOTICE_CHECKLIST,
   [VIOLATION_NOTICE_CHECKLIST.slug]: VIOLATION_NOTICE_CHECKLIST,
   [BOARD_AGENDA_TEMPLATE.slug]: BOARD_AGENDA_TEMPLATE,
+  [VIOLATION_LETTER_TEMPLATE.slug]: VIOLATION_LETTER_TEMPLATE,
 }

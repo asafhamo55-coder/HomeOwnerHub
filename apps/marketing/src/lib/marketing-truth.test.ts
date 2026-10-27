@@ -423,6 +423,7 @@ describe('Georgia growth pages (BL-171)', () => {
     'app/professionals/page.tsx',
     'app/guides/hoa-treasurer-duties/page.tsx',
     'app/templates/hoa-board-meeting-agenda/page.tsx',
+    'app/templates/hoa-violation-letter-georgia/page.tsx',
   ]
   const pageShells = [
     'components/georgia/guide-page.tsx',
@@ -431,18 +432,21 @@ describe('Georgia growth pages (BL-171)', () => {
     'app/georgia/readiness/page.tsx',
   ]
 
-  it('the hub, eight guides, three checklists and the readiness check all exist', () => {
+  it('the hub, eleven guides, three checklists and the readiness check all exist', () => {
     expect(georgiaPages.map((p) => p.route).sort()).toEqual([
       '/georgia',
       '/georgia/annual-meeting-notice-checklist',
+      '/georgia/annual-meeting-quorum-proxies',
       '/georgia/attorney-fee-notice',
       '/georgia/attorney-fee-notice-checklist',
       '/georgia/complaint-process',
       '/georgia/condo-vs-hoa-law',
+      '/georgia/fines-and-violation-hearings',
       '/georgia/foreclosure-threshold-2027',
       '/georgia/late-fee-limits',
       '/georgia/owners-rights-2027',
       '/georgia/readiness',
+      '/georgia/records-inspection-requests',
       '/georgia/registration-2027',
       '/georgia/self-managed-hoa-georgia-first-90-days',
       '/georgia/violation-notice-checklist',
@@ -452,7 +456,7 @@ describe('Georgia growth pages (BL-171)', () => {
   // BL-172 batch 2: pages outside /georgia that reuse the same shells.
   it('the treasurer guide, the agenda template and /professionals exist, each with its own canonical path', () => {
     const routes = marketingPages().map((p) => p.route)
-    for (const r of ['/guides/hoa-treasurer-duties', '/templates/hoa-board-meeting-agenda', '/professionals']) {
+    for (const r of ['/guides/hoa-treasurer-duties', '/templates/hoa-board-meeting-agenda', '/templates/hoa-violation-letter-georgia', '/professionals']) {
       expect(routes, r).toContain(r)
       expect(read(`app${r}/page.tsx`), r).toContain(`path: '${r}'`)
     }
