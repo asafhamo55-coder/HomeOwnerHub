@@ -41,6 +41,24 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-36 · Three read-only checks for the tenant-isolation audit
+
+**Urgency:** Soon
+
+**Why it matters:** a security audit (BL-175) checked that one association can never see another's data. The code and migrations look sound for plain reads. A few things live only in your dashboards, and Claude can't see them. Nothing here changes anything.
+
+**Steps:**
+
+1. **Supabase SQL editor (production), read-only.** Paste this one query and send Claude the result (it shows only ids, names and true/false):
+   `SELECT 'bucket' AS kind, id AS name, public::text AS value FROM storage.buckets UNION ALL SELECT 'realtime', schemaname||'.'||tablename, 'published' FROM pg_publication_tables WHERE pubname='supabase_realtime';`
+   Expected: every bucket `false` (not public), and no realtime rows (or tell Claude which).
+2. **Supabase → Authentication → Providers → Email:** is **"Confirm email"** turned on? Tell Claude yes or no.
+3. **Vercel, project home-owner-hub-hoa → Settings → Environment Variables (Production):** tell Claude (names only, never values) whether these exist:
+   - `INNGEST_SIGNING_KEY`: should be set.
+   - `INNGEST_DEV`: should not exist.
+   - `DEV_AUTOLOGIN`: should not exist.
+   - `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`: should be set (see OA-26). Today the app's signed settings fall back to the database service key.
+
 ### OA-34 · Let demo requests from the website reach you (urgent)
 
 **Urgency:** Urgent

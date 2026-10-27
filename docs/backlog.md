@@ -1969,4 +1969,13 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
      - AI retrieval filters, jobs mixing orgs, Next caching keys, webhook org resolution;
      - exports, search, realtime, and logs.
    - **Then:** fix confirmed issues and add CI integration tests so isolation is enforced going forward.
-   - **Status:** audit dispatched 2026-10-26.
+   - **Status 2026-10-26:** audit done. No Critical; plain cross-tenant reads hold. Six High findings come from one pattern, cross-org FK planting by a self-made org admin:
+     - H1: send from another org's Gmail;
+     - H2: post a W18 receipt into another org's books;
+     - H3: resident read through planted ownership/recipient links;
+     - H4: OAuth state not bound to the session;
+     - H5: global state_law_updates writable by any org admin;
+     - H6: login open redirect.
+
+     Mediums M1–M8 and Lows L1–L10 are also open.
+   - **Fixes dispatched:** BL-175a code-only (H1/H2 job checks, H4, H6, M1–M3, M7, M8, L3, L9) and BL-175b migration 0070_tenant_isolation (same-org triggers, org-scoped resident helpers, communications_select, H5, M5, M6, L1, L2, L5, L7) plus CI tests. BL-168 is renumbered to 0071 and must reuse the org-scoped helpers. OA-36 covers the dashboard-only checks.
