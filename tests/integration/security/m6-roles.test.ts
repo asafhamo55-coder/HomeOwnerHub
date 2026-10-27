@@ -1132,7 +1132,7 @@ describe('0071 second review', () => {
     // An association created with an amount is audited as a change from nothing.
     const created = await adminDb()
       .from('associations')
-      .insert({ organization_id: org.orgId, name: 'Second', state: 'GA', dual_control_cents: 50_000 } as never)
+      .insert({ organization_id: org.orgId, name: 'Second', state: 'GA', slug: `second-${randomUUID().slice(0, 8)}`, dual_control_cents: 50_000 } as never)
       .select('id')
       .single()
     expect(created.error).toBeNull()
