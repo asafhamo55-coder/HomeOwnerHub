@@ -79,7 +79,10 @@ export function SetupChecklistCard({ checklist }: { checklist: SetupChecklist })
 function StepItem({ step, index }: { step: SetupChecklistStep; index: number }) {
   // A second way to do the step (the properties import) is a third sibling
   // link, set in room the step leaves for it at the bottom.
-  const secondary = step.state === 'todo' ? step.secondary : undefined
+  // BL-176: "Confirm your state and association type" stays after the step is
+  // done, because the association usually exists (and the step is done)
+  // before anyone has checked its state.
+  const secondary = step.state === 'todo' || step.key === 'association' ? step.secondary : undefined
   return (
     <div className="relative h-full">
       <StepLink step={step} index={index} roomBelow={Boolean(secondary)} />
