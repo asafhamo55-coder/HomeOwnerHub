@@ -22,6 +22,7 @@
  * only, never `.details`.
  */
 
+import { checkOrgOwned } from '@/lib/org-owned'
 import { revalidatePath } from 'next/cache'
 import { inngest } from '@homeowner-portal/jobs'
 import {
@@ -277,6 +278,33 @@ export async function approveDraft(
     const capMb = MAX_ATTACHMENT_BYTES / (1024 * 1024)
     return {
       error: `Attachments exceed the ${capMb} MB limit. Remove a file and try again.`,
+    }
+  }
+
+  // Tenant isolation: the draft's thread and mailbox account must belong to
+  // the caller's org BEFORE anything is queued. The send job re-checks, but
+  // refusing here keeps a poisoned draft from ever reaching the queue.
+  const { data: link, error: linkError } = await supabase
+    .from('inbox_drafts')
+    .select('thread_id, mailbox_account_id')
+    .eq('id', draftId)
+    .eq('organization_id', org.id)
+    .eq('status', 'draft')
+    .maybeSingle()
+  if (linkError) {
+    console.error(`approveDraft: link read failed: ${linkError.code}`)
+    return { error: 'Could not queue the reply.' }
+  }
+  if (!link) return { error: 'This draft is no longer awaiting approval.' }
+  const linked: Array<[string, string | null]> = [
+    ['inbox_threads', link.thread_id],
+    ['mailbox_accounts', link.mailbox_account_id],
+  ]
+  for (const [table, id] of linked) {
+    if (!id) continue
+    if ((await checkOrgOwned(table, id, org.id)) !== 'owned') {
+      console.error(`approveDraft: draft ${draftId} links ${table} outside org ${org.id}`)
+      return { error: 'Could not queue the reply.' }
     }
   }
 

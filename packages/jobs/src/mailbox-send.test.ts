@@ -254,12 +254,12 @@ describe('runMailboxSend', () => {
         inbox_drafts: [{ data: null, error: null }], // final 'sent' update succeeds
         inbox_threads: [
           {
-            data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID },
+            data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' },
             error: null,
           },
         ],
         mailbox_accounts: [
-          { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+          { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
         ],
         inbox_messages: [
           {
@@ -277,6 +277,66 @@ describe('runMailboxSend', () => {
     expect(sendReply).toHaveBeenCalledWith('access-token', 'gm-thread-1', 'mime-message')
   })
 
+  it('refuses to send through a mailbox account owned by another org (tenant isolation)', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: queuedDraftRow(), error: null },
+        { data: { id: DRAFT_ID }, error: null }, // claim
+        { data: null, error: null }, // fail() write
+      ],
+      inbox_threads: [
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }, error: null },
+      ],
+      mailbox_accounts: [
+        { data: { organization_id: 'org-OTHER', email_address: 'x@example.com', disconnected_at: null }, error: null },
+      ],
+    })
+    const logger = fakeLogger()
+    const result = await runMailboxSend(db, fakeStep(), logger, DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'org_mismatch' })
+    expect(sendReply).not.toHaveBeenCalled()
+    expect(getAccessTokenFor).not.toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('org-OTHER'))
+    expect(logger.error).not.toHaveBeenCalledWith(expect.stringContaining('x@example.com'))
+  })
+
+  it('refuses to send on a thread owned by another org (tenant isolation)', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: queuedDraftRow(), error: null },
+        { data: { id: DRAFT_ID }, error: null },
+        { data: null, error: null },
+      ],
+      inbox_threads: [
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-OTHER' }, error: null },
+      ],
+      // No mailbox_accounts scripted: the account must never be loaded.
+    })
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'org_mismatch' })
+    expect(sendReply).not.toHaveBeenCalled()
+    expect(getAccessTokenFor).not.toHaveBeenCalled()
+  })
+
+  it('refuses a threadless draft whose mailbox_account_id is in another org', async () => {
+    const db = buildDb({
+      inbox_drafts: [
+        { data: queuedDraftRow({ kind: 'new', thread_id: null, mailbox_account_id: ACCOUNT_ID, to_emails: ['a@example.com'] }), error: null },
+        { data: { id: DRAFT_ID }, error: null },
+        { data: null, error: null },
+      ],
+      mailbox_accounts: [
+        { data: { organization_id: 'org-OTHER', email_address: 'x@example.com', disconnected_at: null }, error: null },
+      ],
+    })
+    const result = await runMailboxSend(db, fakeStep(), fakeLogger(), DRAFT_ID)
+
+    expect(result).toEqual({ sent: false, reason: 'org_mismatch' })
+    expect(sendReply).not.toHaveBeenCalled()
+  })
+
   it('fails the draft without attempting a send when the mailbox is disconnected', async () => {
     const db = buildDb({
       inbox_drafts: [
@@ -285,11 +345,11 @@ describe('runMailboxSend', () => {
         { data: null, error: null }, // fail() write
       ],
       inbox_threads: [
-        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID }, error: null },
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }, error: null },
       ],
       mailbox_accounts: [
         {
-          data: { email_address: 'hoa@example.com', disconnected_at: '2026-01-01T00:00:00Z' },
+          data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: '2026-01-01T00:00:00Z' },
           error: null,
         },
       ],
@@ -322,11 +382,11 @@ describe('runMailboxSend', () => {
         { data: null, error: null }, // fail() write
       ],
       inbox_threads: [
-        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID }, error: null },
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }, error: null },
       ],
       mailbox_accounts: [
         {
-          data: { email_address: 'hoa@example.com', disconnected_at: '2026-01-01T00:00:00Z' },
+          data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: '2026-01-01T00:00:00Z' },
           error: null,
         },
       ],
@@ -348,10 +408,10 @@ describe('runMailboxSend', () => {
         { data: null, error: null }, // fail() write
       ],
       inbox_threads: [
-        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID }, error: null },
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }, error: null },
       ],
       mailbox_accounts: [
-        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+        { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
       ],
       inbox_messages: [{ data: null, error: null }],
     })
@@ -385,9 +445,9 @@ describe('runMailboxSend', () => {
         { data: { id: 'd1' }, error: null }, // claim
         { data: null, error: null }, // recordSent
       ],
-      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null }],
       mailbox_accounts: [
-        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+        { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
       ],
       inbox_messages: [
         { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
@@ -427,9 +487,9 @@ describe('runMailboxSend', () => {
         { data: { id: 'd1' }, error: null },
         { data: null, error: null },
       ],
-      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null }],
       mailbox_accounts: [
-        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+        { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
       ],
       inbox_messages: [
         { data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null },
@@ -465,9 +525,9 @@ describe('runMailboxSend', () => {
         { data: { id: 'd1' }, error: null },
         { data: null, error: null }, // fail()
       ],
-      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null }],
       mailbox_accounts: [
-        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+        { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
       ],
       inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: null }, error: null }],
     })
@@ -490,10 +550,10 @@ describe('runMailboxSend', () => {
         { data: null, error: { message: 'connection reset', code: '08006' } },
       ],
       inbox_threads: [
-        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID }, error: null },
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }, error: null },
       ],
       mailbox_accounts: [
-        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+        { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
       ],
       inbox_messages: [
         {
@@ -530,13 +590,13 @@ describe('runMailboxSend', () => {
       if (table === 'associations') return makeChain(LIVE_ORG)
       if (table === 'inbox_threads') {
         return makeChain({
-          data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID },
+          data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' },
           error: null,
         })
       }
       if (table === 'mailbox_accounts') {
         return makeChain({
-          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null },
           error: null,
         })
       }
@@ -593,10 +653,10 @@ describe('runMailboxSend', () => {
         { data: null, error: null }, // fail() write
       ],
       inbox_threads: [
-        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID }, error: null },
+        { data: { gmail_thread_id: 'gm-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }, error: null },
       ],
       mailbox_accounts: [
-        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+        { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
       ],
       inbox_messages: [
         {
@@ -653,8 +713,8 @@ describe('runMailboxSend', () => {
           { data: { id: 'd1' }, error: null },
           { data: null, error: null },
         ],
-        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
-        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null }],
+        mailbox_accounts: [{ data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
         inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
         inbox_draft_attachments: [
           { data: [{ storage_path: 'org-1/ccrs.pdf', file_name: 'ccrs.pdf', content_type: 'application/pdf', size_bytes: 4 }], error: null },
@@ -690,11 +750,11 @@ describe('runMailboxSend', () => {
     const from = vi.fn((table: string) => {
       if (table === 'associations') return makeChain(LIVE_ORG)
       if (table === 'inbox_threads') {
-        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
+        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null })
       }
       if (table === 'mailbox_accounts') {
         return makeChain({
-          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null },
           error: null,
         })
       }
@@ -739,8 +799,8 @@ describe('runMailboxSend', () => {
         { data: { id: 'd1' }, error: null },
         { data: null, error: null },
       ],
-      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
-      mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null }],
+      mailbox_accounts: [{ data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
       inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
       inbox_draft_attachments: [{ data: [], error: null }],
     })
@@ -761,7 +821,7 @@ describe('runMailboxSend', () => {
         { data: { id: 'd1' }, error: null },
         { data: null, error: null },
       ],
-      mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+      mailbox_accounts: [{ data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
       inbox_draft_attachments: [{ data: [], error: null }],
     })
     vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt-new' })
@@ -794,8 +854,8 @@ describe('runMailboxSend', () => {
           { data: { id: 'd1' }, error: null },
           { data: null, error: null },
         ],
-        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null }],
-        mailbox_accounts: [{ data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
+        inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null }],
+        mailbox_accounts: [{ data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null }],
         inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: 'resident@example.com' }, error: null }],
         inbox_draft_attachments: [
           {
@@ -855,11 +915,11 @@ describe('runMailboxSend', () => {
     const from = vi.fn((table: string) => {
       if (table === 'associations') return makeChain(LIVE_ORG)
       if (table === 'inbox_threads') {
-        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1' }, error: null })
+        return makeChain({ data: { gmail_thread_id: 'gt1', mailbox_account_id: 'a1', organization_id: 'org-1' }, error: null })
       }
       if (table === 'mailbox_accounts') {
         return makeChain({
-          data: { email_address: 'hoa@example.com', disconnected_at: null },
+          data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null },
           error: null,
         })
       }
@@ -1116,10 +1176,10 @@ function buildStatefulDb() {
 
     const rowFor = (): unknown => {
       if (table === 'inbox_threads') {
-        return { gmail_thread_id: 'gmail-thread-1', mailbox_account_id: ACCOUNT_ID }
+        return { gmail_thread_id: 'gmail-thread-1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }
       }
       if (table === 'mailbox_accounts') {
-        return { email_address: 'hoa@example.com', disconnected_at: null }
+        return { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }
       }
       if (table === 'inbox_messages') {
         return { rfc822_message_id: '<abc@mail.gmail.com>', from_email: RESIDENT_EMAIL }
@@ -1214,9 +1274,9 @@ describe('runMailboxSend — outbound safety guard', () => {
         { data: { id: DRAFT_ID }, error: null }, // claim
         { data: null, error: null }, // recordSent OR fail()
       ],
-      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: ACCOUNT_ID }, error: null }],
+      inbox_threads: [{ data: { gmail_thread_id: 'gt1', mailbox_account_id: ACCOUNT_ID, organization_id: 'org-1' }, error: null }],
       mailbox_accounts: [
-        { data: { email_address: 'hoa@example.com', disconnected_at: null }, error: null },
+        { data: { organization_id: 'org-1', email_address: 'hoa@example.com', disconnected_at: null }, error: null },
       ],
       inbox_messages: [{ data: { rfc822_message_id: '<x@y>', from_email: RESIDENT_EMAIL }, error: null }],
       inbox_draft_attachments: [{ data: [], error: null }],
