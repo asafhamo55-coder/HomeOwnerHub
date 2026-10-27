@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs/config'
+import bundleAnalyzer from '@next/bundle-analyzer'
 
 // Security headers sent on every response. These are the standard set
 // browsers expect from production sites — without them, mobile Safari
@@ -167,7 +168,14 @@ const config: NextConfig = {
 // in src/instrumentation*.ts and is inert without a DSN.
 const hasSentryToken = Boolean(process.env.SENTRY_AUTH_TOKEN)
 
-export default withSentryConfig(config, {
+// ANALYZE=1 pnpm --filter hoa build writes .next/analyze/*.html (BL-099 perf pass).
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === '1',
+  openAnalyzer: false,
+  analyzerMode: process.env.ANALYZE_JSON === '1' ? 'json' : 'static',
+})
+
+export default withBundleAnalyzer(withSentryConfig(config, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -175,4 +183,4 @@ export default withSentryConfig(config, {
   telemetry: false,
   sourcemaps: { disable: !hasSentryToken },
   release: { create: hasSentryToken, finalize: hasSentryToken },
-})
+}))

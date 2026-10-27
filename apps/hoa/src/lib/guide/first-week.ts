@@ -13,7 +13,8 @@
  * just can't remember a dismiss, and a resident card stays hidden because
  * a first visit can't be told from a hundredth.
  */
-import { guideHref } from './index'
+// Data-free: ./index pulls the 1.9 MB compiled guide into the client bundle.
+import { guideHrefUnchecked as guideHref } from './href'
 
 export const FIRST_WEEK_DAYS = 14
 export const RESIDENT_FIRST_VISITS = 5

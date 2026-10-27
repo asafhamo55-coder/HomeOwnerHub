@@ -3,11 +3,13 @@
  * generated module; there is no fs and no markdown at runtime.
  */
 import { GUIDE_ARTICLES, GUIDE_PATHS, GUIDE_ROUTE_INDEX, GUIDE_SEARCH_INDEX, GUIDE_SECTIONS, GUIDE_TOPICS } from '@/generated/guide'
+import { articleHref, type GuideAudience } from './href'
 import { searchBm25 } from './bm25'
 import { listRouteFor, matchRouteTemplate } from './routes'
 import type { GuideArticle, GuideBlock, GuidePath, GuideRole, GuideTopic } from './types'
 
-export type GuideAudience = 'board' | 'resident'
+export type { GuideAudience } from './href'
+export { articleHref } from './href'
 /** The viewer's app role. Admins see board articles too. */
 export type GuideViewerRole = 'admin' | 'board' | 'resident'
 
@@ -53,10 +55,6 @@ export function pathsFor(role: GuideViewerRole): { path: GuidePath; articles: Gu
       articles: path.articles.map((id) => GUIDE_ARTICLES.find((a) => a.id === id)).filter((a): a is GuideArticle => !!a && canSee(role, a)),
     }))
     .filter((p) => p.articles.length > 0)
-}
-
-export function articleHref(id: string, audience: GuideAudience): string {
-  return audience === 'resident' ? `/resident/help/${id}` : `/help/${id}`
 }
 
 /**

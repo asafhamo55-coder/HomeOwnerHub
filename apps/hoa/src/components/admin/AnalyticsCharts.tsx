@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import ReactECharts from 'echarts-for-react'
+import { LazyECharts as ReactECharts } from '@/components/charts/LazyECharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, useTheme } from '@homeowner-portal/ui'
 import { palette } from '@homeowner-portal/ui/tokens'
 
