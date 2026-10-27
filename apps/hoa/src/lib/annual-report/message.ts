@@ -43,21 +43,14 @@ export function narrativeParagraphs(text: string | null | undefined): string[] {
 }
 
 /**
- * The owner message: the board's narrative and the headline figures from
- * each section, built only from `AnnualReport` (already owner-safe). Plain
- * paragraphs and lists, so the composer's editor keeps them. Nothing here
- * sends anything.
+ * The report's sections as HTML paragraphs and lists: the board's narrative,
+ * then each section's headline figures and the law note. Owner-safe (built
+ * only from `AnnualReport`). Used by the owner message and, as the
+ * "attached" report, by the annual-meeting notice.
  */
-export function annualReportMessage(report: AnnualReport, narrative: string): AnnualReportDraft {
-  const name = report.associationName.trim() || 'the association'
-  const subject = `${name}: annual report to owners`
+export function annualReportSectionsHtml(report: AnnualReport, narrative: string): string[] {
   const out: string[] = []
   const unavailable = (s: Section<unknown>) => (s.state === 'failed' ? 'Couldn’t be loaded for this message; see the full report.' : s.state === 'none' ? s.why : '')
-
-  out.push('<p>Dear owner,</p>')
-  out.push(
-    `<p>Here is the board’s report on ${esc(name)}’s affairs and finances for ${esc(report.window.label)}, and the budget for next year, for the ${esc(report.meeting.type.toLowerCase())} on ${esc(formatDay(report.meeting.date, 'medium'))}.</p>`,
-  )
   const story = narrativeParagraphs(narrative)
   if (story.length > 0) {
     out.push('<p><strong>From the board</strong></p>')
@@ -161,6 +154,25 @@ export function annualReportMessage(report: AnnualReport, narrative: string): An
   }
   if (report.jurisdiction === 'GA') out.push(`<p>${esc(annualReportLawNote('GA'))} ${esc(ANNUAL_REPORT_NOT_LEGAL_ADVICE)}</p>`)
 
+  return out
+}
+
+/**
+ * The owner message: the board's narrative and the headline figures from
+ * each section, built only from `AnnualReport` (already owner-safe). Plain
+ * paragraphs and lists, so the composer's editor keeps them. Nothing here
+ * sends anything.
+ */
+export function annualReportMessage(report: AnnualReport, narrative: string): AnnualReportDraft {
+  const name = report.associationName.trim() || 'the association'
+  const subject = `${name}: annual report to owners`
+  const out: string[] = []
+
+  out.push('<p>Dear owner,</p>')
+  out.push(
+    `<p>Here is the board’s report on ${esc(name)}’s affairs and finances for ${esc(report.window.label)}, and the budget for next year, for the ${esc(report.meeting.type.toLowerCase())} on ${esc(formatDay(report.meeting.date, 'medium'))}.</p>`,
+  )
+  out.push(...annualReportSectionsHtml(report, narrative))
   out.push('<p>[Attach the printed report, or say where owners can get a copy.]</p>')
   out.push('<p>If you have questions, reply to this message or ask at the meeting.</p>')
   out.push(`<p>The Board of Directors<br />${esc(name)}</p>`)

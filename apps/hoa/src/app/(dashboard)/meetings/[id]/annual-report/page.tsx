@@ -11,6 +11,8 @@ import { loadAnnualReport, type AnnualReportMeeting } from '@/lib/annual-report/
 import { formatDay, todayIso } from '@/lib/money/format'
 import { PrintPacketButton } from '../packet/PrintPacketButton'
 import { AnnualReportView } from './AnnualReportView'
+import { readKitAssociations } from '@/lib/meeting-quorum/load'
+import { readNarrative } from '@/lib/annual-report/narrative'
 import { BoardMessage } from './BoardMessage'
 
 export const metadata = { title: 'Annual report to owners' }
@@ -73,6 +75,8 @@ export default async function AnnualReportPage(props: { params: Promise<{ id: st
     )
   }
   const report = loaded.report
+  const assocs = await readKitAssociations(supabase, org.id)
+  const savedNarrative = assocs.ok && assocs.rows[0] ? readNarrative(assocs.rows[0].compliance_settings, id) : ''
 
   return (
     <Page
@@ -100,7 +104,7 @@ export default async function AnnualReportPage(props: { params: Promise<{ id: st
         ) : null}
       </div>
 
-      <AnnualReportView report={report} boardMessage={<BoardMessage report={report} />} />
+      <AnnualReportView report={report} boardMessage={<BoardMessage report={report} meetingId={id} initialText={savedNarrative} />} />
     </Page>
   )
 }

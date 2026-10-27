@@ -71,7 +71,8 @@ import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
 import { PhonePreview } from './PhonePreview'
 import { NoticeLawAlert } from '@/components/meetings/NoticeLawAlert'
 import type { NoticeCheck } from '@/lib/meetings/notice-law'
-import { calendarParagraphHtml, type MeetingNoticePrefill } from '@/lib/meetings/notice-prefill'
+import { TEMPLATE_MEETING_TYPE, calendarParagraphHtml, type MeetingNoticePrefill } from '@/lib/meetings/notice-prefill'
+import { annualReportNoticeSection } from '@/lib/annual-report/actions'
 import { meetingCalendarParagraph, recordMeetingNoticeSent } from '@/lib/meetings/notice-actions'
 import { appOrigin } from '@/lib/app-origin'
 
@@ -229,6 +230,9 @@ export function NewCommunicationWizard({
   // BL-118: a fresh meeting notice (a resumed draft carries its own link).
   const meetingPrefill = r ? null : (meetingNoticeProp?.prefill ?? null)
   const meetingNoticeId = r?.meetingNotice?.meetingId ?? meetingPrefill?.meetingId ?? null
+  // BL-153: the annual meeting's notice can carry the owner annual report (offered on a fresh notice).
+  const offerAnnualReport = meetingPrefill?.answers.meeting_type === TEMPLATE_MEETING_TYPE.annual
+  const [attachReport, setAttachReport] = useState(false)
   const meetingTemplate = meetingPrefill ? BUILT_IN_OPTIONS.find((t) => t.id === meetingPrefill.templateId) ?? null : null
   // A resumed follow-up draft carries its own follow-up audience.
   const followUp: FollowUpDraft | null = followUpProp ?? r?.followUp ?? null
@@ -1060,12 +1064,25 @@ export function NewCommunicationWizard({
         }).catch(() => null)
         finalBodyHtml = `${bodyHtml}\n${cal?.ok ? cal.html : calendarParagraphHtml(appOrigin(), meetingNoticeId, {})}`
       }
+      // BL-153: the owner annual report under the notice. Email takes no
+      // file attachments, so it goes in as text. Text channels (SMS) keep
+      // the notice without it. If it can't be built, nothing is sent.
+      const textHtml = finalBodyHtml
+      if (meetingNoticeId && offerAnnualReport && attachReport) {
+        const rep = await annualReportNoticeSection(meetingNoticeId).catch(() => null)
+        if (!rep?.ok) {
+          sendingRef.current = false
+          setError(rep ? rep.error : 'Couldn’t add the annual report. Try again, or untick it to send the notice alone.')
+          return
+        }
+        finalBodyHtml = `${finalBodyHtml}\n${rep.html}`
+      }
       const sent = sendCommunication({
         category: sendCategory,
         subject: finalSubject,
         bodyHtml: finalBodyHtml,
         // BL-102 A3: keeps bullets and link addresses, SMS-safe punctuation.
-        bodyText: htmlToMessageText(finalBodyHtml),
+        bodyText: htmlToMessageText(textHtml),
         // Never send a text channel the server can't deliver (BL-102).
         channels: channels.filter((c) => c !== 'sms' || smsConfigured) as ('email' | 'portal' | 'sms' | 'mail')[],
         audience: audienceDef,
@@ -1191,6 +1208,15 @@ export function NewCommunicationWizard({
               meeting to a calendar, and one to the agenda in the resident portal, go under your message.
             </p>
           </Alert>
+        ) : null}
+        {offerAnnualReport ? (
+          <label className="flex items-start gap-2 rounded-lg border border-border bg-subtle px-4 py-3 text-sm text-foreground">
+            <input type="checkbox" className="mt-1" checked={attachReport} onChange={(e) => setAttachReport(e.target.checked)} />
+            <span>
+              Include the annual report to owners under this notice. Totals only, with the board’s saved message. Email can’t carry files, so it goes in
+              as text; text messages leave it out. Review it on the meeting’s annual report page first.
+            </span>
+          </label>
         ) : null}
         {meetingNoticeProp?.check && meetingPrefill ? <NoticeLawAlert check={meetingNoticeProp.check} /> : null}
         {resumeDraft ? (

@@ -6,7 +6,7 @@ import type { PacketBudget } from '@/lib/board-packet/financials'
 import type { ComplianceOverview } from '@/lib/compliance/obligations'
 import { EMPTY_ELECTION } from '@/lib/elections/model'
 import { annualReportJurisdiction } from '@/lib/annual-report/law'
-import { annualReportMessage } from '@/lib/annual-report/message'
+import { annualReportMessage, annualReportSectionsHtml } from '@/lib/annual-report/message'
 import {
   ownerBalance,
   ownerBudgets,
@@ -283,11 +283,13 @@ function buildReport(state: string): AnnualReport {
 
 const NARRATIVE = 'We repaved the lot and kept dues flat.\n\nThank you to every volunteer.'
 
-function renderAll(state: string): { page: string; message: string; model: string } {
+function renderAll(state: string): { page: string; message: string; notice: string; model: string } {
   const report = buildReport(state)
   const page = renderToStaticMarkup(<AnnualReportView report={report} boardMessage={<p>{NARRATIVE}</p>} />)
   const message = annualReportMessage(report, NARRATIVE).bodyHtml
-  return { page, message, model: JSON.stringify(report) }
+  // BL-153: the section the annual-meeting notice carries.
+  const notice = annualReportSectionsHtml(report, NARRATIVE).join('\n')
+  return { page, message, notice, model: JSON.stringify(report) }
 }
 
 describe('owner annual report: no per-home data or PII in the rendered output', () => {
@@ -372,5 +374,14 @@ describe('statute wording', () => {
       }
       expect(page).toContain('Budget projection for next year')
     }
+  })
+
+  it('the notice section carries the board narrative and the same figures, without the letter frame', () => {
+    const { notice, message } = renderAll('GA')
+    expect(notice).toContain('From the board')
+    expect(notice).toContain('We repaved the lot and kept dues flat.')
+    expect(notice).toContain('Acme Mutual')
+    expect(notice).not.toContain('Dear owner')
+    expect(message).toContain(notice)
   })
 })
