@@ -44,6 +44,8 @@ import { formatMeetingDate, type UpcomingMeeting } from '@/lib/resident-meetings
 import { getResidentActor } from '@/lib/impersonation'
 import { loadMySmsPreference, loadMyTextPhones } from '@/lib/sms-consent'
 import { TextsPromptCard } from '@/components/resident/TextsPromptCard'
+import { BoardContactsCard } from '@/components/resident/BoardContactsCard'
+import { readBoardContacts, type BoardContact } from '@/lib/association-contacts'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'My Home' }
@@ -68,13 +70,14 @@ export default async function ResidentDashboard() {
   // The next meeting needs only the org and the units' zone — both
   // memoized reads the dashboard makes too — so it runs alongside the
   // dashboard instead of after it (BL-099).
-  const [data, nextMeeting, offerTexts] = await Promise.all([
+  const [data, nextMeeting, offerTexts, contactGroups] = await Promise.all([
     timed('/resident', 'resident.dashboard', () => getResidentDashboard()),
     timed('/resident', 'resident.nextMeeting', async () => {
       const [org, units] = await Promise.all([getCurrentOrg(), getResidentUnits()])
       return org ? loadNextMeeting(org.id, residentTimeZone(units)) : null
     }),
     timed('/resident', 'resident.textsPrompt', () => shouldOfferTexts()),
+    timed('/resident', 'resident.boardContacts', async () => loadBoardContacts(await getResidentUnits())),
   ])
 
   const hasUnit = data.units.length > 0
@@ -182,6 +185,14 @@ export default async function ResidentDashboard() {
       {/* First visits only, until dismissed; after the account's standing, never above it. */}
       {data.orgId ? <ResidentFirstWeek scope={data.orgId} /> : null}
 
+      {contactGroups.map((g) => (
+        <BoardContactsCard
+          key={g.associationId}
+          contacts={g.contacts}
+          communityName={contactGroups.length > 1 ? g.name : null}
+        />
+      ))}
+
       <Section label="Quick actions">
         {/* Seven tiles: the odd one out spans the last row rather than sitting alone. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(3n+1)]:col-span-3">
@@ -247,6 +258,35 @@ async function shouldOfferTexts(): Promise<boolean> {
     return !pref.pref.optIn && !pref.pref.otherOrg && phones.phones.length > 0
   } catch {
     return false
+  }
+}
+
+// ── Board and emergency contacts ────────────────────────────────────────
+// What the board chose to publish, from associations.compliance_settings
+// (readable by org members under RLS). One group per association the
+// resident has a home in; empty groups and any failed read are hidden.
+
+type ContactGroup = { associationId: string; name: string | null; contacts: BoardContact[] }
+
+async function loadBoardContacts(units: ResidentUnit[]): Promise<ContactGroup[]> {
+  const ids = [...new Set(units.map((u) => u.association_id).filter((id): id is string => !!id))]
+  if (ids.length === 0) return []
+  try {
+    const supabase = await getSupabaseServerClient()
+    const { data, error } = await supabase
+      .from('associations')
+      .select('id, name, compliance_settings')
+      .in('id', ids)
+      .order('name', { ascending: true })
+    if (error) throw error
+    return ((data ?? []) as Array<{ id: string; name: string; compliance_settings: unknown }>)
+      .map((a) => ({ associationId: a.id, name: a.name, contacts: readBoardContacts(a.compliance_settings) }))
+      .filter((g) => g.contacts.length > 0)
+  } catch (e) {
+    console.error('[resident-home] board contacts read failed', {
+      code: (e as { code?: string } | null)?.code ?? null,
+    })
+    return []
   }
 }
 
