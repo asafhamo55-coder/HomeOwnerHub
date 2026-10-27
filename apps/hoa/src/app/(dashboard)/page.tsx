@@ -71,6 +71,9 @@ import { nextStep } from '@/lib/budget-adoption/model'
 import { AnnouncementCard } from '@/components/dashboard/AnnouncementCard'
 import { loadNudge } from '@/lib/announcements/load'
 import { nudgeDigestLine } from '@/lib/announcements/nudge'
+import { LateFeePromptCard } from '@/components/dashboard/LateFeePromptCard'
+import { lateFeePrompt, lateFeePromptDismissedCookie } from '@/lib/late-fees/dashboard-prompt'
+import { paySettingsSecret } from '@/lib/pay-by-zelle'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -193,6 +196,10 @@ function DashboardSections({ orgId }: { orgId: string }) {
       {/* BL-139: FL directors whose certificate is due within 30 days or overdue. */}
       <Suspense fallback={null}>
         <DirectorCertSection orgId={orgId} />
+      </Suspense>
+      {/* BL-147: Georgia, no late-fee policy saved. Dismissible. */}
+      <Suspense fallback={null}>
+        <LateFeePromptSection orgId={orgId} />
       </Suspense>
       {/* BL-132: insurance policies expiring within 90 days (M4_APPLIED). */}
       <Suspense fallback={null}>
@@ -533,6 +540,33 @@ async function DirectorCertSection({ orgId }: { orgId: string }) {
   )
   if (board.kind === 'not_applicable') return null
   return <DirectorCertCard alerts={board.kind === 'ok' ? directorCertAlerts(board.rows) : null} />
+}
+
+// BL-147: Georgia association with no saved late-fee policy. Board/admin
+// only, re-checked here. Nothing renders once a policy is saved, outside
+// Georgia, after "Not now", or when the read fails.
+async function LateFeePromptSection({ orgId }: { orgId: string }) {
+  const ctx = await getCurrentUserRole()
+  if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return null
+  const [supabase, cookieStore] = await Promise.all([getSupabaseServerClient(), cookies()])
+  const res = await timed('/', 'dashboard.lateFeePrompt', () =>
+    loadOrFail(
+      'late fee prompt association',
+      supabase
+        .from('associations')
+        .select('id, state, governing_law_state, type, compliance_settings')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true }),
+    ),
+  )
+  if (!res.ok) return null
+  const prompt = lateFeePrompt({
+    role: ctx.role,
+    association: ((res.data ?? []) as NonNullable<Parameters<typeof lateFeePrompt>[0]['association']>[])[0] ?? null,
+    secret: paySettingsSecret(),
+    dismissed: cookieStore.get(lateFeePromptDismissedCookie(orgId))?.value === '1',
+  })
+  return prompt ? <LateFeePromptCard prompt={prompt} /> : null
 }
 
 // BL-132: policies expiring within 90 days (or expired) with no renewal
