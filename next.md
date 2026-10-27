@@ -133,6 +133,27 @@ Crons live only for the session and auto-expire after 7 days, so schedule a one-
 
 ## 4. State (updated 2026-10-22 13:50 ET)
 
+> **Update 2026-10-26 22:50 ET (session ed7c42d3), read this first:**
+> - **Live:** e6786ece (22:03): BL-165 conflict disclosures, BL-167 federal deadlines. **23:05 deploy scheduled:** d09c268f (BL-173 announcements, BL-174 nice.com-inspired marketing restyle, Safari properties-link fix).
+> - **In CI on the integration branch:** 66423b57, BL-175a tenant-isolation code fixes plus BL-176 Settings > Association. Deploy after 00:05 if green.
+> - **Migrations waiting for Asaf, in this order:**
+>   1. **0070_tenant_isolation** (BL-175b, branch `claude/bl-175b` at 9a4a79b2, CI green). Merge it into the integration branch after the current CI run. Runbook Section M, with read-only pre-checks first.
+>   2. **0071_m6_roles** (BL-168, branch `claude/bl-168`). The second security review says it's safe to apply. Its CI is re-running after a test-seed fix (a9c7d97e). It must then merge 0070 and reuse its org-scoped helpers. Needs `PRO_INVITE_SECRET` before the M6 flip.
+> - **Owner rules added today:**
+>   - Sonnet is the default engine for agents (Opus only for security review or advice).
+>   - SEO is the primary growth channel (BL-172, a daily SEO agent).
+>   - The marketing site follows a nice.com-inspired design.
+>   - The decks stay current.
+> - **Open OAs that matter most:**
+>   - OA-34: demo email env on the marketing project (urgent; demo requests are lost until it's done).
+>   - OA-35: analytics and Search Console.
+>   - OA-36: read-only isolation checks.
+>   - OA-26: signing secrets, now Soon.
+>   - OA-33: Stripe webhook secret.
+>   - OA-32: GA 590-13 PDFs (comments due Nov 2).
+> - **Next SEO batch (BL-172):** templates, how-tos, the attorney/CPA referral page, in the new restyle.
+> - **Known:** the approval-layer integration test flaked once. Watch it.
+
 > **Update 2026-10-22 18:50 ET (session ed7c42d3):** live in prod is **d0984e66**, with everything below plus BL-152, BL-154 and BL-157. The Vercel OOM is **fixed**: `experimental.cpus: 1` plus `webpackMemoryOptimizations` in apps/hoa/next.config.ts, with the build type check kept on (the classifier refuses skipping it). NODE_OPTIONS is set in Vercel but doesn't matter (it isn't in turbo.json). The "FIRST THING" and "Merged, waiting" bullets below are historical. In flight: BL-155, BL-158, BL-159 and round-6 research. See docs/cycle-log.md.
 
 - **Live in prod:** `edf70ede` (21:51 ET Oct 21): the CINC aging import (BL-031) plus the security review #3 app fixes. Healthy.
