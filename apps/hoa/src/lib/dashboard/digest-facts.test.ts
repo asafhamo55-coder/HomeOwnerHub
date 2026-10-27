@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { buildBullets, formatNextMeeting, isBaselineRow } from './digest-facts'
 
 describe('buildBullets', () => {
+  it('adds the seasonal announcement line (BL-173) last, and only when there is one', () => {
+    const base = { newSinceBaseline: null, waitingOverThree: 0, nextMeeting: 'Next meeting: tomorrow' }
+    expect(buildBullets({ ...base, announcement: 'Halloween is Saturday: a community notice is ready to send' })).toEqual([
+      'Next meeting: tomorrow',
+      'Halloween is Saturday: a community notice is ready to send',
+    ])
+    expect(buildBullets({ ...base, announcement: null })).toEqual(['Next meeting: tomorrow'])
+    expect(buildBullets(base)).toEqual(['Next meeting: tomorrow'])
+  })
+
   it('omits the "new since yesterday" bullet entirely when there is no baseline', () => {
     // Rendering "0 new since yesterday" on an org's first ever day would
     // be a claim we cannot support — there is nothing to compare against.

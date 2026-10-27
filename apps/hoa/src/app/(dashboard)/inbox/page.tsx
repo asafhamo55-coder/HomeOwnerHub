@@ -39,6 +39,7 @@ import { canSeeInboxTab } from '@/lib/messages/tabs'
 import { getAnnouncementReply, listAnnouncementReplies } from '@/lib/messages/announcement-replies'
 import { MessagesTabs } from '@/components/messages/MessagesTabs'
 import { NewMessageMenu } from '@/components/messages/NewMessageMenu'
+import { NewAnnouncementButton } from '@/components/announcements/NewAnnouncementButton'
 import { InboxSourceChips } from '@/components/messages/InboxSourceChips'
 import { AnnouncementReplies } from '@/components/messages/AnnouncementReplies'
 import { loadDraftQuality } from '@/lib/inbox/draft/metrics-store'
@@ -187,7 +188,12 @@ export default async function InboxPage({
         title="Messages"
         width="narrow"
         description="Resident email, matched to the homes it is about."
-        actions={<NewMessageMenu />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <NewAnnouncementButton />
+            <NewMessageMenu />
+          </div>
+        }
         tabs={
           <div className="space-y-3">
             <MessagesTabs active="inbox" showInbox={showInboxTab} />
@@ -230,7 +236,12 @@ export default async function InboxPage({
         <PageHeader
           title="Messages"
           description={status ? mailboxSummary(status) : 'Mailbox status unavailable'}
-          actions={<NewMessageMenu />}
+          actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <NewAnnouncementButton />
+            <NewMessageMenu />
+          </div>
+        }
         />
         <MessagesTabs active="inbox" showInbox={showInboxTab} />
         <div className="flex flex-wrap items-center gap-2">

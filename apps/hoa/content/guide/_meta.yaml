@@ -64,6 +64,7 @@ paths:
       - arc-review-application
       - meetings-schedule-and-minutes
       - communications-send-announcement
+      - communications-community-announcement
       - inbox-reply-to-resident
       - accounting-enter-pay-bills
       - accounting-monthly-board-report

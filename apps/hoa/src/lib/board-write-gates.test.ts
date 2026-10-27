@@ -9,6 +9,7 @@ import * as propertyEvents from './property-events'
 import * as propertySale from './properties/sale-actions'
 import * as commActions from './communications/actions'
 import * as commSend from './communications/send'
+import * as announcements from './announcements/actions'
 import * as parseDocument from '../app/api/ai/parse-document/route'
 import * as governingUpload from '../app/api/governing-docs/upload/route'
 import * as violationDraft from '../app/api/ai/violations/draft/route'
@@ -142,6 +143,8 @@ describe('board-only server actions refuse a resident before touching the databa
     ['recordPropertySale (P3 "Record a sale")', () => propertySale.recordPropertySale(ID, { settlementDate: '2026-01-01', buyers: [{ name: 'B' }] }), DENIED],
     ['deleteCommunication', () => commActions.deleteCommunication(ID), DENIED],
     ['sendCommunication', () => commSend.sendCommunication({} as never), DENIED],
+    ['sendAnnouncement (BL-173)', () => announcements.sendAnnouncement({} as never), DENIED],
+    ['dismissAnnouncementNudge (BL-173)', () => announcements.dismissAnnouncementNudge('halloween-party:2026'), DENIED],
     ['editBillProposal (BL-059: the only write path to a proposal payload)', () => billScanActions.editBillProposal({ approvalRequestId: ID }), DENIED],
     ['scanAttachmentAsBill (BL-059: runs W36 on an inbox attachment and files a proposal with the service role)', () => attachmentBill.scanAttachmentAsBill(ID), DENIED],
     ['sendCoiRequest (BL-083: emails a vendor)', () => coiRequest.sendCoiRequest({ vendorId: ID, subject: 's', body: 'b' }), DENIED],
