@@ -6,6 +6,7 @@ import { COMPLAINT_PROCESS, CONDO_VS_HOA, LATE_FEES } from './guides-b'
 import { FIRST_90_DAYS, TREASURER_DUTIES } from './guides-c'
 import { FINES_HEARINGS, QUORUM_PROXIES, RECORDS_REQUESTS } from './guides-d'
 import { SPECIAL_ASSESSMENTS, SWITCH_FROM_MANAGER } from './guides-e'
+import { AI_MEETING_MINUTES, AI_VIOLATION_LETTERS } from './guides-f'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -28,7 +29,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -122,6 +123,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'Switch from a management company to a self-managed HOA',
     blurb: SWITCH_FROM_MANAGER.summary[0]!,
     kind: 'guide',
+  },
+  {
+    slug: AI_VIOLATION_LETTERS.slug,
+    path: pathOf(AI_VIOLATION_LETTERS),
+    title: 'AI HOA violation letters, with the board approving each one',
+    blurb: AI_VIOLATION_LETTERS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: AI_MEETING_MINUTES.slug,
+    path: pathOf(AI_MEETING_MINUTES),
+    title: 'AI HOA meeting minutes from a transcript',
+    blurb: AI_MEETING_MINUTES.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'hoa-announcement-templates',
+    path: '/templates/hoa-announcement-templates',
+    title: 'HOA announcement templates: Halloween, holidays, pets (printable)',
+    blurb: 'A send checklist and a fill-in event notice for the community announcements every board sends each year.',
+    kind: 'tool',
   },
 ]
 export const GENERAL_PATHS: readonly string[] = GENERAL_LINKS.map((l) => l.path)
