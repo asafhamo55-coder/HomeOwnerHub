@@ -60,6 +60,15 @@ describe('mailRecordFor: append-only events fold into one record per letter', ()
     ])
     expect(rec?.deliveredOn).toBe('2026-09-05')
   })
+  it('an explicit delivery_for_event_id link joins the letter even with another tracking number', () => {
+    const rec = mailRecordFor(REQ, [
+      ev({ id: 'print', note: `Printed from approved letter ${REQ}` }),
+      ev({ id: 'mail', createdAt: '2026-09-01T11:00:00Z', method: 'certified', trackingNumber: 'T1', mailedOn: '2026-09-01' }),
+      ev({ id: 'del', note: 'Green card', createdAt: '2026-09-06T00:00:00Z', method: 'certified', trackingNumber: 'T-OTHER', deliveredOn: '2026-09-05', deliveryForEventId: 'mail' }),
+      ev({ id: 'stranger', note: 'x', createdAt: '2026-09-07T00:00:00Z', method: 'certified', trackingNumber: 'T-ELSE', deliveredOn: '2026-09-09', deliveryForEventId: 'someone-else' }),
+    ])
+    expect(rec).toEqual({ method: 'certified', trackingNumber: 'T-OTHER', mailedOn: '2026-09-01', deliveredOn: '2026-09-05' })
+  })
   it('null when nothing was recorded for the letter', () => {
     expect(mailRecordFor(REQ, [])).toBeNull()
     expect(mailRecordFor(REQ, [ev({ note: 'something else', method: 'hand' })])).toBeNull()

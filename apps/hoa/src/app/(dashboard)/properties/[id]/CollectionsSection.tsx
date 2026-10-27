@@ -133,7 +133,14 @@ export function CollectionsSection({
 
       {complaints}
 
-      <RecordCollectionEvent caseId={openCase.id} currentStatus={openCase.status} today={today} />
+      <RecordCollectionEvent
+        caseId={openCase.id}
+        currentStatus={openCase.status}
+        today={today}
+        mailings={events
+          .filter((e) => e.mailMethod && !e.deliveredOn && !events.some((d) => d.deliveryForEventId === e.id))
+          .map((e) => ({ id: e.id, label: `${collectionEventLabel(e.eventType)} ${e.occurredOn}${e.trackingNumber ? ` · ${e.trackingNumber}` : ''}` }))}
+      />
 
       <Card>
         <CardHeader>

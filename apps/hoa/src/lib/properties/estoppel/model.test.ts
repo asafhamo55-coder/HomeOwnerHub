@@ -142,6 +142,30 @@ describe('figures', () => {
   })
 })
 
+describe('credit on account (BL-177): shown, never netted', () => {
+  it('without credit the figures are what they were', () => {
+    const f = buildCertificate(fixture(), req()).figures
+    expect(f.creditOnAccountCents).toBe(0)
+    expect(f.totalDueAfterCreditCents).toBe(f.currentBalanceCents)
+    expect(printSnapshot(buildCertificate(fixture(), req()))).not.toHaveProperty('credit_cents')
+  })
+  it('keeps the balance before credit and adds the credit and the total after it', () => {
+    const c = buildCertificate(fixture({ unappliedCreditCents: 12_500 }), req())
+    expect(c.figures.currentBalanceCents).toBe(45_000)
+    expect(c.figures.creditOnAccountCents).toBe(12_500)
+    expect(c.figures.totalDueAfterCreditCents).toBe(32_500)
+    expect(auditFigures(c)).toMatchObject({ balance_cents: 45_000, credit_cents: 12_500 })
+    // A credit that changes between loading and printing refuses the print.
+    const snap = printSnapshot(c)
+    expect(snap.credit_cents).toBe(12_500)
+    expect(snapshotMatches(c, snap)).toBe(true)
+    expect(snapshotMatches(buildCertificate(fixture(), req()), snap)).toBe(false)
+  })
+  it('credit larger than the balance leaves a negative total after credit', () => {
+    expect(buildCertificate(fixture({ unappliedCreditCents: 60_000 }), req()).figures.totalDueAfterCreditCents).toBe(-15_000)
+  })
+})
+
 describe('paid through', () => {
   it('runs one period past the last installment when everything is paid', () => {
     const input = fixture({

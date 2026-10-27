@@ -192,6 +192,9 @@ describe('0072 BL-166: mail tracking on collection events', () => {
     expect(own.error).toBeNull()
     const planted = await otherBoard.client.from('collection_events' as never).insert(event({ mail_method: 'certified' }) as never)
     expect(planted.error?.code).toBe('42501')
+    // Their own org, but this org's case: 0070's same-org trigger on collection_case_id refuses it.
+    const asOther = await otherBoard.client.from('collection_events' as never).insert(event({ mail_method: 'certified' }, other.orgId) as never)
+    expect(asOther.error?.code).toBe('23503')
     const read = await otherBoard.client.from('collection_events' as never).select('id, tracking_number')
     expect((read.data ?? []).length).toBe(0)
     const boardClaimsOther = await board.client.from('collection_events' as never).insert(event({ mail_method: 'certified' }, other.orgId) as never)
@@ -544,6 +547,149 @@ describe('0072 BL-176: state, governing-law state and type are admin-only', () =
           and tgname in ('associations_state_type_guard', 'associations_dual_control_guard') order by tgname`,
     )
     expect(t.map((x) => x.tgname)).toEqual(['associations_dual_control_guard', 'associations_state_type_guard'])
+  })
+})
+
+
+describe('0072 BL-166: delivery_for_event_id', () => {
+  const ev = (extra: Record<string, unknown>, c = caseId) => ({
+    organization_id: org.orgId,
+    collection_case_id: c,
+    event_type: 'note',
+    occurred_on: '2026-09-05',
+    ...extra,
+  })
+
+  it('a delivery event links to its letter event; it must carry a method and a delivery day', async () => {
+    const first = await board.client.from('collection_events' as never).insert(ev({ event_type: 'collection_letter_sent', mail_method: 'certified', tracking_number: 'T-LINK' }) as never).select('id').single()
+    const firstId = (first.data as unknown as { id: string }).id
+    const ok = await board.client.from('collection_events' as never).insert(ev({ mail_method: 'certified', delivered_on: '2026-09-05', delivery_for_event_id: firstId }) as never)
+    expect(ok.error).toBeNull()
+    const noDay = await board.client.from('collection_events' as never).insert(ev({ mail_method: 'certified', delivery_for_event_id: firstId }) as never)
+    expect(noDay.error?.code).toBe('23514')
+    const noMethod = await board.client.from('collection_events' as never).insert(ev({ delivered_on: '2026-09-05', delivery_for_event_id: firstId }) as never)
+    expect(noMethod.error?.code).toBe('23514')
+  })
+
+  it('cross-org: an event cannot be a delivery of another org’s event (same-org trigger, also for the service role)', async () => {
+    const theirCase = await insertOne('collection_cases', { organization_id: other.orgId, association_id: other.associationId, unit_id: otherUnit })
+    const theirs = await insertOne('collection_events', { organization_id: other.orgId, collection_case_id: theirCase, event_type: 'note', occurred_on: '2026-09-01' })
+    const row = ev({ mail_method: 'certified', delivered_on: '2026-09-05', delivery_for_event_id: theirs })
+    expect((await board.client.from('collection_events' as never).insert(row as never)).error?.code).toBe('23503')
+    expect((await adminDb().from('collection_events' as never).insert(row as never)).error?.code).toBe('23503')
+  })
+})
+
+describe('0072 closed gaps from the ratchet allowlist (0070 now triggers on them)', () => {
+  it('payments and zelle matches cannot point at another org’s rows, even for the service role', async () => {
+    const pay = await adminDb().from('payments').insert({ organization_id: org.orgId, unit_id: unit, assessment_id: aOtherOrg, amount: 1, payment_method: 'check', paid_at: new Date().toISOString() } as never)
+    expect(pay.error?.code).toBe('23503')
+    const planted = await adminDb().from('payments').insert({ organization_id: org.orgId, unit_id: otherUnit, assessment_id: a1, amount: 1, payment_method: 'check', paid_at: new Date().toISOString() } as never)
+    expect(planted.error?.code).toBe('23503')
+    const own = await adminDb().from('payments').insert({ organization_id: org.orgId, unit_id: unit, assessment_id: a1, amount: 1, payment_method: 'check', paid_at: new Date().toISOString() } as never)
+    expect(own.error).toBeNull()
+  })
+})
+
+describe('0072 BL-177: apply_unapplied_credit()', () => {
+  const apply = (who: TestUser, args: { org?: string; credit: string; assessment: string; cents: number }) =>
+    who.client.rpc('apply_unapplied_credit' as never, { p_org: args.org ?? org.orgId, p_credit: args.credit, p_assessment: args.assessment, p_cents: args.cents } as never) as unknown as Promise<Rpc>
+
+  async function makeCredit(cents = 5000): Promise<string> {
+    const r = await lump(board, { parts: [{ kind: 'credit', cents }] })
+    expect(r.error).toBeNull()
+    return (r.data as { credit_id: string }).credit_id
+  }
+  const remaining = async (id: string) => {
+    const { data } = await adminDb().from('unapplied_credits' as never).select('remaining').eq('id', id).single()
+    return Number((data as unknown as { remaining: number }).remaining)
+  }
+
+  it('allowed: moves credit onto a charge with a balanced entry (Prepaid Assessments to AR)', async () => {
+    const credit = await makeCredit(5000)
+    const r = await apply(board, { credit, assessment: a1, cents: 3000 })
+    expect(r.error).toBeNull()
+    expect(await remaining(credit)).toBe(20)
+    expect(await statusOf(a1)).toBe('partial')
+    const lines = psqlRows<{ account_number: string; debit_amount: string; credit_amount: string }>(
+      `select c.account_number, l.debit_amount::text, l.credit_amount::text
+         from public.ledger_entries l join public.chart_of_accounts c on c.id = l.account_id
+        where l.journal_entry_id = '${(r.data as { journal_entry_id: string }).journal_entry_id}' order by c.account_number`,
+    )
+    expect(lines.map((l) => l.account_number)).toEqual(['1100', '2100'])
+    expect(Number(lines[0]!.credit_amount)).toBe(30)
+    expect(Number(lines[1]!.debit_amount)).toBe(30)
+    // The rest finishes the charge.
+    expect((await apply(board, { credit, assessment: a1, cents: 2000 })).error).toBeNull()
+    expect(await statusOf(a1)).toBe('paid')
+    expect(await remaining(credit)).toBe(0)
+  })
+
+  it('over-application of the credit or of the charge is refused, and changes nothing', async () => {
+    const credit = await makeCredit(5000)
+    const before = await counts()
+    expect((await apply(board, { credit, assessment: a1, cents: 5001 })).error?.code).toBe('23514') // more than the credit
+    const small = await assessment(org, acct, unit, 10, { due_date: '2026-04-01' })
+    expect((await apply(board, { credit, assessment: small, cents: 1001 })).error?.code).toBe('23514') // more than the charge
+    expect((await apply(board, { credit, assessment: a1, cents: 0 })).error?.code).toBe('22023')
+    expect(await counts()).toEqual(before)
+    expect(await remaining(credit)).toBe(50)
+  })
+
+  it('denied: anon, a resident, another org’s board, a charge on another home, a charge of another org', async () => {
+    const credit = await makeCredit(5000)
+    const anon = createClient(LOCAL_SUPABASE_URL, LOCAL_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+    const an = await anon.rpc('apply_unapplied_credit' as never, { p_org: org.orgId, p_credit: credit, p_assessment: a1, p_cents: 100 } as never)
+    expect(an.error?.message ?? '').toMatch(/sign in first|permission denied/)
+    expect((await apply(resident, { credit, assessment: a1, cents: 100 })).error?.code).toBe('42501')
+    expect((await apply(otherBoard, { credit, assessment: a1, cents: 100 })).error?.code).toBe('42501')
+    expect((await apply(otherBoard, { org: other.orgId, credit, assessment: aOtherOrg, cents: 100 })).error?.code).toBe('23503')
+    expect((await apply(board, { credit, assessment: a4OtherUnit, cents: 100 })).error?.code).toBe('23503')
+    expect((await apply(board, { credit, assessment: aOtherOrg, cents: 100 })).error?.code).toBe('23503')
+    expect(await remaining(credit)).toBe(50)
+  })
+})
+
+describe('0072 next_journal_entry_number(): one numbering path', () => {
+  // CONCURRENCY NOTE. The counter is an atomic upsert, so two writers can never be
+  // handed the same number; the five calls below run at the same time through
+  // PostgREST (separate transactions), which is how the app calls it. The lump-payment
+  // RPC calls the same function inside its own transaction.
+  it('concurrent callers get distinct, increasing numbers', async () => {
+    const calls = Array.from({ length: 5 }, () => board.client.rpc('next_journal_entry_number' as never, { p_association: org.associationId, p_year: '2026' } as never))
+    const out = await Promise.all(calls)
+    for (const r of out) expect(r.error).toBeNull()
+    const nums = out.map((r) => r.data as unknown as string)
+    expect(new Set(nums).size).toBe(5)
+    for (const n of nums) expect(n).toMatch(/^JE-2026-\d{5}$/)
+  })
+
+  it('continues after the highest number already used, and the lump RPC and the helper never collide', async () => {
+    await insertOne('journal_entries', {
+      organization_id: org.orgId,
+      association_id: org.associationId,
+      fiscal_period_id: acct.fiscalPeriodId,
+      entry_number: `JE-${TODAY.slice(0, 4)}-00040`,
+      entry_date: TODAY,
+      memo: 'seed',
+      source: 'manual',
+    })
+    const first = await board.client.rpc('next_journal_entry_number' as never, { p_association: org.associationId, p_year: TODAY.slice(0, 4) } as never)
+    expect(first.data).toBe(`JE-${TODAY.slice(0, 4)}-00041`)
+    const r = await lump(board, { parts: [{ assessment_id: a1, cents: 1000 }] })
+    expect(r.error).toBeNull()
+    const nums = psqlRows<{ entry_number: string }>(`select entry_number from public.journal_entries where organization_id = '${org.orgId}' order by entry_number`)
+    expect(nums.map((n) => n.entry_number)).toContain(`JE-${TODAY.slice(0, 4)}-00042`)
+  })
+
+  it('denied: anon, a resident, another org’s board; the service role may (jobs post entries)', async () => {
+    const anon = createClient(LOCAL_SUPABASE_URL, LOCAL_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+    const args = { p_association: org.associationId, p_year: '2026' } as never
+    expect((await anon.rpc('next_journal_entry_number' as never, args)).error?.message ?? '').toMatch(/sign in first|permission denied/)
+    expect((await resident.client.rpc('next_journal_entry_number' as never, args)).error?.code).toBe('42501')
+    expect((await otherBoard.client.rpc('next_journal_entry_number' as never, args)).error?.code).toBe('42501')
+    expect((await adminDb().rpc('next_journal_entry_number' as never, args)).error).toBeNull()
+    expect((await board.client.rpc('next_journal_entry_number' as never, { p_association: org.associationId, p_year: 'abcd' } as never)).error?.code).toBe('22023')
   })
 })
 

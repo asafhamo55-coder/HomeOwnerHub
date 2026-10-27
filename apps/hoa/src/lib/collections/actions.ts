@@ -121,6 +121,8 @@ const EventSchema = z.object({
   trackingNumber: z.string().trim().max(100).optional(),
   mailedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   deliveredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** BL-166: this entry records the delivery of an earlier entry on the case. */
+  deliveryForEventId: z.string().uuid().optional(),
   /** BL-149: finding code → the board's override reason, for a blocking lien check. */
   lawOverrides: z
     .record(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]]))
@@ -165,18 +167,22 @@ export async function recordCollectionEvent(
 
   // BL-166: the mail columns exist only after 0072. Before M7_APPLIED a
   // request that carries them is refused, never silently dropped.
-  const sentMail = Boolean(v.mailMethod || v.trackingNumber || v.mailedOn || v.deliveredOn)
+  const sentMail = Boolean(v.mailMethod || v.trackingNumber || v.mailedOn || v.deliveredOn || v.deliveryForEventId)
   let mailColumns: Record<string, string | null> = {}
   if (sentMail) {
     if (!M7_APPLIED) return { ok: false, error: 'Recording how a notice was mailed isn’t available yet.' }
     const mail = validateMailFields(v, todayIn(await orgTimeZone(supabase, org.id)))
     if (!mail.ok) return { ok: false, error: mail.error }
+    if (v.deliveryForEventId && !(mail.record?.deliveredOn)) {
+      return { ok: false, error: 'Add the delivery date to record a delivery.' }
+    }
     if (mail.record) {
       mailColumns = {
         mail_method: mail.record.method,
         tracking_number: mail.record.trackingNumber,
         mailed_on: mail.record.mailedOn,
         delivered_on: mail.record.deliveredOn,
+        ...(v.deliveryForEventId ? { delivery_for_event_id: v.deliveryForEventId } : {}),
       }
     }
   }

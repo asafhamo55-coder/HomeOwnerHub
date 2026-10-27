@@ -42,6 +42,10 @@
 --      unapplied_credits' foreign keys get the same-org triggers
 --      (tenant_fk_same_org, the ratchet in
 --      tests/integration/schema/fk-same-org-ratchet.test.ts).
+--      apply_unapplied_credit(org, credit, assessment, cents) puts credit against a
+--      charge (same guards). next_journal_entry_number(association, year) is the ONE
+--      numbering path for journal entries (an atomic counter per association and
+--      year); record_lump_payment and the app both use it.
 --   3. BL-176. A BEFORE UPDATE trigger on associations: changing state,
 --      governing_law_state or type needs auth_is_admin(org) or the service
 --      role (42501). A board member's REST PATCH of those columns is
@@ -83,10 +87,10 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM information_schema.columns
               WHERE table_schema = 'public' AND table_name = 'collection_events'
-                AND column_name IN ('mail_method', 'tracking_number', 'mailed_on', 'delivered_on'))
-     AND NOT (SELECT count(*) = 4 FROM information_schema.columns
+                AND column_name IN ('mail_method', 'tracking_number', 'mailed_on', 'delivered_on', 'delivery_for_event_id'))
+     AND NOT (SELECT count(*) = 5 FROM information_schema.columns
                WHERE table_schema = 'public' AND table_name = 'collection_events'
-                 AND column_name IN ('mail_method', 'tracking_number', 'mailed_on', 'delivered_on')) THEN
+                 AND column_name IN ('mail_method', 'tracking_number', 'mailed_on', 'delivered_on', 'delivery_for_event_id')) THEN
     RAISE EXCEPTION '0072: collection_events has some but not all of the mail columns; stop and ask';
   END IF;
 END $pre$;
@@ -96,6 +100,13 @@ ALTER TABLE public.collection_events ADD COLUMN IF NOT EXISTS mail_method     te
 ALTER TABLE public.collection_events ADD COLUMN IF NOT EXISTS tracking_number text;
 ALTER TABLE public.collection_events ADD COLUMN IF NOT EXISTS mailed_on       date;
 ALTER TABLE public.collection_events ADD COLUMN IF NOT EXISTS delivered_on    date;
+
+-- A later delivery event points at the event it delivers (the letter's print or mailing
+-- event). Older rows keep matching by tracking number. Same-org trigger below.
+ALTER TABLE public.collection_events ADD COLUMN IF NOT EXISTS delivery_for_event_id uuid
+  REFERENCES public.collection_events(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS collection_events_delivery_for_idx
+  ON public.collection_events (delivery_for_event_id) WHERE delivery_for_event_id IS NOT NULL;
 
 ALTER TABLE public.collection_events DROP CONSTRAINT IF EXISTS collection_events_mail_method_check;
 ALTER TABLE public.collection_events ADD CONSTRAINT collection_events_mail_method_check
@@ -114,6 +125,10 @@ ALTER TABLE public.collection_events ADD CONSTRAINT collection_events_mail_needs
 ALTER TABLE public.collection_events DROP CONSTRAINT IF EXISTS collection_events_mail_dates_check;
 ALTER TABLE public.collection_events ADD CONSTRAINT collection_events_mail_dates_check
   CHECK (mailed_on IS NULL OR delivered_on IS NULL OR delivered_on >= mailed_on);
+
+ALTER TABLE public.collection_events DROP CONSTRAINT IF EXISTS collection_events_delivery_link_check;
+ALTER TABLE public.collection_events ADD CONSTRAINT collection_events_delivery_link_check
+  CHECK (delivery_for_event_id IS NULL OR (mail_method IS NOT NULL AND delivered_on IS NOT NULL));
 
 COMMENT ON COLUMN public.collection_events.mail_method IS
   'BL-166: how a notice was sent (certified, statutory_overnight, first_class, email, hand). Append-only like the rest of the row.';
@@ -152,6 +167,7 @@ DECLARE
 BEGIN
   FOR r IN
     SELECT * FROM (VALUES
+      ('collection_events', 'delivery_for_event_id', 'collection_events', 'organization_id', 'organization_id'),
       ('unapplied_credits', 'unit_id',          'units',           'organization_id', 'organization_id'),
       ('unapplied_credits', 'association_id',   'associations',    'organization_id', 'organization_id'),
       ('unapplied_credits', 'journal_entry_id', 'journal_entries', 'organization_id', 'organization_id')
@@ -182,6 +198,66 @@ CREATE POLICY unapplied_credits_resident_select ON public.unapplied_credits
   FOR SELECT TO authenticated
   USING (organization_id = ANY (public.auth_org_ids())
          AND unit_id = ANY ((SELECT public.auth_resident_unit_ids())::uuid[]));
+
+
+-- One numbering path for journal entries. The app (postJournalEntry) and
+-- record_lump_payment both take the next number from here: an atomic upsert on
+-- a per-association, per-year counter, so two writers can never be handed the
+-- same number (the row lock lasts until the caller's transaction ends). The
+-- counter starts from the highest number already used. RLS is on with no
+-- policy: only this function (and the service role) touches the table.
+CREATE TABLE IF NOT EXISTS public.je_number_counters (
+  association_id uuid NOT NULL REFERENCES public.associations(id) ON DELETE CASCADE,
+  year           text NOT NULL CHECK (year ~ '^[0-9]{4}$'),
+  last_seq       integer NOT NULL CHECK (last_seq >= 0),
+  PRIMARY KEY (association_id, year)
+);
+ALTER TABLE public.je_number_counters ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.next_journal_entry_number(p_association uuid, p_year text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+  v_uid    uuid := auth.uid();
+  v_org    uuid;
+  v_prefix text;
+  v_used   integer;
+  v_seq    integer;
+BEGIN
+  -- A signed-in board member / admin of the association's org, or the service role
+  -- (jobs post journal entries with it). Anyone else, including anon, is refused.
+  IF v_uid IS NULL AND COALESCE(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'next_journal_entry_number: sign in first' USING errcode = '42501';
+  END IF;
+  IF p_year IS NULL OR p_year !~ '^[0-9]{4}$' THEN
+    RAISE EXCEPTION 'next_journal_entry_number: bad year' USING errcode = '22023';
+  END IF;
+  SELECT a.organization_id INTO v_org FROM public.associations a WHERE a.id = p_association;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'next_journal_entry_number: not authorized' USING errcode = '42501';
+  END IF;
+  IF v_uid IS NOT NULL AND NOT public.auth_is_board_or_admin(v_org) THEN
+    RAISE EXCEPTION 'next_journal_entry_number: not authorized' USING errcode = '42501';
+  END IF;
+
+  v_prefix := 'JE-' || p_year || '-';
+  SELECT COALESCE(max(substring(entry_number FROM char_length(v_prefix) + 1)::integer), 0) INTO v_used
+    FROM public.journal_entries
+   WHERE association_id = p_association AND entry_number ~ ('^' || v_prefix || '[0-9]+$');
+  INSERT INTO public.je_number_counters AS c (association_id, year, last_seq)
+  VALUES (p_association, p_year, v_used + 1)
+  ON CONFLICT (association_id, year)
+  DO UPDATE SET last_seq = GREATEST(c.last_seq, v_used) + 1
+  RETURNING last_seq INTO v_seq;
+  RETURN v_num;
+END;
+$fn$;
+
+REVOKE ALL ON FUNCTION public.next_journal_entry_number(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.next_journal_entry_number(uuid, text) TO authenticated, service_role;
 
 -- record_lump_payment: every part or nothing. parts is a JSON array of
 --   {"assessment_id": "<uuid>", "cents": 12345}          a charge
@@ -221,8 +297,7 @@ DECLARE
   v_pay_id     uuid;
   v_credit_id  uuid;
   v_je_id      uuid;
-  v_seq        integer;
-  v_prefix     text;
+  v_num        text;
   v_memo       text;
   v_payments   uuid[] := ARRAY[]::uuid[];
   v_jes        uuid[] := ARRAY[]::uuid[];
@@ -303,15 +378,11 @@ BEGIN
         (p_org, v_assoc, p_unit, v_cents / 100.0, v_cents / 100.0, p_method, p_paid_on, NULLIF(btrim(p_note), ''), v_uid)
       RETURNING id INTO v_credit_id;
 
-      PERFORM pg_advisory_xact_lock(hashtextextended(v_assoc::text, 72));
-      v_prefix := 'JE-' || to_char(p_paid_on, 'YYYY') || '-';
-      SELECT COALESCE(max(substring(entry_number FROM char_length(v_prefix) + 1)::integer), 0) + 1 INTO v_seq
-        FROM public.journal_entries
-       WHERE association_id = v_assoc AND entry_number ~ ('^' || v_prefix || '[0-9]+$');
+      v_num := public.next_journal_entry_number(v_assoc, to_char(p_paid_on, 'YYYY'));
       INSERT INTO public.journal_entries
         (organization_id, association_id, fiscal_period_id, entry_number, entry_date, memo, source, source_id, status)
       VALUES
-        (p_org, v_assoc, v_period, v_prefix || lpad(v_seq::text, 5, '0'), p_paid_on,
+        (p_org, v_assoc, v_period, v_num, p_paid_on,
          v_memo || ' (unapplied credit)', 'ar_payment', v_credit_id, 'draft')
       RETURNING id INTO v_je_id;
       INSERT INTO public.ledger_entries (organization_id, journal_entry_id, account_id, fund_id, debit_amount, credit_amount)
@@ -359,15 +430,11 @@ BEGIN
       VALUES (p_org, p_unit, v_aid, v_cents / 100.0, p_method, v_paid_at)
       RETURNING id INTO v_pay_id;
 
-      PERFORM pg_advisory_xact_lock(hashtextextended(v_ass.association_id::text, 72));
-      v_prefix := 'JE-' || to_char(p_paid_on, 'YYYY') || '-';
-      SELECT COALESCE(max(substring(entry_number FROM char_length(v_prefix) + 1)::integer), 0) + 1 INTO v_seq
-        FROM public.journal_entries
-       WHERE association_id = v_ass.association_id AND entry_number ~ ('^' || v_prefix || '[0-9]+$');
+      v_num := public.next_journal_entry_number(v_ass.association_id, to_char(p_paid_on, 'YYYY'));
       INSERT INTO public.journal_entries
         (organization_id, association_id, fiscal_period_id, entry_number, entry_date, memo, source, source_id, status)
       VALUES
-        (p_org, v_ass.association_id, v_ass.fiscal_period_id, v_prefix || lpad(v_seq::text, 5, '0'), p_paid_on,
+        (p_org, v_ass.association_id, v_ass.fiscal_period_id, v_num, p_paid_on,
          v_memo, 'ar_payment', v_pay_id, 'draft')
       RETURNING id INTO v_je_id;
       INSERT INTO public.ledger_entries (organization_id, journal_entry_id, account_id, fund_id, debit_amount, credit_amount)
@@ -407,6 +474,116 @@ $fn$;
 
 REVOKE ALL ON FUNCTION public.record_lump_payment(uuid, uuid, jsonb, text, date, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.record_lump_payment(uuid, uuid, jsonb, text, date, text) TO authenticated, service_role;
+
+
+-- apply_unapplied_credit: the board puts some or all of a home's unapplied credit
+-- against one of its open charges, in one transaction. Same guards as
+-- record_lump_payment. The money is already in the books (cash in, Prepaid
+-- Assessments out); applying moves it from Prepaid Assessments to Accounts
+-- Receivable, so the entry is debit Prepaid / credit AR. A credit that was booked
+-- straight to AR (a chart with no 2100) needs no entry. Over-application of the
+-- credit or of the charge is refused (23514).
+CREATE OR REPLACE FUNCTION public.apply_unapplied_credit(
+  p_org        uuid,
+  p_credit     uuid,
+  p_assessment uuid,
+  p_cents      bigint
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+  v_uid        uuid := auth.uid();
+  v_cr         public.unapplied_credits%ROWTYPE;
+  v_ass        public.assessments%ROWTYPE;
+  v_paid       numeric;
+  v_left_cents bigint;
+  v_fund       uuid;
+  v_ar         uuid;
+  v_src        uuid;
+  v_pay_id     uuid;
+  v_je_id      uuid;
+  v_num        text;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: sign in first' USING errcode = '42501';
+  END IF;
+  IF p_org IS NULL OR NOT public.auth_is_board_or_admin(p_org) THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: not authorized' USING errcode = '42501';
+  END IF;
+  IF p_cents IS NULL OR p_cents <= 0 THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: the amount must be more than zero' USING errcode = '22023';
+  END IF;
+
+  SELECT c.* INTO v_cr FROM public.unapplied_credits c WHERE c.id = p_credit FOR UPDATE;
+  IF NOT FOUND OR v_cr.organization_id <> p_org THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: that credit is not in this organization' USING errcode = '23503';
+  END IF;
+  SELECT a.* INTO v_ass FROM public.assessments a WHERE a.id = p_assessment FOR UPDATE;
+  IF NOT FOUND OR v_ass.organization_id <> p_org OR v_ass.unit_id <> v_cr.unit_id OR v_ass.deleted_at IS NOT NULL THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: that charge is not on the credit''s home' USING errcode = '23503';
+  END IF;
+  IF v_ass.status NOT IN ('open', 'partial') THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: that charge is already settled' USING errcode = '22023';
+  END IF;
+  IF p_cents > round(v_cr.remaining * 100)::bigint THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: more than the credit has left (over-application)' USING errcode = '23514';
+  END IF;
+  SELECT COALESCE(sum(pm.amount), 0) INTO v_paid FROM public.payments pm WHERE pm.assessment_id = p_assessment;
+  v_left_cents := round((v_ass.amount - v_paid) * 100)::bigint;
+  IF p_cents > v_left_cents THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: more than the charge has left (over-application)' USING errcode = '23514';
+  END IF;
+
+  SELECT f.id INTO v_fund FROM public.funds f WHERE f.association_id = v_ass.association_id AND f.code = 'OPERATING';
+  SELECT c.id INTO v_ar FROM public.chart_of_accounts c WHERE c.association_id = v_ass.association_id AND c.account_number = '1100';
+  IF v_fund IS NULL OR v_ar IS NULL THEN
+    RAISE EXCEPTION 'apply_unapplied_credit: books_not_open' USING errcode = '55000';
+  END IF;
+
+  INSERT INTO public.payments (organization_id, unit_id, assessment_id, amount, payment_method, paid_at)
+  VALUES (p_org, v_cr.unit_id, p_assessment, p_cents / 100.0, v_cr.payment_method, now())
+  RETURNING id INTO v_pay_id;
+
+  -- Which account holds the credit today: the credit side of its entry.
+  SELECT l.account_id INTO v_src
+    FROM public.ledger_entries l
+   WHERE l.journal_entry_id = v_cr.journal_entry_id AND l.credit_amount > 0
+   LIMIT 1;
+  IF v_src IS NOT NULL AND v_src <> v_ar THEN
+    v_num := public.next_journal_entry_number(v_ass.association_id, to_char((now() AT TIME ZONE 'UTC')::date, 'YYYY'));
+    INSERT INTO public.journal_entries
+      (organization_id, association_id, fiscal_period_id, entry_number, entry_date, memo, source, source_id, status)
+    VALUES
+      (p_org, v_ass.association_id, v_ass.fiscal_period_id, v_num, (now() AT TIME ZONE 'UTC')::date,
+       'Unapplied credit applied to a charge', 'ar_payment', v_pay_id, 'draft')
+    RETURNING id INTO v_je_id;
+    INSERT INTO public.ledger_entries (organization_id, journal_entry_id, account_id, fund_id, debit_amount, credit_amount)
+    VALUES (p_org, v_je_id, v_src, v_fund, p_cents / 100.0, 0),
+           (p_org, v_je_id, v_ar,  v_fund, 0, p_cents / 100.0);
+    UPDATE public.journal_entries SET status = 'posted', posted_at = now() WHERE id = v_je_id;
+    UPDATE public.payments SET journal_entry_id = v_je_id WHERE id = v_pay_id;
+  ELSE
+    UPDATE public.payments SET journal_entry_id = v_cr.journal_entry_id WHERE id = v_pay_id;
+  END IF;
+
+  UPDATE public.unapplied_credits SET remaining = remaining - p_cents / 100.0 WHERE id = p_credit;
+  UPDATE public.assessments
+     SET status = CASE WHEN round((v_paid + p_cents / 100.0) * 100) >= round(v_ass.amount * 100) THEN 'paid' ELSE 'partial' END
+   WHERE id = p_assessment;
+
+  INSERT INTO public.audit_log (org_id, user_id, action, entity_type, entity_id, metadata)
+  VALUES (p_org, v_uid, 'payment.credit_applied', 'unit', v_cr.unit_id,
+          jsonb_build_object('credit_id', p_credit, 'assessment_id', p_assessment, 'cents', p_cents, 'payment_id', v_pay_id));
+
+  RETURN jsonb_build_object('payment_id', v_pay_id, 'journal_entry_id', v_je_id, 'cents', p_cents);
+END;
+$fn$;
+
+REVOKE ALL ON FUNCTION public.apply_unapplied_credit(uuid, uuid, uuid, bigint) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.apply_unapplied_credit(uuid, uuid, uuid, bigint) TO authenticated, service_role;
 
 -- ── 3. BL-176: state / governing-law state / type are admin-only ───────
 -- SECURITY INVOKER on purpose: current_user is the PostgREST role. The
@@ -450,10 +627,10 @@ DECLARE
 BEGIN
   SELECT count(*) INTO n FROM information_schema.columns
    WHERE table_schema = 'public' AND table_name = 'collection_events'
-     AND column_name IN ('mail_method', 'tracking_number', 'mailed_on', 'delivered_on')
+     AND column_name IN ('mail_method', 'tracking_number', 'mailed_on', 'delivered_on', 'delivery_for_event_id')
      AND is_nullable = 'YES';
-  IF n <> 4 THEN
-    RAISE EXCEPTION '0072: expected 4 nullable mail columns on collection_events, found %', n;
+  IF n <> 5 THEN
+    RAISE EXCEPTION '0072: expected 5 nullable mail columns on collection_events, found %', n;
   END IF;
   -- The trail stays append-only: the existing rules cover the new columns
   -- because they are row rules, but an UPDATE or DELETE policy would let
@@ -474,6 +651,10 @@ BEGIN
   IF n <> 3 THEN
     RAISE EXCEPTION '0072: expected 3 same-org triggers on unapplied_credits, found %', n;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                  WHERE tgrelid = 'public.collection_events'::regclass AND tgname = 'collection_events_delivery_for_event_id_org_scope') THEN
+    RAISE EXCEPTION '0072: collection_events lost its same-org trigger on delivery_for_event_id';
+  END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.unapplied_credits'::regclass) THEN
     RAISE EXCEPTION '0072: unapplied_credits has no row level security';
   END IF;
@@ -482,8 +663,15 @@ BEGIN
           @> ARRAY['search_path=public, pg_temp']) THEN
     RAISE EXCEPTION '0072: record_lump_payment has no pinned search_path';
   END IF;
-  IF has_function_privilege('anon', 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)', 'EXECUTE') THEN
-    RAISE EXCEPTION '0072: anon can execute record_lump_payment';
+  IF has_function_privilege('anon', 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.apply_unapplied_credit(uuid, uuid, uuid, bigint)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.next_journal_entry_number(uuid, text)', 'EXECUTE') THEN
+    RAISE EXCEPTION '0072: anon can execute a new function';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+              AND p.proname IN ('record_lump_payment', 'apply_unapplied_credit', 'next_journal_entry_number')
+              AND NOT (coalesce(p.proconfig, '{}') @> ARRAY['search_path=public, pg_temp'])) THEN
+    RAISE EXCEPTION '0072: a new function has no pinned search_path';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger
                   WHERE tgrelid = 'public.associations'::regclass AND tgname = 'associations_state_type_guard') THEN

@@ -93,6 +93,13 @@ export interface EstoppelInput {
    * the POA Act's § 44-3-232(d). Absent or anything else: unchanged.
    */
   associationType?: string | null
+  /**
+   * BL-177 (M7_APPLIED): money received beyond what the home owed and not yet
+   * applied to a charge (unapplied_credits.remaining, cents). Never netted
+   * silently: the certificate shows the total due before credit, the credit as its
+   * own line, and the total due after credit. Absent = none.
+   */
+  unappliedCreditCents?: number
 }
 
 export interface EstoppelRequest {
@@ -308,6 +315,10 @@ export interface Figures {
   owedItems: ChargeLine[]
   /** Payments and credits not applied to a charge (negative, or 0). */
   unappliedCents: number
+  /** BL-177: credit on account from unapplied_credits (cents, 0 or more). currentBalanceCents is BEFORE this. */
+  creditOnAccountCents: number
+  /** currentBalanceCents less creditOnAccountCents: may be negative (the association owes the owner). */
+  totalDueAfterCreditCents: number
   /** Unpaid charges due after the issue day. */
   notYetDue: (ChargeLine & { withinEffectivePeriod: boolean })[]
   notYetDueCents: number
@@ -336,6 +347,7 @@ export function computeFigures(input: EstoppelInput, issueDate: string, effectiv
   const rawPastDueCents = lines.filter((l) => l.dueDate < issueDate && l.remainingCents > 0).reduce((t, l) => t + l.remainingCents, 0)
   const unappliedCents = currentBalanceCents - owedCents
   const pastDueCents = Math.max(0, rawPastDueCents + Math.min(0, unappliedCents))
+  const creditOnAccountCents = Math.max(0, Math.round(input.unappliedCreditCents ?? 0))
 
   const regularLines = lines.filter((l) => l.type === 'regular')
   const frequency = inferFrequency(regularLines)
@@ -360,6 +372,8 @@ export function computeFigures(input: EstoppelInput, issueDate: string, effectiv
     delinquent: pastDueCents > 0,
     owedItems,
     unappliedCents,
+    creditOnAccountCents,
+    totalDueAfterCreditCents: currentBalanceCents - creditOnAccountCents,
     notYetDue: future.map((l) => ({ ...l, withinEffectivePeriod: effectiveThrough !== null && l.dueDate <= effectiveThrough })),
     notYetDueCents,
     regular: { amountCents: lastRegular?.amountCents ?? null, frequency },
@@ -796,6 +810,8 @@ export interface PrintSnapshot {
   not_yet_due_cents: number
   /** Every charge on the certificate (owed today and not yet due), sorted. */
   charge_ids: string[]
+  /** BL-177: credit on account shown on the certificate (omitted when none). */
+  credit_cents?: number
 }
 
 export const FIGURES_CHANGED = 'Figures changed since this page loaded — reload'
@@ -810,6 +826,7 @@ export function printSnapshot(c: Certificate): PrintSnapshot {
     balance_cents: c.figures.currentBalanceCents,
     not_yet_due_cents: c.figures.notYetDueCents,
     charge_ids: certificateChargeIds(c),
+    ...(c.figures.creditOnAccountCents > 0 ? { credit_cents: c.figures.creditOnAccountCents } : {}),
   }
 }
 
@@ -819,6 +836,7 @@ export function snapshotMatches(c: Certificate, s: PrintSnapshot): boolean {
     now.issueDate === s.issueDate &&
     now.balance_cents === s.balance_cents &&
     now.not_yet_due_cents === s.not_yet_due_cents &&
+    (now.credit_cents ?? 0) === (s.credit_cents ?? 0) &&
     now.charge_ids.join(',') === [...s.charge_ids].sort().join(',')
   )
 }
@@ -832,6 +850,7 @@ export function auditFigures(c: Certificate) {
     balance_cents: f.currentBalanceCents,
     past_due_cents: f.pastDueCents,
     not_yet_due_cents: f.notYetDueCents,
+    ...(f.creditOnAccountCents > 0 ? { credit_cents: f.creditOnAccountCents } : {}),
     open_violation_ids: f.openViolations.map((v) => v.id),
     payment_plan_id: f.activePlan?.id ?? null,
     collection_case_id: f.collections?.caseId ?? null,

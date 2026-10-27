@@ -29,11 +29,14 @@ export function RecordCollectionEvent({
   caseId,
   currentStatus,
   today,
+  mailings = [],
 }: {
   caseId: string
   currentStatus: CollectionStatus
   /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
   today: string
+  /** BL-166: earlier mailed entries without a delivery yet, for "this is the delivery of…". */
+  mailings?: Array<{ id: string; label: string }>
 }) {
   const [open, setOpen] = useState(false)
   const [eventType, setEventType] = useState<CollectionEventType>('note')
@@ -94,6 +97,7 @@ export function RecordCollectionEvent({
                       trackingNumber: String(formData.get('trackingNumber') ?? '').trim() || undefined,
                       mailedOn: String(formData.get('mailedOn') ?? '') || undefined,
                       deliveredOn: String(formData.get('deliveredOn') ?? '') || undefined,
+                      deliveryForEventId: String(formData.get('deliveryForEventId') ?? '') || undefined,
                     }
                   : {}),
                 ...(eventType === 'lien_filed' && Object.keys(lawOverrides).length > 0
@@ -172,6 +176,18 @@ export function RecordCollectionEvent({
                     <Field label="Delivered on">
                       <Input type="date" name="deliveredOn" max={today} />
                     </Field>
+                    {mailings.length > 0 ? (
+                      <Field label="This is the delivery of (optional)">
+                        <select name="deliveryForEventId" defaultValue="" className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm">
+                          <option value="">An entry of its own</option>
+                          {mailings.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ) : null}
                   </>
                 ) : null}
               </div>

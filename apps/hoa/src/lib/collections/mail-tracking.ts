@@ -54,6 +54,9 @@ export interface MailRecord {
 export interface MailEvent extends MailRecord {
   note: string | null
   createdAt: string
+  /** collection_events.id and delivery_for_event_id (0072): a delivery event links to the event it delivers. */
+  id?: string
+  deliveryForEventId?: string | null
 }
 
 export const EMPTY_MAIL: MailRecord = { method: null, trackingNumber: null, mailedOn: null, deliveredOn: null }
@@ -84,7 +87,24 @@ export function mailRecordFor(requestId: string, events: readonly MailEvent[]): 
   const sorted = [...events].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   const direct = sorted.filter((e) => noteMentions(e.note, requestId))
   const numbers = new Set(direct.map((e) => e.trackingNumber).filter((t): t is string => t !== null && t !== ''))
-  const related = sorted.filter((e) => noteMentions(e.note, requestId) || (e.trackingNumber !== null && numbers.has(e.trackingNumber)))
+  // The explicit link first: a delivery event names the event it delivers (and a delivery of
+  // that delivery, and so on). The tracking number only catches older rows without a link.
+  const linked = new Set(direct.map((e) => e.id).filter((i): i is string => !!i))
+  for (let grew = true; grew; ) {
+    grew = false
+    for (const e of sorted) {
+      if (e.id && !linked.has(e.id) && e.deliveryForEventId && linked.has(e.deliveryForEventId)) {
+        linked.add(e.id)
+        grew = true
+      }
+    }
+  }
+  const related = sorted.filter(
+    (e) =>
+      noteMentions(e.note, requestId) ||
+      (e.id !== undefined && linked.has(e.id)) ||
+      (e.trackingNumber !== null && numbers.has(e.trackingNumber)),
+  )
   let out: MailRecord = { ...EMPTY_MAIL }
   for (const e of related) {
     if (!hasMail(e)) continue

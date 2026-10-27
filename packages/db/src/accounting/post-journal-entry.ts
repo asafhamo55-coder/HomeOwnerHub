@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import type { Database } from '../database.types'
+import { M7_APPLIED } from '../m7'
 
 // Spec §13.1: every JE balances overall AND per fund. The DB trigger
 // `validate_je_balances` is the source of truth for that invariant — this
@@ -116,7 +117,18 @@ export async function postJournalEntry(
 
   let lastError = 'unknown'
   for (let attempt = 0; attempt < ENTRY_NUMBER_RETRIES; attempt++) {
-    const entryNumber = await nextEntryNumber(supabase, value.associationId, year)
+    // BL-177 (M7_APPLIED): one numbering path with record_lump_payment, an atomic counter in
+    // the database (migration 0072). Before the flag: the read-max-plus-one helper below.
+    let entryNumber: string
+    if (M7_APPLIED) {
+      const { data: num, error: numErr } = await (supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }>
+      }).rpc('next_journal_entry_number', { p_association: value.associationId, p_year: year })
+      if (numErr || typeof num !== 'string') return { ok: false, error: numErr?.message ?? 'entry number unavailable' }
+      entryNumber = num
+    } else {
+      entryNumber = await nextEntryNumber(supabase, value.associationId, year)
+    }
 
     const header: JournalEntryInsert = {
       organization_id: value.organizationId,

@@ -134,6 +134,8 @@ export async function loadLetterContext(supabase: SupabaseClient, orgId: string,
 
   const mailEvents: MailEvent[] = M7_APPLIED
     ? events.map((e) => ({
+        id: e.id,
+        deliveryForEventId: e.deliveryForEventId ?? null,
         note: e.note,
         createdAt: e.createdAt,
         method: e.mailMethod ?? null,

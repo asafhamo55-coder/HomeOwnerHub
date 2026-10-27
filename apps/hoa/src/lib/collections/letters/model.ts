@@ -248,7 +248,7 @@ export function kindsFor(j: LetterJurisdiction, gaCondo = false): LetterKind[] {
 
 export type LetterInput = Pick<
   EstoppelInput,
-  'state' | 'associationType' | 'associationName' | 'propertyId' | 'address' | 'unitNumber' | 'unitId' | 'lotNumber' | 'owners' | 'charges' | 'payments' | 'plans' | 'planInstallmentIds' | 'timeZone'
+  'state' | 'associationType' | 'associationName' | 'propertyId' | 'address' | 'unitNumber' | 'unitId' | 'lotNumber' | 'owners' | 'charges' | 'payments' | 'plans' | 'planInstallmentIds' | 'timeZone' | 'unappliedCreditCents'
 > & {
   /**
    * BL-149: the association's Georgia SB 406 registration, verified on the

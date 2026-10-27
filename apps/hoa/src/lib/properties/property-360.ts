@@ -92,7 +92,7 @@ export interface Property360 {
    * BL-177 (M7_APPLIED): money received beyond what the home owed and not
    * yet applied, in cents. Absent before the flag; shown under the ledger.
    */
-  credit?: UnitPart<{ cents: number; count: number }>
+  credit?: UnitPart<{ cents: number; count: number; items: Array<{ id: string; remainingCents: number }> }>
   payments: UnitPart<PaymentRow[]>
   plans: UnitPart<PaymentPlanRow[]>
   collections: UnitPart<CollectionsFile>
@@ -226,13 +226,14 @@ export async function loadProperty360(
     !unit.ok ? failed : unitIds === null || unitIds.length === 0 ? Promise.resolve(null) : run(unitIds)
 
   // BL-177: unapplied credit on the home (only once 0072 is applied).
-  const creditPromise: Promise<UnitPart<{ cents: number; count: number }> | undefined> = M7_APPLIED
+  const creditPromise: Promise<UnitPart<{ cents: number; count: number; items: Array<{ id: string; remainingCents: number }> }> | undefined> = M7_APPLIED
     ? byUnit(async (ids) =>
         mapPart(
-          await loadOrFail('unapplied credit', db.from('unapplied_credits').select('remaining').in('unit_id', ids).gt('remaining', 0).limit(500)),
+          await loadOrFail('unapplied credit', db.from('unapplied_credits').select('id, remaining').in('unit_id', ids).gt('remaining', 0).limit(500)),
           (rows) => {
-            const list = (rows ?? []) as unknown as Array<{ remaining: number | string }>
-            return { cents: list.reduce((n, r) => n + Math.round(Number(r.remaining) * 100), 0), count: list.length }
+            const list = (rows ?? []) as unknown as Array<{ id: string; remaining: number | string }>
+            const items = list.map((r) => ({ id: r.id, remainingCents: Math.round(Number(r.remaining) * 100) }))
+            return { cents: items.reduce((n, r) => n + r.remainingCents, 0), count: items.length, items }
           },
         ),
       )

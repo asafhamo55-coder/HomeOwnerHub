@@ -36,6 +36,8 @@ export interface CollectionEvent {
   trackingNumber?: string | null
   mailedOn?: string | null
   deliveredOn?: string | null
+  /** The earlier event this one delivers (a delivery event), or null. */
+  deliveryForEventId?: string | null
 }
 
 export const CASE_COLUMNS =
@@ -45,7 +47,7 @@ export const EVENT_COLUMNS =
   'id, event_type, occurred_on, note, amount, actor_initials, communication_id, created_at'
 
 /** BL-166: columns 0072 adds. Read only after M7_APPLIED (before it they do not exist). */
-export const MAIL_EVENT_COLUMNS = 'mail_method, tracking_number, mailed_on, delivered_on'
+export const MAIL_EVENT_COLUMNS = 'mail_method, tracking_number, mailed_on, delivered_on, delivery_for_event_id'
 
 /** The event columns to select: the mail columns join them once 0072 is applied. */
 export function eventColumns(): string {
@@ -154,6 +156,7 @@ export function toEvent(r: Record<string, unknown>): CollectionEvent {
           trackingNumber: (r.tracking_number as string | null) ?? null,
           mailedOn: (r.mailed_on as string | null) ?? null,
           deliveredOn: (r.delivered_on as string | null) ?? null,
+          deliveryForEventId: (r.delivery_for_event_id as string | null) ?? null,
         }
       : {}),
   }

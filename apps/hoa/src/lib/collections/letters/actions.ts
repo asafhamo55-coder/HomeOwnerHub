@@ -361,6 +361,23 @@ export async function recordLetterMailing(input: z.input<typeof MailSchema>): Pr
   if (!mail.ok) return { ok: false, error: mail.error }
   if (!mail.record) return { ok: false, error: 'Choose how it was mailed.' }
 
+  // A delivery links to the letter's own print event, so the clock does not depend on the tracking number.
+  let deliveryFor: string | null = null
+  if (mail.record.deliveredOn) {
+    const found = (await supabase
+      .from('collection_events')
+      .select('id')
+      .eq('organization_id', gate.orgId)
+      .eq('collection_case_id', request.payload.caseId)
+      .eq('note', letterEventNote(request.id))
+      .limit(1)) as { data: Array<{ id: string }> | null; error: { code?: string } | null }
+    if (found.error) {
+      console.error('[collections.letters] print event lookup failed', { orgId: gate.orgId, code: found.error.code ?? null })
+      return { ok: false, error: 'Couldn’t record the mailing. Nothing was saved. Try again.' }
+    }
+    deliveryFor = found.data?.[0]?.id ?? null
+  }
+
   const { error } = await supabase.from('collection_events').insert({
     organization_id: gate.orgId,
     collection_case_id: request.payload.caseId,
@@ -368,6 +385,7 @@ export async function recordLetterMailing(input: z.input<typeof MailSchema>): Pr
     occurred_on: mail.record.mailedOn ?? mail.record.deliveredOn ?? ctx.today,
     note: mailingNote(request.id),
     recorded_by: user.id,
+    ...(deliveryFor ? { delivery_for_event_id: deliveryFor } : {}),
     mail_method: mail.record.method,
     tracking_number: mail.record.trackingNumber,
     mailed_on: mail.record.mailedOn,

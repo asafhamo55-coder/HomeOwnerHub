@@ -484,6 +484,18 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
       <td className="num py-1 text-right">{totals.totalCents === null ? <Blank label="Total (fill in the amounts above)" /> : usdCents(totals.totalCents)}</td>
     </tr>
   )
+  // BL-177: credit on account is shown beside the total, never netted into it.
+  const accountCredit = input.unappliedCreditCents ?? 0
+  const creditNote =
+    accountCredit > 0 && totals.totalCents !== null ? (
+      <>
+        <AmountRow label="Credit on account, not applied to a charge" cents={accountCredit} />
+        <tr className="font-semibold">
+          <td className="py-1 pr-3">Total due after credit</td>
+          <td className="num py-1 text-right">{usdCents(totals.totalCents - accountCredit)}</td>
+        </tr>
+      </>
+    ) : null
   const credit = f.creditCents !== 0 ? <AmountRow label="Less payments and credits not applied to a charge" cents={f.creditCents} /> : null
 
   return (
@@ -575,7 +587,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
                     </AmountRow>
                   </>
                 ) : null}
-                {total}
+                {total}{creditNote}
               </>
             ) : k === 'ca_pre_lien' ? (
               <>
@@ -591,7 +603,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
                   <EnteredCell field={field('interest')} values={values} />
                 </AmountRow>
                 {credit}
-                {total}
+                {total}{creditNote}
               </>
             ) : (
               <>
@@ -604,7 +616,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
                   </AmountRow>
                 ) : null}
                 {credit}
-                {total}
+                {total}{creditNote}
               </>
             )}
           </tbody>
