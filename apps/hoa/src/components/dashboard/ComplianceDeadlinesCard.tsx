@@ -65,6 +65,11 @@ export function ComplianceDeadlinesCard({
                 >
                   {item.deadline.officialLabel} <ExternalLink className="size-3.5" aria-hidden />
                 </a>
+                {item.deadline.prepHref ? (
+                  <Link href={item.deadline.prepHref} className="font-medium text-primary hover:underline">
+                    {item.deadline.prepLabel ?? 'Open'}
+                  </Link>
+                ) : null}
                 <MarkComplianceDoneButton associationId={item.associationId} code={item.deadline.code} />
               </div>
             </section>

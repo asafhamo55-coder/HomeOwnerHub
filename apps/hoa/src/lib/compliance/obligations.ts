@@ -53,6 +53,10 @@
  * BL-159: the same 30-day amendment row after each board role change made
  * in Settings → Members (changeMemberRole writes it into that signed
  * record), counted from the day the role changed.
+ * BL-167, EVERY STATE (also an unknown one): the federal Form 1099-NEC and
+ * Form 1120-H dates for the current tax year, markable per tax year, each
+ * linking to the year-end package. Cited from irs.gov (see deadlines.ts),
+ * so no statute quote; not legal or tax advice.
  * ANY OTHER STATE: nothing quoted; "check your governing documents".
  *
  * Statute wording only ever comes from ./law.ts (checked word for word);
@@ -65,8 +69,14 @@ import {
   deadlineByCode,
   deadlineLabel,
   deadlineTone,
+  federal1099Code,
+  federal1120hCode,
+  federalTaxYear,
+  form1120hDueOn,
+  nec1099DueOn,
   gaCorpRegistrationCode,
   gaCorpRegistrationYear,
+  YEAR_END_PACKAGE_HREF,
   formatDueOn,
   readComplianceAcks,
   type ComplianceAssociationInput,
@@ -917,7 +927,34 @@ function gaOfficerChangeRows(base: Base, a: ComplianceAssociationInput, input: C
   return (read.record.officerChanges ?? []).map((c) => gaOfficerChangeRow(base, c, input.today, read.record))
 }
 
+/** BL-167: the federal 1099-NEC and 1120-H rows. Same for every association; the year-end package is where the inputs are prepared. */
+function federalObligations(base: Base, acks: ReturnType<typeof readComplianceAcks>, input: ComplianceInput): ComplianceObligation[] {
+  const pkg = { href: YEAR_END_PACKAGE_HREF, label: 'Open the year-end package' }
+  const nec = federal1099Code(federalTaxYear(input.today, nec1099DueOn))
+  const h = federal1120hCode(federalTaxYear(input.today, form1120hDueOn))
+  return [
+    deadlineObligation(base, nec, acks, input, {
+      steps: deadlineByCode(nec)!.whatToDo,
+      quotes: [],
+      appliesTo: deadlineByCode(nec)!.appliesTo,
+      link: pkg,
+    }),
+    deadlineObligation(base, h, acks, input, {
+      steps: deadlineByCode(h)!.whatToDo,
+      quotes: [],
+      appliesTo: deadlineByCode(h)!.appliesTo,
+      link: pkg,
+    }),
+  ]
+}
+
 function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
+  const base: Base = { associationId: a.id, associationName: a.name }
+  const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
+  return [...stateObligations(a, state, input), ...federalObligations(base, acks, input)]
+}
+
+function stateObligations(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
   const base: Base = { associationId: a.id, associationName: a.name }
   const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
   const elections = state ? directorElections(base, a, state, input) : []

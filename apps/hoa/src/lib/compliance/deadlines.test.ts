@@ -17,16 +17,22 @@ import {
   deadlineByCode,
   deadlineLabel,
   deadlineTone,
-  deadlinesForState,
+  deadlinesForState as realDeadlinesForState,
   gaCorpRegistrationDeadline,
   gaCorpRegistrationYear,
   isKnownDeadlineCode,
-  pendingComplianceItems,
+  pendingComplianceItems as realPendingComplianceItems,
   readComplianceAcks,
   signComplianceAck,
   withComplianceAck,
   type ComplianceAssociationInput,
 } from './deadlines'
+
+// BL-167 added federal rows to every association; this file covers the state rows, so strip them
+// here. The federal rows are tested in federal.test.ts.
+const pendingComplianceItems: typeof realPendingComplianceItems = (...a) =>
+  realPendingComplianceItems(...a).filter((i) => i.deadline.state !== 'US')
+const deadlinesForState: typeof realDeadlinesForState = (...a) => realDeadlinesForState(...a).filter((d) => d.state !== 'US')
 
 // BL-131 stopgap. Today in these tests is 2026-10-20 unless a case says otherwise.
 
@@ -290,7 +296,7 @@ describe('BL-152: the Georgia corporation’s annual registration (O.C.G.A. § 1
   })
 
   it('names the Title 14 fixture, which holds both sections it cites', () => {
-    const text = readFileSync(resolve(REPO_ROOT, corp.fixture), 'utf8')
+    const text = readFileSync(resolve(REPO_ROOT, corp.fixture!), 'utf8')
     expect(text).toContain('=== O.C.G.A. Section 14-3-1622 | Annual registration of corporation')
     expect(text).toContain('=== O.C.G.A. Section 14-3-1420 | Grounds for administrative dissolution')
     expect(text).toContain('Subsequent annual registrations must be delivered to the Secretary of State between January 1 and April 1')

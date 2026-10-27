@@ -58,12 +58,17 @@ import { markComplianceDeadlineDone } from './actions'
 import {
   acksToMigrate,
   doneRowsByAssociation,
-  pendingComplianceItems,
+  pendingComplianceItems as realPendingComplianceItems,
   signComplianceAck,
   withComplianceAck,
   type ComplianceAssociationInput,
 } from './deadlines'
 import { loadComplianceDoneAndMigrate } from './done'
+
+// BL-167 added federal rows to every association; this file covers the state rows, so strip them
+// here. The federal rows are tested in federal.test.ts.
+const pendingComplianceItems: typeof realPendingComplianceItems = (...a) =>
+  realPendingComplianceItems(...a).filter((i) => i.deadline.state !== 'US')
 
 const SECRET = 'test-secret'
 const GA_ID = '11111111-1111-4111-8111-111111111111'
