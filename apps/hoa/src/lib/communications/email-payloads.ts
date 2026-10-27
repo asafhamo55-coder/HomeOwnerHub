@@ -14,12 +14,14 @@
 import type { SendEmailInput } from '@/lib/email'
 import { buildRecipientBag, type RecipientIdentity } from './merge-bag'
 import { renderTemplateStrict, type MergeBag } from './templates'
-import { bodyForLanguage, recipientLanguagePreference } from './bilingual'
+import { bodyForLanguage, recipientLanguagePreference, type LanguagePreference } from './bilingual'
 
 /** A persisted `communication_recipients` row, narrowed to what a render
  *  needs plus the id that ties a batch result back to the row. */
 export interface PayloadRecipient extends RecipientIdentity {
   id: string
+  /** The resident's preferred language; absent or null sends both (BL-025). */
+  language?: LanguagePreference
 }
 
 export interface BuildEmailPayloadsArgs {
@@ -77,8 +79,8 @@ export function buildEmailPayloads({
       payloads.push({
         to: recipient.email,
         subject: renderTemplateStrict(subject, bag),
-        // BL-025 seam: unchanged today (no language field yet, so every
-        // recipient gets both languages); M-P1 fills in the preference.
+        // BL-025: the resident's preferred language when they chose one and
+        // the body has a translation; otherwise both languages.
         html: renderTemplateStrict(bodyForLanguage(bodyHtml, recipientLanguagePreference(recipient)), bag),
         text: bodyText ? renderTemplateStrict(bodyText, bag) : undefined,
         senderName,

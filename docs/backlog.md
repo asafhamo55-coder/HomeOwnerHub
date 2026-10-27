@@ -1325,7 +1325,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 - Election planner and e-ballots: TX SB 2629, CA AB 2159, the FL petition (BL-023 and beyond; L, legal risk).
 - Comms Phase B B1/B2 (`merge_values` and urgency columns), a 0067 ride-along if there is room.
 - BL-060 inbox participant search RPC.
-- Resident preferences UI (mail, language, quiet hours; the columns exist).
+- **Resident preferences UI (language shipped):** the language card is live on `/resident/account` and the send path honours it. Quiet hours are not built: they need a deferral or "held until" design (scheduled dispatch would have to re-queue sends that land in a resident's window) and probably a migration. Mail preference is still open.
 - Household or tenant add as an approval request.
 - Board and emergency contacts on the portal.
 - Manual bank account and statement CSV.

@@ -16,6 +16,8 @@ import { ElectronicNotices } from './ElectronicNotices'
 import { TextMessages } from './TextMessages'
 import { loadTextMessagesState, type TextMessagesState } from '@/lib/sms-consent'
 import { createAdminClient } from '@homeowner-portal/db'
+import { MessageLanguage } from './MessageLanguage'
+import { loadMyLanguage, type LanguageState } from '@/lib/language-preference'
 
 export const metadata = { title: 'Account' }
 export const dynamic = 'force-dynamic'
@@ -90,7 +92,16 @@ export default async function ResidentAccountPage() {
     return timed(R, 'account.texts', () => loadTextMessagesState(actor.client, textOrg, actorId, createAdminClient()))
   })()
 
-  const [fullName, consent, texts] = await Promise.all([fullNameP, consentP, textsP])
+  // The language messages arrive in. Same actor/org gate as the texts card.
+  const languageP: Promise<LanguageState | null> = (async () => {
+    if (!actor.id) return null
+    const langOrg = currentOrg
+    if (!langOrg || (actor.impersonating && actor.orgId !== langOrg.id)) return null
+    const actorId = actor.id
+    return timed(R, 'account.language', () => loadMyLanguage(actor.client, langOrg.id, actorId))
+  })()
+
+  const [fullName, consent, texts, language] = await Promise.all([fullNameP, consentP, textsP, languageP])
   const displayName = fullName || email.split('@')[0] || 'Resident'
 
   const communities = [
@@ -146,6 +157,15 @@ export default async function ResidentAccountPage() {
       />
 
       {texts !== null ? <TextMessages state={texts} readOnly={actor.impersonating} /> : null}
+
+      {language !== null ? (
+        <MessageLanguage
+          current={language.ok ? language.language : null}
+          loadFailed={!language.ok}
+          otherOrg={language.ok && language.otherOrg}
+          readOnly={actor.impersonating}
+        />
+      ) : null}
 
       {consent !== undefined ? <ElectronicNotices consent={consent} readOnly={actor.impersonating} /> : null}
 

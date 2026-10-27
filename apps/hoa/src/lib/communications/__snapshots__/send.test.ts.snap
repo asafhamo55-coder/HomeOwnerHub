@@ -276,7 +276,7 @@ exports[`sendCommunication, M1_APPLIED false (today) > scheduled: the full trace
       [
         "select",
         [
-          "id, channel, email, phone, recipient_name, unit_id",
+          "id, channel, email, phone, recipient_name, unit_id, user_id",
         ],
       ],
     ],
@@ -564,7 +564,7 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
       [
         "select",
         [
-          "id, channel, email, phone, recipient_name, unit_id",
+          "id, channel, email, phone, recipient_name, unit_id, user_id",
         ],
       ],
     ],
