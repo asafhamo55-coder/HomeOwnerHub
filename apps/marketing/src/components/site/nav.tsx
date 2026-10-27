@@ -7,6 +7,7 @@ import { CommandPalette } from './command-palette'
 import { cn } from '@/lib/cn'
 import { HOA_PRODUCT_NAME, isOfferedHref } from '@/lib/hubs'
 import { Logo, SIGN_IN_URL } from './brand'
+import { TrackedLink } from './tracked-link'
 
 const allProducts = [
   {
@@ -37,7 +38,7 @@ const productMenu = products.length > 1
 
 const links = [
   ...(productMenu ? [] : [{ href: '/hoa', label: 'Features' }]),
-  { href: '/#georgia', label: 'Georgia' },
+  { href: '/georgia', label: 'Georgia' },
   { href: '/compare', label: 'Compare' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
@@ -87,7 +88,7 @@ export function Nav() {
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,box-shadow] duration-200',
+        'fixed inset-x-0 top-0 z-50 border-b print:hidden transition-[background-color,border-color,box-shadow] duration-200',
         solid
           ? 'border-border bg-surface/90 shadow-[0_1px_0_hsl(var(--border)),0_10px_30px_-20px_hsl(var(--foreground)/0.25)] backdrop-blur-lg'
           : 'border-transparent bg-transparent',
@@ -178,9 +179,12 @@ export function Nav() {
           >
             Sign in
           </a>
-          <Link href="/demo" className="btn btn-primary !min-h-10 !px-4">
+          <TrackedLink href="/demo" event="demo_cta_click" position="header" className="btn btn-secondary !min-h-10 !px-4">
+            Book a demo
+          </TrackedLink>
+          <TrackedLink href="/demo" event="pilot_cta_click" position="header" className="btn btn-primary !min-h-10 !px-4">
             Start free pilot
-          </Link>
+          </TrackedLink>
         </div>
 
         <div className="flex items-center gap-1 md:hidden">
@@ -232,10 +236,13 @@ export function Nav() {
               ),
             )}
             <div className="mt-6 grid gap-3">
-              <Link href="/demo" onClick={() => setOpen(false)} className="btn btn-primary btn-lg">
+              <TrackedLink href="/demo" event="demo_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-primary btn-lg">
+                Book a demo
+              </TrackedLink>
+              <TrackedLink href="/demo" event="pilot_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-secondary btn-lg">
                 Start free pilot
-              </Link>
-              <a href={SIGN_IN_URL} className="btn btn-secondary btn-lg">
+              </TrackedLink>
+              <a href={SIGN_IN_URL} className="btn btn-ghost btn-lg">
                 Sign in
               </a>
             </div>

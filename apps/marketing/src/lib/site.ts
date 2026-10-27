@@ -13,6 +13,7 @@
 // the root vitest config maps "@" to apps/hoa.
 
 import type { Metadata } from 'next'
+import { GEORGIA_PATHS } from './georgia'
 
 export const DEFAULT_SITE_ORIGIN = 'https://www.homeownerledger.online'
 export const SITE_NAME = 'HomeownerHub'
@@ -55,12 +56,13 @@ export function isIndexable(origin: string = SITE_ORIGIN): boolean {
  * (BL-097; they redirect to /hoa). marketing-truth.test.ts checks this list
  * against app/**\/page.tsx so a new page can't be forgotten.
  */
-export const SITEMAP_PATHS = [
+export const SITEMAP_PATHS: readonly string[] = [
   '/',
   '/hoa',
   '/pricing',
   '/compare',
   '/demo',
+  ...GEORGIA_PATHS,
   '/about',
   '/roadmap',
   '/honesty-bars',
@@ -72,7 +74,7 @@ export const SITEMAP_PATHS = [
   '/privacy',
   '/terms',
   '/dpa',
-] as const
+]
 
 /** The default OG image: app/opengraph-image.tsx, 1200x630. */
 export const OG_IMAGE_PATH = '/opengraph-image'
