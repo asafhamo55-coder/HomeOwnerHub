@@ -11,9 +11,9 @@ import { STATE_CARDS } from '@/lib/state-law'
 
 export function StateLawBuiltIn({ id = 'state-law' }: { id?: string }) {
   return (
-    <section className="section scroll-mt-16 bg-surface" id={id}>
+    <section className="section section-warm scroll-mt-16" id={id}>
       <div className="container-page">
-        <header className="mx-auto max-w-3xl text-center">
+        <header className="reveal mx-auto max-w-3xl text-center">
           <p className="eyebrow">State law built in</p>
           <h2 className="t-h2 mt-4 text-foreground">
             Your state’s rules, <span className="t-serif text-primary">cited on every draft.</span>
@@ -26,7 +26,7 @@ export function StateLawBuiltIn({ id = 'state-law' }: { id?: string }) {
 
         <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {STATE_CARDS.map((s) => (
-            <li key={s.state} className="card card-hover group flex flex-col p-6">
+            <li key={s.state} className="card card-hover reveal group flex flex-col p-6">
               <span className="inline-flex h-8 min-w-8 items-center justify-center self-start rounded-lg bg-foreground px-2 text-xs font-bold text-background">
                 {s.state}
               </span>

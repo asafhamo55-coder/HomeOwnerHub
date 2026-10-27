@@ -77,24 +77,22 @@ export function Pillars() {
   return (
     <section id="products" className="section scroll-mt-16 bg-surface">
       <div className="container-page">
-        <header className="grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:items-end lg:gap-16">
-          <div>
-            <p className="eyebrow">What the workspace does</p>
-            <h2 className="t-h2 mt-4 text-foreground">
-              Everything a board does,{' '}
-              <span className="t-serif text-primary">in one place.</span>
-            </h2>
-          </div>
-          <p className="t-lead">
+        <header className="reveal mx-auto max-w-3xl text-center">
+          <p className="eyebrow">What the workspace does</p>
+          <h2 className="t-h2 mt-4 text-foreground">
+            Everything a board does,{' '}
+            <span className="t-serif text-primary">in one place.</span>
+          </h2>
+          <p className="t-lead mt-5">
             Dues, violations, communications, money, documents and residents, with AI drafting the paperwork and a
             board member approving every word.
           </p>
         </header>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-16 grid gap-x-8 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
           {PILLARS.map(({ Icon, title, body, points }) => (
-            <article key={title} className="card card-hover flex flex-col p-6">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-fg shadow-[0_10px_20px_-10px_hsl(var(--primary)/0.7)]">
+            <article key={title} className="feature reveal">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl tile-grad text-primary-fg">
                 <Icon className="h-5 w-5" aria-hidden />
               </span>
               <h3 className="t-h3 mt-6 text-foreground">{title}</h3>

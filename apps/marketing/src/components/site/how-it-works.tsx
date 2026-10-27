@@ -29,9 +29,9 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="section scroll-mt-16" id="how-it-works">
+    <section className="section section-night on-dark scroll-mt-16" id="how-it-works">
       <div className="container-page">
-        <div className="mx-auto max-w-3xl text-center">
+        <div className="reveal mx-auto max-w-3xl text-center">
           <p className="eyebrow">How it works</p>
           <h2 className="t-h2 mt-4 text-foreground">
             From a pile of PDFs to a working workspace,{' '}
@@ -42,7 +42,7 @@ export function HowItWorks() {
 
         <ol className="relative mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {steps.map((s, i) => (
-            <li key={s.title} className="card relative p-6">
+            <li key={s.title} className="card reveal relative p-6">
               <div className="flex items-center justify-between">
                 <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
                   <s.Icon className="h-5 w-5" aria-hidden />
