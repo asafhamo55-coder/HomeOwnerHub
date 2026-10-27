@@ -410,8 +410,9 @@ CREATE TRIGGER matter_assignments_attribution
 -- matter_id is polymorphic (no foreign key); the scope trigger above checks
 -- it against the right table's organization.
 DROP TRIGGER IF EXISTS matter_assignments_unit_id_org_scope ON public.matter_assignments;
-CREATE TRIGGER matter_assignments_unit_id_org_scope
-  BEFORE INSERT OR UPDATE OF unit_id, organization_id ON public.matter_assignments
+DROP TRIGGER IF EXISTS zz_org_fk_matter_assignments_unit_id ON public.matter_assignments;
+CREATE TRIGGER zz_org_fk_matter_assignments_unit_id
+  AFTER INSERT OR UPDATE OF unit_id, organization_id ON public.matter_assignments
   FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org('unit_id', 'units', 'organization_id', 'organization_id');
 
 -- Does the calling attorney hold an active grant AND a live assignment?
@@ -780,8 +781,9 @@ CREATE POLICY approval_signoffs_select ON public.approval_signoffs
 -- No write policy: the function below is the only user-reachable write.
 -- A sign-off belongs to a request of its own org (tenant_fk_same_org, 0070).
 DROP TRIGGER IF EXISTS approval_signoffs_approval_request_id_org_scope ON public.approval_signoffs;
-CREATE TRIGGER approval_signoffs_approval_request_id_org_scope
-  BEFORE INSERT OR UPDATE OF approval_request_id, organization_id ON public.approval_signoffs
+DROP TRIGGER IF EXISTS zz_org_fk_approval_signoffs_approval_request_id ON public.approval_signoffs;
+CREATE TRIGGER zz_org_fk_approval_signoffs_approval_request_id
+  AFTER INSERT OR UPDATE OF approval_request_id, organization_id ON public.approval_signoffs
   FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org('approval_request_id', 'approval_requests', 'organization_id', 'organization_id');
 
 CREATE OR REPLACE FUNCTION public.record_approval_signoff(p_request_id uuid)

@@ -174,9 +174,10 @@ BEGIN
       ('unapplied_credits', 'journal_entry_id', 'journal_entries', 'organization_id', 'organization_id')
     ) v(child, fk, parent, parent_org, child_org)
   LOOP
-    -- The generic trigger is named zz_org_fk_* so it fires LAST (triggers fire in name order):
-    -- a table's hand-written scope triggers keep their own error codes (42501) when they apply.
-    -- A name over 63 bytes is cut and given a short deterministic hash.
+    -- AFTER ROW, like Postgres's own foreign-key checks: row level security (WITH CHECK, 42501) and the
+    -- hand-written BEFORE scope triggers run first and keep their error codes; a genuine cross-org link
+    -- still raises 23503 here and aborts the statement. Named zz_org_fk_*; a name over 63 bytes is cut
+    -- and given a short deterministic hash.
     v_name := 'zz_org_fk_' || r.child || '_' || r.fk;
     IF octet_length(v_name) > 63 THEN
       v_name := left(v_name, 54) || '_' || substr(md5(v_name), 1, 8);
@@ -185,7 +186,7 @@ BEGIN
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', r.child || '_' || r.fk || '_org_scope', r.child);
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', v_name, r.child);
     EXECUTE format(
-      'CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF %I, %I ON public.%I
+      'CREATE TRIGGER %I AFTER INSERT OR UPDATE OF %I, %I ON public.%I
          FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org(%L, %L, %L, %L)',
       v_name, r.fk, r.child_org, r.child,
       r.fk, r.parent, r.parent_org, r.child_org);

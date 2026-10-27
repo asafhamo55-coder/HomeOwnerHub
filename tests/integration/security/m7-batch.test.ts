@@ -606,10 +606,11 @@ describe('0072 BL-177: apply_unapplied_credit()', () => {
   }
 
   it('allowed: moves credit onto a charge with a balanced entry (Prepaid Assessments to AR)', async () => {
-    const credit = await makeCredit(5000)
+    // The charge is $100, so a $100 credit applied in two steps ($30, then the $70 left) clears it.
+    const credit = await makeCredit(10000)
     const r = await apply(board, { credit, assessment: a1, cents: 3000 })
     expect(r.error).toBeNull()
-    expect(await remaining(credit)).toBe(20)
+    expect(await remaining(credit)).toBe(70)
     expect(await statusOf(a1)).toBe('partial')
     const lines = psqlRows<{ account_number: string; debit_amount: string; credit_amount: string }>(
       `select c.account_number, l.debit_amount::text, l.credit_amount::text
@@ -620,7 +621,7 @@ describe('0072 BL-177: apply_unapplied_credit()', () => {
     expect(Number(lines[0]!.credit_amount)).toBe(30)
     expect(Number(lines[1]!.debit_amount)).toBe(30)
     // The rest finishes the charge.
-    expect((await apply(board, { credit, assessment: a1, cents: 2000 })).error).toBeNull()
+    expect((await apply(board, { credit, assessment: a1, cents: 7000 })).error).toBeNull()
     expect(await statusOf(a1)).toBe('paid')
     expect(await remaining(credit)).toBe(0)
   })
