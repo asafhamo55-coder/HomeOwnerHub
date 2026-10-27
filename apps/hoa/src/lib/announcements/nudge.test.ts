@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { NUDGE_TABLE, NUDGE_WINDOW_DAYS, isNudgeKey, leadDaysOf, nextNudge, nthWeekdayOfMonth, nudgeDigestLine, ruleDate } from './nudge'
-import { getOccasion } from './occasions'
+import { GRID_OCCASIONS, OCCASIONS, getOccasion } from './occasions'
 
 const rule = (id: string) => NUDGE_TABLE.find((e) => e.occasionId === id)!.rule
 
@@ -166,6 +166,19 @@ describe('national holidays and observances', () => {
     expect(june.occasionId).toBe('fathers-day')
     expect(june.others.map((o) => o.occasionId)).toEqual(['fourth-of-july'])
     expect(nextNudge('2026-10-26', new Set(['dst-ends:2026']))!.others).toEqual([])
+  })
+
+  it('keeps the grid at the original 16 tiles; hidden occasions open through their nudge link', () => {
+    expect(GRID_OCCASIONS).toHaveLength(16)
+    const hidden = OCCASIONS.filter((o) => o.hiddenFromGrid)
+    expect(hidden).toHaveLength(11)
+    for (const o of hidden) {
+      expect(GRID_OCCASIONS.includes(o), o.id).toBe(false)
+      const entry = NUDGE_TABLE.find((e) => e.occasionId === o.id)
+      expect(entry, o.id).toBeDefined()
+      // The card links to ?occasion=<id>; the page resolves it with getOccasion.
+      expect(getOccasion(o.id)?.id, o.id).toBe(o.id)
+    }
   })
 
   it('dismissal stays per occasion and year', () => {

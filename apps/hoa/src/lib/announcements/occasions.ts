@@ -63,6 +63,11 @@ export interface Occasion {
   category: AnnouncementCategory
   /** Sending a text is on by default (when texting is set up). */
   urgent: boolean
+  /**
+   * Date-only occasions reached from the dashboard nudge (?occasion=<id>) or
+   * a typed sentence, not shown as a tile on the "New announcement" grid.
+   */
+  hiddenFromGrid?: boolean
   /** Which optional fields the draft screen offers. */
   asks: readonly OccasionField[]
   detailLabel?: string
@@ -542,6 +547,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'flag',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add? (office or trash schedule)',
     keywords: ['martin luther king', 'mlk'],
@@ -571,6 +577,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'flag',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add? (office or trash schedule)',
     keywords: ['presidents day', 'president\'s day', 'presidents\' day'],
@@ -600,6 +607,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'party-popper',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add? (office or trash schedule)',
     keywords: ['juneteenth'],
@@ -629,6 +637,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'flag',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add? (office or trash schedule, a local event)',
     keywords: ['veterans day', 'veterans', 'veteran'],
@@ -658,6 +667,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'gift',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add?',
     keywords: ['mother\'s day', 'mothers day'],
@@ -687,6 +697,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'gift',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add?',
     keywords: ['father\'s day', 'fathers day'],
@@ -716,6 +727,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'sprout',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['date', 'time', 'place', 'detail'],
     detailLabel: 'Cleanup details, what to bring, if any',
     keywords: ['earth day', 'cleanup', 'clean-up', 'clean up'],
@@ -745,6 +757,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'gift',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add?',
     keywords: ['valentine'],
@@ -774,6 +787,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'sun',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add?',
     keywords: ['daylight saving ends', 'fall back', 'clocks back', 'set clocks back'],
@@ -803,6 +817,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'sun',
     category: 'community',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add?',
     keywords: ['daylight saving starts', 'spring forward', 'clocks forward', 'set clocks forward'],
@@ -832,6 +847,7 @@ export const OCCASIONS: readonly Occasion[] = [
     icon: 'megaphone',
     category: 'emergency',
     urgent: false,
+    hiddenFromGrid: true,
     asks: ['detail'],
     detailLabel: 'Anything to add? (a drill, a visit from the fire department)',
     keywords: ['fire prevention', 'smoke alarm', 'smoke detector', 'fire safety'],
@@ -857,6 +873,9 @@ export const OCCASIONS: readonly Occasion[] = [
     },
   },
 ]
+
+/** The tiles on the "New announcement" grid. */
+export const GRID_OCCASIONS: readonly Occasion[] = OCCASIONS.filter((o) => !o.hiddenFromGrid)
 
 /** A typed sentence that matches no occasion. */
 export const CUSTOM_OCCASION_ID = 'custom'

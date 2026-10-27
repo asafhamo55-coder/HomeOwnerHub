@@ -31,7 +31,7 @@ import { sendAnnouncement } from '@/lib/announcements/actions'
 import {
   CUSTOM_OCCASION_ID,
   EMPTY_FACTS,
-  OCCASIONS,
+  GRID_OCCASIONS,
   fillCustom,
   fillOccasion,
   getOccasion,
@@ -473,7 +473,7 @@ export function AnnouncementFlow({
             What is it about?
           </h2>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {OCCASIONS.map((o) => {
+            {GRID_OCCASIONS.map((o) => {
               const Icon = ICONS[o.icon]
               return (
                 <li key={o.id}>
