@@ -5,6 +5,7 @@ export type QuoteFixture =
   | 'ga-sb406-2026-2027-text.txt'
   | 'ga-ocga-44-3-art6-2026.txt'
   | 'ga-ocga-44-3-art3-2026.txt'
+  | 'ga-ocga-14-3-2026.txt'
 
 export interface StatuteQuote {
   cite: string
@@ -393,6 +394,76 @@ export const QUOTES = {
     cite: "O.C.G.A. § 44-3-228",
     fixture: "ga-ocga-44-3-art6-2026.txt",
     quote: "Unless the instrument or bylaws specify a larger percentage, the presence of persons entitled to cast one-half of the votes of the board of directors shall constitute a quorum for the transaction of business at any meeting of the board.",
+  },
+  memberQuorum: {
+    cite: "O.C.G.A. § 44-3-228",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Unless the instrument or bylaws provide otherwise, a quorum shall be deemed present throughout any meeting of the members of the association if persons entitled to cast more than one-third of the votes are present at the beginning of the meeting.",
+  },
+  lotProxy: {
+    cite: "O.C.G.A. § 44-3-224(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The votes pertaining to any lot may, and, in the case of any lot owner not a natural person or persons, shall, be cast pursuant to a proxy or proxies duly executed by or on behalf of the lot owner or, in cases where the lot owner is more than one person, by or on behalf of the joint owners of the lot.",
+  },
+  proxyVoid: {
+    cite: "O.C.G.A. § 44-3-224(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any proxy shall be void if it is not dated or if it purports to be revocable without such notice.",
+  },
+  proxyOptional: {
+    cite: "O.C.G.A. § 14-3-724(a)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Unless the articles or bylaws prohibit or limit proxy voting, a member may vote in person or by proxy.",
+  },
+  proxyElectronic: {
+    cite: "O.C.G.A. § 14-3-724(b)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A member or his or her agent or attorney in fact may appoint a proxy to vote or otherwise act for the member by signing an appointment form either personally or by an electronic transmission.",
+  },
+  proxy11: {
+    cite: "O.C.G.A. § 14-3-724(c)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "An appointment is valid for 11 months unless a different period is expressly provided in the appointment form.",
+  },
+  proxyRevocable: {
+    cite: "O.C.G.A. § 14-3-724(d)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "An appointment of a proxy is revocable by the member.",
+  },
+  proxyRevokeVote: {
+    cite: "O.C.G.A. § 14-3-724(f)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Appointment of a proxy is revoked by the person appointing the proxy: (1) Attending any meeting and voting in person; or (2) Signing and delivering to the secretary or other officer or agent authorized to tabulate proxy votes either a writing stating that the appointment of the proxy is revoked or a subsequent appointment form.",
+  },
+  ballotQuorum: {
+    cite: "O.C.G.A. § 14-3-707(c)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Approval by ballot in writing or by electronic transmission pursuant to this Code section shall be valid only when the number of votes cast by ballot equals or exceeds the quorum required to be present at a meeting authorizing the action, and the number of approvals equals or exceeds the number of votes that would be required to approve the matter at a meeting at which the total number of votes cast was the same as the number of votes cast by ballot.",
+  },
+  copiesOfBylaws: {
+    cite: "O.C.G.A. § 44-3-227(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "and copies thereof shall be furnished to any lot owner on request upon payment of a reasonable charge therefor.",
+  },
+  memberInspect: {
+    cite: "O.C.G.A. § 14-3-1602(b)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A member is entitled to inspect and copy, at a reasonable time and location specified by the corporation, any of the records of the corporation described in subsection (a) of this Code section if the member gives the corporation written notice or a written demand at least five business days before the date on which the member wishes to inspect and copy.",
+  },
+  memberInspectPurpose: {
+    cite: "O.C.G.A. § 14-3-1602(d)(1)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The member’s demand is made in good faith and for a proper purpose that is reasonably relevant to the member’s legitimate interest as a member;",
+  },
+  memberInspectRestrict: {
+    cite: "O.C.G.A. § 14-3-1602(e)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The corporation may impose reasonable restrictions on the confidentiality, use, or distribution of the records described in subsection (c) of this Code section.",
+  },
+  requiredRecords: {
+    cite: "O.C.G.A. § 14-3-1601(a)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A corporation shall keep as permanent records minutes of all meetings of its members and board of directors, executed consents evidencing all actions taken by the members or board of directors without a meeting, a record of all actions taken by a committee of the board of directors in place of the board of directors on behalf of the corporation, and waivers of notice of all meetings of the board of directors and its committees.",
   },
 } as const satisfies Record<string, StatuteQuote>
 

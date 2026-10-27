@@ -412,7 +412,7 @@ export const OWNERS_RIGHTS: Guide = {
       a: 'The definition of owners’ association covers associations formed under Articles 3 and 6, which means condominiums and property owners’ associations.',
     },
   ],
-  related: ['complaint-process', 'registration-2027', 'foreclosure-threshold-2027', 'readiness'],
+  related: ['complaint-process', 'registration-2027', 'foreclosure-threshold-2027', 'readiness', 'records-inspection-requests'],
   hoaDoes: [
     {
       text: 'Owners get a “Your rights as an owner” page that lists the twelve rights word for word, each linked to where they use it in the app, and a button to request the insurance certificate. It says the rights take effect January 1, 2027 until then.',

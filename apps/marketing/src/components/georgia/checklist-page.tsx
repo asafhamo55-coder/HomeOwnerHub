@@ -1,7 +1,8 @@
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { JsonLd } from '@/components/site/json-ld'
-import { articleLd, breadcrumbLd, faqLd } from '@/lib/jsonld'
+import { ShieldCheck } from 'lucide-react'
+import { articleLd, breadcrumbLd, faqLd, howToLd } from '@/lib/jsonld'
 import { pathOf } from '@/lib/georgia'
 import type { Checklist } from '@/lib/georgia/checklists'
 import { formatDate } from './guide-page'
@@ -19,6 +20,7 @@ export function ChecklistPage({ list }: { list: Checklist }) {
         data={[
           articleLd({ headline: list.title, description: list.description, path, datePublished: list.datePublished, dateModified: list.dateModified }),
           faqLd(list.faqs),
+          ...(list.howTo ? [howToLd({ name: list.title, description: list.description, steps: list.items.map((i) => i.text) })] : []),
           breadcrumbLd([...trail.map((t) => ({ name: t.name, path: t.href })), { name: list.title, path }]),
         ]}
       />
@@ -66,6 +68,20 @@ export function ChecklistPage({ list }: { list: Checklist }) {
               ))}
             </ol>
 
+            {list.letter && (
+              <section className="mt-12 print:break-before-page" aria-labelledby="letter-heading">
+                <h2 id="letter-heading" className="t-h3 text-foreground">
+                  {list.letter.heading}
+                </h2>
+                <p className="mt-3 text-[15px] leading-relaxed text-foreground-secondary print:hidden">{list.letter.intro}</p>
+                <div className="mt-5 rounded-xl border border-border bg-surface p-6 font-serif text-[16px] leading-relaxed text-foreground md:p-8">
+                  {list.letter.lines.map((line, i) =>
+                    line === '' ? <div key={i} className="h-4" aria-hidden /> : <p key={i}>{line}</p>,
+                  )}
+                </div>
+              </section>
+            )}
+
             <section className="mt-12 [break-inside:avoid]">
               <h2 className="t-h3 text-foreground">{list.quotesHeading ?? 'The statute behind this checklist'}</h2>
               {list.quotes.map((id) => (
@@ -76,6 +92,23 @@ export function ChecklistPage({ list }: { list: Checklist }) {
             <div className="mt-8">
               <NotLegalAdvice />
             </div>
+
+            {list.hoaDoes && list.hoaDoes.length > 0 && (
+              <section className="mt-12 rounded-2xl border border-border bg-surface p-6 print:hidden md:p-7" aria-labelledby="hoa-does">
+                <h2 id="hoa-does" className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <ShieldCheck className="h-5 w-5 text-primary" aria-hidden />
+                  What HomeownerHub does about this
+                </h2>
+                <ul className="mt-4 space-y-3">
+                  {list.hoaDoes.map((h) => (
+                    <li key={h.text} className="text-[15px] leading-relaxed text-foreground-secondary">
+                      {h.text}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-xs text-muted">The board approves every draft. HomeownerHub prepares paperwork and cites the law; it does not file for you or give legal advice.</p>
+              </section>
+            )}
 
             <section className="mt-12 print:hidden" aria-labelledby="faq">
               <h2 id="faq" className="t-h3 text-foreground">
