@@ -43,6 +43,30 @@ runs:
         zstd -dc ~/.cache/supabase-images/images.tar.zst | docker load
         docker images --format '{{.Repository}}:{{.Tag}}' | sort
 
+    # ghcr.io throttled this one large image for over an hour on 2026-10-27
+    # ("toomanyrequests", even when logged in and with retries). Supabase
+    # publishes the same images on public.ecr.aws, so on a cache miss pull it
+    # from there (falling back to ghcr.io) and tag it with the name the CLI
+    # expects; `supabase start` then finds it locally and never asks ghcr.io.
+    - name: Pre-pull Postgres image (ECR mirror)
+      if: steps.image-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -uo pipefail
+        want=ghcr.io/supabase/postgres:17.6.1.106
+        if docker image inspect "$want" >/dev/null 2>&1; then exit 0; fi
+        for attempt in 1 2 3; do
+          for src in public.ecr.aws/supabase/postgres:17.6.1.106 "$want"; do
+            if docker pull "$src"; then
+              [ "$src" = "$want" ] || docker tag "$src" "$want"
+              exit 0
+            fi
+          done
+          sleep $((attempt * 30))
+        done
+        echo "could not pre-pull $want; supabase start will try itself"
+        exit 0
+
     # Excluded: studio (dashboard), imgproxy (image transforms), edge-runtime
     # (functions), logflare + vector (analytics/log shipping), supavisor
     # (pooler, already off in config.toml), postgres-meta (studio's backend)
