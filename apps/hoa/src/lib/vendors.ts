@@ -9,6 +9,8 @@ import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { removeStorageObjects } from '@/lib/storage-remove'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
+import { conflictGate } from '@/lib/conflict-disclosure/load'
+import { fetchVotingBoard } from '@/lib/conflict-disclosure/board'
 import { rejectProspectVendor } from '@/lib/vendor-decisions'
 import { checkOrgOwned } from '@/lib/org-owned'
 
@@ -762,6 +764,13 @@ export async function approveVendor(
       error: 'Vendor is not green for this association. Approval is blocked.',
     }
   }
+
+  // BL-165: approving a vendor to work for the association is the contract
+  // approval; from 2027-01-01 a Georgia association waits for every voting
+  // board member's conflict-of-interest disclosure. This covers the vendor
+  // page's button and the /approvals inbox, which both end here.
+  const blocked = await conflictGate(supabase, gate.orgId, 'contract_approval', vendorId, fetchVotingBoard)
+  if (blocked) return { ok: false, error: blocked }
 
   const { error } = await supabase
     .from('vendors' as never)
