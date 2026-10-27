@@ -253,13 +253,22 @@ function Kit({ data, today }: { data: KitData; today: string }) {
                   <ul className="space-y-1">
                     {data.board.map((m) => (
                       <li key={`${m.name}-${m.role}`}>
-                        {m.name} — title: <span className="inline-block min-w-[8rem] border-b border-dashed border-border-strong">&nbsp;</span>
+                        {m.name} — title:{' '}
+                        {m.title ? (
+                          <span className="font-medium">{m.title}</span>
+                        ) : (
+                          <span className="inline-block min-w-[8rem] border-b border-dashed border-border-strong">&nbsp;</span>
+                        )}
                       </li>
                     ))}
                   </ul>
                 )
               }
-              note="Board members and admins with a HomeownerHub login. HomeownerHub doesn’t hold officer titles: write in president, secretary and treasurer."
+              note={
+                data.titlesFromHoa
+                  ? 'Board members and admins with a HomeownerHub login. Titles come from Settings → Professionals; write in any that are blank.'
+                  : 'Board members and admins with a HomeownerHub login. HomeownerHub doesn’t hold officer titles: write in president, secretary and treasurer.'
+              }
             />
             <SheetLine label="Registered agent" value={record.registeredAgent} note="If known. HomeownerHub doesn’t hold it unless you enter it below." />
             <SheetLine label="Number of units" value={unitLine} />

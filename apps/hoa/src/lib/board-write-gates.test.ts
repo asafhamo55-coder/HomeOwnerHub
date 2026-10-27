@@ -41,6 +41,7 @@ import * as rosterExport from '../app/(dashboard)/properties/roster/export/route
 import * as activityExport from '../app/api/settings/activity/export/route'
 import * as motionsExport from '../app/api/meetings/motions/export/route'
 import * as yearEndExport from '../app/api/accounting/year-end/[periodId]/route'
+import * as cpaExport from '../app/api/accounting/cpa-export/route'
 import YearEndPage from '../app/(dashboard)/accounting/reports/year-end/page'
 import ActivityLogPage from '../app/(dashboard)/settings/activity/page'
 import MotionLogPage from '../app/(dashboard)/meetings/motions/page'
@@ -430,6 +431,18 @@ describe('board-only activity and motion logs refuse a resident', () => {
     })
     expect(res.status).toBe(403)
     expect((await res.json()).error.code).toBe('forbidden')
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('GET /api/accounting/cpa-export (BL-168: the CPA’s read-only CSVs; a resident, and a board member too, is refused before any client)', async () => {
+    vi.mocked(getSupabaseServerClient).mockClear()
+    const periodId = '11111111-1111-4111-8111-111111111111'
+    for (const role of ['resident', 'board', 'admin'] as const) {
+      h.role = role
+      const res = await cpaExport.GET(new Request(`http://x/api/accounting/cpa-export?kind=trial_balance&periodId=${periodId}`))
+      expect(res.status).toBe(403)
+      expect((await res.json()).error.code).toBe('forbidden')
+    }
     expect(getSupabaseServerClient).not.toHaveBeenCalled()
   })
 

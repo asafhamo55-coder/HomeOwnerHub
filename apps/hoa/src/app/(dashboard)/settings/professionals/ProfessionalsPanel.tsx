@@ -155,7 +155,7 @@ export function ProfessionalRowView({ row, today, options, note }: { row: Profes
             {row.fullName ?? row.email ?? 'Invited professional'} <span className="text-foreground-secondary">· {PRO_ROLE_LABEL[row.role]}</span>
           </p>
           {row.fullName && row.email ? <p className="text-foreground-secondary">{row.email}</p> : null}
-          <p className="text-foreground-secondary">Access {note}</p>
+          <p className={note === 'Expired' ? 'font-medium text-danger' : 'text-foreground-secondary'}>{note}</p>
         </div>
         <Button
           size="sm"

@@ -14,6 +14,7 @@ import { BILL_ACTION } from '../bill-scan/proposal'
 import { LETTER_ACTION } from '../collections/letters/proposal'
 import { OPENING_ACTION } from '../accounting/opening-balances/proposal'
 import { PRO_ACTION_LIST } from '../professionals/model'
+import { TREASURER_ROUTED_ACTIONS, treasurerRecipientIds, type MemberLike } from '../professionals/notice'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
 import { contactTicketsQuery, loadContactEntries, type ContactDeps, type ContactTicketRow } from '../contact-updates/apply'
@@ -278,6 +279,38 @@ async function loadAssociations(db: InboxDb, orgId: string) {
 }
 
 /**
+ * BL-168 follow-up: the professionals count in the sidebar badge. A CPA's
+ * proposed entry or "reviewed" note is the Treasurer's to see first (or the
+ * admins' when the board has no Treasurer), so for a signed-in viewer who is
+ * not that recipient those two kinds are left out of the BADGE (they are
+ * still listed on /approvals). An attorney's items count for every board
+ * member. No viewerId (monthly report, tests) counts everything, as before.
+ * Only called when M6 is live. A failed read is unknown, never 0.
+ */
+async function countProBadge(db: InboxDb, orgId: string, viewerId?: string) {
+  let actions: readonly string[] = PRO_ACTION_LIST
+  if (viewerId) {
+    const members = await loadOrFail(
+      'approvals badge: treasurer routing',
+      db.from('org_members').select('user_id, role, officer_title').eq('org_id', orgId).in('role', ['admin', 'board']),
+    )
+    if (!members.ok) return { ok: false as const }
+    if (!treasurerRecipientIds((members.data ?? []) as unknown as MemberLike[]).has(viewerId)) {
+      actions = actions.filter((a) => !TREASURER_ROUTED_ACTIONS.includes(a))
+    }
+  }
+  return loadOrFail(
+    'approvals badge: professionals',
+    db
+      .from('approval_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .in('action_type', [...actions])
+      .eq('status', 'proposed'),
+  )
+}
+
+/**
  * Head-only counts for the sidebar badge. Same predicates as the sections.
  * The vendor count is the PRIMARY association's, because that is the list
  * /approvals and /vendors/approval-queue show; other associations are
@@ -285,7 +318,7 @@ async function loadAssociations(db: InboxDb, orgId: string) {
  * means the vendor list is empty, so 0. A failed count is null — unknown,
  * never 0.
  */
-export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { m5?: boolean; m6?: boolean } = {}): Promise<SourceCounts> {
+export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { m5?: boolean; m6?: boolean; viewerId?: string } = {}): Promise<SourceCounts> {
   const vendorCount = async (): Promise<number | null> => {
     const assocs = await loadAssociations(db, orgId)
     if (!assocs.ok) return null
@@ -350,17 +383,7 @@ export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { 
     ),
     loadOrFail('approvals badge: contact updates', contactTicketsQuery(db, orgId, { head: true })),
     countPendingJoins(db as unknown as JoinDb, orgId, opts.m5 ?? M5_APPLIED),
-    (opts.m6 ?? M6_APPLIED)
-      ? loadOrFail(
-          'approvals badge: professionals',
-          db
-            .from('approval_requests')
-            .select('id', { count: 'exact', head: true })
-            .eq('organization_id', orgId)
-            .in('action_type', PRO_ACTION_LIST)
-            .eq('status', 'proposed'),
-        )
-      : Promise.resolve({ ok: true as const, count: 0 }),
+    (opts.m6 ?? M6_APPLIED) ? countProBadge(db, orgId, opts.viewerId) : Promise.resolve({ ok: true as const, count: 0 }),
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)

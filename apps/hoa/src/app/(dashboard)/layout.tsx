@@ -81,7 +81,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Sidebar count for /approvals (BL-014): four head-only counts. A failed
   // count yields no badge (or a "3+" lower bound), never a false 0.
-  const approvalCounts = await countPendingApprovals(supabase, org.id)
+  const approvalCounts = await countPendingApprovals(supabase, org.id, { viewerId: user.id })
 
   return (
     <DashboardProviders>

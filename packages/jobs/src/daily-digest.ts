@@ -84,6 +84,16 @@ import {
 // BL-147: late fees the nightly job charged under the board's policy. Same
 // dependency-free, relative-path rule.
 import { LATE_FEE_NIGHTLY_AUDIT_ACTION } from '../../../apps/hoa/src/lib/late-fees/policy'
+// BL-168 follow-up: who is told about a CPA's submissions, and grants running
+// out. Same dependency-free, relative-path rule; inert until M6_APPLIED.
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
+import {
+  PRO_EXPIRY_WARN_DAYS,
+  proExpiryCounts,
+  treasurerRecipientIds,
+  type MemberLike,
+  type ProExpiryCounts,
+} from '../../../apps/hoa/src/lib/professionals/notice'
 
 /**
  * Morning health check across every active HOA org, 7am Eastern.
@@ -148,6 +158,14 @@ import { LATE_FEE_NIGHTLY_AUDIT_ACTION } from '../../../apps/hoa/src/lib/late-fe
  * late-fee policy in the last 24 hours, one line with the count and total,
  * linking to Settings → Late fees. Read from the job's audit_log rows (ids
  * and counts only). Board members only.
+ *
+ * BL-168 follow-up: and, once M6_APPLIED, (a) how many proposed adjusting
+ * entries and "reviewed" notes from the CPA are waiting, to the Treasurer
+ * only (the admins when the board has no Treasurer), linking to the
+ * professionals tab of /approvals; (b) how many CPA/attorney access grants
+ * end within 30 days and how many have ended, to every board member,
+ * linking to Settings -> Professionals. Counts only, no names; no new email
+ * is sent for either (they ride the existing digest).
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -219,6 +237,12 @@ export interface DailyDigestResult {
   directorCertAlerts: number
   /** Late fees charged overnight under a board policy, summed across orgs (BL-147). */
   lateFeesCharged: number
+  /** CPA entries and review notes waiting for the Treasurer, summed across orgs (BL-168). 0 while M6 is off. */
+  proTreasurerItems: number
+  /** Professional grants ending within 30 days, summed across orgs (BL-168). 0 while M6 is off. */
+  proExpiring: number
+  /** Professional grants that have ended and are still listed, summed across orgs (BL-168). 0 while M6 is off. */
+  proExpired: number
   emailed: number
   failed: number
 }
@@ -880,6 +904,105 @@ export function buildLateFeeBlock(args: { summary: LateFeeDigestSummary; policyU
   return { line, text, html }
 }
 
+// ─── Professionals: Treasurer queue and grant expiry (BL-168 follow-up) ───
+
+export interface ProDigestSummary {
+  /** Proposed adjusting entries from the CPA. */
+  entries: number
+  /** Proposed "reviewed" notes from the CPA. */
+  reviews: number
+  /** User ids who see the entries/reviews lines: the Treasurer, else the admins. */
+  treasurerIds: Set<string>
+  /** Grants ending within PRO_EXPIRY_WARN_DAYS, and ones that have ended. */
+  expiry: ProExpiryCounts
+}
+
+/**
+ * Counts for one org, org-scoped, ids and counts only. null on a failed
+ * read (logged by code) and null WITHOUT any query while M6_APPLIED is off.
+ */
+export async function loadProfessionalNotices(
+  db: Db,
+  orgId: string,
+  nowMs: number,
+  logger: DigestLogger,
+  live: boolean = M6_APPLIED,
+): Promise<ProDigestSummary | null> {
+  if (!live) return null
+  const members = await db
+    .from('org_members')
+    .select('user_id, role, officer_title, access_expires_at')
+    .eq('org_id', orgId)
+    .in('role', ['admin', 'board', 'cpa', 'attorney'])
+  if (members.error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load professional access`, { code: members.error.code })
+    return null
+  }
+  const rows = (members.data ?? []) as Array<MemberLike & { access_expires_at: string | null }>
+  const count = async (action: string): Promise<number | null> => {
+    const r = await db
+      .from('approval_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .eq('action_type', action)
+      .eq('status', 'proposed')
+    if (r.error) {
+      logger.error(`[daily-digest] ${orgId}: failed to count professional submissions`, { code: r.error.code })
+      return null
+    }
+    return r.count ?? 0
+  }
+  const [entries, reviews] = await Promise.all([count('pro.journal_entry'), count('pro.cpa_review')])
+  // A failed count is logged and left out of the email rather than shown as a wrong number.
+  return {
+    entries: entries ?? 0,
+    reviews: reviews ?? 0,
+    treasurerIds: treasurerRecipientIds(rows),
+    expiry: proExpiryCounts(rows.filter((r) => r.role === 'cpa' || r.role === 'attorney'), nowMs),
+  }
+}
+
+function itemCount(n: number, one: string, many: string): string {
+  return n === 1 ? `1 ${one}` : `${n} ${many}`
+}
+
+/** The Treasurer's block: CPA entries and review notes waiting. Counts and a link. */
+export function buildProTreasurerBlock(args: { entries: number; reviews: number; approvalsUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines: string[] = []
+  if (args.entries > 0) lines.push(`${itemCount(args.entries, 'adjusting entry', 'adjusting entries')} proposed by your CPA waiting for approval`)
+  if (args.reviews > 0) lines.push(`${itemCount(args.reviews, 'period review note', 'period review notes')} from your CPA waiting for approval`)
+  const text = [...lines, `Review in Approvals: ${args.approvalsUrl}`].join('\n')
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid #2563eb;border-radius:6px;padding:16px;margin:16px 0">
+    ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
+    <a href="${escapeHtml(args.approvalsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open Approvals</a>
+  </div>`
+  return { lines, text, html }
+}
+
+/** Grants running out or already ended. Counts and a link. */
+export function buildProExpiryBlock(args: { expiring: number; expired: number; professionalsUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const lines: string[] = []
+  if (args.expired > 0) lines.push(`${itemCount(args.expired, 'professional access grant has', 'professional access grants have')} ended`)
+  if (args.expiring > 0) lines.push(`${itemCount(args.expiring, 'professional access grant ends', 'professional access grants end')} within ${PRO_EXPIRY_WARN_DAYS} days`)
+  const text = [...lines, `Renew or remove access: ${args.professionalsUrl}`].join('\n')
+  const border = args.expired > 0 ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
+    <a href="${escapeHtml(args.professionalsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Manage professionals</a>
+  </div>`
+  return { lines, text, html }
+}
+
 /** The director-certification block: one line per director, what's at stake, and the Members link. */
 export function buildDirectorCertBlock(args: { rows: DirectorCertRow[]; membersUrl: string }): {
   lines: string[]
@@ -933,6 +1056,10 @@ export function buildDigestEmail(args: {
   directorCerts?: { rows: DirectorCertRow[]; membersUrl: string } | null
   /** BL-147: late fees charged overnight. Omitted or zero adds nothing. */
   lateFees?: { summary: LateFeeDigestSummary; policyUrl: string } | null
+  /** BL-168: the CPA's entries and review notes waiting, for the Treasurer only. Omitted or all-zero adds nothing. */
+  proTreasurer?: { entries: number; reviews: number; approvalsUrl: string } | null
+  /** BL-168: professional grants ending soon or ended. Omitted or all-zero adds nothing. */
+  proExpiry?: { expiring: number; expired: number; professionalsUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -959,6 +1086,12 @@ export function buildDigestEmail(args: {
   if (directorCertBlock) extras.push(directorCertBlock)
   const lateFeeBlock = args.lateFees && args.lateFees.summary.charged > 0 ? buildLateFeeBlock(args.lateFees) : null
   if (lateFeeBlock) extras.push(lateFeeBlock)
+  const proTreasurerBlock =
+    args.proTreasurer && (args.proTreasurer.entries > 0 || args.proTreasurer.reviews > 0) ? buildProTreasurerBlock(args.proTreasurer) : null
+  if (proTreasurerBlock) extras.push(proTreasurerBlock)
+  const proExpiryBlock =
+    args.proExpiry && (args.proExpiry.expiring > 0 || args.proExpiry.expired > 0) ? buildProExpiryBlock(args.proExpiry) : null
+  if (proExpiryBlock) extras.push(proExpiryBlock)
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -983,8 +1116,16 @@ export function buildDigestEmail(args: {
     directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
   // BL-147: lowest precedence — its own subject only when it is the only block.
   const lateFeesOnly = lateFeeBlock && !directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
+  // BL-168: lowest precedence, so its own subject only when nothing else is in the email.
+  const proOnly =
+    (proTreasurerBlock || proExpiryBlock) &&
+    !lateFeeBlock && !directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : proOnly
+      ? proTreasurerBlock
+        ? `${proTreasurerBlock.lines[0]} — ${args.orgName}`
+        : `${proExpiryBlock!.lines[0]} — ${args.orgName}`
     : lateFeesOnly
       ? `${args.lateFees!.summary.charged === 1 ? '1 late fee' : `${args.lateFees!.summary.charged} late fees`} charged overnight — ${args.orgName}`
     : directorOnly
@@ -1116,6 +1257,9 @@ export async function runDailyDigest(
   let hearingTotal = 0
   let directorCertTotal = 0
   let lateFeeTotal = 0
+  let proTreasurerTotal = 0
+  let proExpiringTotal = 0
+  let proExpiredTotal = 0
   let emailed = 0
   let failed = 0
   const now = Date.now()
@@ -1260,7 +1404,25 @@ export async function runDailyDigest(
     const lateFeeCount = lateFees?.charged ?? 0
     lateFeeTotal += lateFeeCount
 
+    // BL-168 follow-up: no query at all while M6_APPLIED is off.
+    let pro: ProDigestSummary | null = null
+    try {
+      pro = await loadProfessionalNotices(db, orgId, now, logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: professional notices check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const proQueue = (pro?.entries ?? 0) + (pro?.reviews ?? 0)
+    const proExpiring = pro?.expiry.expiring ?? 0
+    const proExpired = pro?.expiry.expired ?? 0
+    proTreasurerTotal += proQueue
+    proExpiringTotal += proExpiring
+    proExpiredTotal += proExpired
+
     const orgWide =
+      proExpiring > 0 ||
+      proExpired > 0 ||
       lateFeeCount > 0 ||
       directorCertCount > 0 ||
       broken.length > 0 ||
@@ -1273,7 +1435,7 @@ export async function runDailyDigest(
       insuranceCount > 0 ||
       hearingCount > 0
 
-    if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0) continue
+    if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0 && proQueue === 0) continue
     if (orgTasksOverdue > 0 || orgTasksDueSoon > 0) {
       // Counts only, never which task or whose.
       logger.info(`[daily-digest] ${orgId}: ${orgTasksOverdue} task(s) overdue, ${orgTasksDueSoon} due this week`)
@@ -1315,6 +1477,13 @@ export async function runDailyDigest(
       logger.info(`[daily-digest] ${orgId}: ${lateFeeCount} late fee(s) charged overnight`)
     }
 
+    if (proQueue > 0 || proExpiring > 0 || proExpired > 0) {
+      // Counts only, never which entry, which professional or who the Treasurer is.
+      logger.info(
+        `[daily-digest] ${orgId}: professionals — ${pro!.entries} entr${pro!.entries === 1 ? 'y' : 'ies'} and ${pro!.reviews} review note(s) waiting, ${proExpiring} grant(s) ending soon, ${proExpired} ended`,
+      )
+    }
+
     if (directorCertCount > 0) {
       // A count only, never names or user ids.
       logger.info(`[daily-digest] ${orgId}: ${directorCertCount} director certification(s) due or overdue`)
@@ -1342,7 +1511,9 @@ export async function runDailyDigest(
         // org-wide to report, a member with no tasks due gets no email.
         const mine = tasks?.get(userId) ?? null
         const mineDue = mine != null && (mine.overdue > 0 || mine.dueSoon > 0)
-        if (!orgWide && !mineDue) continue
+        // BL-168: the CPA's submissions go to the Treasurer (else the admins) only.
+        const proMine = proQueue > 0 && pro != null && pro.treasurerIds.has(userId)
+        if (!orgWide && !mineDue && !proMine) continue
         // Per recipient: "M assigned to you" differs by person.
         const alert = buildDigestEmail({
           orgName: org.name ?? 'your community',
@@ -1371,6 +1542,11 @@ export async function runDailyDigest(
               ? { rows: directorCerts!, membersUrl: deps.appUrl('/settings/members#director-certification') }
               : null,
           lateFees: lateFeeCount > 0 ? { summary: lateFees!, policyUrl: deps.appUrl('/settings/late-fees') } : null,
+          proTreasurer: proMine ? { entries: pro!.entries, reviews: pro!.reviews, approvalsUrl: deps.appUrl('/approvals?type=pro') } : null,
+          proExpiry:
+            proExpiring > 0 || proExpired > 0
+              ? { expiring: proExpiring, expired: proExpired, professionalsUrl: deps.appUrl('/settings/professionals') }
+              : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
@@ -1408,6 +1584,9 @@ export async function runDailyDigest(
     hearingDeadlines: hearingTotal,
     directorCertAlerts: directorCertTotal,
     lateFeesCharged: lateFeeTotal,
+    proTreasurerItems: proTreasurerTotal,
+    proExpiring: proExpiringTotal,
+    proExpired: proExpiredTotal,
     emailed,
     failed,
   }
