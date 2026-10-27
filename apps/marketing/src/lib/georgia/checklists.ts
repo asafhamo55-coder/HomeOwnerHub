@@ -1,4 +1,5 @@
 import type { QuoteId } from '../georgia-quotes'
+import { BOARD_AGENDA_TEMPLATE, VIOLATION_NOTICE_CHECKLIST } from './checklists-b'
 
 export interface Checklist {
   slug: string
@@ -8,13 +9,17 @@ export interface Checklist {
   eyebrow: string
   intro: string[]
   /** The checklist, in the order a board works through it. */
-  items: { text: string; detail?: string }[]
+  items: { text: string; detail?: string; /** Where the item comes from: a quoted statute section, or our plain-language suggestion. */ basis?: 'statute' | 'practice' }[]
   /** The statute text the checklist is built from. */
   quotes: QuoteId[]
   faqs: { q: string; a: string }[]
   related: string[]
   datePublished: string
   dateModified: string
+  /** Pages outside /georgia: the page's own path. Default /georgia/<slug>. */
+  path?: string
+  /** Heading above the quotes. Default: "The statute behind this checklist". */
+  quotesHeading?: string
 }
 
 export const FEE_NOTICE_CHECKLIST: Checklist = {
@@ -78,7 +83,7 @@ export const MEETING_NOTICE_CHECKLIST: Checklist = {
     { q: 'How much notice does a Georgia HOA annual meeting need?', a: 'At least 21 days in advance of any annual or regularly scheduled meeting, and at least seven days for any other meeting.' },
     { q: 'Can we email the notice?', a: 'The statute allows notice issued electronically in accordance with the Uniform Electronic Transactions Act. Check your bylaws and your owners’ consent practices with your attorney.' },
   ],
-  related: ['owners-rights-2027', 'registration-2027', 'readiness'],
+  related: ['owners-rights-2027', 'registration-2027', 'hoa-board-meeting-agenda', 'readiness'],
   datePublished: '2026-10-26',
   dateModified: '2026-10-26',
 }
@@ -86,4 +91,6 @@ export const MEETING_NOTICE_CHECKLIST: Checklist = {
 export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [FEE_NOTICE_CHECKLIST.slug]: FEE_NOTICE_CHECKLIST,
   [MEETING_NOTICE_CHECKLIST.slug]: MEETING_NOTICE_CHECKLIST,
+  [VIOLATION_NOTICE_CHECKLIST.slug]: VIOLATION_NOTICE_CHECKLIST,
+  [BOARD_AGENDA_TEMPLATE.slug]: BOARD_AGENDA_TEMPLATE,
 }

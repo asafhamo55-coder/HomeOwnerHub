@@ -2,14 +2,16 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { JsonLd } from '@/components/site/json-ld'
 import { articleLd, breadcrumbLd, faqLd } from '@/lib/jsonld'
-import { guidePath } from '@/lib/georgia'
+import { pathOf } from '@/lib/georgia'
 import type { Checklist } from '@/lib/georgia/checklists'
 import { formatDate } from './guide-page'
 import { Breadcrumbs, GeorgiaCta, NotLegalAdvice, PrintButton, Quote, RelatedLinks } from './parts'
 
 /** A free, printable checklist. No sign-up, no email gate. */
 export function ChecklistPage({ list }: { list: Checklist }) {
-  const path = guidePath(list.slug)
+  const path = pathOf(list)
+  const general = !path.startsWith('/georgia/')
+  const trail = general ? [{ name: 'Home', href: '/' }] : [{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }]
   return (
     <main id="main-content">
       <Nav />
@@ -17,18 +19,14 @@ export function ChecklistPage({ list }: { list: Checklist }) {
         data={[
           articleLd({ headline: list.title, description: list.description, path, datePublished: list.datePublished, dateModified: list.dateModified }),
           faqLd(list.faqs),
-          breadcrumbLd([
-            { name: 'Home', path: '/' },
-            { name: 'Georgia', path: '/georgia' },
-            { name: list.title, path },
-          ]),
+          breadcrumbLd([...trail.map((t) => ({ name: t.name, path: t.href })), { name: list.title, path }]),
         ]}
       />
       <article>
         <header className="hero-wash relative overflow-hidden pb-10 pt-28 md:pb-14 md:pt-36 print:pt-0">
           <div className="container-page">
             <div className="mx-auto max-w-3xl">
-              <Breadcrumbs trail={[{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }, { name: 'Checklist' }]} />
+              <Breadcrumbs trail={[...trail, { name: 'Checklist' }]} />
               <p className="eyebrow mt-6 print:hidden">{list.eyebrow}</p>
               <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.1rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
                 {list.title}
@@ -56,6 +54,11 @@ export function ChecklistPage({ list }: { list: Checklist }) {
                 <li key={item.text} className="flex gap-4 rounded-xl border border-border bg-surface p-4 [break-inside:avoid]">
                   <span aria-hidden className="mt-1 inline-block h-5 w-5 shrink-0 rounded border-2 border-border-strong" />
                   <span>
+                    {item.basis && (
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        {item.basis === 'statute' ? 'Statute' : 'Best practice'}
+                      </span>
+                    )}
                     <span className="block text-[16px] font-medium leading-snug text-foreground">{item.text}</span>
                     {item.detail && <span className="mt-1 block text-sm leading-relaxed text-foreground-secondary">{item.detail}</span>}
                   </span>
@@ -64,7 +67,7 @@ export function ChecklistPage({ list }: { list: Checklist }) {
             </ol>
 
             <section className="mt-12 [break-inside:avoid]">
-              <h2 className="t-h3 text-foreground">The statute behind this checklist</h2>
+              <h2 className="t-h3 text-foreground">{list.quotesHeading ?? 'The statute behind this checklist'}</h2>
               {list.quotes.map((id) => (
                 <Quote key={id} id={id} />
               ))}
@@ -94,7 +97,7 @@ export function ChecklistPage({ list }: { list: Checklist }) {
           </div>
         </div>
       </article>
-      <GeorgiaCta position={`checklist_${list.slug}`} />
+      <GeorgiaCta position={`checklist_${list.slug}`} general={general} />
       <Footer />
     </main>
   )
