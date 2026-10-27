@@ -1,5 +1,6 @@
 'use client'
 
+import { safeNextPath } from '@/lib/safe-next-path'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -59,7 +60,7 @@ export function PasswordForm({
 
     // Full reload so the server picks up the freshly-set auth cookie before
     // rendering the gated destination.
-    router.replace(redirectTo || '/')
+    router.replace(safeNextPath(redirectTo ?? null))
     router.refresh()
   }
 
