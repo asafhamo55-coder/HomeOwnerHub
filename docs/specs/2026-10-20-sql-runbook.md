@@ -1418,7 +1418,7 @@ The four new columns start empty (no existing entry changes), the credits table 
            WHERE schemaname = 'public' AND tablename = 'unapplied_credits')                         AS credits_rules,
          (SELECT count(*) FROM pg_trigger
            WHERE NOT tgisinternal AND tgrelid = 'public.unapplied_credits'::regclass
-             AND tgname LIKE '%\_org\_scope')                                                      AS credits_same_hoa_checks,
+             AND tgname LIKE 'zz\_org\_fk\_%')                                                      AS credits_same_hoa_checks,
          (SELECT count(*) FROM public.unapplied_credits)                                            AS credits_rows,
          (SELECT prosecdef FROM pg_proc
            WHERE oid = 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)'::regprocedure) AS function_is_definer,
@@ -1428,7 +1428,7 @@ The four new columns start empty (no existing entry changes), the credits table 
          has_function_privilege('authenticated', 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)', 'EXECUTE') AS signed_in_can_run,
          (SELECT count(*) FROM pg_trigger
            WHERE tgrelid = 'public.collection_events'::regclass
-             AND tgname = 'collection_events_delivery_for_event_id_org_scope')                      AS delivery_link_check,
+             AND tgname = 'zz_org_fk_collection_events_delivery_for_event_id')                      AS delivery_link_check,
          (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.je_number_counters'::regclass)    AS counters_locked,
          (SELECT count(*) FROM pg_proc WHERE pronamespace = 'public'::regnamespace
             AND proname IN ('record_lump_payment', 'apply_unapplied_credit', 'next_journal_entry_number')

@@ -373,6 +373,7 @@ REVOKE ALL ON FUNCTION public.tenant_fk_same_org() FROM PUBLIC, anon, authentica
 DO $triggers$
 DECLARE
   r record;
+  v_name text;
 BEGIN
   FOR r IN
     SELECT * FROM (VALUES
@@ -501,12 +502,20 @@ BEGIN
       ('zelle_inbound_matches', 'matched_unit_id', 'units', 'organization_id', 'organization_id')
     ) v(child, fk, parent, parent_org, child_org)
   LOOP
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I',
-                   r.child || '_' || r.fk || '_org_scope', r.child);
+    -- The generic trigger is named zz_org_fk_* so it fires LAST (triggers fire in name order):
+    -- a table's hand-written scope triggers keep their own error codes (42501) when they apply.
+    -- A name over 63 bytes is cut and given a short deterministic hash.
+    v_name := 'zz_org_fk_' || r.child || '_' || r.fk;
+    IF octet_length(v_name) > 63 THEN
+      v_name := left(v_name, 54) || '_' || substr(md5(v_name), 1, 8);
+    END IF;
+    -- Also drop the earlier <child>_<col>_org_scope name, in case of a partial earlier apply.
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', r.child || '_' || r.fk || '_org_scope', r.child);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', v_name, r.child);
     EXECUTE format(
       'CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF %I, %I ON public.%I
          FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org(%L, %L, %L, %L)',
-      r.child || '_' || r.fk || '_org_scope', r.fk, r.child_org, r.child,
+      v_name, r.fk, r.child_org, r.child,
       r.fk, r.parent, r.parent_org, r.child_org);
   END LOOP;
 END $triggers$;
@@ -671,7 +680,7 @@ DECLARE
   n integer;
 BEGIN
   SELECT count(*) INTO n FROM pg_trigger tg
-   WHERE NOT tg.tgisinternal AND tg.tgname LIKE '%\_org\_scope' ESCAPE '\'
+   WHERE NOT tg.tgisinternal AND tg.tgname LIKE 'zz\_org\_fk\_%' ESCAPE '\'
      AND tg.tgfoid = 'public.tenant_fk_same_org()'::regprocedure;
   IF n < 121 THEN
     RAISE EXCEPTION '0070: expected 121 tenant_fk_same_org triggers, found %', n;
