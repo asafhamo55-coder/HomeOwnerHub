@@ -48,7 +48,9 @@ const buttonVariants = cva(
         'icon-xs': 'size-7 [&_svg]:size-3.5',
       },
     },
-    compoundVariants: [{ variant: 'link', className: 'h-auto px-0' }],
+    // min-h-6: a standalone link-style button still meets the 24px target
+    // minimum (WCAG 2.5.8) at size xs/sm, where its text line is shorter.
+    compoundVariants: [{ variant: 'link', className: 'h-auto min-h-6 px-0' }],
     defaultVariants: { variant: 'default', size: 'md' },
   },
 )

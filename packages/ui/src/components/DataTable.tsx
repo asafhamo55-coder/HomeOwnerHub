@@ -82,7 +82,16 @@ export function TableScroll({
   return (
     // On paper there is no sideways scroll: a scroller would clip the
     // right-hand columns, so print lets the table lay out at full width.
-    <div className={cn('w-full overflow-x-auto print:overflow-visible', className)} {...props}>
+    // Focusable (tabIndex 0) so a keyboard-only user can scroll a wide table
+    // sideways with the arrow keys (WCAG 2.1.1; axe scrollable-region-focusable).
+    <div
+      tabIndex={0}
+      className={cn(
+        'w-full overflow-x-auto print:overflow-visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+        className,
+      )}
+      {...props}
+    >
       {children}
     </div>
   )

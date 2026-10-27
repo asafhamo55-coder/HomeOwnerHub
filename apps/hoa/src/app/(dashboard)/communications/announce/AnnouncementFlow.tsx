@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   Car,
@@ -109,6 +109,11 @@ export function AnnouncementFlow({
   const initialFilled = initial ? fillOccasion(initial, associationName, initialFacts) : null
 
   const [step, setStep] = useState<Step>(initial ? 'draft' : 'pick')
+  // The button that moved the user to another step unmounts with the old
+  // screen, which drops keyboard focus to <body> and says nothing to a
+  // screen reader (WCAG 2.4.3 / 4.1.3). Move focus to the new step's heading.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const firstStep = useRef(true)
   const [occasionId, setOccasionId] = useState<string>(initial?.id ?? '')
   const [sentence, setSentence] = useState('')
   const [facts, setFacts] = useState<AnnouncementFacts>(initialFacts)
@@ -142,6 +147,14 @@ export function AnnouncementFlow({
   const [error, setError] = useState<string | null>(null)
   const [sending, startSend] = useTransition()
   const [sent, setSent] = useState<SentResult | null>(null)
+  const isSent = sent !== null
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false
+      return
+    }
+    rootRef.current?.querySelector<HTMLElement>('[data-step-heading]')?.focus()
+  }, [step, isSent])
 
   const occasion: Occasion | null = getOccasion(occasionId)
   const isCustom = occasionId === CUSTOM_OCCASION_ID
@@ -401,11 +414,11 @@ export function AnnouncementFlow({
 
   if (sent) {
     return (
-      <section className="space-y-4 rounded-xl border border-border bg-surface p-5" aria-live="polite">
+      <section ref={rootRef} className="space-y-4 rounded-xl border border-border bg-surface p-5" aria-live="polite">
         <div className="flex items-start gap-3">
           <CheckCircle2 className="mt-0.5 size-6 shrink-0 text-success" aria-hidden />
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 data-step-heading tabIndex={-1} className="text-lg font-semibold text-foreground focus:outline-none">
               {sent.scheduled ? 'Scheduled' : 'Sent'}
             </h2>
             <p className="text-sm text-foreground-secondary">
@@ -435,7 +448,7 @@ export function AnnouncementFlow({
   // ── Screens ─────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5">
+    <div ref={rootRef} className="space-y-5">
       <ol className="flex flex-wrap gap-2 text-sm" aria-label="Steps">
         {STEPS.map((s) => (
           <li
@@ -456,7 +469,9 @@ export function AnnouncementFlow({
 
       {step === 'pick' ? (
         <div className="space-y-5">
-          <h2 className="text-base font-semibold text-foreground">What is it about?</h2>
+          <h2 data-step-heading tabIndex={-1} className="text-base font-semibold text-foreground focus:outline-none">
+            What is it about?
+          </h2>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {OCCASIONS.map((o) => {
               const Icon = ICONS[o.icon]
@@ -505,7 +520,7 @@ export function AnnouncementFlow({
       {step === 'draft' ? (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-foreground">
+            <h2 data-step-heading tabIndex={-1} className="text-base font-semibold text-foreground focus:outline-none">
               {occasion ? occasion.label : 'Your announcement'}
             </h2>
             <Button type="button" variant="ghost" onClick={() => setStep('pick')}>
@@ -646,8 +661,10 @@ export function AnnouncementFlow({
 
       {step === 'review' ? (
         <div className="space-y-5">
-          <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
-            <h2 className="text-base font-semibold text-foreground">Who gets it</h2>
+          <section role="radiogroup" aria-labelledby="announce-audience-h" className="space-y-3 rounded-xl border border-border bg-surface p-4">
+            <h2 id="announce-audience-h" data-step-heading tabIndex={-1} className="text-base font-semibold text-foreground focus:outline-none">
+              Who gets it
+            </h2>
             <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">
               <input
                 type="radio"
@@ -727,8 +744,8 @@ export function AnnouncementFlow({
             disabled={sending}
           />
 
-          <section className="space-y-3 rounded-xl border border-border bg-surface p-4">
-            <h2 className="text-base font-semibold text-foreground">When</h2>
+          <section role="radiogroup" aria-labelledby="announce-when-h" className="space-y-3 rounded-xl border border-border bg-surface p-4">
+            <h2 id="announce-when-h" className="text-base font-semibold text-foreground">When</h2>
             <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">
               <input
                 type="radio"

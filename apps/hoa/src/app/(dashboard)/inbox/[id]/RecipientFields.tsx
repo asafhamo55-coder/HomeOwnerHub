@@ -100,7 +100,7 @@ function ChipField({
               <button
                 type="button"
                 aria-label={`Remove ${address}`}
-                className="inline-flex size-5 items-center justify-center rounded-full text-muted hover:bg-border hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex size-6 items-center justify-center rounded-full text-muted hover:bg-border hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onChange(values.filter((_, i) => i !== index))}
                 disabled={disabled}
               >

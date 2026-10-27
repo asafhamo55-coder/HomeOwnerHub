@@ -91,7 +91,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, orgs }: Props) {
                 }}
                 className={cn(
                   'flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm outline-none',
-                  'focus:bg-background data-[disabled]:cursor-default data-[disabled]:opacity-60',
+                  'focus:bg-subtle data-[disabled]:cursor-default data-[disabled]:opacity-60',
                   isCurrent ? 'text-foreground' : 'text-muted-fg',
                 )}
               >

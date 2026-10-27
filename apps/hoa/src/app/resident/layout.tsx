@@ -12,6 +12,7 @@ import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
 import { drawerData } from '@/lib/guide'
+import { SkipLink } from '@homeowner-portal/ui'
 
 // Resident-only route tree. Unlike the board/admin dashboard (fixed
 // sidebar shell), the resident portal wears a consumer app shell: a slim
@@ -57,6 +58,7 @@ export default async function ResidentLayout({
 
   return (
     <ResidentProviders>
+    <SkipLink />
     <div className="flex min-h-dvh flex-col bg-background">
       {/* Dev-only role switcher: an in-flow strip, so it can never cover
           content or the tab bar. Renders nothing for non-admins. */}
@@ -70,7 +72,7 @@ export default async function ResidentLayout({
         help={<HelpDrawer variant="resident" data={drawerData('resident')} />}
       />
 
-      <main id="main" className="mx-auto w-full max-w-2xl flex-1 px-4 pb-10 pt-5 sm:pt-8 print:max-w-none print:p-0">
+      <main id="main" tabIndex={-1} className="mx-auto focus:outline-none w-full max-w-2xl flex-1 px-4 pb-10 pt-5 sm:pt-8 print:max-w-none print:p-0">
         {impersonation ? (
           <div className="print:hidden">
             <ImpersonationBanner name={impersonation.name} />

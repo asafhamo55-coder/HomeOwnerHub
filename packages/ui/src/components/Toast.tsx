@@ -87,6 +87,11 @@ export function ToastProvider({
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         role="region"
         aria-label="Notifications"
+        // A live region that exists before its content does is announced
+        // reliably (Safari/VoiceOver misses role=status nodes inserted
+        // already-populated). Errors still use role=alert on the toast.
+        aria-live="polite"
+        aria-relevant="additions"
       >
         {toasts.map((t) => (
           <ToastBody key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
