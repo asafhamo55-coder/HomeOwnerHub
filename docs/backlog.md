@@ -676,6 +676,7 @@ These go beyond the design-system v2 pass:
   `charts.ts`, `community-qa/tools.ts`) parses date-only columns as UTC midnight.
   `bank-rec.ts:164` stores `paid_at` from a date-only value — needs a decision.
   Fix: one association timezone (default America/New_York) and date-only helpers.
+  - **Checked 2026-10-27:** Done (713fa17f association-timezone today, dc1cf0a5; leftovers 965f9ca2 under BL-065). The `bank-rec.ts` date-only question is settled: `paid_at` is stored as noon UTC of the posted date (`apps/hoa/src/lib/bank-rec.ts:175`).
 - **BL-044 Dues-reminder follow-ups** (from c2): a per-association timezone (with BL-043);
   - **Checked 2026-10-27:** held status (`finalSendStatus`, all-held → `cancelled` + suppressed, UI "held by safety guard") and the fluid 600px preview are done. Only the populated dry-run table with real data remains (needs Asaf). Older note follows.
   - **Groomed 2026-10-20:** Partly done: the per-association reminder day shipped (713fa17f). Still open, no migration: a reminder whose every recipient the outbound guard held back is still finished as `failed` (`packages/jobs/src/dues-reminders/run.ts`, `sent > 0 ? 'sent' : 'failed'`); the 600px email preview still scrolls sideways at 375px; the populated dry-run table has not been seen with real data.
@@ -743,6 +744,7 @@ These go beyond the design-system v2 pass:
   - **Groomed 2026-10-20:** Open, needs migration M1 (storage policies).
 - **BL-059 Bill scan follow-ups:**
   - **Groomed 2026-10-20:** Partly done: edit-before-approve shipped (082e6a34), and the /approvals filter redirect fix. Still open, no migration: inbox attachments as a second way into bill scan; one real bill through the text and vision paths; `read-only:bg-subtle` in `packages/ui/src/lib/control.ts` still greys every Select trigger.
+  - **Checked 2026-10-27:** Still open: run one real bill through the text and vision paths (only a fake model has been tested; needs a real bill from Asaf, no code). Done: inbox attachments as a second way in (4268c204, `lib/inbox/attachment-bill.ts`), Select grey fixed (b19e021e: `controlBase` greys only `[readonly]`), the /approvals filter redirect.
   - ~~Let the board edit extracted fields before approving.~~ Done (claude/bl-059): "Edit details" on each /approvals bill card (vendor, invoice #, dates, total, expense account, line items). `editBillProposal` (board gate before any client) re-validates in code (`lib/bill-scan/edit.ts`): real dates, invoice not after the association's today, due ≥ invoice, total in (0, $1M] cents, priced line items sum to an edited total, vendor/account from the association's lists, duplicate vendor + invoice # refused. Edited fields are marked in `payload.humanEdits` and mirrored to `ai_runs.human_edited_output`. Reject-only cards are fixable by editing.
   - ~~Left: accept inbox attachments as a second way in.~~ Done 2026-10-20: "Scan as a bill" on a stored inbox PDF/JPG/PNG/WebP attachment (`lib/inbox/attachment-bill.ts`, `ScanAsBillButton`). The upload route and the inbox action share one scan (`lib/bill-scan/scan-core.ts`): same association, duplicate (file-hash subject id), vendor match, account suggestion and `w36.ap_bill` proposal; nothing is entered until /approvals. Attachment path checked with `inboxAttachmentPathOk`, type/size checked on the row and the downloaded bytes. Both ways in now draw on the shared `board_ai` AI limit (the upload route had no limit before). W36 prompt v2 treats the bill as untrusted data and fences the PDF text. The thread link lives on the proposal payload (`origin: { kind: 'inbox_attachment', threadId, attachmentId }`) and /approvals shows "Open the email it came from". **For 0065 (candidate):** a real link — an `approval_request` type in `inbox_thread_links` (so the thread's Linked records shows the bill) and/or a source column on `invoices` so the entered bill keeps the thread after approval.
   - Left: run one real bill through the text and vision paths (only a fake model has been tested).
@@ -750,6 +752,7 @@ These go beyond the design-system v2 pass:
   - Left: `read-only:bg-subtle` in `controlBase` matches non-input elements, so every Select trigger and prefixed Input renders grey (design-system wide, not bill-specific).
 - **BL-060 ⌘K follow-ups:**
   - **Groomed 2026-10-20:** Partly done (07160ecd). Open: inbox-participant matching needs a migration or RPC (not yet batched; candidate 0065); p50 latency measurement needs no migration.
+  - **Checked 2026-10-27:** Part done: the no-migration p50 latency measure shipped (3b6d2bf6, 7f6692a1: Server-Timing phases and a CI p50/p95 test). Still open: inbox-participant matching, which needs a migration or RPC.
   - ~~Violations on the same lot look identical, so add the date and status to each row.~~ Done: every violation, ARC, ticket and inbox row carries a right-aligned status · day (association day, BL-043) that stays visible when the label truncates; ARC/tickets/threads also show the lot's address.
   - ~~Add documents and meetings.~~ Done: uploaded + current governing documents (one "Documents" group) and meetings (type/summary), board-only through `/api/search`, RLS client, 5 per type.
   - ~~Fix inbox links that use `/properties/${unitId}`.~~ Confirmed bug (404): PropertyRail now links `PropertyContext.propertyId` (`units.legacy_hoa_property_id`), and shows the address unlinked when a unit has no property record. Search already used the hoa_properties id.
@@ -757,6 +760,7 @@ These go beyond the design-system v2 pass:
   - Left: measure p50 latency.
 - **BL-061 Confirm Resend keeps our Message-ID:** send one real communication and check that the reply's In-Reply-To carries `<hoh-cr.…>`. If Resend overwrites it, add `smtp_message_id` (migration). Inbound replies also need Resend receiving and an `email.received` webhook set up for the EMAIL_FROM domain (dashboard/DNS, owner).
   - **Groomed 2026-10-20:** Open, no migration: a manual check with one real send (owner or a prod smoke). Resend receiving / `email.received` is dashboard and DNS work for Asaf.
+  - **Checked 2026-10-27:** Still open: nothing in the repo or `docs/owner-actions.md` records the check. Send one real communication and read the reply's `In-Reply-To`; if Resend overwrites it, add `smtp_message_id` (migration).
 - **BL-062 Owner contact sent to the AI provider — Done (claude/bl-062):** ask-community sends owner email and phone to Groq on a board lookup. Consider redacting them, or sending them only when the question asks for contact details.
 
 ## Added 2026-10-17 (cycles 7–8)
@@ -943,6 +947,7 @@ These go beyond the design-system v2 pass:
   - Once these exist, replace the memo and audit-row stand-ins.
 - **BL-086 Check vendor COI reply routing in prod:** the board-sent "Request updated certificate" email asks the vendor to reply. Confirm one real reply reaches the board's inbox.
   - **Groomed 2026-10-20:** Open, no migration: a manual prod check with one real vendor reply.
+  - **Checked 2026-10-27:** Still open: nothing in the repo records a real vendor reply reaching the board inbox. Manual prod check, no code.
 
 ## Research pass 2026-10-19: next no-migration wins (ranked)
 
@@ -997,6 +1002,7 @@ These go beyond the design-system v2 pass:
   - Then apply one brand name everywhere.
 - **BL-099 Data shows too slowly (owner, 2026-10-19):** BL-074 already fixed the region (pdx1), request-level caching and parallel loaders, yet screens still wait for data. Only 5 of about 150 pages have a `loading.tsx`, and most pages await every query before rendering anything.
   - **Groomed 2026-10-20:** Done (f56494df): timing, streaming, 123 loading.tsx, waterfall fixes. `docs/specs/2026-10-19-perf-indexes.sql` (12 indexes) waits for Asaf. Follow-up: read the `[perf]` logs and fix the slowest pages (ranked below).
+  - **Checked 2026-10-27:** Done (f56494df; static pass 0ae633b4, merged 0dde3390). Still open: read a week of `[perf]` production log lines and fix the 3 slowest loaders (needs Vercel logs); the 12 indexes in `docs/specs/2026-10-19-perf-indexes.sql` wait for Asaf.
   - **Plan:**
     1. Add per-loader timing in production (Server-Timing header plus ids-only duration logs), so the slowest pages and queries show up with real numbers.
     2. Stream: render each page's shell at once, put data sections in `<Suspense>` with skeletons, and add `loading.tsx` to every dashboard and resident route group.
@@ -1011,6 +1017,7 @@ These go beyond the design-system v2 pass:
     - `metadataBase` in apps/marketing points at https://ledger.ai, which isn't ours; it must change to the real domain.
 - **BL-101 Inbox revisit (owner, 2026-10-19):** replying to residents' emails and requests still takes the board a lot of effort. Rework `/inbox` so that it:
   - **Groomed 2026-10-20:** Partly done: Phase A A1–A9 shipped (c85a6e5b A1/A2, b9863141 A3/A6, 1859ee84 A4, ec84ebba A5/A7, f369f911 A8/A9, b5c280a2 A8 drafts). Open: A10 measurement (no migration); Phase B B1–B5 needs migration 0065.
+  - **Checked 2026-10-27:** Part done: A10 measurement shipped (c6445a9d, merged 38df3017). Still open: only Phase B, which needs migration (0067 core is built behind `M3_APPLIED`; `sla_due_at`, category routing and `source_message_id` remain). No no-migration work left.
   - connects each message to everything relevant: the sender's home and account, their open tickets, ARC applications and violations, the governing documents, and past threads;
   - drafts a cited reply for the board to approve;
   - turns an email into a ticket, ARC application or violation report in one click;
@@ -1020,6 +1027,7 @@ These go beyond the design-system v2 pass:
   Phase 1 is research and a plan (docs/research/2026-10-inbox-plan.md). Phase 2 builds the top items that need no migration.
 - **BL-102 Communications: simple and self-service (owner, 2026-10-19):** review the whole outbound communications module so a volunteer can send the right message without help. It covers:
   - **Groomed 2026-10-20:** Partly done: Phase A A1–A9 and A11 shipped (dcf3c57b A1/A4/A6, dd411f5f A2/A3, 7d0f363d A5–A9, d6339540, 973f5408 and 279e076e A11). Open: A10 guide rewrite is partial (no `communications-urgent-notice.md` or `communications-follow-up.md`; the announcement guide still mentions Topic/HTML). Phase B B1–B4 need migrations not yet in a batch (B3 overlaps BL-026 in M2).
+  - **Checked 2026-10-27:** Part done: A10 guide rewrite shipped (76dcf5b4, merged d5f47797; `communications-urgent-notice.md` and `communications-follow-up.md` exist). Still open: only Phase B (B1 to B4), which needs migrations not yet batched. No no-migration work left.
   - the announcement wizard;
   - audiences and segments;
   - SMS;
@@ -1045,6 +1053,7 @@ These go beyond the design-system v2 pass:
 
 - **BL-104 Implement the 2026-10-20 pricing: Essentials / Complete in flat size bands** (decision `docs/decisions/2026-10-20-pricing.md`; evidence `docs/research/2026-10-pricing-analysis.md`; supersedes BL-041 and BL-068's price table; needs BL-068's module switches, migration batch M2)
   - **Groomed 2026-10-20:** Partly done (a51de69d, 6c96734f). Open, no migration: item 5 band-sync job, item 6 renewal-notice job, item 9 SMS allowance (count existing send rows). Needs M2: module-off pages. Needs owner: Stripe objects, portal settings, the flip.
+  - **Checked 2026-10-27:** Part done: band-sync job, grandfathered renewal job and SMS allowance shipped (18f4de51, merged f4fda3d7; `packages/jobs/src/billing-band-sync.ts`, `billing-renewal.ts`), behind `PRICING_V2`. Still open: module-off pages (M2), Stripe objects and portal settings, and the flip (owner). No no-migration code left.
   - **Status (2026-10-20):** AI safety live: the `board_ai` cap on previously unlimited board routes, 200/day for every current org. Existing and grandfathered orgs keep today's per-feature limits. Per-band ceilings (item 8) apply only to new-plan orgs after the flip. Items 1, 3, 4 (lookup-key mapping), 7 (pure), 10 (billing page), 11 (marketing) and the grandfathering rule built behind `PRICING_V2` (off). Flip steps and Stripe objects: `docs/specs/2026-10-20-pricing-v2-rollout.md`. Open: 5, 6 (jobs), 9 (SMS), module-off pages (needs M2), caps for meeting-summary / ask-community (decision amendment).
   - **Rule:** nothing below goes live piecemeal. Code, Stripe Prices and marketing ship in **one PR**; until then checkout and the site keep charging and showing $4.99/door. Existing paying subscriptions keep their price until renewal (decision §5).
   - **0. Before starting (ids only, no PII):** list live Stripe subscriptions on `hoa_per_door_monthly` / `hoa_per_door_annual`, with org id, cadence and term end. Record them here. Confirm whether any exist beyond the Madison Park pilot.
@@ -1090,6 +1099,7 @@ These go beyond the design-system v2 pass:
   - **Status (2026-10-20):** the verdict is NOT stored today (Inbox mail is Gmail sync; `inbox_messages` keeps no headers), so it needs a column. Built: the pure parser (`packages/mailbox/src/auth-results.ts`, topmost `Authentication-Results` from `mx.google.com` only → pass / fail / none), ingest writing `sender_auth`, `checkSenderForUnit(…, { threadId })` turning `fail` into `sender_unauthenticated` (no contact-update prefill or filing, balance withheld from drafts and saved replies, red chip in the rail; `none` adds a soft note). All behind `SENDER_AUTH_COLUMN_LIVE = false`. Waits for the owner to apply `docs/specs/2026-10-20-inbound-auth.sql`, then flip the flag and deploy.
 - **BL-106 AI caps for meeting-summary and ask-community (Done 2026-10-20: own buckets `meeting_summary` 5/h, 10/day (Essentials 3/day, provisional: BL-108) and `ask_community` 15/h, 25/day (Essentials 0, Copilot not on the plan); Copilot loop bounded to 1,500 output tokens per step and 6 docs searches; Complete still over 30% (open, see amendment); cost math in the pricing decision's BL-106 amendment; ai-limits.ts comment corrected):** these two board-only AI routes are still uncapped (BL-104 left them out because the decision's cost math doesn't cover them). Measure per-call cost from ai_runs, then amend docs/decisions/2026-10-20-pricing.md with a cap that keeps worst-case AI cost at or below 30% of the band price.
   - **Groomed 2026-10-20:** Open, no migration (ranked below). Note: the `board_ai` comment in `apps/hoa/src/lib/api/ai-limits.ts` lists meeting-summary and ask-community, but neither route calls `requireAiQuota` today.
+  - **Checked 2026-10-27:** Done (b30a0e34, 6b381b9a, 653a1bdb, merged 384e171d): both routes now meter in their own buckets (`meeting_summary`, `ask_community`). Per-plan numbers are provisional under BL-108.
 - **BL-107 Terms of Service revision (HOA only) (Done 2026-10-20, scope-only; see docs/decisions/2026-10-20-terms-scope-correction.md; goes live with BL-100):** the marketing Terms page still describes "small landlords and eviction-adjacent tasks" (from before BL-097). Draft an HOA-only revision with a new "Last updated" date and a change summary. Ship it together with the marketing deploy (BL-100). Changing legal text needs care: keep it to a scope correction, with no new obligations.
 
 ## Ranked open work (groomed 2026-10-20)
@@ -1179,6 +1189,7 @@ Manual checks that need no code: BL-061 (Resend keeps our Message-ID), BL-086 (a
 **Not code:** BL-099 slow pages (needs Asaf's Vercel logs) and BL-031 (needs a real CINC export).
 - **BL-123 Next migration batch (M2-prep):** (1) widen `orgs_plan_check` to allow `essentials`, `complete`, `pilot` and `legacy_per_door`. **This blocks the PRICING_V2 flip**: billing-status writes fail with error 23514, exactly like the pre-M1 `monthly`/`annual` failure. (2) Fold the resident-meeting-notices function, the SMS consent guard and the inbound-auth column into numbered migrations, so the CI database matches prod after runbook sections C, D and E (update `tests/integration/security/resident-meetings.test.ts`). (3) A records-request ticket category (round-2 research). Write `migrations/0065_*.sql` plus a runbook section; CI-validate. *Status 2026-10-20:* (1) and (2) written as `migrations/0065_m2_prep.sql` + runbook Section H (CI-validated by the integration suite; owner applies via H1–H3). (3) built 2026-10-20 behind `RECORDS_REQUESTS_LIVE` (default off): `migrations/0066_records_requests.sql` (category `records_request` + `tickets.records_due_at`) + runbook Section I (I1–I3); resident form `/resident/records/new`, board view `/tickets/records` with FL § 720.303(5) / CA § 5210(b) deadlines (TX, GA and others: "check your bylaws"), digest lines, draft guide articles. Flip the flag and un-draft the two articles after the owner confirms I3.
 - **BL-124 Refresh the Georgia statute snapshot before 2027-01-01 (deadline item):** SB 406 §§ 3–6 take effect 2027-01-01. The GA adapter refuses to serve the snapshot from that date (`@valid_until`), so GA law questions would show "not loaded" until it is refreshed. Steps: data/statutes/README.md "Georgia snapshot". Schedule this for mid-December 2026.
+  - **Checked 2026-10-27:** Done (987d4bce, BL-154): a dated GA snapshot serves SB 406 sections 2 to 6 from 2027-01-01. Mid-December re-verification against the official text is still worth a calendar slot.
 
 ## Security review 2026-10-20 (today's merges)
 - **SEC-H1 (High, fixing):** `runBidComparison` had no role gate and no org check on the RFP id. W23 read and returned another HOA's bids through the service role.
@@ -1931,6 +1942,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - A design system plus a redesign of home, /hoa, /pricing, /about, /compare and /demo, with product mockups built from real screens.
    - The truth rules from BL-157 stay. Before/after screenshots go in the release note.
    - **Status:** dispatched 2026-10-26 (Sonnet).
+   - **Checked 2026-10-27:** Done (62a9378f merge). Before/after screenshots are the release note's job.
 
 171. **BL-171 Marketing growth: measurement, demo funnel, Georgia SB 406 guides and readiness check.** Migration: no. Owner ask (Asaf, 2026-10-26). Plan: `docs/specs/2026-10-26-marketing-growth-plan.md`.
    - **Done 2026-10-26:** a demo request no longer fakes success in production when email isn't configured. Delivery waits on OA-34.
@@ -1942,12 +1954,14 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
      - SEO metadata and structured data, and the Search Console verification tag (OA-35);
      - a weekly analytics digest to Asaf (counts only).
    - **Status:** dispatched 2026-10-26 (Sonnet).
+   - **Checked 2026-10-27:** Part done: demo form and delivery guard, analytics, /georgia hub and guides, readiness check (bd196b49 merge, 4b540ea1). Still open, no migration: the weekly analytics digest to Asaf (counts only) has no code. The Search Console verification tag waits on OA-35 and demo email delivery on OA-34.
 
 172. **BL-172 SEO content program (primary growth channel, ongoing).** Migration: no. Owner decision (Asaf, 2026-10-26: "invest the most in SEO"). Plan: `docs/decisions/2026-10-26-seo-primary-growth-channel.md`.
    - **Content:** Georgia law guides, free templates and tools, self-managed-HOA how-tos, factual comparison pages, and local pages only where there is real local substance. FL, CA and TX follow.
    - **Cadence:** at least 3 new or improved pages a day through a Sonnet SEO agent; a weekly full-site SEO audit; every deploy's release note lists the new pages.
    - **Quality:** official-fixture quotes only (tested); shipped features only; "not legal advice"; a demo or tool CTA on every page.
    - **Status:** starts once BL-171's technical base lands.
+   - **Checked 2026-10-27:** Still open (ongoing program): batches 1 to 4 shipped (b0481d7f, c072ee21, f731f1e5, a34d6254, 1b5e4518); the 3-pages-a-day cadence and weekly site audit continue.
 
 173. **BL-173 Community announcements in three clicks (Halloween party, happy holidays, graduation reminders, pet control).** Migration: no (reuse the existing composer and send path). Owner ask (Asaf, 2026-10-26: "very simple to generate one; focus on simplicity").
    - **Flow:**
@@ -1957,11 +1971,13 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Seasonal nudges:** the dashboard and digest suggest the next occasion ("Halloween is Friday: send a party notice?"), dismissible.
    - **Rules:** sending is the board's explicit action; existing opt-outs, channel consent and the outbound guard apply; no PII in logs; the tone stays neutral (no religious assumptions in "holidays" defaults).
    - **Status:** dispatched 2026-10-26 (Sonnet).
+   - **Checked 2026-10-27:** Done (a110f583 three-step flow, occasions, parse-sentence, dashboard nudge and dismiss; merged dd39fa63).
 
 174. **BL-174 Marketing site restyle inspired by nice.com (colors and design patterns).** Migration: no. Owner ask (Asaf, 2026-10-26). Decision: `docs/decisions/2026-10-26-website-nice-inspired-design.md`.
    - Analyze www.nice.com: palette, type, sections, components. Map it onto the BL-170 design system tokens and restyle all marketing pages, including the BL-171 Georgia hub, guides and readiness check.
    - No copied assets, copy or code; the HomeownerHub identity stays.
    - **Status:** dispatched 2026-10-26 (Sonnet).
+   - **Checked 2026-10-27:** Done (a2aa4d99, 257ae8aa; merged 78365785).
 
 175. **BL-175 Tenant isolation audit and hardening (no cross-tenant data leaks or cross talk).** Migration: maybe (RLS fixes go into the next batch). Owner ask (Asaf, 2026-10-26).
    - **Audit scope (read-only, Opus advisor):**
@@ -1984,3 +2000,17 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
 177. **BL-177 Atomic multi-charge payment recording, plus unapplied credit (BL-163 follow-up).** Migration: **yes (next batch)**.
    - BL-163's board "Record payment" posts each part through `markAssessmentPaid` one at a time. If a later part fails, the earlier parts stay posted (the audit row says `complete: false`).
    - **Build:** a SECURITY DEFINER RPC that posts every part in one transaction (with a null-uid guard and an org check); an unapplied-credit column or table so overpayments can be stored; payment method, date and note fields on the dialog; and installment identity on the resident Zelle side (today an installment ranks as special there).
+
+
+## Ranked open work — round 7 (2026-10-27, code-verified)
+
+Each item was checked against the code and `git log` on 2026-10-27 and is still open. All need **no migration**, are HOA-only (`apps/hoa`, plus one SEO item), and are ranked by value to self-managed boards, Georgia first.
+
+1. **BL-147 leftover: late-fee policy prompt on the dashboard.** A Georgia association with no late-fee policy set sees a dashboard card linking to `/settings/late-fees`, because the nightly late-fee job otherwise charges at a rate nobody chose (O.C.G.A. § 44-3-232(b)). Files: `apps/hoa/src/app/(dashboard)/page.tsx`, `apps/hoa/src/lib/late-fees/`.
+2. **BL-153 leftover: keep the annual-meeting report and attach it to the notice.** Save the board's narrative and attach the printable owners' report to the meeting notice draft (O.C.G.A. § 44-3-230(a)). Files: `apps/hoa/src/app/(dashboard)/meetings/[id]/annual-report/`, `apps/hoa/src/lib/meetings/notice-law.ts`.
+3. **BL-099 follow-up: fix the slowest pages from real `[perf]` numbers.** Read a week of production `[perf]` log lines (ids and timings only), then fix the top 3 slow loaders. Index ideas go to `docs/specs/2026-10-19-perf-indexes.sql`, never applied by an agent.
+4. **Resident notification preferences.** A `/resident/account` card for language (EN/ES) and quiet hours, using the existing `language` and `quiet_hours` columns, so the sender honours them. Files: `apps/hoa/src/app/resident/account/`, `apps/hoa/src/lib/communications/send.ts`.
+5. **Board and emergency contacts on the resident portal.** A read-only card on the resident home with the board roster and the association's emergency numbers, kept in `associations.compliance_settings`. Files: `apps/hoa/src/app/resident/page.tsx`, `apps/hoa/src/app/(dashboard)/settings/association/`.
+6. **BL-172 SEO batch 5 (Georgia first).** Three or more new Georgia guides or templates a day from the official-fixture quotes, then FL, CA and TX pages. Every page carries a demo or tool CTA, and the release note lists the new pages. Files: `apps/marketing/src/app/georgia/`, `apps/marketing/src/app/templates/`.
+
+**Not ranked (waiting on something outside the code):** BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-171 Search Console tag (OA-35) and demo email (OA-34), BL-160 (OA-32), and everything on migrations M1 to M7.
