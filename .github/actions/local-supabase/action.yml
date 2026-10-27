@@ -79,6 +79,11 @@ runs:
       shell: bash
       env:
         SUPABASE_EXCLUDE: realtime,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+        # Pull every service image from Supabase's public.ecr.aws mirror
+        # instead of ghcr.io, which throttled CI for hours on 2026-10-27.
+        # The CLI (2.95.4) reads INTERNAL_IMAGE_REGISTRY; every image we start
+        # (postgres, gotrue, postgrest, storage-api, kong, mailpit) is on ECR.
+        SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
       run: |
         set -euo pipefail
         for attempt in 1 2 3; do
