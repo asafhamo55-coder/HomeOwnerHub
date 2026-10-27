@@ -722,3 +722,46 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Merged, next deploy:** BL-155 GA Condominium Act (Art. 3 fixture) and BL-169 Art. 6 fixture refresh ("may be called").
 - **In flight (Sonnet, per owner):** BL-168 CPA/Attorney/Treasurer roles (M6) and BL-170 marketing redesign.
 - **Owner asks today:** Sonnet 5.5 is the default engine for agents; roles for CPA, attorney and treasurer; "lift the marketing site up dramatically".
+
+## 2026-10-26 17:00 → 2026-10-27 10:30: security, SEO, restyle, roles
+
+- **Live deploys:**
+  - 1855ceea: redesign, GA condos, Art. 6 text, demo-form fix.
+  - 4b540ea1: BL-171 Georgia SB 406 hub (11 pages).
+  - e6786ece: BL-165 conflict disclosures, BL-167 federal deadlines.
+  - d09c268f: BL-173 announcements, BL-174 nice.com-inspired restyle, Safari properties-link fix.
+  - 9a7da925: BL-175a tenant-isolation code fixes, BL-176 Settings > Association, SEO batch 2.
+  - 68260baf: law updates platform-only; 0070/0071 files included, not applied.
+  - e0a9b53f: SEO audit fixes, BL-163 GA payment order.
+  - a34d6254: SEO batch 3.
+- **Security:**
+  - The BL-175 Opus audit found no Critical issues and six High ones (cross-org FK planting, OAuth binding, global law feed, open redirect).
+  - App fixes are live. Migration 0070 (16 same-org triggers, org-scoped helpers, FK ratchet) is CI-green.
+  - BL-168 (0071 roles) needed two Opus reviews and a combined-branch fix (`orgs_select` leaked to professionals). Now green, with 0070 and 0071 merged and waiting for Asaf (OA-37).
+- **Vercel OOM again:** 41b7c353. Fix: next build type-checks with `tsconfig.build.json` (no tests). tsc dropped 3.0 → 2.1 GB, build RSS 5.74 → 4.64 GB. Live in 68260baf.
+- **CI incidents:**
+  - Docker Hub rate limit → retry added.
+  - backlog-email parser needs titles in bold.
+  - owner-actions urgency must be a plain value.
+  - Build-only errors (unit tests and typecheck don't catch these):
+    - 'use server' files may export only async functions;
+    - node:crypto must not reach client bundles (complianceState now lives in compliance/state.ts).
+- **Owner asks handled:**
+  - Sonnet as the default engine.
+  - SEO first (BL-172: about 20 pages live, weekly audit and test).
+  - Website redesign, then nice.com-style restyle.
+  - Demo-form loss found (OA-34).
+  - Professional roles (BL-168).
+  - Announcements (BL-173).
+  - Where state is set (BL-176).
+  - Tenant isolation (BL-175).
+  - Properties link bug (Safari).
+- **Owner actions open:**
+  - OA-37: apply 0070, then 0071.
+  - OA-34: demo email.
+  - OA-35: analytics and Search Console.
+  - OA-36: isolation checks.
+  - OA-26: secrets.
+  - OA-33: Stripe test webhook secret.
+  - OA-32: GA 590-13 PDFs, due Nov 2.
+- **Follow-ups:** BL-177 atomic multi-charge payments and credit (migration).
