@@ -8,9 +8,9 @@ export function CtaCloser() {
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="t-display text-[#fff]">
             Stop volunteering for paperwork.{' '}
-            <span className="t-serif text-[#8fb4ff]">Start governing.</span>
+            <span className="t-serif text-primary">Start governing.</span>
           </h2>
-          <p className="mx-auto mt-6 max-w-xl text-[18px] leading-relaxed text-[#c3d0ea]">
+          <p className="mx-auto mt-6 max-w-xl text-[18px] leading-relaxed text-foreground-secondary">
             Ten minutes. We load your CC&amp;R, run Covenant Brain on your real rules, and let your board decide.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -22,7 +22,7 @@ export function CtaCloser() {
               Start free pilot
             </TrackedLink>
           </div>
-          <p className="mt-8 text-sm text-[#a9b9d8]">Six-month free pilot · No data migration · Built in Atlanta</p>
+          <p className="mt-8 text-sm text-muted">Six-month free pilot · No data migration · Built in Atlanta</p>
         </div>
       </div>
     </section>

@@ -115,12 +115,12 @@ export default function AboutPage() {
       <section className="section section-ink ink-glow">
         <div className="container-page">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="eyebrow !text-[#8fb4ff]">Where we are</p>
+            <p className="eyebrow">Where we are</p>
             <h2 className="t-h2 mt-4 text-[#fff]">
               Built in Atlanta.{' '}
-              <span className="t-serif text-[#8fb4ff]">Ready for your state’s rules.</span>
+              <span className="t-serif text-primary">Ready for your state’s rules.</span>
             </h2>
-            <p className="mt-5 text-[17px] leading-relaxed text-[#c3d0ea]">
+            <p className="mt-5 text-[17px] leading-relaxed text-foreground-secondary">
               HomeownerHub is built and run from Atlanta, GA, and works for an HOA in any state. These parts follow a
               specific state&apos;s law today:
             </p>
@@ -165,7 +165,7 @@ function Geo({ state, label, status }: { state: string; label: string; status: s
         </span>
         {label}
       </p>
-      <p className="mt-3 text-sm leading-relaxed text-[#c3d0ea]">{status}</p>
+      <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">{status}</p>
     </div>
   )
 }

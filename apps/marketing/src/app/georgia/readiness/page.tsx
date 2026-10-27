@@ -44,7 +44,7 @@ export default function ReadinessPage() {
           <div className="mx-auto max-w-3xl">
             <Breadcrumbs trail={[{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }, { name: 'Readiness check' }]} />
             <p className="eyebrow mt-6">Free · About 3 minutes</p>
-            <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.1rem)] font-[650] leading-[1.08] tracking-[-0.03em] text-foreground">
+            <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.1rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
               Is your Georgia HOA ready for SB 406?
             </h1>
             <p className="t-lead mt-5 max-w-2xl">

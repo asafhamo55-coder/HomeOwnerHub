@@ -51,7 +51,7 @@ export default function DemoPage() {
     <main id="main-content">
       <Nav />
 
-      <section className="hero-wash relative overflow-hidden pb-20 pt-32 md:pt-40">
+      <section className="hero-wash relative overflow-hidden pb-20 pt-14 md:pt-20">
         
         <div className="container-page">
           <div className="grid items-start gap-12 md:grid-cols-[1.05fr,1fr]">
@@ -60,7 +60,7 @@ export default function DemoPage() {
                 <Calendar className="h-3.5 w-3.5 text-accent-fg" />
                 20 minutes. Your CC&R. Your decision.
               </div>
-              <h1 className="mt-6 text-[clamp(2.5rem,1.5rem+2.9vw,3.9rem)] font-[650] leading-[1.04] tracking-[-0.035em] text-foreground">
+              <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
                 Send your CC&R today.{' '}
                 Demo the board on Tuesday.
               </h1>
