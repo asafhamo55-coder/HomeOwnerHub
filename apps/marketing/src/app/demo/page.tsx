@@ -12,15 +12,11 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { HOA_PRICE_COPY } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 import { STATE_COVERAGE_SENTENCE } from '@/lib/state-law'
 import { DemoForm } from './demo-form'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Book a demo — 20 minutes for your board',
-  description:
-    'Send us your CC&R. We pre-load it. We show Covenant Brain answering your actual rules. Your board decides.',
-  path: '/demo',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/demo']!, path: '/demo' })
 
 const agenda = [
   {

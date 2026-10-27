@@ -5,9 +5,9 @@ const PUBLISHED = '2026-10-26'
 export const LATE_FEES: Guide = {
   slug: 'late-fee-limits',
   title: 'Georgia HOA late fee limits: the greater of $10 or 10 percent',
-  metaTitle: 'Georgia HOA late fee limit: what the law allows',
+  metaTitle: 'Georgia HOA late fee limit: what is allowed',
   description:
-    'What a Georgia HOA may charge for a late payment: the greater of $10 or 10 percent of the late installment, only if your documents allow it, plus interest of up to 10 percent a year.',
+    'What a Georgia HOA may charge for late payment: the greater of $10 or 10 percent of the late installment, if your documents allow, plus interest up to 10%/year.',
   eyebrow: 'Collections · Late fees',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
@@ -105,9 +105,9 @@ export const LATE_FEES: Guide = {
 export const CONDO_VS_HOA: Guide = {
   slug: 'condo-vs-hoa-law',
   title: 'Georgia condo vs HOA law: which statute governs your association?',
-  metaTitle: 'Georgia condo vs HOA law: Article 3 or Article 6?',
+  metaTitle: 'Georgia condo vs HOA law: Article 3 or 6?',
   description:
-    'Georgia has two main association statutes: the Condominium Act (Article 3) and the Property Owners’ Association Act (Article 6). How to tell which governs you, and what SB 406 changes for each.',
+    'Georgia has two association laws: the Condominium Act (Article 3) and the Property Owners’ Association Act (Article 6). Which governs you, and SB 406’s effect.',
   eyebrow: 'Which law applies',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
@@ -207,9 +207,9 @@ export const CONDO_VS_HOA: Guide = {
 export const COMPLAINT_PROCESS: Guide = {
   slug: 'complaint-process',
   title: 'Georgia’s owner complaint process: what happens when a homeowner files with the state',
-  metaTitle: 'Georgia HOA owner complaint process (SB 406) for boards',
+  metaTitle: 'Georgia HOA owner complaint process (SB 406)',
   description:
-    'From January 1, 2027 a Georgia owner can complain to the Secretary of State within 180 days. The hearing, the 15-day window, the automatic stay on fines and fees, and what your board should do.',
+    'From January 1, 2027 a Georgia owner can complain to the Secretary of State within 180 days. The hearing, 15-day window, stay on fines and fees, next steps.',
   eyebrow: 'SB 406 · Complaints',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,

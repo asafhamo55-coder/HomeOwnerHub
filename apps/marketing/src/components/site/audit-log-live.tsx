@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { ShieldCheck, FileText, BookOpen, AlertCircle, Sparkles, Database, Pause, Play } from 'lucide-react'
 
 interface AuditEntry {
@@ -198,7 +198,7 @@ export function AuditLogLive() {
               {entries.map((e) => {
                 const Icon = actorIcon[e.actor] ?? ShieldCheck
                 return (
-                  <motion.li
+                  <m.li
                     key={e.id}
                     layout
                     initial={{ opacity: 0, x: -8 }}
@@ -236,7 +236,7 @@ export function AuditLogLive() {
                         Bar {e.bar}
                       </span>
                     </div>
-                  </motion.li>
+                  </m.li>
                 )
               })}
             </AnimatePresence>

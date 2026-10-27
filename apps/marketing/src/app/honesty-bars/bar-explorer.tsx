@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { ShieldCheck, AlertCircle, BookOpen } from 'lucide-react'
 import { WORKFLOWS, type Bar } from '@/lib/workflows'
 import { cn } from '@/lib/cn'
@@ -164,7 +164,7 @@ export function BarExplorer() {
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <AnimatePresence>
               {filtered.map((w) => (
-                <motion.li
+                <m.li
                   key={w.id}
                   layout
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -182,7 +182,7 @@ export function BarExplorer() {
                   >
                     {w.bar}
                   </span>
-                </motion.li>
+                </m.li>
               ))}
             </AnimatePresence>
           </ul>

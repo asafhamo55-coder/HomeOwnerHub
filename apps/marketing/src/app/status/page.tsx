@@ -5,12 +5,9 @@ import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { HOA_PRODUCT_NAME } from '@/lib/hubs'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Status',
-  description: 'How to check on HomeownerHub services, and how to report an incident.',
-  path: '/status',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/status']!, path: '/status' })
 
 // Truth rule (BL-090): this page used to show every service as
 // "Operational", a "99.94%" 90-day uptime and a "No incidents" note dated

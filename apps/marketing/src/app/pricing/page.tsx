@@ -9,16 +9,10 @@ import { cn } from '@/lib/cn'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING, PRICING_V2 } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 import { STATE_COVERAGE_SENTENCE, STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
-export const metadata: Metadata = pageMetadata({
-  title: `Pricing — ${HOA_PRICE_COPY.title}`,
-  // BL-097: PM and Eviction are not offered right now.
-  description: OTHER_HUBS_ENABLED
-    ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
-    : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary}`,
-  path: '/pricing',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/pricing']!, path: '/pricing' })
 
 // HOA per-door plan. One product; cadence (monthly vs annual) drives the
 // price. Once PRICING_V2 is on (BL-104) the two cards are Essentials and

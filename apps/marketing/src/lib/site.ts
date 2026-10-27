@@ -112,11 +112,13 @@ export function pageMetadata({ title, description, path }: PageMeta): Metadata {
       siteName: SITE_NAME,
       type: 'website',
       locale: 'en_US',
+      images: [{ url: OG_IMAGE_PATH, width: 1200, height: 630, alt: OG_IMAGE_ALT }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
       description,
+      images: [OG_IMAGE_PATH],
     },
   }
 }

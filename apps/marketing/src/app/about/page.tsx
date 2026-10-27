@@ -5,17 +5,13 @@ import { Nav } from '@/components/site/nav'
 import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 import { STATE_COVERAGE } from '@/lib/state-law'
 
 // BL-097: HOA only. The "three products, one identity" story (PM Hub and
 // Eviction Hub) is gone while those hubs are not offered, and so is the
 // city roll-out timeline, whose dates had passed with nothing behind them.
-export const metadata: Metadata = pageMetadata({
-  title: 'About — AI for volunteer HOA boards',
-  description:
-    'Why HomeownerHub exists, what we believe, and how we work. Built in Atlanta for the volunteer board members doing the unpaid hours.',
-  path: '/about',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/about']!, path: '/about' })
 
 const beliefs = [
   {

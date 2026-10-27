@@ -28,6 +28,8 @@ const company = [
   { label: 'Roadmap', href: '/roadmap' },
   { label: 'AI honesty bars', href: '/honesty-bars' },
   { label: 'Security', href: '/security' },
+  { label: 'Docs', href: '/docs' },
+  { label: 'Blog', href: '/blog' },
 ]
 
 const tail = [

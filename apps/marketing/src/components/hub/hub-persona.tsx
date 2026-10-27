@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { Check, Quote } from 'lucide-react'
 import type { HubTheme } from './hub-theme'
 import { cn } from '@/lib/cn'
@@ -35,7 +35,7 @@ export function HubPersona({
     <section className="section bg-subtle/60">
       <div className="container-page">
         <div className="grid gap-12 md:grid-cols-[1fr,1.1fr] md:items-center">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
@@ -62,9 +62,9 @@ export function HubPersona({
                 </div>
               ))}
             </div>
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
@@ -105,7 +105,7 @@ export function HubPersona({
                 </ul>
               </>
             ) : null}
-          </motion.div>
+          </m.div>
         </div>
       </div>
     </section>

@@ -9,7 +9,7 @@ const PUBLISHED = '2026-10-26'
 export const FIRST_90_DAYS: Guide = {
   slug: 'self-managed-hoa-georgia-first-90-days',
   title: 'How to run a self-managed HOA in Georgia: the first 90 days',
-  metaTitle: 'Self-managed HOA in Georgia: your first 90 days as a board',
+  metaTitle: 'Self-managed HOA in Georgia: first 90 days',
   description:
     'A 90-day plan for a volunteer board taking over a Georgia HOA without a management company: documents, money, meetings, and the SB 406 dates.',
   eyebrow: 'Self-managed HOA · Georgia',
@@ -162,7 +162,7 @@ export const TREASURER_DUTIES: Guide = {
   slug: 'hoa-treasurer-duties',
   path: '/guides/hoa-treasurer-duties',
   title: 'HOA treasurer duties: a plain-language checklist',
-  metaTitle: 'HOA treasurer duties: a plain-language checklist for volunteers',
+  metaTitle: 'HOA treasurer duties: a plain checklist',
   description:
     'What an HOA treasurer actually does: the books, dues, bank reconciliation, budget, reserves, reports and year-end, with a checklist for volunteers.',
   eyebrow: 'Self-managed HOA · Treasurer',

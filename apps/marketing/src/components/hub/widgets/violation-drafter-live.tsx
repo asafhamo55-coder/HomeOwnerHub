@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { Camera, FileText, ShieldCheck, Sparkles, Check } from 'lucide-react'
 
 interface Scenario {
@@ -202,14 +202,14 @@ export function ViolationDrafterLive() {
               <div className="mt-3 space-y-3 font-serif text-sm leading-relaxed text-foreground">
                 <AnimatePresence>
                   {scenario.draftLines.slice(0, visibleLines).map((line, i) => (
-                    <motion.p
+                    <m.p
                       key={`${idx}-${i}`}
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.4 }}
                     >
                       {line}
-                    </motion.p>
+                    </m.p>
                   ))}
                 </AnimatePresence>
                 {phase === 'drafting' && (
@@ -218,14 +218,14 @@ export function ViolationDrafterLive() {
               </div>
 
               {phase === 'ready' && (
-                <motion.div
+                <m.div
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-5 border-t border-border/70 pt-4 font-mono text-[11px] text-foreground-secondary"
                 >
                   <span className="text-muted">Deadline: </span>
                   <span className="font-semibold text-foreground" suppressHydrationWarning>{`${scenario.cureDays} days, by ${dateAfter(today, scenario.cureDays, true)}`}</span>
-                </motion.div>
+                </m.div>
               )}
             </div>
 

@@ -25,9 +25,9 @@ export interface Checklist {
 export const FEE_NOTICE_CHECKLIST: Checklist = {
   slug: 'attorney-fee-notice-checklist',
   title: 'Georgia attorney’s-fee notice checklist',
-  metaTitle: 'Free Georgia attorney’s fee notice checklist (printable)',
+  metaTitle: 'Free Georgia attorney’s fee notice checklist',
   description:
-    'A free, printable checklist for the written notice Georgia associations must send before collecting or being awarded attorney’s fees (SB 406 § 7). No sign-up.',
+    'A free, printable checklist for the written notice Georgia associations must send before collecting attorney’s fees (SB 406 § 7). No sign-up.',
   eyebrow: 'Free checklist · Print it',
   intro: [
     'Use this before any delinquent account is handed to an attorney or a fee is claimed. It follows the three requirements in SB 406 § 7, which applies to actions filed on or after July 1, 2026.',
@@ -58,9 +58,9 @@ export const FEE_NOTICE_CHECKLIST: Checklist = {
 export const MEETING_NOTICE_CHECKLIST: Checklist = {
   slug: 'annual-meeting-notice-checklist',
   title: 'Georgia annual meeting notice checklist',
-  metaTitle: 'Free Georgia HOA annual meeting notice checklist (printable)',
+  metaTitle: 'Georgia HOA annual meeting notice checklist',
   description:
-    'A free, printable checklist for noticing a Georgia HOA annual meeting: 21 days’ notice, what the notice must state, how to deliver it and the reports owed at the meeting. No sign-up.',
+    'A free, printable checklist for noticing a Georgia HOA annual meeting: 21 days’ notice, what it must state, how to deliver it and the reports owed. No sign-up.',
   eyebrow: 'Free checklist · Print it',
   intro: [
     'This follows O.C.G.A. § 44-3-230(a) for associations under the Property Owners’ Association Act. Your bylaws may add requirements, so read them first.',

@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { CheckCircle2, Phone, AlertCircle, TrendingUp } from 'lucide-react'
 
 export function PmRentVisual() {
@@ -27,7 +27,7 @@ export function PmRentVisual() {
           <Unit delay={0.3} address="88 Ridge Rd" tenant="Riley T." rent="$1,100" status="late" dueDate="5 days late" />
         </div>
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.4 }}
@@ -43,7 +43,7 @@ export function PmRentVisual() {
             <Phone className="h-2.5 w-2.5" />
             Call Riley
           </button>
-        </motion.div>
+        </m.div>
       </div>
     </div>
   )
@@ -66,7 +66,7 @@ function Unit({
 }) {
   const paid = status === 'paid'
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 + delay, duration: 0.4 }}
@@ -90,6 +90,6 @@ function Unit({
       >
         {dueDate}
       </span>
-    </motion.div>
+    </m.div>
   )
 }

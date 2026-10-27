@@ -5,13 +5,9 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Docs',
-  description:
-    'Product documentation for HomeownerHub. The step-by-step user guide lives inside the app; API reference and runbooks come later.',
-  path: '/docs',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/docs']!, path: '/docs' })
 
 const sections = [
   {
@@ -63,9 +59,9 @@ export default function DocsPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
                   <s.Icon className="h-5 w-5" />
                 </div>
-                <h3 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
                   {s.title}
-                </h3>
+                </h2>
                 <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{s.body}</p>
                 <p className="mt-4 text-[11px] font-semibold uppercase tracking-wider text-muted">
                   {s.when}
