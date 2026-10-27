@@ -2,8 +2,8 @@ import { Check, ShieldCheck } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { JsonLd } from '@/components/site/json-ld'
-import { articleLd, breadcrumbLd, faqLd } from '@/lib/jsonld'
-import { guidePath, type Guide } from '@/lib/georgia'
+import { articleLd, breadcrumbLd, faqLd, howToLd } from '@/lib/jsonld'
+import { pathOf, type Guide } from '@/lib/georgia'
 import { Breadcrumbs, GeorgiaCta, NotLegalAdvice, Quote, RelatedLinks } from './parts'
 
 export function formatDate(iso: string): string {
@@ -11,7 +11,9 @@ export function formatDate(iso: string): string {
 }
 
 export function GuidePage({ guide }: { guide: Guide }) {
-  const path = guidePath(guide.slug)
+  const path = pathOf(guide)
+  const general = !path.startsWith('/georgia/')
+  const trail = general ? [{ name: 'Home', href: '/' }] : [{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }]
   return (
     <main id="main-content">
       <Nav />
@@ -19,11 +21,8 @@ export function GuidePage({ guide }: { guide: Guide }) {
         data={[
           articleLd({ headline: guide.title, description: guide.description, path, datePublished: guide.datePublished, dateModified: guide.dateModified }),
           faqLd(guide.faqs),
-          breadcrumbLd([
-            { name: 'Home', path: '/' },
-            { name: 'Georgia', path: '/georgia' },
-            { name: guide.metaTitle, path },
-          ]),
+          ...(guide.howTo ? [howToLd({ name: guide.title, description: guide.description, steps: guide.steps })] : []),
+          breadcrumbLd([...trail.map((t) => ({ name: t.name, path: t.href })), { name: guide.metaTitle, path }]),
         ]}
       />
 
@@ -31,7 +30,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
         <header className="hero-wash relative overflow-hidden pb-12 pt-28 md:pb-16 md:pt-36">
           <div className="container-page">
             <div className="mx-auto max-w-3xl">
-              <Breadcrumbs trail={[{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }, { name: guide.eyebrow }]} />
+              <Breadcrumbs trail={[...trail, { name: guide.eyebrow }]} />
               <p className="eyebrow mt-6">{guide.eyebrow}</p>
               <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
                 {guide.title}
@@ -138,7 +137,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
         </div>
       </article>
 
-      <GeorgiaCta position={`guide_${guide.slug}`} />
+      <GeorgiaCta position={`guide_${guide.slug}`} general={general} />
       <Footer />
     </main>
   )
