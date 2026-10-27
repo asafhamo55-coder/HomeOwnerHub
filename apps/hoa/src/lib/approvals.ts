@@ -8,7 +8,10 @@ import {
   rejectRequest,
   type DecisionResult,
 } from '@homeowner-portal/workflows'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getSignedInUser } from '@/lib/orgs'
+import { moneyGate, type SignoffDb } from '@/lib/professionals/signoff'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 
 // Server actions for the approval layer (sub-project D,
@@ -42,6 +45,18 @@ export async function approvePosting(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
   const supabase = await getSupabaseServerClient()
+  // BL-168: the matching queue is a second door to the same approval, so it
+  // goes through the same Treasurer-first / dual-control gate.
+  if (M6_APPLIED) {
+    const user = await getSignedInUser()
+    if (!user) return { ok: false, error: 'You are not signed in.' }
+    const gated = await moneyGate(supabase as unknown as SignoffDb, {
+      orgId: gate.orgId,
+      requestId: parsed.data.approvalRequestId,
+      deciderId: user.id,
+    })
+    if (gated) return { ok: false, error: gated.ok ? gated.message : gated.error }
+  }
   const result = await approveRequest(supabase, createAdminClient(), parsed.data.approvalRequestId)
   revalidate()
   return result

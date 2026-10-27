@@ -9,8 +9,10 @@ import {
   AppShellSidebar,
 } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
-import { getCurrentOrg, getSignedInUser, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
+import { getCurrentOrg, getMembershipDetail, getSignedInUser, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
+import { isProfessionalRole } from '@/lib/roles'
 import { isPlatformAdmin } from '@/lib/platform-admin'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { HoaSidebar } from '@/components/layout/HoaSidebar'
@@ -68,7 +70,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // their real role. Non-admins always get their real role.
   const role = await getEffectiveRoleInOrg(org.id)
   if (role === 'resident') redirect('/resident')
-  if (!role) redirect('/onboarding')
+  if (!role) {
+    // BL-168: an expired professional grant is no role at all; their page says so.
+    if (M6_APPLIED && (await getMembershipDetail(org.id))?.expired) redirect('/pro')
+    redirect('/onboarding')
+  }
+  // BL-168: an outside professional (CPA, attorney) has their own home and
+  // sidebar under /pro; none of this tree is theirs.
+  if (isProfessionalRole(role)) redirect('/pro')
 
   // Sidebar count for /approvals (BL-014): four head-only counts. A failed
   // count yields no badge (or a "3+" lower bound), never a false 0.

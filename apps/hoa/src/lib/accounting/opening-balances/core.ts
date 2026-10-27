@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { proposeApproval } from '@homeowner-portal/workflows'
 import type { Json } from '@homeowner-portal/db'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { buildOpeningEntry, MAX_HOMES, resolveOpeningBooks } from './model'
 import { loadOpeningBooks, type OpeningDb, type OpeningPeriod, type OpeningProposalRow } from './load'
 import { OPENING_ACTION, OPENING_SUBJECT, OPENING_WORKFLOW, openingSummary, type OpeningPayload } from './proposal'
@@ -143,6 +144,8 @@ export async function proposeOpeningCore(
     payload: payload as unknown as Json,
     summary: openingSummary(payload),
     amount: entry.totalDebitCents / 100,
+    // BL-168: the proposer is never one of the two dual-control sign-offs.
+    ...(M6_APPLIED && ctx.userId ? { proposedBy: ctx.userId } : {}),
   })
 
   // Counts only: no amounts, homes or addresses in the audit row.

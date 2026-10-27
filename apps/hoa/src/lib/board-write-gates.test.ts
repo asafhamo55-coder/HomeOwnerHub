@@ -28,6 +28,8 @@ import * as cincAging from './accounting/opening-balances/cinc-actions'
 import * as lateFees from './late-fees/actions'
 import * as associationSettings from './association-settings-actions'
 import * as gaRegistration from './ga-registration/actions'
+import * as professionals from './professionals/actions'
+import { PRO_DENIED } from './professionals/guard'
 import * as conflictDisclosure from './conflict-disclosure/actions'
 import * as gaComplaints from './ga-complaints/actions'
 import * as collections from './collections/actions'
@@ -189,6 +191,24 @@ describe('board-only server actions refuse a resident before touching the databa
     // BL-176: state and type pick the law everything else applies; admin-only on top of the board gate.
     ['updateAssociationSettings (BL-176: the state/type that selects the applicable law)', () => associationSettings.updateAssociationSettings({ associationId: ID, name: 'Maple HOA', state: 'FL', type: 'condo' }), DENIED],
     ['updateGaRegistration (BL-149: the record the registration gate trusts)', () => gaRegistration.updateGaRegistration({ op: 'decide', associationId: ID, decision: 'register' }), DENIED],
+    // BL-168: the board's side of professional and officer roles. Each is
+    // board/admin only; a resident is refused before any client is built.
+    ['inviteProfessional (BL-168)', () => professionals.inviteProfessional({ email: 'a@example.test', role: 'cpa', expiresOn: '2027-01-01' }), DENIED],
+    ['renewProfessional (BL-168)', () => professionals.renewProfessional(ID, '2027-01-01'), DENIED],
+    ['revokeProfessional (BL-168)', () => professionals.revokeProfessional(ID), DENIED],
+    ['setGeneralCounsel (BL-168)', () => professionals.setGeneralCounsel(ID, true), DENIED],
+    ['assignMatter (BL-168)', () => professionals.assignMatter(ID, { type: 'violation', id: ID }), DENIED],
+    ['unassignMatter (BL-168)', () => professionals.unassignMatter(ID), DENIED],
+    ['setOfficerTitle (BL-168)', () => professionals.setOfficerTitle(ID, 'treasurer'), DENIED],
+    ['setDualControlAmount (BL-168)', () => professionals.setDualControlAmount(5000), DENIED],
+    ['cancelProfessionalInvite (BL-168)', () => professionals.cancelProfessionalInvite(ID), DENIED],
+    // ...and the professionals' own actions refuse a resident (and, in
+    // professionals/gates.test.ts, a board member and the wrong professional).
+    ['cpaMarkPeriodReviewed (BL-168)', () => professionals.cpaMarkPeriodReviewed({ fiscalPeriodId: ID, note: 'x' }), { ok: false, error: PRO_DENIED }],
+    ['cpaProposeEntry (BL-168)', () => professionals.cpaProposeEntry({}), { ok: false, error: PRO_DENIED }],
+    ['attorneyAddNote (BL-168)', () => professionals.attorneyAddNote({ matter: { type: 'violation', id: ID }, body: 'x' }), { ok: false, error: PRO_DENIED }],
+    ['attorneyDraftLetter (BL-168)', () => professionals.attorneyDraftLetter({ matter: { type: 'violation', id: ID }, subject: 'x', body: 'x' }), { ok: false, error: PRO_DENIED }],
+    ['attorneyUploadDocument (BL-168)', () => professionals.attorneyUploadDocument(form({ matterType: 'violation', matterId: ID })), { ok: false, error: PRO_DENIED }],
     ['recordConflictDisclosure (BL-165: the signed record the award and vendor approval gate trusts)', () => conflictDisclosure.recordConflictDisclosure({ decisionKind: 'bid_award', decisionId: ID, status: 'no_conflict' }), DENIED],
     ['updateGaComplaint (BL-161: add — the record the complaint-stay gate trusts)', () => gaComplaints.updateGaComplaint({ op: 'add', unitId: ID, filedOn: '2027-01-02', subject: 'both' }), DENIED],
     ['updateGaComplaint (BL-161: conclude — ends the stay)', () => gaComplaints.updateGaComplaint({ op: 'conclude', unitId: ID, complaintId: ID, conclusionsOn: '2027-02-01' }), DENIED],

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { withRoute } from '@/lib/api/handler'
-import { requireRouteMember } from '@/lib/api/auth'
+import { requireRouteAnyRole } from '@/lib/api/auth'
 import { parseJson } from '@/lib/api/parse'
 import { HelpClientEvent, logHelpEvent } from '@/lib/guide/help-events'
 
@@ -14,7 +14,8 @@ import { HelpClientEvent, logHelpEvent } from '@/lib/guide/help-events'
 
 export const POST = withRoute('help.event', async (request) => {
   // Resident-callable: the resident help drawer and pages send these too.
-  const { role } = await requireRouteMember()
+  const { role: realRole } = await requireRouteAnyRole()
+  const role = realRole === 'resident' ? 'resident' : realRole === 'admin' ? 'admin' : 'board'
   const event = await parseJson(request, HelpClientEvent, { maxBytes: 2 * 1024 })
   logHelpEvent(event, role)
   return new NextResponse(null, { status: 204 })

@@ -13,6 +13,7 @@ import {
   type DataTableColumn,
 } from '@homeowner-portal/ui'
 import { getAssociationState, listAllUpdatesForManager, type LawUpdateAdminRow } from '@/lib/state-law'
+import { isPlatformAdmin } from '@/lib/platform-admin'
 import { tryLoad } from '@/lib/load-or-fail'
 import { LAW_UPDATE_LABELS, LAW_UPDATE_TONES, STATE_NAMES } from '@/lib/status/knowledge'
 import { CategoryBadge, EffectivePill } from '@/components/knowledge/LawUpdateItem'
@@ -25,7 +26,7 @@ export const metadata = { title: 'Law updates' }
 /** listAllUpdatesForManager caps at this many rows; say so when we hit it. */
 const UPDATE_CAP = 200
 
-const columns: DataTableColumn<LawUpdateAdminRow>[] = [
+const baseColumns: DataTableColumn<LawUpdateAdminRow>[] = [
   {
     key: 'update',
     header: 'Update',
@@ -73,19 +74,23 @@ const columns: DataTableColumn<LawUpdateAdminRow>[] = [
       <StatusBadge status={u.archived_at ? 'archived' : 'live'} tones={LAW_UPDATE_TONES} labels={LAW_UPDATE_LABELS} />
     ),
   },
-  {
-    key: 'actions',
-    header: <span className="sr-only">Actions</span>,
-    cell: (u) => (
-      <div className="flex items-center justify-end gap-1">
-        <ArchiveButton updateId={u.id} archived={!!u.archived_at} headline={u.headline} />
-        <DeleteUpdateButton updateId={u.id} headline={u.headline} />
-      </div>
-    ),
-  },
 ]
 
+/** Edit controls are for the platform team only (BL-175b H5); boards read. */
+const editColumn: DataTableColumn<LawUpdateAdminRow> = {
+  key: 'actions',
+  header: <span className="sr-only">Actions</span>,
+  cell: (u) => (
+    <div className="flex items-center justify-end gap-1">
+      <ArchiveButton updateId={u.id} archived={!!u.archived_at} headline={u.headline} />
+      <DeleteUpdateButton updateId={u.id} headline={u.headline} />
+    </div>
+  ),
+}
+
 export default async function UpdatesAdminPage() {
+  const canEdit = await isPlatformAdmin()
+  const columns = canEdit ? [...baseColumns, editColumn] : baseColumns
   const stateResult = await tryLoad('association state', () => getAssociationState())
   const state = stateResult.ok ? stateResult.data : null
   const updatesResult = state ? await tryLoad('law updates', () => listAllUpdatesForManager(state)) : null
@@ -113,7 +118,7 @@ export default async function UpdatesAdminPage() {
       }
       tabs={<LegalTabs current="/legal/updates" />}
       actions={
-        state ? (
+        state && canEdit ? (
           <Button asChild>
             <Link href="/legal/updates/new">
               <Plus aria-hidden />

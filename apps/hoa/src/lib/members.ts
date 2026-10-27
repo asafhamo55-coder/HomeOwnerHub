@@ -17,6 +17,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { fetchOrgSandbox, guardRecipients } from '@homeowner-portal/observability/outbound-guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { requireBoardOrAdmin, type Role } from '@/lib/auth'
@@ -26,7 +27,18 @@ import { paySettingsSecret } from '@/lib/pay-by-zelle'
 import { GA_REGISTRATION_KIT_HREF, boardSeatChanged } from '@/lib/ga-registration/model'
 import { startGaOfficerChangeClock } from '@/lib/ga-registration/officer-change'
 
-export type MemberRole = Role
+// The three member roles. Professionals (cpa, attorney) are not members
+// (BL-168) and are managed by lib/professionals.
+/**
+ * The org_members update for a role change. Leaving the board ends an
+ * officer title (BL-168): the database clears it too, but the write says so
+ * rather than relying on a trigger, and only once the column exists.
+ */
+function roleUpdate(role: MemberRole): { role: MemberRole; officer_title?: null } {
+  return M6_APPLIED && role !== 'board' ? { role, officer_title: null } : { role }
+}
+
+export type MemberRole = Extract<Role, 'admin' | 'board' | 'resident'>
 
 export interface MemberRow {
   user_id: string
@@ -164,7 +176,9 @@ export async function listMembers(): Promise<MemberRow[]> {
     }
   }
 
-  return rows.map((r) => {
+  // Professionals (cpa, attorney; BL-168) are listed on Settings →
+  // Professionals, never here: this list offers role changes and removal.
+  return rows.filter((r) => r.role !== 'cpa' && r.role !== 'attorney').map((r) => {
     const email = r.profile?.email ?? authBackfill.get(r.user_id) ?? null
     return {
       user_id: r.user_id,
@@ -373,7 +387,7 @@ async function attachToOrg(args: {
     // (0058), which reports no error, so check that a row was touched.
     const { data: updated, error: updateErr } = await supabase
       .from('org_members')
-      .update({ role: args.role } as never)
+      .update(roleUpdate(args.role) as never)
       .eq('org_id', args.orgId)
       .eq('user_id', args.userId)
       .select('user_id')
@@ -546,7 +560,7 @@ export async function changeMemberRole(
 
   const { data: updated, error } = await supabase
     .from('org_members')
-    .update({ role: parsed.data.role } as never)
+    .update(roleUpdate(parsed.data.role) as never)
     .eq('org_id', org.id)
     .eq('user_id', parsed.data.user_id)
     .select('user_id')

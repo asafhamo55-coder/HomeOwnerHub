@@ -77,6 +77,12 @@ export interface ProposeApprovalInput {
   payload: Json
   summary: string
   amount: number | null
+  /**
+   * Who put the item in front of the board (BL-168, M6_APPLIED: the
+   * column exists only after migration 0071). The proposer can never be one
+   * of a money item's two sign-offs. Omit it before M6.
+   */
+  proposedBy?: string
 }
 
 /**
@@ -99,6 +105,7 @@ export async function proposeApproval(
       payload: input.payload,
       summary: input.summary,
       amount: input.amount,
+      ...(input.proposedBy ? ({ proposed_by: input.proposedBy } as object) : {}),
     })
     .select('id, status')
     .single()

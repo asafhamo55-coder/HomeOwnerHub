@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withRoute } from '@/lib/api/handler'
-import { requireRouteMember } from '@/lib/api/auth'
+import { requireRouteAnyRole } from '@/lib/api/auth'
 import { requireAiQuota } from '@/lib/api/rate-limit'
 import { parseJson } from '@/lib/api/parse'
 import { zText } from '@/lib/api/schemas'
@@ -36,7 +36,9 @@ export const POST = withRoute('help.ask', async (request) => {
   // Resident-callable: residents ask from the portal's help drawer. The
   // corpus holds no tenant data, and retrieval is filtered to the
   // caller's role (resident articles for residents, board ones otherwise).
-  const { orgId, role } = await requireRouteMember()
+  const { orgId, role: realRole } = await requireRouteAnyRole()
+  // A professional reads the board articles (no tenant data in the corpus).
+  const role = realRole === 'resident' ? 'resident' : realRole === 'admin' ? 'admin' : 'board'
   const body = await parseJson(request, Body, { maxBytes: 8 * 1024 })
   // BL-078: per-user + per-org limit (lib/api/ai-limits.ts).
   await requireAiQuota('help_ask', orgId)

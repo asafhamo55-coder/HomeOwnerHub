@@ -38,7 +38,7 @@ const memberQueries: unknown[][] = []
 vi.mock('@homeowner-portal/db', () => ({
   createAdminClient: () => {
     const b: Record<string, unknown> = {}
-    for (const op of ['from', 'select', 'eq']) {
+    for (const op of ['from', 'select', 'eq', 'in']) {
       b[op] = (...args: unknown[]) => {
         memberQueries.push([op, ...args])
         return b

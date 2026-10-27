@@ -93,6 +93,16 @@ const COPY: Record<ApprovalTarget['kind'], Copy> = {
     rejectConfirm: 'Reject request',
     rejectPlaceholder: 'We couldn’t confirm you own this home. Please call the office.',
   },
+  pro: {
+    approveButton: 'Approve',
+    approveTitle: 'Approve this item from your professional?',
+    approveDescription: (title, amount) =>
+      `${title}${amount ? ` (${amount})` : ''}. A proposed entry is posted to the ledger. A note, upload or draft letter is accepted onto the record. Nothing is sent. A money item may need the Treasurer, or a second board member, before it goes through.`,
+    approveConfirm: 'Approve',
+    rejectTitle: 'Reject this item?',
+    rejectConfirm: 'Reject',
+    rejectPlaceholder: 'The entry belongs in next month’s period.',
+  },
   vendor: {
     approveButton: 'Approve',
     approveTitle: 'Approve this vendor?',

@@ -54,6 +54,8 @@ database.
 | I | Migration 0066: owner records requests, the billing-columns guard on orgs, and the Fined / Dismissed violation statuses | BL-123 (3), security finding (orgs_update), live bug (violation status check) | I1–I3 | Yes (I2, widens two checks, adds a column and two guards) | none |
 | J | Migration 0067 (batch M3): no late fees on opening balances, inbox snooze and reply clock, link and filing checks, compliance "done" table | BL-136, BL-134, BL-131 | J1–J4 | Yes (J3, adds columns, a table and three automatic rules) | none |
 | L | Migration 0069 (batch M5): dues rate schedule (BL-137) and join requests (BL-143); more M5 parts may join | BL-137, BL-143 | L1–L4, L-BL143a–c | Yes (L3, adds four tables, their rules, four automatic checks and three join functions) | none |
+| M | Migration 0070 (BL-175b): tenant-isolation hardening (SECURITY; apply before any other pending migration) | BL-175b | M1–M5 | Yes (M4, adds 16 same-HOA checks, replaces security functions and rules) | none |
+| N | Migration 0071 (batch M6): CPA, attorney and officer roles, invitations, dual control (BL-168; apply after Section M) | BL-168 | N1–N4 | Yes (N3, adds tables, columns and rules; the app stays off until `M6_APPLIED`) | M |
 
 50 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
@@ -953,6 +955,222 @@ on its own, before and after.
 
 ---
 
+## Section M · Migration 0070, tenant-isolation hardening (BL-175b) (SECURITY, apply before any other pending migration)
+
+File: `migrations/0070_tenant_isolation.sql`. *Needs:* nothing new (it asserts
+the tables and functions it touches, and changes nothing if one is missing).
+**Apply this before the BL-168 migration**; that one will be renumbered after it.
+
+The problem it fixes: anyone can create their own HOA account and become its
+admin. The security rules only checked which HOA a row belongs to, so that
+admin could add rows to their own HOA that *point at another HOA's records*
+(a neighbour's home, a mailbox, a bank account), and then read or act on them.
+
+What it does, in plain words:
+
+1. **Same-HOA checks.** Sixteen new automatic checks refuse a record that
+   points into a different HOA (inbox drafts and threads to a mailbox or
+   thread; bank transactions to a bank account; recurring journal entries to a
+   template; owners, tenants, residents and homes to their home or property;
+   message recipients and threads to their message or thread; dues, violations
+   and rent-ledger rows to their property; tickets to a home). They apply to everyone
+   including the app's background jobs. **They only look at new and changed
+   rows; existing rows are not touched** (M2 counts the bad ones).
+2. **"My homes" checks.** The two functions that decide which homes a resident
+   may see now require the owner/resident record to be in the *same HOA as the
+   home*, require a **confirmed** sign-in email for the email match, and treat a
+   blank email as no match.
+3. **Message visibility.** A resident sees a message only through a recipient
+   record in the message's own HOA.
+4. **State-law updates** can be written only by platform admins (and the
+   service role), no longer by the board of any HOA. **The in-app "Law updates"
+   editor under Legal therefore works for platform admins only.**
+5. **Suspended or archived HOAs.** Their members can read and change nothing.
+   They still see their own membership and the HOA's name/status (so billing and
+   a "suspended" screen can load); billing columns stay locked to the service role.
+6. **Function hardening.** The security functions get a fixed search path and
+   explicitly return nothing for a signed-out visitor.
+7. **AI run log.** Board and admins can read it and update a run's review
+   status; nobody can insert or delete rows from the app.
+8. **Violation photos and eviction documents** become board/admin-only
+   (residents never used them).
+9. **Resident attachment paths** must start with `<HOA>/submissions/`.
+10. **One HOA per Stripe customer** (a unique index).
+
+Nothing in this section outputs names, emails or addresses: ids and counts only.
+
+### M1 · Prerequisites (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regprocedure('public.auth_is_platform_admin()') IS NOT NULL   AS platform_admin_fn_ok,
+         to_regprocedure('public.storage_object_org_id(text)') IS NOT NULL AS storage_helper_ok,
+         to_regclass('public.state_statute_changes') IS NOT NULL           AS statute_changes_ok,
+         to_regclass('public.submission_attachments') IS NOT NULL          AS attachments_ok,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'orgs'
+                    AND column_name IN ('suspended_at', 'archived_at')
+                  HAVING count(*) = 2)                                     AS org_status_cols_ok,
+         to_regclass('public.orgs_stripe_customer_id_uniq') IS NOT NULL    AS already_applied;
+  ```
+
+- **Expect:** five `true` and `already_applied` = false.
+- **If any `_ok` is false:** stop and tell Claude (M4 would refuse to run, changing nothing). If `already_applied` is true, M is done; run M5.
+
+### M2 · Rows that already break each new same-HOA rule (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT 'inbox_drafts.mailbox_account_id' AS rule, count(*) AS violating_rows
+    FROM public.inbox_drafts c JOIN public.mailbox_accounts p ON p.id = c.mailbox_account_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'inbox_drafts.thread_id', count(*)
+    FROM public.inbox_drafts c JOIN public.inbox_threads p ON p.id = c.thread_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'inbox_threads.mailbox_account_id', count(*)
+    FROM public.inbox_threads c JOIN public.mailbox_accounts p ON p.id = c.mailbox_account_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'bank_transactions.bank_account_id', count(*)
+    FROM public.bank_transactions c JOIN public.bank_accounts p ON p.id = c.bank_account_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'recurring_journal_entries.template_je_id', count(*)
+    FROM public.recurring_journal_entries c JOIN public.journal_entries p ON p.id = c.template_je_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'ownerships.unit_id', count(*)
+    FROM public.ownerships c JOIN public.units p ON p.id = c.unit_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'tenancies.unit_id', count(*)
+    FROM public.tenancies c JOIN public.units p ON p.id = c.unit_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'property_residents.property_id', count(*)
+    FROM public.property_residents c JOIN public.hoa_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.organization_id
+  UNION ALL SELECT 'units.legacy_hoa_property_id', count(*)
+    FROM public.units c JOIN public.hoa_properties p ON p.id = c.legacy_hoa_property_id
+   WHERE p.org_id <> c.organization_id
+  UNION ALL SELECT 'communication_recipients.communication_id', count(*)
+    FROM public.communication_recipients c JOIN public.communications p ON p.id = c.communication_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'tickets.unit_id', count(*)
+    FROM public.tickets c JOIN public.units p ON p.id = c.unit_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'communication_threads.root_communication_id', count(*)
+    FROM public.communication_threads c JOIN public.communications p ON p.id = c.root_communication_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'communications.thread_id', count(*)
+    FROM public.communications c JOIN public.communication_threads p ON p.id = c.thread_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'hoa_dues.property_id', count(*)
+    FROM public.hoa_dues c JOIN public.hoa_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.org_id
+  UNION ALL SELECT 'hoa_violations.property_id', count(*)
+    FROM public.hoa_violations c JOIN public.hoa_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.org_id
+  UNION ALL SELECT 'pm_rent_ledger.property_id', count(*)
+    FROM public.pm_rent_ledger c JOIN public.pm_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.org_id;
+  ```
+
+- **Does:** counts, for each new rule, the rows that already point into a different HOA. Counts only.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** sixteen rows, **every `violating_rows` = 0**.
+- **Send:** the sixteen rows.
+- **If any is above 0:** do not clean it yourself. Those are either planted rows or an old bug. The migration still applies (it checks new and changed rows only, and the new "my homes" functions already ignore such rows), but tell Claude the rule name and count first so the rows can be reviewed and removed.
+
+### M3 · Other things that change for existing users (read-only)
+
+Run these as **separate queries** (the editor shows only the last result).
+
+- **M3a, duplicate Stripe customers (blocks M4 if above 0):**
+
+  ```sql
+  SELECT count(*) AS duplicate_stripe_customers
+    FROM (SELECT stripe_customer_id FROM public.orgs
+           WHERE stripe_customer_id IS NOT NULL
+           GROUP BY stripe_customer_id HAVING count(*) > 1) d;
+  ```
+
+  **Expect:** 0. If not, **stop**: two HOAs share one Stripe customer; M4 refuses to run until one is fixed. Send the number to Claude.
+
+- **M3b, residents who match only by an unconfirmed email:**
+
+  ```sql
+  SELECT count(*) AS residents_with_unconfirmed_email
+    FROM public.property_residents pr
+    JOIN auth.users au ON lower(au.email) = lower(pr.email)
+   WHERE pr.moved_out_at IS NULL AND pr.email IS NOT NULL
+     AND au.email_confirmed_at IS NULL;
+  ```
+
+  **Expect:** a small number (often 0). Those residents lose their email-matched home view until they confirm their email. Send the number.
+
+- **M3c, HOAs that will lose all member access:**
+
+  ```sql
+  SELECT count(*) FILTER (WHERE suspended_at IS NOT NULL) AS suspended_orgs,
+         count(*) FILTER (WHERE archived_at  IS NOT NULL) AS archived_orgs
+    FROM public.orgs;
+  ```
+
+  **Expect:** the HOAs you have suspended or archived on purpose (often 0 and 0). If a *live, paying* HOA appears here, stop and tell Claude.
+
+- **M3d, security functions without a fixed search path (informational):**
+
+  ```sql
+  SELECT p.proname
+    FROM pg_proc p
+   WHERE p.pronamespace = 'public'::regnamespace AND p.prosecdef
+     AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig, '{}'::text[])) c WHERE c LIKE 'search_path=%')
+   ORDER BY 1;
+  ```
+
+  **Expect:** `auth_org_ids` only (M4 fixes it). Send any other name: M4 does not change those.
+
+- **M3e, who writes the law-updates table today (informational):**
+
+  ```sql
+  SELECT policyname, cmd FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'state_law_updates' ORDER BY 1;
+  ```
+
+  **Expect:** `public_read` (SELECT) and the three `board_or_admin_*` rules; M4 removes the three.
+
+### M4 · Apply 0070 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0070_tenant_isolation.sql` (it is one transaction; say "copy step M4").
+- **Does:** everything listed above. All-or-nothing; safe to re-run.
+- **Time:** about 2 s.
+- **Expect:** `Success`. A notice `0070 ok: tenant isolation hardening applied.` may show.
+- **If it errors:** copy the red text to Claude. Nothing is changed (the file is one transaction). The most likely message is the duplicate Stripe customer from M3a.
+- **After:** sign in as a board member and as a resident and open the dashboard; both should look unchanged. Platform admins: the Legal > Law updates editor still works for you; other boards now see an error when they save there.
+
+### M5 · Verify (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT (SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+           WHERE NOT t.tgisinternal AND p.proname = 'tenant_fk_same_org')        AS same_org_triggers,
+         (SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
+            AND tablename IN ('ai_runs', 'ai_feedback') AND cmd = 'ALL')         AS ai_all_policies,
+         (SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
+            AND tablename = 'state_law_updates' AND cmd <> 'SELECT')             AS law_write_policies,
+         (SELECT count(*) FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+            AND p.prosecdef AND p.proname IN ('auth_org_ids', 'auth_is_admin', 'auth_is_board_or_admin',
+                'auth_resident_unit_ids', 'auth_resident_property_ids')
+            AND p.proconfig @> ARRAY['search_path=public, pg_temp'])             AS pinned_helpers,
+         to_regclass('public.orgs_stripe_customer_id_uniq') IS NOT NULL           AS stripe_unique,
+         has_function_privilege('anon', 'public.auth_org_ids()', 'EXECUTE')       AS anon_can_call_org_ids;
+  ```
+
+- **Expect:** one row: `same_org_triggers` = 16, `ai_all_policies` = 0, `law_write_policies` = 1 (the platform-admin rule), `pinned_helpers` = 5, `stripe_unique` = true, `anon_can_call_org_ids` = false.
+- **Send:** the row.
+- **If a number is off:** stop and tell Claude.
+
+---
+
 ## App switches after each section
 
 | After | Switch | Where | Who / how |
@@ -1001,3 +1219,126 @@ Spec-file edits made with this runbook:
 - `2026-10-19-resident-meeting-notices.sql`: added a read-only verify `SELECT` at the end, so a whole-file run shows a checkable result instead of "Success".
 
 Known editor limits handled in the steps, not the SQL: the editor shows only the last statement's result (M1 PART 1b and inbound-auth part 3 are split into separate steps); NOTICE lines (0063, M1) may not be shown; payment-plan PART 3 previews may be hidden behind its final `ROLLBACK`.
+
+---
+
+## Section N · Migration 0071, batch M6 (professional and officer roles)
+
+File: `migrations/0071_m6_roles.sql`. *Needs:* Section M (the tenant-isolation migration 0070) applied first and verified (M5 in that section), and Sections A (0063), J (0067) and K (0068) done, because it builds on the money-table rules, the compliance "done" table and the fine-hearing table; N3 refuses to run, changing nothing, if any is missing. Design: `docs/specs/2026-10-26-professional-roles.md` (BL-168). BL-156 and BL-166 append their own parts to the same file when they land, and this section grows with them.
+
+What it does (part 1, BL-168):
+
+1. **New roles.** A member of your HOA can now also be a **CPA** or an **Attorney**. Both must have an end date; once it passes they see nothing. Board members can also carry an **officer title** (President, Vice-President, Secretary, Treasurer, Director), and an attorney can be marked **general counsel**. Board members may now add, renew and remove CPAs and attorneys (before: residents only). Only admins add or change board members and admins, as before.
+2. **Professionals are not members.** The shared "members can read" rule used by dozens of tables now lists only admins, board members and residents. A CPA or attorney never inherits it, so they cannot read anything just by belonging to the HOA.
+3. **What a CPA reads.** Read-only: the books (accounts, funds, fiscal years, journal entries, ledger, budgets, bank accounts and transactions, reconciliations, charges, payments, bills, payment plans, recurring entries). Owner names come through one function that returns the name and home only, no email, phone or address. Nothing else.
+4. **What an attorney reads.** Only the collections cases, violations (and their hearings) and records requests the board assigns, the open charges and payments of those homes, and the board's collections letters for assigned cases. The owner's name and the home's address of an assigned matter come through one function. General counsel also reads the governing documents and the compliance record.
+5. **Assignments.** A new table says which attorney sees which matter. The board writes it; an attorney reads their own live rows. The person must be an attorney of that HOA and the matter that HOA's.
+6. **Approvals.** `approval_requests` gains a "proposed by" column so a professional can read the status of their own proposals (and nobody else's). A new sign-off table, one function and database rules make every money approval (deposits, scanned bills, opening balances, a CPA's entry) above the board's amount (new column on associations; blank = none) need two different board members who are *currently* admin or board and did not propose it. Changing the item's payload or amount clears its sign-offs, a money item can only be created as "proposed", and only an admin can change the amount (every change is audited).
+7. **A professional sees names, not rows, of the org.** They cannot read the organization or association rows at all (no billing ids, no compliance settings); one function returns the organization and association name, and the organization name only once their grant has ended.
+8. **The grant is guarded.** A grant runs at most a year at a time (also for us), a membership can't be moved to another person or HOA, every grant, change and removal is audited, and removing a professional ends their matter assignments and rejects what they had waiting in Approvals.
+9. **Invitations are the only way in.** The board records an invitation that grants nothing; the person accepts through a signed, single-use link (7 days) while signed in as that confirmed email, and only then is the membership created. A board member or admin can no longer add or upgrade a CPA or attorney directly (only renew, change or remove one). An approval's type and organization can never be changed, and an item from a professional whose access has ended can't be approved until it is renewed (their matters come back with the renewal).
+10. Every new function refuses a caller with no sign-in, even if a later blanket grant reopens it to `anon`.
+
+Nothing in the app reads or writes the new columns, tables or functions until Claude turns on `M6_APPLIED` after N4. The only existing tables changed: `org_members` (new columns and checks, the role check, the insert/update/delete rules), `approval_requests` (one nullable column, 2 rules, 3 rules in the database), `associations` (one nullable column and a guard). The shared "members can read" function is replaced (same name and shape). No step outputs names, addresses or emails.
+
+### N1 · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regclass('public.matter_assignments') IS NOT NULL                        AS roles_done,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'org_members'
+                    AND column_name = 'access_expires_at')                           AS expiry_column_done,
+         to_regprocedure('public.auth_is_board_or_admin(uuid)') IS NOT NULL          AS board_check_ok,
+         to_regprocedure('public.auth_is_admin(uuid)') IS NOT NULL                   AS admin_check_ok,
+         to_regprocedure('public.auth_org_ids()') IS NOT NULL                        AS org_check_ok,
+         to_regclass('public.approval_requests') IS NOT NULL                         AS approvals_ok,
+         to_regclass('public.collection_cases') IS NOT NULL
+           AND to_regclass('public.collection_events') IS NOT NULL                   AS collections_ok,
+         to_regclass('public.violation_hearings') IS NOT NULL                        AS hearings_ok,
+         to_regclass('public.compliance_deadlines_done') IS NOT NULL                 AS compliance_ok,
+         (SELECT count(*) FROM public.org_members)                                   AS members,
+         (SELECT count(*) FROM public.org_members
+           WHERE role NOT IN ('admin', 'board', 'resident'))                         AS unexpected_roles;
+  ```
+
+- **Does:** shows whether M6 is already applied, that everything it builds on exists, and that every member today is an admin, board member or resident.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `roles_done` = false, `expiry_column_done` = false, every `_ok` = true, `members` = some number, `unexpected_roles` = 0.
+- **Send:** the row.
+- **If any `_ok` column is false:** stop and tell Claude (N3 would refuse to run, changing nothing).
+- **If `unexpected_roles` is not 0:** stop and tell Claude; the new role rule would refuse those rows.
+- **If both `_done` columns are true:** stop, M is done; tell Claude.
+
+### N2 · Nothing to move (no step)
+
+Every new table starts empty and no existing row changes meaning. Nobody gets a professional role until the board invites one after the switch. There is no N2 query.
+
+### N3 · Apply 0071 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0071_m6_roles.sql`. Ask Claude to copy it ("copy step N3").
+- **Does:** adds the two roles, the officer title, the end date and the general-counsel switch to the members table (with their checks); replaces the "members can read" function so professionals are not members; creates the assignments table, the invitation table, the sign-off table and eleven helper functions; adds the proposer column, the dual-control amount and rule; and adds the read-only rules for CPAs and attorneys (listed above).
+- **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
+- **Time:** about a second (the new tables are empty; the new columns are added without a rewrite).
+- **Expect:** "Success. No rows returned".
+- **Send:** "N3 done", or the error.
+- **If it errors:** nothing was changed. Send the error.
+
+### N4 · Verify (read-only)
+
+- **Paste:** the N1 query again.
+- **Expect:** one row: `roles_done` = true, `expiry_column_done` = true, every `_ok` = true, `members` the same number as in N1, `unexpected_roles` = 0.
+- **Then paste, on its own:**
+
+  ```sql
+  SELECT (SELECT count(*) FROM pg_constraint
+           WHERE conrelid = 'public.org_members'::regclass
+             AND conname IN ('org_members_role_check', 'org_members_officer_title_check',
+                             'org_members_pro_expiry_check', 'org_members_general_counsel_check')) AS member_checks,
+         (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.matter_assignments'::regclass)    AS assignments_locked,
+         (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.approval_signoffs'::regclass)     AS signoffs_locked,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'matter_assignments')                        AS assignment_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND policyname LIKE '%\_cpa\_select')                        AS cpa_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND policyname LIKE '%\_attorney\_select')                   AS attorney_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND policyname LIKE '%\_counsel\_select')                    AS counsel_rules,
+         (SELECT count(*) FROM pg_trigger
+           WHERE tgname IN ('matter_assignments_scope', 'matter_assignments_attribution',
+                            'approval_requests_dual_control', 'approval_requests_money_insert',
+                            'approval_requests_0_reset_signoffs', 'approval_requests_00_immutable_identity',
+                            'associations_dual_control_guard',
+                            'org_members_pro_guard', 'org_members_pro_audit', 'org_members_pro_revoke',
+                            'professional_invites_attribution'))                                    AS guard_rules,
+         (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.professional_invites'::regclass)  AS invites_locked,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'professional_invites')                      AS invite_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND policyname IN ('orgs_pro_select', 'associations_pro_select')) AS leaked_read_rules,
+         pg_get_functiondef('public.auth_org_ids()'::regprocedure) LIKE '%''resident''%'            AS members_only_list;
+  ```
+
+- **Expect:** `member_checks` = 4, `assignments_locked` = true, `signoffs_locked` = true, `assignment_rules` = 5, `cpa_rules` = 17, `attorney_rules` = 7, `counsel_rules` = 2, `guard_rules` = 11, `invites_locked` = true, `invite_rules` = 3, `leaked_read_rules` = 0, `members_only_list` = true.
+- **Then paste, on its own:**
+
+  ```sql
+  SELECT count(*)                                                    AS helper_functions,
+         bool_or(has_function_privilege('anon', p.oid, 'EXECUTE'))   AS anon_can_run_any
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public'
+     AND p.proname IN ('auth_pro_active', 'auth_has_pro_membership', 'auth_attorney_has_matter',
+                       'auth_attorney_matter_ids', 'auth_attorney_unit_ids', 'auth_pro_org_ids',
+                       'auth_counsel_org_ids', 'cpa_owner_names', 'attorney_matter_party',
+                       'record_approval_signoff', 'pro_org_info');
+  ```
+
+- **Expect:** `helper_functions` = 11, `anon_can_run_any` = false.
+- **N4 is done only when all three rows match:** the N1 query, the query above and this one.
+- **Send:** all three rows, and the words **"0071 is applied"**.
+- **Before the flip:** set `PRO_INVITE_SECRET` (any random string of 32+ characters) in Vercel **production**. Without it invitations are refused (there is deliberately no fallback to another key).
+- **Flag Claude flips after N4:** `M6_APPLIED` → `true` (`packages/db/src/m6.ts`), then un-drafts the guide article `members-invite-professional` and deploys hoa. That turns on, together: **Settings → Professionals** (Invite a professional, who has access, matter assignments, officer titles, the dual-control amount), the CPA's **Accounting & Reports** and the attorney's **My matters** at `/pro`, **From your professionals** in Approvals (a CPA's review note and proposed entry; an attorney's notes, uploads and draft letters), and the Treasurer-first routing and two-board-member rule on scanned bills and CPA entries. `tests/integration/security/m6-roles.test.ts` covers every role and table (allowed, denied, expired) in CI.
+- **First thing for the board after the flip:** open **Settings → Professionals**. An admin sets the Treasurer (and other officers) under **Officers**, and the dual-control amount if you want one; until then money approvals behave exactly as today. Then invite your CPA or attorney.

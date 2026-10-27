@@ -51,11 +51,11 @@ export function HoaUserMenu({
   orgName,
 }: {
   email: string
-  role: 'admin' | 'board'
+  role: 'admin' | 'board' | 'cpa' | 'attorney'
   orgName: string
 }) {
   return (
-    <UserMenu email={email} subtitle={`${role === 'admin' ? 'Admin' : 'Board'} · ${orgName}`} onSignOut={signOut}>
+    <UserMenu email={email} subtitle={`${role === 'admin' ? 'Admin' : role === 'cpa' ? 'CPA' : role === 'attorney' ? 'Attorney' : 'Board'} · ${orgName}`} onSignOut={signOut}>
       {role === 'admin' ? (
         <DropdownMenuItem asChild>
           <Link href="/settings" className="no-underline">
