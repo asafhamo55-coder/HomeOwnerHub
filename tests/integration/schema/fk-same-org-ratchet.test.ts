@@ -25,7 +25,7 @@
  *     '<col>', '<parent>', '<parent org col>', '<child org col>');
  * and it passes here with no other change.
  *
- * ALLOWLIST. Now only ai_feedback.ai_run_id (service-role writes only). The rest of the old list was triaged and closed in 0070 (a self-made org admin could plant every one of them). Originally seeded from a static read of migrations/ (the FKs that existed
+ * ALLOWLIST. Empty: every org-to-org key production has is covered by 0070. The rest of the old list was triaged and closed in 0070 (a self-made org admin could plant every one of them). Originally seeded from a static read of migrations/ (the FKs that existed
  * when 0070 landed and are NOT covered by it). If this test fails on a key
  * that was already in the schema and is not in your change, it is a gap in
  * that static read: add the key under the matching reason after checking that
@@ -38,9 +38,8 @@ import { psqlRows } from '../fixtures/psql'
 /** key = `child.column->parent`. */
 type Allow = Record<string, string[]>
 
-const ALLOWLIST: Allow = {
-  'AI audit rows are written by the service role only; users hold SELECT (0070 L5), so no user can plant this key.': ['ai_feedback.ai_run_id->ai_runs'],
-}
+// Empty on purpose: production's 121 org-to-org keys (catalog read, 2026-10-27) all have a same-org trigger in 0070.
+const ALLOWLIST: Allow = {}
 
 const ALLOWED = new Map<string, string>(Object.entries(ALLOWLIST).flatMap(([reason, keys]) => keys.map((k) => [k, reason] as const)))
 

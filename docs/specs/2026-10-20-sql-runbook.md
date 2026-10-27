@@ -54,7 +54,7 @@ database.
 | I | Migration 0066: owner records requests, the billing-columns guard on orgs, and the Fined / Dismissed violation statuses | BL-123 (3), security finding (orgs_update), live bug (violation status check) | I1–I3 | Yes (I2, widens two checks, adds a column and two guards) | none |
 | J | Migration 0067 (batch M3): no late fees on opening balances, inbox snooze and reply clock, link and filing checks, compliance "done" table | BL-136, BL-134, BL-131 | J1–J4 | Yes (J3, adds columns, a table and three automatic rules) | none |
 | L | Migration 0069 (batch M5): dues rate schedule (BL-137) and join requests (BL-143); more M5 parts may join | BL-137, BL-143 | L1–L4, L-BL143a–c | Yes (L3, adds four tables, their rules, four automatic checks and three join functions) | none |
-| M | Migration 0070 (BL-175b): tenant-isolation hardening (SECURITY; apply before any other pending migration) | BL-175b | M1–M5 | Yes (M4, adds 117 same-HOA checks, replaces security functions and rules) | none |
+| M | Migration 0070 (BL-175b): tenant-isolation hardening (SECURITY; apply before any other pending migration) | BL-175b | M1–M5 | Yes (M4, adds 121 same-HOA checks, replaces security functions and rules) | none |
 | N | Migration 0071 (batch M6): CPA, attorney and officer roles, invitations, dual control (BL-168; apply after Section M) | BL-168 | N1–N4 | Yes (N3, adds tables, columns and rules; the app stays off until `M6_APPLIED`) | M |
 | O | Migration 0072 (batch M7): certified-mail tracking on collection events (BL-166), one-transaction payment recording with unapplied credit (BL-177), admin-only state and type (BL-176; apply after Section N) | BL-166, BL-176, BL-177 | O1–O4 | Yes (O3, adds 5 columns, 2 tables, 3 functions, 1 rule; the app stays off until `M7_APPLIED`, except the state/type rule, which is on at once) | N |
 
@@ -969,12 +969,12 @@ admin could add rows to their own HOA that *point at another HOA's records*
 
 What it does, in plain words:
 
-1. **Same-HOA checks.** 117 new automatic checks refuse a record that
+1. **Same-HOA checks.** 121 new automatic checks, one for every link between two HOA-scoped tables that production has (read from its catalog), refuse a record that
    points into a different HOA (inbox drafts and threads to a mailbox or
    thread; bank transactions to a bank account; recurring journal entries to a
    template; owners, tenants, residents and homes to their home or property;
    message recipients and threads to their message or thread; dues, violations
-   and rent-ledger rows to their property; tickets to a home; and every other record that points at another record in the books, vendors, inbox, collections, communications and governance tables, 101 keys in all). They apply to everyone
+   and rent-ledger rows to their property; tickets to a home, and every other such link in the books, vendors, inbox, collections, communications and governance tables). They apply to everyone
    including the app's background jobs. **They only look at new and changed
    rows; existing rows are not touched** (M2 counts the bad ones).
 2. **"My homes" checks.** The two functions that decide which homes a resident
@@ -1021,367 +1021,53 @@ Nothing in this section outputs names, emails or addresses: ids and counts only.
 
 ### M2 · Rows that already break each new same-HOA rule (read-only)
 
-- **Paste:** this query, on its own:
+- **Paste:** this query, on its own. It finds every link between two HOA-scoped tables by itself (so it cannot miss one or name one that does not exist) and counts the rows that already point into a different HOA:
 
   ```sql
-  SELECT 'inbox_drafts.mailbox_account_id' AS rule, count(*) AS violating_rows
-    FROM public.inbox_drafts c JOIN public.mailbox_accounts p ON p.id = c.mailbox_account_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_drafts.thread_id', count(*)
-    FROM public.inbox_drafts c JOIN public.inbox_threads p ON p.id = c.thread_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_threads.mailbox_account_id', count(*)
-    FROM public.inbox_threads c JOIN public.mailbox_accounts p ON p.id = c.mailbox_account_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bank_transactions.bank_account_id', count(*)
-    FROM public.bank_transactions c JOIN public.bank_accounts p ON p.id = c.bank_account_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'recurring_journal_entries.template_je_id', count(*)
-    FROM public.recurring_journal_entries c JOIN public.journal_entries p ON p.id = c.template_je_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'ownerships.unit_id', count(*)
-    FROM public.ownerships c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'tenancies.unit_id', count(*)
-    FROM public.tenancies c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'property_residents.property_id', count(*)
-    FROM public.property_residents c JOIN public.hoa_properties p ON p.id = c.property_id
-   WHERE p.org_id <> c.organization_id
-  UNION ALL SELECT 'units.legacy_hoa_property_id', count(*)
-    FROM public.units c JOIN public.hoa_properties p ON p.id = c.legacy_hoa_property_id
-   WHERE p.org_id <> c.organization_id
-  UNION ALL SELECT 'communication_recipients.communication_id', count(*)
-    FROM public.communication_recipients c JOIN public.communications p ON p.id = c.communication_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'tickets.unit_id', count(*)
-    FROM public.tickets c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_threads.root_communication_id', count(*)
-    FROM public.communication_threads c JOIN public.communications p ON p.id = c.root_communication_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communications.thread_id', count(*)
-    FROM public.communications c JOIN public.communication_threads p ON p.id = c.thread_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'hoa_dues.property_id', count(*)
-    FROM public.hoa_dues c JOIN public.hoa_properties p ON p.id = c.property_id
-   WHERE p.org_id <> c.org_id
-  UNION ALL SELECT 'hoa_violations.property_id', count(*)
-    FROM public.hoa_violations c JOIN public.hoa_properties p ON p.id = c.property_id
-   WHERE p.org_id <> c.org_id
-  UNION ALL SELECT 'pm_rent_ledger.property_id', count(*)
-    FROM public.pm_rent_ledger c JOIN public.pm_properties p ON p.id = c.property_id
-   WHERE p.org_id <> c.org_id
-  UNION ALL SELECT 'funds.association_id', count(*)
-    FROM public.funds c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'chart_of_accounts.association_id', count(*)
-    FROM public.chart_of_accounts c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'chart_of_accounts.parent_account_id', count(*)
-    FROM public.chart_of_accounts c JOIN public.chart_of_accounts p ON p.id = c.parent_account_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'chart_of_accounts.fund_id', count(*)
-    FROM public.chart_of_accounts c JOIN public.funds p ON p.id = c.fund_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'fiscal_periods.association_id', count(*)
-    FROM public.fiscal_periods c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'journal_entries.association_id', count(*)
-    FROM public.journal_entries c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'journal_entries.fiscal_period_id', count(*)
-    FROM public.journal_entries c JOIN public.fiscal_periods p ON p.id = c.fiscal_period_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'journal_entries.reversed_by_id', count(*)
-    FROM public.journal_entries c JOIN public.journal_entries p ON p.id = c.reversed_by_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'journal_entries.reverses_id', count(*)
-    FROM public.journal_entries c JOIN public.journal_entries p ON p.id = c.reverses_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'ledger_entries.journal_entry_id', count(*)
-    FROM public.ledger_entries c JOIN public.journal_entries p ON p.id = c.journal_entry_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'ledger_entries.account_id', count(*)
-    FROM public.ledger_entries c JOIN public.chart_of_accounts p ON p.id = c.account_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'ledger_entries.fund_id', count(*)
-    FROM public.ledger_entries c JOIN public.funds p ON p.id = c.fund_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'budgets.association_id', count(*)
-    FROM public.budgets c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'budgets.fiscal_period_id', count(*)
-    FROM public.budgets c JOIN public.fiscal_periods p ON p.id = c.fiscal_period_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'budgets.fund_id', count(*)
-    FROM public.budgets c JOIN public.funds p ON p.id = c.fund_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bank_accounts.association_id', count(*)
-    FROM public.bank_accounts c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bank_accounts.fund_id', count(*)
-    FROM public.bank_accounts c JOIN public.funds p ON p.id = c.fund_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bank_transactions.matched_journal_entry_id', count(*)
-    FROM public.bank_transactions c JOIN public.journal_entries p ON p.id = c.matched_journal_entry_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bank_reconciliations.bank_account_id', count(*)
-    FROM public.bank_reconciliations c JOIN public.bank_accounts p ON p.id = c.bank_account_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'assessments.association_id', count(*)
-    FROM public.assessments c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'assessments.unit_id', count(*)
-    FROM public.assessments c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'assessments.fiscal_period_id', count(*)
-    FROM public.assessments c JOIN public.fiscal_periods p ON p.id = c.fiscal_period_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'invoices.association_id', count(*)
-    FROM public.invoices c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'invoices.vendor_id', count(*)
-    FROM public.invoices c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'payments.unit_id', count(*)
-    FROM public.payments c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'payments.assessment_id', count(*)
-    FROM public.payments c JOIN public.assessments p ON p.id = c.assessment_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'payments.invoice_id', count(*)
-    FROM public.payments c JOIN public.invoices p ON p.id = c.invoice_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'payments.journal_entry_id', count(*)
-    FROM public.payments c JOIN public.journal_entries p ON p.id = c.journal_entry_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'payment_methods.unit_id', count(*)
-    FROM public.payment_methods c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'payment_plans.unit_id', count(*)
-    FROM public.payment_plans c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'zelle_inbound_matches.bank_transaction_id', count(*)
-    FROM public.zelle_inbound_matches c JOIN public.bank_transactions p ON p.id = c.bank_transaction_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'zelle_inbound_matches.matched_assessment_id', count(*)
-    FROM public.zelle_inbound_matches c JOIN public.assessments p ON p.id = c.matched_assessment_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'zelle_inbound_matches.matched_unit_id', count(*)
-    FROM public.zelle_inbound_matches c JOIN public.units p ON p.id = c.matched_unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'recurring_journal_entries.association_id', count(*)
-    FROM public.recurring_journal_entries c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'plaid_items.association_id', count(*)
-    FROM public.plaid_items c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'dues_rates.association_id', count(*)
-    FROM public.dues_rates c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'dues_rates.budget_id', count(*)
-    FROM public.dues_rates c JOIN public.budgets p ON p.id = c.budget_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'collection_cases.association_id', count(*)
-    FROM public.collection_cases c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'collection_cases.unit_id', count(*)
-    FROM public.collection_cases c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'collection_events.collection_case_id', count(*)
-    FROM public.collection_events c JOIN public.collection_cases p ON p.id = c.collection_case_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'collection_events.communication_id', count(*)
-    FROM public.collection_events c JOIN public.communications p ON p.id = c.communication_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'vendor_compliance.vendor_id', count(*)
-    FROM public.vendor_compliance c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'vendor_compliance.association_id', count(*)
-    FROM public.vendor_compliance c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'vendor_documents.vendor_id', count(*)
-    FROM public.vendor_documents c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'rfps.association_id', count(*)
-    FROM public.rfps c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'rfps.awarded_to_vendor_id', count(*)
-    FROM public.rfps c JOIN public.vendors p ON p.id = c.awarded_to_vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'rfp_invitations.rfp_id', count(*)
-    FROM public.rfp_invitations c JOIN public.rfps p ON p.id = c.rfp_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'rfp_invitations.vendor_id', count(*)
-    FROM public.rfp_invitations c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bids.rfp_id', count(*)
-    FROM public.bids c JOIN public.rfps p ON p.id = c.rfp_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bids.vendor_id', count(*)
-    FROM public.bids c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'bid_comparisons.rfp_id', count(*)
-    FROM public.bid_comparisons c JOIN public.rfps p ON p.id = c.rfp_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'vendor_internal_ratings.vendor_id', count(*)
-    FROM public.vendor_internal_ratings c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'vendor_internal_ratings.association_id', count(*)
-    FROM public.vendor_internal_ratings c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'vendor_onboarding_invitations.vendor_id', count(*)
-    FROM public.vendor_onboarding_invitations c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_threads.unit_id', count(*)
-    FROM public.inbox_threads c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_threads.resident_id', count(*)
-    FROM public.inbox_threads c JOIN public.property_residents p ON p.id = c.resident_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_threads.vendor_id', count(*)
-    FROM public.inbox_threads c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_messages.thread_id', count(*)
-    FROM public.inbox_messages c JOIN public.inbox_threads p ON p.id = c.thread_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_messages.communication_id', count(*)
-    FROM public.inbox_messages c JOIN public.communications p ON p.id = c.communication_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_messages.mailbox_account_id', count(*)
-    FROM public.inbox_messages c JOIN public.mailbox_accounts p ON p.id = c.mailbox_account_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_attachments.thread_id', count(*)
-    FROM public.inbox_attachments c JOIN public.inbox_threads p ON p.id = c.thread_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_attachments.message_id', count(*)
-    FROM public.inbox_attachments c JOIN public.inbox_messages p ON p.id = c.message_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_sender_aliases.unit_id', count(*)
-    FROM public.inbox_sender_aliases c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_sender_aliases.resident_id', count(*)
-    FROM public.inbox_sender_aliases c JOIN public.property_residents p ON p.id = c.resident_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_thread_links.thread_id', count(*)
-    FROM public.inbox_thread_links c JOIN public.inbox_threads p ON p.id = c.thread_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_reply_embeddings.message_id', count(*)
-    FROM public.inbox_reply_embeddings c JOIN public.inbox_messages p ON p.id = c.message_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_drafts.source_thread_id', count(*)
-    FROM public.inbox_drafts c JOIN public.inbox_threads p ON p.id = c.source_thread_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_drafts.vendor_id', count(*)
-    FROM public.inbox_drafts c JOIN public.vendors p ON p.id = c.vendor_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'inbox_draft_attachments.draft_id', count(*)
-    FROM public.inbox_draft_attachments c JOIN public.inbox_drafts p ON p.id = c.draft_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communications.association_id', count(*)
-    FROM public.communications c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communications.template_id', count(*)
-    FROM public.communications c JOIN public.communication_templates p ON p.id = c.template_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_templates.association_id', count(*)
-    FROM public.communication_templates c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_templates.source_template_id', count(*)
-    FROM public.communication_templates c JOIN public.communication_templates p ON p.id = c.source_template_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_threads.association_id', count(*)
-    FROM public.communication_threads c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_threads.unit_id', count(*)
-    FROM public.communication_threads c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_threads.topic_label', count(*)
-    FROM public.communication_threads c JOIN public.communications p ON p.id = c.topic_label
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_recipients.unit_id', count(*)
-    FROM public.communication_recipients c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_replies.communication_id', count(*)
-    FROM public.communication_replies c JOIN public.communications p ON p.id = c.communication_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'communication_replies.recipient_id', count(*)
-    FROM public.communication_replies c JOIN public.communication_recipients p ON p.id = c.recipient_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'resident_communication_preferences.unit_id', count(*)
-    FROM public.resident_communication_preferences c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'hoa_recurring_events.association_id', count(*)
-    FROM public.hoa_recurring_events c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'lease_waiting_list.association_id', count(*)
-    FROM public.lease_waiting_list c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'lease_waiting_list.property_id', count(*)
-    FROM public.lease_waiting_list c JOIN public.hoa_properties p ON p.id = c.property_id
-   WHERE p.org_id <> c.organization_id
-  UNION ALL SELECT 'property_events.property_id', count(*)
-    FROM public.property_events c JOIN public.hoa_properties p ON p.id = c.property_id
-   WHERE p.org_id <> c.organization_id
-  UNION ALL SELECT 'meeting_action_items.meeting_id', count(*)
-    FROM public.meeting_action_items c JOIN public.hoa_meeting_minutes p ON p.id = c.meeting_id
-   WHERE p.org_id <> c.org_id
-  UNION ALL SELECT 'meeting_action_items.ticket_id', count(*)
-    FROM public.meeting_action_items c JOIN public.tickets p ON p.id = c.ticket_id
-   WHERE p.organization_id <> c.org_id
-  UNION ALL SELECT 'governing_documents.association_id', count(*)
-    FROM public.governing_documents c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'governing_document_chunks.document_id', count(*)
-    FROM public.governing_document_chunks c JOIN public.governing_documents p ON p.id = c.document_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'hoa_document_versions.document_id', count(*)
-    FROM public.hoa_document_versions c JOIN public.hoa_documents p ON p.id = c.document_id
-   WHERE p.org_id <> c.org_id
-  UNION ALL SELECT 'insurance_policies.association_id', count(*)
-    FROM public.insurance_policies c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'compliance_deadlines_done.association_id', count(*)
-    FROM public.compliance_deadlines_done c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'owner_join_codes.unit_id', count(*)
-    FROM public.owner_join_codes c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'owner_join_requests.unit_id', count(*)
-    FROM public.owner_join_requests c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'owner_join_requests.code_id', count(*)
-    FROM public.owner_join_requests c JOIN public.owner_join_codes p ON p.id = c.code_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'units.association_id', count(*)
-    FROM public.units c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'units.legacy_pm_property_id', count(*)
-    FROM public.units c JOIN public.pm_properties p ON p.id = c.legacy_pm_property_id
-   WHERE p.org_id <> c.organization_id
-  UNION ALL SELECT 'tickets.association_id', count(*)
-    FROM public.tickets c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'arc_requests.association_id', count(*)
-    FROM public.arc_requests c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'arc_requests.unit_id', count(*)
-    FROM public.arc_requests c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'resident_violation_reports.association_id', count(*)
-    FROM public.resident_violation_reports c JOIN public.associations p ON p.id = c.association_id
-   WHERE p.organization_id <> c.organization_id
-  UNION ALL SELECT 'resident_violation_reports.about_unit_id', count(*)
-    FROM public.resident_violation_reports c JOIN public.units p ON p.id = c.about_unit_id
-   WHERE p.organization_id <> c.organization_id;
+  -- Read-only. Finds every single-column foreign key in public where BOTH
+  -- tables have an org column (organization_id or org_id), and counts rows
+  -- whose org differs from the row they point at. Returns ids/counts only.
+  WITH fk AS (
+    SELECT c.conrelid::regclass  AS child,
+           a.attname             AS col,
+           c.confrelid::regclass AS parent,
+           af.attname            AS pcol
+    FROM pg_constraint c
+    JOIN pg_attribute a  ON a.attrelid  = c.conrelid  AND a.attnum  = c.conkey[1]
+    JOIN pg_attribute af ON af.attrelid = c.confrelid AND af.attnum = c.confkey[1]
+    WHERE c.contype = 'f' AND array_length(c.conkey, 1) = 1
+      AND c.connamespace = 'public'::regnamespace
+  ), orgcol AS (
+    SELECT cl.oid::regclass AS tbl,
+           (SELECT attname FROM pg_attribute
+             WHERE attrelid = cl.oid AND attname IN ('organization_id','org_id') AND NOT attisdropped
+             ORDER BY attname = 'organization_id' DESC LIMIT 1) AS oc
+    FROM pg_class cl WHERE cl.relnamespace = 'public'::regnamespace AND cl.relkind = 'r'
+  ), pairs AS (
+    SELECT fk.*, oc1.oc AS child_oc, oc2.oc AS parent_oc
+    FROM fk
+    JOIN orgcol oc1 ON oc1.tbl = fk.child
+    JOIN orgcol oc2 ON oc2.tbl = fk.parent
+    WHERE oc1.oc IS NOT NULL AND oc2.oc IS NOT NULL AND fk.child <> fk.parent OR
+          (fk.child = fk.parent AND oc1.oc IS NOT NULL)
+  ), counted AS (
+    SELECT child::text || '.' || col AS rule,
+           (xpath('/row/n/text()', query_to_xml(format(
+              'SELECT count(*) AS n FROM %s c JOIN %s p ON p.%I = c.%I WHERE p.%I <> c.%I',
+              child, parent, pcol, col, parent_oc, child_oc), false, true, '')))[1]::text::bigint AS violating_rows
+    FROM pairs
+  )
+  SELECT count(*) AS org_to_org_links,
+         coalesce(sum(violating_rows), 0) AS total_violating_rows,
+         string_agg(rule || '=' || violating_rows, ', ') FILTER (WHERE violating_rows > 0) AS rules_with_problems
+  FROM counted;
   ```
 
-- **Does:** counts, for each new rule, the rows that already point into a different HOA. Counts only.
+- **Does:** counts, for every link between two HOA-scoped tables, the rows that already point into a different HOA. Counts only.
 - **Read-only:** yes. **Time:** ~1 s.
-- **Expect:** 117 rows, **every `violating_rows` = 0**.
-- **Send:** the 117 rows.
-- **If any is above 0:** do not clean it yourself. Those are either planted rows or an old bug. The migration still applies (it checks new and changed rows only, and the new "my homes" functions already ignore such rows), but tell Claude the rule name and count first so the rows can be reviewed and removed.
+- **Expect:** one row: `org_to_org_links` = 121 (on 2026-10-27 production had exactly 121; a later number is fine if a newer migration added tables), `total_violating_rows` = 0, `rules_with_problems` empty.
+- **Send:** the row.
+- **If `total_violating_rows` is above 0:** do not clean it yourself. Those are either planted rows or an old bug. The migration still applies (it checks new and changed rows only, and the new "my homes" functions already ignore such rows), but tell Claude the `rules_with_problems` text first so the rows can be reviewed and removed.
 
 ### M3 · Other things that change for existing users (read-only)
 
@@ -1469,7 +1155,7 @@ Run these as **separate queries** (the editor shows only the last result).
          has_function_privilege('anon', 'public.auth_org_ids()', 'EXECUTE')       AS anon_can_call_org_ids;
   ```
 
-- **Expect:** one row: `same_org_triggers` = 117, `ai_all_policies` = 0, `law_write_policies` = 1 (the platform-admin rule), `pinned_helpers` = 5, `stripe_unique` = true, `anon_can_call_org_ids` = false.
+- **Expect:** one row: `same_org_triggers` = 121 (the number of links M2 found, on 2026-10-27), `ai_all_policies` = 0, `law_write_policies` = 1 (the platform-admin rule), `pinned_helpers` = 5, `stripe_unique` = true, `anon_can_call_org_ids` = false.
 - **Send:** the row.
 - **If a number is off:** stop and tell Claude.
 
