@@ -333,7 +333,7 @@ export async function runPlaidSync(
  * Inngest step (and therefore the run) instead of silently reporting
  * success with the cursor never having moved.
  */
-async function syncOnePage(
+export async function syncOnePage(
   client: PlaidSyncClient,
   db: Db,
   item: ItemRow,
@@ -351,11 +351,15 @@ async function syncOnePage(
   let removed = 0
 
   // Map plaid account_id → our bank_accounts.id (cached for this page).
+  // Tenant isolation: only THIS item's accounts in THIS org are addressable.
+  // A Plaid account id belonging to another org's bank account never maps.
   const acctIds = new Set<string>()
   for (const t of [...data.added, ...data.modified]) acctIds.add(t.account_id)
   const { data: bankAccts } = await db
     .from('bank_accounts')
     .select('id, plaid_account_id')
+    .eq('plaid_item_id', item.plaid_item_id)
+    .eq('organization_id', item.organization_id)
     .in('plaid_account_id', [...acctIds])
   const bankIdByPlaid = new Map<string, string>(
     (bankAccts ?? [])
@@ -407,6 +411,8 @@ async function syncOnePage(
         merchant: t.merchant_name ?? null,
       })
       .eq('plaid_transaction_id', t.transaction_id)
+      .eq('organization_id', item.organization_id)
+      .eq('bank_account_id', bankAccountId)
     if (!error) modified += 1
   }
 
@@ -415,15 +421,33 @@ async function syncOnePage(
   // since we hadn't matched it yet, by Plaid policy these are usually
   // pending-stage). Matched transactions are skipped to avoid orphan
   // JEs.
+  // The removed set needs every account of this item (the page's added /
+  // modified ids don't cover them), still org + item scoped.
+  let itemAcctIds: string[] = []
+  if (data.removed.length > 0) {
+    const { data: own } = await db
+      .from('bank_accounts')
+      .select('id')
+      .eq('plaid_item_id', item.plaid_item_id)
+      .eq('organization_id', item.organization_id)
+    itemAcctIds = (own ?? []).map((a) => a.id)
+  }
   for (const t of data.removed) {
     if (!t.transaction_id) continue
+    if (itemAcctIds.length === 0) continue
     const { data: existing } = await db
       .from('bank_transactions')
       .select('id, matched_journal_entry_id')
       .eq('plaid_transaction_id', t.transaction_id)
+      .eq('organization_id', item.organization_id)
+      .in('bank_account_id', itemAcctIds)
       .maybeSingle()
     if (existing && !existing.matched_journal_entry_id) {
-      await db.from('bank_transactions').delete().eq('id', existing.id)
+      await db
+        .from('bank_transactions')
+        .delete()
+        .eq('id', existing.id)
+        .eq('organization_id', item.organization_id)
       removed += 1
     }
   }
@@ -460,15 +484,16 @@ async function syncOnePage(
  * per row — on every tick. See the header comment above for the full
  * reasoning.
  */
-async function findUnreconciledTxnIds(
+export async function findUnreconciledTxnIds(
   db: Db,
-  item: { plaid_item_id: string },
+  item: { plaid_item_id: string; organization_id: string },
   logger: PlaidSyncLogger,
 ): Promise<string[]> {
   const { data: accts, error: acctErr } = await db
     .from('bank_accounts')
     .select('id')
     .eq('plaid_item_id', item.plaid_item_id)
+    .eq('organization_id', item.organization_id)
   if (acctErr) {
     logger.warn(`[plaid-sync] bank_accounts lookup failed: ${acctErr.message}`)
     return []
@@ -479,6 +504,7 @@ async function findUnreconciledTxnIds(
   const { data: txns, error } = await db
     .from('bank_transactions')
     .select('id')
+    .eq('organization_id', item.organization_id)
     .in('bank_account_id', acctIds)
     .is('matched_journal_entry_id', null)
     .is('reconciliation_attempted_at', null)

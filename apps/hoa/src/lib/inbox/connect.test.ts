@@ -67,12 +67,15 @@ const REDIRECT_BASE = 'https://app.example.com/api/oauth/google/callback'
 // this test file.
 const TEST_KEY = 'unit-test-mailbox-token-key-do-not-use-in-prod'
 
-function payload(over: Partial<{ orgId: string; userId: string; returnTo: string; issuedAt: number }> = {}) {
+function payload(
+  over: Partial<{ orgId: string; userId: string; returnTo: string; issuedAt: number; nonce: string }> = {},
+) {
   return {
     orgId: 'org-1',
     userId: 'user-1',
     returnTo: '/settings/mailbox',
     issuedAt: Date.now(),
+    nonce: 'nonce-1',
     ...over,
   }
 }
@@ -308,7 +311,7 @@ function pgError(code: string, message: string): FakeError {
 /** Everything the fake client reads from, and everything it records. */
 const db = {
   accounts: [] as AccountRow[],
-  membershipRole: 'board' as string | null,
+  membershipRole: 'admin' as string | null,
   /** Errors returned by successive mailbox_accounts UPDATEs, in order. */
   updateErrors: [] as Array<FakeError | null>,
   /** The live row a post-conflict re-read finds, if any. */
@@ -401,6 +404,8 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
   const USER = 'user-board-member'
   const MAILBOX = 'board@madisonpark.org'
   const PERSONAL = 'someone.personal@gmail.com'
+  const NONCE = 'nonce-abc'
+  const BINDING = { sessionUserId: USER, nonce: NONCE }
 
   function validState(): string {
     return signState({
@@ -408,6 +413,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       userId: USER,
       returnTo: '/settings/mailbox',
       issuedAt: Date.now(),
+      nonce: NONCE,
     })
   }
 
@@ -416,7 +422,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     google.profileEmail = MAILBOX
     google.revoked = []
     db.accounts = []
-    db.membershipRole = 'board'
+    db.membershipRole = 'admin'
     db.updateErrors = []
     db.racedLiveRow = null
     db.inserts = []
@@ -429,7 +435,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       { id: 'acct-original', email_address: MAILBOX, disconnected_at: '2026-08-12T14:00:00.000Z' },
     ]
 
-    const result = await completeConnect('auth-code', validState())
+    const result = await completeConnect('auth-code', validState(), BINDING)
 
     expect(result.accountId).toBe('acct-original')
     expect(db.updates).toHaveLength(1)
@@ -443,7 +449,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       { id: 'acct-original', email_address: MAILBOX, disconnected_at: '2026-08-12T14:00:00.000Z' },
     ]
 
-    await completeConnect('auth-code', validState())
+    await completeConnect('auth-code', validState(), BINDING)
 
     // The whole bug: a second row here is what re-imported 437 messages.
     expect(db.inserts).toEqual([])
@@ -455,7 +461,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     ]
 
     const before = Date.now()
-    await completeConnect('auth-code', validState())
+    await completeConnect('auth-code', validState(), BINDING)
 
     const connectedAt = Date.parse(String(db.updates[0].values.connected_at))
     expect(connectedAt).toBeGreaterThanOrEqual(before)
@@ -466,7 +472,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       { id: 'acct-original', email_address: MAILBOX, disconnected_at: '2026-08-12T14:00:00.000Z' },
     ]
 
-    await completeConnect('auth-code', validState())
+    await completeConnect('auth-code', validState(), BINDING)
 
     const values = db.updates[0].values
     expect(values).not.toHaveProperty('scope_mode')
@@ -482,7 +488,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       { id: 'acct-2023', email_address: MAILBOX, disconnected_at: '2024-01-04T09:00:00.000Z' },
     ]
 
-    const result = await completeConnect('auth-code', validState())
+    const result = await completeConnect('auth-code', validState(), BINDING)
 
     expect(result.accountId).toBe('acct-2025')
     expect(db.inserts).toEqual([])
@@ -491,7 +497,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
   it('still reuses a LIVE row for the same address, without touching disconnected_at', async () => {
     db.accounts = [{ id: 'acct-live', email_address: MAILBOX, disconnected_at: null }]
 
-    const result = await completeConnect('auth-code', validState())
+    const result = await completeConnect('auth-code', validState(), BINDING)
 
     expect(result.accountId).toBe('acct-live')
     expect(db.inserts).toEqual([])
@@ -506,7 +512,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       { id: 'acct-live', email_address: MAILBOX, disconnected_at: null },
     ]
 
-    const result = await completeConnect('auth-code', validState())
+    const result = await completeConnect('auth-code', validState(), BINDING)
 
     // Reactivating the stale sibling would collide with
     // mailbox_accounts_live_uniq; the live row is the syncing mailbox.
@@ -520,7 +526,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     db.accounts = [{ id: 'acct-live', email_address: MAILBOX, disconnected_at: null }]
     google.profileEmail = PERSONAL
 
-    await expect(completeConnect('auth-code', validState())).rejects.toThrow(
+    await expect(completeConnect('auth-code', validState(), BINDING)).rejects.toThrow(
       new RegExp(`You signed in as ${PERSONAL.replace('.', '\\.')}`),
     )
     expect(db.inserts).toEqual([])
@@ -531,7 +537,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     db.accounts = [{ id: 'acct-live', email_address: MAILBOX, disconnected_at: null }]
     google.profileEmail = PERSONAL
 
-    await expect(completeConnect('auth-code', validState())).rejects.toThrow(/already has/)
+    await expect(completeConnect('auth-code', validState(), BINDING)).rejects.toThrow(/already has/)
     expect(google.revoked).toEqual(['refresh-token'])
   })
 
@@ -544,7 +550,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     ]
     google.profileEmail = PERSONAL
 
-    await expect(completeConnect('auth-code', validState())).rejects.toThrow(/already has/)
+    await expect(completeConnect('auth-code', validState(), BINDING)).rejects.toThrow(/already has/)
     expect(db.updates).toEqual([])
     expect(db.inserts).toEqual([])
   })
@@ -556,7 +562,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     ]
     google.profileEmail = PERSONAL
 
-    const result = await completeConnect('auth-code', validState())
+    const result = await completeConnect('auth-code', validState(), BINDING)
 
     expect(result.accountId).toBe('acct-personal-old')
     expect(db.updates[0].values.disconnected_at).toBeNull()
@@ -564,7 +570,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
   })
 
   it('inserts a new row only when the org has no row at all for this address', async () => {
-    const result = await completeConnect('auth-code', validState())
+    const result = await completeConnect('auth-code', validState(), BINDING)
 
     expect(db.inserts).toHaveLength(1)
     expect(db.inserts[0].email_address).toBe(MAILBOX)
@@ -580,7 +586,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     db.updateErrors = [pgError('23505', 'duplicate key value violates unique constraint')]
     db.racedLiveRow = { id: 'acct-race-winner' }
 
-    const result = await completeConnect('auth-code', validState())
+    const result = await completeConnect('auth-code', validState(), BINDING)
 
     expect(result.accountId).toBe('acct-race-winner')
     expect(db.updates[1].id).toBe('acct-race-winner')
@@ -595,7 +601,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
     db.updateErrors = [pgError('23505', 'duplicate key value violates unique constraint')]
     db.racedLiveRow = null
 
-    await expect(completeConnect('auth-code', validState())).rejects.toThrow(
+    await expect(completeConnect('auth-code', validState(), BINDING)).rejects.toThrow(
       /failed to reactivate mailbox account/,
     )
     expect(db.inserts).toEqual([])
@@ -606,7 +612,7 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       { id: 'acct-original', email_address: MAILBOX, disconnected_at: '2026-08-12T14:00:00.000Z' },
     ]
 
-    await completeConnect('auth-code', validState())
+    await completeConnect('auth-code', validState(), BINDING)
 
     expect(db.secrets).toHaveLength(1)
     expect(db.secrets[0].mailbox_account_id).toBe('acct-original')
@@ -618,10 +624,60 @@ describe('completeConnect — reconnect reuses the existing mailbox row', () => 
       { id: 'acct-original', email_address: MAILBOX, disconnected_at: '2026-08-12T14:00:00.000Z' },
     ]
 
-    await expect(completeConnect('auth-code', validState())).rejects.toThrow(
+    await expect(completeConnect('auth-code', validState(), BINDING)).rejects.toThrow(
       /do not have permission/,
     )
     expect(db.updates).toEqual([])
     expect(db.inserts).toEqual([])
+  })
+
+  it('refuses a board member (admin only, like /start), before any write', async () => {
+    db.membershipRole = 'board'
+    await expect(completeConnect('auth-code', validState(), BINDING)).rejects.toThrow(
+      /do not have permission/,
+    )
+    expect(db.updates).toEqual([])
+    expect(db.inserts).toEqual([])
+  })
+
+  describe('session and nonce binding', () => {
+    it('refuses when there is no signed-in session', async () => {
+      await expect(
+        completeConnect('auth-code', validState(), { sessionUserId: null, nonce: NONCE }),
+      ).rejects.toThrow(/not bound/)
+      expect(db.inserts).toEqual([])
+      expect(db.updates).toEqual([])
+    })
+
+    it('refuses when the session user is not the user the state was minted for', async () => {
+      await expect(
+        completeConnect('auth-code', validState(), { sessionUserId: 'someone-else', nonce: NONCE }),
+      ).rejects.toThrow(/not bound/)
+      expect(db.inserts).toEqual([])
+    })
+
+    it('refuses when the nonce cookie is missing (e.g. already used)', async () => {
+      await expect(
+        completeConnect('auth-code', validState(), { sessionUserId: USER, nonce: null }),
+      ).rejects.toThrow(/nonce/)
+      expect(db.inserts).toEqual([])
+    })
+
+    it('refuses when the nonce cookie does not match the state', async () => {
+      await expect(
+        completeConnect('auth-code', validState(), { sessionUserId: USER, nonce: 'other' }),
+      ).rejects.toThrow(/nonce/)
+      expect(db.inserts).toEqual([])
+    })
+
+    it('refuses an old-format state that carries no nonce', async () => {
+      const legacy = signState({
+        orgId: ORG,
+        userId: USER,
+        returnTo: '/settings/mailbox',
+        issuedAt: Date.now(),
+      } as never)
+      await expect(completeConnect('auth-code', legacy, BINDING)).rejects.toThrow(/nonce/)
+    })
   })
 })

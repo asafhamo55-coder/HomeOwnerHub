@@ -6,6 +6,7 @@ const DRAFT_ID = '11111111-1111-4111-8111-111111111111'
 const THREAD_ID = '22222222-2222-4222-8222-222222222222'
 const RUN_ID = '33333333-3333-4333-8333-333333333333'
 
+vi.mock('@/lib/org-owned', () => ({ checkOrgOwned: vi.fn(async () => 'owned') }))
 vi.mock('@/lib/auth', () => ({
   requireBoardOrAdmin: vi.fn(async () => ({
     role: 'board' as const,
@@ -15,6 +16,7 @@ vi.mock('@/lib/auth', () => ({
 
 let snapshot: Record<string, unknown> | null = null
 const auditInserts: unknown[] = []
+const columnsSelected: string[] = []
 const draftEqs: Array<[string, unknown]> = []
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -43,7 +45,10 @@ vi.mock('@/lib/supabase/server', () => ({
           mode = 'update'
           return chain
         }),
-        select: vi.fn(() => chain),
+        select: vi.fn((cols: string) => {
+          columnsSelected.push(cols)
+          return chain
+        }),
         eq: vi.fn((col: string, val: unknown) => {
           if (table === 'inbox_drafts') draftEqs.push([col, val])
           return chain
@@ -51,7 +56,9 @@ vi.mock('@/lib/supabase/server', () => ({
         is: vi.fn(async () => ({ error: null })),
         maybeSingle: vi.fn(async () =>
           mode === 'read'
-            ? { data: snapshot, error: null }
+            ? table === 'inbox_drafts' && columnsSelected.at(-1)?.startsWith('thread_id, mailbox')
+              ? { data: { thread_id: THREAD_ID, mailbox_account_id: null }, error: null }
+              : { data: snapshot, error: null }
             : { data: { id: DRAFT_ID, thread_id: THREAD_ID }, error: null },
         ),
       }

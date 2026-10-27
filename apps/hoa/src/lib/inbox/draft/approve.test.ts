@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('@/lib/org-owned', () => ({ checkOrgOwned: vi.fn(async () => 'owned') }))
 vi.mock('@/lib/auth', () => ({
   requireBoardOrAdmin: vi.fn(async () => ({
     role: 'board' as const,

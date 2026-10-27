@@ -107,9 +107,12 @@ export default async function ViolationDetailPage({
   const { id } = await params
   const supabase = await getSupabaseServerClient()
 
-  // The org (memoized; the layout already resolved it) is read alongside
-  // the violation rather than after it (BL-099).
-  const [result, org] = await Promise.all([
+  // The org (memoized; the layout already resolved it) is needed BEFORE the
+  // by-id load: the row is filtered to it, so a violation id from another
+  // org is "not found" even if RLS were ever loosened (BL-175a L9).
+  const org = await getCurrentOrg()
+  if (!org) notFound()
+  const [result] = await Promise.all([
     timed(R, 'violation.row', () =>
       loadOrFail(
         'this violation',
@@ -119,11 +122,11 @@ export default async function ViolationDetailPage({
             'id, description, violation_type, status, severity, ccr_section, cure_period_days, fine_amount, notice_sent_at, approved_at, approved_letter, ai_draft_letter, photo_urls, created_at, resolved_at, resolution_note, fine_start_date, property_id, property:hoa_properties(address, unit_number, owner_name)',
           )
           .eq('id', id)
+          .eq('org_id', org.id)
           .is('deleted_at', null)
           .maybeSingle(),
       ),
     ),
-    getCurrentOrg(),
   ])
 
   if (!result.ok) {

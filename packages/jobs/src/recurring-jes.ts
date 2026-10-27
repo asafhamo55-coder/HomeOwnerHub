@@ -190,12 +190,23 @@ export async function runRecurringJes(
       const { data: template } = await db
         .from('journal_entries')
         .select(
-          'id, memo, source, fiscal_period_id, lines:ledger_entries(account_id, fund_id, debit_amount, credit_amount, memo)',
+          'id, memo, source, fiscal_period_id, organization_id, association_id, lines:ledger_entries(account_id, fund_id, debit_amount, credit_amount, memo)',
         )
         .eq('id', rule.template_je_id)
-        .single()
-      if (!template) {
-        logger.warn(`[recurring-jes] rule ${rule.id}: template ${rule.template_je_id} missing`)
+        // Tenant isolation: a rule may only replay a template from its own
+        // org and association, and only that org's ledger lines.
+        .eq('organization_id', rule.organization_id)
+        .eq('association_id', rule.association_id)
+        .eq('lines.organization_id', rule.organization_id)
+        .maybeSingle()
+      if (
+        !template ||
+        template.organization_id !== rule.organization_id ||
+        template.association_id !== rule.association_id
+      ) {
+        logger.warn(
+          `[recurring-jes] rule ${rule.id}: template ${rule.template_je_id} missing or outside the rule's org/association; nothing posted`,
+        )
         return { posted: 0, skipped: 0, failed: 1 } satisfies RuleStepResult
       }
 

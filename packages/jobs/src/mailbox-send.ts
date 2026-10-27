@@ -387,7 +387,7 @@ export async function runMailboxSend(
 
     const { data: thread, error: threadError } = await db
       .from('inbox_threads')
-      .select('gmail_thread_id, mailbox_account_id')
+      .select('gmail_thread_id, mailbox_account_id, organization_id')
       .eq('id', threadId)
       .maybeSingle()
 
@@ -395,19 +395,27 @@ export async function runMailboxSend(
       await fail(db, draftId, threadError?.message ?? 'thread not found')
       throw new Error(`mailboxSendJob: could not load thread for ${draftId}`)
     }
+    // Tenant isolation: the thread must belong to the draft's org. A thread
+    // id (or mailbox) from another org must never route a send.
+    if (thread.organization_id !== draft.organization_id) {
+      return refuseCrossOrg(db, logger, draftId, 'thread', draft.organization_id, thread.organization_id)
+    }
     accountId = thread.mailbox_account_id
     gmailThreadId = thread.gmail_thread_id
   }
 
   const { data: account, error: accountError } = await db
     .from('mailbox_accounts')
-    .select('email_address, disconnected_at')
+    .select('email_address, disconnected_at, organization_id')
     .eq('id', accountId)
     .maybeSingle()
 
   if (accountError || !account) {
     await fail(db, draftId, accountError?.message ?? 'mailbox account not found')
     throw new Error(`mailboxSendJob: could not load account for ${draftId}`)
+  }
+  if (account.organization_id !== draft.organization_id) {
+    return refuseCrossOrg(db, logger, draftId, 'mailbox_account', draft.organization_id, account.organization_id)
   }
   if (account.disconnected_at) {
     await fail(db, draftId, 'The mailbox was disconnected before this reply was sent.')
@@ -577,6 +585,26 @@ async function recordSent(
       `[mailbox-send] ${draftId} SENT as ${sent.messageId} but the row update threw: ${message}`,
     )
   }
+}
+
+/**
+ * Refuses a send whose thread or mailbox account belongs to a different
+ * organization than the draft. Logs ids only (no addresses/bodies) and marks
+ * the draft failed with a generic message. Nothing is sent.
+ */
+async function refuseCrossOrg(
+  db: Db,
+  logger: MailboxSendLogger,
+  draftId: string,
+  what: 'thread' | 'mailbox_account',
+  draftOrgId: string,
+  otherOrgId: string | null | undefined,
+): Promise<MailboxSendResult> {
+  logger.error(
+    `[mailbox-send] ${draftId} refused: ${what} org ${otherOrgId ?? 'null'} does not match draft org ${draftOrgId}`,
+  )
+  await fail(db, draftId, 'This message could not be sent from the selected mailbox.')
+  return { sent: false, reason: 'org_mismatch' }
 }
 
 async function fail(db: Db, draftId: string, message: string): Promise<void> {

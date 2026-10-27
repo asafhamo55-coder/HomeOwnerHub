@@ -4,7 +4,13 @@ import { logRouteFailure } from '@/lib/api/log'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { sanitizeReturnTo, startConnect } from '@/lib/inbox/connect'
+import {
+  newOAuthNonce,
+  OAUTH_NONCE_COOKIE,
+  OAUTH_NONCE_MAX_AGE_SECONDS,
+  sanitizeReturnTo,
+  startConnect,
+} from '@/lib/inbox/connect'
 import { connectErrorRedirect } from '@/lib/inbox/connect-errors'
 
 // A browser-navigation route (the "Connect Gmail" link), not a fetch
@@ -65,13 +71,24 @@ export const GET = withRoute('oauth.google.start', async (request: Request) => {
     return NextResponse.redirect(connectErrorRedirect(returnTo, 'not_configured', request.url))
   }
 
+  // Bound into the signed state AND set as an httpOnly cookie, so only this
+  // browser can complete the flow, once.
+  const nonce = newOAuthNonce()
   let consentUrl: string
   try {
-    consentUrl = startConnect(org.id, user.id, returnTo)
+    consentUrl = startConnect(org.id, user.id, returnTo, nonce)
   } catch (error) {
     // Ids and codes only (RC-2) — the thrown text never reaches the URL or the log.
     logRouteFailure('oauth.google.start', error, { stage: 'start_connect', orgId: org.id })
     return NextResponse.redirect(connectErrorRedirect(returnTo, 'internal', request.url))
   }
-  return NextResponse.redirect(consentUrl)
+  const response = NextResponse.redirect(consentUrl)
+  response.cookies.set(OAUTH_NONCE_COOKIE, nonce, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/api/oauth/google',
+    maxAge: OAUTH_NONCE_MAX_AGE_SECONDS,
+  })
+  return response
 })

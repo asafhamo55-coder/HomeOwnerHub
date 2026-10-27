@@ -7,6 +7,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
+import { isOrgStoragePath } from '@/lib/storage-path'
 import { DOCUMENT_UPLOAD_TYPES, MAX_DOCUMENT_BYTES, sanitizeStorageName } from '@/lib/documents-rules'
 
 const STORAGE_BUCKET = 'hoa-documents'
@@ -439,6 +440,10 @@ export async function listDocumentVersions(
 export async function signedDownloadUrl(
   storagePath: string,
 ): Promise<string | null> {
+  // This is a server action (a public POST): never sign a path the caller's
+  // org does not own, even though the bucket's RLS is the backstop.
+  const org = await getCurrentOrg()
+  if (!org || !isOrgStoragePath(storagePath, org.id)) return null
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase.storage
     .from(STORAGE_BUCKET)

@@ -10,7 +10,10 @@ import { safeReturnPath } from '@/lib/auth-redirect'
 // to set real Supabase session cookies — so the rest of the app (RLS,
 // (dashboard)/layout, org queries) works unchanged.
 export async function GET(request: NextRequest) {
-  if (process.env.DEV_AUTOLOGIN !== '1') {
+  // Belt and braces: even if DEV_AUTOLOGIN leaks into a production env this
+  // route mints a session with the service-role key, so it must never run
+  // on Vercel production regardless of the flag.
+  if (process.env.DEV_AUTOLOGIN !== '1' || process.env.VERCEL_ENV === 'production') {
     return new NextResponse('Not Found', { status: 404 })
   }
 

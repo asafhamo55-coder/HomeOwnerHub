@@ -136,7 +136,7 @@ export async function runTicketNotifications(
   logger: TicketNotificationsLogger,
   payload: TicketNotificationsPayload,
 ): Promise<{ notified: number; pushed?: number }> {
-  const { ticketId, organizationId } = payload
+  const { ticketId, organizationId: payloadOrganizationId } = payload
 
   const ticket = (await step.run('load-ticket', async () => {
     const { data } = await db
@@ -159,6 +159,16 @@ export async function runTicketNotifications(
     return { notified: 0 }
   }
 
+  // Tenant isolation: the ticket's own org is the only org that counts. The
+  // event payload is caller-supplied and is never used to pick recipients,
+  // write notifications or send pushes.
+  const organizationId = ticket.organization_id
+  if (payloadOrganizationId !== organizationId) {
+    logger.warn(
+      `ticket-notifications: payload org ${payloadOrganizationId} does not match ticket ${ticketId} org ${organizationId}; using the ticket's org`,
+    )
+  }
+
   const recipients = (await step.run('resolve-recipients', async () => {
     const { data } = await db
       .from('org_members')
@@ -174,6 +184,7 @@ export async function runTicketNotifications(
       .from('units')
       .select('label, address_line1')
       .eq('id', ticket.unit_id)
+      .eq('organization_id', organizationId)
       .maybeSingle()
     const row = data as { label: string | null; address_line1: string | null } | null
     return row?.label ?? row?.address_line1 ?? null

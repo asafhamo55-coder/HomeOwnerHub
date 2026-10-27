@@ -4,7 +4,13 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from '@homeowner-portal/jobs'
 import { withRoute } from '@/lib/api/handler'
 import { errorCode, logRouteFailure } from '@/lib/api/log'
-import { completeConnect, DEFAULT_RETURN_TO, sanitizeReturnTo } from '@/lib/inbox/connect'
+import {
+  completeConnect,
+  DEFAULT_RETURN_TO,
+  OAUTH_NONCE_COOKIE,
+  sanitizeReturnTo,
+} from '@/lib/inbox/connect'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ConnectError, type ConnectErrorCode } from '@/lib/inbox/connect-errors'
 import { type ConnectBackfillPlan, planConnectBackfill } from '@/lib/inbox/reconnect-backfill'
 
@@ -30,13 +36,39 @@ const MAX_STATE_LENGTH = 4096
  * code to readable text. A failed mailbox connection is a recoverable user
  * situation, not a crash, so nothing here answers a raw 500.
  *
- * Auth (RC-3/RC-4): there is no session check here — middleware does not
- * gate /api/oauth/, and the caller is Google's redirect. The signed,
- * short-lived `state` is the credential: completeConnect verifies its HMAC
- * and expiry and then re-checks the user's board/admin role before any
- * service-role write. /start minted that state behind an admin gate.
+ * Auth (RC-3/RC-4): middleware does not gate /api/oauth/, so this route
+ * checks the session itself. The signed `state` alone is a bearer token and
+ * is NOT enough: completeConnect also requires the signed-in user to be the
+ * user /start minted it for, and the nonce in the state to equal the
+ * httpOnly cookie /start set in that browser. The cookie is cleared on
+ * every response here, so a state can be used once. completeConnect then
+ * re-checks the admin role before any service-role write.
  */
 export const GET = withRoute(ROUTE, async (request: Request) => {
+  const nonce = readCookie(request, OAUTH_NONCE_COOKIE)
+  const response = await handle(request, nonce)
+  // Single use: whatever the outcome, this nonce is spent.
+  if (nonce !== null) {
+    response.headers.append(
+      'set-cookie',
+      `${OAUTH_NONCE_COOKIE}=; Path=/api/oauth/google; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+    )
+  }
+  return response
+})
+
+function readCookie(request: Request, name: string): string | null {
+  const header = request.headers.get('cookie')
+  if (!header) return null
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=')
+    if (idx < 0) continue
+    if (part.slice(0, idx).trim() === name) return decodeURIComponent(part.slice(idx + 1).trim())
+  }
+  return null
+}
+
+async function handle(request: Request, nonce: string | null): Promise<Response> {
   const params = new URL(request.url).searchParams
 
   const denied = params.get('error')
@@ -56,7 +88,14 @@ export const GET = withRoute(ROUTE, async (request: Request) => {
   let accountId: string
   let returnTo: string
   try {
-    ;({ accountId, returnTo } = await completeConnect(code, state))
+    const supabase = await getSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    ;({ accountId, returnTo } = await completeConnect(code, state, {
+      sessionUserId: user?.id ?? null,
+      nonce,
+    }))
   } catch (error) {
     if (error instanceof ConnectError) {
       // Expected and actionable (expired link, wrong mailbox, …). Code only.
@@ -112,7 +151,7 @@ export const GET = withRoute(ROUTE, async (request: Request) => {
   return NextResponse.redirect(
     new URL(`${sanitizeReturnTo(returnTo)}?connected=1&account=${encodeURIComponent(accountId)}`, request.url),
   )
-})
+}
 
 /**
  * Reads the account's backfill/sync state and plans the backfill. A failed

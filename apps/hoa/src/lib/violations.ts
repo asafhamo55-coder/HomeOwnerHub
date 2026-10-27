@@ -28,6 +28,8 @@ import {
   type OverrideReason,
 } from '@/lib/compliance/statute-drift'
 import { createAdminClient } from '@homeowner-portal/db'
+import { checkOrgOwned } from '@/lib/org-owned'
+import { isOrgStoragePath } from '@/lib/storage-path'
 import { loadBoardHearing, loadBoardRosterNames } from '@/lib/violation-hearings/queries'
 import { hearingFineFacts } from '@/lib/violation-hearings/rules'
 import { normaliseState, type FineHearingFacts } from '@/lib/compliance/statute-drift'
@@ -141,6 +143,16 @@ export async function createApprovedViolation(
 
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
+
+  // Tenant isolation: the property and every photo path come from the
+  // browser. The property must be in this org, and a photo path must sit in
+  // this org's storage prefix before it is signed into a year-long URL.
+  if ((await checkOrgOwned('hoa_properties', parsed.data.property_id, org.id, { orgColumn: 'org_id' })) !== 'owned') {
+    return { ok: false, error: 'Property not found.' }
+  }
+  if (!parsed.data.photo_storage_paths.every((p) => isOrgStoragePath(p, org.id))) {
+    return { ok: false, error: 'Invalid photo.' }
+  }
 
   // Sign each photo into a long-lived URL we can store on the row. RLS still
   // protects the bucket; the URL is just a convenience for rendering later.

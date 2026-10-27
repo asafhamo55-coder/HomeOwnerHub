@@ -9,6 +9,21 @@ import { withSentryConfig } from '@sentry/nextjs/config'
 // the domain accumulates traffic history and we're ready, we can also
 // submit hstspreload.org so Chrome/Safari hard-code HTTPS for the
 // domain at the browser level.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.plaid.com https://js.stripe.com https://va.vercel-scripts.com https://vercel.live",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https://*.supabase.co",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://*.ingest.sentry.io https://api.stripe.com https://*.plaid.com https://vitals.vercel-insights.com https://vercel.live",
+  "frame-src 'self' blob: https://js.stripe.com https://hooks.stripe.com https://*.plaid.com",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ')
+
 const SECURITY_HEADERS = [
   // 2-year HSTS with subdomains + preload eligibility. Combined with
   // the Vercel-provisioned cert this earns the green-padlock + no
@@ -38,6 +53,14 @@ const SECURITY_HEADERS = [
   // Speeds up DNS resolution for outbound origins (e.g. Supabase) on
   // first paint. Doesn't lower security; nice perf touch.
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
+  // BL-175a H6: a second line of defence against XSS. Deliberately
+  // REPORT-ONLY: Next injects inline bootstrap scripts (no nonce pipeline
+  // here yet, hence 'unsafe-inline'), and the app also loads Plaid Link,
+  // Stripe, Sentry, Supabase and Vercel analytics. Violations are logged in
+  // the browser console without blocking anything. Once a deploy shows no
+  // legitimate violations, rename the header to `Content-Security-Policy`
+  // (and replace 'unsafe-inline' with nonces) to enforce.
+  { key: 'Content-Security-Policy-Report-Only', value: CSP },
 ]
 
 const config: NextConfig = {

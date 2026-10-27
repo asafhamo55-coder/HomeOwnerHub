@@ -8,7 +8,7 @@ let role: 'admin' | 'board' | 'resident' | null = 'admin'
 
 const getCurrentOrg = vi.fn(async () => org)
 const getCurrentUserRoleInOrg = vi.fn(async () => role)
-const startConnect = vi.fn((_orgId: string, _userId: string, _returnTo: string) => 'https://accounts.google.com/o/oauth2/v2/auth?state=s')
+const startConnect = vi.fn((_orgId: string, _userId: string, _returnTo: string, _nonce: string) => 'https://accounts.google.com/o/oauth2/v2/auth?state=s')
 
 vi.mock('@/lib/orgs', () => ({ getCurrentOrg }))
 vi.mock('@/lib/auth', () => ({ getCurrentUserRoleInOrg }))
@@ -88,7 +88,19 @@ describe('GET /api/oauth/google/start', () => {
   it('redirects an admin to the Google consent URL', async () => {
     const res = await get('?returnTo=/onboarding/setup')
     expect(location(res).origin).toBe('https://accounts.google.com')
-    expect(startConnect).toHaveBeenCalledWith('org-1', 'user-1', '/onboarding/setup')
+    expect(startConnect).toHaveBeenCalledWith('org-1', 'user-1', '/onboarding/setup', expect.any(String))
+  })
+
+  it('sets the nonce cookie (httpOnly, secure, Lax, 10 min) matching the nonce signed into state', async () => {
+    const res = await get()
+    const nonce = startConnect.mock.calls[0][3]
+    expect(nonce.length).toBeGreaterThanOrEqual(16)
+    const cookie = res.headers.get('set-cookie') ?? ''
+    expect(cookie).toContain(`hh_gmail_oauth_nonce=${nonce}`)
+    expect(cookie).toMatch(/HttpOnly/i)
+    expect(cookie).toMatch(/Secure/i)
+    expect(cookie).toMatch(/SameSite=lax/i)
+    expect(cookie).toMatch(/Max-Age=600/i)
   })
 
   it('sanitises a hostile returnTo before redirecting or signing it', async () => {

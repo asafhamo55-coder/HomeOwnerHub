@@ -23,8 +23,12 @@ const txn = {
   amount: 250,
   matched_journal_entry_id: null,
   association_id: payload.associationId,
+  organization_id: 'org-1',
+  bank_account_organization_id: 'org-1',
 }
+const scope = { organizationId: 'org-1', associationInOrg: true }
 const assessment = {
+  organization_id: 'org-1',
   id: payload.assessmentId,
   association_id: payload.associationId,
   amount: 250,
@@ -48,49 +52,81 @@ describe('buildCashReceiptProposal', () => {
 
 describe('validateCashReceipt', () => {
   it('accepts an unmatched txn against an open assessment, paying it in full', () => {
-    expect(validateCashReceipt(payload, txn, assessment)).toEqual({
+    expect(validateCashReceipt(payload, txn, assessment, scope)).toEqual({
       ok: true,
       newAssessmentStatus: 'paid',
     })
   })
 
   it('marks a short payment partial', () => {
-    const r = validateCashReceipt(payload, txn, { ...assessment, amount: 300 })
+    const r = validateCashReceipt(payload, txn, { ...assessment, amount: 300 }, scope)
     expect(r).toEqual({ ok: true, newAssessmentStatus: 'partial' })
   })
 
   it('refuses when the transaction was matched since the proposal (no double-post)', () => {
-    const r = validateCashReceipt(payload, { ...txn, matched_journal_entry_id: 'je-1' }, assessment)
+    const r = validateCashReceipt(payload, { ...txn, matched_journal_entry_id: 'je-1' }, assessment, scope)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toMatch(/already matched/)
   })
 
   it('refuses when the transaction no longer exists', () => {
-    const r = validateCashReceipt(payload, null, assessment)
+    const r = validateCashReceipt(payload, null, assessment, scope)
     expect(r.ok).toBe(false)
   })
 
   it('refuses when the transaction amount no longer equals the proposed amount', () => {
-    const r = validateCashReceipt(payload, { ...txn, amount: 249.99 }, assessment)
+    const r = validateCashReceipt(payload, { ...txn, amount: 249.99 }, assessment, scope)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toMatch(/amount/)
   })
 
   it('refuses when the transaction belongs to another association', () => {
-    const r = validateCashReceipt(payload, { ...txn, association_id: 'other' }, assessment)
+    const r = validateCashReceipt(payload, { ...txn, association_id: 'other' }, assessment, scope)
     expect(r.ok).toBe(false)
   })
 
   it.each(['paid', 'waived', 'void'])('refuses when the assessment is now %s', (status) => {
-    const r = validateCashReceipt(payload, txn, { ...assessment, status })
+    const r = validateCashReceipt(payload, txn, { ...assessment, status }, scope)
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toContain(status)
   })
 
   it('refuses when the assessment is gone or in another association', () => {
-    expect(validateCashReceipt(payload, txn, null).ok).toBe(false)
+    expect(validateCashReceipt(payload, txn, null, scope).ok).toBe(false)
     expect(
-      validateCashReceipt(payload, txn, { ...assessment, association_id: 'other' }).ok,
+      validateCashReceipt(payload, txn, { ...assessment, association_id: 'other' }, scope).ok,
     ).toBe(false)
+  })
+
+  describe('tenant isolation', () => {
+    it('refuses a transaction in another org', () => {
+      const r = validateCashReceipt(payload, { ...txn, organization_id: 'org-2' }, assessment, scope)
+      expect(r.ok).toBe(false)
+    })
+
+    it('refuses when the bank account is in another org', () => {
+      const r = validateCashReceipt(
+        payload,
+        { ...txn, bank_account_organization_id: 'org-2' },
+        assessment,
+        scope,
+      )
+      expect(r.ok).toBe(false)
+    })
+
+    it('refuses an assessment in another org even if the association id matches', () => {
+      const r = validateCashReceipt(payload, txn, { ...assessment, organization_id: 'org-2' }, scope)
+      expect(r.ok).toBe(false)
+    })
+
+    it('refuses an association outside the org', () => {
+      const r = validateCashReceipt(payload, txn, assessment, { ...scope, associationInOrg: false })
+      expect(r.ok).toBe(false)
+    })
+
+    it('refuses when the request is for a different org than the rows', () => {
+      const r = validateCashReceipt(payload, txn, assessment, { ...scope, organizationId: 'org-2' })
+      expect(r.ok).toBe(false)
+    })
   })
 })

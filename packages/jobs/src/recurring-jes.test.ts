@@ -1,5 +1,14 @@
-import { describe, expect, it } from 'vitest'
-import { dueRulesForAssociationDay, LATEST_TODAY_ZONE } from './recurring-jes'
+import { describe, expect, it, vi } from 'vitest'
+import { postJournalEntry } from '@homeowner-portal/db'
+import { dueRulesForAssociationDay, LATEST_TODAY_ZONE, runRecurringJes } from './recurring-jes'
+
+vi.mock('@homeowner-portal/db', async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  postJournalEntry: vi.fn(async () => ({ ok: true, journalEntryId: 'je-new' })),
+}))
+vi.mock('./fiscal-periods', () => ({
+  readCurrentOpenPeriod: vi.fn(async () => ({ data: { id: 'fp-1' }, error: null })),
+}))
 import { todayIn } from './association-time'
 
 // BL-065: each rule runs on ITS association's day, not one Eastern "today"
@@ -69,5 +78,82 @@ describe('dueRulesForAssociationDay', () => {
     for (const z of ['America/New_York', 'Pacific/Honolulu', 'Pacific/Guam']) {
       expect(todayIn(z, now) <= todayIn(LATEST_TODAY_ZONE, now)).toBe(true)
     }
+  })
+})
+
+// BL-175a M1: a rule may only replay a template JE from its own org and
+// association. A mismatch posts nothing and is logged.
+function recurringDb(template: Record<string, unknown> | null) {
+  const templateFilters: Array<[string, unknown]> = []
+  const db = {
+    from: (table: string) => {
+      const chain: Record<string, unknown> = {
+        select: () => chain,
+        update: () => chain,
+        eq: (c: string, v: unknown) => {
+          if (table === 'journal_entries' && c !== 'source' && c !== 'source_id' && c !== 'entry_date') {
+            templateFilters.push([c, v])
+          }
+          return chain
+        },
+        lte: () => chain,
+        in: () => chain,
+        single: async () => ({ data: template, error: null }),
+        then: (r: (v: unknown) => unknown) => {
+          if (table === 'recurring_journal_entries') {
+            return r({ data: [rule('r1', 'a-1', '2026-10-15')], error: null })
+          }
+          return r({ data: [{ id: 'a-1', state: 'FL' }], error: null })
+        },
+        maybeSingle: async () =>
+          table === 'journal_entries' && templateFilters.length > 0
+            ? { data: template, error: null }
+            : { data: null, error: null },
+      }
+      return chain
+    },
+  }
+  return { db: db as never, templateFilters }
+}
+
+const step = { run: async (_id: string, fn: () => Promise<unknown>) => fn() }
+const goodTemplate = {
+  id: 'tpl-r1',
+  memo: 'm',
+  source: 'manual',
+  fiscal_period_id: 'fp',
+  organization_id: 'org-1',
+  association_id: 'a-1',
+  lines: [{ account_id: 'x', fund_id: 'f', debit_amount: 5, credit_amount: 0, memo: null }],
+}
+const NOW15 = new Date('2026-10-15T12:00:00Z')
+
+describe('runRecurringJes template scoping', () => {
+  it('loads the template filtered by org and association, and posts it', async () => {
+    vi.mocked(postJournalEntry).mockClear()
+    const { db, templateFilters } = recurringDb(goodTemplate)
+    const logger = { warn: vi.fn(), error: vi.fn() }
+    const r = await runRecurringJes(db, step, logger, NOW15)
+    expect(templateFilters).toEqual(
+      expect.arrayContaining([
+        ['organization_id', 'org-1'],
+        ['association_id', 'a-1'],
+      ]),
+    )
+    expect(r.posted).toBe(1)
+  })
+
+  it.each([
+    ['org', { organization_id: 'org-2' }],
+    ['association', { association_id: 'a-2' }],
+  ])('posts nothing when the template belongs to another %s', async (_n, override) => {
+    vi.mocked(postJournalEntry).mockClear()
+    const { db } = recurringDb({ ...goodTemplate, ...override })
+    const logger = { warn: vi.fn(), error: vi.fn() }
+    const r = await runRecurringJes(db, step, logger, NOW15)
+    expect(postJournalEntry).not.toHaveBeenCalled()
+    expect(r.posted).toBe(0)
+    expect(r.failed).toBe(1)
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('outside'))
   })
 })

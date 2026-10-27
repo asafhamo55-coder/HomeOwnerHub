@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * The reply itself is queued exactly as before; nothing is sent here.
  */
 
+vi.mock('@/lib/org-owned', () => ({ checkOrgOwned: vi.fn(async () => 'owned') }))
 vi.mock('@/lib/auth', () => ({
   requireBoardOrAdmin: vi.fn(async () => ({
     role: 'board' as const,
