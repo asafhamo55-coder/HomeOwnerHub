@@ -190,9 +190,18 @@ export const CONDO_VS_HOA: Guide = {
     },
   ],
   related: ['registration-2027', 'late-fee-limits', 'foreclosure-threshold-2027', 'readiness'],
-  hoaDoes: [],
-  hoaDoesNot:
-    'HomeownerHub’s Georgia tools are built for property owners’ associations under Article 6. Georgia condominium associations are not covered yet, so a condominium board should treat the guides here as reading, not as a description of the software.',
+  hoaDoes: [
+    {
+      text: 'For an association set up as a condominium, the Compliance page follows the Georgia Condominium Act: 21 days’ notice of the annual meeting, the records rules, insurance minimums, and the statement of amounts due within five business days.',
+      route: '/compliance',
+      release: '2026-10-26-1800-website-redesign-ga-condos',
+    },
+    {
+      text: 'The collections-letter page drafts the condominium notice before foreclosure (30 days, $2,000 floor) and applies the condominium late-charge and interest caps. The board approves every letter.',
+      route: '/properties/[id]/collections-letter',
+      release: '2026-10-26-1800-website-redesign-ga-condos',
+    },
+  ],
 }
 
 export const COMPLAINT_PROCESS: Guide = {

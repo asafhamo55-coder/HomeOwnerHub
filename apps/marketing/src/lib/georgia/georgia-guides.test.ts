@@ -158,10 +158,10 @@ describe('guides', () => {
     expect(count).toBeGreaterThan(5)
   })
 
-  it('the condo guide says condominiums are not covered by the app yet', () => {
+  it('the condo guide describes the shipped condominium support (BL-155), not "not covered"', () => {
     const g = GUIDE_LIST.find((x) => x.slug === 'condo-vs-hoa-law')!
-    expect(g.hoaDoes).toHaveLength(0)
-    expect(g.hoaDoesNot).toMatch(/not covered yet/)
+    expect(g.hoaDoes.length).toBeGreaterThan(0)
+    expect(JSON.stringify(g)).not.toMatch(/not covered/)
   })
 
   it('no invented figures: banned claims stay out', () => {

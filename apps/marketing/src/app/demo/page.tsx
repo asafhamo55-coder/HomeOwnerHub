@@ -16,7 +16,7 @@ import { STATE_COVERAGE_SENTENCE } from '@/lib/state-law'
 import { DemoForm } from './demo-form'
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Book a demo — 10 minutes for your board',
+  title: 'Book a demo — 20 minutes for your board',
   description:
     'Send us your CC&R. We pre-load it. We show Covenant Brain answering your actual rules. Your board decides.',
   path: '/demo',
@@ -58,7 +58,7 @@ export default function DemoPage() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground-secondary ring-soft">
                 <Calendar className="h-3.5 w-3.5 text-accent-fg" />
-                10 minutes. Your CC&R. Your decision.
+                20 minutes. Your CC&R. Your decision.
               </div>
               <h1 className="mt-6 text-[clamp(2.5rem,1.5rem+2.9vw,3.9rem)] font-[650] leading-[1.04] tracking-[-0.035em] text-foreground">
                 Send your CC&R today.{' '}
