@@ -27,7 +27,7 @@ this file is the reference it points to.
 - **Product:** HomeownerHub, AI HOA management for self-managed volunteer boards (FL / CA / GA / TX).
 - **Brand:** the brand is **HomeownerHub**, everywhere.
   - Logo: concept C, an "H" whose crossbar is a roof (`packages/ui/src/components/BrandLogo.tsx`).
-  - Palette: blue, `#2563EB` primary.
+  - Palette: blue, `#2563EB` primary in the app. **The marketing website follows a nice.com-inspired palette and design patterns** (Asaf, 2026-10-26; BL-174; `docs/decisions/2026-10-26-website-nice-inspired-design.md`). Inspired by, never copied.
   - Domain: homeownerledger.com (unchanged).
   - "ledger" as an accounting term stays.
 - **App:** https://www.homeownerledger.com. It will move to https://homeownerledger.online, its own apex domain (owner decision 2026-10-21). That move is **paused by Asaf** ("leave it for later phase"): the domain already serves the app with a certificate, and the DNS A record and the Supabase and Google allow-lists are done. What's left is in OA-5. Don't change env vars or move www until he resumes it.
