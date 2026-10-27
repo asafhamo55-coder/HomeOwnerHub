@@ -1947,3 +1947,12 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Cadence:** at least 3 new or improved pages a day through a Sonnet SEO agent; a weekly full-site SEO audit; every deploy's release note lists the new pages.
    - **Quality:** official-fixture quotes only (tested); shipped features only; "not legal advice"; a demo or tool CTA on every page.
    - **Status:** starts once BL-171's technical base lands.
+
+173. **BL-173 Community announcements in three clicks (Halloween party, happy holidays, graduation reminders, pet control).** Migration: no (reuse the existing composer and send path). Owner ask (Asaf, 2026-10-26: "very simple to generate one; focus on simplicity").
+   - **Flow:**
+     1. **Pick an occasion** from a grid of ready templates (Halloween party, happy holidays, New Year, Fourth of July, graduation congratulations and parking reminder, pet waste and leash rules, pool opening and closing, trash or bulk-pickup change, landscaping and water day, community yard sale, holiday lights, meeting reminder, severe weather), or **type one sentence** ("Halloween party Oct 31 at 6pm at the clubhouse").
+     2. **The app drafts it:** a friendly subject and body, plus a short SMS version (279 characters or less) and the Spanish version where the composer supports it. Event fields (date, time, place) come from the sentence.
+     3. **Review and send:** one screen with a preview. Send to all residents now or schedule. The board clicks Send.
+   - **Seasonal nudges:** the dashboard and digest suggest the next occasion ("Halloween is Friday: send a party notice?"), dismissible.
+   - **Rules:** sending is the board's explicit action; existing opt-outs, channel consent and the outbound guard apply; no PII in logs; the tone stays neutral (no religious assumptions in "holidays" defaults).
+   - **Status:** dispatched 2026-10-26 (Sonnet).
