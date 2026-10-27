@@ -50,6 +50,10 @@ export interface Guide {
   hoaDoes: HoaDoes[]
   /** Said when HomeownerHub does not cover the topic (yet). */
   hoaDoesNot?: string
+  /** Pages outside /georgia (BL-172 batch 2): the page's own path. Default /georgia/<slug>. */
+  path?: string
+  /** Emit HowTo JSON-LD built from `steps`. */
+  howTo?: boolean
 }
 
 /** A page in the Georgia section, for link lists. */

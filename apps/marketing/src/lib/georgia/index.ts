@@ -3,6 +3,7 @@
 
 import { ATTORNEY_FEE_NOTICE, FORECLOSURE_THRESHOLD, OWNERS_RIGHTS, REGISTRATION } from './guides-a'
 import { COMPLAINT_PROCESS, CONDO_VS_HOA, LATE_FEES } from './guides-b'
+import { FIRST_90_DAYS, TREASURER_DUTIES } from './guides-c'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -17,12 +18,19 @@ export const GUIDE_LIST: readonly Guide[] = [
   LATE_FEES,
   CONDO_VS_HOA,
   COMPLAINT_PROCESS,
+  FIRST_90_DAYS,
 ]
 
-export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(GUIDE_LIST.map((g) => [g.slug, g]))
+/** Guides that live outside /georgia (BL-172 batch 2). */
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES]
+export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
+
+export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
 
 export const GEORGIA_HUB_PATH = '/georgia'
 export const guidePath = (slug: string) => `/georgia/${slug}`
+/** A guide's or checklist's own path: /georgia/<slug> unless it sets one. */
+export const pathOf = (x: { slug: string; path?: string }) => x.path ?? guidePath(x.slug)
 
 /** Every page under /georgia, for link lists and the sitemap. */
 export const GEORGIA_LINKS: readonly GeorgiaLink[] = [
@@ -48,6 +56,13 @@ export const GEORGIA_LINKS: readonly GeorgiaLink[] = [
     kind: 'tool',
   },
   {
+    slug: 'violation-notice-checklist',
+    path: guidePath('violation-notice-checklist'),
+    title: 'Violation notice checklist (printable)',
+    blurb: 'A one-page checklist for a fair HOA violation notice, with each item tagged as statute or best practice.',
+    kind: 'tool',
+  },
+  {
     slug: 'annual-meeting-notice-checklist',
     path: guidePath('annual-meeting-notice-checklist'),
     title: 'Annual meeting notice checklist (printable)',
@@ -58,8 +73,30 @@ export const GEORGIA_LINKS: readonly GeorgiaLink[] = [
 
 export const GEORGIA_PATHS: readonly string[] = [GEORGIA_HUB_PATH, ...GEORGIA_LINKS.map((l) => l.path)]
 
+/** Self-managed-HOA pages outside /georgia (BL-172 batch 2): linkable like the rest. */
+export const GENERAL_LINKS: readonly GeorgiaLink[] = [
+  {
+    slug: TREASURER_DUTIES.slug,
+    path: pathOf(TREASURER_DUTIES),
+    title: 'HOA treasurer duties: a plain-language checklist',
+    blurb: TREASURER_DUTIES.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'hoa-board-meeting-agenda',
+    path: '/templates/hoa-board-meeting-agenda',
+    title: 'HOA board meeting agenda template (printable)',
+    blurb: 'A one-page agenda for any state: quorum, conflicts, treasurer’s report, violations, action items.',
+    kind: 'tool',
+  },
+]
+export const GENERAL_PATHS: readonly string[] = GENERAL_LINKS.map((l) => l.path)
+
+/** Every content page that RelatedLinks can point to. */
+export const SITE_LINKS: readonly GeorgiaLink[] = [...GEORGIA_LINKS, ...GENERAL_LINKS]
+
 export function linkFor(slug: string): GeorgiaLink {
-  const l = GEORGIA_LINKS.find((x) => x.slug === slug)
+  const l = SITE_LINKS.find((x) => x.slug === slug)
   if (!l) throw new Error(`Unknown Georgia page: ${slug}`)
   return l
 }

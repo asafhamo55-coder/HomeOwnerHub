@@ -374,6 +374,26 @@ export const QUOTES = {
     fixture: "ga-sb406-2026-2027-text.txt",
     quote: "Challenge discriminatory practices by an owners' association as authorized by the laws of this state or federal law.",
   },
+  fineAuth: {
+    cite: "O.C.G.A. § 44-3-223",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "If and to the extent provided in the instrument, the association shall be empowered to impose and assess fines, which shall not impact voting rights, to suspend temporarily voting rights for failure to pay regular and special assessments, and to suspend the right of use of certain common areas and services paid for as a common expense in order to enforce such compliance; provided, however, that no such suspension shall deny any lot owner or occupants access to the lot owned or occupied or the right to vote in board elections based on failure to pay outstanding fines.",
+  },
+  reasonableRules: {
+    cite: "O.C.G.A. § 44-3-223",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "In addition, any lot owner and all those entitled to occupy a lot shall comply with any reasonable rules or regulations adopted by the association pursuant to the instrument which have been provided to the lot owners and with the lawful provisions of the bylaws of the association.",
+  },
+  injunctNotice: {
+    cite: "O.C.G.A. § 44-3-223",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "After providing notice in accordance with the terms of the instrument, or, if the instrument is silent, ten days’ written notice, the association may pursue injunctive relief without the need or requirement to first pursue or utilize any other remedies, regardless of whether other remedies may be available or might otherwise be adequate, provided that such notice shall not be required in the event of a violation of the instrument or the reasonable rules or regulations adopted by the association that presents a clear and imminent danger to life, person, or property, or for which injunctive relief would become moot if not granted before a notice period as prescribed above would expire.",
+  },
+  boardQuorum: {
+    cite: "O.C.G.A. § 44-3-228",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Unless the instrument or bylaws specify a larger percentage, the presence of persons entitled to cast one-half of the votes of the board of directors shall constitute a quorum for the transaction of business at any meeting of the board.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES

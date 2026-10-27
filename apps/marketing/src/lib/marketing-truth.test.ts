@@ -420,6 +420,9 @@ describe('Georgia growth pages (BL-171)', () => {
     'components/georgia/checklist-page.tsx',
     'components/georgia/parts.tsx',
     'components/georgia/readiness-check.tsx',
+    'app/professionals/page.tsx',
+    'app/guides/hoa-treasurer-duties/page.tsx',
+    'app/templates/hoa-board-meeting-agenda/page.tsx',
   ]
   const pageShells = [
     'components/georgia/guide-page.tsx',
@@ -428,7 +431,7 @@ describe('Georgia growth pages (BL-171)', () => {
     'app/georgia/readiness/page.tsx',
   ]
 
-  it('the hub, seven guides, two checklists and the readiness check all exist', () => {
+  it('the hub, eight guides, three checklists and the readiness check all exist', () => {
     expect(georgiaPages.map((p) => p.route).sort()).toEqual([
       '/georgia',
       '/georgia/annual-meeting-notice-checklist',
@@ -441,7 +444,45 @@ describe('Georgia growth pages (BL-171)', () => {
       '/georgia/owners-rights-2027',
       '/georgia/readiness',
       '/georgia/registration-2027',
+      '/georgia/self-managed-hoa-georgia-first-90-days',
+      '/georgia/violation-notice-checklist',
     ])
+  })
+
+  // BL-172 batch 2: pages outside /georgia that reuse the same shells.
+  it('the treasurer guide, the agenda template and /professionals exist, each with its own canonical path', () => {
+    const routes = marketingPages().map((p) => p.route)
+    for (const r of ['/guides/hoa-treasurer-duties', '/templates/hoa-board-meeting-agenda', '/professionals']) {
+      expect(routes, r).toContain(r)
+      expect(read(`app${r}/page.tsx`), r).toContain(`path: '${r}'`)
+    }
+  })
+
+  it('the shared shells end with the demo call to action and the not-legal-advice note on the batch 2 pages too', () => {
+    // guide-page and checklist-page render the treasurer guide and the agenda template.
+    for (const rel of ['components/georgia/guide-page.tsx', 'components/georgia/checklist-page.tsx']) {
+      expect(read(rel), rel).toMatch(/<GeorgiaCta[^>]*general=\{general\}/)
+      expect(read(rel), rel).toMatch(/NotLegalAdvice/)
+    }
+    const prof = read('app/professionals/page.tsx')
+    expect(prof).toMatch(/event="demo_cta_click"/)
+    expect(prof).toMatch(/NotLegalAdvice/)
+    expect(prof).toMatch(/coming soon/i)
+  })
+
+  it('the how-to guide emits HowTo data; checklists emit Article, FAQPage and BreadcrumbList', () => {
+    expect(read('components/georgia/guide-page.tsx')).toContain('howToLd(')
+    const list = read('components/georgia/checklist-page.tsx')
+    for (const fn of ['articleLd(', 'faqLd(', 'breadcrumbLd(']) expect(list).toContain(fn)
+  })
+
+  it('the sitemap carries each new page with its own lastModified date', () => {
+    const src = read('app/sitemap.ts')
+    expect(src).toMatch(/pathOf\(g\), g\.dateModified/)
+    expect(src).toMatch(/PROFESSIONALS_PATH, PROFESSIONALS_UPDATED/)
+    for (const p of ['/guides/hoa-treasurer-duties', '/templates/hoa-board-meeting-agenda', '/professionals', '/georgia/violation-notice-checklist', '/georgia/self-managed-hoa-georgia-first-90-days']) {
+      expect(SITEMAP_PATHS, p).toContain(p)
+    }
   })
 
   it('every Georgia page ends with the demo call to action and says it is not legal advice', () => {

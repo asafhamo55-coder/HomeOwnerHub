@@ -71,6 +71,17 @@ export function articleLd(a: {
   }
 }
 
+/** HowTo from an ordered list of steps (no images, tools or cost: we only claim what the page says). */
+export function howToLd(h: { name: string; description: string; steps: readonly string[] }): JsonLdObject {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: h.name,
+    description: h.description,
+    step: h.steps.map((text, i) => ({ '@type': 'HowToStep', position: i + 1, text })),
+  }
+}
+
 /** JSON for a <script type="application/ld+json">: "<" escaped so text can't close the tag. */
 export function jsonLdString(data: JsonLdObject | JsonLdObject[]): string {
   return JSON.stringify(data).replace(/</g, '\\u003c')

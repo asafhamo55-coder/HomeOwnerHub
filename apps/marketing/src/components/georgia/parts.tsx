@@ -83,14 +83,14 @@ export function RelatedLinks({ slugs, title = 'Keep reading' }: { slugs: readonl
 }
 
 /** Closing demo call to action on every Georgia page. */
-export function GeorgiaCta({ position = 'georgia_end' }: { position?: string }) {
+export function GeorgiaCta({ position = 'georgia_end', general = false }: { position?: string; general?: boolean }) {
   return (
     <section className="section section-ink ink-glow overflow-hidden print:hidden">
       <div className="container-page">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="t-h2 text-[#fff]">Want this handled for your board?</h2>
           <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-foreground-secondary">
-            Book a short demo. We load your governing documents and show the Georgia tools on your own rules. The board
+            Book a short demo. We load your governing documents and show {general ? 'the tools' : 'the Georgia tools'} on your own rules. The board
             decides afterwards. We reply within 1 business day.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">

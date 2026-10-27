@@ -105,7 +105,7 @@ export const REGISTRATION: Guide = {
       a: 'The statute bars an unregistered association from collecting fines or fees, filing liens or starting foreclosure. Regular dues are not named in that sentence, but liens and foreclosure are how most boards enforce them, so talk to your attorney before relying on any gap.',
     },
   ],
-  related: ['attorney-fee-notice', 'complaint-process', 'condo-vs-hoa-law', 'readiness'],
+  related: ['attorney-fee-notice', 'complaint-process', 'condo-vs-hoa-law', 'readiness', 'self-managed-hoa-georgia-first-90-days'],
   hoaDoes: [
     {
       text: 'The SB 406 registration kit helps the board decide between registering and opting out, fills in a filing sheet from your records, prints a documents checklist, and records each filing, renewal and amendment. It does not file anything for you.',
