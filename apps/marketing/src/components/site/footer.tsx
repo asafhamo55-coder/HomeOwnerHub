@@ -36,7 +36,7 @@ const tail = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-surface print:hidden">
+    <footer className="on-dark mx-2 mb-2 rounded-[2.5rem] bg-background text-foreground md:mx-3 print:hidden">
       <div className="container-page py-16 md:py-20">
         <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr]">
           <div>

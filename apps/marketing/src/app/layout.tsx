@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono, Instrument_Serif } from 'next/font/google'
+import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Analytics } from '@vercel/analytics/next'
 import { JsonLd } from '@/components/site/json-ld'
@@ -8,18 +8,12 @@ import { organizationLd } from '@/lib/jsonld'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { SITE_NAME, SITE_ORIGIN } from '@/lib/site'
 
-const inter = Inter({
+// Be Vietnam Pro (SIL OFL, free via next/font): a geometric grotesque with the
+// open, friendly proportions of current enterprise-software sites.
+const beVietnam = Be_Vietnam_Pro({
   subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
-
-// Display face, used only for the one italic phrase in a headline.
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  weight: '400',
-  style: 'italic',
-  variable: '--font-display',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-be-vietnam',
   display: 'swap',
 })
 
@@ -73,7 +67,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable}`}>
+    <html lang="en" className={`${beVietnam.variable} ${jetbrainsMono.variable}`}>
       <body className="bg-background text-foreground">
         <a href="#main-content" className="skip-link">
           Skip to content

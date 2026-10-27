@@ -3,10 +3,84 @@
 @tailwind utilities;
 
 @layer base {
-  /* Colour tokens come from the shared preset (packages/ui/src/tokens.ts). */
+  /* ─────────────────────────────────────────────────────────────────────────
+     Marketing palette (BL-174, docs/decisions/2026-10-26-website-nice-
+     inspired-design.md). Inspired by the look of large enterprise-software
+     sites: white and cool-grey pages, deep violet-to-blue gradient panels,
+     near-black pill buttons, one mint accent. Every value is our own.
+
+     Colours stay semantic tokens (HSL channels) so every component picks
+     them up. The shared preset (packages/ui/src/tokens.ts, used by apps/hoa)
+     is NOT touched: marketing overrides its channels here, after the preset's
+     own :root block.
+
+       light   white page · lavender-grey wells · ink #22212B text
+               violet #4B27C9 links and accents (8.6:1 on white)
+       dark    scope class .on-dark (heroes, closing bands, footer) re-points
+               the same tokens to a light-on-dark set, so components written
+               with text-foreground / text-muted / border-border just work.
+     Contrast (WCAG 2.2 AA) measured: ink/white 15.9 · secondary/white 9.5 ·
+     muted/white 6.6 · muted/well 6.0 · violet/white 8.6 · white/#3B1AB5 10.5.
+     ───────────────────────────────────────────────────────────────────────── */
+  :root,
+  .card,
+  .app-window,
+  .theme-light {
+    --background: 0 0% 100%;
+    --surface: 0 0% 100%;
+    --elevated: 0 0% 100%;
+    --subtle: 250 33.3% 96.5%;
+    --border: 250.9 24.4% 91.2%;
+    --border-strong: 249.5 21.8% 82.9%;
+    --input: 248.2 8.7% 49.4%;
+    --ring: 253.3 67.5% 47.1%;
+    --foreground: 246 13.2% 14.9%;
+    --foreground-secondary: 245.5 14.1% 30.6%;
+    --muted: 245 11.8% 40%;
+    --primary: 253.3 67.5% 47.1%;
+    --primary-hover: 253.4 72% 37.8%;
+    --primary-fg: 0 0% 100%;
+    --primary-subtle: 252.6 100% 96.3%;
+    --accent: 163.4 73.3% 45.5%;
+    --accent-subtle: 160.9 68.7% 93.7%;
+    --accent-fg: 164.2 81.2% 22.9%;
+  }
+
   :root {
-    --font-sans: var(--font-inter), system-ui, sans-serif;
+    --font-sans: var(--font-be-vietnam), system-ui, sans-serif;
     --font-mono: var(--font-jetbrains-mono), monospace;
+    --ink: #16141f;
+    /* Panel gradient stops (decorative fills, never behind small text unless
+       measured: white >= 8:1 on every stop that text can reach). */
+    --panel-a: #2a1288;
+    --panel-b: #4a1dc2;
+    --panel-c: #2b3cc4;
+    --panel-glow: #22c7c0;
+    --radius-panel: 2.5rem;
+  }
+
+  .hero-wash,
+  .section-ink,
+  .on-dark {
+    --background: 250.9 21.6% 10%;
+    --surface: 250.6 23.9% 13.9%;
+    --elevated: 248.2 25% 17.3%;
+    --subtle: 249.2 25.5% 20%;
+    --border: 252 40% 44%;
+    --border-strong: 252 55% 62%;
+    --input: 247.5 19.6% 60%;
+    --ring: 249.8 100% 83.1%;
+    --foreground: 0 0% 100%;
+    --foreground-secondary: 248.6 51.9% 92%;
+    --muted: 247.5 39.2% 86%;
+    --primary: 249.2 100% 88%;
+    --primary-hover: 250.4 100% 93%;
+    --primary-fg: 250.9 21.6% 10%;
+    --primary-subtle: 252 55% 34%;
+    --accent: 162.2 72.3% 56.1%;
+    --accent-subtle: 168.6 56.8% 14.5%;
+    --accent-fg: 161.2 79.3% 71.6%;
+    color: hsl(var(--foreground));
   }
 
   html {
@@ -18,7 +92,6 @@
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
-    font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -30,50 +103,61 @@
   }
 
   *:focus-visible {
-    outline: 2px solid hsl(var(--primary));
-    outline-offset: 2px;
-    border-radius: 6px;
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+    border-radius: 8px;
   }
 
   ::selection {
-    background: hsl(var(--primary) / 0.18);
+    background: hsl(var(--primary) / 0.22);
+  }
+
+  /* The HomeownerHub mark and wordmark keep their shape (packages/ui
+     BrandLogo); only the colours move to the marketing palette. */
+  svg[viewBox='0 0 32 32'] > rect:first-child {
+    fill: #4b27c9;
+  }
+  svg[viewBox='0 0 32 32'] > rect:last-child {
+    fill: #d9cfff;
+  }
+  svg g[class*='2563EB'] {
+    color: hsl(var(--primary));
   }
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Marketing design system (2026-10 redesign)
-   One place for type scale, section rhythm, buttons, cards and surfaces.
-   Colour stays on the shared semantic tokens (packages/ui/src/tokens.ts);
-   the only hexes here are the navy "ink" band and the product-mockup shadows.
-
-   Type scale   display 40→72 · h2 32→52 · h3 20 · lead 17→20 · body 16 · small 14
+   Marketing design system (BL-174)
+   Type scale   display 40→64 · h2 32→48 · h3 20 · lead 17→20 · body 16
+                Be Vietnam Pro, weight 500 headlines, tight tracking
    Rhythm       section 72→128px · container 1200px · gutter 20→32px
-   Radius       cards 20px · buttons 12px · chips full
+   Radius       panels 40px · cards 24px · buttons and chips full (pill)
+   Motion       150-200ms colour/transform only; all off under reduced motion
    ─────────────────────────────────────────────────────────────────────────── */
 @layer components {
   .eyebrow {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     line-height: 1.25rem;
     font-weight: 600;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: hsl(var(--primary));
   }
 
   .t-display {
-    font-size: clamp(2.5rem, 1.6rem + 3.8vw, 4.5rem);
-    line-height: 1.03;
+    font-size: clamp(2.5rem, 1.7rem + 3.4vw, 4rem);
+    line-height: 1.05;
     letter-spacing: -0.035em;
-    font-weight: 650;
+    font-weight: 500;
     text-wrap: balance;
   }
   .t-h2 {
-    font-size: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
-    line-height: 1.08;
+    font-size: clamp(2rem, 1.45rem + 2.2vw, 3rem);
+    line-height: 1.1;
     letter-spacing: -0.03em;
-    font-weight: 650;
+    font-weight: 500;
     text-wrap: balance;
   }
   .t-h3 {
@@ -88,104 +172,169 @@
     color: hsl(var(--foreground-secondary));
     text-wrap: pretty;
   }
-  /* The warm display accent: a serif italic for the one phrase in a headline
-     that carries the promise ("The board still decides."). */
+  /* The one phrase in a headline that carries the promise. Same face as the
+     headline, in the accent colour; no italic serif any more. */
   .t-serif {
-    font-family: var(--font-display), Georgia, serif;
-    font-style: italic;
-    font-weight: 400;
-    letter-spacing: -0.015em;
-    font-size: 1.1em;
-    line-height: 1;
+    font-style: normal;
+    font-weight: inherit;
+    letter-spacing: inherit;
   }
 
   .section {
     padding-block: clamp(4.5rem, 3rem + 6vw, 8rem);
   }
+
+  /* Inset rounded gradient panel: hero and closing bands. */
+  .hero-wash,
   .section-ink {
-    background: #0b1530;
-    color: #eaf0fb;
     position: relative;
     isolation: isolate;
+    margin-inline: 0.5rem;
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    background:
+      radial-gradient(42% 70% at 100% 0%, color-mix(in srgb, var(--panel-glow) 70%, transparent), transparent 72%),
+      radial-gradient(60% 80% at 0% 100%, var(--panel-b), transparent 75%),
+      linear-gradient(135deg, var(--panel-a) 0%, var(--panel-b) 48%, var(--panel-c) 100%);
+  }
+  .hero-wash {
+    margin-top: 4.75rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (min-width: 768px) {
+    .hero-wash {
+      margin-top: 5.25rem;
+    }
+    .hero-wash,
+    .section-ink {
+      margin-inline: 0.75rem;
+    }
+  }
+  .section-ink {
+    margin-block: 0.5rem;
+  }
+  /* Soft grain of light so the panel is not a flat gradient. */
+  .hero-wash::after,
+  .section-ink::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(30% 40% at 78% 82%, rgb(255 255 255 / 0.08), transparent 70%),
+      radial-gradient(24% 34% at 12% 8%, rgb(255 255 255 / 0.06), transparent 70%);
   }
 
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     min-height: 2.75rem;
-    padding: 0.65rem 1.25rem;
-    border-radius: 0.75rem;
+    padding: 0.65rem 1.4rem;
+    border-radius: 999px;
     font-size: 0.9375rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.25rem;
-    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    border: 1.5px solid transparent;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
   }
   .btn-lg {
     min-height: 3.25rem;
-    padding: 0.8rem 1.6rem;
+    padding: 0.8rem 1.75rem;
     font-size: 1rem;
   }
+  /* Near-black pill; on dark panels it flips to a white pill. */
   .btn-primary {
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-fg));
-    box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.18) inset,
-      0 8px 18px -8px hsl(var(--primary) / 0.6);
+    background: var(--ink);
+    color: #fff;
   }
   .btn-primary:hover {
-    background: hsl(var(--primary-hover));
+    background: hsl(var(--primary));
     transform: translateY(-1px);
   }
   .btn-secondary {
-    background: hsl(var(--surface));
+    background: transparent;
     color: hsl(var(--foreground));
-    border: 1px solid hsl(var(--border-strong));
+    border-color: hsl(var(--foreground));
   }
   .btn-secondary:hover {
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+  .btn-ghost {
+    color: hsl(var(--foreground));
+  }
+  .btn-ghost:hover {
     background: hsl(var(--subtle));
   }
+  .hero-wash .btn-primary,
+  .section-ink .btn-primary,
+  .on-dark .btn-primary,
   .btn-on-ink {
     background: #fff;
-    color: #0b1530;
+    color: var(--ink);
   }
+  .hero-wash .btn-primary:hover,
+  .section-ink .btn-primary:hover,
+  .on-dark .btn-primary:hover,
   .btn-on-ink:hover {
-    background: #e8efff;
+    background: #e9e3ff;
   }
+  .hero-wash .btn-secondary,
+  .section-ink .btn-secondary,
+  .on-dark .btn-secondary,
   .btn-ghost-ink {
-    color: #eaf0fb;
-    border: 1px solid rgb(255 255 255 / 0.3);
+    color: #fff;
+    border-color: rgb(255 255 255 / 0.7);
   }
+  .hero-wash .btn-secondary:hover,
+  .section-ink .btn-secondary:hover,
+  .on-dark .btn-secondary:hover,
   .btn-ghost-ink:hover {
-    background: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.14);
+    color: #fff;
+  }
+  /* Trailing arrow sits in a small ring, like a "go" affordance. */
+  .btn-primary > svg:last-child:not(:first-child),
+  .btn-on-ink > svg:last-child:not(:first-child) {
+    box-sizing: content-box;
+    padding: 0.3rem;
+    margin-right: -0.7rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    opacity: 0.9;
   }
 
   .card {
     background: hsl(var(--surface));
+    color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border));
-    border-radius: 1.25rem;
+    border-radius: 1.5rem;
     box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04);
   }
   .card-hover {
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   }
   .card-hover:hover {
-    transform: translateY(-2px);
-    border-color: hsl(var(--border-strong));
-    box-shadow: 0 18px 40px -22px hsl(var(--foreground) / 0.25);
+    transform: translateY(-3px);
+    border-color: hsl(var(--primary) / 0.45);
+    box-shadow: 0 22px 44px -24px hsl(var(--primary) / 0.35);
   }
 
-  /* Product-mockup window chrome (HTML/CSS stand-ins for real app screens). */
+  /* Product-mockup window chrome (HTML/CSS stand-ins for real app screens).
+     Floats on the gradient panel with a deep violet-tinted shadow. */
   .app-window {
     background: #fff;
+    color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border));
-    border-radius: 1rem;
+    border-radius: 1.25rem;
     overflow: hidden;
     box-shadow:
-      0 1px 2px hsl(222 47% 11% / 0.06),
-      0 30px 60px -28px hsl(222 47% 11% / 0.35),
-      0 12px 24px -16px hsl(222 47% 11% / 0.2);
+      0 1px 2px rgb(22 20 31 / 0.08),
+      0 36px 70px -28px rgb(22 12 90 / 0.55),
+      0 14px 28px -16px rgb(22 12 90 / 0.3);
   }
 }
 
@@ -235,21 +384,9 @@
     background-size: 56px 56px;
   }
 
-  .hero-wash {
-    background:
-      radial-gradient(60% 55% at 78% 8%, hsl(var(--primary) / 0.13), transparent 70%),
-      radial-gradient(40% 40% at 8% 0%, hsl(var(--accent) / 0.1), transparent 70%),
-      linear-gradient(to bottom, hsl(var(--surface)), hsl(var(--background)));
-  }
-
-  .ink-glow::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background:
-      radial-gradient(50% 60% at 85% 0%, rgb(37 99 235 / 0.35), transparent 70%),
-      radial-gradient(40% 50% at 0% 100%, rgb(247 144 9 / 0.12), transparent 70%);
+  /* Kept as a no-op alias: closing bands used to add a glow layer. */
+  .ink-glow {
+    position: relative;
   }
 
   .skip-link {
@@ -258,13 +395,37 @@
     top: -4rem;
     z-index: 100;
     padding: 0.6rem 1rem;
-    border-radius: 0.6rem;
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-fg));
+    border-radius: 999px;
+    background: var(--ink);
+    color: #fff;
     font-weight: 600;
   }
   .skip-link:focus {
     top: 1rem;
+  }
+}
+
+/* Printed pages (guides, checklists) stay black on white, no gradient. */
+@media print {
+  .hero-wash,
+  .section-ink {
+    --background: 0 0% 100%;
+    --surface: 0 0% 100%;
+    --subtle: 250 33.3% 96.5%;
+    --border: 250.9 24.4% 91.2%;
+    --border-strong: 249.5 21.8% 82.9%;
+    --foreground: 246 13.2% 14.9%;
+    --foreground-secondary: 245.5 14.1% 30.6%;
+    --muted: 245 11.8% 40%;
+    --primary: 253.3 67.5% 47.1%;
+    --primary-subtle: 252.6 100% 96.3%;
+    background: #fff;
+    margin: 0;
+    border-radius: 0;
+  }
+  .hero-wash::after,
+  .section-ink::after {
+    display: none;
   }
 }
 

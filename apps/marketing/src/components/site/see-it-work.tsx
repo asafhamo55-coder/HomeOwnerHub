@@ -10,12 +10,12 @@ export function SeeItWork() {
     <section id="see-it-work" className="section section-ink ink-glow scroll-mt-16">
       <div className="container-page">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="eyebrow !text-[#8fb4ff]">See it work</p>
+          <p className="eyebrow">See it work</p>
           <h2 className="t-h2 mt-4 text-[#fff]">
             Ask a rule question. Get the section,{' '}
-            <span className="t-serif text-[#8fb4ff]">not a guess.</span>
+            <span className="t-serif text-primary">not a guess.</span>
           </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-relaxed text-[#c3d0ea]">
+          <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-relaxed text-foreground-secondary">
             Covenant Brain answers from your CC&amp;R and bylaws in plain English, cites the exact section, and says so
             when your documents don’t cover the question.
           </p>
@@ -38,7 +38,7 @@ export function SeeItWork() {
             </div>
             <LazyCovenantBrain />
           </div>
-          <p className="mt-5 text-center text-sm text-[#a9b9d8]">
+          <p className="mt-5 text-center text-sm text-muted">
             Sample documents. Every answer cited back to the document and audit-logged.
           </p>
         </div>

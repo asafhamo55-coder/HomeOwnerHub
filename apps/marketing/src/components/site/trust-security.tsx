@@ -33,12 +33,12 @@ export function TrustSecurity() {
       <div className="container-page">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.4fr] lg:gap-20">
           <div>
-            <p className="eyebrow !text-[#8fb4ff]">Trust and security</p>
+            <p className="eyebrow">Trust and security</p>
             <h2 id="trust-heading" className="t-h2 mt-4 text-[#fff]">
               Built to be{' '}
-              <span className="t-serif text-[#8fb4ff]">checked,</span> not just trusted.
+              <span className="t-serif text-primary">checked,</span> not just trusted.
             </h2>
-            <p className="mt-5 text-[17px] leading-relaxed text-[#c3d0ea]">
+            <p className="mt-5 text-[17px] leading-relaxed text-foreground-secondary">
               A volunteer board is answerable to its neighbors. So every answer cites its source and every AI action
               leaves a record.
             </p>
@@ -54,11 +54,11 @@ export function TrustSecurity() {
           <ul className="grid gap-4 sm:grid-cols-2">
             {POINTS.map(({ Icon, title, body }) => (
               <li key={title} className="rounded-2xl border border-[#ffffff1a] bg-[#ffffff0d] p-6">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#ffffff1a] text-[#8fb4ff]">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/10 text-primary">
                   <Icon className="h-5 w-5" aria-hidden />
                 </span>
                 <h3 className="mt-5 text-[17px] font-semibold text-[#fff]">{title}</h3>
-                <p className="mt-2 text-[15px] leading-relaxed text-[#c3d0ea]">{body}</p>
+                <p className="mt-2 text-[15px] leading-relaxed text-foreground-secondary">{body}</p>
               </li>
             ))}
           </ul>

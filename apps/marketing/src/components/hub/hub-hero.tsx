@@ -46,7 +46,7 @@ export function HubHero({
               {eyebrow}
             </p>
 
-            <h1 className="mt-6 text-[clamp(2.5rem,1.5rem+2.9vw,3.9rem)] font-[650] leading-[1.04] tracking-[-0.035em] text-foreground">
+            <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
               {title}
             </h1>
 

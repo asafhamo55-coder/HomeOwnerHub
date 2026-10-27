@@ -21,7 +21,7 @@ export function Hero() {
               For self-managed HOA boards · Georgia first
             </p>
 
-            <h1 className="mt-6 text-[clamp(2.5rem,1.5rem+2.9vw,3.9rem)] font-[650] leading-[1.04] tracking-[-0.035em] text-foreground">
+            <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
               Georgia’s HOA paperwork, drafted from your records.
               <span className="t-serif mt-1 block text-primary">The board still decides.</span>
             </h1>

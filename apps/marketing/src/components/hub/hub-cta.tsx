@@ -18,7 +18,7 @@ export function HubCta({ title, description, primary, secondary, footnote }: Hub
       <div className="container-page">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="t-h2 text-[#fff]">{title}</h2>
-          <p className="mx-auto mt-6 max-w-xl text-[18px] leading-relaxed text-[#c3d0ea]">{description}</p>
+          <p className="mx-auto mt-6 max-w-xl text-[18px] leading-relaxed text-foreground-secondary">{description}</p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <TrackedLink href={primary.href} event="demo_cta_click" position="closing" className="btn btn-lg btn-on-ink group">
               {primary.label}
@@ -30,7 +30,7 @@ export function HubCta({ title, description, primary, secondary, footnote }: Hub
               </Link>
             )}
           </div>
-          {footnote && <p className="mt-8 text-sm text-[#a9b9d8]">{footnote}</p>}
+          {footnote && <p className="mt-8 text-sm text-muted">{footnote}</p>}
         </div>
       </div>
     </section>

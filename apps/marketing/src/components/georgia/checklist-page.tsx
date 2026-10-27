@@ -30,7 +30,7 @@ export function ChecklistPage({ list }: { list: Checklist }) {
             <div className="mx-auto max-w-3xl">
               <Breadcrumbs trail={[{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }, { name: 'Checklist' }]} />
               <p className="eyebrow mt-6 print:hidden">{list.eyebrow}</p>
-              <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.1rem)] font-[650] leading-[1.08] tracking-[-0.03em] text-foreground">
+              <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.1rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
                 {list.title}
               </h1>
               <p className="mt-4 text-sm text-muted">

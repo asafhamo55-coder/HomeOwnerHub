@@ -89,7 +89,7 @@ export function GeorgiaCta({ position = 'georgia_end' }: { position?: string }) 
       <div className="container-page">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="t-h2 text-[#fff]">Want this handled for your board?</h2>
-          <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-[#c3d0ea]">
+          <p className="mx-auto mt-5 max-w-xl text-[17px] leading-relaxed text-foreground-secondary">
             Book a short demo. We load your governing documents and show the Georgia tools on your own rules. The board
             decides afterwards. We reply within 1 business day.
           </p>
@@ -102,7 +102,7 @@ export function GeorgiaCta({ position = 'georgia_end' }: { position?: string }) 
               Start free pilot
             </TrackedLink>
           </div>
-          <p className="mt-6 text-sm text-[#a9b9d8]">Six-month free pilot · No auto-conversion · Not legal advice</p>
+          <p className="mt-6 text-sm text-muted">Six-month free pilot · No auto-conversion · Not legal advice</p>
         </div>
       </div>
     </section>

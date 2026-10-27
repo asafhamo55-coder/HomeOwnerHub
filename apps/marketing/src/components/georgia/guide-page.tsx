@@ -33,7 +33,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
             <div className="mx-auto max-w-3xl">
               <Breadcrumbs trail={[{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }, { name: guide.eyebrow }]} />
               <p className="eyebrow mt-6">{guide.eyebrow}</p>
-              <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-[650] leading-[1.08] tracking-[-0.03em] text-foreground">
+              <h1 className="mt-4 text-[clamp(2rem,1.4rem+2.2vw,3.2rem)] font-medium leading-[1.08] tracking-[-0.03em] text-foreground">
                 {guide.title}
               </h1>
               <p className="mt-5 text-sm text-muted">

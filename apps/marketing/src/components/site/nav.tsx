@@ -88,10 +88,10 @@ export function Nav() {
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-50 border-b print:hidden transition-[background-color,border-color,box-shadow] duration-200',
+        'fixed inset-x-0 top-0 z-50 border-b bg-surface/95 backdrop-blur-lg print:hidden transition-[border-color,box-shadow] duration-200',
         solid
-          ? 'border-border bg-surface/90 shadow-[0_1px_0_hsl(var(--border)),0_10px_30px_-20px_hsl(var(--foreground)/0.25)] backdrop-blur-lg'
-          : 'border-transparent bg-transparent',
+          ? 'border-border shadow-[0_10px_30px_-22px_hsl(var(--foreground)/0.3)]'
+          : 'border-transparent',
       )}
     >
       <div className="container-page flex h-16 items-center justify-between gap-4 md:h-[72px]">
@@ -115,7 +115,7 @@ export function Nav() {
                 aria-expanded={productsOpen}
                 aria-controls="nav-products"
                 onClick={() => setProductsOpen((v) => !v)}
-                className="flex items-center gap-1 rounded-lg px-3 py-2 text-[15px] font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground"
+                className="flex items-center gap-1 rounded-full px-3.5 py-2 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
               >
                 Products
                 <ChevronDown
@@ -166,7 +166,7 @@ export function Nav() {
             type="button"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search the site"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-subtle hover:text-foreground lg:w-auto lg:gap-2 lg:border lg:border-border lg:bg-surface lg:px-3"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-subtle hover:text-foreground lg:w-auto lg:gap-2 lg:border lg:border-border lg:bg-surface lg:px-3"
           >
             <Search className="h-4 w-4" aria-hidden />
             <kbd className="hidden rounded border border-border bg-subtle px-1 py-px font-sans text-[11px] text-muted lg:inline-block">
@@ -175,7 +175,7 @@ export function Nav() {
           </button>
           <a
             href={SIGN_IN_URL}
-            className="inline-flex h-10 items-center rounded-lg px-3.5 text-[15px] font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground"
+            className="inline-flex h-10 items-center rounded-full px-3.5 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
           >
             Sign in
           </a>
@@ -259,7 +259,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="rounded-lg px-3 py-2 text-[15px] font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground"
+      className="rounded-full px-3.5 py-2 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
     >
       {children}
     </Link>

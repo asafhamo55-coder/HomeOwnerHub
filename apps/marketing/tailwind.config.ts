@@ -40,8 +40,8 @@ const config: Config = {
       borderRadius: {
         DEFAULT: '14px',
         lg: '18px',
-        xl: '22px',
-        '2xl': '30px',
+        xl: '24px',
+        '2xl': '32px',
       },
       colors: {
         ...(sharedConfig.theme?.extend as Record<string, unknown>)?.colors as Record<string, unknown>,
@@ -49,8 +49,8 @@ const config: Config = {
         eviction: hubColor('eviction'),
       },
       fontFamily: {
-        display: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-be-vietnam)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-be-vietnam)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-jetbrains-mono)', 'monospace'],
       },
       backgroundImage: {
