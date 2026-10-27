@@ -363,3 +363,7 @@ questions:
   - { id: n-g01, role: resident, expect: resident-owner-rights, q: "What rights do I have as a Georgia homeowner under the new bill of rights?" }
   - { id: n-g02, role: resident, expect: resident-insurance-summary, q: "How do I get a copy of the association's certificate of insurance?" }
   - { id: n-g03, role: board, expect: tickets-records-requests, q: "An owner asked for three years of financial records. How do I put the packet together?" }
+  - { id: n-a01, role: board, expect: communications-community-announcement, q: "How do I send a Halloween party invitation to the whole community?" }
+  - { id: n-a02, role: admin, expect: communications-community-announcement, q: "What is the quickest way to wish everyone happy holidays?" }
+  - { id: n-a03, role: board, expect: communications-community-announcement, q: "The dashboard keeps suggesting a notice for Thanksgiving. How do I hide that suggestion?" }
+  - { id: n-a04, role: board, expect: communications-community-announcement, q: "I want to remind everyone about pet waste and leashes. Is there a ready-made message?" }
