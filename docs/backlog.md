@@ -1919,7 +1919,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Attorney:** sees only the matters the board assigns (collections cases, violations and hearings, records requests). Adds notes and documents and drafts letters, which the board approves. Optional general-counsel read access to governing documents and compliance. Time-boxed grant.
    - **Treasurer:** a board member with an officer title. Money approvals and bank-reconciliation sign-off route to the Treasurer, with dual control above a board-set amount. Titles also feed the GA registration kit's officer list.
    - "Trusery" was read as Treasurer (decision in the spec). If a trustee was meant, that's an owner label, not a role.
-   - **Status 2026-10-26:** designed. Build the app behind `M6_APPLIED` plus the M6 SQL, then Asaf applies it.
+   - **Status 2026-10-26:** built on `claude/bl-168`. CI failed (0070:612 uuid = uuid[]). The security review says don't apply 0070 as written (H1 sign-offs survive edits, H2 any board member can change the dual-control amount, M1–M3, L1–L5). Fixes plus the consent accept-link are in progress. It isn't merged to the integration branch until CI and the re-review pass.
 
 ## Added 2026-10-26 (owner ask and a finding)
 
