@@ -77,3 +77,12 @@ RLS integration tests in CI for each role × table: allowed, denied, and expired
 ## Out of scope
 
 Billing seats for professionals (pricing decision later; they are free for now). SSO for law or accounting firms.
+
+## Decisions after the security review (2026-10-26)
+
+- **Existing accounts accept by link.** If the invited email already has a HomeownerHub account, the board's invite records a `professional_invites` row and emails an HMAC-signed, single-use link that expires in 7 days. The person opens it signed in as that (confirmed) email and accepts; only then is the `org_members` row created, with an audit row. A pending invite grants nothing. A new address gets the normal sign-in email and its grant is recorded at once.
+- **The invite form never confirms whether an address has an account.** Every failure is reported except "already registered", which answers exactly like a fresh invitation, and no user id is returned.
+- **A grant lasts at most a year at a time** (database cap 367 days). Renew to extend.
+- **Professionals read no `orgs` or `associations` row.** `pro_org_info()` returns names only.
+- **Money approvals are every approval action that moves money**: W18 cash receipts, scanned bills, opening balances and a CPA's adjusting entry. Refunds, vendor payments and late-fee policy changes are not approval-layer actions yet; add them to `approval_is_money_action()` and `MONEY_ACTIONS` when they are.
+- **The Treasurer-first routing is app-side; the two-signature rule is enforced in the database** (distinct, current admin/board signers, never the proposer; edits clear sign-offs; only an admin sets the amount).

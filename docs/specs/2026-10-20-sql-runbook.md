@@ -1015,10 +1015,13 @@ What it does (part 1, BL-168):
 3. **What a CPA reads.** Read-only: the books (accounts, funds, fiscal years, journal entries, ledger, budgets, bank accounts and transactions, reconciliations, charges, payments, bills, payment plans, recurring entries). Owner names come through one function that returns the name and home only, no email, phone or address. Nothing else.
 4. **What an attorney reads.** Only the collections cases, violations (and their hearings) and records requests the board assigns, the open charges and payments of those homes, and the board's collections letters for assigned cases. The owner's name and the home's address of an assigned matter come through one function. General counsel also reads the governing documents and the compliance record.
 5. **Assignments.** A new table says which attorney sees which matter. The board writes it; an attorney reads their own live rows. The person must be an attorney of that HOA and the matter that HOA's.
-6. **Approvals.** `approval_requests` gains a "proposed by" column so a professional can read the status of their own proposals (and nobody else's). A new sign-off table, one function and one database rule make a money approval above the board's amount (new column on associations; blank = none) need two different board members, whoever calls the approval function.
-7. Every new function refuses a caller with no sign-in, even if a later blanket grant reopens it to `anon`.
+6. **Approvals.** `approval_requests` gains a "proposed by" column so a professional can read the status of their own proposals (and nobody else's). A new sign-off table, one function and database rules make every money approval (deposits, scanned bills, opening balances, a CPA's entry) above the board's amount (new column on associations; blank = none) need two different board members who are *currently* admin or board and did not propose it. Changing the item's payload or amount clears its sign-offs, a money item can only be created as "proposed", and only an admin can change the amount (every change is audited).
+7. **A professional sees names, not rows, of the org.** They cannot read the organization or association rows at all (no billing ids, no compliance settings); one function returns the organization and association name, and the organization name only once their grant has ended.
+8. **The grant is guarded.** A grant runs at most a year at a time (also for us), a membership can't be moved to another person or HOA, every grant, change and removal is audited, and removing a professional ends their matter assignments and rejects what they had waiting in Approvals.
+9. **Invitations.** For a person who already has an account, the board records an invitation that grants nothing; they accept through a signed link while signed in as that email.
+10. Every new function refuses a caller with no sign-in, even if a later blanket grant reopens it to `anon`.
 
-Nothing in the app reads or writes the new columns, tables or functions until Claude turns on `M6_APPLIED` after M4. The only existing tables changed: `org_members` (new columns and checks, the role check, the insert/update/delete rules), `approval_requests` (one nullable column, 2 rules), `associations` (one nullable column). The shared "members can read" function is replaced (same name and shape). No step outputs names, addresses or emails.
+Nothing in the app reads or writes the new columns, tables or functions until Claude turns on `M6_APPLIED` after M4. The only existing tables changed: `org_members` (new columns and checks, the role check, the insert/update/delete rules), `approval_requests` (one nullable column, 2 rules, 3 rules in the database), `associations` (one nullable column and a guard). The shared "members can read" function is replaced (same name and shape). No step outputs names, addresses or emails.
 
 ### M1 · What is already there (read-only)
 
@@ -1057,7 +1060,7 @@ Every new table starts empty and no existing row changes meaning. Nobody gets a 
 ### M3 · Apply 0070 (changes the database)
 
 - **Paste:** the **whole file** `migrations/0070_m6_roles.sql`. Ask Claude to copy it ("copy step M3").
-- **Does:** adds the two roles, the officer title, the end date and the general-counsel switch to the members table (with their checks); replaces the "members can read" function so professionals are not members; creates the assignments table, the sign-off table and ten helper functions; adds the proposer column, the dual-control amount and rule; and adds the read-only rules for CPAs and attorneys (listed above).
+- **Does:** adds the two roles, the officer title, the end date and the general-counsel switch to the members table (with their checks); replaces the "members can read" function so professionals are not members; creates the assignments table, the invitation table, the sign-off table and eleven helper functions; adds the proposer column, the dual-control amount and rule; and adds the read-only rules for CPAs and attorneys (listed above).
 - **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
 - **Time:** about a second (the new tables are empty; the new columns are added without a rewrite).
 - **Expect:** "Success. No rows returned".
@@ -1087,11 +1090,19 @@ Every new table starts empty and no existing row changes meaning. Nobody gets a 
            WHERE schemaname = 'public' AND policyname LIKE '%\_counsel\_select')                    AS counsel_rules,
          (SELECT count(*) FROM pg_trigger
            WHERE tgname IN ('matter_assignments_scope', 'matter_assignments_attribution',
-                            'approval_requests_dual_control'))                                      AS guard_rules,
+                            'approval_requests_dual_control', 'approval_requests_money_insert',
+                            'approval_requests_0_reset_signoffs', 'associations_dual_control_guard',
+                            'org_members_pro_guard', 'org_members_pro_audit', 'org_members_pro_revoke',
+                            'professional_invites_attribution'))                                    AS guard_rules,
+         (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.professional_invites'::regclass)  AS invites_locked,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'professional_invites')                      AS invite_rules,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND policyname IN ('orgs_pro_select', 'associations_pro_select')) AS leaked_read_rules,
          pg_get_functiondef('public.auth_org_ids()'::regprocedure) LIKE '%''resident''%'            AS members_only_list;
   ```
 
-- **Expect:** `member_checks` = 4, `assignments_locked` = true, `signoffs_locked` = true, `assignment_rules` = 5, `cpa_rules` = 17, `attorney_rules` = 7, `counsel_rules` = 2, `guard_rules` = 3, `members_only_list` = true.
+- **Expect:** `member_checks` = 4, `assignments_locked` = true, `signoffs_locked` = true, `assignment_rules` = 5, `cpa_rules` = 17, `attorney_rules` = 7, `counsel_rules` = 2, `guard_rules` = 10, `invites_locked` = true, `invite_rules` = 3, `leaked_read_rules` = 0, `members_only_list` = true.
 - **Then paste, on its own:**
 
   ```sql
@@ -1103,10 +1114,10 @@ Every new table starts empty and no existing row changes meaning. Nobody gets a 
      AND p.proname IN ('auth_pro_active', 'auth_has_pro_membership', 'auth_attorney_has_matter',
                        'auth_attorney_matter_ids', 'auth_attorney_unit_ids', 'auth_pro_org_ids',
                        'auth_counsel_org_ids', 'cpa_owner_names', 'attorney_matter_party',
-                       'record_approval_signoff');
+                       'record_approval_signoff', 'pro_org_info');
   ```
 
-- **Expect:** `helper_functions` = 10, `anon_can_run_any` = false.
+- **Expect:** `helper_functions` = 11, `anon_can_run_any` = false.
 - **M4 is done only when all three rows match:** the M1 query, the query above and this one.
 - **Send:** all three rows, and the words **"0070 is applied"**.
 - **Flag Claude flips after M4:** `M6_APPLIED` → `true` (`packages/db/src/m6.ts`), then un-drafts the guide article `members-invite-professional` and deploys hoa. That turns on, together: **Settings → Professionals** (Invite a professional, who has access, matter assignments, officer titles, the dual-control amount), the CPA's **Accounting & Reports** and the attorney's **My matters** at `/pro`, **From your professionals** in Approvals (a CPA's review note and proposed entry; an attorney's notes, uploads and draft letters), and the Treasurer-first routing and two-board-member rule on scanned bills and CPA entries. `tests/integration/security/m6-roles.test.ts` covers every role and table (allowed, denied, expired) in CI.
