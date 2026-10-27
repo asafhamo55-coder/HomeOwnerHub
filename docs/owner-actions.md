@@ -59,21 +59,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
    - `DEV_AUTOLOGIN`: should not exist.
    - `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`: should be set (see OA-26). Today the app's signed settings fall back to the database service key.
 
-### OA-34 · Let demo requests from the website reach you (urgent)
-
-**Urgency:** Urgent
-
-**Why it matters:** the website's "Book a demo" form emails you through Resend. The marketing project in Vercel has no settings, so until now every demo request was dropped while the visitor was told it went through. The site now shows "please email support@…" instead, but requests still won't reach you until this is done.
-
-**Steps:**
-
-1. In Vercel, open the project **homeownerhub-marketing** → **Settings → Environment Variables**.
-2. Add these for **Production** (and Preview if you like):
-   - `RESEND_API_KEY`: the same value as in the app project `home-owner-hub-hoa` (copy it from there).
-   - `EMAIL_FROM`: `HomeownerHub <support@homeownerledger.com>`
-   - `DEMO_INBOX_EMAIL`: the address that should receive demo requests (e.g. asafhamo55@gmail.com).
-3. Redeploy the marketing project (Deployments → latest → Redeploy) and tell Claude. Claude sends one test request and checks it arrives.
-
 ### OA-35 · Turn on website analytics and Google Search Console
 
 **Urgency:** Soon
@@ -385,6 +370,11 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-34 · Let demo requests from the website reach you
+
+**Done 2026-10-27.** Asaf set RESEND_API_KEY, EMAIL_FROM and DEMO_INBOX_EMAIL on homeownerhub-marketing (Production) and redeployed. Claude submitted one test request on the live site, and it arrived.
+
 
 ### OA-37 · Apply three database updates: 0070 tenant isolation, 0071 CPA/attorney/treasurer roles, 0072 mail tracking and one-step payments
 
