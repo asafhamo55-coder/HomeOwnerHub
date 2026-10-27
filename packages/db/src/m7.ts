@@ -1,7 +1,7 @@
 /**
  * Migration batch M7 (migrations/0072_m7_batch.sql) switch.
  *
- * false until the owner confirms 0072 is applied in production (runbook
+ * true since 2026-10-27: the owner applied 0072 in production (runbook
  * Section O, O4). Every code path that reads or writes an M7 column, table
  * or function checks this first, and with it false the app behaves exactly
  * as before M7 and keeps working when the objects already exist (CI
@@ -30,4 +30,4 @@
  * No imports: pure modules, client components and the integration suite
  * import this.
  */
-export const M7_APPLIED: boolean = false
+export const M7_APPLIED: boolean = true
