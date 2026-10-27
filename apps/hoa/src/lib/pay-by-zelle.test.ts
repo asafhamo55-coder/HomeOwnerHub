@@ -153,6 +153,30 @@ describe('payLinesFor', () => {
     expect(noMemo).toMatchObject({ memoCode: null, autoMatch: false })
     expect(partial).toMatchObject({ memoCode: 'DEMO-1247-DUES', autoMatch: false, amount: 125 })
   })
+
+  // BL-163: § 43-17A-8 order for Georgia from 2027-01-01; nothing changes before or elsewhere.
+  describe('statutory order (BL-163)', () => {
+    const charges = [
+      { id: 'fine', assessmentType: 'fine', dueDate: '2026-12-01', amount: 50, fullAmount: 50, memoCode: null },
+      { id: 'dues', assessmentType: 'regular', dueDate: '2027-01-01', amount: 325, fullAmount: 325, memoCode: null },
+      { id: 'spec', assessmentType: 'special', dueDate: '2026-12-15', amount: 100, fullAmount: 100, memoCode: null },
+    ]
+    const ids = (order?: Parameters<typeof payLinesFor>[1]) => payLinesFor(charges, order).map((l) => l.assessmentId)
+
+    it('Georgia on 2027-01-01 lists dues, then special, then the fine', () => {
+      expect(ids({ state: 'GA', today: '2027-01-01' })).toEqual(['dues', 'spec', 'fine'])
+    })
+    it('the day before, outside Georgia, or with no order, keeps oldest due first', () => {
+      expect(ids({ state: 'GA', today: '2026-12-31' })).toEqual(['fine', 'spec', 'dues'])
+      expect(ids({ state: 'FL', today: '2027-06-01' })).toEqual(['fine', 'spec', 'dues'])
+      expect(ids({ state: null, today: '2027-06-01' })).toEqual(['fine', 'spec', 'dues'])
+      expect(ids()).toEqual(['fine', 'spec', 'dues'])
+    })
+    it('keeps every line with its own amount', () => {
+      const lines = payLinesFor(charges, { state: 'GA', today: '2027-01-01' })
+      expect(lines.map((l) => [l.assessmentId, l.amount])).toEqual([['dues', 325], ['spec', 100], ['fine', 50]])
+    })
+  })
 })
 
 describe('SEC-N7: secret fallback and rotation', () => {

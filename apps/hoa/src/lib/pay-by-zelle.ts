@@ -20,6 +20,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { parseMemoCode } from '@homeowner-portal/workflows'
 import { chargeTypeLabel } from './assessment-labels'
+import { allocationMode, orderForPayLines } from './collections/ga-payment-order'
 
 export const ZELLE_SETTINGS_KEY = 'pay_by_zelle'
 
@@ -251,10 +252,22 @@ export interface PayLine {
   autoMatch: boolean
 }
 
-/** One Zelle payment per open charge, oldest due date first. */
-export function payLinesFor(charges: PayLineInput[]): PayLine[] {
-  return [...charges]
-    .sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.id < b.id ? -1 : 1))
+/**
+ * One Zelle payment per open charge. Oldest due date first, except for a
+ * Georgia association from January 1, 2027 (BL-163, § 43-17A-8): regular
+ * assessments (dues) first, then special assessments, then specific
+ * assessments, then other fees and fines, oldest first within each, so
+ * the first line is the one to pay first. `order` is the association's
+ * governing-law state and its today; without it (or before the date, or
+ * outside Georgia) nothing changes. Lines are only reordered, never
+ * dropped or re-priced.
+ */
+export function payLinesFor(
+  charges: PayLineInput[],
+  order?: { state: string | null | undefined; today: string; planInstallmentIds?: ReadonlySet<string> },
+): PayLine[] {
+  const mode = order ? allocationMode(order.state, order.today) : 'oldest_first'
+  return orderForPayLines(charges, mode, order?.today ?? '', order?.planInstallmentIds)
     .map((c) => {
       const memoCode = usableMemoCode(c.memoCode)
       return {

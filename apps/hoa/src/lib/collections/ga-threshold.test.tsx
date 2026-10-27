@@ -257,6 +257,7 @@ describe('BL-158 panel', () => {
     expect(t).toContain('Since Jan 1, 2027 (SB 406 § 5)')
     expect(t).toContain('$3,000.00 ($250.00 a month')
     expect(t).toContain('Below $3,000.00')
-    expect(t).toContain('doesn’t apply payments in this order')
+    expect(t).toContain('Record payment on the Dues page splits one payment in this order')
+    expect(t).toContain('doesn’t re-apply past payments')
   })
 })

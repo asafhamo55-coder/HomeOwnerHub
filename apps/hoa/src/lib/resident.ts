@@ -28,6 +28,8 @@ export interface ResidentUnit {
   association_name: string | null
   /** The association's IANA zone (BL-043); set by getResidentUnits. */
   association_time_zone?: string | null
+  /** The association's governing-law state (BL-163: Georgia's payment order); null when unknown. */
+  association_state?: string | null
   ownership_pct: number | null
   valid_from: string
   /**
@@ -78,12 +80,17 @@ async function attachAssociationNames(
 
   let q = supabase
     .from('associations' as never)
-    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
+    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}, governing_law_state`)
     .in('id', associationIds)
   if (orgId) q = q.eq('organization_id' as never, orgId)
   const { data } = await q
 
-  const rows = (data ?? []) as unknown as Array<{ id: string; name: string | null; state?: string | null }>
+  const rows = (data ?? []) as unknown as Array<{
+    id: string
+    name: string | null
+    state?: string | null
+    governing_law_state?: string | null
+  }>
   const byId = new Map(rows.map((a) => [a.id, a]))
 
   return units.map((u) => {
@@ -93,6 +100,8 @@ async function attachAssociationNames(
       association_name: a?.name ?? null,
       // Unknown association → the default zone (Eastern), never the UTC day.
       association_time_zone: a ? associationTimeZone(a) : null,
+      // The governing-law state when set, else the state (as lateFeeStateOf).
+      association_state: ((a?.governing_law_state ?? a?.state ?? '').trim().toUpperCase() || null),
     }
   })
 }

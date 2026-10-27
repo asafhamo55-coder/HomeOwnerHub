@@ -98,7 +98,11 @@ export default async function ResidentStatementPage({
   const associationName = units.find((u) => u.association_name)?.association_name ?? org?.name ?? null
   const zelle = associationIds.length === 1 ? await getResidentZelleSettings(associationIds) : null
   const zelleRead = zelle?.ok ? zelle.byAssociation[associationIds[0]!] : null
-  const payLines = !open.failed && zelleRead?.state === 'configured' ? payLinesFor(open.dues.charges) : []
+  const payLines = !open.failed && zelleRead?.state === 'configured' ? payLinesFor(open.dues.charges, {
+        state: units.find((u) => u.association_id === associationIds[0])?.association_state,
+        today: open.dues.today,
+      })
+    : []
 
   const columns: DataTableColumn<Row>[] = [
     { key: 'date', header: 'Date', cell: (r) => day(r.date), className: `whitespace-nowrap ${PRINT_CELL}` },
