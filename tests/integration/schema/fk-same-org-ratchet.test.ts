@@ -256,6 +256,11 @@ describe('schema ratchet: org-scoped foreign keys', () => {
       'units.legacy_hoa_property_id->hoa_properties',
       'communication_recipients.communication_id->communications',
       'tickets.unit_id->units',
+      'communication_threads.root_communication_id->communications',
+      'communications.thread_id->communication_threads',
+      'hoa_dues.property_id->hoa_properties',
+      'hoa_violations.property_id->hoa_properties',
+      'pm_rent_ledger.property_id->pm_properties',
     ]) {
       expect(covered.has(k), `${k} is not covered by a same-org trigger`).toBe(true)
     }

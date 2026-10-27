@@ -54,7 +54,7 @@ database.
 | I | Migration 0066: owner records requests, the billing-columns guard on orgs, and the Fined / Dismissed violation statuses | BL-123 (3), security finding (orgs_update), live bug (violation status check) | I1–I3 | Yes (I2, widens two checks, adds a column and two guards) | none |
 | J | Migration 0067 (batch M3): no late fees on opening balances, inbox snooze and reply clock, link and filing checks, compliance "done" table | BL-136, BL-134, BL-131 | J1–J4 | Yes (J3, adds columns, a table and three automatic rules) | none |
 | L | Migration 0069 (batch M5): dues rate schedule (BL-137) and join requests (BL-143); more M5 parts may join | BL-137, BL-143 | L1–L4, L-BL143a–c | Yes (L3, adds four tables, their rules, four automatic checks and three join functions) | none |
-| M | Migration 0070 (BL-175b): tenant-isolation hardening (SECURITY; apply before any other pending migration) | BL-175b | M1–M5 | Yes (M4, adds 11 same-HOA checks, replaces security functions and rules) | none |
+| M | Migration 0070 (BL-175b): tenant-isolation hardening (SECURITY; apply before any other pending migration) | BL-175b | M1–M5 | Yes (M4, adds 16 same-HOA checks, replaces security functions and rules) | none |
 
 50 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
@@ -967,11 +967,12 @@ admin could add rows to their own HOA that *point at another HOA's records*
 
 What it does, in plain words:
 
-1. **Same-HOA checks.** Eleven new automatic checks refuse a record that
+1. **Same-HOA checks.** Sixteen new automatic checks refuse a record that
    points into a different HOA (inbox drafts and threads to a mailbox or
    thread; bank transactions to a bank account; recurring journal entries to a
    template; owners, tenants, residents and homes to their home or property;
-   message recipients to a message; tickets to a home). They apply to everyone
+   message recipients and threads to their message or thread; dues, violations
+   and rent-ledger rows to their property; tickets to a home). They apply to everyone
    including the app's background jobs. **They only look at new and changed
    rows; existing rows are not touched** (M2 counts the bad ones).
 2. **"My homes" checks.** The two functions that decide which homes a resident
@@ -1053,13 +1054,28 @@ Nothing in this section outputs names, emails or addresses: ids and counts only.
    WHERE p.organization_id <> c.organization_id
   UNION ALL SELECT 'tickets.unit_id', count(*)
     FROM public.tickets c JOIN public.units p ON p.id = c.unit_id
-   WHERE p.organization_id <> c.organization_id;
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'communication_threads.root_communication_id', count(*)
+    FROM public.communication_threads c JOIN public.communications p ON p.id = c.root_communication_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'communications.thread_id', count(*)
+    FROM public.communications c JOIN public.communication_threads p ON p.id = c.thread_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'hoa_dues.property_id', count(*)
+    FROM public.hoa_dues c JOIN public.hoa_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.org_id
+  UNION ALL SELECT 'hoa_violations.property_id', count(*)
+    FROM public.hoa_violations c JOIN public.hoa_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.org_id
+  UNION ALL SELECT 'pm_rent_ledger.property_id', count(*)
+    FROM public.pm_rent_ledger c JOIN public.pm_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.org_id;
   ```
 
 - **Does:** counts, for each new rule, the rows that already point into a different HOA. Counts only.
 - **Read-only:** yes. **Time:** ~1 s.
-- **Expect:** eleven rows, **every `violating_rows` = 0**.
-- **Send:** the eleven rows.
+- **Expect:** sixteen rows, **every `violating_rows` = 0**.
+- **Send:** the sixteen rows.
 - **If any is above 0:** do not clean it yourself. Those are either planted rows or an old bug. The migration still applies (it checks new and changed rows only, and the new "my homes" functions already ignore such rows), but tell Claude the rule name and count first so the rows can be reviewed and removed.
 
 ### M3 · Other things that change for existing users (read-only)
@@ -1148,7 +1164,7 @@ Run these as **separate queries** (the editor shows only the last result).
          has_function_privilege('anon', 'public.auth_org_ids()', 'EXECUTE')       AS anon_can_call_org_ids;
   ```
 
-- **Expect:** one row: `same_org_triggers` = 11, `ai_all_policies` = 0, `law_write_policies` = 1 (the platform-admin rule), `pinned_helpers` = 5, `stripe_unique` = true, `anon_can_call_org_ids` = false.
+- **Expect:** one row: `same_org_triggers` = 16, `ai_all_policies` = 0, `law_write_policies` = 1 (the platform-admin rule), `pinned_helpers` = 5, `stripe_unique` = true, `anon_can_call_org_ids` = false.
 - **Send:** the row.
 - **If a number is off:** stop and tell Claude.
 

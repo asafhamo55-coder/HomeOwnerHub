@@ -35,6 +35,7 @@ let neighProp: string
 let neighComm: string
 let neighAssessment: string
 let neighViolation: string
+let neighThread: string
 let unitA: string // a home in A (same-org control)
 
 async function seed(table: string, row: Record<string, unknown>): Promise<string> {
@@ -106,6 +107,11 @@ beforeEach(async () => {
     status: 'sent',
     sent_at: new Date().toISOString(),
   })
+  neighThread = await seed('communication_threads', {
+    organization_id: orgB.orgId,
+    association_id: orgB.associationId,
+    topic_category: 'general',
+  })
   await seed('communication_recipients', {
     organization_id: orgB.orgId,
     communication_id: neighComm,
@@ -134,6 +140,24 @@ const plants: Array<[string, () => Record<string, unknown>]> = [
     'tickets.unit_id',
     () => ({ organization_id: orgA.orgId, unit_id: neighUnit, submitted_by: u.id, subject: 'planted', category: 'general', description: 'planted' }),
   ],
+  [
+    'communications.thread_id',
+    () => ({
+      organization_id: orgA.orgId,
+      association_id: orgA.associationId,
+      category: 'announcement',
+      subject: 'planted',
+      body_html: '<p>x</p>',
+      audience_definition: {},
+      status: 'draft',
+      thread_id: neighThread,
+    }),
+  ],
+  [
+    'communication_threads.root_communication_id',
+    () => ({ organization_id: orgA.orgId, association_id: orgA.associationId, topic_category: 'general', root_communication_id: neighComm }),
+  ],
+  ['hoa_violations.property_id', () => ({ org_id: orgA.orgId, property_id: neighProp, violation_type: 'planted', description: 'planted', status: 'open' })],
 ]
 const tableOf = (label: string) => label.split('.')[0]!
 

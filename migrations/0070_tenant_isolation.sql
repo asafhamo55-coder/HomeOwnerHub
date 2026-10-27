@@ -386,7 +386,13 @@ BEGIN
       ('property_residents',        'property_id',            'hoa_properties',   'org_id',          'organization_id'),
       ('units',                     'legacy_hoa_property_id', 'hoa_properties',   'org_id',          'organization_id'),
       ('communication_recipients',  'communication_id',       'communications',   'organization_id', 'organization_id'),
-      ('tickets',                   'unit_id',                'units',            'organization_id', 'organization_id')
+      ('tickets',                   'unit_id',                'units',            'organization_id', 'organization_id'),
+      -- found by the schema ratchet on the first CI run
+      ('communication_threads',     'root_communication_id',  'communications',   'organization_id', 'organization_id'),
+      ('communications',            'thread_id',              'communication_threads', 'organization_id', 'organization_id'),
+      ('hoa_dues',                  'property_id',            'hoa_properties',   'org_id',          'org_id'),
+      ('hoa_violations',            'property_id',            'hoa_properties',   'org_id',          'org_id'),
+      ('pm_rent_ledger',            'property_id',            'pm_properties',    'org_id',          'org_id')
     ) v(child, fk, parent, parent_org, child_org)
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I',
@@ -561,8 +567,8 @@ BEGIN
   SELECT count(*) INTO n FROM pg_trigger tg
    WHERE NOT tg.tgisinternal AND tg.tgname LIKE '%\_org\_scope' ESCAPE '\'
      AND tg.tgfoid = 'public.tenant_fk_same_org()'::regprocedure;
-  IF n < 11 THEN
-    RAISE EXCEPTION '0070: expected 11 tenant_fk_same_org triggers, found %', n;
+  IF n < 16 THEN
+    RAISE EXCEPTION '0070: expected 16 tenant_fk_same_org triggers, found %', n;
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public'
               AND tablename IN ('ai_runs', 'ai_feedback') AND cmd = 'ALL') THEN
