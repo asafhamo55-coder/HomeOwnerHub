@@ -13,7 +13,21 @@ import { loadLetterContext } from '@/lib/collections/letters/load'
 import { LETTER_KIND_LABELS } from '@/lib/collections/letters/proposal'
 import { usdCents } from '@/lib/collections/letters/model'
 import { LegalDisclaimer } from '@/components/knowledge/LegalDisclaimer'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
+import {
+  GA_FEE_NOTICE_WAIT_DAYS,
+  clockStartOf,
+  describeMail,
+  feeNoticeCleanOn,
+  foreclosureEligibleOnFor,
+  foreclosureWaitDays,
+  type MailRecord,
+} from '@/lib/collections/mail-tracking'
 import { CollectionsLetter } from './CollectionsLetter'
+import { MailingForm } from './MailingForm'
+
+/** BL-166: the Georgia notices whose waiting period runs from delivery. */
+const GA_MAIL_KINDS = ['ga_fee_notice', 'ga_pre_foreclosure', 'ga_condo_pre_foreclosure'] as const
 
 export const metadata = { title: 'Collections letter' }
 export const dynamic = 'force-dynamic'
@@ -96,11 +110,16 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
           <CardContent>
             <ul className="space-y-1 text-sm">
               {printed.map((r) => (
-                <li key={r.id} className="num flex flex-wrap justify-between gap-2">
-                  <span>{LETTER_KIND_LABELS[r.payload.kind]}</span>
-                  <span className="text-foreground-secondary">
-                    {usdCents(r.payload.totalCents)} · printed {formatStamp(r.printedAt)}
-                  </span>
+                <li key={r.id} className="space-y-1">
+                  <div className="num flex flex-wrap justify-between gap-2">
+                    <span>{LETTER_KIND_LABELS[r.payload.kind]}</span>
+                    <span className="text-foreground-secondary">
+                      {usdCents(r.payload.totalCents)} · printed {formatStamp(r.printedAt)}
+                    </span>
+                  </div>
+                  {M7_APPLIED && (GA_MAIL_KINDS as readonly string[]).includes(r.payload.kind) ? (
+                    <MailingBlock request={r} today={today} propertyId={id} />
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -111,5 +130,38 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
         <LegalDisclaimer>{LETTER_DISCLAIMER}</LegalDisclaimer>
       </div>
     </div>,
+  )
+}
+
+/** BL-166: the mailing record of one printed Georgia notice, the clock it starts, and the form to record it. */
+function MailingBlock({ request: r, today, propertyId }: { request: { id: string; printedAt: string | null; payload: { kind: string }; mail?: MailRecord | null }; today: string; propertyId: string }) {
+  const start = clockStartOf(r.mail)
+  const sentOn = r.mail?.mailedOn ?? r.printedAt?.slice(0, 10) ?? today
+  let clock: string | null = null
+  if (start && r.payload.kind === 'ga_fee_notice') {
+    const on = feeNoticeCleanOn(start)
+    clock = on <= today
+      ? `The owner’s ${GA_FEE_NOTICE_WAIT_DAYS} days from receipt ran out ${formatDay(on)}. Attorney’s fees can follow.`
+      : `The owner has until ${formatDay(on)} (${GA_FEE_NOTICE_WAIT_DAYS} days from receipt on ${formatDay(start)}).`
+  } else if (start) {
+    const on = foreclosureEligibleOnFor(r.payload.kind, sentOn, start)
+    const days = r.payload.kind === 'ga_condo_pre_foreclosure' ? 30 : foreclosureWaitDays(sentOn)
+    clock = `Earliest foreclosure date: ${formatDay(on)} (${days} days from receipt on ${formatDay(start)}).`
+  } else if (r.mail) {
+    clock = r.mail.method && r.mail.method !== 'certified' && r.mail.method !== 'statutory_overnight'
+      ? 'This method does not start Georgia’s clock. Only certified mail or statutory overnight delivery does.'
+      : 'Add the delivery date to start the clock.'
+  } else {
+    clock = 'Not recorded yet. The waiting period counts from the day the owner received it.'
+  }
+  return (
+    <div className="text-sm">
+      {r.mail ? <p className="text-foreground-secondary">{describeMail(r.mail)}</p> : null}
+      <p className="text-foreground-secondary">{clock}</p>
+      <details>
+        <summary className="cursor-pointer text-xs underline">{r.mail ? 'Add or update the mailing record' : 'Record how and when it was mailed'}</summary>
+        <MailingForm propertyId={propertyId} approvalRequestId={r.id} initial={r.mail ?? null} today={today} />
+      </details>
+    </div>
   )
 }

@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import { chargeTypeLabel } from './assessment-labels'
 import { DEFAULT_ASSOCIATION_TIME_ZONE, dayOf } from './association-time'
 
@@ -28,6 +29,17 @@ export interface LedgerPayment {
   assessment_id: string | null
   amount: number
   paid_at: string
+  payment_method: string
+}
+
+/** BL-177 (M7_APPLIED): money received beyond what was due, not yet applied to a charge. */
+export interface LedgerCredit {
+  id: string
+  unit_id: string
+  /** What is still unapplied. */
+  remaining: number
+  /** yyyy-mm-dd the money arrived. */
+  received_on: string
   payment_method: string
 }
 
@@ -104,6 +116,7 @@ export function buildLedger(
   assessments: LedgerAssessment[],
   payments: LedgerPayment[],
   timeZone: string = DEFAULT_ASSOCIATION_TIME_ZONE,
+  credits: readonly LedgerCredit[] = [],
 ): Ledger {
   const unitByAssessment = new Map(assessments.map((a) => [a.id, a.unit_id]))
   const paidCents = new Map<string, number>()
@@ -152,6 +165,21 @@ export function buildLedger(
       unitId: p.unit_id ?? (p.assessment_id ? unitByAssessment.get(p.assessment_id) ?? null : null),
       chargeC: 0,
       paymentC: cents(p.amount),
+    })
+  }
+
+  // BL-177: an unapplied credit is money in that no charge has taken yet.
+  for (const c of credits) {
+    if (cents(c.remaining) <= 0) continue
+    const method = METHOD_LABELS[c.payment_method]
+    drafts.push({
+      id: `credit:${c.id}`,
+      date: c.received_on,
+      kind: 'credit',
+      description: method ? `Unapplied credit · ${method}` : 'Unapplied credit',
+      unitId: c.unit_id,
+      chargeC: 0,
+      paymentC: cents(c.remaining),
     })
   }
 
@@ -274,4 +302,25 @@ export async function loadLedgerRows(
     payments,
     truncated: assessments.length >= MAX_ROWS || payments.length >= MAX_ROWS,
   }
+}
+
+/**
+ * BL-177: the unapplied credit on `unitIds`, read through `db` (RLS: board
+ * of the org, or a resident of the unit). [] before M7_APPLIED, with no
+ * query. A failed read is `{ ok: false }`, never an empty list.
+ */
+export async function loadUnappliedCredits(
+  db: SupabaseClient<Database>,
+  unitIds: string[],
+  orgId: string | null = null,
+): Promise<{ ok: true; credits: LedgerCredit[] } | { ok: false }> {
+  if (!M7_APPLIED || unitIds.length === 0) return { ok: true, credits: [] }
+  // The table is not in the generated types until gen:types runs after 0072.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q = (db as any).from('unapplied_credits').select('id, unit_id, remaining, received_on, payment_method').in('unit_id', unitIds).gt('remaining', 0)
+  if (orgId) q = q.eq('organization_id', orgId)
+  const { data, error } = await q.order('received_on', { ascending: true }).limit(MAX_ROWS)
+  if (error) return { ok: false }
+  const rows = (data ?? []) as Array<{ id: string; unit_id: string; remaining: number | string; received_on: string; payment_method: string }>
+  return { ok: true, credits: rows.map((r) => ({ ...r, remaining: Number(r.remaining) })) }
 }

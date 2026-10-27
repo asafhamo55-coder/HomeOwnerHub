@@ -24,6 +24,8 @@ import {
   type OverrideReason,
 } from '@/lib/compliance/statute-drift'
 import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
+import { MAIL_METHODS, validateMailFields } from './mail-tracking'
 
 /**
  * Writes for the collections system of record.
@@ -114,6 +116,11 @@ const EventSchema = z.object({
   actorInitials: z.string().trim().max(8).optional(),
   /** Apply the stage change this event implies. Advisory — see statuses.ts. */
   advanceStatus: z.boolean().default(false),
+  /** BL-166 (M7_APPLIED): how and when a notice was mailed and delivered. */
+  mailMethod: z.enum(MAIL_METHODS).optional(),
+  trackingNumber: z.string().trim().max(100).optional(),
+  mailedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  deliveredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   /** BL-149: finding code → the board's override reason, for a blocking lien check. */
   lawOverrides: z
     .record(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]]))
@@ -156,6 +163,24 @@ export async function recordCollectionEvent(
     data: { user },
   } = await supabase.auth.getUser()
 
+  // BL-166: the mail columns exist only after 0072. Before M7_APPLIED a
+  // request that carries them is refused, never silently dropped.
+  const sentMail = Boolean(v.mailMethod || v.trackingNumber || v.mailedOn || v.deliveredOn)
+  let mailColumns: Record<string, string | null> = {}
+  if (sentMail) {
+    if (!M7_APPLIED) return { ok: false, error: 'Recording how a notice was mailed isn’t available yet.' }
+    const mail = validateMailFields(v, todayIn(await orgTimeZone(supabase, org.id)))
+    if (!mail.ok) return { ok: false, error: mail.error }
+    if (mail.record) {
+      mailColumns = {
+        mail_method: mail.record.method,
+        tracking_number: mail.record.trackingNumber,
+        mailed_on: mail.record.mailedOn,
+        delivered_on: mail.record.deliveredOn,
+      }
+    }
+  }
+
   let lawCheck: DriftCheck | undefined
   if (v.eventType === 'lien_filed') {
     const lien = await lienCheckFor(supabase as never, org.id, v.caseId)
@@ -192,6 +217,7 @@ export async function recordCollectionEvent(
     amount: v.amount ?? null,
     actor_initials: v.actorInitials || null,
     recorded_by: user?.id ?? null,
+    ...mailColumns,
   })
 
   if (insertErr) return { ok: false, error: insertErr.message }

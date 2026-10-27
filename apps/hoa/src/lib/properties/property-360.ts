@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadOrFail, tryLoad, type LoadResult } from '@/lib/load-or-fail'
 import { readAllResult } from '@/lib/supabase/read-all'
 import { listThreadsForUnit } from '@/lib/inbox/queries'
-import { CASE_COLUMNS, EVENT_COLUMNS, sortEventsNewestFirst, toCase, toEvent, type CollectionCase, type CollectionEvent } from '@/lib/collections/queries'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
+import { CASE_COLUMNS, eventColumns, sortEventsNewestFirst, toCase, toEvent, type CollectionCase, type CollectionEvent } from '@/lib/collections/queries'
 import type { PropertyResidentRow } from '@/lib/property-residents'
 import type { PropertyEventRow } from '@/lib/property-events'
 import type { PlanStandingView } from '@/lib/money/plan-standing'
@@ -87,6 +88,11 @@ export interface Property360 {
   waitingQueue: Part<{ id: string; property_id: string; requested_at: string }[]>
   openAssessments: UnitPart<OpenAssessmentRow[]>
   ledger: UnitPart<{ rows: LedgerAssessmentRow[]; total: number | null }>
+  /**
+   * BL-177 (M7_APPLIED): money received beyond what the home owed and not
+   * yet applied, in cents. Absent before the flag; shown under the ledger.
+   */
+  credit?: UnitPart<{ cents: number; count: number }>
   payments: UnitPart<PaymentRow[]>
   plans: UnitPart<PaymentPlanRow[]>
   collections: UnitPart<CollectionsFile>
@@ -219,6 +225,19 @@ export async function loadProperty360(
   const byUnit = <T>(run: (ids: UnitId[]) => Promise<Part<T>>): Promise<UnitPart<T>> =>
     !unit.ok ? failed : unitIds === null || unitIds.length === 0 ? Promise.resolve(null) : run(unitIds)
 
+  // BL-177: unapplied credit on the home (only once 0072 is applied).
+  const creditPromise: Promise<UnitPart<{ cents: number; count: number }> | undefined> = M7_APPLIED
+    ? byUnit(async (ids) =>
+        mapPart(
+          await loadOrFail('unapplied credit', db.from('unapplied_credits').select('remaining').in('unit_id', ids).gt('remaining', 0).limit(500)),
+          (rows) => {
+            const list = (rows ?? []) as unknown as Array<{ remaining: number | string }>
+            return { cents: list.reduce((n, r) => n + Math.round(Number(r.remaining) * 100), 0), count: list.length }
+          },
+        ),
+      )
+    : Promise.resolve(undefined)
+
   const [openAssessments, ledger, payments, plans, collections, arc, threads, notices, tenancies, ownerships] = await Promise.all([
     byUnit(async (ids) =>
       part(
@@ -287,7 +306,7 @@ export async function loadProperty360(
           readAllResult<Record<string, unknown>>((from, to) =>
             db
               .from('collection_cases')
-              .select(`${CASE_COLUMNS}, collection_events(${EVENT_COLUMNS})`)
+              .select(`${CASE_COLUMNS}, collection_events(${eventColumns()})`)
               .in('unit_id', ids)
               .is('deleted_at', null)
               .order('id', { ascending: true })
@@ -418,6 +437,7 @@ export async function loadProperty360(
       waitingQueue: part(queueRes as LoadResult<{ id: string; property_id: string; requested_at: string }[]>),
       openAssessments,
       ledger,
+      ...(M7_APPLIED ? { credit: await creditPromise } : {}),
       payments,
       plans,
       collections,

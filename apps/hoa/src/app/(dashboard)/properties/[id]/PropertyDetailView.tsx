@@ -818,6 +818,13 @@ function MoneySection({
         </CardContent>
       </Card>
 
+      {data.credit && data.credit.ok && data.credit.data.cents > 0 ? (
+        <p className="px-1 text-sm" data-testid="unapplied-credit">
+          Credit on account: <span className="num font-medium">{usd(data.credit.data.cents / 100)}</span>
+          <span className="text-muted"> (money received beyond what was due; not yet applied to a charge)</span>
+        </p>
+      ) : null}
+
       <UnitGate part={data.ledger} what="the ledger" unlinked="No unit linked.">
         {(ledger) => (
           <DataTable

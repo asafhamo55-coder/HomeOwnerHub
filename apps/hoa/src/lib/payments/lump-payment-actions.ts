@@ -14,13 +14,20 @@
 // recorded (payments need a charge, and there is no unapplied-credit
 // store); the board is told to record it against a charge it chooses.
 //
+// BL-177 (M7_APPLIED): the whole payment posts through ONE database call,
+// record_lump_payment (migration 0072): every part or nothing, and money
+// beyond what is due is stored as an unapplied credit instead of being
+// refused. The dialog gains a method, a date and a note. Before the flag
+// the per-charge path above stays exactly as it was.
+//
 // Audit rows carry ids, cents and codes only: no names, addresses or notes.
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import { loadInstallments } from '@homeowner-portal/workflows/payment-plans'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
-import { isBooksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
+import { booksNotOpen, isBooksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
 import { markAssessmentPaid } from '@/lib/assessments'
 import { todayIn } from '@/lib/association-time'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -48,12 +55,18 @@ const RecordSchema = PreviewSchema.extend({
   expected: z
     .array(z.object({ chargeId: z.string().uuid(), cents: z.number().int().positive() }))
     .max(500),
+  /** BL-177 (M7_APPLIED): the day the money arrived (the association's day; not in the future). */
+  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /** BL-177: a note for the books (at most 200 characters; never in the audit row). */
+  note: z.string().trim().max(200).optional(),
+  /** BL-177: the unapplied credit the board saw in the preview (cents). */
+  expectedCreditCents: z.number().int().min(0).max(100_000_000).default(0),
 })
 
 export type PreviewLumpResult = { ok: true; preview: LumpPreview } | { ok: false; error: string }
 
 export type RecordLumpResult =
-  | { ok: true; recordedCents: number; chargeCount: number }
+  | { ok: true; recordedCents: number; chargeCount: number; creditCents?: number }
   | { ok: false; error: string; recordedCents?: number; chargeCount?: number }
   | BooksNotOpenFailure
 
@@ -174,12 +187,15 @@ export async function recordLumpPayment(input: {
   paymentMethod?: (typeof METHODS)[number]
   externalRef?: string
   expected: ExpectedSplit[]
+  paidOn?: string
+  note?: string
+  expectedCreditCents?: number
 }): Promise<RecordLumpResult> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = RecordSchema.safeParse(input)
   if (!parsed.success || !wholeCents(parsed.data.amount)) return { ok: false, error: 'Enter an amount in dollars and cents, more than $0.' }
-  const { unitId, paymentMethod, externalRef, expected } = parsed.data
+  const { unitId, paymentMethod, externalRef, expected, paidOn, note, expectedCreditCents } = parsed.data
 
   const home = await loadHome(gate.orgId, unitId)
   if (!home.ok) return home
@@ -190,15 +206,23 @@ export async function recordLumpPayment(input: {
     charges: home.charges,
   })
 
-  if (preview.lines.length === 0) return { ok: false, error: 'Nothing is due on this home right now, so there is nothing to apply this payment to.' }
-  if (preview.unappliedCents > 0) {
+  // BL-177: with M7_APPLIED, money beyond what is due is kept as an unapplied
+  // credit, so an overpayment (even on a home with nothing due) is recordable.
+  if (preview.lines.length === 0 && !(M7_APPLIED && preview.unappliedCents > 0)) {
+    return { ok: false, error: 'Nothing is due on this home right now, so there is nothing to apply this payment to.' }
+  }
+  if (preview.unappliedCents > 0 && !M7_APPLIED) {
     return {
       ok: false,
       error: 'That is more than is currently due on this home. Enter up to the amount due, then record the rest on a charge you choose with Mark paid.',
     }
   }
-  if (!sameSplit(expected, preview)) {
+  if (!sameSplit(expected, preview) || (M7_APPLIED && expectedCreditCents !== preview.unappliedCents)) {
     return { ok: false, error: 'The home’s charges changed since you previewed the split. Preview again before saving.' }
+  }
+
+  if (M7_APPLIED) {
+    return recordViaRpc({ gate, home, preview, unitId, paymentMethod, paidOn, note })
   }
 
   const supabase = await getSupabaseServerClient()
@@ -283,4 +307,102 @@ export async function recordLumpPayment(input: {
     }
   }
   return { ok: true, recordedCents, chargeCount }
+}
+
+type RpcClient = {
+  rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>
+}
+
+/**
+ * BL-177: post the whole split in one database transaction. The function
+ * re-checks everything itself (board/admin of the org, each charge on this
+ * home, nothing over-applied); the checks above only give the board a
+ * sentence. Failure leaves nothing posted.
+ */
+async function recordViaRpc(args: {
+  gate: { orgId: string; role: 'admin' | 'board' }
+  home: Extract<Loaded, { ok: true }>
+  preview: LumpPreview
+  unitId: string
+  paymentMethod: (typeof METHODS)[number]
+  paidOn: string | undefined
+  note: string | undefined
+}): Promise<RecordLumpResult> {
+  const { gate, home, preview, unitId, paymentMethod, note } = args
+  const paidOn = args.paidOn ?? home.today
+  if (paidOn > home.today) return { ok: false, error: 'The payment date can’t be in the future.' }
+
+  const supabase = await getSupabaseServerClient()
+  // The books must be open; the same answer markAssessmentPaid gives.
+  const { loadAccountingRefs } = await import('@homeowner-portal/db')
+  if (!(await loadAccountingRefs(supabase, home.associationId))) return booksNotOpen(gate.role)
+
+  const parts: Array<Record<string, unknown>> = preview.lines.map((l) => ({ assessment_id: l.chargeId, cents: l.appliedCents }))
+  if (preview.unappliedCents > 0) parts.push({ kind: 'credit', cents: preview.unappliedCents })
+
+  const { data, error } = await (supabase as unknown as RpcClient).rpc('record_lump_payment', {
+    p_org: gate.orgId,
+    p_unit: unitId,
+    p_parts: parts,
+    p_method: paymentMethod,
+    p_paid_on: paidOn,
+    p_note: note ?? null,
+  })
+  if (error) {
+    console.error('[lump-payment] rpc failed', { code: error.code ?? null })
+    if ((error.message ?? '').includes('books_not_open')) return booksNotOpen(gate.role)
+    if (error.code === '23514' || error.code === '23503' || error.code === '22023') {
+      return { ok: false, error: 'The home’s charges changed since you previewed the split. Nothing was saved. Preview again before saving.' }
+    }
+    if (error.code === '42501') return { ok: false, error: BOARD_ONLY_DENIED }
+    return { ok: false, error: 'Couldn’t record the payment. Nothing was saved. Try again.' }
+  }
+
+  const out = (data ?? {}) as { payment_ids?: string[]; applied_cents?: number; credit_cents?: number }
+  const paymentIds = out.payment_ids ?? []
+  const appliedCents = out.applied_cents ?? preview.appliedCents
+  const creditCents = out.credit_cents ?? preview.unappliedCents
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { error: auditErr } = await supabase.from('audit_log').insert({
+    org_id: gate.orgId,
+    user_id: user?.id ?? null,
+    action: LUMP_PAYMENT_AUDIT_ACTION,
+    entity_type: 'unit',
+    entity_id: unitId,
+    metadata: {
+      mode: preview.mode,
+      state: home.state,
+      method: paymentMethod,
+      total_cents: preview.totalCents,
+      recorded_cents: appliedCents,
+      credit_cents: creditCents,
+      complete: true,
+      atomic: true,
+      paid_on: paidOn,
+      charges: preview.lines.map((l) => ({ id: l.chargeId, cents: l.appliedCents })),
+      ambiguity_codes: preview.ambiguities.map((x) => x.code),
+    },
+  })
+  if (auditErr) console.error('[lump-payment] audit failed', { unitId, code: auditErr.code ?? null })
+
+  // Best effort, like markAssessmentPaid: a plan that is now paid off, and
+  // the owner's receipt when the board turned receipts on.
+  const { completePlansAfterPayment } = await import('@/lib/accounting/plan-completion')
+  await completePlansAfterPayment(supabase as never, {
+    organizationId: gate.orgId,
+    associationId: home.associationId,
+    unitId,
+    today: home.today,
+  })
+  const { queuePaymentReceiptAfterResponse } = await import('@/lib/resident-notify/receipt-notify')
+  for (const paymentId of paymentIds) queuePaymentReceiptAfterResponse(supabase, { paymentId, associationId: home.associationId })
+
+  revalidatePath('/dues')
+  revalidatePath('/')
+  revalidatePath('/accounting')
+  revalidatePath('/accounting/ledger')
+  return { ok: true, recordedCents: appliedCents, chargeCount: preview.lines.length, ...(creditCents > 0 ? { creditCents } : {}) }
 }

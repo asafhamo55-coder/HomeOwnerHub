@@ -9,6 +9,8 @@ import type { LetterEvent, LetterInput } from './model'
 import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
 import { loadGaComplaintGate } from '@/lib/ga-complaints/load'
 import { LETTER_ACTION, readLetterPayload, type LetterPayload } from './proposal'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
+import { mailRecordFor, type MailEvent, type MailRecord } from '../mail-tracking'
 
 /**
  * Everything the collections letter page needs (BL-089), read with the
@@ -27,6 +29,8 @@ export interface LetterRequest {
   payload: LetterPayload
   /** When it was first printed, or null. */
   printedAt: string | null
+  /** BL-166 (M7_APPLIED): how and when the board recorded it mailed and delivered, or null. */
+  mail?: MailRecord | null
 }
 
 export interface LetterContext {
@@ -71,6 +75,7 @@ export async function loadLetterContext(supabase: SupabaseClient, orgId: string,
     ...ctx.input,
     ...(gaRegistration ? { gaRegistration } : {}),
     ...(gaComplaintStay ? { gaComplaintStay } : {}),
+    ...(M7_APPLIED ? { mailTracking: true } : {}),
   }
   const base = { input, today: ctx.today, collectionCase: live ? { id: live.id, status: live.status } : null }
   if (!live) return { ...base, events: [], requests: [] }
@@ -127,9 +132,20 @@ export async function loadLetterContext(supabase: SupabaseClient, orgId: string,
   audits.sort((a, b) => a.created_at.localeCompare(b.created_at))
   for (const a of audits) if (!printed.has(a.entity_id)) printed.set(a.entity_id, a.created_at)
 
+  const mailEvents: MailEvent[] = M7_APPLIED
+    ? events.map((e) => ({
+        note: e.note,
+        createdAt: e.createdAt,
+        method: e.mailMethod ?? null,
+        trackingNumber: e.trackingNumber ?? null,
+        mailedOn: e.mailedOn ?? null,
+        deliveredOn: e.deliveredOn ?? null,
+      }))
+    : []
+
   return {
     ...base,
     events: events.map((e) => ({ eventType: e.eventType, occurredOn: e.occurredOn })),
-    requests: rows.map((r) => ({ ...r, printedAt: printed.get(r.id) ?? null })),
+    requests: rows.map((r) => ({ ...r, printedAt: printed.get(r.id) ?? null, mail: M7_APPLIED ? mailRecordFor(r.id, mailEvents) : null })),
   }
 }

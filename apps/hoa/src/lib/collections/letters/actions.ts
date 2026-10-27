@@ -19,6 +19,8 @@ import {
   type OverrideReason,
 } from '@/lib/compliance/statute-drift'
 import { loadLetterContext, type LetterContext } from './load'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
+import { MAIL_METHODS, clockStartOf, mailingNote, validateMailFields } from '../mail-tracking'
 import {
   LETTER_KINDS,
   blankValues,
@@ -59,7 +61,12 @@ const SaveSchema = z.object({
 
 /** The case's letters already printed, for the state law check's waiting periods. */
 function printedRecords(ctx: LetterContext) {
-  return ctx.requests.flatMap((r) => (r.printedAt ? [{ kind: r.payload.kind, printedAt: r.printedAt }] : []))
+  // BL-166: a delivery date the board recorded (certified / statutory overnight only) starts the clock.
+  return ctx.requests.flatMap((r) => {
+    if (!r.printedAt) return []
+    const deliveredOn = clockStartOf(r.mail)
+    return [{ kind: r.payload.kind, printedAt: r.printedAt, ...(deliveredOn ? { deliveredOn } : {}) }]
+  })
 }
 
 async function gateAndLoad(propertyId: string) {
@@ -313,4 +320,63 @@ export async function recordLetterPrinted(input: z.input<typeof PrintSchema>): P
     ok: true,
     message: reprint ? 'Reprint recorded.' : `Recorded on the collections case as “${LETTER_META[payload.kind].label}”, dated today.`,
   }
+}
+
+const DayText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+const MailSchema = z.object({
+  propertyId: z.string().uuid(),
+  approvalRequestId: z.string().uuid(),
+  mailMethod: z.enum(MAIL_METHODS),
+  trackingNumber: z.string().trim().max(100).optional(),
+  mailedOn: DayText.optional(),
+  deliveredOn: DayText.optional(),
+})
+
+/**
+ * BL-166 (M7_APPLIED): the board records how and when a PRINTED letter was
+ * mailed and delivered. collection_events is append-only, so this adds an
+ * event that names the letter (mailingNote); a delivery learned later is
+ * another call that repeats the method. The Georgia fee-notice clock and
+ * the earliest foreclosure date count from the delivery day, and only for
+ * certified mail or statutory overnight delivery (mail-tracking.ts).
+ */
+export async function recordLetterMailing(input: z.input<typeof MailSchema>): Promise<LetterResult> {
+  if (!M7_APPLIED) return { ok: false, error: 'Recording how a letter was mailed isn’t available yet.' }
+  const parsed = MailSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: 'Check the mailing details and try again.' }
+  const v = parsed.data
+
+  const loaded = await gateAndLoad(v.propertyId)
+  if (!loaded.ok) return loaded
+  const { gate, supabase, user, ctx } = loaded
+
+  const request = ctx.requests.find((r) => r.id === v.approvalRequestId)
+  if (!request) return { ok: false, error: 'That letter wasn’t found for this home.' }
+  if (request.printedAt === null) return { ok: false, error: 'Print the letter first, then record how it was mailed.' }
+  if (!ctx.collectionCase || ctx.collectionCase.id !== request.payload.caseId) {
+    return { ok: false, error: 'The collections case for this letter is closed.' }
+  }
+  const mail = validateMailFields(v, ctx.today)
+  if (!mail.ok) return { ok: false, error: mail.error }
+  if (!mail.record) return { ok: false, error: 'Choose how it was mailed.' }
+
+  const { error } = await supabase.from('collection_events').insert({
+    organization_id: gate.orgId,
+    collection_case_id: request.payload.caseId,
+    event_type: 'note',
+    occurred_on: mail.record.mailedOn ?? mail.record.deliveredOn ?? ctx.today,
+    note: mailingNote(request.id),
+    recorded_by: user.id,
+    mail_method: mail.record.method,
+    tracking_number: mail.record.trackingNumber,
+    mailed_on: mail.record.mailedOn,
+    delivered_on: mail.record.deliveredOn,
+  } as never)
+  if (error) {
+    console.error('[collections.letters] mailing insert failed', { orgId: gate.orgId, code: error.code ?? null })
+    return { ok: false, error: 'Couldn’t record the mailing. Nothing was saved. Try again.' }
+  }
+  revalidate(v.propertyId)
+  return { ok: true, message: mail.record.deliveredOn ? 'Mailing and delivery recorded.' : 'Mailing recorded. Add the delivery date when the green card or tracking shows it.' }
 }

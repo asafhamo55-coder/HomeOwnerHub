@@ -25,7 +25,7 @@ import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
 import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
 import { loadOrFail } from '@/lib/load-or-fail'
-import { buildLedger, loadLedgerRows, type Ledger } from '@/lib/resident-ledger'
+import { buildLedger, loadLedgerRows, loadUnappliedCredits, type Ledger } from '@/lib/resident-ledger'
 import { todayIn } from '@/lib/association-time'
 import { chargeWindow, scopeAssessments, scopeLedgerRows, type ChargeWindow } from '@/lib/resident-sale-window'
 import {
@@ -163,9 +163,12 @@ export async function getResidentLedger(): Promise<{
   // A buyer sees their ownership's history only (resident-sale-window.ts).
   const zone = residentTimeZone(units)
   const scoped = scopeLedgerRows(rows.assessments, rows.payments, chargeWindow(units), zone)
+  // BL-177: unapplied credit (none, and no query, before M7_APPLIED).
+  const credits = await loadUnappliedCredits(actor.client, units.map((u) => u.unit_id), actor.orgId)
+  if (!credits.ok) return { units, ledger: null, truncated: false }
   return {
     units,
-    ledger: buildLedger(scoped.assessments, scoped.payments, zone),
+    ledger: buildLedger(scoped.assessments, scoped.payments, zone, credits.credits),
     truncated: rows.truncated,
   }
 }
