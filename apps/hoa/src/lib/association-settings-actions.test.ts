@@ -64,7 +64,8 @@ function fakeClient() {
 }
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: vi.fn(async () => fakeClient()) }))
 
-const { updateAssociationSettings, ADMIN_ONLY_DENIED } = await import('./association-settings-actions')
+const { updateAssociationSettings } = await import('./association-settings-actions')
+const { ADMIN_ONLY_DENIED } = await import('./association-settings')
 
 const input = (over: Record<string, unknown> = {}) => ({
   associationId: ASSOC,

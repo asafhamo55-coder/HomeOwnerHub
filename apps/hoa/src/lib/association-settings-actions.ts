@@ -17,11 +17,7 @@
 import { revalidatePath } from 'next/cache'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { updateAssociationSchema } from './association-settings'
-
-export const ASSOCIATION_SETTINGS_AUDIT_ACTION = 'association.settings_updated'
-
-export const ADMIN_ONLY_DENIED = 'Only an admin of your HOA can change the association’s state or type.'
+import { ADMIN_ONLY_DENIED, ASSOCIATION_SETTINGS_AUDIT_ACTION, updateAssociationSchema } from './association-settings'
 
 export type UpdateAssociationResult =
   | { ok: true }

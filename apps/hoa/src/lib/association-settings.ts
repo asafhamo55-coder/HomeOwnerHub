@@ -161,3 +161,9 @@ export function describeStateChange(from: AssociationSnapshot, to: AssociationSn
 
   return { changed: true, items, unchanged: NOT_REWRITTEN }
 }
+
+// Kept out of association-settings-actions.ts: a 'use server' file may only
+// export async functions.
+export const ASSOCIATION_SETTINGS_AUDIT_ACTION = 'association.settings_updated'
+
+export const ADMIN_ONLY_DENIED = 'Only an admin of your HOA can change the association’s state or type.'
