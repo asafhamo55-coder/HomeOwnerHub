@@ -17,6 +17,9 @@
  *    filing year (ga-corp-annual-registration-YYYY), so marking 2027 done
  *    never hides 2028. The year shown is today's, from 2027 (the first
  *    season after this shipped).
+ *  - US (BL-167): the federal 1099-NEC and Form 1120-H dates, for every
+ *    association in every state. Cited from irs.gov, not a state fixture.
+ *    One code per tax year (federal-1099-nec-YYYY, federal-1120-h-YYYY).
  *  - TX: the management certificate, Tex. Prop. Code § 209.004. A standing
  *    obligation with no calendar date (record it, e-file with TREC within 7
  *    days, amend within 30 days of a change). Fixture:
@@ -64,7 +67,8 @@ export type ComplianceState = 'GA' | 'FL' | 'CA' | 'TX'
 export interface ComplianceDeadline {
   /** Stable id; the acknowledgment is stored under it. */
   code: string
-  state: ComplianceState
+  /** 'US': a federal deadline that applies to every association, whatever its state (BL-167). */
+  state: ComplianceState | 'US'
   title: string
   /** The exact citation, as the card and the digest print it. */
   citation: string
@@ -76,8 +80,8 @@ export interface ComplianceDeadline {
   whatToDo: string[]
   officialUrl: string
   officialLabel: string
-  /** The statute text we hold, under scripts/fixtures/state-law. */
-  fixture: string
+  /** The statute text we hold, under scripts/fixtures/state-law. null for 'US' rows: they cite irs.gov instead. */
+  fixture: string | null
   /** Who it applies to, in the board's words. */
   appliesTo: string
   /**
@@ -89,9 +93,15 @@ export interface ComplianceDeadline {
   opensOn?: string
   /** 'filing' only: days after dueOn when the stated consequence can start. */
   graceDays?: number
+  /** BL-167: where the app already prepares the inputs for this deadline (the year-end package). */
+  prepHref?: string
+  prepLabel?: string
 }
 
-export const COMPLIANCE_DEADLINES: readonly ComplianceDeadline[] = [
+/** A fixed state-law entry: always has a state and a statute fixture. */
+export type StateComplianceDeadline = ComplianceDeadline & { state: ComplianceState; fixture: string }
+
+export const COMPLIANCE_DEADLINES: readonly StateComplianceDeadline[] = [
   {
     code: 'ga-sos-registration-2027',
     state: 'GA',
@@ -176,11 +186,159 @@ export function gaCorpRegistrationDeadline(year: number): ComplianceDeadline {
   }
 }
 
+// ─── Federal: Form 1099-NEC and Form 1120-H (BL-167) ────────────────
+//
+// Sources, read on irs.gov on 2026-10-26 (re-verify each filing season):
+//  - Instructions for Forms 1099-MISC and 1099-NEC,
+//    https://www.irs.gov/instructions/i1099mec : "file Form 1099-NEC on or
+//    before January 31"; "If any date shown falls on a Saturday, Sunday, or
+//    legal holiday in the District of Columbia or where the return is to be
+//    filed, the due date is the next business day." For tax years beginning
+//    after 2025 the reporting threshold "increased to $2,000 and may be
+//    adjusted for inflation beginning in calendar year 2027". So the
+//    threshold is stated for 2026 only; later years say "check irs.gov".
+//  - Instructions for Form 1120-H, https://www.irs.gov/instructions/i1120h
+//    (2025 revision): "Generally, an association must file Form 1120-H by
+//    the 15th day of the 4th month after the end of its tax year"; if the
+//    due date falls on a Saturday, Sunday or legal holiday, the next
+//    business day; Form 7004 requests an automatic extension. Electing
+//    section 528 treatment is done by filing the form, so the row is
+//    worded "if it files".
+// Dates here assume a calendar tax year (Dec 31). A different fiscal year
+// moves the 1120-H date; the row says so and points at the instructions.
+// HomeownerHub gives dates and a pointer to the year-end package. It does
+// not say who must file or what is owed: not legal or tax advice.
+
+const FEDERAL_CODE_RE = /^federal-(1099-nec|1120-h)-(\d{4})$/
+/** The first tax year tracked: payments and income in 2026 (shipped Oct 2026). */
+export const FEDERAL_FIRST_YEAR = 2026
+/** A missed federal date stays on the card and in the digest this long, then the next tax year takes over. */
+export const FEDERAL_LATE_VISIBLE_DAYS = 90
+export const NEC_INSTRUCTIONS_URL = 'https://www.irs.gov/instructions/i1099mec'
+export const FORM_1120H_URL = 'https://www.irs.gov/instructions/i1120h'
+export const YEAR_END_PACKAGE_HREF = '/accounting/reports/year-end'
+const NOT_TAX_ADVICE_NOTE = 'Not legal or tax advice: your CPA decides what applies to the association.'
+
+export function federal1099Code(taxYear: number): string {
+  return `federal-1099-nec-${taxYear}`
+}
+export function federal1120hCode(taxYear: number): string {
+  return `federal-1120-h-${taxYear}`
+}
+
+/** D.C. Emancipation Day (Apr 16) is a legal holiday in D.C.; observed Friday if it is a Saturday, Monday if a Sunday. */
+function isLegalHolidayForFiling(ymd: string): boolean {
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (m !== 4) return false
+  const dow = new Date(Date.UTC(y!, 3, 16)).getUTCDay()
+  const observed = dow === 6 ? 15 : dow === 0 ? 17 : 16
+  return d === observed
+}
+
+/** The next business day on or after `ymd` (weekends; the April D.C. holiday). */
+function nextBusinessDay(ymd: string): string {
+  let day = ymd
+  for (;;) {
+    const dow = new Date(dayIndex(day) * DAY_MS).getUTCDay()
+    if (dow !== 0 && dow !== 6 && !isLegalHolidayForFiling(day)) return day
+    day = addCalendarDays(day, 1)
+  }
+}
+
+/** Form 1099-NEC for payments made in `taxYear`: Jan 31 after, or the next business day (2026 payments: Feb 1, 2027). */
+export function nec1099DueOn(taxYear: number): string {
+  return nextBusinessDay(`${taxYear + 1}-01-31`)
+}
+
+/** Form 1120-H for a calendar `taxYear`: the 15th day of the 4th month after year end, or the next business day. */
+export function form1120hDueOn(taxYear: number): string {
+  return nextBusinessDay(`${taxYear + 1}-04-15`)
+}
+
+/**
+ * The tax year that matters today: last year's until its date is 90 days
+ * past (a missed one stays visible), else this year's; never before 2026.
+ */
+export function federalTaxYear(todayYmd: string, dueOn: (taxYear: number) => string): number {
+  const y = Number(todayYmd.slice(0, 4))
+  const prev = y - 1
+  const stillVisible = todayYmd <= addCalendarDays(dueOn(prev), FEDERAL_LATE_VISIBLE_DAYS)
+  return Math.max(stillVisible ? prev : y, FEDERAL_FIRST_YEAR)
+}
+
+export function federal1099Deadline(taxYear: number): ComplianceDeadline {
+  const threshold =
+    taxYear === 2026
+      ? 'For payments made in 2026 the IRS reporting threshold is $2,000.'
+      : 'The reporting threshold can change with inflation from 2027: check irs.gov.'
+  return {
+    code: federal1099Code(taxYear),
+    state: 'US',
+    title: `Send ${taxYear} Forms 1099-NEC to vendors and file them with the IRS`,
+    citation: 'IRS, Instructions for Forms 1099-MISC and 1099-NEC (irs.gov/instructions/i1099mec)',
+    dueOn: nec1099DueOn(taxYear),
+    dueKind: 'filing',
+    consequence: `The IRS can charge a penalty for each form filed or sent late. ${NOT_TAX_ADVICE_NOTE}`,
+    whatToDo: [
+      `Download the year-end package for ${taxYear}: its 1099-NEC candidate list shows who was paid $600 or more, and flags who was paid over $2,000.`,
+      `${threshold} Confirm which vendors need a form with your CPA; HomeownerHub doesn’t know if a vendor is a corporation.`,
+      'File with the IRS and send each vendor their copy by the date shown. January 31 moves to the next business day when it falls on a weekend or holiday.',
+      'Mark it done here and attach proof of filing (the IRS or e-file receipt) as evidence.',
+    ],
+    officialUrl: NEC_INSTRUCTIONS_URL,
+    officialLabel: 'IRS — Instructions for Forms 1099-MISC and 1099-NEC',
+    fixture: null,
+    appliesTo:
+      'Any association that paid a vendor for services at or above the IRS threshold during the year. If it paid none, there is nothing to file: mark it done.',
+    prepHref: YEAR_END_PACKAGE_HREF,
+    prepLabel: 'Open the year-end package',
+  }
+}
+
+export function federal1120hDeadline(taxYear: number): ComplianceDeadline {
+  return {
+    code: federal1120hCode(taxYear),
+    state: 'US',
+    title: `File the association’s ${taxYear} Form 1120-H, if it files one`,
+    citation: 'IRS, Instructions for Form 1120-H (irs.gov/instructions/i1120h)',
+    dueOn: form1120hDueOn(taxYear),
+    dueKind: 'filing',
+    consequence: `A late return can bring IRS penalties, and Form 7004 asks for an automatic extension. ${NOT_TAX_ADVICE_NOTE}`,
+    whatToDo: [
+      `Download the year-end package for ${taxYear}: it includes a Form 1120-H worksheet for your CPA.`,
+      'Ask your CPA whether the association files Form 1120-H or another return. Filing the form is how an association elects section 528 treatment.',
+      'The date shown is for a calendar tax year: the 15th day of the 4th month after year end, or the next business day. A different fiscal year moves it; the IRS instructions explain.',
+      'Mark it done here and attach the filed return or the extension request (Form 7004) as evidence.',
+    ],
+    officialUrl: FORM_1120H_URL,
+    officialLabel: 'IRS — Instructions for Form 1120-H',
+    fixture: null,
+    appliesTo:
+      'Homeowners associations that file Form 1120-H. If your CPA files a different return, or none, mark it done.',
+    prepHref: YEAR_END_PACKAGE_HREF,
+    prepLabel: 'Open the year-end package',
+  }
+}
+
+/** Both federal deadlines for today's tax years. Every association gets them, in every state. */
+export function federalDeadlines(todayYmd: string): ComplianceDeadline[] {
+  return [
+    federal1099Deadline(federalTaxYear(todayYmd, nec1099DueOn)),
+    federal1120hDeadline(federalTaxYear(todayYmd, form1120hDueOn)),
+  ]
+}
+
 /** A deadline by its code: the fixed list, or a Georgia corporate registration year (2027–2099). */
 export function deadlineByCode(code: unknown): ComplianceDeadline | null {
   if (typeof code !== 'string') return null
   const fixed = COMPLIANCE_DEADLINES.find((d) => d.code === code)
   if (fixed) return fixed
+  const f = FEDERAL_CODE_RE.exec(code)
+  if (f) {
+    const taxYear = Number(f[2])
+    if (taxYear < FEDERAL_FIRST_YEAR || taxYear > 2099) return null
+    return f[1] === '1099-nec' ? federal1099Deadline(taxYear) : federal1120hDeadline(taxYear)
+  }
   const m = GA_CORP_CODE_RE.exec(code)
   if (!m) return null
   const year = Number(m[1])
@@ -215,18 +373,21 @@ export function complianceState(
 /**
  * The deadlines that apply in this state. With `todayYmd`, Georgia also
  * gets the corporation's annual registration for today's filing year.
+ * BL-167: with `todayYmd`, every association also gets the federal rows,
+ * even one with no known state.
  */
 export function deadlinesForState(state: ComplianceState | null, todayYmd?: string): ComplianceDeadline[] {
-  if (!state) return []
+  const federal = todayYmd ? federalDeadlines(todayYmd) : []
+  if (!state) return federal
   const fixed = COMPLIANCE_DEADLINES.filter((d) => d.state === state)
-  if (state === 'GA' && todayYmd) return [...fixed, gaCorpRegistrationDeadline(gaCorpRegistrationYear(todayYmd))]
-  return fixed
+  if (state === 'GA' && todayYmd) return [...fixed, gaCorpRegistrationDeadline(gaCorpRegistrationYear(todayYmd)), ...federal]
+  return [...fixed, ...federal]
 }
 
 /** The code is a deadline for this state (any year, for the Georgia corporate registration). */
 export function deadlineAppliesToState(state: ComplianceState | null, code: unknown): boolean {
   const d = deadlineByCode(code)
-  return d !== null && state !== null && d.state === state
+  return d !== null && (d.state === 'US' || (state !== null && d.state === state))
 }
 
 // ─── Acknowledgments: sign / read / merge ───────────────────────────
@@ -468,6 +629,8 @@ export interface ComplianceAssociationInput {
   state: string | null
   governingLawState: string | null
   complianceSettings: unknown
+  /** BL-155: associations.type ('hoa' | 'condo' | 'coop'). Absent or not 'condo': the POA Act rows. */
+  type?: string | null
 }
 
 export interface PendingComplianceItem {

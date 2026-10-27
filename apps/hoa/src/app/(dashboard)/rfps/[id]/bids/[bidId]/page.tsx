@@ -20,6 +20,7 @@ import { getBid, getBidDocumentSignedUrl, type BidLineItemRow } from '@/lib/bids
 import { BID_STATUS_LABELS, BID_STATUS_TONES } from '@/lib/status/vendors'
 import { dateOnly, usd } from '@/components/vendors/format'
 import { AwardBidButton } from './AwardBidButton'
+import { ConflictDisclosurePanel } from '@/components/conflict-disclosure/ConflictDisclosurePanel'
 
 export const metadata = { title: 'Bid' }
 
@@ -88,6 +89,10 @@ export default async function BidDetailPage({
         </>
       }
     >
+      {bid.status === 'submitted' || bid.status === 'awarded' ? (
+        <ConflictDisclosurePanel decisionKind="bid_award" decisionId={bid.id} />
+      ) : null}
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">

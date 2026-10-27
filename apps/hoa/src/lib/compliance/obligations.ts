@@ -21,6 +21,19 @@
  *      documents".
  * Rows 3–5 are the Property Owners' Association Act, which covers property
  * submitted to it (§ 44-3-235(a)); each says so.
+ * BL-155: a Georgia association whose type is 'condo' gets the Georgia
+ * Condominium Act instead (the POA Act does not govern Article 3
+ * associations, § 44-3-235(b)), quoted from lib/ga-condo/law.ts:
+ *   3. the annual meeting and its 21-day notice, the annual report, and the
+ *      15% owners' call (§ 44-3-102);
+ *   4. minutes and financial records (§ 44-3-106(d));
+ *   5. the statement of amounts due within five business days
+ *      (§ 44-3-109(d));
+ *   6. the insurance the Act requires (§ 44-3-107(a), (c)), in place of
+ *      the "not loaded" condominium row.
+ * Rows 1–2 (SB 406 registration) are the same for both: Ch. 17A covers
+ * condominium associations. Any other type (HOA, co-op, unknown) keeps the
+ * POA Act rows exactly.
  * TEXAS: the management certificate (§ 209.004), markable.
  * FLORIDA: the BL-139 director certificates, summarised (the tracker lives
  * on Members).
@@ -40,6 +53,10 @@
  * BL-159: the same 30-day amendment row after each board role change made
  * in Settings → Members (changeMemberRole writes it into that signed
  * record), counted from the day the role changed.
+ * BL-167, EVERY STATE (also an unknown one): the federal Form 1099-NEC and
+ * Form 1120-H dates for the current tax year, markable per tax year, each
+ * linking to the year-end package. Cited from irs.gov (see deadlines.ts),
+ * so no statute quote; not legal or tax advice.
  * ANY OTHER STATE: nothing quoted; "check your governing documents".
  *
  * Statute wording only ever comes from ./law.ts (checked word for word);
@@ -52,8 +69,14 @@ import {
   deadlineByCode,
   deadlineLabel,
   deadlineTone,
+  federal1099Code,
+  federal1120hCode,
+  federalTaxYear,
+  form1120hDueOn,
+  nec1099DueOn,
   gaCorpRegistrationCode,
   gaCorpRegistrationYear,
+  YEAR_END_PACKAGE_HREF,
   formatDueOn,
   readComplianceAcks,
   type ComplianceAssociationInput,
@@ -107,6 +130,24 @@ import {
   TX_CERTIFICATE_TREC,
   type StatuteQuote,
 } from './law'
+import {
+  GA_CONDO_ANNUAL_MEETING,
+  GA_CONDO_ANNUAL_NOTICE_DAYS,
+  GA_CONDO_ANNUAL_REPORT,
+  GA_CONDO_APPLIES,
+  GA_CONDO_LIABILITY_INSURANCE,
+  GA_CONDO_MEETING_NOTICE,
+  GA_CONDO_OWNER_CALL,
+  GA_CONDO_PROPERTY_INSURANCE,
+  GA_CONDO_RECORDS_FINANCIAL,
+  GA_CONDO_RECORDS_KEEP,
+  GA_CONDO_RECORDS_MINUTES,
+  GA_CONDO_SCOPE,
+  GA_CONDO_STATEMENT_DEADLINE,
+  GA_CONDO_STATEMENT_RIGHT,
+  GA_CONDO_WATER_CERTIFICATE,
+  isGaCondo,
+} from '@/lib/ga-condo/law'
 
 // ─── Inputs ─────────────────────────────────────────────────────────
 
@@ -376,21 +417,32 @@ function gaRegistrationUpkeep(base: Base, today: string, standing: GaRegistratio
   }
 }
 
-function gaAnnualMeeting(base: Base, input: ComplianceInput): ComplianceObligation {
+function gaAnnualMeeting(base: Base, input: ComplianceInput, condo = false): ComplianceObligation {
+  const noticeDays = condo ? GA_CONDO_ANNUAL_NOTICE_DAYS : GA_ANNUAL_NOTICE_DAYS
   const common = {
     ...base,
     key: `${base.associationId}:ga-annual-meeting`,
     kind: 'annual_meeting' as const,
-    title: 'Hold the annual members’ meeting, with 21 days’ notice',
-    steps: [
-      'Schedule the annual meeting under Meetings (type: Annual).',
-      `Send the notice to every owner at least ${GA_ANNUAL_NOTICE_DAYS} days before the meeting, with the time and place.`,
-      'At the meeting, report on the association’s affairs, finances and budget projections. The meeting’s Annual report to owners builds it from your books.',
-      'File the minutes afterwards.',
-      'Hold it before the fiscal year ends: if the board doesn’t, owners holding 5% of the voting power (or the figure in your articles or bylaws, never more than 25%) may call it themselves.',
-    ],
-    quotes: [GA_ANNUAL_MEETING, GA_MEETING_NOTICE, GA_ANNUAL_REPORT, GA_MISSED_ANNUAL_MEETING, GA_POA_ACT_SCOPE],
-    appliesTo: GA_POA_APPLIES,
+    title: `Hold the annual members’ meeting, with ${noticeDays} days’ notice`,
+    steps: condo
+      ? [
+          'Schedule the annual meeting under Meetings (type: Annual).',
+          `Send the notice to every unit owner at least ${noticeDays} days before the meeting, with the time, place and purpose.`,
+          'At the meeting, report on the association’s affairs, finances and budget projections. The meeting’s Annual report to owners builds it from your books.',
+          'File the minutes afterwards.',
+          'If your condominium instrument was recorded on or after July 1, 1990, it must provide for calling a meeting when at least 15% of the unit owners ask in writing. Check how yours does, and act on such a request.',
+        ]
+      : [
+          'Schedule the annual meeting under Meetings (type: Annual).',
+          `Send the notice to every owner at least ${noticeDays} days before the meeting, with the time and place.`,
+          'At the meeting, report on the association’s affairs, finances and budget projections. The meeting’s Annual report to owners builds it from your books.',
+          'File the minutes afterwards.',
+          'Hold it before the fiscal year ends: if the board doesn’t, owners holding 5% of the voting power (or the figure in your articles or bylaws, never more than 25%) may call it themselves.',
+        ],
+    quotes: condo
+      ? [GA_CONDO_ANNUAL_MEETING, GA_CONDO_MEETING_NOTICE, GA_CONDO_ANNUAL_REPORT, GA_CONDO_OWNER_CALL, GA_CONDO_SCOPE]
+      : [GA_ANNUAL_MEETING, GA_MEETING_NOTICE, GA_ANNUAL_REPORT, GA_MISSED_ANNUAL_MEETING, GA_POA_ACT_SCOPE],
+    appliesTo: condo ? GA_CONDO_APPLIES : GA_POA_APPLIES,
     official: null,
     deadlineCode: null,
     done: null,
@@ -401,7 +453,7 @@ function gaAnnualMeeting(base: Base, input: ComplianceInput): ComplianceObligati
   }
   if (m.next) {
     const link = { href: `/meetings/${m.next.id}`, label: 'Open the annual meeting' }
-    const noticeBy = addDays(m.next.date, -GA_ANNUAL_NOTICE_DAYS)
+    const noticeBy = addDays(m.next.date, -noticeDays)
     const meetingOn = formatDueOn(m.next.date)
     const sent = m.nextNoticeSentOn
     if (typeof sent === 'string' && sent !== 'failed') {
@@ -447,7 +499,7 @@ function gaAnnualMeeting(base: Base, input: ComplianceInput): ComplianceObligati
   }
 }
 
-function gaDuties(base: Base): ComplianceObligation[] {
+function gaDuties(base: Base, condo = false): ComplianceObligation[] {
   const duty = (
     key: string,
     title: string,
@@ -464,12 +516,48 @@ function gaDuties(base: Base): ComplianceObligation[] {
     dueOn: null,
     steps,
     quotes,
-    appliesTo: GA_POA_APPLIES,
+    appliesTo: condo ? GA_CONDO_APPLIES : GA_POA_APPLIES,
     link,
     official: null,
     deadlineCode: null,
     done: null,
   })
+  if (condo) {
+    return [
+      duty(
+        'ga-records',
+        'Keep minutes and financial records',
+        [
+          'File minutes for every board meeting and members’ meeting under Meetings.',
+          'Record every receipt and expense in Accounting, with the bill or receipt attached.',
+        ],
+        [GA_CONDO_RECORDS_KEEP, GA_CONDO_RECORDS_MINUTES, GA_CONDO_RECORDS_FINANCIAL],
+        { href: '/meetings', label: 'Open Meetings' },
+      ),
+      duty(
+        'ga-statement-of-amounts-due',
+        'Answer a request for a statement of amounts due within five business days',
+        [
+          'Watch for written requests from unit owners, buyers and lenders, and note the day each arrives.',
+          'Open the unit under Properties and prepare the statement from its ledger.',
+          'Send it to the address in the request and keep a copy.',
+        ],
+        [GA_CONDO_STATEMENT_RIGHT, GA_CONDO_STATEMENT_DEADLINE],
+        { href: '/properties', label: 'Open Properties' },
+      ),
+      duty(
+        'ga-condo-insurance',
+        'Carry the insurance the Condominium Act requires',
+        [
+          'Record the property policy and the general liability policy under Insurance, with their limits.',
+          'Check with your agent that the property policy is written for full replacement cost of the buildings, and that liability is at least $1 million per occurrence and $2 million aggregate.',
+          'When a unit owner asks in writing for the certificate of insurance on a water claim, send it within five business days.',
+        ],
+        [GA_CONDO_PROPERTY_INSURANCE, GA_CONDO_LIABILITY_INSURANCE, GA_CONDO_WATER_CERTIFICATE],
+        { href: '/insurance', label: 'Open Insurance' },
+      ),
+    ]
+  }
   return [
     duty(
       'ga-records',
@@ -839,12 +927,40 @@ function gaOfficerChangeRows(base: Base, a: ComplianceAssociationInput, input: C
   return (read.record.officerChanges ?? []).map((c) => gaOfficerChangeRow(base, c, input.today, read.record))
 }
 
+/** BL-167: the federal 1099-NEC and 1120-H rows. Same for every association; the year-end package is where the inputs are prepared. */
+function federalObligations(base: Base, acks: ReturnType<typeof readComplianceAcks>, input: ComplianceInput): ComplianceObligation[] {
+  const pkg = { href: YEAR_END_PACKAGE_HREF, label: 'Open the year-end package' }
+  const nec = federal1099Code(federalTaxYear(input.today, nec1099DueOn))
+  const h = federal1120hCode(federalTaxYear(input.today, form1120hDueOn))
+  return [
+    deadlineObligation(base, nec, acks, input, {
+      steps: deadlineByCode(nec)!.whatToDo,
+      quotes: [],
+      appliesTo: deadlineByCode(nec)!.appliesTo,
+      link: pkg,
+    }),
+    deadlineObligation(base, h, acks, input, {
+      steps: deadlineByCode(h)!.whatToDo,
+      quotes: [],
+      appliesTo: deadlineByCode(h)!.appliesTo,
+      link: pkg,
+    }),
+  ]
+}
+
 function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
+  const base: Base = { associationId: a.id, associationName: a.name }
+  const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
+  return [...stateObligations(a, state, input), ...federalObligations(base, acks, input)]
+}
+
+function stateObligations(a: ComplianceAssociationInput, state: ComplianceState | null, input: ComplianceInput): ComplianceObligation[] {
   const base: Base = { associationId: a.id, associationName: a.name }
   const acks = readComplianceAcks(a.id, a.complianceSettings, input.secret)
   const elections = state ? directorElections(base, a, state, input) : []
   switch (state) {
     case 'GA': {
+      const condo = isGaCondo(state, a.type)
       const standing = gaRegistrationStanding(readGaRegistration(a.id, a.complianceSettings, input.secret), input.today)
       return [
         gaRegistrationRow(standing, deadlineObligation(base, 'ga-sos-registration-2027', acks, input, {
@@ -868,8 +984,8 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
           link: KIT_LINK,
         })),
         gaRegistrationUpkeep(base, input.today, standing),
-        gaAnnualMeeting(base, input),
-        ...gaDuties(base),
+        gaAnnualMeeting(base, input, condo),
+        ...gaDuties(base, condo),
         deadlineObligation(base, gaCorpRegistrationCode(gaCorpRegistrationYear(input.today)), acks, input, {
           steps: [
             'Check your articles of incorporation: if the association is a Georgia nonprofit corporation, it files this every year.',
@@ -890,7 +1006,8 @@ function obligationsFor(a: ComplianceAssociationInput, state: ComplianceState | 
             'Georgia associations incorporated as nonprofit corporations (most are). An unincorporated association doesn’t file this.',
           link: null,
         }),
-        notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)'),
+        // BL-155: a condo association gets the Condominium Act rows above instead.
+        ...(condo ? [] : [notLoaded(base, 'ga-condominium', 'Georgia Condominium Act rules (condominium associations)')]),
         ...elections,
         ...gaOfficerChangeRows(base, a, input),
       ]

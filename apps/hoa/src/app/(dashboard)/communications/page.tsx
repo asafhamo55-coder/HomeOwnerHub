@@ -30,6 +30,7 @@ import { getCurrentUserRole } from '@/lib/auth'
 import { activeMessagesTab, canSeeInboxTab } from '@/lib/messages/tabs'
 import { MessagesTabs } from '@/components/messages/MessagesTabs'
 import { NewMessageMenu } from '@/components/messages/NewMessageMenu'
+import { NewAnnouncementButton } from '@/components/announcements/NewAnnouncementButton'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
   BROADCAST_DRAFT_LABEL,
@@ -273,7 +274,12 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
           ? 'Messages to residents you started and haven’t sent yet.'
           : 'Every message sent to your community — welcomes, dues reminders, violation notices, ARC decisions and announcements — with who received it.'
       }
-      actions={<NewMessageMenu />}
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <NewAnnouncementButton />
+          <NewMessageMenu />
+        </div>
+      }
       tabs={
         <MessagesTabs
           active={activeMessagesTab('/communications', status)}

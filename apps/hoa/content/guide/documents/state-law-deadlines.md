@@ -8,7 +8,7 @@ routes: ["/legal"]
 primary_route: /legal
 keywords: [deadline, deadlines, compliance, compliance calendar, state law, georgia, ga, secretary of state, registration, register, sb 406, "43-17A-2", bill of rights act, fines, fees, liens, foreclosure, opt out, texas, tx, management certificate, "209.004", trec, county clerk, mark as done, morning email, daily digest]
 related: [legal-state-law-compliance]
-reviewed: 2026-10-20
+reviewed: 2026-10-26
 ---
 
 The **State law deadlines** card on your dashboard shows fixed legal deadlines that apply to your association because of its state. Each one cites the law it comes from, says what's at stake, and lists what to do.
@@ -40,4 +40,5 @@ The **State law deadlines** card on your dashboard shows fixed legal deadlines t
 - Georgia's registration is yearly. Each registration expires December 31 and must be renewed by then. A change of name, address or officers needs an amended statement within 30 days. The card covers the first registration only, so put the renewal on your own calendar.
 - The Secretary of State says registration opens on or after January 1, 2027 through an online portal. Check its page for the exact date.
 - Other states' deadlines, such as Florida's milestone inspections and California's balcony inspections, aren't on the list. Florida's apply to condominium and cooperative buildings, not HOAs under chapter 720, and the California text isn't in our sources yet.
+- Every association also sees two federal tax dates, Form 1099-NEC and Form 1120-H, whatever its state. They link to the year-end package. See [Download the year-end package](guide:accounting-year-end-cpa).
 - To read your state's HOA law itself, use [State Law](guide:legal-state-law-compliance).

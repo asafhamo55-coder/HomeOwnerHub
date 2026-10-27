@@ -102,6 +102,9 @@ BEGIN;
 
 DO $pre$
 BEGIN
+  IF to_regprocedure('public.tenant_fk_same_org()') IS NULL THEN
+    RAISE EXCEPTION '0071: tenant_fk_same_org() is missing; apply 0070_tenant_isolation.sql first';
+  END IF;
   IF to_regclass('public.org_members') IS NULL THEN
     RAISE EXCEPTION '0071: org_members is missing';
   END IF;
@@ -211,20 +214,32 @@ END
 $mig$;
 
 -- ── 2. auth_org_ids(): members only, not professionals ────────────────
--- Same signature and shape as 0000 (SQL, STABLE, SECURITY DEFINER; no
--- session gives an empty list, never an error: policies on tables the
--- anon role can reach call it). Only the role filter is new.
-CREATE OR REPLACE FUNCTION public.auth_org_ids() RETURNS uuid[]
-    LANGUAGE sql STABLE SECURITY DEFINER
-    SET search_path = public, pg_temp
-    AS $$
+-- 0070's definition (suspended/archived orgs excluded, search_path, null-uid
+-- guard, REVOKE) with ONE addition: the role filter. If 0070 changes this
+-- function again, change both.
+CREATE OR REPLACE FUNCTION public.auth_org_ids()
+RETURNS uuid[]
+LANGUAGE sql STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
   SELECT COALESCE(
-    ARRAY(SELECT m.org_id FROM public.org_members m
-           WHERE m.user_id = auth.uid()
-             AND m.role IN ('admin', 'board', 'resident')),
-    '{}'::UUID[]
-  )
-$$;
+    ARRAY(
+      SELECT m.org_id
+        FROM public.org_members m
+        JOIN public.orgs o ON o.id = m.org_id
+       WHERE auth.uid() IS NOT NULL
+         AND m.user_id = auth.uid()
+         AND m.role IN ('admin', 'board', 'resident')
+         AND o.suspended_at IS NULL
+         AND o.archived_at IS NULL
+    ),
+    '{}'::uuid[]
+  );
+$fn$;
+
+REVOKE ALL ON FUNCTION public.auth_org_ids() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.auth_org_ids() TO authenticated, service_role;
 
 -- ── 2b. professional helpers (each refuses a null auth.uid()) ──────────
 -- An ACTIVE grant: a cpa or attorney row whose expiry is in the future.
@@ -241,6 +256,7 @@ BEGIN
   END IF;
   RETURN EXISTS (
     SELECT 1 FROM public.org_members m
+      JOIN public.orgs o ON o.id = m.org_id AND o.suspended_at IS NULL AND o.archived_at IS NULL
      WHERE m.org_id = p_org_id
        AND m.user_id = auth.uid()
        AND m.role IN ('cpa', 'attorney')
@@ -389,6 +405,15 @@ CREATE TRIGGER matter_assignments_attribution
   BEFORE INSERT OR UPDATE ON public.matter_assignments
   FOR EACH ROW EXECUTE FUNCTION public.matter_assignments_attribution();
 
+-- The home must be the assignment's own org's (tenant_fk_same_org, 0070).
+-- Named so it fires after matter_assignments_scope, which resolves unit_id.
+-- matter_id is polymorphic (no foreign key); the scope trigger above checks
+-- it against the right table's organization.
+DROP TRIGGER IF EXISTS matter_assignments_unit_id_org_scope ON public.matter_assignments;
+CREATE TRIGGER matter_assignments_unit_id_org_scope
+  BEFORE INSERT OR UPDATE OF unit_id, organization_id ON public.matter_assignments
+  FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org('unit_id', 'units', 'organization_id', 'organization_id');
+
 -- Does the calling attorney hold an active grant AND a live assignment?
 CREATE OR REPLACE FUNCTION public.auth_attorney_has_matter(p_org_id uuid, p_matter_type text, p_matter_id uuid)
 RETURNS boolean
@@ -406,6 +431,7 @@ BEGIN
       FROM public.matter_assignments a
       JOIN public.org_members m
         ON m.org_id = a.organization_id AND m.user_id = a.user_id
+      JOIN public.orgs o ON o.id = m.org_id AND o.suspended_at IS NULL AND o.archived_at IS NULL
      WHERE a.organization_id = p_org_id
        AND a.user_id = auth.uid()
        AND a.matter_type = p_matter_type
@@ -437,6 +463,7 @@ BEGIN
       FROM public.matter_assignments a
       JOIN public.org_members m
         ON m.org_id = a.organization_id AND m.user_id = a.user_id
+      JOIN public.orgs o ON o.id = m.org_id AND o.suspended_at IS NULL AND o.archived_at IS NULL
      WHERE a.user_id = auth.uid()
        AND a.matter_type = p_matter_type
        AND a.revoked_at IS NULL
@@ -466,6 +493,7 @@ BEGIN
       FROM public.matter_assignments a
       JOIN public.org_members m
         ON m.org_id = a.organization_id AND m.user_id = a.user_id
+      JOIN public.orgs o ON o.id = m.org_id AND o.suspended_at IS NULL AND o.archived_at IS NULL
      WHERE a.user_id = auth.uid()
        AND a.revoked_at IS NULL
        AND a.unit_id IS NOT NULL
@@ -491,6 +519,7 @@ BEGIN
   END IF;
   RETURN COALESCE(ARRAY(
     SELECT m.org_id FROM public.org_members m
+      JOIN public.orgs o ON o.id = m.org_id AND o.suspended_at IS NULL AND o.archived_at IS NULL
      WHERE m.user_id = auth.uid()
        AND m.role IN ('cpa', 'attorney')
        AND (p_role IS NULL OR m.role = p_role)
@@ -514,6 +543,7 @@ BEGIN
   END IF;
   RETURN COALESCE(ARRAY(
     SELECT m.org_id FROM public.org_members m
+      JOIN public.orgs o ON o.id = m.org_id AND o.suspended_at IS NULL AND o.archived_at IS NULL
      WHERE m.user_id = auth.uid()
        AND m.role = 'attorney'
        AND m.general_counsel
@@ -748,6 +778,11 @@ CREATE POLICY approval_signoffs_select ON public.approval_signoffs
   FOR SELECT TO authenticated
   USING (public.auth_is_board_or_admin(organization_id));
 -- No write policy: the function below is the only user-reachable write.
+-- A sign-off belongs to a request of its own org (tenant_fk_same_org, 0070).
+DROP TRIGGER IF EXISTS approval_signoffs_approval_request_id_org_scope ON public.approval_signoffs;
+CREATE TRIGGER approval_signoffs_approval_request_id_org_scope
+  BEFORE INSERT OR UPDATE OF approval_request_id, organization_id ON public.approval_signoffs
+  FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org('approval_request_id', 'approval_requests', 'organization_id', 'organization_id');
 
 CREATE OR REPLACE FUNCTION public.record_approval_signoff(p_request_id uuid)
 RETURNS integer

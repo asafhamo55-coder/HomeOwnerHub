@@ -88,6 +88,25 @@ describe('BL-158 gaThresholdView', () => {
     expect(gaThresholdView(gaInput({ state: null as never }), BEFORE, OFF)).toBeNull()
   })
 
+  it('BL-155: a Georgia condominium gets the § 43-17A-8 payment-order card only, never the POA Act threshold', () => {
+    for (const asOf of [BEFORE, AFTER]) {
+      const v = gaThresholdView(gaInput({ associationType: 'condo' }), asOf, OFF)!
+      expect(v.condo).toBe(true)
+      expect(v.current).toBeNull()
+      const html = renderToStaticMarkup(<GaThresholdCards view={v} />)
+      expect(html).toContain('How payments should be applied')
+      expect(html).toContain('§ 43-17A-8')
+      expect(html).not.toContain('Georgia foreclosure threshold')
+      expect(html).not.toContain('44-3-232')
+      expect(html).toContain(asOf < '2027-01-01' ? 'From Jan 1, 2027' : 'Since Jan 1, 2027')
+    }
+    for (const associationType of ['hoa', null]) {
+      const v = gaThresholdView(gaInput({ associationType }), BEFORE, OFF)!
+      expect(v.condo).toBe(false)
+      expect(renderToStaticMarkup(<GaThresholdCards view={v} />)).toContain('Georgia foreclosure threshold')
+    }
+  })
+
   it('before 2027: the $2,000 floor is the rule today, and the 2027 count is a preview', () => {
     const v = gaThresholdView(gaInput(), BEFORE, OFF)!
     expect(v.sb406InForce).toBe(false)

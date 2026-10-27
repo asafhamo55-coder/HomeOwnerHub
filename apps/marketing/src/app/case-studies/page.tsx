@@ -18,13 +18,13 @@ export const metadata: Metadata = pageMetadata({
 
 export default function CaseStudiesPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <section className="relative overflow-hidden pt-32 pb-12">
         <div className="absolute inset-0 -z-10 bg-radial-spot" />
         <div className="container-page text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+          <p className="eyebrow text-primary">
             Case studies
           </p>
           <h1 className="mx-auto mt-3 max-w-3xl text-balance text-5xl font-semibold tracking-tight text-foreground md:text-6xl">

@@ -42,7 +42,7 @@ const sections = [
 
 export default function DocsPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <PageHero

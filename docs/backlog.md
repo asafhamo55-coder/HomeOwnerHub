@@ -1919,4 +1919,54 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Attorney:** sees only the matters the board assigns (collections cases, violations and hearings, records requests). Adds notes and documents and drafts letters, which the board approves. Optional general-counsel read access to governing documents and compliance. Time-boxed grant.
    - **Treasurer:** a board member with an officer title. Money approvals and bank-reconciliation sign-off route to the Treasurer, with dual control above a board-set amount. Titles also feed the GA registration kit's officer list.
    - "Trusery" was read as Treasurer (decision in the spec). If a trustee was meant, that's an owner label, not a role.
-   - **Status 2026-10-26:** designed. Build the app behind `M6_APPLIED` plus the M6 SQL, then Asaf applies it.
+   - **Status 2026-10-26:** built on `claude/bl-168`. CI failed (0070:612 uuid = uuid[]). The security review says don't apply 0070 as written (H1 sign-offs survive edits, H2 any board member can change the dual-control amount, M1–M3, L1–L5). Fixes plus the consent accept-link are in progress. It isn't merged to the integration branch until CI and the re-review pass.
+
+## Added 2026-10-26 (owner ask and a finding)
+
+169. **BL-169 Refresh the GA Article 6 fixture with the 2025 and 2026 Code revisions.** Migration: no. Found by BL-155.
+   - `ga-ocga-44-3-art6-2026.txt` misses 2025 SB 153 (§ 44-3-230(b) "may called" becomes "may be called"; § 44-3-231(a)(4)) and 2026 HB 1268 (§§ 44-3-221, 225, 226, 234). Its header wrongly says "2025 none found". `lib/elections/law.ts` quotes "may called".
+   - Fix: apply both Acts from the official signed copies, re-verify every Article 6 quote and the dated snapshot (BL-154), and update the header.
+170. **BL-170 Marketing website visual redesign.** Migration: no. Owner ask (Asaf, 2026-10-26: "it looks terrible … lift it up dramatically").
+   - A design system plus a redesign of home, /hoa, /pricing, /about, /compare and /demo, with product mockups built from real screens.
+   - The truth rules from BL-157 stay. Before/after screenshots go in the release note.
+   - **Status:** dispatched 2026-10-26 (Sonnet).
+
+171. **BL-171 Marketing growth: measurement, demo funnel, Georgia SB 406 guides and readiness check.** Migration: no. Owner ask (Asaf, 2026-10-26). Plan: `docs/specs/2026-10-26-marketing-growth-plan.md`.
+   - **Done 2026-10-26:** a demo request no longer fakes success in production when email isn't configured. Delivery waits on OA-34.
+   - **Build:**
+     - Vercel Web Analytics and conversion events;
+     - a "Book a demo" button in the header and at the end of each page, and a short demo form;
+     - a `/georgia` hub and 6–8 guide pages, quoting the official text only;
+     - the SB 406 readiness check;
+     - SEO metadata and structured data, and the Search Console verification tag (OA-35);
+     - a weekly analytics digest to Asaf (counts only).
+   - **Status:** dispatched 2026-10-26 (Sonnet).
+
+172. **BL-172 SEO content program (primary growth channel, ongoing).** Migration: no. Owner decision (Asaf, 2026-10-26: "invest the most in SEO"). Plan: `docs/decisions/2026-10-26-seo-primary-growth-channel.md`.
+   - **Content:** Georgia law guides, free templates and tools, self-managed-HOA how-tos, factual comparison pages, and local pages only where there is real local substance. FL, CA and TX follow.
+   - **Cadence:** at least 3 new or improved pages a day through a Sonnet SEO agent; a weekly full-site SEO audit; every deploy's release note lists the new pages.
+   - **Quality:** official-fixture quotes only (tested); shipped features only; "not legal advice"; a demo or tool CTA on every page.
+   - **Status:** starts once BL-171's technical base lands.
+
+173. **BL-173 Community announcements in three clicks (Halloween party, happy holidays, graduation reminders, pet control).** Migration: no (reuse the existing composer and send path). Owner ask (Asaf, 2026-10-26: "very simple to generate one; focus on simplicity").
+   - **Flow:**
+     1. **Pick an occasion** from a grid of ready templates (Halloween party, happy holidays, New Year, Fourth of July, graduation congratulations and parking reminder, pet waste and leash rules, pool opening and closing, trash or bulk-pickup change, landscaping and water day, community yard sale, holiday lights, meeting reminder, severe weather), or **type one sentence** ("Halloween party Oct 31 at 6pm at the clubhouse").
+     2. **The app drafts it:** a friendly subject and body, plus a short SMS version (279 characters or less) and the Spanish version where the composer supports it. Event fields (date, time, place) come from the sentence.
+     3. **Review and send:** one screen with a preview. Send to all residents now or schedule. The board clicks Send.
+   - **Seasonal nudges:** the dashboard and digest suggest the next occasion ("Halloween is Friday: send a party notice?"), dismissible.
+   - **Rules:** sending is the board's explicit action; existing opt-outs, channel consent and the outbound guard apply; no PII in logs; the tone stays neutral (no religious assumptions in "holidays" defaults).
+   - **Status:** dispatched 2026-10-26 (Sonnet).
+
+174. **BL-174 Marketing site restyle inspired by nice.com (colors and design patterns).** Migration: no. Owner ask (Asaf, 2026-10-26). Decision: `docs/decisions/2026-10-26-website-nice-inspired-design.md`.
+   - Analyze www.nice.com: palette, type, sections, components. Map it onto the BL-170 design system tokens and restyle all marketing pages, including the BL-171 Georgia hub, guides and readiness check.
+   - No copied assets, copy or code; the HomeownerHub identity stays.
+   - **Status:** dispatched 2026-10-26 (Sonnet).
+
+175. **BL-175 Tenant isolation audit and hardening (no cross-tenant data leaks or cross talk).** Migration: maybe (RLS fixes go into the next batch). Owner ask (Asaf, 2026-10-26).
+   - **Audit scope (read-only, Opus advisor):**
+     - RLS coverage and WITH CHECK, SECURITY DEFINER RPCs, service-role IDOR in server actions and routes;
+     - active-org selection and impersonation, storage paths and signed URLs;
+     - AI retrieval filters, jobs mixing orgs, Next caching keys, webhook org resolution;
+     - exports, search, realtime, and logs.
+   - **Then:** fix confirmed issues and add CI integration tests so isolation is enforced going forward.
+   - **Status:** audit dispatched 2026-10-26.

@@ -27,6 +27,8 @@ type AssocRow = {
   state: string | null
   governing_law_state: string | null
   compliance_settings: unknown
+  /** BL-155: a Georgia 'condo' is capped under § 44-3-109(b)(1). */
+  type: string | null
 }
 
 async function loadAssociation(orgId: string): Promise<{ ok: true; row: AssocRow | null } | { ok: false }> {
@@ -35,7 +37,7 @@ async function loadAssociation(orgId: string): Promise<{ ok: true; row: AssocRow
     'late fee policy association',
     supabase
       .from('associations')
-      .select('id, name, state, governing_law_state, compliance_settings')
+      .select('id, name, state, governing_law_state, compliance_settings, type')
       .eq('organization_id', orgId)
       .order('name', { ascending: true })
       .limit(1),
@@ -74,7 +76,7 @@ export async function getBoardLateFeePolicy(): Promise<BoardLateFeePolicyLoad> {
       policy: read.policy,
       updatedAt: read.state === 'saved' ? read.updatedAt : null,
       usState,
-      law: lateFeeLaw(usState),
+      law: lateFeeLaw(usState, row.type),
     },
   }
 }
@@ -119,6 +121,7 @@ export async function saveLateFeePolicy(input: {
       declarationRef: input.declarationRef,
     },
     usState,
+    row.type,
   )
   if (!parsed.ok) return { ok: false, error: 'Check the highlighted fields.', fieldErrors: parsed.fieldErrors }
 

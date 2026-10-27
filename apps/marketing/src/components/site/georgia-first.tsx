@@ -27,60 +27,71 @@ export function GeorgiaFirst({
 }) {
   const others = STATE_COVERAGE.filter((s) => s.state !== 'GA')
   return (
-    <section className="border-y border-border/60 bg-subtle/30 py-20 md:py-28" id={id}>
+    <section className="section scroll-mt-16 bg-surface" id={id}>
       <div className="container-page">
-        <header className="max-w-3xl">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-            Georgia first
-          </p>
-          <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-[44px] md:leading-[1.08]">
-            The Georgia paperwork your board has to get right.
-          </h2>
-          <p className="mt-5 text-base leading-relaxed text-muted md:text-lg">
-            Georgia’s 2026 HOA law (SB 406) adds registration with the
-            Secretary of State and a notice before an association can claim
-            attorney’s fees. HomeownerHub prepares that paperwork and the rest
-            of Georgia’s from your records, shows the statute it follows, and
-            waits for the board.
+        <header className="grid gap-6 lg:grid-cols-[1.1fr_1fr] lg:items-end lg:gap-16">
+          <div>
+            <p className="eyebrow">Georgia first</p>
+            <h2 className="t-h2 mt-4 text-foreground">
+              The Georgia paperwork your board has to{' '}
+              <span className="t-serif text-primary">get right.</span>
+            </h2>
+          </div>
+          <p className="t-lead">
+            Georgia’s 2026 HOA law (SB 406) adds registration with the Secretary of State and a notice before an
+            association can claim attorney’s fees. HomeownerHub prepares that paperwork and the rest of Georgia’s from
+            your records, shows the statute it follows, and waits for the board.
           </p>
         </header>
 
-        <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {GEORGIA_FEATURES.map((f) => {
+        <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {GEORGIA_FEATURES.map((f, i) => {
             const Icon = ICONS[f.route] ?? Landmark
             return (
-              <li key={f.title} className="flex flex-col rounded-2xl border border-border/70 bg-surface p-6 ring-card">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                  <Icon className="h-5 w-5" aria-hidden />
-                </span>
-                <h3 className="mt-5 text-lg font-semibold tracking-tight text-foreground">{f.title}</h3>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-foreground-secondary">{f.body}</p>
-                <p className="mt-4 font-mono text-[11px] text-muted">{f.citation}</p>
+              <li key={f.title} className="card card-hover group flex flex-col p-6 md:p-7">
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary transition-colors group-hover:bg-primary group-hover:text-primary-fg">
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums text-border-strong" aria-hidden>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                </div>
+                <h3 className="t-h3 mt-6 text-foreground">{f.title}</h3>
+                <p className="mt-2.5 flex-1 text-[15px] leading-relaxed text-foreground-secondary">{f.body}</p>
+                <p className="mt-5 border-t border-border pt-4 text-xs font-medium text-muted">{f.citation}</p>
               </li>
             )
           })}
         </ul>
 
-        <div className="mt-10 rounded-2xl border border-border/70 bg-surface p-6 ring-card md:p-8">
-          <p className="text-sm font-semibold text-foreground">Then Florida, California and Texas</p>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div className="mt-6 rounded-[1.25rem] border border-border bg-subtle/60 p-6 md:p-8">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="t-h3 text-foreground">Then Florida, California and Texas</h3>
+          </div>
+          <dl className="mt-6 grid gap-6 sm:grid-cols-3">
             {others.map((s) => (
               <div key={s.state}>
-                <dt className="text-sm font-semibold text-foreground">{s.name}</dt>
-                <dd className="mt-1 text-sm leading-relaxed text-foreground-secondary">{s.items.join(' · ')}</dd>
+                <dt className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-foreground px-1.5 text-[11px] font-bold text-background">
+                    {s.state}
+                  </span>
+                  {s.name}
+                </dt>
+                <dd className="mt-2 text-sm leading-relaxed text-foreground-secondary">{s.items.join(' · ')}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-5 border-t border-border/70 pt-4 text-xs leading-relaxed text-muted">
-            {GEORGIA_SCOPE_NOTE} Dues, violations, documents, accounting, the
-            inbox and announcements work for an HOA in any state.
+          <p className="mt-6 border-t border-border pt-4 text-xs leading-relaxed text-muted">
+            {GEORGIA_SCOPE_NOTE} Dues, violations, documents, accounting, the inbox and announcements work for an HOA in
+            any state.
           </p>
         </div>
 
         {moreHref ? (
           <Link
             href={moreHref.href}
-            className="mt-8 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground transition-colors hover:text-primary"
+            className="mt-8 inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
           >
             {moreHref.label}
             <ArrowRight className="h-4 w-4" aria-hidden />

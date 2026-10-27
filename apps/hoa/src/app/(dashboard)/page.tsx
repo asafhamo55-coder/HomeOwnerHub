@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, cache } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, ClipboardCheck, Mail, Wallet } from 'lucide-react'
 import { cookies } from 'next/headers'
@@ -68,6 +68,9 @@ import {
   type LooseDb as AdoptionDb,
 } from '@/lib/budget-adoption/load'
 import { nextStep } from '@/lib/budget-adoption/model'
+import { AnnouncementCard } from '@/components/dashboard/AnnouncementCard'
+import { loadNudge } from '@/lib/announcements/load'
+import { nudgeDigestLine } from '@/lib/announcements/nudge'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -199,6 +202,10 @@ function DashboardSections({ orgId }: { orgId: string }) {
           isn't finished, with the next step and the date to watch. */}
       <Suspense fallback={null}>
         <BudgetAdoptionSection orgId={orgId} />
+      </Suspense>
+      {/* BL-173: "New announcement", with a dismissible seasonal suggestion. */}
+      <Suspense fallback={null}>
+        <AnnouncementSection />
       </Suspense>
 
       {/* ── Needs attention ─────────────────────────────────────────────
@@ -393,6 +400,7 @@ async function DigestSection({ orgId }: { orgId: string }) {
     newSinceBaseline,
     waitingOverThree: triage.threads.filter((t) => t.waitingDays > 3).length,
     nextMeeting: formatNextMeeting(nextMeeting.meeting),
+    announcement: await announcementNudge().then(({ nudge }) => (nudge ? nudgeDigestLine(nudge) : null)),
   })
 
   // The insights the server renders carry no `why`: writing one costs an AI
@@ -543,6 +551,24 @@ async function InsuranceRenewalsSection({ orgId }: { orgId: string }) {
 // BL-138: budget season. Board/admin only. Nothing renders outside the
 // season (model.inBudgetSeason) or once every step is done.
 const MAX_SEASON_BUDGETS = 3
+
+// BL-173: the next occasion within 7 days, once per request (the card and
+// the digest line both ask). Board and admin only; any failure is "none".
+const announcementNudge = cache(async () => {
+  const ctx = await getCurrentUserRole()
+  if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return { board: false as const, nudge: null }
+  const assocRes = await getPrimaryAssociationResult()
+  if (!assocRes.ok || !assocRes.data) return { board: true as const, nudge: null }
+  const db = await getSupabaseServerClient()
+  const nudge = await loadNudge(db, assocRes.data.id, todayIn(assocRes.data.timeZone)).catch(() => null)
+  return { board: true as const, nudge }
+})
+
+async function AnnouncementSection() {
+  const { board, nudge } = await announcementNudge()
+  if (!board) return null
+  return <AnnouncementCard nudge={nudge} />
+}
 
 async function BudgetAdoptionSection({ orgId }: { orgId: string }) {
   const ctx = await getCurrentUserRole()

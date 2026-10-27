@@ -87,3 +87,16 @@ Billing seats for professionals (pricing decision later; they are free for now).
 - **Professionals read no `orgs` or `associations` row.** `pro_org_info()` returns names only.
 - **Money approvals are every approval action that moves money**: W18 cash receipts, scanned bills, opening balances and a CPA's adjusting entry. Refunds, vendor payments and late-fee policy changes are not approval-layer actions yet; add them to `approval_is_money_action()` and `MONEY_ACTIONS` when they are.
 - **The Treasurer-first routing is app-side; the two-signature rule is enforced in the database** (distinct, current admin/board signers, never the proposer; edits clear sign-offs; only an admin sets the amount).
+
+## Decisions after review (2026-10-26)
+
+- **Existing accounts get a consent-based accept link** (signed, expiring; the org_members row is created only when the invited email accepts while signed in). Silently not attaching them broke the main use case: a CPA or attorney who already serves another HOA.
+- **The security review of 0070 found H1/H2/M1–M3/L1–L5;** all are fixed in SQL before Asaf applies it. Highlights:
+  - sign-offs are cleared when the payload or amount changes;
+  - only an admin can change the dual-control amount, and the change is audited;
+  - only current board/admin signers count, and the proposer can't sign;
+  - violation → exactly one unit;
+  - professionals read only the association's name and state;
+  - grants are capped at one year;
+  - removing a member revokes their matter assignments.
+- **The money-approval list** covers every approval type that moves money, not just bills and journal entries.

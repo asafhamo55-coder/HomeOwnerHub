@@ -7,7 +7,7 @@ import { CommandPalette } from './command-palette'
 import { cn } from '@/lib/cn'
 import { HOA_PRODUCT_NAME, isOfferedHref } from '@/lib/hubs'
 import { Logo, SIGN_IN_URL } from './brand'
-
+import { TrackedLink } from './tracked-link'
 
 const allProducts = [
   {
@@ -32,11 +32,16 @@ const allProducts = [
 
 // BL-097: PM and Eviction are not offered right now.
 const products = allProducts.filter((p) => isOfferedHref(p.href))
+// With a single product the "Products" menu would hold one link, so the
+// product itself becomes a plain nav link instead.
+const productMenu = products.length > 1
 
 const links = [
-  { href: '/#workflows', label: 'Workflows' },
+  ...(productMenu ? [] : [{ href: '/hoa', label: 'Features' }]),
+  { href: '/georgia', label: 'Georgia' },
   { href: '/compare', label: 'Compare' },
   { href: '/pricing', label: 'Pricing' },
+  { href: '/about', label: 'About' },
 ]
 
 export function Nav() {
@@ -83,69 +88,71 @@ export function Nav() {
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-base',
+        'fixed inset-x-0 top-0 z-50 border-b bg-surface/95 backdrop-blur-lg print:hidden transition-[border-color,box-shadow] duration-200',
         solid
-          ? 'border-border bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/75'
-          : 'border-transparent bg-transparent',
+          ? 'border-border shadow-[0_10px_30px_-22px_hsl(var(--foreground)/0.3)]'
+          : 'border-transparent',
       )}
     >
-      <div className="container-page flex h-16 items-center justify-between gap-4">
+      <div className="container-page flex h-16 items-center justify-between gap-4 md:h-[72px]">
         <Link href="/" className="flex items-center gap-2.5 rounded-lg" aria-label="HomeownerHub home">
           <Logo />
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-0.5 md:flex">
-          <div
-            ref={productsRef}
-            className="relative"
-            onMouseEnter={() => setProductsOpen(true)}
-            onMouseLeave={() => setProductsOpen(false)}
-            onBlur={(e) => {
-              if (!productsRef.current?.contains(e.relatedTarget as Node)) setProductsOpen(false)
-            }}
-          >
-            <button
-              type="button"
-              aria-expanded={productsOpen}
-              aria-controls="nav-products"
-              onClick={() => setProductsOpen((v) => !v)}
-              className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground"
-            >
-              Products
-              <ChevronDown
-                aria-hidden
-                className={cn('h-4 w-4 text-muted transition-transform duration-base', productsOpen && 'rotate-180')}
-              />
-            </button>
+        <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+          {productMenu && (
             <div
-              id="nav-products"
-              className={cn(
-                'absolute left-1/2 top-full w-[340px] -translate-x-1/2 pt-2 transition-[opacity,transform] duration-base',
-                productsOpen ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-1 opacity-0',
-              )}
+              ref={productsRef}
+              className="relative"
+              onMouseEnter={() => setProductsOpen(true)}
+              onMouseLeave={() => setProductsOpen(false)}
+              onBlur={(e) => {
+                if (!productsRef.current?.contains(e.relatedTarget as Node)) setProductsOpen(false)
+              }}
             >
-              <div className="overflow-hidden rounded-2xl border border-border bg-elevated p-2 shadow-lg">
-                {products.map((p) => (
-                  <Link
-                    key={p.href}
-                    href={p.href}
-                    onClick={() => setProductsOpen(false)}
-                    className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-subtle"
-                  >
-                    <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', p.dot)} aria-hidden />
-                    <span className="flex flex-col">
-                      <span className="text-sm font-semibold text-foreground">{p.name}</span>
-                      <span className="text-[13px] leading-snug text-muted">{p.blurb}</span>
-                    </span>
-                    <ArrowRight
-                      aria-hidden
-                      className="ml-auto mt-1 h-4 w-4 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100"
-                    />
-                  </Link>
-                ))}
+              <button
+                type="button"
+                aria-expanded={productsOpen}
+                aria-controls="nav-products"
+                onClick={() => setProductsOpen((v) => !v)}
+                className="flex items-center gap-1 rounded-full px-3.5 py-2 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
+              >
+                Products
+                <ChevronDown
+                  aria-hidden
+                  className={cn('h-4 w-4 text-muted transition-transform duration-200', productsOpen && 'rotate-180')}
+                />
+              </button>
+              <div
+                id="nav-products"
+                className={cn(
+                  'absolute left-1/2 top-full w-[340px] -translate-x-1/2 pt-2 transition-[opacity,transform] duration-200',
+                  productsOpen ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-1 opacity-0',
+                )}
+              >
+                <div className="overflow-hidden rounded-2xl border border-border bg-elevated p-2 shadow-lg">
+                  {products.map((p) => (
+                    <Link
+                      key={p.href}
+                      href={p.href}
+                      onClick={() => setProductsOpen(false)}
+                      className="group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-subtle"
+                    >
+                      <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', p.dot)} aria-hidden />
+                      <span className="flex flex-col">
+                        <span className="text-sm font-semibold text-foreground">{p.name}</span>
+                        <span className="text-[13px] leading-snug text-muted">{p.blurb}</span>
+                      </span>
+                      <ArrowRight
+                        aria-hidden
+                        className="ml-auto mt-1 h-4 w-4 shrink-0 text-muted opacity-0 transition-opacity group-hover:opacity-100"
+                      />
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {links.map((l) => (
             <NavLink key={l.href} href={l.href}>
@@ -159,44 +166,37 @@ export function Nav() {
             type="button"
             onClick={() => setPaletteOpen(true)}
             aria-label="Search the site"
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-muted shadow-xs transition-colors hover:border-border-strong hover:text-foreground-secondary"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted transition-colors hover:bg-subtle hover:text-foreground lg:w-auto lg:gap-2 lg:border lg:border-border lg:bg-surface lg:px-3"
           >
-            <Search className="h-3.5 w-3.5" aria-hidden />
-            <span className="hidden lg:inline">Search…</span>
-            <kbd className="hidden rounded border border-border bg-subtle px-1 py-px font-mono text-[10px] text-muted lg:inline-block">
+            <Search className="h-4 w-4" aria-hidden />
+            <kbd className="hidden rounded border border-border bg-subtle px-1 py-px font-sans text-[11px] text-muted lg:inline-block">
               ⌘K
             </kbd>
           </button>
           <a
             href={SIGN_IN_URL}
-            className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground"
+            className="inline-flex h-10 items-center rounded-full px-3.5 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
           >
             Sign in
           </a>
-          <Link
-            href="/demo"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-fg shadow-xs transition-colors hover:bg-primary-hover"
-          >
+          <TrackedLink href="/demo" event="demo_cta_click" position="header" className="btn btn-secondary !min-h-10 !px-4">
             Book a demo
-          </Link>
+          </TrackedLink>
+          <TrackedLink href="/demo" event="pilot_cta_click" position="header" className="btn btn-primary !min-h-10 !px-4">
+            Start free pilot
+          </TrackedLink>
         </div>
 
         <div className="flex items-center gap-1 md:hidden">
-          <a
-            href={SIGN_IN_URL}
-            className="inline-flex h-9 items-center rounded-lg px-2.5 text-sm font-medium text-foreground-secondary hover:text-foreground"
-          >
-            Sign in
-          </a>
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground-secondary hover:bg-subtle hover:text-foreground"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-foreground hover:bg-subtle"
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? 'Close menu' : 'Open menu'}
             aria-expanded={open}
             aria-controls="mobile-menu"
           >
-            {open ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
+            {open ? <X className="h-6 w-6" aria-hidden /> : <Menu className="h-6 w-6" aria-hidden />}
           </button>
         </div>
       </div>
@@ -204,49 +204,45 @@ export function Nav() {
       {open && (
         <div
           id="mobile-menu"
-          className="h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border bg-background md:hidden"
+          className="h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border bg-surface md:hidden"
         >
-          <nav aria-label="Mobile" className="container-page flex flex-col gap-1 py-4">
-            <p className="px-3 pb-1 pt-2 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
-              Products
-            </p>
-            {products.map((p) => (
-              <Link
-                key={p.href}
-                href={p.href}
-                onClick={() => setOpen(false)}
-                className="flex items-start gap-3 rounded-xl p-3 hover:bg-subtle"
-              >
-                <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', p.dot)} aria-hidden />
-                <span className="flex flex-col">
-                  <span className="text-base font-semibold text-foreground">{p.name}</span>
-                  <span className="text-sm text-muted">{p.blurb}</span>
-                </span>
-              </Link>
-            ))}
-            <div className="my-3 h-px bg-border" />
-            {[...links, { href: '/case-studies', label: 'Case studies' }].map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={() => setOpen(false)}
-                className="rounded-xl px-3 py-3 text-base font-medium text-foreground hover:bg-subtle"
-              >
-                {l.label}
-              </Link>
-            ))}
-            <div className="mt-4 grid gap-2">
-              <Link
-                href="/demo"
-                onClick={() => setOpen(false)}
-                className="block rounded-xl bg-primary px-4 py-3 text-center text-base font-semibold text-primary-fg hover:bg-primary-hover"
-              >
+          <nav aria-label="Mobile" className="container-page flex flex-col py-4">
+            {productMenu &&
+              products.map((p) => (
+                <Link
+                  key={p.href}
+                  href={p.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-start gap-3 rounded-xl p-3 hover:bg-subtle"
+                >
+                  <span className={cn('mt-2 h-2 w-2 shrink-0 rounded-full', p.dot)} aria-hidden />
+                  <span className="flex flex-col">
+                    <span className="text-lg font-semibold text-foreground">{p.name}</span>
+                    <span className="text-sm text-muted">{p.blurb}</span>
+                  </span>
+                </Link>
+              ))}
+            {[...links, { href: '/case-studies', label: 'Case studies' }, { href: '/security', label: 'Security' }].map(
+              (l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between rounded-xl px-3 py-4 text-xl font-semibold tracking-[-0.01em] text-foreground hover:bg-subtle"
+                >
+                  {l.label}
+                  <ArrowRight className="h-5 w-5 text-muted" aria-hidden />
+                </Link>
+              ),
+            )}
+            <div className="mt-6 grid gap-3">
+              <TrackedLink href="/demo" event="demo_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-primary btn-lg">
                 Book a demo
-              </Link>
-              <a
-                href={SIGN_IN_URL}
-                className="block rounded-xl border border-border-strong bg-surface px-4 py-3 text-center text-base font-semibold text-foreground hover:bg-subtle"
-              >
+              </TrackedLink>
+              <TrackedLink href="/demo" event="pilot_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-secondary btn-lg">
+                Start free pilot
+              </TrackedLink>
+              <a href={SIGN_IN_URL} className="btn btn-ghost btn-lg">
                 Sign in
               </a>
             </div>
@@ -263,10 +259,9 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="rounded-lg px-3 py-2 text-sm font-medium text-foreground-secondary transition-colors hover:bg-subtle hover:text-foreground"
+      className="rounded-full px-3.5 py-2 text-[15px] font-medium text-foreground transition-colors hover:bg-subtle"
     >
       {children}
     </Link>
   )
 }
-

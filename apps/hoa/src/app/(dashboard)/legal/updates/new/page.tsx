@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { isPlatformAdmin } from '@/lib/platform-admin'
 import { Scale } from 'lucide-react'
 import { Card, CardContent, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getAssociationState, listStatutesForState } from '@/lib/state-law'
@@ -9,6 +11,8 @@ import { NewUpdateForm } from './NewUpdateForm'
 export const metadata = { title: 'Post a law update' }
 
 export default async function NewLawUpdatePage() {
+  // Law updates are one platform-wide feed: only the platform team posts.
+  if (!(await isPlatformAdmin())) redirect('/legal/updates')
   const stateResult = await tryLoad('association state', () => getAssociationState())
   const state = stateResult.ok ? stateResult.data : null
   // The statute list only feeds the optional "Related statute" picker; if

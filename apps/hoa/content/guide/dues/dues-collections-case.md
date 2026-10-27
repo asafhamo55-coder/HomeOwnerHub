@@ -6,7 +6,7 @@ topic: dues
 roles: [admin, board]
 routes: ["/properties/[id]"]
 primary_route: /properties/[id]
-keywords: [collections, foreclosure threshold, Georgia threshold, "$2,000", "$4,000", 12 months of dues, SB 406, "44-3-232", "43-17A-8", payment order, how payments are applied, collection, collections case, delinquent, delinquency, past due, behind on dues, lien, lien letter, lien warning, 30-day lien warning, attorney, lawyer, demand letter, suit, lawsuit, foreclosure, write off, collection letter, bad debt, owner won't pay, arrears, app, logged, delete entry, paid in full, paid everything, close out, close file]
+keywords: [collections, Secretary of State complaint, complaint filed, automatic stay, stay, hearing officer, "43-17A-5", foreclosure threshold, Georgia threshold, "$2,000", "$4,000", 12 months of dues, SB 406, "44-3-232", "43-17A-8", payment order, how payments are applied, collection, collections case, delinquent, delinquency, past due, behind on dues, lien, lien letter, lien warning, 30-day lien warning, attorney, lawyer, demand letter, suit, lawsuit, foreclosure, write off, collection letter, bad debt, owner won't pay, arrears, app, logged, delete entry, paid in full, paid everything, close out, close file]
 related: [dues-collections-letter, accounting-payment-plans, dues-record-payment]
 reviewed: 2026-10-26
 ---
@@ -29,11 +29,16 @@ Use this when an owner's account is seriously past due and the board starts send
 ## What happens next
 - The stage shows at the top of the case and in the **Collections** box on the property's page.
 - Each action is added to **Activity**, newest dates first, with the date you entered.
-- In Georgia, the open case shows a **Georgia foreclosure threshold** panel and a **How payments should be applied** note. Both are read-only.
+- In Georgia, the open case shows a **Georgia foreclosure threshold** panel and a **How payments should be applied** note. Both are read-only. A condominium association gets only the payment-order note, which covers condominiums too: the threshold is in the Property Owners' Association Act. A condominium's lien can be foreclosed only if it is at least $2,000, under the Georgia Condominium Act (§ 44-3-109(c)), and SB 406 doesn't change that.
 - Before January 1, 2027, the panel shows today's rule: the lien can't be foreclosed unless it is at least $2,000. It says the rule changes on January 1, 2027, and shows the case against the new rule.
 - From January 1, 2027, the threshold is the lesser of $4,000 or 12 months of regular assessments, but never under $2,000. Only regular and special assessments in arrears count, less unapplied payments. Late charges, fines, fees and payment-plan installments don't count.
 - The 12 months of dues come from your dues rate schedule. Without a rate, the panel shows the threshold as $2,000 to $4,000.
 - The payment note lists the order Georgia requires from January 1, 2027: regular assessments, then special, then specific assessments, then other fees and fines (§ 43-17A-8). It doesn't change how any payment is applied.
+- In Georgia, a **Secretary of State complaint** card shows on the home's collections file, with or without an open case. When an owner tells you they filed a complaint with the Georgia Secretary of State, select [[Record a complaint filed]], enter the day it was filed and whether it is about fines, fees or both, and select [[Save]].
+- While that complaint's stay runs, HomeownerHub holds back every fine and fee for the home. It can't tell which charges relate to the complaint. Dues are not held back.
+- From January 1, 2027, the state law check blocks levying a fine and any collections letter that lists fines or fees for that home. The only override is "attorney advised", and it is recorded. The nightly late-fee job charges that home nothing.
+- Before January 1, 2027 the law isn't in force yet, so the check shows a warning only.
+- When the hearing officer renders conclusions, select [[Record the conclusions]] and enter the day. Tick the 15-day extension if the hearing officer granted it. The stay ends the day of the conclusions, or 15 days after them if extended (§ 43-17A-5(c)).
 - To close the case, record "Case closed". The case moves to **Resolved** and appears under **Earlier cases**.
 
 ## If something goes wrong
@@ -47,5 +52,6 @@ Use this when an owner's account is seriously past due and the board starts send
 - You can't mark a case "Written off" or pick a stage by hand after the case is open. The stage moves only when you record an action that matches it.
 - "Payment received" and "Payment plan agreed" are notes on the file only. They don't record money. Record the payment on the **Dues** page, and set up the plan in [payment plans](guide:accounting-payment-plans).
 - The Georgia panel quotes SB 406 word for word. It doesn't decide whether to foreclose: ask your association's attorney first.
-- Board admins and board members see the Georgia panel. Residents don't.
+- Board admins and board members see the Georgia panel and the complaint card. Residents don't.
+- The complaint card keeps only dates and fines, fees or both. It never keeps the complaint's text, and HomeownerHub files nothing with the Secretary of State. Each change is in the activity log.
 - Once a case is at "Board authorized suit", "With attorney — presuit" or "Suit filed", automatic dues reminders stop emailing that owner.

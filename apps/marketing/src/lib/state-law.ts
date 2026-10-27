@@ -84,7 +84,7 @@ export const GEORGIA_FEATURES: readonly StateLawFeature[] = [
 ]
 
 export const GEORGIA_SCOPE_NOTE =
-  'Georgia rules follow the Property Owners’ Association Act and SB 406. Georgia condominium associations aren’t covered yet. The app prepares the paperwork and cites the law; it isn’t legal advice, and your board and your attorney decide.'
+  'Georgia rules follow the Property Owners’ Association Act, the Georgia Condominium Act for condominiums, and SB 406. The app prepares the paperwork and cites the law; it isn’t legal advice, and your board and your attorney decide.'
 
 export interface StateCoverage {
   state: string

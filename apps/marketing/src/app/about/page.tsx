@@ -1,11 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
 import { ArrowRight, MapPin, Compass, Shield, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
+import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
-import { HomeImage } from '@/components/site/home-image'
-import { PHOTOS } from '@/lib/photos'
 import { pageMetadata } from '@/lib/site'
 import { STATE_COVERAGE } from '@/lib/state-law'
 
@@ -48,147 +46,108 @@ const beliefs = [
 
 export default function AboutPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
-      <section className="relative overflow-hidden pt-32 pb-16">
-        <div className="pointer-events-none absolute inset-x-0 top-0 -z-20 h-[640px] [mask-image:linear-gradient(to_bottom,black_0%,black_55%,transparent_100%)]">
-          <Image
-            src={`${PHOTOS.hillsideAerial.src}?w=2400&q=80&auto=format&fit=crop`}
-            alt={PHOTOS.hillsideAerial.alt}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover opacity-[0.18]"
-          />
-        </div>
-        <div className="absolute inset-0 -z-10 bg-radial-spot" />
+      <section className="hero-wash relative overflow-hidden pb-20 pt-32 md:pb-24 md:pt-40">
         <div className="container-page">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Atlanta · est. 2026
-            </p>
-            <h1 className="mt-6 text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">
-              AI for the people doing the unpaid hours.
+            <p className="eyebrow">Atlanta · est. 2026</p>
+            <h1 className="t-display mt-5 text-foreground">
+              AI for the people doing{' '}
+              <span className="t-serif text-primary">the unpaid hours.</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-foreground-secondary">
-              Volunteer board members run their neighborhoods after work, with
-              no IT department and no management company. We built
-              HomeownerHub for them.
-            </p>
-          </div>
-
-          <div className="mx-auto mt-16 max-w-5xl">
-            <HomeImage
-              src={PHOTOS.treeCanopyStreet.src}
-              alt={PHOTOS.treeCanopyStreet.alt}
-              className="aspect-[16/7] w-full"
-              width={2400}
-              sizes="(min-width: 1024px) 1024px, 100vw"
-            />
-            <p className="mt-3 text-center text-xs text-muted">
-              Photo · {PHOTOS.treeCanopyStreet.credit}
+            <p className="t-lead mx-auto mt-6 max-w-2xl">
+              Volunteer board members run their neighborhoods after work, with no IT department and no management
+              company. We built HomeownerHub for them.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="pb-20">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
-          <div className="mx-auto max-w-3xl rounded-2xl border border-border/70 bg-surface p-8 ring-card md:p-12">
-            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
-              Why we exist
-            </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground">
-              The paperwork is the job nobody volunteered for.
-            </h2>
-            <div className="prose prose-ink mt-6 max-w-none text-base leading-relaxed text-foreground-secondary">
+          <div className="card mx-auto grid max-w-5xl gap-8 p-8 md:grid-cols-[0.9fr_1.1fr] md:gap-14 md:p-14">
+            <div>
+              <p className="eyebrow">Why we exist</p>
+              <h2 className="t-h2 mt-4 text-foreground">The paperwork is the job nobody volunteered for.</h2>
+            </div>
+            <div className="space-y-5 text-[17px] leading-relaxed text-foreground-secondary">
               <p>
-                Most of a self-managed HOA runs on volunteer time. The treasurer
-                doing rule research at 10pm. The secretary writing up minutes.
-                The board member answering the same resident question for the
-                third time this month.
+                Most of a self-managed HOA runs on volunteer time. The treasurer doing rule research at 10pm. The
+                secretary writing up minutes. The board member answering the same resident question for the third time
+                this month.
               </p>
               <p>
-                HomeownerHub drafts that paperwork: cited answers from your
-                governing documents, violation and collections letters,
-                announcements, inbox replies and the month-end report. The
-                board reviews and approves every draft before anything goes out.
+                HomeownerHub drafts that paperwork: cited answers from your governing documents, violation and
+                collections letters, announcements, inbox replies and the month-end report. The board reviews and
+                approves every draft before anything goes out.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="py-24 md:py-32">
+      <section className="section bg-surface">
         <div className="container-page">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-wider text-accent-fg">
-              What we believe
-            </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-5xl">
-              Four beliefs that shape every decision.
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="eyebrow">What we believe</p>
+            <h2 className="t-h2 mt-4 text-foreground">
+              Four beliefs that shape{' '}
+              <span className="t-serif text-primary">every decision.</span>
             </h2>
           </div>
 
-          <div className="mt-16 grid gap-6 md:grid-cols-2">
+          <div className="mt-14 grid gap-5 md:grid-cols-2">
             {beliefs.map((b) => (
-              <div
-                key={b.title}
-                className="rounded-2xl border border-border/70 bg-surface p-7 ring-card"
-              >
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                  <b.Icon className="h-5 w-5" />
-                </div>
-                <h3 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
-                  {b.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{b.body}</p>
+              <div key={b.title} className="card card-hover p-7 md:p-9">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-fg">
+                  <b.Icon className="h-6 w-6" aria-hidden />
+                </span>
+                <h3 className="mt-6 text-xl font-semibold tracking-[-0.015em] text-foreground">{b.title}</h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-foreground-secondary">{b.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-foreground py-24 text-background md:py-32">
+      <section className="section section-ink ink-glow">
         <div className="container-page">
           <div className="mx-auto max-w-3xl text-center">
-            <p className="text-sm font-semibold uppercase tracking-wider text-accent">
-              Where we are
-            </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight md:text-5xl">
-              Built in Atlanta. Ready for your state&apos;s rules.
+            <p className="eyebrow">Where we are</p>
+            <h2 className="t-h2 mt-4 text-[#fff]">
+              Built in Atlanta.{' '}
+              <span className="t-serif text-primary">Ready for your state’s rules.</span>
             </h2>
-            <p className="mt-5 text-lg leading-relaxed text-background/70">
-              HomeownerHub is built and run from Atlanta, GA, and works for an
-              HOA in any state. These parts follow a specific state&apos;s law today:
+            <p className="mt-5 text-[17px] leading-relaxed text-foreground-secondary">
+              HomeownerHub is built and run from Atlanta, GA, and works for an HOA in any state. These parts follow a
+              specific state&apos;s law today:
             </p>
-
-            <div className="mt-12 grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-              {STATE_COVERAGE.map((s) => (
-                <Geo key={s.state} label={s.name} status={s.items.join(', ')} />
-              ))}
-            </div>
+          </div>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {STATE_COVERAGE.map((s) => (
+              <Geo key={s.state} state={s.state} label={s.name} status={s.items.join(' · ')} />
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="relative overflow-hidden py-24 md:py-32">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/70" />
+      <section className="section">
         <div className="container-page text-center">
-          <h2 className="mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-            Want to see how this actually works?
-          </h2>
-          <p className="mx-auto mt-5 max-w-xl text-lg text-foreground-secondary">
-            Ten minutes is all we need. We'll run the demo on your community's actual covenants.
+          <h2 className="t-h2 mx-auto max-w-2xl text-foreground">Want to see how this actually works?</h2>
+          <p className="t-lead mx-auto mt-5 max-w-xl">
+            Ten minutes is all we need. We&apos;ll run the demo on your community&apos;s actual covenants.
           </p>
-          <Link
-            href="/demo"
-            className="group mt-8 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover hover:shadow-md"
-          >
-            Book a demo
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
+<div className="flex flex-col items-center justify-center gap-3 sm:flex-row mt-9">
+            <TrackedLink href="/demo" event="demo_cta_click" position="closing" className="btn btn-primary btn-lg group">
+              Book a demo
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </TrackedLink>
+            <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
+              Start free pilot
+            </TrackedLink>
+          </div>
         </div>
       </section>
 
@@ -197,14 +156,16 @@ export default function AboutPage() {
   )
 }
 
-function Geo({ label, status }: { label: string; status: string }) {
+function Geo({ state, label, status }: { state: string; label: string; status: string }) {
   return (
-    <div className="rounded-xl border border-background/10 bg-surface/[0.04] p-4 text-left">
-      <p className="text-sm font-semibold">{label}</p>
-      <p className="mt-1 text-xs text-success">
-        {'● '}
-        {status}
+    <div className="rounded-2xl border border-[#ffffff1a] bg-[#ffffff0d] p-5 text-left">
+      <p className="flex items-center gap-2 text-[15px] font-semibold text-[#fff]">
+        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-[#ffffff26] px-1.5 text-[11px] font-bold">
+          {state}
+        </span>
+        {label}
       </p>
+      <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">{status}</p>
     </div>
   )
 }

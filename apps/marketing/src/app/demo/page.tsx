@@ -16,7 +16,7 @@ import { STATE_COVERAGE_SENTENCE } from '@/lib/state-law'
 import { DemoForm } from './demo-form'
 
 export const metadata: Metadata = pageMetadata({
-  title: 'Book a demo — 10 minutes for your board',
+  title: 'Book a demo — 20 minutes for your board',
   description:
     'Send us your CC&R. We pre-load it. We show Covenant Brain answering your actual rules. Your board decides.',
   path: '/demo',
@@ -48,23 +48,23 @@ const agenda = [
 
 export default function DemoPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
-      <section className="relative overflow-hidden pt-32 pb-16">
-        <div className="absolute inset-0 -z-10 bg-radial-spot" />
+      <section className="hero-wash relative overflow-hidden pb-20 pt-14 md:pt-20">
+        
         <div className="container-page">
           <div className="grid items-start gap-12 md:grid-cols-[1.05fr,1fr]">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground-secondary ring-soft">
                 <Calendar className="h-3.5 w-3.5 text-accent-fg" />
-                10 minutes. Your CC&R. Your decision.
+                20 minutes. Your CC&R. Your decision.
               </div>
-              <h1 className="mt-6 text-balance text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
+              <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
                 Send your CC&R today.{' '}
                 Demo the board on Tuesday.
               </h1>
-              <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
+              <p className="t-lead mt-5 max-w-xl">
                 We pre-load your CC&R and bylaws before the call, so the board
                 asks about its own rules and watches the AI cite the answer.
               </p>
@@ -84,12 +84,12 @@ export default function DemoPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-surface p-8 ring-card">
+            <div className="card p-7 shadow-[0_30px_60px_-36px_hsl(var(--foreground)/0.35)] md:p-9">
               <h2 className="text-xl font-semibold tracking-tight text-foreground">
                 Tell us about your community
               </h2>
               <p className="mt-2 text-sm text-muted">
-                Three fields. We reply within one business day.
+                Name, email and your HOA. County and number of homes are optional. We reply within 1 business day.
               </p>
 
               <DemoForm />
@@ -115,7 +115,7 @@ export default function DemoPage() {
         </div>
       </section>
 
-      <section className="border-t border-border/60 bg-subtle/40 py-16">
+      <section className="border-t border-border bg-surface py-16">
         <div className="container-page">
           <div className="grid gap-6 md:grid-cols-3">
             {/* BL-090: the 40% / 50%+ conversion and "15 min" figures had
@@ -132,19 +132,19 @@ export default function DemoPage() {
       </section>
 
       {/* What we will / won't do — sets honest expectations upfront. */}
-      <section className="border-t border-border/60 py-20">
+      <section className="section border-t border-border">
         <div className="container-page">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+            <p className="eyebrow">
               Honest scope
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            <h2 className="t-h2 mt-4 text-foreground">
               What you get. What we won't pretend.
             </h2>
           </div>
           <div className="mx-auto mt-12 grid max-w-5xl gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-success/70 bg-success-subtle/30 p-7">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-success">
+              <p className="eyebrow text-success">
                 What we do
               </p>
               <ul className="mt-4 space-y-3">
@@ -168,7 +168,7 @@ export default function DemoPage() {
               </ul>
             </div>
             <div className="rounded-2xl border border-border/70 bg-surface p-7">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground-secondary">
+              <p className="eyebrow text-foreground-secondary">
                 What we don't
               </p>
               <ul className="mt-4 space-y-3">
@@ -191,22 +191,22 @@ export default function DemoPage() {
       </section>
 
       {/* FAQ — top objections boards raise before booking. */}
-      <section className="border-t border-border/60 bg-subtle/40 py-20">
+      <section className="section border-t border-border bg-surface">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
             <div className="text-center">
-              <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+              <p className="eyebrow">
                 Common questions
               </p>
-              <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+              <h2 className="t-h2 mt-4 text-foreground">
                 Before you book the demo.
               </h2>
             </div>
-            <dl className="mt-12 divide-y divide-border/70 rounded-2xl border border-border/70 bg-surface">
+            <dl className="mt-12 divide-y divide-border card">
               {FAQS.map(({ q, a }) => (
                 <div key={q} className="px-6 py-6 md:px-8">
-                  <dt className="text-base font-semibold text-foreground">{q}</dt>
-                  <dd className="mt-2 text-sm leading-relaxed text-foreground-secondary">{a}</dd>
+                  <dt className="text-[17px] font-semibold text-foreground">{q}</dt>
+                  <dd className="mt-2 text-[15px] leading-relaxed text-foreground-secondary">{a}</dd>
                 </div>
               ))}
             </dl>
@@ -218,10 +218,10 @@ export default function DemoPage() {
         </div>
       </section>
 
-      <section className="py-24">
+      <section className="section">
         <div className="container-page">
           <div className="mx-auto max-w-2xl rounded-2xl border border-border/70 bg-surface p-8 text-center ring-card">
-            <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+            <p className="eyebrow">
               Not ready for a demo?
             </p>
             <h3 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
@@ -276,7 +276,7 @@ const FAQS: { q: string; a: string }[] = [
 
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-surface p-6 ring-card">
+    <div className="card p-6">
       <p className="text-3xl font-semibold tracking-tight text-foreground">{value}</p>
       <p className="mt-1 text-sm font-medium text-foreground-secondary">{label}</p>
       <p className="mt-1 text-xs text-muted">{sub}</p>

@@ -92,6 +92,8 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   'late_fee.nightly_charged': { label: 'Late fees charged under the board’s policy', area: 'accounting' },
   // Records & filings (BL-149)
   'ga_registration.updated': { label: 'Updated the Georgia Secretary of State registration record', area: 'records' },
+  // Collections (BL-161)
+  'ga_complaint.updated': { label: 'Updated a home’s Georgia Secretary of State complaint record', area: 'collections' },
   // Collections
   collections_letter_printed: { label: 'Printed a collections letter', area: 'collections' },
   'payment_plan.completed': { label: 'Payment plan paid off', area: 'collections' },
@@ -316,6 +318,18 @@ export const ACTION_DETAIL: Record<string, (m: Record<string, unknown>) => strin
         return 'Undid “officers didn’t change”'
       case 'details':
         return 'Updated the fill-in sheet'
+      default:
+        return null
+    }
+  },
+  'ga_complaint.updated': (m) => {
+    switch (m.op) {
+      case 'add':
+        return 'Recorded a complaint (stay starts)'
+      case 'conclude':
+        return m.concluded === true ? (m.extended === true ? 'Recorded the conclusions · stay extended 15 days' : 'Recorded the conclusions') : 'Cleared the conclusions day'
+      case 'remove':
+        return 'Removed a complaint from the record'
       default:
         return null
     }

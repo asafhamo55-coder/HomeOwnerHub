@@ -19,6 +19,8 @@ const ALL_PAGES: PaletteItem[] = [
   { label: HOA_PRODUCT_NAME, href: '/hoa', category: 'Product', Icon: Building2, hint: 'For volunteer boards' },
   { label: 'PM Hub', href: '/landlords', category: 'Product', Icon: Home, hint: 'For small landlords' },
   { label: 'Eviction Hub', href: '/eviction', category: 'Product', Icon: Scale, hint: 'Attorney-reviewed' },
+  { label: 'Georgia SB 406 guides', href: '/georgia', category: 'Page', Icon: BookOpen, hint: 'Registration, fees, foreclosure, rights' },
+  { label: 'SB 406 readiness check', href: '/georgia/readiness', category: 'Page', Icon: FileText, hint: 'Ten questions, nothing stored' },
   { label: 'Pricing', href: '/pricing', category: 'Page', Icon: FileText },
   { label: 'Book a demo', href: '/demo', category: 'Page', Icon: ArrowRight },
   { label: 'Compare to alternatives', href: '/compare', category: 'Page', Icon: FileText, hint: 'vs management cos · Vantaca · DIY' },

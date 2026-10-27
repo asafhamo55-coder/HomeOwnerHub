@@ -25,7 +25,7 @@ export default function LandlordsPage() {
   if (!OTHER_HUBS_ENABLED) redirect('/hoa')
 
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <HubHero

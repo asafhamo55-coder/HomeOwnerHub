@@ -1,7 +1,3 @@
-'use client'
-
-import { motion } from 'framer-motion'
-import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import type { HubTheme } from './hub-theme'
@@ -15,12 +11,16 @@ interface HubHeroProps {
   primaryCta: { label: string; href: string }
   secondaryCta?: { label: string; href: string }
   visual: React.ReactNode
-  /** Optional Unsplash background photo. Renders soft, behind the type. */
+  /** The visual draws its own window chrome; don't wrap it. */
+  bareVisual?: boolean
+  /** Accepted for the (hidden) PM and Eviction pages; the redesigned hero draws no photo. */
   backdrop?: { src: string; alt: string }
   /** Optional stat trio shown below the CTAs. */
   stats?: { value: string; label: string }[]
 }
 
+// Product-page hero. Server component, same pattern as the home hero:
+// headline and CTAs ship as HTML, the visual is built from HTML/CSS.
 export function HubHero({
   theme,
   eyebrow,
@@ -29,92 +29,55 @@ export function HubHero({
   primaryCta,
   secondaryCta,
   visual,
-  backdrop,
+  bareVisual,
   stats,
 }: HubHeroProps) {
   return (
-    <section className="relative overflow-hidden pt-24 md:pt-28">
-      {backdrop && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 -z-20 h-[600px] [mask-image:linear-gradient(to_bottom,black_0%,black_50%,transparent_100%)]">
-          <Image
-            src={`${backdrop.src}?w=2400&q=80&auto=format&fit=crop`}
-            alt={backdrop.alt}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-center opacity-[0.10]"
-          />
-        </div>
-      )}
-
-      <div className="container-page pt-10 md:pt-14">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="grid items-center gap-12 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] lg:gap-16"
-        >
+    <section className="hero-wash relative overflow-hidden pb-20 pt-28 md:pb-28 md:pt-36">
+      <div className="container-page">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-14">
           <div>
-            <p className={cn('font-mono text-[11px] font-semibold uppercase tracking-[0.18em]', theme.accentText)}>
+            <p
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold',
+                theme.badgeClass,
+              )}
+            >
               {eyebrow}
             </p>
 
-            <h1 className="mt-5 text-balance text-4xl font-semibold tracking-tight text-foreground md:text-5xl lg:text-[56px] lg:leading-[1.04]">
+            <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
               {title}
             </h1>
 
-            <p className="mt-6 max-w-lg text-lg leading-relaxed text-foreground-secondary">
-              {subtitle}
-            </p>
+            <p className="t-lead mt-6 max-w-xl">{subtitle}</p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
-                href={primaryCta.href}
-                className={cn(
-                  'group inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors',
-                  theme.buttonClass,
-                )}
-              >
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link href={primaryCta.href} className={cn('btn btn-lg group', theme.buttonClass)}>
                 {primaryCta.label}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </Link>
               {secondaryCta && (
-                <Link
-                  href={secondaryCta.href}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-subtle"
-                >
+                <Link href={secondaryCta.href} className="btn btn-secondary btn-lg">
                   {secondaryCta.label}
                 </Link>
               )}
             </div>
 
             {stats && stats.length > 0 && (
-              <dl className="mt-10 grid max-w-md grid-cols-3 gap-x-5 gap-y-2 border-t border-border/80 pt-6">
+              <dl className="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-border pt-6">
                 {stats.map((s) => (
                   <div key={s.label}>
-                    <dt className="font-mono text-2xl font-semibold tracking-tight text-foreground">
-                      {s.value}
-                    </dt>
-                    <dd className="mt-1 text-[11px] uppercase tracking-wider text-muted">
-                      {s.label}
-                    </dd>
+                    <dt className="text-2xl font-semibold tracking-tight text-foreground sm:text-[28px]">{s.value}</dt>
+                    <dd className="mt-1 text-[13px] leading-snug text-muted">{s.label}</dd>
                   </div>
                 ))}
               </dl>
             )}
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.15 }}
-            className="relative"
-          >
-            <div className="overflow-hidden rounded-2xl border border-border/80 bg-surface ring-hero">
-              {visual}
-            </div>
-          </motion.div>
-        </motion.div>
+          {bareVisual ? visual : <div className="app-window">{visual}</div>}
+        </div>
       </div>
     </section>
   )

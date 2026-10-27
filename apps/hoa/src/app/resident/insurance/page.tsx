@@ -3,6 +3,8 @@ import { ShieldCheck } from 'lucide-react'
 import { Button, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
+import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
+import { INSURANCE_CERTIFICATE_REQUEST_HREF } from '@/lib/owner-rights/law'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor } from '@/lib/impersonation'
 import { currentTimeZone } from '@/lib/association-time-current'
@@ -43,6 +45,21 @@ export default async function ResidentInsurancePage() {
     </Button>
   )
 
+  // BL-162: a written request for the certificate of insurance, filed as a
+  // records request (O.C.G.A. § 43-17A-7(2) in Georgia from 2027). Shown
+  // whatever the summary below holds: the certificate is the board's to send.
+  const certificate = RECORDS_REQUESTS_LIVE ? (
+    <Panel className="space-y-3">
+      <p className="text-sm text-foreground-secondary">
+        Need the association’s certificate of insurance, for your own insurance agent or a claim? Ask for a copy in
+        writing. The board replies in the request.
+      </p>
+      <Button asChild variant="secondary" size="sm">
+        <Link href={INSURANCE_CERTIFICATE_REQUEST_HREF}>Request the certificate</Link>
+      </Button>
+    </Panel>
+  ) : null
+
   if (!M4_APPLIED) {
     return (
       <div className="space-y-6">
@@ -53,6 +70,7 @@ export default async function ResidentInsurancePage() {
           description="Your board hasn’t shared the association’s insurance here yet. Ask them if you have a question."
           action={askBoard}
         />
+        {certificate}
       </div>
     )
   }
@@ -66,6 +84,7 @@ export default async function ResidentInsurancePage() {
       <div className="space-y-6">
         {header}
         <LoadFailed what="the association’s insurance" retryHref="/resident/insurance" />
+        {certificate}
       </div>
     )
   }
@@ -102,6 +121,8 @@ export default async function ResidentInsurancePage() {
           <Link href={ASK_ABOUT_INSURANCE}>Ask the board</Link>
         </Button>
       </Panel>
+
+      {certificate}
     </div>
   )
 }

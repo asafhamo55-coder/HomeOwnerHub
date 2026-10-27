@@ -5,14 +5,10 @@ import { Hero } from '@/components/site/hero'
 import { GeorgiaFirst } from '@/components/site/georgia-first'
 import { LogoStrip } from '@/components/site/logo-strip'
 import { ProblemSolution } from '@/components/site/problem-solution'
-import { ProductsBento } from '@/components/site/products-bento'
-import { Agents } from '@/components/site/agents'
-import { PullQuote } from '@/components/site/pull-quote'
-import { Communities } from '@/components/site/communities'
-import { WorkflowsGrid } from '@/components/site/workflows-grid'
-import { CaseStudy } from '@/components/site/case-study'
-import { MidCta } from '@/components/site/mid-cta'
+import { SeeItWork } from '@/components/site/see-it-work'
+import { Pillars } from '@/components/site/pillars'
 import { HowItWorks } from '@/components/site/how-it-works'
+import { TrustSecurity } from '@/components/site/trust-security'
 import { PricingTeaser } from '@/components/site/pricing-teaser'
 import { CtaCloser } from '@/components/site/cta-closer'
 import { SITE_NAME, pageMetadata } from '@/lib/site'
@@ -32,22 +28,20 @@ export const metadata: Metadata = {
   twitter: { ...home.twitter, title: 'HomeownerHub — AI for self-managed HOA boards' },
 }
 
+// Section order is a product decision: Georgia leads (BL-157), so the
+// Georgia section sits right under the hero and before the generic pitch.
 export default function HomePage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
       <Hero />
       <LogoStrip />
-      <GeorgiaFirst moreHref={{ label: 'Everything for Georgia boards', href: '/hoa#georgia' }} />
+      <GeorgiaFirst moreHref={{ label: 'Georgia guides and free tools', href: '/georgia' }} />
       <ProblemSolution />
-      <ProductsBento />
-      <Agents />
-      <PullQuote />
-      <Communities />
-      <WorkflowsGrid />
-      <CaseStudy />
-      <MidCta />
+      <SeeItWork />
+      <Pillars />
       <HowItWorks />
+      <TrustSecurity />
       <PricingTeaser />
       <CtaCloser />
       <Footer />

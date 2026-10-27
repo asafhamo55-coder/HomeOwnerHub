@@ -9,6 +9,10 @@ import {
   FL_3033_AMOUNT,
   FL_3033_BOND,
   FL_3033_WAIVER,
+  GA_CONDO_107_LIABILITY,
+  GA_CONDO_107_PROPERTY,
+  GA_CONDO_107_WATER_ASSOCIATION,
+  GA_CONDO_107_WATER_OWNER,
   INSURANCE_NOT_LOADED,
   POLICY_KINDS,
   POLICY_KIND_LABELS,
@@ -41,7 +45,23 @@ const flSection = (cite: string) => {
   return squash(body!)
 }
 
+const gaArt3 = fixture('ga-ocga-44-3-art3-2026.txt')
+/** Paragraph (n) of subsection (x) of § 44-3-107 in the Art. 3 fixture (BL-155), squashed. */
+const ga107 = (sub: string, para: string) => {
+  const start = gaArt3.indexOf('=== O.C.G.A. Section 44-3-107 |')
+  expect(start).toBeGreaterThanOrEqual(0)
+  const end = gaArt3.indexOf('\n=== ', start + 1)
+  const lines = gaArt3.slice(start, end === -1 ? undefined : end).split('\n')
+  const from = lines.findIndex((l) => l.startsWith(`(${sub}) `))
+  expect(from, `§ 44-3-107(${sub})`).toBeGreaterThanOrEqual(0)
+  const at = lines.findIndex((l, i) => i > from && l.startsWith(`(${para}) `))
+  expect(at, `§ 44-3-107(${sub})(${para})`).toBeGreaterThan(from)
+  return squash(lines[at]!)
+}
+
 function sectionFor(c: InsuranceCitation): string {
+  const ga = /^O\.C\.G\.A\. § 44-3-107\(([a-z])\)\((\d+)\)$/.exec(c.cite)
+  if (ga) return ga107(ga[1]!, ga[2]!)
   if (c.cite.startsWith('Fla. Stat. § 720.3033')) return flSection('Fla. Stat. § 720.3033')
   if (c.cite.startsWith('Cal. Civ. Code § 5300')) return caSection('5300')
   throw new Error(`no section mapped for ${c.cite}`)
@@ -206,6 +226,46 @@ describe('coverageCheck', () => {
       const c = coverageCheck(s, [], TODAY)
       expect(c.findings).toEqual([{ code: 'check_governing_documents', severity: 'info', message: CHECK_GOVERNING_DOCUMENTS, citations: [] }])
     }
+  })
+
+  it('BL-155: a Georgia HOA, co-op or untyped association still gets check your governing documents', () => {
+    for (const associationType of ['hoa', 'coop', null, undefined]) {
+      const c = coverageCheck('GA', [], TODAY, { associationType })
+      expect(c.findings).toEqual([{ code: 'check_governing_documents', severity: 'info', message: CHECK_GOVERNING_DOCUMENTS, citations: [] }])
+    }
+    // a Florida condo is not the Georgia Act
+    expect(coverageCheck('FL', [policy({ kind: 'fidelity' })], TODAY, { associationType: 'condo' }).findings.map((f) => f.code)).toEqual(['fl_fidelity_amount'])
+  })
+
+  it('BL-155: a Georgia condo with nothing in force: property and liability warnings under § 44-3-107, plus the water-claim certificates', () => {
+    const c = coverageCheck('GA', [policy({ expiresOn: '2026-10-01' })], TODAY, { associationType: 'condo' })
+    expect(c.findings.map((f) => [f.code, f.severity])).toEqual([
+      ['ga_condo_property_missing', 'warn'],
+      ['ga_condo_liability_missing', 'warn'],
+      ['ga_condo_water_certificates', 'info'],
+    ])
+    expect(c.findings[0]!.citations).toEqual([GA_CONDO_107_PROPERTY])
+    expect(c.findings[1]!.citations).toEqual([GA_CONDO_107_LIABILITY])
+    expect(c.findings[1]!.message).toContain('$1,000,000')
+    expect(c.findings[1]!.message).toContain('$2,000,000')
+    expect(c.findings[2]!.citations).toEqual([GA_CONDO_107_WATER_ASSOCIATION, GA_CONDO_107_WATER_OWNER])
+    expect(c.findings.flatMap((f) => f.citations).every((x) => x.cite.startsWith('O.C.G.A. § 44-3-107'))).toBe(true)
+  })
+
+  it('BL-155: a Georgia condo liability limit below $1 million warns; at or above it, a reminder to confirm the aggregate; unrecorded, an info', () => {
+    const low = coverageCheck('GA', [policy(), policy({ kind: 'liability', coverageLimitCents: 50_000_000 })], TODAY, { associationType: 'condo' })
+    expect(low.findings.map((f) => f.code)).toEqual(['ga_condo_liability_below_minimum', 'ga_condo_water_certificates'])
+    expect(low.findings[0]!.severity).toBe('warn')
+    const ok = coverageCheck('GA', [policy(), policy({ kind: 'liability', coverageLimitCents: 100_000_000 })], TODAY, { associationType: 'condo' })
+    expect(ok.findings.map((f) => [f.code, f.severity])).toEqual([
+      ['ga_condo_liability_aggregate', 'info'],
+      ['ga_condo_water_certificates', 'info'],
+    ])
+    const unknown = coverageCheck('GA', [policy(), policy({ kind: 'liability', coverageLimitCents: null })], TODAY, { associationType: 'condo' })
+    expect(unknown.findings.map((f) => [f.code, f.severity])).toEqual([
+      ['ga_condo_liability_limit_unknown', 'info'],
+      ['ga_condo_water_certificates', 'info'],
+    ])
   })
 })
 

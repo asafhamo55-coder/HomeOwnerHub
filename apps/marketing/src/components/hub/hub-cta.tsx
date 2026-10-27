@@ -1,10 +1,7 @@
-'use client'
-
-import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import type { HubTheme } from './hub-theme'
-import { cn } from '@/lib/cn'
+import { TrackedLink } from '@/components/site/tracked-link'
 
 interface HubCtaProps {
   theme: HubTheme
@@ -15,48 +12,26 @@ interface HubCtaProps {
   footnote?: string
 }
 
-export function HubCta({ theme, title, description, primary, secondary, footnote }: HubCtaProps) {
+export function HubCta({ title, description, primary, secondary, footnote }: HubCtaProps) {
   return (
-    <section className="relative overflow-hidden py-24 md:py-32">
-      <div className={cn('absolute inset-0 -z-10 bg-gradient-to-br', theme.bgGradient)} />
-      <div className="absolute inset-0 -z-10 grid-bg opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
-
+    <section className="section section-ink ink-glow overflow-hidden">
       <div className="container-page">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-80px' }}
-          transition={{ duration: 0.6 }}
-          className="mx-auto max-w-3xl text-center"
-        >
-          <h2 className="text-balance text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-            {title}
-          </h2>
-          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-foreground-secondary">
-            {description}
-          </p>
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href={primary.href}
-              className={cn(
-                'group inline-flex items-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold shadow-sm transition-all hover:shadow-md',
-                theme.buttonClass,
-              )}
-            >
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="t-h2 text-[#fff]">{title}</h2>
+          <p className="mx-auto mt-6 max-w-xl text-[18px] leading-relaxed text-foreground-secondary">{description}</p>
+          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <TrackedLink href={primary.href} event="demo_cta_click" position="closing" className="btn btn-lg btn-on-ink group">
               {primary.label}
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </TrackedLink>
             {secondary && (
-              <Link
-                href={secondary.href}
-                className="text-sm font-medium text-foreground-secondary hover:text-foreground"
-              >
-                {secondary.label} →
+              <Link href={secondary.href} className="btn btn-lg btn-ghost-ink">
+                {secondary.label}
               </Link>
             )}
           </div>
-          {footnote && <p className="mt-8 text-xs text-muted">{footnote}</p>}
-        </motion.div>
+          {footnote && <p className="mt-8 text-sm text-muted">{footnote}</p>}
+        </div>
       </div>
     </section>
   )

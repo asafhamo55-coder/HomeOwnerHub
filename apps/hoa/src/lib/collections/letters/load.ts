@@ -7,6 +7,7 @@ import type { CollectionStatus } from '../statuses'
 import { LETTER_AUDIT_ENTITY, LETTER_PRINTED } from './audit'
 import type { LetterEvent, LetterInput } from './model'
 import { loadGaRegistrationGate } from '@/lib/ga-registration/load'
+import { loadGaComplaintGate } from '@/lib/ga-complaints/load'
 import { LETTER_ACTION, readLetterPayload, type LetterPayload } from './proposal'
 
 /**
@@ -58,7 +59,19 @@ export async function loadLetterContext(supabase: SupabaseClient, orgId: string,
     if (!reg.ok) throw new Error('collections letters: registration read failed')
     gaRegistration = reg.standing ? { status: reg.standing.status } : undefined
   }
-  const input = gaRegistration ? { ...ctx.input, gaRegistration } : ctx.input
+  // BL-161: this home's Secretary of State complaints, verified here; the
+  // letter's state law check reads the stay on the letter date.
+  let gaComplaintStay: LetterInput['gaComplaintStay']
+  if (ctx.input.state === 'GA' && ctx.input.unitId) {
+    const stay = await loadGaComplaintGate(supabase as never, orgId, [ctx.input.unitId])
+    if (!stay.ok) throw new Error('collections letters: complaint read failed')
+    gaComplaintStay = stay.gate
+  }
+  const input = {
+    ...ctx.input,
+    ...(gaRegistration ? { gaRegistration } : {}),
+    ...(gaComplaintStay ? { gaComplaintStay } : {}),
+  }
   const base = { input, today: ctx.today, collectionCase: live ? { id: live.id, status: live.status } : null }
   if (!live) return { ...base, events: [], requests: [] }
 

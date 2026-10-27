@@ -24,6 +24,14 @@
  *   meetings, so a regular (board) or emergency meeting is "check your
  *   bylaws"; a special meeting may be the board's or the members', so
  *   under 7 days is a caution, not a failure.
+ * GEORGIA CONDOMINIUMS (BL-155) — a Georgia association whose type is
+ *   'condo' gets the Condominium Act instead, ga-ocga-44-3-art3-2026.txt:
+ *   § 44-3-102 sets the same 21 / 7 days for MEMBERS' meetings, but its
+ *   notice states "the time, place, and purpose" of every meeting (the
+ *   POA Act asks for the purpose only for a special meeting). The Property
+ *   Owners' Association Act does not apply to condominium associations
+ *   (§ 44-3-235(b)), so a condo never gets § 44-3-230 text. Board meetings
+ *   stay "check your bylaws". The quote lives in lib/ga-condo/law.ts.
  * TEXAS — § 209.0051 is not in tx-prop-209-2026.txt or the tcss excerpt:
  *   "check your bylaws". Every other state: the same.
  *
@@ -31,6 +39,8 @@
  * 48-hour rule counts as 2 days (the same reading as
  * lib/fl-compliance/rules.ts board_48h).
  */
+
+import { GA_CONDO_MEETING_NOTICE, isGaCondo } from '@/lib/ga-condo/law'
 
 export interface StatuteCitation {
   /** As printed, e.g. "Fla. Stat. § 720.306(5)". */
@@ -87,6 +97,9 @@ export const GA_MEMBERS: StatuteCitation = {
     'Notice shall be given to each lot owner at least 21 days in advance of any annual or regularly scheduled meeting and at least seven days in advance of any other meeting and shall state the time, place, and, for any special meeting, purpose of such meeting.',
 }
 
+/** BL-155: § 44-3-102 for a Georgia condominium association (checked in lib/ga-condo/law.test.ts). */
+export const GA_CONDO_MEMBERS: StatuteCitation = { cite: GA_CONDO_MEETING_NOTICE.cite, quote: GA_CONDO_MEETING_NOTICE.quote }
+
 /** Every quote this module can show — what notice-law.test.ts checks against the fixtures. */
 export const ALL_NOTICE_CITATIONS: readonly StatuteCitation[] = [
   FL_BOARD_POSTED,
@@ -97,6 +110,7 @@ export const ALL_NOTICE_CITATIONS: readonly StatuteCitation[] = [
   CA_ELECTION_MEETING,
   CA_BALLOTS,
   GA_MEMBERS,
+  GA_CONDO_MEMBERS,
 ]
 
 export const CHECK_BYLAWS =
@@ -135,6 +149,8 @@ export interface NoticeCheckInput {
   meetingDate: string
   /** The association's today, YYYY-MM-DD. */
   today: string
+  /** BL-155: associations.type ('hoa' | 'condo' | 'coop'); a GA 'condo' gets § 44-3-102. */
+  associationType?: string | null
 }
 
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -275,6 +291,41 @@ function georgia(type: string | null | undefined, ahead: number): Omit<NoticeChe
   return null
 }
 
+/** BL-155: § 44-3-102, the Condominium Act's members' meeting notice (time, place and purpose, every meeting). */
+function georgiaCondo(type: string | null | undefined, ahead: number): Omit<NoticeCheck, 'state' | 'daysAhead'> | null {
+  if (type === 'annual') {
+    return ahead < 21
+      ? {
+          level: 'short',
+          minDays: 21,
+          message: `The meeting is ${plural(ahead, 'day')} away. Unit owners must get at least 21 days’ notice of the annual meeting, stating its time, place and purpose.`,
+          citations: [GA_CONDO_MEMBERS],
+        }
+      : {
+          level: 'ok',
+          minDays: 21,
+          message: `The meeting is ${plural(ahead, 'day')} away: at least the 21 days’ notice the annual meeting needs. State its time, place and purpose.`,
+          citations: [GA_CONDO_MEMBERS],
+        }
+  }
+  if (type === 'special') {
+    return ahead < 7
+      ? {
+          level: 'caution',
+          minDays: 7,
+          message: `The meeting is ${plural(ahead, 'day')} away. If this is a special meeting of the unit owners, they need at least 7 days’ notice stating its time, place and purpose. For a board meeting, check your bylaws.`,
+          citations: [GA_CONDO_MEMBERS],
+        }
+      : {
+          level: 'ok',
+          minDays: 7,
+          message: `The meeting is ${plural(ahead, 'day')} away: enough for a special meeting of the unit owners (7 days, with its time, place and purpose). For a board meeting, check your bylaws.`,
+          citations: [GA_CONDO_MEMBERS],
+        }
+  }
+  return null
+}
+
 /** Whether a notice sent today meets the state's minimum for this meeting. */
 export function checkMeetingNotice(input: NoticeCheckInput): NoticeCheck {
   const state = normaliseState(input.state)
@@ -293,7 +344,16 @@ export function checkMeetingNotice(input: NoticeCheckInput): NoticeCheck {
     }
   }
   const type = input.meetingType ?? null
-  const rule = state === 'FL' ? florida(type, ahead) : state === 'CA' ? california(type, ahead) : state === 'GA' ? georgia(type, ahead) : null
+  const rule =
+    state === 'FL'
+      ? florida(type, ahead)
+      : state === 'CA'
+        ? california(type, ahead)
+        : state === 'GA'
+          ? isGaCondo(state, input.associationType)
+            ? georgiaCondo(type, ahead)
+            : georgia(type, ahead)
+          : null
   if (!rule) return { level: 'bylaws', state, daysAhead: ahead, minDays: null, message: CHECK_BYLAWS, citations: [] }
   return { ...rule, state, daysAhead: ahead }
 }

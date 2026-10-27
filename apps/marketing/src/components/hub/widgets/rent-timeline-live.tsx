@@ -72,7 +72,7 @@ export function RentTimelineLive() {
       <div className="container-page">
         <header className="mb-12 md:flex md:items-end md:justify-between md:gap-12">
           <div className="max-w-xl">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-accent-fg">
+            <p className="eyebrow text-accent-fg">
               Live · March 2026 rent cycle
             </p>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">

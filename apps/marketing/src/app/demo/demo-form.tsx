@@ -1,6 +1,8 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { pageLabel, trackEvent } from '@/lib/analytics'
 import { CheckCircle2, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 import { submitDemoRequest, type DemoRequestState } from './actions'
 import { cn } from '@/lib/cn'
@@ -9,15 +11,30 @@ const initial: DemoRequestState = { status: 'idle' }
 
 export function DemoForm() {
   const [state, formAction, pending] = useActionState(submitDemoRequest, initial)
+  const pathname = usePathname()
+
+  // One event per successful submit. No form values are sent: labels only.
+  useEffect(() => {
+    if (state.status === 'success') void trackEvent('demo_submit_success', { page: pageLabel(pathname) })
+  }, [state.status, pathname])
 
   if (state.status === 'success') {
     return (
-      <div className="mt-8 rounded-xl border border-success/25 bg-success-subtle/40 p-6 text-center">
-        <CheckCircle2 className="mx-auto h-9 w-9 text-success" />
-        <h3 className="mt-3 text-base font-semibold text-foreground">Got it. Talk soon.</h3>
-        <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">
-          We'll reach out within one business day with a calendar link and a
-          short doc-upload form for your CC&R.
+      <div className="mt-8 rounded-xl border border-success/25 bg-success-subtle/40 p-6" role="status">
+        <CheckCircle2 className="h-9 w-9 text-success" aria-hidden />
+        <h3 className="mt-3 text-lg font-semibold text-foreground">Got it. We&apos;ll reply within 1 business day.</h3>
+        <p className="mt-3 text-sm font-semibold text-foreground">What happens next</p>
+        <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-foreground-secondary">
+          <li>We email you to find a time that suits your board.</li>
+          <li>Reply with your CC&amp;R and bylaws as PDFs. We load them before the call so the demo runs on your rules.</li>
+          <li>We show you the product on your documents. Your board decides afterwards. No pressure, no auto-conversion.</li>
+        </ol>
+        <p className="mt-4 text-sm text-foreground-secondary">
+          While you wait, the{' '}
+          <a href="/georgia/readiness" className="font-semibold text-primary underline-offset-2 hover:underline">
+            free SB 406 readiness check
+          </a>{' '}
+          takes about three minutes.
         </p>
       </div>
     )
@@ -42,6 +59,17 @@ export function DemoForm() {
         required
         error={errors.hoa}
       />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="County (optional)" name="county" placeholder="Fulton" error={errors.county} />
+        <Field
+          label="Number of homes (optional)"
+          name="homes"
+          type="text"
+          inputMode="numeric"
+          placeholder="120"
+          error={errors.homes}
+        />
+      </div>
 
       {state.status === 'error' && !Object.keys(errors).length && (
         <div className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger-subtle/60 p-3 text-xs text-danger">
@@ -53,7 +81,7 @@ export function DemoForm() {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover disabled:opacity-70"
+        className="btn btn-primary btn-lg w-full disabled:opacity-70"
       >
         {pending ? (
           <>
@@ -68,7 +96,7 @@ export function DemoForm() {
         )}
       </button>
       <p className="text-center text-xs text-muted">
-        We reply within one business day. No spam, ever.
+        We reply within 1 business day. No spam, ever.
       </p>
     </form>
   )
@@ -81,9 +109,11 @@ function Field({
   placeholder,
   required,
   error,
+  inputMode,
 }: {
   label: string
   name: string
+  inputMode?: 'numeric' | 'text'
   type?: string
   placeholder?: string
   required?: boolean
@@ -91,7 +121,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-xs font-semibold text-foreground-secondary" htmlFor={name}>
+      <label className="text-sm font-semibold text-foreground" htmlFor={name}>
         {label}
         {required && <span className="ml-1 text-danger">*</span>}
       </label>
@@ -99,14 +129,15 @@ function Field({
         id={name}
         name={name}
         type={type}
+        inputMode={inputMode}
         placeholder={placeholder}
         required={required}
         aria-invalid={Boolean(error)}
         className={cn(
-          'mt-1.5 w-full rounded-xl border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
+          'mt-1.5 min-h-12 w-full rounded-xl border bg-surface px-3.5 py-2.5 text-base text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
           error
             ? 'border-danger/40 focus:border-danger focus:ring-danger/15'
-            : 'border-border focus:border-primary focus:ring-primary/15',
+            : 'border-input focus:border-primary focus:ring-primary/20',
         )}
       />
       {error && <p className="mt-1 text-xs text-danger">{error}</p>}

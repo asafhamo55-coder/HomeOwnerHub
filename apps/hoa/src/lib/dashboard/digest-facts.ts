@@ -48,6 +48,8 @@ export interface BulletInput {
   waitingOverThree: number
   /** Pre-formatted by `formatNextMeeting`, or null to omit. */
   nextMeeting: string | null
+  /** BL-173: the seasonal announcement suggestion, or omitted. */
+  announcement?: string | null
 }
 
 export function buildBullets(input: BulletInput): string[] {
@@ -74,6 +76,10 @@ export function buildBullets(input: BulletInput): string[] {
 
   if (input.nextMeeting !== null) {
     bullets.push(input.nextMeeting)
+  }
+
+  if (input.announcement) {
+    bullets.push(input.announcement)
   }
 
   return bullets

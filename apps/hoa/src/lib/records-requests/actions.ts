@@ -30,7 +30,7 @@ import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonatio
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentUnits } from '@/lib/resident'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { RECORDS_CATEGORY, RECORDS_NOT_LIVE, composeRecordsRequest, dueInstant, recordsDeadline } from './law'
+import { RECORDS_CATEGORY, RECORDS_KIND_VALUES, RECORDS_NOT_LIVE, composeRecordsRequest, dueInstant, recordsDeadline } from './law'
 
 type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type RecordsActionResult<T = void> = (T extends void ? { ok: true } : { ok: true; data: T }) | ActionErr
@@ -46,7 +46,7 @@ function invalid(e: z.ZodError): ActionErr {
 
 const CreateSchema = z.object({
   unitId: z.string().uuid('Pick a home.'),
-  kind: z.enum(['owner_list', 'financial', 'minutes', 'contracts', 'governing', 'other'], {
+  kind: z.enum(RECORDS_KIND_VALUES, {
     errorMap: () => ({ message: 'Choose which records.' }),
   }),
   period: z.enum(['current', 'prior', 'both'], { errorMap: () => ({ message: 'Choose which years.' }) }),
@@ -61,7 +61,12 @@ export async function createRecordsRequest(
 ): Promise<RecordsActionResult<{ ticketId: string }>> {
   if (!RECORDS_REQUESTS_LIVE) return { ok: false, error: RECORDS_NOT_LIVE }
 
-  const parsed = CreateSchema.safeParse(input)
+  // The insurance certificate has no "which years" (BL-162): the form
+  // hides the question, and the request is filed as the current year.
+  const raw = input as Partial<Record<keyof CreateRecordsRequestInput, unknown>> | null
+  const withPeriod =
+    raw && typeof raw === 'object' && raw.kind === 'insurance_certificate' && !raw.period ? { ...raw, period: 'current' } : input
+  const parsed = CreateSchema.safeParse(withPeriod)
   if (!parsed.success) return invalid(parsed.error)
 
   if ((await getResidentActor()).impersonating) return { ok: false, error: IMPERSONATION_READONLY_MSG }

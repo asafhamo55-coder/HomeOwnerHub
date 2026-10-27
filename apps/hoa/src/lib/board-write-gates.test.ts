@@ -9,6 +9,7 @@ import * as propertyEvents from './property-events'
 import * as propertySale from './properties/sale-actions'
 import * as commActions from './communications/actions'
 import * as commSend from './communications/send'
+import * as announcements from './announcements/actions'
 import * as parseDocument from '../app/api/ai/parse-document/route'
 import * as governingUpload from '../app/api/governing-docs/upload/route'
 import * as violationDraft from '../app/api/ai/violations/draft/route'
@@ -28,6 +29,8 @@ import * as lateFees from './late-fees/actions'
 import * as gaRegistration from './ga-registration/actions'
 import * as professionals from './professionals/actions'
 import { PRO_DENIED } from './professionals/guard'
+import * as conflictDisclosure from './conflict-disclosure/actions'
+import * as gaComplaints from './ga-complaints/actions'
 import * as collections from './collections/actions'
 import * as collectionsLetters from './collections/letters/actions'
 import * as hearingActions from './violation-hearings/actions'
@@ -142,6 +145,8 @@ describe('board-only server actions refuse a resident before touching the databa
     ['recordPropertySale (P3 "Record a sale")', () => propertySale.recordPropertySale(ID, { settlementDate: '2026-01-01', buyers: [{ name: 'B' }] }), DENIED],
     ['deleteCommunication', () => commActions.deleteCommunication(ID), DENIED],
     ['sendCommunication', () => commSend.sendCommunication({} as never), DENIED],
+    ['sendAnnouncement (BL-173)', () => announcements.sendAnnouncement({} as never), DENIED],
+    ['dismissAnnouncementNudge (BL-173)', () => announcements.dismissAnnouncementNudge('halloween-party:2026'), DENIED],
     ['editBillProposal (BL-059: the only write path to a proposal payload)', () => billScanActions.editBillProposal({ approvalRequestId: ID }), DENIED],
     ['scanAttachmentAsBill (BL-059: runs W36 on an inbox attachment and files a proposal with the service role)', () => attachmentBill.scanAttachmentAsBill(ID), DENIED],
     ['sendCoiRequest (BL-083: emails a vendor)', () => coiRequest.sendCoiRequest({ vendorId: ID, subject: 's', body: 'b' }), DENIED],
@@ -201,6 +206,10 @@ describe('board-only server actions refuse a resident before touching the databa
     ['attorneyAddNote (BL-168)', () => professionals.attorneyAddNote({ matter: { type: 'violation', id: ID }, body: 'x' }), { ok: false, error: PRO_DENIED }],
     ['attorneyDraftLetter (BL-168)', () => professionals.attorneyDraftLetter({ matter: { type: 'violation', id: ID }, subject: 'x', body: 'x' }), { ok: false, error: PRO_DENIED }],
     ['attorneyUploadDocument (BL-168)', () => professionals.attorneyUploadDocument(form({ matterType: 'violation', matterId: ID })), { ok: false, error: PRO_DENIED }],
+    ['recordConflictDisclosure (BL-165: the signed record the award and vendor approval gate trusts)', () => conflictDisclosure.recordConflictDisclosure({ decisionKind: 'bid_award', decisionId: ID, status: 'no_conflict' }), DENIED],
+    ['updateGaComplaint (BL-161: add — the record the complaint-stay gate trusts)', () => gaComplaints.updateGaComplaint({ op: 'add', unitId: ID, filedOn: '2027-01-02', subject: 'both' }), DENIED],
+    ['updateGaComplaint (BL-161: conclude — ends the stay)', () => gaComplaints.updateGaComplaint({ op: 'conclude', unitId: ID, complaintId: ID, conclusionsOn: '2027-02-01' }), DENIED],
+    ['updateGaComplaint (BL-161: remove)', () => gaComplaints.updateGaComplaint({ op: 'remove', unitId: ID, complaintId: ID }), DENIED],
     ['recordCollectionEvent (BL-149: a lien filed runs the registration gate, overrides audited)', () => collections.recordCollectionEvent({ caseId: ID, eventType: 'lien_filed', occurredOn: '2026-10-01', advanceStatus: false }), DENIED],
     // BL-089 / BL-148: collections letters, incl. the Georgia notices. Audited; nothing is sent.
     ['saveLetterToApprovals (BL-148: GA notice before attorney’s fees)', () => collectionsLetters.saveLetterToApprovals({ propertyId: ID, kind: 'ga_fee_notice', values: {}, verified: true }), DENIED],

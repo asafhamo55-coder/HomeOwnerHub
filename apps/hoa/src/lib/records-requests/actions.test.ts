@@ -183,6 +183,23 @@ describe('flag on', () => {
     expect(db.calls.some((c) => c[1] === 'insert')).toBe(false)
   })
 
+  it('BL-162: the insurance certificate files with no "which years", as the current year', async () => {
+    db.state = 'GA'
+    const { period: _period, ...noPeriod } = VALID
+    const res = await createRecordsRequest({ ...noPeriod, kind: 'insurance_certificate' } as never)
+    expect(res).toEqual({ ok: true, data: { ticketId: TICKET } })
+    const insert = db.calls.find((c) => c[0] === 'tickets' && c[1] === 'insert')![2] as Record<string, unknown>
+    expect(insert).toMatchObject({ category: 'records_request', subject: 'Records request: Insurance certificate' })
+    expect(String(insert.description)).toContain('Records requested: Certificate of insurance')
+    expect(String(insert.description)).toContain('Years: This fiscal year')
+  })
+
+  it('any other kind still needs "which years"', async () => {
+    const { period: _period, ...noPeriod } = VALID
+    const res = await createRecordsRequest(noPeriod as never)
+    expect(res.ok ? null : res.fieldErrors?.period).toBeTruthy()
+  })
+
   it('validates the form fields', async () => {
     const res = await createRecordsRequest({ ...VALID, details: 'short' })
     expect(res.ok).toBe(false)

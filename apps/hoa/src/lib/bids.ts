@@ -10,6 +10,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { checkOrgOwned } from '@/lib/org-owned'
+import { conflictGate } from '@/lib/conflict-disclosure/load'
+import { fetchVotingBoard } from '@/lib/conflict-disclosure/board'
 
 const RFP_NOT_FOUND = 'We could not find that RFP.'
 const CHECK_FAILED = "We couldn't check that RFP. Try again."
@@ -272,6 +274,11 @@ export async function awardBid(
   if (bid.status !== 'submitted') {
     return { ok: false, error: `Only submitted bids can be awarded; this one is '${bid.status}'.` }
   }
+
+  // BL-165: from 2027-01-01 a Georgia association's award waits until every
+  // voting board member has recorded a conflict-of-interest disclosure.
+  const blocked = await conflictGate(supabase, gate.orgId, 'bid_award', bidId, fetchVotingBoard)
+  if (blocked) return { ok: false, error: blocked }
 
   // Flip the RFP first; if that succeeds, mark this bid awarded + the
   // others declined. We don't wrap in a transaction (Supabase JS

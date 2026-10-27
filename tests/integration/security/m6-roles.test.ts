@@ -1195,3 +1195,36 @@ describe('0071 second review', () => {
     expect(after.data).toEqual({ role: 'resident', officer_title: null })
   })
 })
+
+describe('0071 with the tenant-isolation migration (0070)', () => {
+  it('a suspended or archived org shows a professional nothing, as it shows a member nothing', async () => {
+    expect((await rows(cpa, 'funds')).length).toBeGreaterThan(0)
+    expect(await rows(attorney, 'collection_cases')).toEqual([ids.case])
+    await adminDb().from('orgs').update({ suspended_at: new Date().toISOString() } as never).eq('id', org.orgId)
+    expect(await rows(cpa, 'funds')).toEqual([])
+    expect(await rows(attorney, 'collection_cases')).toEqual([])
+    expect(await rows(counsel, 'governing_documents')).toEqual([])
+    expect(await rows(board, 'funds')).toEqual([])
+    await adminDb().from('orgs').update({ suspended_at: null, archived_at: new Date().toISOString() } as never).eq('id', org.orgId)
+    expect(await rows(cpa, 'funds')).toEqual([])
+    const { data } = await cpa.client.rpc('auth_org_ids' as never)
+    expect(data).toEqual([])
+  })
+
+  it('auth_org_ids() keeps members and drops professionals', async () => {
+    for (const u of [board, resident, admin]) expect((await u.client.rpc('auth_org_ids' as never)).data).toEqual([org.orgId])
+    for (const u of [cpa, attorney, counsel]) expect((await u.client.rpc('auth_org_ids' as never)).data).toEqual([])
+  })
+
+  it('a sign-off must be in its request’s own org, and an assignment’s home in its own org (same-org triggers)', async () => {
+    const id = await insertOne('approval_requests', moneyRow())
+    const cross = await adminDb().from('approval_signoffs' as never).insert({ organization_id: other.orgId, approval_request_id: id, signer_id: otherBoard.id } as never)
+    expect(cross.error?.code).toBe('23503')
+    const otherHome = await seedHome(other)
+    const forged = await adminDb().from('matter_assignments' as never).update({ unit_id: otherHome.unit } as never).eq('user_id' as never, attorney.id).eq('matter_id' as never, ids.case)
+    // The scope trigger re-resolves the home, so the forged unit never survives.
+    expect(forged.error).toBeNull()
+    const { data } = await adminDb().from('matter_assignments' as never).select('unit_id').eq('user_id' as never, attorney.id).eq('matter_id' as never, ids.case)
+    expect(data).toEqual([{ unit_id: ids.unit }])
+  })
+})

@@ -7,7 +7,7 @@ import { HubPersona } from '@/components/hub/hub-persona'
 import { HubFeatures } from '@/components/hub/hub-features'
 import { HubCta } from '@/components/hub/hub-cta'
 import { HUBS } from '@/components/hub/hub-theme'
-import { HoaDashboardVisual } from '@/components/hub/visuals/hoa-dashboard'
+import { HeroProductVisual } from '@/components/site/mockups'
 import { ViolationDrafterLive } from '@/components/hub/widgets/violation-drafter-live'
 import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
 import { SHIPPED_FEATURES } from '@/lib/features'
@@ -48,17 +48,23 @@ const NOT_YET = [
 
 export default function HoaPage() {
   return (
-    <main>
+    <main id="main-content">
       <Nav />
 
       <HubHero
         theme={theme}
         eyebrow={`${HOA_PRODUCT_NAME} · for volunteer boards · Georgia first`}
-        title="Run your HOA without a management company."
+        title={
+          <>
+            Run your HOA{' '}
+            <span className="text-foreground">without a</span> <span className="t-serif text-primary">management company.</span>
+          </>
+        }
         subtitle="Georgia’s SB 406 registration, collections notices, quorum and proxies, the annual report for owners and late fees within the cap. Then covenant questions, violation letters, announcements, inbox replies, minutes, bills and the month-end report. Drafted from your records, approved by the board, cited to the document."
-        primaryCta={{ label: 'Book a 10-min board demo', href: '/demo' }}
+        primaryCta={{ label: 'Start free pilot', href: '/demo' }}
         secondaryCta={{ label: 'See the Georgia tools', href: '#georgia' }}
-        visual={<HoaDashboardVisual />}
+        visual={<HeroProductVisual />}
+        bareVisual
         stats={[
           { value: String(SHIPPED_HOA_WORKFLOWS.length), label: 'AI workflows live' },
           { value: 'Cited', label: 'Every document answer' },
@@ -186,7 +192,7 @@ export default function HoaPage() {
       <section className="pb-20 md:pb-28">
         <div className="container-page grid gap-6 md:grid-cols-[1.6fr,1fr]">
           <div className="rounded-2xl border border-border/70 bg-surface p-7 ring-card">
-            <p className="text-sm font-semibold uppercase tracking-wider text-success">Also included</p>
+            <p className="eyebrow text-success">Also included</p>
             <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
               {ALSO_INCLUDED.map((item) => (
                 <li key={item} className="flex gap-2 text-sm text-foreground-secondary">
@@ -197,7 +203,7 @@ export default function HoaPage() {
             </ul>
           </div>
           <div className="rounded-2xl border border-border/70 bg-subtle/40 p-7">
-            <p className="text-sm font-semibold uppercase tracking-wider text-muted">Roadmap · not available yet</p>
+            <p className="eyebrow text-muted">Roadmap · not available yet</p>
             <ul className="mt-4 space-y-2.5">
               {NOT_YET.map((item) => (
                 <li key={item} className="flex gap-2 text-sm text-muted">
@@ -220,7 +226,7 @@ export default function HoaPage() {
           </>
         }
         description="Ten minutes is all we need. We pre-load your CC&R, show you Covenant Brain answering your actual rules, and let the board decide."
-        primary={{ label: 'Book a board demo', href: '/demo' }}
+        primary={{ label: 'Book a demo', href: '/demo' }}
         secondary={{ label: 'See pricing', href: '/pricing' }}
         footnote="Six-month free pilot for HOAs · No data migration · Built in Atlanta · Not legal advice"
       />

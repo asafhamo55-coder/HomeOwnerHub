@@ -6,13 +6,22 @@ import { signElection, withElection } from '../elections/store'
 import { ALL_COMPLIANCE_QUOTES } from './law'
 import {
   GA_SOS_URL,
-  buildComplianceOverview,
+  buildComplianceOverview as realBuildComplianceOverview,
   complianceSummary,
   nextGaRenewal,
   type ComplianceInput,
   type ComplianceObligation,
   type DoneWithEvidence,
 } from './obligations'
+
+
+// BL-167 added federal rows to every association; this file covers the state rows, so strip them
+// here. The federal rows are tested in federal.test.ts.
+const buildComplianceOverview: typeof realBuildComplianceOverview = (input) => {
+  const o = realBuildComplianceOverview(input)
+  const groups = o.groups.map((g) => ({ ...g, obligations: g.obligations.filter((x) => !x.key.includes(':federal-')) }))
+  return { groups, overdue: groups.flatMap((g) => g.obligations.filter((x) => x.tone === 'overdue')) }
+}
 
 // BL-145. Today is 2026-10-21 unless a case says otherwise. Fictional ids only.
 

@@ -1,10 +1,14 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { FileText, MessageSquare, Users } from 'lucide-react'
+import { FileSpreadsheet, FileText, MessageSquare, Users } from 'lucide-react'
 import { format } from 'date-fns'
 import { Button, EmptyState, LoadFailed, Page, StatusPill, type StatusTone } from '@homeowner-portal/ui'
 import { loadRecordsRequests, type RecordsRequestRow } from '@/lib/records-requests/queries'
 import {
+  GA_2027_RECORDS_CITATIONS,
+  GA_2027_RECORDS_FROM,
+  GA_PROPOSED_RULES_CONFIRM,
+  GA_PROPER_PURPOSE_ASK_ATTORNEY,
   GA_RECORDS_CATEGORIES,
   HOLIDAY_NOTE,
   KIND_SHORT,
@@ -63,7 +67,7 @@ export default async function RecordsRequestsPage() {
     )
   }
 
-  const georgia = normaliseState(result.state) === 'GA' ? <GeorgiaRecordsCategories /> : null
+  const georgia = normaliseState(result.state) === 'GA' ? <GeorgiaRecordsCategories today={result.today} /> : null
 
   if (result.rows.length === 0) {
     return (
@@ -106,12 +110,27 @@ function Quote({ c }: { c: StatuteCitation }) {
  * also need a stated purpose (O.C.G.A. § 14-3-1602). Every line is a quote
  * checked word for word against scripts/fixtures/state-law/ga-ocga-14-3-2026.txt.
  */
-function GeorgiaRecordsCategories() {
+function GeorgiaRecordsCategories({ today }: { today: string }) {
   const { onNotice, withPurpose } = GA_RECORDS_CATEGORIES
+  const inForce = today >= GA_2027_RECORDS_FROM
   return (
     <details className="rounded-lg border border-border bg-surface px-4 py-3 text-sm">
       <summary className="cursor-pointer font-medium">Georgia: which records an owner can ask for, and on what terms</summary>
       <div className="mt-3 space-y-4 text-xs">
+        {/* BL-162: § 43-17A-7(1)–(2), for every Georgia association from 2027. */}
+        <section className="space-y-1.5">
+          <h3 className="text-sm font-semibold">
+            {inForce ? 'Every Georgia owners’ association (since Jan 1, 2027)' : 'Every Georgia owners’ association (takes effect Jan 1, 2027)'}
+          </h3>
+          <ul className="space-y-1.5">
+            {GA_2027_RECORDS_CITATIONS.map((c) => (
+              <Quote key={c.cite} c={c} />
+            ))}
+          </ul>
+          <p className="text-foreground-secondary">
+            It sets no number of days. {GA_PROPOSED_RULES_CONFIRM} {GA_PROPER_PURPOSE_ASK_ATTORNEY}
+          </p>
+        </section>
         <p className="text-foreground-secondary">
           For an association incorporated as a Georgia nonprofit corporation. If yours isn’t, check your bylaws.
         </p>
@@ -197,6 +216,14 @@ function RecordsRequestItem({ row }: { row: RecordsRequestRow }) {
             <Link href="/properties/roster?kind=records">
               <Users className="size-4" aria-hidden />
               Records-request roster
+            </Link>
+          </Button>
+        ) : null}
+        {row.kind === 'financial' ? (
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/tickets/records/financial-packet">
+              <FileSpreadsheet className="size-4" aria-hidden />
+              3-year financial packet
             </Link>
           </Button>
         ) : null}
