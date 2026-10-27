@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { askStateLaw, type StateLawBrainOutput } from '@homeowner-portal/workflows'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { isPlatformAdmin } from '@/lib/platform-admin'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 
@@ -255,7 +257,14 @@ export interface CreateLawUpdateInput {
   effectiveDate?: string | null
   sourceUrl?: string | null
   relatedStatuteId?: string | null
+  /** The state the note is about. Defaults to the caller's association state. */
+  state?: SupportedState
 }
+
+/** BL-175b H5: law updates are one platform-wide feed, so only the platform
+ *  team edits it (migration 0070 drops the board's write policies). Boards
+ *  keep read-only. Refusals are plain text; no database error is surfaced. */
+const LAW_UPDATES_PLATFORM_ONLY = 'Only the platform team can edit law updates.'
 
 export async function createLawUpdate(
   input: CreateLawUpdateInput,
@@ -284,23 +293,27 @@ export async function createLawUpdate(
     }
   }
 
+  if (!(await isPlatformAdmin())) return { ok: false, error: LAW_UPDATES_PLATFORM_ONLY }
   const supabase = await getSupabaseServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  let state: SupportedState | null
-  try {
-    state = await getAssociationState()
-  } catch {
-    return { ok: false, error: "Couldn't check your association's state. Try again." }
+  let state: SupportedState | null = input.state && isSupportedState(input.state) ? input.state : null
+  if (!state) {
+    try {
+      state = await getAssociationState()
+    } catch {
+      return { ok: false, error: "Couldn't check your association's state. Try again." }
+    }
   }
   if (!state) {
-    return { ok: false, error: "Your association's state isn't supported yet." }
+    return { ok: false, error: 'Pick a supported state (GA, FL, CA or TX).' }
   }
 
-  const { data: row, error } = await supabase
+  const db = createAdminClient()
+  const { data: row, error } = await db
     .from('state_law_updates' as never)
     .insert({
       state,
@@ -327,7 +340,8 @@ export async function createLawUpdate(
 }
 
 export async function archiveLawUpdate(id: string): Promise<ActionResult> {
-  const supabase = await getSupabaseServerClient()
+  if (!(await isPlatformAdmin())) return { ok: false, error: LAW_UPDATES_PLATFORM_ONLY }
+  const supabase = createAdminClient()
   const { error } = await supabase
     .from('state_law_updates' as never)
     .update({ archived_at: new Date().toISOString() } as never)
@@ -340,7 +354,8 @@ export async function archiveLawUpdate(id: string): Promise<ActionResult> {
 }
 
 export async function deleteLawUpdate(id: string): Promise<ActionResult> {
-  const supabase = await getSupabaseServerClient()
+  if (!(await isPlatformAdmin())) return { ok: false, error: LAW_UPDATES_PLATFORM_ONLY }
+  const supabase = createAdminClient()
   const { error } = await supabase
     .from('state_law_updates' as never)
     .update({ deleted_at: new Date().toISOString() } as never)
@@ -356,6 +371,7 @@ export async function updateLawUpdate(
   id: string,
   input: Partial<CreateLawUpdateInput>,
 ): Promise<ActionResult> {
+  if (!(await isPlatformAdmin())) return { ok: false, error: LAW_UPDATES_PLATFORM_ONLY }
   const patch: Record<string, unknown> = {}
   if (input.headline !== undefined) patch.headline = input.headline
   if (input.summary !== undefined) patch.summary = input.summary
@@ -366,7 +382,7 @@ export async function updateLawUpdate(
 
   if (Object.keys(patch).length === 0) return { ok: true }
 
-  const supabase = await getSupabaseServerClient()
+  const supabase = createAdminClient()
   const { error } = await supabase
     .from('state_law_updates' as never)
     .update(patch as never)
@@ -379,7 +395,8 @@ export async function updateLawUpdate(
 }
 
 export async function unarchiveLawUpdate(id: string): Promise<ActionResult> {
-  const supabase = await getSupabaseServerClient()
+  if (!(await isPlatformAdmin())) return { ok: false, error: LAW_UPDATES_PLATFORM_ONLY }
+  const supabase = createAdminClient()
   const { error } = await supabase
     .from('state_law_updates' as never)
     .update({ archived_at: null } as never)

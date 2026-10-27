@@ -17,11 +17,13 @@ import { tryLoad } from '@/lib/load-or-fail'
 import { lawCategoryLabel, STATE_CODE_LABELS, STATE_NAMES } from '@/lib/status/knowledge'
 import { LegalDisclaimer } from '@/components/knowledge/LegalDisclaimer'
 import { LawUpdateItem } from '@/components/knowledge/LawUpdateItem'
+import { isPlatformAdmin } from '@/lib/platform-admin'
 import { LegalTabs } from '@/components/knowledge/LegalTabs'
 
 export const metadata = { title: 'State Law & Compliance' }
 
 export default async function LegalLandingPage() {
+  const canEditUpdates = await isPlatformAdmin()
   const summaryResult = await tryLoad('state law summary', () => getStateLawSummary())
   const summary = summaryResult.ok ? summaryResult.data : null
   const updatesResult =
@@ -102,7 +104,7 @@ export default async function LegalLandingPage() {
                 Recent law updates
               </h2>
               <Link href="/legal/updates" className="text-sm font-medium text-primary hover:underline">
-                Manage updates
+                {canEditUpdates ? 'Manage updates' : 'All updates'}
               </Link>
             </div>
             {!updatesResult || !updatesResult.ok ? (
@@ -113,9 +115,11 @@ export default async function LegalLandingPage() {
                 title="No recent updates"
                 description="When a change in state HOA law affects your association, a curated note appears here."
                 action={
-                  <Button asChild variant="secondary">
-                    <Link href="/legal/updates/new">Post an update</Link>
-                  </Button>
+                  canEditUpdates ? (
+                    <Button asChild variant="secondary">
+                      <Link href="/legal/updates/new">Post an update</Link>
+                    </Button>
+                  ) : undefined
                 }
               />
             ) : (
