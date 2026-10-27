@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { complianceState } from '@/lib/compliance/deadlines'
+import { complianceState } from '@/lib/compliance/state'
 import { capSummary, lateFeeLaw, lateFeeStateOf } from '@/lib/late-fees/law'
 import { US_STATES, isUsStateCode } from '@/lib/us-states'
 

@@ -62,7 +62,10 @@ export const COMPLIANCE_DUE_SOON_DAYS = 30
 /** A dated deadline puts a line in the daily digest from this many days out. */
 export const COMPLIANCE_DIGEST_WINDOW_DAYS = 90
 
-export type ComplianceState = 'GA' | 'FL' | 'CA' | 'TX'
+export type { ComplianceState } from './state'
+import type { ComplianceState } from './state'
+export { complianceState } from './state'
+import { complianceState } from './state'
 
 export interface ComplianceDeadline {
   /** Stable id; the acknowledgment is stored under it. */
@@ -347,28 +350,6 @@ export function deadlineByCode(code: unknown): ComplianceDeadline | null {
 
 // ─── State ──────────────────────────────────────────────────────────
 
-const STATE_NAMES: Record<string, ComplianceState> = {
-  GA: 'GA',
-  GEORGIA: 'GA',
-  FL: 'FL',
-  FLORIDA: 'FL',
-  CA: 'CA',
-  CALIFORNIA: 'CA',
-  TX: 'TX',
-  TEXAS: 'TX',
-}
-
-/** The association's state for compliance purposes: its governing-law state, else its address state. */
-export function complianceState(
-  governingLawState: string | null | undefined,
-  state: string | null | undefined,
-): ComplianceState | null {
-  for (const raw of [governingLawState, state]) {
-    const s = (raw ?? '').trim().toUpperCase()
-    if (s) return STATE_NAMES[s] ?? null
-  }
-  return null
-}
 
 /**
  * The deadlines that apply in this state. With `todayYmd`, Georgia also
