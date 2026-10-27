@@ -56,6 +56,7 @@ database.
 | L | Migration 0069 (batch M5): dues rate schedule (BL-137) and join requests (BL-143); more M5 parts may join | BL-137, BL-143 | L1–L4, L-BL143a–c | Yes (L3, adds four tables, their rules, four automatic checks and three join functions) | none |
 | M | Migration 0070 (BL-175b): tenant-isolation hardening (SECURITY; apply before any other pending migration) | BL-175b | M1–M5 | Yes (M4, adds 16 same-HOA checks, replaces security functions and rules) | none |
 | N | Migration 0071 (batch M6): CPA, attorney and officer roles, invitations, dual control (BL-168; apply after Section M) | BL-168 | N1–N4 | Yes (N3, adds tables, columns and rules; the app stays off until `M6_APPLIED`) | M |
+| O | Migration 0072 (batch M7): certified-mail tracking on collection events (BL-166), one-transaction payment recording with unapplied credit (BL-177), admin-only state and type (BL-176; apply after Section N) | BL-166, BL-176, BL-177 | O1–O4 | Yes (O3, adds 4 columns, 1 table, 1 function, 1 rule; the app stays off until `M7_APPLIED`, except the state/type rule, which is on at once) | N |
 
 50 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
@@ -1187,6 +1188,7 @@ Run these as **separate queries** (the editor shows only the last result).
 | J4 | `M3_APPLIED = true` (one flag for all of 0067: BL-136, BL-134, BL-131) | `packages/db/src/m3.ts` | Claude, then deploy hoa + jobs |
 | K4 | `M4_APPLIED = true` (one flag for all of 0068: BL-132, BL-133); un-draft `insurance-policies`, `violations-fine-hearing`, `resident-request-hearing` | `packages/db/src/m4.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
 | L4 + L-BL143c + L-BL145c | `M5_APPLIED = true` (one flag for all of 0069; today BL-137, BL-143 and BL-145); un-draft `dues-rate-schedule`, `members-ask-to-join` and `compliance-obligations` | `packages/db/src/m5.ts`, `apps/hoa/content/guide` | Claude, then deploy hoa + jobs |
+| O4 | `M7_APPLIED = true` (one flag for all of 0072: BL-166, BL-177; BL-176 needs none) | `packages/db/src/m7.ts` | Claude, then deploy hoa |
 
 After everything is applied, Claude may regenerate the database types
 (`pnpm gen:types`) only once every file in `migrations/` is live, and diffs
@@ -1342,3 +1344,104 @@ Every new table starts empty and no existing row changes meaning. Nobody gets a 
 - **Before the flip:** set `PRO_INVITE_SECRET` (any random string of 32+ characters) in Vercel **production**. Without it invitations are refused (there is deliberately no fallback to another key).
 - **Flag Claude flips after N4:** `M6_APPLIED` → `true` (`packages/db/src/m6.ts`), then un-drafts the guide article `members-invite-professional` and deploys hoa. That turns on, together: **Settings → Professionals** (Invite a professional, who has access, matter assignments, officer titles, the dual-control amount), the CPA's **Accounting & Reports** and the attorney's **My matters** at `/pro`, **From your professionals** in Approvals (a CPA's review note and proposed entry; an attorney's notes, uploads and draft letters), and the Treasurer-first routing and two-board-member rule on scanned bills and CPA entries. `tests/integration/security/m6-roles.test.ts` covers every role and table (allowed, denied, expired) in CI.
 - **First thing for the board after the flip:** open **Settings → Professionals**. An admin sets the Treasurer (and other officers) under **Officers**, and the dual-control amount if you want one; until then money approvals behave exactly as today. Then invite your CPA or attorney.
+
+
+---
+
+## Section O · Migration 0072, batch M7 (mail tracking, one-transaction payments, admin-only state and type)
+
+File: `migrations/0072_m7_batch.sql`. *Needs:* Section N (0071) applied and verified, and Section M (0070) before it, because it reuses the same-HOA check from 0070 and the matter table from 0071; O3 refuses to run, changing nothing, if either is missing. Backlog: BL-166, BL-177, BL-176.
+
+What it does:
+
+1. **Mail tracking (BL-166).** The collections trail (`collection_events`) gets four optional columns: how a notice was sent (certified, statutory overnight, first class, email, hand), the tracking number, the day it was mailed and the day it was delivered. The trail is still add-only: nothing can be edited or deleted, so a delivery you learn about later is a new entry. The existing rules (board adds and reads, an assigned attorney reads, nobody else) already cover the new columns because they apply to the whole row; O3 stops with an error if anyone has since added a rule that lets entries be edited.
+2. **One-transaction payments and unapplied credit (BL-177).** A new table `unapplied_credits` holds money received beyond what a home owed (board reads and writes; a resident reads their own home). A new function `record_lump_payment` posts every part of a payment, with its payment row, balanced ledger entry and the charge's new status, in one go: if any part fails, nothing is posted. It refuses a caller who is not signed in, anyone who is not the board or an admin of that HOA, a charge that is not on that home, and any amount above what a charge has left. It cannot be run by anonymous visitors.
+3. **Admin-only state and type (BL-176).** A rule on the associations table: only an admin of the HOA (or us, with the service key) can change the state, the governing-law state or the type. A board member's attempt to change them through the API is refused; the other columns stay as they are. **This one takes effect the moment O3 runs.** The Settings → Association form was already admin-only, so nothing changes for you.
+
+Nothing in the app reads or writes the new columns, table or function until Claude turns on `M7_APPLIED` after O4.
+
+### O1 · What is already there (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regclass('public.unapplied_credits') IS NOT NULL                          AS credits_done,
+         (SELECT count(*) FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'collection_events'
+             AND column_name IN ('mail_method', 'tracking_number', 'mailed_on', 'delivered_on')) AS mail_columns_done,
+         to_regprocedure('public.record_lump_payment(uuid, uuid, jsonb, text, date, text)') IS NOT NULL AS function_done,
+         to_regprocedure('public.tenant_fk_same_org()') IS NOT NULL                    AS from_0070_ok,
+         to_regclass('public.matter_assignments') IS NOT NULL                          AS from_0071_ok,
+         to_regclass('public.collection_events') IS NOT NULL                           AS collections_ok,
+         to_regclass('public.assessments') IS NOT NULL
+           AND to_regclass('public.payments') IS NOT NULL
+           AND to_regclass('public.journal_entries') IS NOT NULL
+           AND to_regclass('public.ledger_entries') IS NOT NULL                        AS books_ok,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'assessments'
+                    AND column_name = 'deleted_at')                                    AS deleted_at_ok,
+         (SELECT count(*) FROM public.collection_events)                               AS events,
+         (SELECT count(*) FROM public.associations)                                    AS associations,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'collection_events'
+             AND cmd IN ('UPDATE', 'DELETE', 'ALL'))                                   AS edit_rules_on_trail;
+  ```
+
+- **Does:** shows whether M7 is already applied, that everything it builds on exists, and the row counts to compare against after.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** one row: `credits_done` = false, `mail_columns_done` = 0, `function_done` = false, every `_ok` = true, `events` and `associations` = some numbers (write them down), `edit_rules_on_trail` = 0.
+- **Send:** the row.
+- **If any `_ok` column is false:** stop and tell Claude (O3 would refuse to run, changing nothing).
+- **If `edit_rules_on_trail` is not 0:** stop and tell Claude; the trail must stay add-only.
+- **If `mail_columns_done` is 1, 2 or 3:** stop and tell Claude (a half-applied attempt).
+- **If `credits_done` is true and `mail_columns_done` is 4:** stop, M7 is done; tell Claude.
+
+### O2 · Nothing to move (no step)
+
+The four new columns start empty (no existing entry changes), the credits table starts empty, and no existing association row changes. There is no O2 query.
+
+### O3 · Apply 0072 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0072_m7_batch.sql`. Ask Claude to copy it ("copy step O3").
+- **Does:** adds the four mail columns and their checks to the collections trail; creates `unapplied_credits` with its three same-HOA checks and two access rules; creates `record_lump_payment` (locked to signed-in board members and admins, closed to anonymous visitors); adds the admin-only rule on state and type to the associations table; then re-checks all of it and undoes everything if anything is off.
+- **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
+- **Time:** about a second (the new columns are added without rewriting the table; the new table is empty).
+- **Expect:** "Success. No rows returned" and a notice "0072 ok: M7 applied".
+- **Send:** "O3 done", or the error.
+- **If it errors:** nothing was changed. Send the error.
+
+### O4 · Verify (read-only)
+
+- **Paste:** the O1 query again.
+- **Expect:** one row: `credits_done` = true, `mail_columns_done` = 4, `function_done` = true, every `_ok` = true, `events` and `associations` **the same numbers as in O1**, `edit_rules_on_trail` = 0.
+- **Then paste, on its own:**
+
+  ```sql
+  SELECT (SELECT count(*) FROM pg_constraint
+           WHERE conrelid = 'public.collection_events'::regclass
+             AND conname IN ('collection_events_mail_method_check', 'collection_events_tracking_number_check',
+                             'collection_events_mail_needs_method_check', 'collection_events_mail_dates_check')) AS mail_checks,
+         (SELECT count(*) FROM public.collection_events WHERE mail_method IS NOT NULL
+             OR tracking_number IS NOT NULL OR mailed_on IS NOT NULL OR delivered_on IS NOT NULL)   AS rows_with_mail_data,
+         (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.unapplied_credits'::regclass)     AS credits_locked,
+         (SELECT count(*) FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'unapplied_credits')                         AS credits_rules,
+         (SELECT count(*) FROM pg_trigger
+           WHERE NOT tgisinternal AND tgrelid = 'public.unapplied_credits'::regclass
+             AND tgname LIKE '%\_org\_scope')                                                      AS credits_same_hoa_checks,
+         (SELECT count(*) FROM public.unapplied_credits)                                            AS credits_rows,
+         (SELECT prosecdef FROM pg_proc
+           WHERE oid = 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)'::regprocedure) AS function_is_definer,
+         (SELECT coalesce(proconfig, '{}') @> ARRAY['search_path=public, pg_temp'] FROM pg_proc
+           WHERE oid = 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)'::regprocedure) AS function_path_pinned,
+         has_function_privilege('anon', 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)', 'EXECUTE') AS anon_can_run,
+         has_function_privilege('authenticated', 'public.record_lump_payment(uuid, uuid, jsonb, text, date, text)', 'EXECUTE') AS signed_in_can_run,
+         (SELECT count(*) FROM pg_trigger
+           WHERE tgrelid = 'public.associations'::regclass AND tgname = 'associations_state_type_guard') AS state_type_rule;
+  ```
+
+- **Expect:** `mail_checks` = 4, `rows_with_mail_data` = 0, `credits_locked` = true, `credits_rules` = 2, `credits_same_hoa_checks` = 3, `credits_rows` = 0, `function_is_definer` = true, `function_path_pinned` = true, `anon_can_run` = false, `signed_in_can_run` = true, `state_type_rule` = 1.
+- **O4 is done only when both rows match.**
+- **Send:** both rows, and the words **"0072 is applied"**.
+- **Flag Claude flips after O4:** `M7_APPLIED` → `true` (`packages/db/src/m7.ts`), then deploys hoa. That turns on, together: **how and when it was mailed** on the Georgia collections-letter screen and on the case's "Record an action" form (the attorney's-fee check and the earliest foreclosure date then count from the delivery day, for certified mail or statutory overnight delivery only); **Record payment** posting every part in one go, with a payment method, a date and a note, and keeping any overpayment as a **credit** shown on the home's page and the owner's ledger.
+- **First thing for the board after the flip:** print a Georgia notice before attorney's fees, then open **Letters printed for this case** on the collections-letter page and record how and when it was mailed. Until then nothing changes.
