@@ -84,6 +84,22 @@ export const BankReconciliationOutputSchema = z.object({
 
 export type BankReconciliationOutput = z.infer<typeof BankReconciliationOutputSchema>
 
+/**
+ * Pure tenant check for a loaded bank transaction. Returns an error string
+ * when the transaction or its bank account is outside `orgId`, else null.
+ */
+export function checkBankTxnScope(
+  orgId: string,
+  txnOrgId: string | null | undefined,
+  bankAccount: { organization_id?: string | null } | null,
+): string | null {
+  if (txnOrgId !== orgId) return 'bank_transaction_org_mismatch: transaction'
+  if (!bankAccount || bankAccount.organization_id !== orgId) {
+    return 'bank_transaction_org_mismatch: bank_account'
+  }
+  return null
+}
+
 // ─── Workflow ────────────────────────────────────────────────────────
 
 export const bankReconciliationAgent = defineWorkflow({
@@ -111,9 +127,10 @@ export const bankReconciliationAgent = defineWorkflow({
     const { data: txn, error: txnErr } = await db
       .from('bank_transactions')
       .select(
-        'id, organization_id, bank_account_id, plaid_transaction_id, amount, posted_date, memo, merchant, matched_journal_entry_id, bank_account:bank_account_id(id, association_id, fund_id, account_name)',
+        'id, organization_id, bank_account_id, plaid_transaction_id, amount, posted_date, memo, merchant, matched_journal_entry_id, bank_account:bank_account_id(id, organization_id, association_id, fund_id, account_name)',
       )
       .eq('id', input.bankTransactionId)
+      .eq('organization_id', ctx.organizationId)
       .single()
 
     if (txnErr || !txn) {
@@ -122,6 +139,7 @@ export const bankReconciliationAgent = defineWorkflow({
 
     type BankAcct = {
       id: string
+      organization_id: string
       association_id: string
       fund_id: string
       account_name: string
@@ -130,6 +148,18 @@ export const bankReconciliationAgent = defineWorkflow({
     if (!bankAccount) {
       throw new Error('bank_transaction has no bank_account')
     }
+
+    // Tenant isolation: transaction, bank account and association must all
+    // be in the run's org before anything is proposed.
+    const scopeError = checkBankTxnScope(ctx.organizationId, txn.organization_id, bankAccount)
+    if (scopeError) throw new Error(scopeError)
+    const { data: assoc } = await db
+      .from('associations')
+      .select('id')
+      .eq('id', bankAccount.association_id)
+      .eq('organization_id', ctx.organizationId)
+      .maybeSingle()
+    if (!assoc) throw new Error('bank_transaction_org_mismatch: association')
 
     // Already matched (idempotent re-fire): short-circuit. Could happen
     // if the webhook delivers duplicates or a manual disposition raced
@@ -145,8 +175,6 @@ export const bankReconciliationAgent = defineWorkflow({
         notes: 'transaction already linked to a journal entry — no-op',
       }
     }
-
-    void ctx // available for correlation logging when wired
 
     const memoParts = parseMemoCode(txn.memo)
     const isInbound = Number(txn.amount) > 0
@@ -421,6 +449,7 @@ async function runStepA(
   const { data: candidates } = await db
     .from('assessments')
     .select('id, amount, status, unit_id, fiscal_period_id')
+    .eq('organization_id', input.organizationId)
     .eq('association_id', input.associationId)
     .eq('memo_code', input.memoParts.canonical)
     .in('status', ['open', 'partial'])

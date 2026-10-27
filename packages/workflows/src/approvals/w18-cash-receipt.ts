@@ -61,10 +61,33 @@ export function validateCashReceipt(
     amount: number | string
     matched_journal_entry_id: string | null
     association_id: string | null
+    /** bank_transactions.organization_id */
+    organization_id?: string | null
+    /** bank_accounts.organization_id of the txn's account */
+    bank_account_organization_id?: string | null
   } | null,
-  assessment: { association_id: string; amount: number | string; status: string } | null,
+  assessment: {
+    association_id: string
+    amount: number | string
+    status: string
+    organization_id?: string | null
+  } | null,
+  /** Tenant scope: the approval request's org. Everything must be in it. */
+  scope: { organizationId: string; associationInOrg: boolean },
 ): { ok: true; newAssessmentStatus: 'paid' | 'partial' } | { ok: false; error: string } {
   if (!txn) return { ok: false, error: 'bank transaction no longer exists' }
+  // Tenant isolation: the transaction, its bank account, the association
+  // and the assessment must ALL be in the request's org. A payload that
+  // names another org's ids is refused before anything posts.
+  if (
+    txn.organization_id !== scope.organizationId ||
+    txn.bank_account_organization_id !== scope.organizationId
+  ) {
+    return { ok: false, error: 'bank transaction is not in this organization' }
+  }
+  if (!scope.associationInOrg) {
+    return { ok: false, error: 'association is not in this organization' }
+  }
   if (txn.matched_journal_entry_id) {
     return {
       ok: false,
@@ -77,7 +100,11 @@ export function validateCashReceipt(
   if (toCents(Number(txn.amount)) !== toCents(payload.amount)) {
     return { ok: false, error: 'bank transaction amount no longer matches the proposal' }
   }
-  if (!assessment || assessment.association_id !== payload.associationId) {
+  if (
+    !assessment ||
+    assessment.association_id !== payload.associationId ||
+    assessment.organization_id !== scope.organizationId
+  ) {
     return { ok: false, error: 'assessment not found in this association' }
   }
   if (assessment.status !== 'open' && assessment.status !== 'partial') {
@@ -96,30 +123,48 @@ export const executeW18CashReceipt: ApprovalExecutor = async (db, request) => {
   }
   const p = parsed.data
 
-  const [{ data: txnRow }, { data: assessment }, refs] = await Promise.all([
+  const [{ data: txnRow }, { data: assessment }, { data: assoc }] = await Promise.all([
     db
       .from('bank_transactions')
-      .select('id, amount, matched_journal_entry_id, bank_account:bank_account_id(association_id)')
+      .select(
+        'id, organization_id, amount, matched_journal_entry_id, bank_account:bank_account_id(association_id, organization_id)',
+      )
       .eq('id', p.bankTransactionId)
+      .eq('organization_id', request.organization_id)
       .maybeSingle(),
     db
       .from('assessments')
-      .select('id, association_id, amount, status')
+      .select('id, association_id, organization_id, amount, status')
       .eq('id', p.assessmentId)
+      .eq('organization_id', request.organization_id)
       .maybeSingle(),
-    loadAccountingRefs(db, p.associationId),
+    db
+      .from('associations')
+      .select('id')
+      .eq('id', p.associationId)
+      .eq('organization_id', request.organization_id)
+      .maybeSingle(),
   ])
+  const associationInOrg = Boolean(assoc)
+  // Only touch the accounting refs of an association proven to be in the org.
+  const refs = associationInOrg ? await loadAccountingRefs(db, p.associationId) : null
 
   const txn = txnRow
     ? {
         amount: txnRow.amount,
         matched_journal_entry_id: txnRow.matched_journal_entry_id,
+        organization_id: txnRow.organization_id,
+        bank_account_organization_id:
+          (txnRow.bank_account as { organization_id: string } | null)?.organization_id ?? null,
         association_id:
           (txnRow.bank_account as { association_id: string } | null)?.association_id ?? null,
       }
     : null
 
-  const check = validateCashReceipt(p, txn, assessment)
+  const check = validateCashReceipt(p, txn, assessment, {
+    organizationId: request.organization_id,
+    associationInOrg,
+  })
   if (!check.ok) return check
   if (!refs) return { ok: false, error: 'accounting refs missing for this association' }
 
@@ -156,6 +201,7 @@ export const executeW18CashReceipt: ApprovalExecutor = async (db, request) => {
       match_confidence: 0.99,
     })
     .eq('id', p.bankTransactionId)
+    .eq('organization_id', request.organization_id)
     .is('matched_journal_entry_id', null)
     .select('id')
   if (link.error) problems.push(`link: ${link.error.message}`)
@@ -181,7 +227,8 @@ export const executeW18CashReceipt: ApprovalExecutor = async (db, request) => {
     db
       .from('assessments')
       .update({ status: check.newAssessmentStatus })
-      .eq('id', p.assessmentId),
+      .eq('id', p.assessmentId)
+      .eq('organization_id', request.organization_id),
     db.from('zelle_inbound_matches').insert({
       organization_id: request.organization_id,
       bank_transaction_id: p.bankTransactionId,
