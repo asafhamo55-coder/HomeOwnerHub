@@ -59,6 +59,9 @@ export default async function DocumentDetailPage({
 }) {
   const { id } = await params
   const supabase = await getSupabaseServerClient()
+  // BL-175a L9: filter the by-id load to the current org (memoized read).
+  const currentOrg = await getCurrentOrg()
+  if (!currentOrg) notFound()
 
   const docResult = await loadOrFail(
     'document',
@@ -66,6 +69,7 @@ export default async function DocumentDetailPage({
       .from('hoa_documents')
       .select(docDetailColumns(M1_APPLIED))
       .eq('id', id)
+      .eq('org_id', currentOrg.id)
       .maybeSingle(),
   )
 
