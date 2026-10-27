@@ -2,12 +2,9 @@ import type { Metadata } from 'next'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { Hero } from '@/components/site/hero'
-import { GeorgiaFirst } from '@/components/site/georgia-first'
-import { LogoStrip } from '@/components/site/logo-strip'
-import { ProblemSolution } from '@/components/site/problem-solution'
-import { SeeItWork } from '@/components/site/see-it-work'
 import { Pillars } from '@/components/site/pillars'
 import { HowItWorks } from '@/components/site/how-it-works'
+import { StateLawBuiltIn } from '@/components/site/state-law-built-in'
 import { TrustSecurity } from '@/components/site/trust-security'
 import { PricingTeaser } from '@/components/site/pricing-teaser'
 import { CtaCloser } from '@/components/site/cta-closer'
@@ -24,19 +21,18 @@ export const metadata: Metadata = {
   twitter: { ...home.twitter, title: HOME_TITLE },
 }
 
-// Section order is a product decision: Georgia leads (BL-157), so the
-// Georgia section sits right under the hero and before the generic pitch.
+// Section order is a product decision (docs/decisions/2026-10-27-website-
+// product-first-positioning.md): the workspace leads, state law is ONE
+// section after "how it works", then trust, pricing and the closing CTA.
+// marketing-truth.test.ts pins this order.
 export default function HomePage() {
   return (
     <main id="main-content">
       <Nav />
       <Hero />
-      <LogoStrip />
-      <GeorgiaFirst moreHref={{ label: 'Georgia guides and free tools', href: '/georgia' }} />
-      <ProblemSolution />
-      <SeeItWork />
       <Pillars />
       <HowItWorks />
+      <StateLawBuiltIn />
       <TrustSecurity />
       <PricingTeaser />
       <CtaCloser />

@@ -7,14 +7,14 @@ import { HubPersona } from '@/components/hub/hub-persona'
 import { HubFeatures } from '@/components/hub/hub-features'
 import { HubCta } from '@/components/hub/hub-cta'
 import { HUBS } from '@/components/hub/hub-theme'
-import { HeroProductVisual } from '@/components/site/mockups'
+import { WorkspaceProductVisual } from '@/components/site/mockups'
 import { ViolationDrafterLive } from '@/components/hub/widgets/violation-drafter-live'
 import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
 import { SHIPPED_FEATURES } from '@/lib/features'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { pageMetadata } from '@/lib/site'
 import { PAGE_META } from '@/lib/page-meta'
-import { GeorgiaFirst } from '@/components/site/georgia-first'
+import { StateLawBuiltIn } from '@/components/site/state-law-built-in'
 import { STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
 export const metadata: Metadata = pageMetadata({ ...PAGE_META['/hoa']!, path: '/hoa' })
@@ -47,17 +47,17 @@ export default function HoaPage() {
 
       <HubHero
         theme={theme}
-        eyebrow={`${HOA_PRODUCT_NAME} · for volunteer boards · Georgia first`}
+        eyebrow={`${HOA_PRODUCT_NAME} · the AI workspace for volunteer boards`}
         title={
           <>
             Run your HOA{' '}
             <span className="text-foreground">without a</span> <span className="t-serif text-primary">management company.</span>
           </>
         }
-        subtitle="Georgia’s SB 406 registration, collections notices, quorum and proxies, the annual report for owners and late fees within the cap. Then covenant questions, violation letters, announcements, inbox replies, minutes, bills and the month-end report. Drafted from your records, approved by the board, cited to the document."
+        subtitle="Dues, violations, announcements, inbox replies, minutes, bills, the month-end report and cited answers from your governing documents, in one self-service workspace. AI drafts from your records, the board approves, and state law is built in."
         primaryCta={{ label: 'Start free pilot', href: '/demo' }}
-        secondaryCta={{ label: 'See the Georgia tools', href: '#georgia' }}
-        visual={<HeroProductVisual />}
+        secondaryCta={{ label: 'See state law support', href: '#state-law' }}
+        visual={<WorkspaceProductVisual />}
         bareVisual
         stats={[
           { value: String(SHIPPED_HOA_WORKFLOWS.length), label: 'AI workflows live' },
@@ -65,8 +65,6 @@ export default function HoaPage() {
           { value: 'Self-serve', label: 'Setup + roster import' },
         ]}
       />
-
-      <GeorgiaFirst />
 
       <ViolationDrafterLive />
 
@@ -209,6 +207,8 @@ export default function HoaPage() {
           </div>
         </div>
       </section>
+
+      <StateLawBuiltIn />
 
       <HubCta
         theme={theme}

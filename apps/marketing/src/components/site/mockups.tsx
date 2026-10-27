@@ -1,4 +1,4 @@
-import { BookOpen, Check, CircleDot, Clock, FileText, Landmark, Sparkles } from 'lucide-react'
+import { BookOpen, Check, CircleDot, Clock, FileText, Landmark, Megaphone, Receipt, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { APP_HOST } from '@/lib/app-origin'
 
@@ -7,6 +7,8 @@ import { APP_HOST } from '@/lib/app-origin'
 //   GeorgiaCompliancePanel  -> /compliance (and /compliance/ga-registration)
 //   CollectionsLetterCard   -> /properties/[id]/collections-letter
 //   AskAnswerCard           -> /ai/ask
+//   WorkspaceApprovalsPanel -> /approvals (the queue every AI draft waits in)
+//   DraftReviewCard         -> /violations/[id] draft awaiting the board
 // Every figure is one the product itself uses (lib/state-law.ts): the 30-day
 // fee notice, the $2,000 threshold, the 10% interest cap, the 21-day annual
 // meeting notice, the 5-business-day statement of amounts due. Sample
@@ -191,6 +193,99 @@ export function HeroProductVisual() {
         <div className="relative -mt-8 grid gap-3 px-3 sm:grid-cols-2 sm:gap-4 sm:px-6">
           <AskAnswerCard />
           <CollectionsLetterCard className="hidden sm:block" />
+        </div>
+      </div>
+      <p className="mt-6 text-center text-xs text-muted">
+        <CircleDot className="mr-1 inline h-3 w-3 align-[-1px] text-primary" aria-hidden />
+        Sample community and sample data. The board approves every draft.
+      </p>
+    </div>
+  )
+}
+
+/** The workspace at a glance: everything AI drafted, waiting for the board. */
+export function WorkspaceApprovalsPanel({ className }: { className?: string }) {
+  return (
+    <div className={cn('app-window', className)}>
+      <Chrome path="/approvals" />
+      <div className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold text-muted">Sample community</p>
+            <p className="mt-0.5 text-base font-semibold tracking-tight text-foreground">Approvals</p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-subtle px-2.5 py-1 text-[11px] font-semibold text-primary">
+            <Sparkles className="h-3 w-3" aria-hidden />
+            AI drafted
+          </span>
+        </div>
+
+        <ul className="mt-4 space-y-2">
+          <Row icon={FileText} title="Violation letter" meta="Drafted from a photo, rule cited" status="Review" tone="draft" />
+          <Row icon={Megaphone} title="Announcement" meta="Email, text and Spanish versions" status="Draft" tone="draft" />
+          <Row icon={Receipt} title="Vendor bill" meta="Read from the scan, fix before you approve" status="Review" tone="draft" />
+          <Row icon={Clock} title="Annual meeting notice" meta="Deadline from your state’s law" status="Due soon" tone="soon" />
+        </ul>
+        <div className="h-10" aria-hidden />
+      </div>
+    </div>
+  )
+}
+
+export function DraftReviewCard({ className }: { className?: string }) {
+  return (
+    <div className={cn('app-window', className)}>
+      <div className="flex items-center justify-between border-b border-border bg-subtle/70 px-4 py-2.5">
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-foreground">
+          <FileText className="h-3.5 w-3.5 text-primary" aria-hidden />
+          Violation letter
+        </span>
+        <span className="rounded-full bg-warning-subtle px-2 py-0.5 text-[10px] font-semibold text-warning">
+          Awaiting board approval
+        </span>
+      </div>
+      <div className="p-4">
+        <div className="space-y-1.5" aria-hidden>
+          <div className="h-1.5 w-full rounded-full bg-border" />
+          <div className="h-1.5 w-11/12 rounded-full bg-border" />
+          <div className="h-1.5 w-4/5 rounded-full bg-border" />
+        </div>
+        <ul className="mt-3.5 space-y-1.5 text-xs text-foreground-secondary">
+          <li className="flex items-center gap-2">
+            <Check className="h-3.5 w-3.5 text-success" aria-hidden />
+            Rule cited from your CC&amp;R
+          </li>
+          <li className="flex items-center gap-2">
+            <Check className="h-3.5 w-3.5 text-success" aria-hidden />
+            Nothing is sent until you approve
+          </li>
+        </ul>
+        <div className="mt-4 flex gap-2">
+          <span className="inline-flex flex-1 items-center justify-center rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-fg">
+            Approve
+          </span>
+          <span className="inline-flex items-center justify-center rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-foreground">
+            Edit
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The home and /hoa hero: the workspace, not one state's compliance page. */
+export function WorkspaceProductVisual() {
+  return (
+    <div
+      className="relative mx-auto w-full max-w-[600px]"
+      role="img"
+      aria-label="Sample screens from HomeownerHub: the Approvals queue holding AI drafts for the board, a violation letter awaiting approval, and a cited answer from a CC&R."
+    >
+      <div aria-hidden>
+        <WorkspaceApprovalsPanel />
+        <div className="relative -mt-8 grid gap-3 px-3 sm:grid-cols-2 sm:gap-4 sm:px-6">
+          <AskAnswerCard />
+          <DraftReviewCard className="hidden sm:block" />
         </div>
       </div>
       <p className="mt-6 text-center text-xs text-muted">

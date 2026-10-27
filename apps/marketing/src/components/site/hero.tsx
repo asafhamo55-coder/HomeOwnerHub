@@ -1,14 +1,15 @@
 import { TrackedLink } from './tracked-link'
-import { ArrowRight, MapPin } from 'lucide-react'
+import { ArrowRight, Sparkles } from 'lucide-react'
 import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
-import { HeroProductVisual } from './mockups'
+import { WorkspaceProductVisual } from './mockups'
 
 // Home hero. Server component: the headline and CTAs paint with the HTML
 // (no client JS before LCP). The visual is a built-from-HTML product mockup
 // of real app screens, not a photo.
 //
-// Truth: the headline and subhead restate what GEORGIA_FEATURES in
-// lib/state-law.ts proves; the stat counts the live workflow list.
+// Product first (docs/decisions/2026-10-27-website-product-first-positioning.md):
+// the headline is the workspace; state law lives in one section lower down.
+// Truth: the stat counts the live workflow list.
 
 export function Hero() {
   return (
@@ -17,19 +18,19 @@ export function Hero() {
         <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-14 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:gap-14">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-subtle px-3.5 py-1.5 text-[13px] font-semibold text-primary">
-              <MapPin className="h-3.5 w-3.5" aria-hidden />
-              For self-managed HOA boards · Georgia first
+              <Sparkles className="h-3.5 w-3.5" aria-hidden />
+              Self-service · AI drafts, the board approves
             </p>
 
             <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
-              Georgia’s HOA paperwork, drafted from your records.
+              The AI workspace for self-managed HOA boards.
               <span className="t-serif mt-1 block text-primary">The board still decides.</span>
             </h1>
 
             <p className="t-lead mt-6 max-w-xl">
-              The SB 406 registration kit, the collections notices Georgia requires, quorum and proxies, the annual
-              report for owners and late fees within the state cap. Ask any rule question and get the CC&amp;R section
-              cited. Nothing is sent, filed or entered until the board approves.
+              Dues, violations, announcements, accounting and your governing documents in one self-service place. AI
+              drafts the letters, notices, minutes and replies from your records. Nothing is sent, filed or entered
+              until a board member approves it.
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -51,7 +52,7 @@ export function Hero() {
             </dl>
           </div>
 
-          <HeroProductVisual />
+          <WorkspaceProductVisual />
         </div>
       </div>
     </section>

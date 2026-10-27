@@ -9,6 +9,7 @@ const allProduct = [
   { label: HOA_PRODUCT_NAME, href: '/hoa' },
   { label: 'PM Hub', href: '/landlords' },
   { label: 'Eviction Hub', href: '/eviction' },
+  { label: 'State laws', href: '/states' },
   { label: 'Georgia SB 406 guides', href: '/georgia' },
   { label: 'SB 406 readiness check', href: '/georgia/readiness' },
   { label: 'HOA board agenda template', href: '/templates/hoa-board-meeting-agenda' },

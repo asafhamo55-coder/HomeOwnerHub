@@ -63,6 +63,7 @@ export const SITEMAP_PATHS: readonly string[] = [
   '/pricing',
   '/compare',
   '/demo',
+  '/states',
   ...GEORGIA_PATHS,
   ...GENERAL_PATHS,
   PROFESSIONALS_PATH,

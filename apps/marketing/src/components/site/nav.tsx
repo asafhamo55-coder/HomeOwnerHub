@@ -38,7 +38,7 @@ const productMenu = products.length > 1
 
 const links = [
   ...(productMenu ? [] : [{ href: '/hoa', label: 'Features' }]),
-  { href: '/georgia', label: 'Georgia' },
+  { href: '/states', label: 'State laws' },
   { href: '/compare', label: 'Compare' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },
