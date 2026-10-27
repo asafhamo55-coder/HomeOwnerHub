@@ -1036,6 +1036,17 @@ BEGIN
   -- orgs and associations are NOT readable by a professional (every column,
   -- compliance_settings and the Stripe ids included): pro_org_info() below.
   DROP POLICY IF EXISTS orgs_pro_select ON public.orgs;
+
+  -- 0070's orgs_select lets ANY org_members row read its org (so a member of a
+  -- suspended org still reaches billing). A cpa/attorney row matched it, which
+  -- handed a professional the whole orgs row (Stripe ids included). Same rule,
+  -- members only; professionals get the name through pro_org_info().
+  DROP POLICY IF EXISTS orgs_select ON public.orgs;
+  CREATE POLICY orgs_select ON public.orgs FOR SELECT TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.org_members m
+                    WHERE m.org_id = orgs.id
+                      AND m.user_id = auth.uid()
+                      AND m.role IN ('admin', 'board', 'resident')));
   DROP POLICY IF EXISTS associations_pro_select ON public.associations;
 END
 $mig$;
