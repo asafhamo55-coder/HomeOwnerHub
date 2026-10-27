@@ -314,6 +314,26 @@ export function PropertyList({
     },
   ]
 
+  // Each <td> is the positioning box for the row's links, never the <tr>:
+  // Safari does not treat position:relative on a table row as a containing
+  // block, so a stretched link anchored to the row covered the whole table
+  // and every click opened the last property (bug 2026-10-26). The address
+  // cell keeps the real, focusable link; every other cell gets a hidden
+  // overlay link to the same home, so a click anywhere on the row still works.
+  const cellLinkedColumns: DataTableColumn<PropertyListRow>[] = columns.map((col) => ({
+    ...col,
+    className: cn(col.className, 'relative'),
+    cell:
+      col.key === 'address'
+        ? col.cell
+        : (row: PropertyListRow) => (
+            <>
+              {col.cell(row)}
+              <Link href={open(row)} tabIndex={-1} aria-hidden className="absolute inset-0" />
+            </>
+          ),
+  }))
+
   return (
     <RowKeyNav className="overflow-hidden rounded-xl border border-border bg-surface">
       <div className="hidden md:block">
@@ -321,10 +341,9 @@ export function PropertyList({
           caption="Properties"
           framed={false}
           density="compact"
-          columns={columns}
+          columns={cellLinkedColumns}
           rows={rows}
           rowKey={(r) => r.id}
-          rowClassName={() => 'relative'}
           sort={params.sort === 'severity' ? undefined : { key: params.sort, direction: params.dir }}
           sortHref={sortHref}
           linkAs={Link}

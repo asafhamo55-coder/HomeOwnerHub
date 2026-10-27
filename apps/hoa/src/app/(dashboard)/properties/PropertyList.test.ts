@@ -167,3 +167,43 @@ describe('PropertyList table and cards', () => {
     expect(list([row({ lastActivityAt: '2026-10-15T14:00:00Z', lastActivityKind: 'payment' })])).toContain('Payment')
   })
 })
+
+// Bug 2026-10-26 (Asaf, Safari): every click in the properties table opened the
+// LAST property. The row link was "stretched" with after:absolute inset-0 and
+// relied on position:relative on the <tr>, which Safari doesn't honour as a
+// containing block. So every row's overlay covered the whole table and the
+// last one won. Each <td> must be the containing block, and each row's cells
+// may only link to that row's property.
+describe('properties table rows link to their own property', () => {
+  const tableHtml = () =>
+    renderToStaticMarkup(
+      h(PropertyList, {
+        rows: [row({ id: 'p-first', address: '1 First St, Demo, GA 30000' }), row({ id: 'p-last', address: '9 Last St, Demo, GA 30000' })],
+        params: parsePropertyListParams({}),
+        allMatches: 2,
+      }),
+    )
+
+  it('makes every table cell the positioning box for its links (not the <tr>)', () => {
+    const html = tableHtml()
+    const tds = html.match(/<td\b[^>]*>/g) ?? []
+    expect(tds.length).toBeGreaterThan(0)
+    for (const td of tds) expect(td).toMatch(/class="[^"]*\brelative\b/)
+  })
+
+  it('every cell in a row links only to that row (clicking anywhere on a row opens that home)', () => {
+    const html = tableHtml()
+    const rows = html.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/g)?.filter((r) => r.includes('<td')) ?? []
+    expect(rows).toHaveLength(2)
+    const [first, last] = rows
+    const cells = (r: string) => r.match(/<td\b[\s\S]*?<\/td>/g) ?? []
+    for (const td of cells(first!)) {
+      expect(td).toMatch(/p-first/)
+      expect(td).not.toMatch(/p-last/)
+    }
+    for (const td of cells(last!)) {
+      expect(td).toMatch(/p-last/)
+      expect(td).not.toMatch(/p-first/)
+    }
+  })
+})
