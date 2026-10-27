@@ -1979,3 +1979,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
 
      Mediums M1–M8 and Lows L1–L10 are also open.
    - **Fixes dispatched:** BL-175a code-only (H1/H2 job checks, H4, H6, M1–M3, M7, M8, L3, L9) and BL-175b migration 0070_tenant_isolation (same-org triggers, org-scoped resident helpers, communications_select, H5, M5, M6, L1, L2, L5, L7) plus CI tests. BL-168 is renumbered to 0071 and must reuse the org-scoped helpers. OA-36 covers the dashboard-only checks.
+
+177. **BL-177 Atomic multi-charge payment recording, plus unapplied credit (BL-163 follow-up).** Migration: **yes (next batch)**.
+   - BL-163's board "Record payment" posts each part through `markAssessmentPaid` one at a time. If a later part fails, the earlier parts stay posted (the audit row says `complete: false`).
+   - **Build:** a SECURITY DEFINER RPC that posts every part in one transaction (with a null-uid guard and an org check); an unapplied-credit column or table so overpayments can be stored; payment method, date and note fields on the dialog; and installment identity on the resident Zelle side (today an installment ranks as special there).
