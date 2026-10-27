@@ -3,6 +3,10 @@ import { signArcClockSettings, withArcClockSettings } from '../../../apps/hoa/sr
 import { signComplianceAck, withComplianceAck } from '../../../apps/hoa/src/lib/compliance/deadlines'
 const recordsFlag = vi.hoisted(() => ({ live: false }))
 const m4Flag = vi.hoisted(() => ({ live: false }))
+// M6 is live in production. This file is the flag-OFF baseline (no professional
+// reads, board/admin-only recipient query); the flag-on run is in
+// daily-digest-professionals-on.test.ts.
+vi.mock('@homeowner-portal/db/m6', () => ({ M6_APPLIED: false }))
 vi.mock('@homeowner-portal/db/m4', () => ({
   get M4_APPLIED() {
     return m4Flag.live

@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+
+// M6_APPLIED is true in production now; this file pins the flag OFF so the
+// default-argument and runDailyDigest cases below still test the off path.
+vi.mock('@homeowner-portal/db/m6', () => ({ M6_APPLIED: false }))
 import {
   buildDigestEmail,
   buildProExpiryBlock,
@@ -10,7 +14,7 @@ import {
 
 /**
  * BL-168 follow-up, flag OFF and block behaviour. With M6_APPLIED false
- * (the shipped default) the digest asks nothing about professionals and
+ * (pinned by the mock above) the digest asks nothing about professionals and
  * says nothing about them. The flag-on run is in
  * daily-digest-professionals-on.test.ts (it mocks the flag).
  */
@@ -51,7 +55,7 @@ describe('loadProfessionalNotices with the flag off', () => {
     expect(calls).toEqual([])
   })
 
-  it('is off by default (M6_APPLIED ships false)', async () => {
+  it('follows the M6 flag by default (pinned off here)', async () => {
     const { db, calls } = fakeDb({})
     expect(await loadProfessionalNotices(db, ORG, NOW, logger())).toBeNull()
     expect(calls).toEqual([])

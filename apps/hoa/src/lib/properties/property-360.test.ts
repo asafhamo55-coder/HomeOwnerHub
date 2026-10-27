@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
+const m7 = vi.hoisted(() => ({ live: true }))
+vi.mock('@homeowner-portal/db/m7', () => ({
+  get M7_APPLIED() {
+    return m7.live
+  },
+}))
 import { loadProperty360 } from './property-360'
 import { asPropertyId } from './resolve'
 
@@ -96,14 +102,23 @@ describe('loadProperty360 round trips', () => {
     expect(waves).toBeLessThanOrEqual(4)
   })
 
-  it('a fixed number of queries whatever the home holds (no per-row lookups)', async () => {
-    const small = cappedFakeDb(fixture(1))
-    await loadProperty360(small.db, { orgId: ORG, propertyId: asPropertyId(P) })
-    const big = cappedFakeDb(fixture(40))
-    await loadProperty360(big.db, { orgId: ORG, propertyId: asPropertyId(P) })
-    expect(big.calls.length).toBe(small.calls.length)
-    expect(small.calls.length).toBeLessThanOrEqual(24)
-  })
+  // M7 adds exactly one read (the unit's unapplied credit), so 24 off and 25 on.
+  for (const [live, budget] of [[false, 24], [true, 25]] as const) {
+    it(`a fixed number of queries whatever the home holds (no per-row lookups), M7 ${live ? 'on' : 'off'}`, async () => {
+      m7.live = live
+      try {
+        const small = cappedFakeDb(fixture(1))
+        await loadProperty360(small.db, { orgId: ORG, propertyId: asPropertyId(P) })
+        const big = cappedFakeDb(fixture(40))
+        await loadProperty360(big.db, { orgId: ORG, propertyId: asPropertyId(P) })
+        expect(big.calls.length).toBe(small.calls.length)
+        expect(small.calls.length).toBeLessThanOrEqual(budget)
+      } finally {
+        m7.live = true
+      }
+    })
+  }
+
 
   it('reads past the 1000-row cap where a section can be long (no truncated counts)', async () => {
     const f = fixture(1)
