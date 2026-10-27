@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m as motionEl, AnimatePresence } from 'framer-motion'
 import { ShieldCheck, AlertCircle, BookOpen } from 'lucide-react'
 import { WORKFLOWS, type Bar, type Hub, type Status } from '@/lib/workflows'
 import { cn } from '@/lib/cn'
@@ -123,7 +123,7 @@ export function RoadmapTable() {
             const rows = filtered.filter((w) => w.month === m)
             if (rows.length === 0) return null
             return (
-              <motion.div
+              <motionEl.div
                 key={m}
                 layout
                 initial={{ opacity: 0, y: 6 }}
@@ -203,7 +203,7 @@ export function RoadmapTable() {
                     </tbody>
                   </table>
                 </div>
-              </motion.div>
+              </motionEl.div>
             )
           })}
         </AnimatePresence>

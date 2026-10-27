@@ -7,13 +7,9 @@ import { WORKFLOWS, BAR_TARGETS, type Bar } from '@/lib/workflows'
 import { RoadmapTable } from './roadmap-table'
 import { cn } from '@/lib/cn'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Roadmap — Every workflow, every bar, in public',
-  description:
-    'The public HomeownerHub roadmap. Every workflow with its current quality bar, shipped/building/planned status, and target month.',
-  path: '/roadmap',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/roadmap']!, path: '/roadmap' })
 
 const barIcon: Record<Bar, typeof ShieldCheck> = {
   C: ShieldCheck,

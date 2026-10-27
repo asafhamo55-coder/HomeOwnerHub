@@ -6,15 +6,9 @@ import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Blog',
-  // BL-097: no landlord or eviction topics while those hubs are not offered.
-  description: OTHER_HUBS_ENABLED
-    ? 'Jurisdiction-specific writing on HOA governance, landlord operations, and the AI work that\'s replacing them.'
-    : 'Jurisdiction-specific writing on HOA governance for volunteer boards, and the AI work that helps with it.',
-  path: '/blog',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/blog']!, path: '/blog' })
 
 const allPlanned = [
   {

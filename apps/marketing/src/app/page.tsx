@@ -12,20 +12,16 @@ import { TrustSecurity } from '@/components/site/trust-security'
 import { PricingTeaser } from '@/components/site/pricing-teaser'
 import { CtaCloser } from '@/components/site/cta-closer'
 import { SITE_NAME, pageMetadata } from '@/lib/site'
+import { HOME_TITLE, PAGE_META } from '@/lib/page-meta'
 
 // The home page keeps the layout's default title (no " · HomeownerHub"
 // suffix) but needs its own canonical and OG URL.
-const home = pageMetadata({
-  title: SITE_NAME,
-  description:
-    'AI for self-managed HOA boards, Georgia first: the SB 406 registration kit, Georgia collections notices, quorum and proxies, the annual report for owners, plus cited answers from your governing documents, violation letters, announcements and the books. The board approves every draft.',
-  path: '/',
-})
+const home = pageMetadata({ title: SITE_NAME, description: PAGE_META['/']!.description, path: '/' })
 export const metadata: Metadata = {
   ...home,
-  title: { absolute: 'HomeownerHub — AI for self-managed HOA boards' },
-  openGraph: { ...home.openGraph, title: 'HomeownerHub — AI for self-managed HOA boards' },
-  twitter: { ...home.twitter, title: 'HomeownerHub — AI for self-managed HOA boards' },
+  title: { absolute: HOME_TITLE },
+  openGraph: { ...home.openGraph, title: HOME_TITLE },
+  twitter: { ...home.twitter, title: HOME_TITLE },
 }
 
 // Section order is a product decision: Georgia leads (BL-157), so the

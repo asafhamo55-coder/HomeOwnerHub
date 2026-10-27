@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import { CheckCircle2, AlertCircle, Phone, MessageSquare, TrendingUp } from 'lucide-react'
 
 interface Unit {
@@ -178,7 +178,7 @@ export function RentTimelineLive() {
 
             <AnimatePresence mode="wait">
               {step.state.coachActive ? (
-                <motion.div
+                <m.div
                   key="coach-on"
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -231,9 +231,9 @@ export function RentTimelineLive() {
                       </button>
                     </div>
                   </div>
-                </motion.div>
+                </m.div>
               ) : (
-                <motion.div
+                <m.div
                   key="coach-off"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -243,7 +243,7 @@ export function RentTimelineLive() {
                   <CheckCircle2 className="h-7 w-7 text-success" />
                   <p className="mt-3 text-sm font-semibold text-foreground">All payments current</p>
                   <p className="mt-1 text-xs text-muted">Coach standing by</p>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
           </div>

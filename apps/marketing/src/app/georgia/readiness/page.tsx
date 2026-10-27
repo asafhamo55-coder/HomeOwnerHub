@@ -6,13 +6,9 @@ import { Breadcrumbs, GeorgiaCta, NotLegalAdvice, RelatedLinks } from '@/compone
 import { ReadinessCheck } from '@/components/georgia/readiness-check'
 import { breadcrumbLd, faqLd } from '@/lib/jsonld'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Free SB 406 readiness check for Georgia HOA boards',
-  description:
-    'Ten yes/no questions to see how ready your Georgia HOA is for SB 406. You get a score and a checklist with links to plain-language guides. Nothing is stored or sent.',
-  path: '/georgia/readiness',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/georgia/readiness']!, path: '/georgia/readiness' })
 
 const FAQS = [
   {

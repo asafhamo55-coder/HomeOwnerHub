@@ -5,13 +5,9 @@ import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { AuditLogLive } from '@/components/site/audit-log-live'
 import { pageMetadata } from '@/lib/site'
+import { PAGE_META } from '@/lib/page-meta'
 
-export const metadata: Metadata = pageMetadata({
-  title: 'Security — How we protect your data',
-  description:
-    'Encryption at rest and in transit. Postgres row-level security by tenant. Named AI providers, with owner contact details kept out of prompts. AI workflow runs logged with model and citations.',
-  path: '/security',
-})
+export const metadata: Metadata = pageMetadata({ ...PAGE_META['/security']!, path: '/security' })
 
 const pillars = [
   {

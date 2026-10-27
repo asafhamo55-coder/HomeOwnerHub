@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import type { HubTheme } from './hub-theme'
 import { HUB_ICONS, type HubIconKey } from './hub-icons'
 import { cn } from '@/lib/cn'
@@ -52,7 +52,7 @@ export function HubFeatures({
           {features.map((f, i) => {
             const Icon = HUB_ICONS[f.icon]
             return (
-              <motion.div
+              <m.div
                 key={f.title}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -83,7 +83,7 @@ export function HubFeatures({
                   {f.title}
                 </h3>
                 <p className="mt-2.5 text-[15px] leading-relaxed text-foreground-secondary">{f.body}</p>
-              </motion.div>
+              </m.div>
             )
           })}
         </div>

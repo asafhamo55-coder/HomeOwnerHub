@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { Scale, ShieldCheck, FileText, AlertTriangle } from 'lucide-react'
 
 export function EvictionCaseVisual() {
@@ -28,7 +28,7 @@ export function EvictionCaseVisual() {
           <Step delay={0.4} state="pending" title="Court filing (demo only)" sub="Your attorney files the real document" />
         </div>
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.4 }}
@@ -50,7 +50,7 @@ export function EvictionCaseVisual() {
               Court filing packet is generated for education. Your Georgia attorney files the real document — no exceptions.
             </p>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </div>
   )
@@ -76,7 +76,7 @@ function Step({
   const Icon = state === 'done' ? ShieldCheck : state === 'active' ? FileText : AlertTriangle
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 + delay, duration: 0.4 }}
@@ -95,6 +95,6 @@ function Step({
           <span className="relative inline-flex h-2 w-2 rounded-full bg-eviction" />
         </span>
       )}
-    </motion.div>
+    </m.div>
   )
 }
