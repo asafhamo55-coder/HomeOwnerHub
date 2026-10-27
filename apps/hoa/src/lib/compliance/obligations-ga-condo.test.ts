@@ -24,11 +24,18 @@ import {
   GA_CONDO_WATER_CERTIFICATE,
 } from '@/lib/ga-condo/law'
 import {
-  buildComplianceOverview,
+  buildComplianceOverview as realBuildComplianceOverview,
   complianceSummary,
   type ComplianceInput,
   type ComplianceObligation,
 } from './obligations'
+
+// BL-167 added federal rows to every association; strip them here (see federal.test.ts).
+const buildComplianceOverview: typeof realBuildComplianceOverview = (input) => {
+  const o = realBuildComplianceOverview(input)
+  const groups = o.groups.map((g) => ({ ...g, obligations: g.obligations.filter((x) => !x.key.includes(':federal-')) }))
+  return { groups, overdue: groups.flatMap((g) => g.obligations.filter((x) => x.tone === 'overdue')) }
+}
 
 // BL-155: a Georgia association whose type is 'condo' gets the Condominium
 // Act (Art. 3) rows; an HOA, a co-op or an untyped one keeps the POA Act rows.
