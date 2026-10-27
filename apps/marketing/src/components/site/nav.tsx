@@ -94,6 +94,23 @@ export function Nav() {
           : 'border-transparent',
       )}
     >
+      <div className="util-bar" data-hidden={scrolled ? 'true' : 'false'}>
+        <div className="container-page flex h-full items-center justify-end gap-5 text-[13px] text-foreground-secondary">
+          {[
+            { href: '/security', label: 'Security' },
+            { href: '/docs', label: 'Docs' },
+            { href: '/roadmap', label: 'Roadmap' },
+            { href: '/status', label: 'Status' },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className="transition-colors hover:text-foreground hover:underline">
+              {l.label}
+            </Link>
+          ))}
+          <a href={SIGN_IN_URL} className="font-medium text-foreground hover:underline">
+            Sign in
+          </a>
+        </div>
+      </div>
       <div className="container-page flex h-16 items-center justify-between gap-4 md:h-[72px]">
         <Link href="/" className="flex items-center gap-2.5 rounded-lg" aria-label="HomeownerHub home">
           <Logo />
