@@ -1,8 +1,8 @@
 /**
  * Migration batch M6 (migrations/0071_m6_roles.sql) switch.
  *
- * false until the owner confirms 0071 is applied in production (runbook
- * Section M, M4). Every code path that reads or writes an M6 column, table
+ * true since 2026-10-27: the owner applied 0071 in production (runbook
+ * Section N, N3, verified by N4). Every code path that reads or writes an M6 column, table
  * or function checks this first, and with it false the app behaves exactly
  * as before M6 and keeps working when the objects already exist (CI
  * replays 0071, so the integration suite runs "objects present, flag
@@ -23,4 +23,4 @@
  * No imports: pure modules, client components and the integration suite
  * import this.
  */
-export const M6_APPLIED: boolean = false
+export const M6_APPLIED: boolean = true

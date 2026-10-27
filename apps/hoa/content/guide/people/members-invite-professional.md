@@ -8,7 +8,6 @@ routes: ["/settings/professionals", "/approvals"]
 primary_route: /settings/professionals
 keywords: [cpa, accountant, attorney, lawyer, counsel, association counsel, outside professional, invite cpa, invite attorney, access expires, renew access, remove access, matters, my matters, general counsel, treasurer, officer title, president, secretary, dual control, two board members, second signature, sign-off, professionals]
 related: [members-invite-board, approvals-queue]
-draft: true
 reviewed: 2026-10-26
 ---
 
