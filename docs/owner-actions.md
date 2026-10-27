@@ -353,9 +353,11 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
-### OA-26 · (Optional, later) Give board settings their own signing secret
+### OA-26 · Give board settings and sessions their own signing secrets
 
-**Urgency:** Whenever
+**Urgency:** Soon
+
+**Update 2026-10-26 (tenant-isolation audit, BL-175):** besides board settings, this secret also signs the "view as resident" impersonation cookie and several compliance records. Today they all fall back to the database key that is in the public git history, so anyone holding that key could forge them. Moving to dedicated secrets closes that. Add `SESSION_CAP_SECRET` too (step 2b); the only side effect is that everyone signs in once more.
 
 **Why it matters:** board settings saved in the app (Zelle details, reminders, receipts and similar) are signed so they can't be tampered with. Today that signature reuses an older database key. A dedicated secret is cleaner. **The catch:** after the switch, every saved board setting except Zelle reads as "off" until a board member saves it again. So do this when you can tell boards to re-save their settings, not before.
 
@@ -363,6 +365,7 @@ prices; review it before pitching.
 
 1. Ask Claude first. It will confirm which settings each HOA has saved, so you know who to tell.
 2. In Vercel (both the hoa and jobs projects, Production), add `PAY_SETTINGS_SECRET` with a long random value. You can make one in Terminal with `openssl rand -base64 48`.
+2b. Also add `SESSION_CAP_SECRET` (another `openssl rand -base64 48`). Everyone will be asked to sign in once more.
 3. In the same place, add `PAY_SETTINGS_SECRET_PREVIOUS`, set to the value the app uses today (Claude will tell you which one).
 4. Redeploy, tell boards to re-save their settings, then remove `PAY_SETTINGS_SECRET_PREVIOUS` a week later.
 
