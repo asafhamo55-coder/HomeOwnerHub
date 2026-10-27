@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
+import { TrackedLink } from './tracked-link'
 
 export function CtaCloser() {
   return (
@@ -14,13 +14,13 @@ export function CtaCloser() {
             Ten minutes. We load your CC&amp;R, run Covenant Brain on your real rules, and let your board decide.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/demo" className="btn btn-lg btn-on-ink group">
-              Start free pilot
+            <TrackedLink href="/demo" event="demo_cta_click" position="closing" className="btn btn-lg btn-on-ink group">
+              Book a demo
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </Link>
-            <Link href="/roadmap" className="btn btn-lg btn-ghost-ink">
-              Read the public roadmap
-            </Link>
+            </TrackedLink>
+            <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-lg btn-ghost-ink">
+              Start free pilot
+            </TrackedLink>
           </div>
           <p className="mt-8 text-sm text-[#a9b9d8]">Six-month free pilot · No data migration · Built in Atlanta</p>
         </div>

@@ -9,6 +9,8 @@ const allProduct = [
   { label: HOA_PRODUCT_NAME, href: '/hoa' },
   { label: 'PM Hub', href: '/landlords' },
   { label: 'Eviction Hub', href: '/eviction' },
+  { label: 'Georgia SB 406 guides', href: '/georgia' },
+  { label: 'SB 406 readiness check', href: '/georgia/readiness' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Compare', href: '/compare' },
   { label: 'Sign in', href: SIGN_IN_URL },
@@ -34,7 +36,7 @@ const tail = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-surface">
+    <footer className="border-t border-border bg-surface print:hidden">
       <div className="container-page py-16 md:py-20">
         <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr]">
           <div>

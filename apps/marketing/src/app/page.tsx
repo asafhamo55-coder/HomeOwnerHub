@@ -36,7 +36,7 @@ export default function HomePage() {
       <Nav />
       <Hero />
       <LogoStrip />
-      <GeorgiaFirst moreHref={{ label: 'Everything for Georgia boards', href: '/hoa#georgia' }} />
+      <GeorgiaFirst moreHref={{ label: 'Georgia guides and free tools', href: '/georgia' }} />
       <ProblemSolution />
       <SeeItWork />
       <Pillars />

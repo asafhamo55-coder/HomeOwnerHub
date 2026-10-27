@@ -47,4 +47,39 @@ describe('submitDemoRequest', () => {
     expect(r.status).toBe('success')
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ to: 'inbox@example.org', replyTo: valid.email }))
   })
+
+  it('puts the optional county and number of homes in the email', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    vi.stubEnv('DEMO_INBOX_EMAIL', 'inbox@example.org')
+    send.mockResolvedValue({ error: null })
+    const r = await submitDemoRequest({ status: 'idle' }, form({ ...valid, county: 'Fulton', homes: '120' }))
+    expect(r.status).toBe('success')
+    const text = send.mock.calls[0]![0].text as string
+    expect(text).toMatch(/County:\s+Fulton/)
+    expect(text).toMatch(/Homes:\s+120/)
+  })
+
+  it('accepts a request without county or homes, and says so in the email', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    vi.stubEnv('DEMO_INBOX_EMAIL', 'inbox@example.org')
+    send.mockResolvedValue({ error: null })
+    const r = await submitDemoRequest({ status: 'idle' }, form({ ...valid, county: '', homes: '' }))
+    expect(r.status).toBe('success')
+    expect(send.mock.calls[0]![0].text).toMatch(/County:\s+not given/)
+  })
+
+  it('rejects a non-numeric number of homes with a field error', async () => {
+    const r = await submitDemoRequest({ status: 'idle' }, form({ ...valid, homes: 'about 100' }))
+    expect(r).toMatchObject({ status: 'error', fieldErrors: { homes: expect.any(String) } })
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('rejects a filled honeypot without sending', async () => {
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+    const r = await submitDemoRequest({ status: 'idle' }, form({ ...valid, website: 'http://spam.example' }))
+    expect(r.status).toBe('error')
+    expect(send).not.toHaveBeenCalled()
+  })
 })

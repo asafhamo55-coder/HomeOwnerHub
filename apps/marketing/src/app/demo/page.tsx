@@ -89,7 +89,7 @@ export default function DemoPage() {
                 Tell us about your community
               </h2>
               <p className="mt-2 text-sm text-muted">
-                Three fields. We reply within one business day.
+                Name, email and your HOA. County and number of homes are optional. We reply within 1 business day.
               </p>
 
               <DemoForm />

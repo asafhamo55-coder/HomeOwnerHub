@@ -408,3 +408,92 @@ describe('numbers: every figure on the site is sourced, or it is gone', () => {
     expect(read('components/site/hero.tsx')).toMatch(/SHIPPED_HOA_WORKFLOWS\.length/)
   })
 })
+
+// BL-171: the Georgia hub, guides, checklists and readiness check. The
+// quotes and the "what HomeownerHub does" lines are tested in
+// lib/georgia/georgia-guides.test.ts; these scans cover what renders.
+describe('Georgia growth pages (BL-171)', () => {
+  const georgiaPages = marketingPages().filter((p) => p.route === '/georgia' || p.route.startsWith('/georgia/'))
+  const renderedGeorgia = [
+    ...georgiaPages.map((p) => p.rel),
+    'components/georgia/guide-page.tsx',
+    'components/georgia/checklist-page.tsx',
+    'components/georgia/parts.tsx',
+    'components/georgia/readiness-check.tsx',
+  ]
+  const pageShells = [
+    'components/georgia/guide-page.tsx',
+    'components/georgia/checklist-page.tsx',
+    'app/georgia/page.tsx',
+    'app/georgia/readiness/page.tsx',
+  ]
+
+  it('the hub, seven guides, two checklists and the readiness check all exist', () => {
+    expect(georgiaPages.map((p) => p.route).sort()).toEqual([
+      '/georgia',
+      '/georgia/annual-meeting-notice-checklist',
+      '/georgia/attorney-fee-notice',
+      '/georgia/attorney-fee-notice-checklist',
+      '/georgia/complaint-process',
+      '/georgia/condo-vs-hoa-law',
+      '/georgia/foreclosure-threshold-2027',
+      '/georgia/late-fee-limits',
+      '/georgia/owners-rights-2027',
+      '/georgia/readiness',
+      '/georgia/registration-2027',
+    ])
+  })
+
+  it('every Georgia page ends with the demo call to action and says it is not legal advice', () => {
+    const shared = read('components/georgia/parts.tsx')
+    expect(shared).toMatch(/Not legal advice/)
+    expect(shared).toMatch(/event="demo_cta_click"/)
+    for (const rel of pageShells) {
+      expect(read(rel), rel).toMatch(/<GeorgiaCta/)
+      expect(read(rel), rel).toMatch(/NotLegalAdvice/)
+    }
+  })
+
+  it('guides emit Article, FAQPage and BreadcrumbList data; the layout emits Organization', () => {
+    const guide = read('components/georgia/guide-page.tsx')
+    for (const fn of ['articleLd(', 'faqLd(', 'breadcrumbLd(']) expect(guide).toContain(fn)
+    expect(read('app/layout.tsx')).toMatch(/organizationLd\(\)/)
+  })
+
+  it('Georgia pages do not sell the PM or Eviction hubs, and quotes come from the tested quote bank', () => {
+    for (const rel of renderedGeorgia) {
+      expect(code(rel), rel).not.toMatch(/PM Hub|Eviction Hub|landlord/i)
+    }
+    expect(read('components/georgia/parts.tsx')).toMatch(/QUOTES\[id\]/)
+  })
+
+  it('the readiness check stores and sends nothing, and offers the 20-minute demo', () => {
+    const src = read('components/georgia/readiness-check.tsx')
+    expect(src).not.toMatch(/localStorage|sessionStorage|document\.cookie|fetch\(|sendBeacon|use server/)
+    expect(src).toMatch(/Book a 20-minute demo/)
+  })
+
+  it('analytics events carry labels only, never form values', () => {
+    expect(code('app/demo/demo-form.tsx')).toMatch(/trackEvent\('demo_submit_success', \{ page: pageLabel\(pathname\) \}\)/)
+    expect(read('lib/analytics.ts')).toMatch(/\['demo_cta_click', 'demo_submit_success', 'pilot_cta_click'\]/)
+  })
+
+  it('the Search Console tag is read from NEXT_PUBLIC_GSC_VERIFICATION and omitted when unset', () => {
+    const layout = code('app/layout.tsx')
+    expect(layout).toMatch(/NEXT_PUBLIC_GSC_VERIFICATION/)
+    expect(layout).toMatch(/GSC_VERIFICATION \? \{ verification/)
+  })
+
+  it('the Covenant Brain demo is lazy-loaded, keeping framer-motion out of the home page first load', () => {
+    expect(read('components/site/see-it-work.tsx')).not.toMatch(/covenant-brain-demo['"]/)
+    expect(read('components/site/lazy-covenant-brain.tsx')).toMatch(/dynamic\(/)
+  })
+
+  it('"Book a demo" is in the header and every main page closer', () => {
+    expect(read('components/site/nav.tsx')).toMatch(/position="header"[\s\S]*Book a demo/)
+    for (const rel of ['components/site/cta-closer.tsx', 'app/pricing/page.tsx', 'app/compare/page.tsx', 'app/about/page.tsx']) {
+      expect(read(rel), rel).toMatch(/Book a demo/)
+    }
+    expect(read('app/hoa/page.tsx')).toMatch(/'Book a demo'/)
+  })
+})

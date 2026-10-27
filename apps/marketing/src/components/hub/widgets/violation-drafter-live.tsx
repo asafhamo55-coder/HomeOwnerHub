@@ -9,7 +9,8 @@ interface Scenario {
   location: string
   citation: string
   draftLines: string[]
-  deadline: string
+  /** Days the owner has to cure; the due date is worked out from today. */
+  cureDays: number
 }
 
 const SCENARIOS: Scenario[] = [
@@ -22,7 +23,7 @@ const SCENARIOS: Scenario[] = [
       'The Architectural Review Committee requires fence modifications to be submitted at least 14 days in advance.',
       'Required action: Submit modification plans to the ARC within 14 days, or return the fence to the approved 6-foot height.',
     ],
-    deadline: '14 days — by Mar 29, 2026',
+    cureDays: 14,
   },
   {
     trigger: 'Trash bins left curbside',
@@ -33,7 +34,7 @@ const SCENARIOS: Scenario[] = [
       'Repeated occurrences over the past 30 days have been documented and photographed.',
       'Required action: Return containers within 24 hours of collection going forward. Continued violations may incur a $50 weekly fine per the published rule schedule.',
     ],
-    deadline: '7 days — by Mar 22, 2026',
+    cureDays: 7,
   },
   {
     trigger: 'Landscaping below standard',
@@ -44,14 +45,24 @@ const SCENARIOS: Scenario[] = [
       'Specific issues observed: grass exceeding 8 inches, visible weed growth in landscaping beds.',
       'Required action: Restore landscaping to compliant condition within 14 days. The ARC may approve alternative xeriscape designs if submitted in writing.',
     ],
-    deadline: '14 days — by Mar 29, 2026',
+    cureDays: 14,
   },
 ]
+
+const DATE_FORMAT: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric', year: 'numeric' }
+
+/** "March 15, 2026" for a day offset from today, so the sample never goes stale. */
+function dateAfter(today: Date, days: number, short = false): string {
+  const d = new Date(today)
+  d.setDate(d.getDate() + days)
+  return d.toLocaleDateString('en-US', short ? { ...DATE_FORMAT, month: 'short' } : DATE_FORMAT)
+}
 
 type Phase = 'capturing' | 'analyzing' | 'drafting' | 'ready'
 
 export function ViolationDrafterLive() {
   const [idx, setIdx] = useState(0)
+  const [today] = useState(() => new Date())
   const [phase, setPhase] = useState<Phase>('capturing')
   const [visibleLines, setVisibleLines] = useState(0)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -179,7 +190,7 @@ export function ViolationDrafterLive() {
 
             <div className="mt-6 min-h-[280px] rounded-xl border border-border/70 bg-subtle/30 p-5 md:p-6">
               <div className="border-b border-border/70 pb-3 font-serif text-sm text-foreground-secondary">
-                <p>March 15, 2026</p>
+                <p suppressHydrationWarning>{dateAfter(today, 0)}</p>
                 <p className="mt-1 text-xs">
                   To the property owner at <span className="font-medium text-foreground">{scenario.location}</span>
                 </p>
@@ -213,7 +224,7 @@ export function ViolationDrafterLive() {
                   className="mt-5 border-t border-border/70 pt-4 font-mono text-[11px] text-foreground-secondary"
                 >
                   <span className="text-muted">Deadline: </span>
-                  <span className="font-semibold text-foreground">{scenario.deadline}</span>
+                  <span className="font-semibold text-foreground" suppressHydrationWarning>{`${scenario.cureDays} days, by ${dateAfter(today, scenario.cureDays, true)}`}</span>
                 </motion.div>
               )}
             </div>

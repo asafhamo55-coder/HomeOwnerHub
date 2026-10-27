@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import type { HubTheme } from './hub-theme'
+import { TrackedLink } from '@/components/site/tracked-link'
 
 interface HubCtaProps {
   theme: HubTheme
@@ -19,10 +20,10 @@ export function HubCta({ title, description, primary, secondary, footnote }: Hub
           <h2 className="t-h2 text-[#fff]">{title}</h2>
           <p className="mx-auto mt-6 max-w-xl text-[18px] leading-relaxed text-[#c3d0ea]">{description}</p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href={primary.href} className="btn btn-lg btn-on-ink group">
+            <TrackedLink href={primary.href} event="demo_cta_click" position="closing" className="btn btn-lg btn-on-ink group">
               {primary.label}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </Link>
+            </TrackedLink>
             {secondary && (
               <Link href={secondary.href} className="btn btn-lg btn-ghost-ink">
                 {secondary.label}

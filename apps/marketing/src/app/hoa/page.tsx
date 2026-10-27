@@ -226,7 +226,7 @@ export default function HoaPage() {
           </>
         }
         description="Ten minutes is all we need. We pre-load your CC&R, show you Covenant Brain answering your actual rules, and let the board decide."
-        primary={{ label: 'Book a board demo', href: '/demo' }}
+        primary={{ label: 'Book a demo', href: '/demo' }}
         secondary={{ label: 'See pricing', href: '/pricing' }}
         footnote="Six-month free pilot for HOAs · No data migration · Built in Atlanta · Not legal advice"
       />

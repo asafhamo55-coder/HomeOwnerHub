@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { TrackedLink } from './tracked-link'
 import { ArrowRight, MapPin } from 'lucide-react'
 import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
 import { HeroProductVisual } from './mockups'
@@ -33,13 +33,13 @@ export function Hero() {
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link href="/demo" className="btn btn-primary btn-lg group">
-                Start free pilot
+              <TrackedLink href="/demo" event="demo_cta_click" position="hero" className="btn btn-primary btn-lg group">
+                Book a demo
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-              </Link>
-              <Link href="#see-it-work" className="btn btn-secondary btn-lg">
-                See it work
-              </Link>
+              </TrackedLink>
+              <TrackedLink href="/demo" event="pilot_cta_click" position="hero" className="btn btn-secondary btn-lg">
+                Start free pilot
+              </TrackedLink>
             </div>
 
             <p className="mt-5 text-sm text-muted">Six-month free pilot · No auto-conversion · No data migration</p>

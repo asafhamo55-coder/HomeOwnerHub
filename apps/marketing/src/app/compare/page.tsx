@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, Check, X, Minus, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
+import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
 import { PageHero } from '@/components/site/page-hero'
 import { cn } from '@/lib/cn'
@@ -258,13 +259,15 @@ export default function ComparePage() {
           <h2 className="t-h2 mx-auto mt-4 max-w-2xl text-foreground">
             Ten minutes. Your CC&R. Your board.
           </h2>
-          <Link
-            href="/demo"
-            className="btn btn-primary btn-lg mt-9"
-          >
-            Start free pilot
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+<div className="flex flex-col items-center justify-center gap-3 sm:flex-row mt-9">
+            <TrackedLink href="/demo" event="demo_cta_click" position="closing" className="btn btn-primary btn-lg group">
+              Book a demo
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </TrackedLink>
+            <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
+              Start free pilot
+            </TrackedLink>
+          </div>
         </div>
       </section>
 

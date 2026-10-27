@@ -1,7 +1,10 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono, Instrument_Serif } from 'next/font/google'
 import './globals.css'
+import { Analytics } from '@vercel/analytics/next'
+import { JsonLd } from '@/components/site/json-ld'
 import { MotionProvider } from '@/components/site/motion-provider'
+import { organizationLd } from '@/lib/jsonld'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { SITE_NAME, SITE_ORIGIN } from '@/lib/site'
 
@@ -34,12 +37,16 @@ const shortDescription = OTHER_HUBS_ENABLED
   ? 'AI for HOA boards, landlords, and eviction support. Less paperwork.'
   : 'AI for self-managed HOA boards. Less paperwork.'
 
+const GSC_VERIFICATION = process.env.NEXT_PUBLIC_GSC_VERIFICATION?.trim() || undefined
+
 export const metadata: Metadata = {
   // The marketing site's own origin (lib/site.ts: NEXT_PUBLIC_SITE_URL,
   // falling back to www.homeownerledger.online). Absolutises canonical and
   // OG URLs. The app lives on www.homeownerledger.com (lib/app-origin.ts).
   metadataBase: new URL(SITE_ORIGIN),
   applicationName: SITE_NAME,
+  // Google Search Console ownership tag (OA-35). Omitted when the env var is unset.
+  ...(GSC_VERIFICATION ? { verification: { google: GSC_VERIFICATION } } : {}),
   title: {
     default: OTHER_HUBS_ENABLED
       ? 'HomeownerHub — AI for the people who run residential property'
@@ -71,7 +78,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
+        <JsonLd data={organizationLd()} />
         <MotionProvider>{children}</MotionProvider>
+        <Analytics />
       </body>
     </html>
   )
