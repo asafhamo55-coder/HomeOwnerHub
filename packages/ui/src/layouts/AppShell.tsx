@@ -5,6 +5,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { useSidebarCollapsed } from '../lib/theme'
 import { TooltipProvider, Tooltip } from '../components/Tooltip'
+import { SkipLink } from '../components/SkipLink'
 import { SidebarContext } from './sidebar-context'
 
 /**
@@ -90,6 +91,7 @@ export function AppShell({
       value={{ mobileOpen, setMobileOpen, collapsed, setCollapsed, paletteOpen, setPaletteOpen, linkAs }}
     >
       <TooltipProvider>
+        <SkipLink />
         <div className={cn('flex min-h-dvh bg-background', className)}>{children}</div>
       </TooltipProvider>
     </AppShellContext.Provider>
@@ -136,14 +138,18 @@ export function AppShellSidebar({
         data-collapsible={collapsible || undefined}
         className={cn(
           'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col border-r border-border bg-surface',
-          'transition-[transform,width] duration-slow ease-emphasized',
+          'transition-[transform,width,visibility] duration-slow ease-emphasized',
           // Desktop: the <aside> is an in-flow column that stretches to the
           // full height of the page (so its surface + border never stop at
           // the first viewport on long pages); the inner wrapper below is
           // what sticks to the viewport.
           'md:relative md:inset-auto md:z-30 md:shrink-0 md:self-stretch md:w-sidebar md:max-w-none md:translate-x-0',
           collapsible && 'md:sidebar-collapsed:w-sidebar-collapsed',
-          mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full',
+          // Closed on a phone the drawer is only translated off-screen; without
+          // `invisible` its links stay in the tab order with no visible focus
+          // (WCAG 2.4.3 / 2.4.7). Visibility is in the transition, so it flips
+          // only after the slide-out finishes.
+          mobileOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full max-md:invisible',
           // App chrome never prints (board packet, statements).
           'print:hidden',
           className,
@@ -311,7 +317,7 @@ export function AppShellContent({
   className?: string
 }) {
   return (
-    <main id="main" className={cn('flex-1 px-4 pb-16 pt-6 sm:px-6 md:pt-8 lg:px-8 print:p-0', className)}>
+    <main id="main" tabIndex={-1} className={cn('flex-1 px-4 pb-16 pt-6 focus:outline-none sm:px-6 md:pt-8 lg:px-8 print:p-0', className)}>
       {children}
     </main>
   )

@@ -59,7 +59,7 @@ export function TaskList({ tasks, assignees, meetingLabels, today }: TaskListPro
           <li key={task.id} className={cn('flex gap-3 px-4 py-3', !open && 'bg-subtle/60')}>
             <button
               type="button"
-              className="mt-0.5 shrink-0 rounded-full text-muted outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="-mx-1 -mt-0.5 shrink-0 rounded-full p-1 text-muted outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
               aria-pressed={!open}
               aria-label={open ? `Mark “${task.title}” done` : `Reopen “${task.title}”`}
               disabled={pending}

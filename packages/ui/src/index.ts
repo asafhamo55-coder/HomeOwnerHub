@@ -81,6 +81,8 @@ export {
   useAppShell,
 } from './layouts/AppShell'
 
+export { SkipLink } from './components/SkipLink'
+
 // Sidebar primitives
 export {
   SidebarBrand,

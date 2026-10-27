@@ -181,7 +181,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
                     }}
                     className={cn(
                       'flex items-start gap-2.5 rounded-md px-3 py-2 text-sm outline-none',
-                      'focus:bg-background data-[disabled]:opacity-60',
+                      'focus:bg-subtle data-[disabled]:opacity-60',
                       item.href ? 'cursor-pointer' : 'cursor-default',
                     )}
                   >
