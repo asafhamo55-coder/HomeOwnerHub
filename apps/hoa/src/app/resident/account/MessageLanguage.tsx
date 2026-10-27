@@ -2,15 +2,22 @@
 
 import { useId, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { COMM_LANGUAGES, COMM_LANGUAGE_LABELS, type CommLanguage } from '@/lib/communications/bilingual'
+import type { CommLanguage } from '@/lib/communications/bilingual'
 import { setMyLanguage } from '@/lib/language-preference-actions'
 import { Panel, SectionLabel } from '@/components/resident/screen'
 
 /**
  * The language of messages from the association. Saves on choosing.
- * `current` null = no choice yet (messages carry both languages).
+ * `current` null or 'en' = both languages. The stored 'en' is the column
+ * default and cannot be told from a choice, so there is no English-only
+ * option; only 'es' narrows a message.
  * `loadFailed` hides the choice rather than show a state we do not know.
  */
+const OPTIONS: ReadonlyArray<{ code: CommLanguage; label: string; lang: string }> = [
+  { code: 'en', label: 'English and Spanish (both, when the board’s message has a translation)', lang: 'en' },
+  { code: 'es', label: 'Spanish only (Solo español)', lang: 'es' },
+]
+
 export function MessageLanguage({
   current,
   loadFailed,
@@ -59,7 +66,7 @@ export function MessageLanguage({
         ) : (
           <fieldset className="space-y-2" disabled={pending || readOnly}>
             <legend className="mb-2 text-sm font-semibold text-foreground">Send me messages in</legend>
-            {COMM_LANGUAGES.map((code) => (
+            {OPTIONS.map(({ code, label, lang }) => (
               <label
                 key={code}
                 className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm text-foreground has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
@@ -68,20 +75,18 @@ export function MessageLanguage({
                   type="radio"
                   name={name}
                   value={code}
-                  checked={current === code}
+                  checked={(current === 'es') === (code === 'es')}
                   onChange={() => choose(code)}
                   className="h-5 w-5 accent-primary"
                 />
-                <span lang={code}>{COMM_LANGUAGE_LABELS[code]}</span>
+                <span lang={lang}>{label}</span>
               </label>
             ))}
           </fieldset>
         )}
         <p className="text-xs text-muted">
-          {current
-            ? 'When your association sends a message in both languages, you get this one.'
-            : 'You haven’t chosen yet, so messages that come in two languages arrive with both.'}{' '}
-          Messages the association writes in one language only stay as written.
+          Choose Spanish only and, when your board’s message has a Spanish version, you get just that. Messages
+          without a translation arrive as written.
         </p>
         <p className="text-xs text-muted" role="status">
           {saved ? 'Saved.' : ''}

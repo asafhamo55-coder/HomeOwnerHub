@@ -85,7 +85,7 @@ describe('loadLanguagePreferences', () => {
     const map = await loadLanguagePreferences(db() as never, ['u1', 'u2', 'u1', null, undefined])
     expect(h.prefQueries).toEqual([['u1', 'u2']])
     expect(map.get('u1')).toBe('es')
-    expect(map.get('u2')).toBe('en')
+    expect(map.has('u2')).toBe(false)
   })
 
   it('chunks big audiences instead of one huge URL', async () => {
@@ -94,15 +94,25 @@ describe('loadLanguagePreferences', () => {
     expect(h.prefQueries.map((q) => q.length)).toEqual([100, 100, 50])
   })
 
-  it('ignores unsupported codes and prefers the newest row', async () => {
+  it('only es narrows: en (the column default), unsupported codes and no row mean both languages', async () => {
+    h.prefRows = [
+      { user_id: 'u1', language: 'en', updated_at: '2026-01-01' },
+      { user_id: 'u2', language: 'fr', updated_at: '2026-01-01' },
+    ]
+    const map = await loadLanguagePreferences(db() as never, ['u1', 'u2', 'u3'])
+    expect(map.size).toBe(0)
+  })
+
+  it('the newest row wins', async () => {
     h.prefRows = [
       { user_id: 'u1', language: 'es', updated_at: '2026-01-01' },
       { user_id: 'u1', language: 'en', updated_at: '2026-02-01' },
-      { user_id: 'u2', language: 'fr', updated_at: '2026-01-01' },
+      { user_id: 'u2', language: 'en', updated_at: '2026-01-01' },
+      { user_id: 'u2', language: 'es', updated_at: '2026-02-01' },
     ]
     const map = await loadLanguagePreferences(db() as never, ['u1', 'u2'])
-    expect(map.get('u1')).toBe('en')
-    expect(map.has('u2')).toBe(false)
+    expect(map.has('u1')).toBe(false)
+    expect(map.get('u2')).toBe('es')
   })
 
   it('a failed read falls back to nothing chosen', async () => {
@@ -229,14 +239,22 @@ describe('deliverToRecipients language', () => {
     expect(h.sms[0].body).toContain('Piscina')
   })
 
-  it('emails carry the resident language', async () => {
+  it('a stored en (the default) still gets both languages; es gets Spanish first', async () => {
+    h.prefRows = [
+      { user_id: 'u-en', language: 'en', updated_at: '2026-01-01' },
+      { user_id: 'u-es', language: 'es', updated_at: '2026-01-01' },
+    ]
+    const mk = (id: string, user: string) => ({ id, channel: 'email', email: `${id}@x.test`, phone: null, recipient_name: null, unit_id: null, user_id: user })
+    await deliverToRecipients(db() as never, { ...base, bodyHtml: BILINGUAL, recipients: [mk('e1', 'u-en'), mk('e2', 'u-es')] })
+    const byTo = Object.fromEntries(h.emails.map((e) => [e.to, e.html]))
+    expect(byTo['e1@x.test']).toBe(BILINGUAL)
+    expect(byTo['e2@x.test'].indexOf('La piscina')).toBeLessThan(byTo['e2@x.test'].indexOf('The pool'))
+  })
+
+  it('a stored en texts both languages', async () => {
     h.prefRows = [{ user_id: 'u-en', language: 'en', updated_at: '2026-01-01' }]
-    await deliverToRecipients(db() as never, {
-      ...base,
-      bodyHtml: BILINGUAL,
-      recipients: [{ id: 'e1', channel: 'email', email: 'e1@x.test', phone: null, recipient_name: null, unit_id: null, user_id: 'u-en' }],
-    })
-    expect(h.emails[0].html).toContain('The pool')
-    expect(h.emails[0].html).not.toContain('La piscina')
+    await deliverToRecipients(db() as never, { ...base, bodyHtml: BILINGUAL, recipients: [sms('s1', 'u-en')] })
+    expect(h.sms[0].body).toContain('Piscina')
+    expect(h.sms[0].body).toContain('The pool')
   })
 })

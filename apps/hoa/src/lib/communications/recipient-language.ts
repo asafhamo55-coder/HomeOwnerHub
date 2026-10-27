@@ -7,6 +7,11 @@
  * empty map: the fallback is the BL-025 default of both languages, which is
  * always safe, so a read failure must not stop a send.
  *
+ * Only 'es' narrows a message. The column defaults to 'en', so a stored 'en'
+ * may be that default rather than a choice; it is treated as no choice, and
+ * the resident gets both languages. (English-only needs a migration that
+ * tells a choice from the default.)
+ *
  * A user can hold several rows (one per unit); the most recently updated
  * one wins.
  *
@@ -15,16 +20,16 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
-import { normalizeLanguage, type CommLanguage } from './bilingual'
+import { normalizeLanguage } from './bilingual'
 
 const CHUNK = 100
 
 export async function loadLanguagePreferences(
   db: SupabaseClient<Database>,
   userIds: readonly (string | null | undefined)[],
-): Promise<Map<string, CommLanguage>> {
+): Promise<Map<string, 'es'>> {
   const ids = [...new Set(userIds.filter((id): id is string => !!id))]
-  const out = new Map<string, CommLanguage>()
+  const out = new Map<string, 'es'>()
   for (let i = 0; i < ids.length; i += CHUNK) {
     const { data, error } = await db
       .from('resident_communication_preferences')
@@ -34,8 +39,10 @@ export async function loadLanguagePreferences(
     if (error) return new Map()
     // Ascending, so a later (newer) row overwrites an earlier one.
     for (const row of data ?? []) {
-      const lang = normalizeLanguage(row.language)
-      if (row.user_id && lang) out.set(row.user_id, lang)
+      if (!row.user_id) continue
+      // Newest row wins, so a later 'en' (default) clears an earlier 'es'.
+      if (normalizeLanguage(row.language) === 'es') out.set(row.user_id, 'es')
+      else out.delete(row.user_id)
     }
   }
   return out
