@@ -765,3 +765,19 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - OA-33: Stripe test webhook secret.
   - OA-32: GA 590-13 PDFs, due Nov 2.
 - **Follow-ups:** BL-177 atomic multi-charge payments and credit (migration).
+
+## 2026-10-27 10:30 â†’ 16:00 EDT: CI registry fix, website product first, 0070 rebuilt from prod
+
+- **Deployed:** 156ba464 (accessibility, speed, SEO batch 4); 94b8d859 (website product first: AI workspace hero, one "State law built in" section, new /states page). Release-note emails sent for both.
+- **CI:** Supabase images now come from public.ecr.aws, with every image cached on the runner and a ghcr.io fallback. GitHub caches are per branch, so migration branches should be merged into claude/quality-oracle to get a cache hit (claude/m7 alone hit "Data limit exceeded").
+- **OA-37 with Asaf, live:**
+  - M1 passed.
+  - The static M2 query failed on a non-FK rule (`communication_threads.topic_label`), which showed that the hand-generated 0070 list was wrong.
+  - The catalog query in prod: 121 org-to-org FKs, 0 violating rows. The list is in `docs/specs/2026-10-27-prod-org-fk-list.txt`.
+  - 0070 was rebuilt to exactly those 121 links. The runbook M2 is now catalog-driven.
+- **CI on f71fc407:** the schema replay passed. 7 integration tests failed:
+  - 3 expect 42501 but got 23503. The generic triggers fire before the hand-written ones, so they are being renamed to sort last.
+  - 4 fail because 0072 `record_lump_payment` references `v_num` as a column.
+  - The M7 agent is fixing both. Asaf holds at M3 until CI is green.
+- **Dispatched (Sonnet):** BL-044 held-reminder status and 375px preview; BL-043 date-only and timezone math; BL-059 Select trigger greyed by `read-only:`; deck refresh (product-first message).
+- **SEO:** batch 4 is live today (daily quota met). The weekly audit is next due 2026-11-02.

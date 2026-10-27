@@ -57,23 +57,16 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 ## Waiting on Asaf (manual steps only)
 
-1. **Migration 0063:** run Part 1a from `docs/specs/2026-10-16-rls-sweep-apply.sql` and send the output. Then Parts 1b, 2 and 3, using the updated versions; don't use the old Part 2.
-2. **FL state-law first refresh:** signed in as platform admin, run `fetch('/api/admin/refresh-state-law',{method:'POST'})` in the browser console. Prod has 0 FL statutes.
-3. **S-01 audit query:** run it read-only, on its own in the SQL editor. It lists resident_portal.enter rows outside the acting org.
-4. ~~GitHub secrets for release-note emails~~: done 2026-10-17.
-5. **Later:** an Open States and/or LegiScan API key (BL-069), and `LAW_REPORT_TO` as a Vercel env var.
-6. **After 0063:** migration batch M1, READY and CI-validated: docs/specs/2026-10-18-m1-apply.sql (then flip packages/db/src/m1.ts M1_APPLIED=true): BL-020, BL-050, BL-052, BL-058, BL-063 and Stripe 0064. Then the properties expand/backfill (M-P1, M-P2). Then M2: BL-068 modules and BL-069 run log.
+Single source: `docs/owner-actions.md` (emailed to Asaf by a workflow). At 2026-10-27:
+- **OA-37 (in progress, live with Claude):** apply 0070 (tenant isolation), then 0071 (roles), using runbook Sections M and N in `docs/specs/2026-10-20-sql-runbook.md`. M1 and M2 are done: 121 links, 0 violations. Next is M3, then the M4 apply, but only after CI is green on the fixed 0070/0072. Set PRO_INVITE_SECRET before flipping M6_APPLIED. 0072 (Section O, M7) follows.
+- **OA-34 (urgent):** RESEND_API_KEY, EMAIL_FROM and DEMO_INBOX_EMAIL on the marketing project, so demo requests reach Asaf.
+- OA-35 (analytics and Search Console), OA-36 (isolation checks), OA-26 (secrets), OA-33 (Stripe test webhook secret), OA-32 (GA 590-13 PDFs, due Nov 2).
 
-## In flight at this update
+## In flight at this update (2026-10-27 16:00 EDT)
 
-- **Paused:** the loop is paused for the weekly usage limit. On resume, re-dispatch BL-082 resident notifications, the M1 UI behind the flag and the guide classifier tuning; partial diffs are in .claude/worktrees/agent-a1496b73cd811725c, agent-abd18994e3c673a61 and agent-a0c6a9e45dd9f07e0.
-- **UI shots CI** opens "Refresh guide screenshots" PRs automatically. Review two images, then squash-merge.
-- **Next, by priority:** see **"Ranked open work (groomed 2026-10-20)"** at the bottom of `docs/backlog.md`, the single source for what to build next. Every backlog item now carries a "Groomed 2026-10-20" line saying Done (with commit), Partly, Open or which migration batch it waits for. Check that line before you start an item.
-  - Everything this list used to name has shipped: BL-079 (fe712f36, 12a3d395), BL-025 (2026-10-19), the P5 statutory roster (72f0b92d) and records copy (173f4727), the guide's first-week cards (`apps/hoa/src/lib/guide/first-week.ts`), and the /inspect idempotency key (9830f49d; shared-cap test c577ada9). BL-068 still waits for M2.
-- **Waiting on Asaf:**
-  - Is support@homeownerledger.com a real inbox?
-  - The FL refresh, the S-01 audit query and the 0063 Part 1a SQL.
-  - Try /inspect on an iPhone.
+- **Prod:** 94b8d859. Integration: claude/quality-oracle at f71fc407, which includes claude/m7 (0070 rebuilt to 121 prod links, plus 0072). Its CI is red: 7 integration tests. The M7 agent is fixing the trigger order (23503 vs 42501) and `v_num` in `record_lump_payment`. **Do not deploy quality-oracle until it is green.** It's safe once green: the migrations are applied by Asaf, and the M6/M7 code is flag-gated.
+- **Agents:** BL-044 reminder follow-ups, BL-043 date-only math, BL-059 Select styling, deck refresh.
+- **Next, by priority:** the ranked lists at the bottom of `docs/backlog.md` (rounds 5 and 6, plus owner asks BL-157 to BL-177). The "Groomed 2026-10-20" lines are a week old, so check the code before starting an item.
 
 ## Decisions taken without the owner (reversible)
 
