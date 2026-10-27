@@ -13,8 +13,29 @@ const STAMP_COOKIE_MAX_AGE_S = 30 * 24 * 60 * 60
 // Reuses the service-role key when a dedicated secret isn't set, so the cap
 // works on deploy without a new Vercel env var. Both are server-only and
 // never reach the browser.
-function sessionCapSecret(): string | undefined {
-  return process.env.SESSION_CAP_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+//
+// BL-175a M4: in production the fallback is kept (removing it would change
+// the secret and invalidate every live stamp cookie, signing everyone out),
+// but it is logged once per server instance, never with a value. The owner
+// step is to set SESSION_CAP_SECRET in Vercel production.
+let warnedSessionCapFallback = false
+export function sessionCapSecret(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  if (env.SESSION_CAP_SECRET) return env.SESSION_CAP_SECRET
+  const fallback = env.SUPABASE_SERVICE_ROLE_KEY
+  if (fallback && env.VERCEL_ENV === 'production' && !warnedSessionCapFallback) {
+    warnedSessionCapFallback = true
+    console.warn(
+      '[session-cap] SESSION_CAP_SECRET is not set in production; using the service-role key fallback (BL-175a M4)',
+    )
+  }
+  return fallback
+}
+
+/** Test hook: forget that the production fallback warning was logged. */
+export function resetSessionCapWarningForTests(): void {
+  warnedSessionCapFallback = false
 }
 
 // Pulled into a helper so the same flow can be reused by the eviction and pm
