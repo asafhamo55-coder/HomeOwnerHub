@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, MapPin, Compass, Shield, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
+import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
 import { pageMetadata } from '@/lib/site'
 import { STATE_COVERAGE } from '@/lib/state-law'
@@ -138,10 +139,15 @@ export default function AboutPage() {
           <p className="t-lead mx-auto mt-5 max-w-xl">
             Ten minutes is all we need. We&apos;ll run the demo on your community&apos;s actual covenants.
           </p>
-          <Link href="/demo" className="btn btn-primary btn-lg group mt-9">
-            Start free pilot
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-          </Link>
+<div className="flex flex-col items-center justify-center gap-3 sm:flex-row mt-9">
+            <TrackedLink href="/demo" event="demo_cta_click" position="closing" className="btn btn-primary btn-lg group">
+              Book a demo
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </TrackedLink>
+            <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
+              Start free pilot
+            </TrackedLink>
+          </div>
         </div>
       </section>
 

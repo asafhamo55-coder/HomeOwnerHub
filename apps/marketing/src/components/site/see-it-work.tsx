@@ -1,6 +1,6 @@
 import { BookOpen, ShieldCheck } from 'lucide-react'
 import { APP_HOST } from '@/lib/app-origin'
-import { CovenantBrainDemo } from './covenant-brain-demo'
+import { LazyCovenantBrain } from './lazy-covenant-brain'
 
 // "See it work": the interactive Covenant Brain sample, framed as an app
 // window on the ink band. Sample documents, labelled as such.
@@ -36,7 +36,7 @@ export function SeeItWork() {
                 Bar C · Production
               </span>
             </div>
-            <CovenantBrainDemo />
+            <LazyCovenantBrain />
           </div>
           <p className="mt-5 text-center text-sm text-[#a9b9d8]">
             Sample documents. Every answer cited back to the document and audit-logged.

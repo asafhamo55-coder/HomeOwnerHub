@@ -8,6 +8,11 @@ const DemoRequestSchema = z.object({
   name: z.string().trim().min(2, 'Please enter your name.').max(120),
   email: z.string().trim().email('That email doesn\'t look right.').max(200),
   hoa: z.string().trim().min(2, 'Please enter your HOA or community name.').max(200),
+  // Optional. A blank field arrives as '' from the browser.
+  county: z.string().trim().max(80, 'That county name is too long.').optional(),
+  homes: z
+    .union([z.literal(''), z.string().trim().regex(/^\d{1,5}$/, 'Enter a whole number, like 120.')])
+    .optional(),
   // Honeypot — must be empty. Bots fill every visible field.
   website: z.string().max(0, 'Spam detected.').optional(),
 })
@@ -56,6 +61,8 @@ New demo request — HomeownerHub
 Name:    ${data.name}
 Email:   ${data.email}
 HOA:     ${data.hoa}
+County:  ${data.county || 'not given'}
+Homes:   ${data.homes || 'not given'}
 
 —
 Submitted at ${new Date().toISOString()}
