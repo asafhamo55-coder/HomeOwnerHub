@@ -7,7 +7,7 @@ import { JsonLd } from '@/components/site/json-ld'
 import { Breadcrumbs, GeorgiaCta, NotLegalAdvice } from '@/components/georgia/parts'
 import { TrackedLink } from '@/components/site/tracked-link'
 import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE } from '@/lib/state-law'
-import { GEORGIA_LINKS, GUIDE_LIST } from '@/lib/georgia'
+import { GENERAL_LINKS, GEORGIA_LINKS, GUIDE_LIST } from '@/lib/georgia'
 import { SITE_ORIGIN, pageMetadata } from '@/lib/site'
 import { breadcrumbLd } from '@/lib/jsonld'
 
@@ -146,6 +146,39 @@ export default function GeorgiaHubPage() {
       </section>
 
       <section className="section border-t border-border bg-surface">
+        <div className="container-page">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="t-h2 text-foreground">Running the board day to day</h2>
+            <p className="t-lead mt-4 max-w-2xl">
+              Not specific to SB 406, and useful in any state. Also see the{' '}
+              <Link href="/georgia/self-managed-hoa-georgia-first-90-days" className="font-semibold text-primary hover:underline">
+                first 90 days as a self-managed board
+              </Link>
+              .
+            </p>
+            <ul className="mt-8 grid gap-4 md:grid-cols-3">
+              {GENERAL_LINKS.map((t) => (
+                <li key={t.slug}>
+                  <Link href={t.path} className="card group flex h-full flex-col p-6 transition-shadow hover:shadow-md">
+                    <ClipboardCheck className="h-5 w-5 text-primary" aria-hidden />
+                    <span className="mt-3 text-[17px] font-semibold leading-snug text-foreground group-hover:text-primary">{t.title}</span>
+                    <span className="mt-2 text-sm leading-relaxed text-foreground-secondary">{t.blurb}</span>
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link href="/professionals" className="card group flex h-full flex-col p-6 transition-shadow hover:shadow-md">
+                  <ClipboardCheck className="h-5 w-5 text-primary" aria-hidden />
+                  <span className="mt-3 text-[17px] font-semibold leading-snug text-foreground group-hover:text-primary">For attorneys and CPAs</span>
+                  <span className="mt-2 text-sm leading-relaxed text-foreground-secondary">What a board can share with you today. Professional seats are coming soon.</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="section border-t border-border">
         <div className="container-page">
           <div className="mx-auto max-w-4xl">
             <h2 className="t-h2 text-foreground">What HomeownerHub does for Georgia boards</h2>

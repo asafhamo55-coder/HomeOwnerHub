@@ -13,7 +13,8 @@
 // the root vitest config maps "@" to apps/hoa.
 
 import type { Metadata } from 'next'
-import { GEORGIA_PATHS } from './georgia'
+import { GENERAL_PATHS, GEORGIA_PATHS } from './georgia'
+import { PROFESSIONALS_PATH } from './professionals'
 
 export const DEFAULT_SITE_ORIGIN = 'https://www.homeownerledger.online'
 export const SITE_NAME = 'HomeownerHub'
@@ -63,6 +64,8 @@ export const SITEMAP_PATHS: readonly string[] = [
   '/compare',
   '/demo',
   ...GEORGIA_PATHS,
+  ...GENERAL_PATHS,
+  PROFESSIONALS_PATH,
   '/about',
   '/roadmap',
   '/honesty-bars',
