@@ -1956,3 +1956,8 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Seasonal nudges:** the dashboard and digest suggest the next occasion ("Halloween is Friday: send a party notice?"), dismissible.
    - **Rules:** sending is the board's explicit action; existing opt-outs, channel consent and the outbound guard apply; no PII in logs; the tone stays neutral (no religious assumptions in "holidays" defaults).
    - **Status:** dispatched 2026-10-26 (Sonnet).
+
+174. **BL-174 Marketing site restyle inspired by nice.com (colors and design patterns).** Migration: no. Owner ask (Asaf, 2026-10-26). Decision: `docs/decisions/2026-10-26-website-nice-inspired-design.md`.
+   - Analyze www.nice.com: palette, type, sections, components. Map it onto the BL-170 design system tokens and restyle all marketing pages, including the BL-171 Georgia hub, guides and readiness check.
+   - No copied assets, copy or code; the HomeownerHub identity stays.
+   - **Status:** dispatched 2026-10-26 (Sonnet).
