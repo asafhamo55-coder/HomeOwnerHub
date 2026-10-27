@@ -59,6 +59,25 @@ easier. Never paste a key or password into a file in this repo; it is public.
    - `DEV_AUTOLOGIN`: should not exist.
    - `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`: should be set (see OA-26). Today the app's signed settings fall back to the database service key.
 
+### OA-37 · Apply two database updates: tenant isolation (0070), then CPA, attorney and treasurer roles (0071)
+
+**Urgency:** Soon (0070 is a security fix)
+
+**Why it matters:**
+- **0070** closes, at the database level, the cross-association gaps the security audit found (BL-175). The app-side fixes are already live.
+- **0071** adds the CPA, attorney and treasurer roles (BL-168). They stay switched off until Claude turns them on after you apply it.
+- Both passed every security test in CI. Two independent reviews call 0071 safe to apply.
+
+**Steps** (Claude copies each one to your clipboard and tells you what to expect; never paste ahead):
+
+1. **0070 read-only pre-checks** (runbook Section M, steps M1–M3). Send Claude the results. The key one counts any existing rows that already link across associations; they must be 0, or Claude gives you a cleanup step first.
+2. **Apply 0070** (Section M, step M4), then run the verify query (M5) and send Claude the result.
+3. **0071 read-only pre-checks** (Section N, step N1).
+4. **Apply 0071** (Section N, steps N2–N4) and send Claude the verify result.
+5. **Later, before Claude switches the professional roles on:** add `PRO_INVITE_SECRET` in Vercel (home-owner-hub-hoa, Production), a long random value from `openssl rand -base64 48`.
+
+**Files:** `migrations/0070_tenant_isolation.sql`, `migrations/0071_m6_roles.sql`, `docs/specs/2026-10-20-sql-runbook.md` (Sections M and N)
+
 ### OA-34 · Let demo requests from the website reach you (urgent)
 
 **Urgency:** Urgent
