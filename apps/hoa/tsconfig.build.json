@@ -1,0 +1,8 @@
+{
+  // Used only by `next build`'s type check (next.config typescript.tsconfigPath).
+  // Same compiler options and app sources as tsconfig.json, minus test files:
+  // tests never ship, and `pnpm typecheck` (tsc --noEmit -p tsconfig.json)
+  // still type-checks every test in CI. Keeps the Vercel build under 8 GB.
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"]
+}

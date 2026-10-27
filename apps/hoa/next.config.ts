@@ -64,6 +64,13 @@ const SECURITY_HEADERS = [
 ]
 
 const config: NextConfig = {
+  // next build's type check reads tsconfig.build.json: the same compiler
+  // options and every shipped source file, minus *.test.ts(x). Tests never
+  // ship, and `pnpm typecheck` (tsconfig.json) still checks all of them in
+  // CI before any deploy. Measured 2026-10-27 with tsc --extendedDiagnostics:
+  // 3.0 GB with tests vs 2.1 GB without. That keeps the Vercel build under its
+  // 8 GB limit (deploy 41b7c353 was OOM-killed in the type check).
+  typescript: { tsconfigPath: 'tsconfig.build.json' },
   // BL-071: the in-app version label (apps/hoa/src/lib/app-version.ts).
   // Vercel exposes no commit date, so the build stamps its own time; the
   // commit sha is read from VERCEL_GIT_COMMIT_SHA, the same var
@@ -98,6 +105,13 @@ const config: NextConfig = {
     // keep the type check and fit in the container, at some build-time cost.
     cpus: 1,
     webpackMemoryOptimizations: true,
+    // withSentryConfig supplies a custom webpack config, and Next then turns
+    // the build worker OFF by default (build/index.js: `webpackBuildWorker ||
+    // (undefined && !config.webpack)`). Without it, the compiler's memory is
+    // still held when the type check starts, which OOM-killed deploy
+    // 41b7c353 (2026-10-27). The worker frees compile memory first; the
+    // type check stays on.
+    webpackBuildWorker: true,
     staleTimes: {
       dynamic: 30,
       static: 300,
