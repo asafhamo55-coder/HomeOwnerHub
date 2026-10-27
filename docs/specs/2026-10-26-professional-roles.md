@@ -81,6 +81,7 @@ Billing seats for professionals (pricing decision later; they are free for now).
 ## Decisions after the security review (2026-10-26)
 
 - **Existing accounts accept by link.** If the invited email already has a HomeownerHub account, the board's invite records a `professional_invites` row and emails an HMAC-signed, single-use link that expires in 7 days. The person opens it signed in as that (confirmed) email and accepts; only then is the `org_members` row created, with an audit row. A pending invite grants nothing. A new address gets the normal sign-in email and its grant is recorded at once.
+- **One consent path for everyone** (second review): new and existing addresses alike get a recorded invitation and a signed link; a membership exists only after acceptance, and only the service role can create or upgrade a cpa/attorney row.
 - **The invite form never confirms whether an address has an account.** Every failure is reported except "already registered", which answers exactly like a fresh invitation, and no user id is returned.
 - **A grant lasts at most a year at a time** (database cap 367 days). Renew to extend.
 - **Professionals read no `orgs` or `associations` row.** `pro_org_info()` returns names only.

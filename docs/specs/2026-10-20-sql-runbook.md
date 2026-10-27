@@ -1004,9 +1004,9 @@ Known editor limits handled in the steps, not the SQL: the editor shows only the
 
 ---
 
-## Section M · Migration 0070, batch M6 (professional and officer roles)
+## Section M · Migration 0071, batch M6 (professional and officer roles)
 
-File: `migrations/0070_m6_roles.sql`. *Needs:* Sections A (0063), J (0067) and K (0068) done, because it builds on the money-table rules, the compliance "done" table and the fine-hearing table; M3 refuses to run, changing nothing, if any is missing. Design: `docs/specs/2026-10-26-professional-roles.md` (BL-168). BL-156 and BL-166 append their own parts to the same file when they land, and this section grows with them.
+File: `migrations/0071_m6_roles.sql`. *Needs:* the tenant-isolation migration (0070, applied first) and Sections A (0063), J (0067) and K (0068) done, because it builds on the money-table rules, the compliance "done" table and the fine-hearing table; M3 refuses to run, changing nothing, if any is missing. Design: `docs/specs/2026-10-26-professional-roles.md` (BL-168). BL-156 and BL-166 append their own parts to the same file when they land, and this section grows with them.
 
 What it does (part 1, BL-168):
 
@@ -1018,7 +1018,7 @@ What it does (part 1, BL-168):
 6. **Approvals.** `approval_requests` gains a "proposed by" column so a professional can read the status of their own proposals (and nobody else's). A new sign-off table, one function and database rules make every money approval (deposits, scanned bills, opening balances, a CPA's entry) above the board's amount (new column on associations; blank = none) need two different board members who are *currently* admin or board and did not propose it. Changing the item's payload or amount clears its sign-offs, a money item can only be created as "proposed", and only an admin can change the amount (every change is audited).
 7. **A professional sees names, not rows, of the org.** They cannot read the organization or association rows at all (no billing ids, no compliance settings); one function returns the organization and association name, and the organization name only once their grant has ended.
 8. **The grant is guarded.** A grant runs at most a year at a time (also for us), a membership can't be moved to another person or HOA, every grant, change and removal is audited, and removing a professional ends their matter assignments and rejects what they had waiting in Approvals.
-9. **Invitations.** For a person who already has an account, the board records an invitation that grants nothing; they accept through a signed link while signed in as that email.
+9. **Invitations are the only way in.** The board records an invitation that grants nothing; the person accepts through a signed, single-use link (7 days) while signed in as that confirmed email, and only then is the membership created. A board member or admin can no longer add or upgrade a CPA or attorney directly (only renew, change or remove one). An approval's type and organization can never be changed, and an item from a professional whose access has ended can't be approved until it is renewed (their matters come back with the renewal).
 10. Every new function refuses a caller with no sign-in, even if a later blanket grant reopens it to `anon`.
 
 Nothing in the app reads or writes the new columns, tables or functions until Claude turns on `M6_APPLIED` after M4. The only existing tables changed: `org_members` (new columns and checks, the role check, the insert/update/delete rules), `approval_requests` (one nullable column, 2 rules, 3 rules in the database), `associations` (one nullable column and a guard). The shared "members can read" function is replaced (same name and shape). No step outputs names, addresses or emails.
@@ -1057,9 +1057,9 @@ Nothing in the app reads or writes the new columns, tables or functions until Cl
 
 Every new table starts empty and no existing row changes meaning. Nobody gets a professional role until the board invites one after the switch. There is no M2 query.
 
-### M3 · Apply 0070 (changes the database)
+### M3 · Apply 0071 (changes the database)
 
-- **Paste:** the **whole file** `migrations/0070_m6_roles.sql`. Ask Claude to copy it ("copy step M3").
+- **Paste:** the **whole file** `migrations/0071_m6_roles.sql`. Ask Claude to copy it ("copy step M3").
 - **Does:** adds the two roles, the officer title, the end date and the general-counsel switch to the members table (with their checks); replaces the "members can read" function so professionals are not members; creates the assignments table, the invitation table, the sign-off table and eleven helper functions; adds the proposer column, the dual-control amount and rule; and adds the read-only rules for CPAs and attorneys (listed above).
 - **Read-only:** no. All-or-nothing (one transaction): if anything fails, nothing changes. Safe to re-run.
 - **Time:** about a second (the new tables are empty; the new columns are added without a rewrite).
@@ -1091,7 +1091,8 @@ Every new table starts empty and no existing row changes meaning. Nobody gets a 
          (SELECT count(*) FROM pg_trigger
            WHERE tgname IN ('matter_assignments_scope', 'matter_assignments_attribution',
                             'approval_requests_dual_control', 'approval_requests_money_insert',
-                            'approval_requests_0_reset_signoffs', 'associations_dual_control_guard',
+                            'approval_requests_0_reset_signoffs', 'approval_requests_00_immutable_identity',
+                            'associations_dual_control_guard',
                             'org_members_pro_guard', 'org_members_pro_audit', 'org_members_pro_revoke',
                             'professional_invites_attribution'))                                    AS guard_rules,
          (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.professional_invites'::regclass)  AS invites_locked,
@@ -1102,7 +1103,7 @@ Every new table starts empty and no existing row changes meaning. Nobody gets a 
          pg_get_functiondef('public.auth_org_ids()'::regprocedure) LIKE '%''resident''%'            AS members_only_list;
   ```
 
-- **Expect:** `member_checks` = 4, `assignments_locked` = true, `signoffs_locked` = true, `assignment_rules` = 5, `cpa_rules` = 17, `attorney_rules` = 7, `counsel_rules` = 2, `guard_rules` = 10, `invites_locked` = true, `invite_rules` = 3, `leaked_read_rules` = 0, `members_only_list` = true.
+- **Expect:** `member_checks` = 4, `assignments_locked` = true, `signoffs_locked` = true, `assignment_rules` = 5, `cpa_rules` = 17, `attorney_rules` = 7, `counsel_rules` = 2, `guard_rules` = 11, `invites_locked` = true, `invite_rules` = 3, `leaked_read_rules` = 0, `members_only_list` = true.
 - **Then paste, on its own:**
 
   ```sql
@@ -1119,6 +1120,7 @@ Every new table starts empty and no existing row changes meaning. Nobody gets a 
 
 - **Expect:** `helper_functions` = 11, `anon_can_run_any` = false.
 - **M4 is done only when all three rows match:** the M1 query, the query above and this one.
-- **Send:** all three rows, and the words **"0070 is applied"**.
+- **Send:** all three rows, and the words **"0071 is applied"**.
+- **Before the flip:** set `PRO_INVITE_SECRET` (any random string of 32+ characters) in Vercel **production**. Without it invitations are refused (there is deliberately no fallback to another key).
 - **Flag Claude flips after M4:** `M6_APPLIED` → `true` (`packages/db/src/m6.ts`), then un-drafts the guide article `members-invite-professional` and deploys hoa. That turns on, together: **Settings → Professionals** (Invite a professional, who has access, matter assignments, officer titles, the dual-control amount), the CPA's **Accounting & Reports** and the attorney's **My matters** at `/pro`, **From your professionals** in Approvals (a CPA's review note and proposed entry; an attorney's notes, uploads and draft letters), and the Treasurer-first routing and two-board-member rule on scanned bills and CPA entries. `tests/integration/security/m6-roles.test.ts` covers every role and table (allowed, denied, expired) in CI.
 - **First thing for the board after the flip:** open **Settings → Professionals**. An admin sets the Treasurer (and other officers) under **Officers**, and the dual-control amount if you want one; until then money approvals behave exactly as today. Then invite your CPA or attorney.
