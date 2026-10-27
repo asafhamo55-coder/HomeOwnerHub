@@ -52,6 +52,9 @@ this file is the reference it points to.
 - **Georgia is the launch state.** FL, CA and TX stay supported, but Georgia comes first when choosing what to build, test, word or demo: GA statute coverage (the O.C.G.A. § 44-3 snapshot, BL-124 refresh before 2027-01-01), the GA Secretary of State registration (SB 406), GA-specific paperwork and copy, and GA examples in the decks and marketing.
 - Before ranking backlog items, ask: "does this help a Georgia board first?"
 
+### Website message: product first (Asaf, 2026-10-27)
+- The marketing site leads with the AI self-service HOA workspace. Georgia and the other states are supporting benefits, not the headline. The /georgia SEO pages stay. See `docs/decisions/2026-10-27-website-product-first-positioning.md`.
+
 ### SEO is the primary growth channel (Asaf, 2026-10-26: "invest the most in SEO")
 - The marketing site's main job is ranking for what Georgia boards search, then turning visitors into demo requests.
 - Every day the loop dispatches a Sonnet SEO agent that ships at least 3 new or improved pages (BL-172). A full SEO audit runs weekly.
