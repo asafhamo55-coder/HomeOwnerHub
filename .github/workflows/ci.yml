@@ -66,7 +66,11 @@ jobs:
         run: pnpm guide:eval
 
       - name: Build
-        run: pnpm turbo run build
+        # next/font/google fetches Google Fonts at build time; a transient
+        # network error there ("Failed to fetch JetBrains Mono") fails the
+        # build. One retry (turbo replays packages that already built).
+        run: |
+          pnpm turbo run build || { echo "build failed; retrying once after 20s"; sleep 20; pnpm turbo run build; }
         env:
           # Builds need NEXT_PUBLIC_* present so the bundles don't crash on
           # missing constants. Real values come from Vercel at deploy time;

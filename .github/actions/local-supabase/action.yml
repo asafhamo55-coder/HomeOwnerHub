@@ -15,20 +15,76 @@ runs:
       with:
         version: 2.95.4
 
-    # Docker Hub sometimes answers image pulls with "toomanyrequests" (seen
-    # twice on 2026-10-26). Retry with a back-off instead of failing the run;
-    # images pulled by an earlier attempt are cached, so retries pull less.
-    - name: Start Supabase
+    # Registry throttling ("toomanyrequests ... allowed: 44000/minute" on
+    # ghcr.io, seen repeatedly 2026-10-26/27 even when logged in) made
+    # `supabase start` flaky, so the images are cached across runs:
+    #   hit  -> `docker load` the tarball; `supabase start` finds every image
+    #           locally and pulls nothing.
+    #   miss -> `supabase start` pulls (with the retry loop below), then the
+    #           images of the containers it started are `docker save`d to a
+    #           zstd tarball that actions/cache uploads when the job ends.
+    # Key = CLI version + hash of supabase/config.toml and this file (which
+    # fix the set of started services, hence the set of images). Bumping the
+    # CLI version or the exclude list below changes the key.
+    # Only the services the suites use are started (see SUPABASE_EXCLUDE):
+    # fewer images to pull, a smaller cache, a faster boot.
+    - name: Restore Supabase image cache
+      id: image-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/supabase-images/images.tar.zst
+        key: supabase-images-2.95.4-${{ hashFiles('supabase/config.toml', '.github/actions/local-supabase/action.yml') }}
+
+    - name: Load cached Supabase images
+      if: steps.image-cache.outputs.cache-hit == 'true'
       shell: bash
       run: |
+        set -euo pipefail
+        zstd -dc ~/.cache/supabase-images/images.tar.zst | docker load
+        docker images --format '{{.Repository}}:{{.Tag}}' | sort
+
+    # Excluded: studio (dashboard), imgproxy (image transforms), edge-runtime
+    # (functions), logflare + vector (analytics/log shipping), supavisor
+    # (pooler, already off in config.toml), postgres-meta (studio's backend)
+    # and realtime (no test, script or app code subscribes to it; the
+    # notification bell is documented as realtime-free). Kept: postgres,
+    # gotrue (auth), postgrest (rest), storage-api (storage-isolation and
+    # photo-role integration tests), kong (the :54321 gateway every client
+    # talks to) and mailpit (auth mail sink; tiny).
+    - name: Start Supabase
+      shell: bash
+      env:
+        SUPABASE_EXCLUDE: realtime,imgproxy,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+      run: |
+        set -euo pipefail
         for attempt in 1 2 3; do
-          if supabase start; then exit 0; fi
+          if supabase start -x "$SUPABASE_EXCLUDE"; then exit 0; fi
           echo "supabase start failed (attempt $attempt); retrying after $((attempt * 60))s"
           supabase stop --no-backup || true
           sleep $((attempt * 60))
         done
         echo "supabase start failed after 3 attempts"
         exit 1
+
+    # Runs only after a successful start on a cache miss. Failure to save is
+    # never fatal: the cache is an optimisation, the start already worked.
+    - name: Save Supabase images for the cache
+      if: steps.image-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -uo pipefail
+        mkdir -p ~/.cache/supabase-images
+        images="$(docker ps --filter 'name=supabase_' --format '{{.Image}}' | sort -u)"
+        echo "Images of running Supabase containers:"
+        echo "$images"
+        if [ -z "$images" ]; then echo "no images found; not caching"; exit 0; fi
+        # shellcheck disable=SC2086
+        if docker save $images | zstd -T0 -3 -o ~/.cache/supabase-images/images.tar.zst; then
+          ls -lh ~/.cache/supabase-images/images.tar.zst
+        else
+          echo "docker save failed; not caching"
+          rm -f ~/.cache/supabase-images/images.tar.zst
+        fi
 
     - name: Replay schema from the manifest
       shell: bash

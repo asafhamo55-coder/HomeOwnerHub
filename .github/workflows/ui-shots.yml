@@ -116,7 +116,11 @@ jobs:
       # built because ui:shots covers them too. These builds carry
       # DEV_AUTOLOGIN and are never deployed — Vercel builds its own.
       - name: Build apps (production, local Supabase env)
-        run: pnpm exec tsx scripts/ui-shots.ts --build=hoa,pm,eviction,marketing
+        # One retry: next/font/google fetches fonts at build time and can
+        # hit a transient network error.
+        run: |
+          build() { pnpm exec tsx scripts/ui-shots.ts --build=hoa,pm,eviction,marketing; }
+          build || { echo "build failed; retrying once after 20s"; sleep 20; build; }
 
       # Which guide screenshots are stale or missing BEFORE regenerating —
       # that list, not a byte diff, decides what goes in the refresh PR.
