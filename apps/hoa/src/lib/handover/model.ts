@@ -50,7 +50,7 @@ export function buildAccess(rows: MemberRowInput[], lastSignIns: ReadonlyMap<str
         joinedAt: r.joined_at,
         lastSignInAt: lastSignIns.get(r.user_id) ?? null,
       })
-    } else {
+    } else if (r.role === 'resident') {
       residentCount += 1
     }
   }

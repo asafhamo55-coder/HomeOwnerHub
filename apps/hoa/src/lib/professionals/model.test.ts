@@ -91,10 +91,11 @@ describe('access windows', () => {
     expect(defaultExpiry('cpa', '2026-10-26')).toBe('2027-10-26')
     expect(defaultExpiry('attorney', '2026-10-26')).toBe('2027-04-24')
   })
-  it('an end date must be after today and within 24 months', () => {
+  it('an end date must be after today and within a year', () => {
     expect(expiryProblem('2026-10-26', '2026-10-26')).toMatch(/after today/)
     expect(expiryProblem('2026-10-27', '2026-10-26')).toBeNull()
-    expect(expiryProblem('2028-10-26', '2026-10-26')).toMatch(/24 months/)
+    expect(expiryProblem('2027-10-27', '2026-10-26')).toMatch(/a year/)
+    expect(expiryProblem('2027-10-26', '2026-10-26')).toBeNull()
     expect(expiryProblem('soon', '2026-10-26')).toMatch(/end date/)
   })
   it('a grant is expired at or after its end, and a missing end fails closed', () => {
@@ -158,6 +159,8 @@ describe('Treasurer routing and dual control', () => {
   it('only money actions are routed', () => {
     expect(isMoneyAction('w36.ap_bill')).toBe(true)
     expect(isMoneyAction(PRO_ACTIONS.entry)).toBe(true)
+    expect(isMoneyAction('w18.cash_receipt')).toBe(true)
+    expect(isMoneyAction('accounting.opening_balances')).toBe(true)
     expect(isMoneyAction(PRO_ACTIONS.note)).toBe(false)
     expect(isMoneyAction('collections.letter')).toBe(false)
     expect(routeApproval({ ...money, actionType: PRO_ACTIONS.note, signoffs: [], signer: member })).toEqual({ kind: 'approve' })
@@ -175,6 +178,8 @@ describe('Treasurer routing and dual control', () => {
     expect(signoffsNeeded(5000.01, 500_000)).toBe(2)
     expect(signoffsNeeded(5000, 500_000)).toBe(1)
     expect(signoffsNeeded(5000, null)).toBe(1)
+    expect(signoffsNeeded(null, 500_000)).toBe(2)
+    expect(signoffsNeeded(null, null)).toBe(1)
     const first = routeApproval({ ...big, signoffs: [], signer: treasurer })
     expect(first).toMatchObject({ kind: 'signoff', remaining: 1 })
     // The same person again is still one signature.
@@ -186,10 +191,10 @@ describe('Treasurer routing and dual control', () => {
 })
 
 describe('the money list matches the database trigger', () => {
-  it('approval_requests_dual_control() names exactly MONEY_ACTIONS', () => {
+  it('approval_is_money_action() names exactly MONEY_ACTIONS', () => {
     const here = path.dirname(fileURLToPath(import.meta.url))
     const sql = readFileSync(path.resolve(here, '../../../../../migrations/0070_m6_roles.sql'), 'utf8')
-    const m = /new\.action_type IN \(([^)]*)\)/.exec(sql)
+    const m = /approval_is_money_action\(p_action text\)[\s\S]*?p_action IN \(([^)]*)\)/.exec(sql)
     expect(m).not.toBeNull()
     const inSql = [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1])
     expect(inSql.sort()).toEqual([...MONEY_ACTIONS].sort())

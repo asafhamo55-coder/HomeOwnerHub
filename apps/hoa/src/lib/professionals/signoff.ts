@@ -41,13 +41,17 @@ interface MemberRow {
 export async function moneyGate(db: SignoffDb, input: GateInput): Promise<GateOutcome | null> {
   const { data: req, error: reqErr } = await db
     .from('approval_requests')
-    .select('id, organization_id, action_type, amount, status')
+    .select('id, organization_id, action_type, amount, status, proposed_by')
     .eq('id', input.requestId)
     .maybeSingle()
   if (reqErr) return { ok: false, error: 'Couldn’t check this approval. Try again.' }
-  const row = req as { organization_id: string; action_type: string; amount: number | string | null; status: string } | null
+  const row = req as { organization_id: string; action_type: string; amount: number | string | null; status: string; proposed_by: string | null } | null
   if (!row || row.organization_id !== input.orgId) return { ok: false, error: 'That approval item isn’t valid.' }
   if (!isMoneyAction(row.action_type) || row.status !== 'proposed') return null
+  // Segregation of duties: whoever put the item in front of the board is never a signature on it.
+  if (row.proposed_by && row.proposed_by === input.deciderId) {
+    return { ok: false, error: 'You put this item forward, so another board member needs to approve it.' }
+  }
 
   const [assocs, members, signed] = await Promise.all([
     db.from('associations').select('dual_control_cents').eq('organization_id', input.orgId).not('dual_control_cents', 'is', null),

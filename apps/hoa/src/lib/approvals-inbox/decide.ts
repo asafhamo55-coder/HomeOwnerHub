@@ -263,9 +263,10 @@ export async function decideApprovalFor(
 
   if (decision === 'reject' && !reason) return { ok: false, error: 'A reason is required to reject.' }
 
-  // BL-168: money goes to the Treasurer first; a first signature on a
-  // dual-control item is recorded, not approved.
-  if (decision === 'approve' && (kind === 'bill' || kind === 'pro') && handlers.moneyGate) {
+  // BL-168: money (bills, deposits, opening balances, a CPA's entry) goes to
+  // the Treasurer first; a first signature on a dual-control item is
+  // recorded, not approved. Non-money kinds fall straight through the gate.
+  if (decision === 'approve' && (kind === 'bill' || kind === 'pro' || kind === 'w18' || kind === 'opening') && handlers.moneyGate) {
     const gated = await handlers.moneyGate(id)
     if (gated) return gated
   }

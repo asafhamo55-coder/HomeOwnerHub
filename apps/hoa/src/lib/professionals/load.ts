@@ -179,11 +179,11 @@ export interface MyMatter {
   since: string
 }
 
-export async function loadMyMatters(db: Db): Promise<{ ok: true; matters: MyMatter[] } | { ok: false }> {
+export async function loadMyMatters(db: Db, orgId: string): Promise<{ ok: true; matters: MyMatter[] } | { ok: false }> {
   const [cases, violations, records] = await Promise.all([
-    loadOrFail('pro: cases', db.from('collection_cases').select('id, status, opened_on').order('opened_on', { ascending: false }).limit(200)),
-    loadOrFail('pro: violations', db.from('hoa_violations').select('id, violation_type, status, created_at').order('created_at', { ascending: false }).limit(200)),
-    loadOrFail('pro: records', db.from('tickets').select('id, status, created_at').eq('category', 'records_request').order('created_at', { ascending: false }).limit(200)),
+    loadOrFail('pro: cases', db.from('collection_cases').select('id, status, opened_on').eq('organization_id', orgId).order('opened_on', { ascending: false }).limit(200)),
+    loadOrFail('pro: violations', db.from('hoa_violations').select('id, violation_type, status, created_at').eq('org_id', orgId).order('created_at', { ascending: false }).limit(200)),
+    loadOrFail('pro: records', db.from('tickets').select('id, status, created_at').eq('organization_id', orgId).eq('category', 'records_request').order('created_at', { ascending: false }).limit(200)),
   ])
   if (!cases.ok || !violations.ok || !records.ok) return { ok: false }
   return {
@@ -226,19 +226,19 @@ export interface CpaOverview {
 
 export async function loadCpaOverview(db: Db, orgId: string): Promise<{ ok: true; data: CpaOverview } | { ok: false }> {
   const [periods, assessments, entries, accounts, funds, owners, reviews] = await Promise.all([
-    loadOrFail('pro: periods', db.from('fiscal_periods').select('id, association_id, start_date, end_date, status').order('start_date', { ascending: false }).limit(20)),
+    loadOrFail('pro: periods', db.from('fiscal_periods').select('id, association_id, start_date, end_date, status').eq('organization_id', orgId).order('start_date', { ascending: false }).limit(20)),
     // Every open charge, page by page: a summed total must never be a truncated one.
     loadOrFail(
       'pro: receivables',
       readAllResult<{ unit_id: string | null; amount: number | string }>((from, to) =>
-        db.from('assessments').select('unit_id, amount, status').in('status', ['open', 'overdue', 'partial']).order('id').range(from, to),
+        db.from('assessments').select('unit_id, amount, status').eq('organization_id', orgId).in('status', ['open', 'overdue', 'partial']).order('id').range(from, to),
       ),
     ),
-    loadOrFail('pro: entries', db.from('journal_entries').select('id, entry_number, entry_date, memo, status').order('entry_date', { ascending: false }).limit(25)),
-    loadOrFail('pro: accounts', db.from('chart_of_accounts').select('id, association_id, account_number, account_name').eq('is_active', true).order('account_number').limit(400)),
-    loadOrFail('pro: funds', db.from('funds').select('id, association_id, code, name').eq('is_active', true).limit(50)),
+    loadOrFail('pro: entries', db.from('journal_entries').select('id, entry_number, entry_date, memo, status').eq('organization_id', orgId).order('entry_date', { ascending: false }).limit(25)),
+    loadOrFail('pro: accounts', db.from('chart_of_accounts').select('id, association_id, account_number, account_name').eq('organization_id', orgId).eq('is_active', true).order('account_number').limit(400)),
+    loadOrFail('pro: funds', db.from('funds').select('id, association_id, code, name').eq('organization_id', orgId).eq('is_active', true).limit(50)),
     db.rpc('cpa_owner_names', { p_org_id: orgId }),
-    loadOrFail('pro: reviews', db.from('approval_requests').select('payload').eq('action_type', 'pro.cpa_review').in('status', ['approved', 'posted']).limit(200)),
+    loadOrFail('pro: reviews', db.from('approval_requests').select('payload').eq('organization_id', orgId).eq('action_type', 'pro.cpa_review').in('status', ['approved', 'posted']).limit(200)),
   ])
   if (!periods.ok || !assessments.ok || !entries.ok || !accounts.ok || !funds.ok || !reviews.ok || owners.error) return { ok: false }
   const reviewed = new Set(((reviews.data ?? []) as Array<{ payload: { fiscalPeriodId?: string } }>).map((r) => r.payload?.fiscalPeriodId))
@@ -265,5 +265,40 @@ export async function loadCpaOverview(db: Db, orgId: string): Promise<{ ok: true
         id: f.id, associationId: f.association_id, label: `${f.code} ${f.name}`,
       })),
     },
+  }
+}
+
+export interface PendingInvite {
+  id: string
+  email: string
+  role: 'cpa' | 'attorney'
+  accessExpiresOn: string
+  linkExpiresAt: string
+}
+
+/** Invitations to existing accounts that nobody has accepted, cancelled or let lapse (board read). */
+export async function loadPendingInvites(db: Db, orgId: string): Promise<{ ok: true; rows: PendingInvite[] } | { ok: false }> {
+  const res = await loadOrFail(
+    'professionals: pending invites',
+    db
+      .from('professional_invites')
+      .select('id, email, role, access_expires_on, link_expires_at')
+      .eq('organization_id', orgId)
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+      .gt('link_expires_at', new Date().toISOString())
+      .order('created_at', { ascending: true })
+      .limit(100),
+  )
+  if (!res.ok) return { ok: false }
+  return {
+    ok: true,
+    rows: ((res.data ?? []) as Array<{ id: string; email: string; role: 'cpa' | 'attorney'; access_expires_on: string; link_expires_at: string }>).map((r) => ({
+      id: r.id,
+      email: r.email,
+      role: r.role,
+      accessExpiresOn: r.access_expires_on,
+      linkExpiresAt: r.link_expires_at,
+    })),
   }
 }

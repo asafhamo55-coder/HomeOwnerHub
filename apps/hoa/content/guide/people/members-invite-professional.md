@@ -21,7 +21,7 @@ Your CPA and your attorney can work inside HomeownerHub without becoming part of
 
 ## Steps
 1. Open **Settings**, then **Professionals**.
-2. Under **Invite a professional**, choose **CPA** or **Attorney**, enter their email, and check the **Access ends on** date. A CPA starts at one year and an attorney at six months. You can change it.
+2. Under **Invite a professional**, choose **CPA** or **Attorney**, enter their email, and check the **Access ends on** date. A CPA starts at one year and an attorney at six months. A grant can run for at most a year, and you can renew it.
 3. For an attorney, tick the matters they should see. Tick **General counsel** if they also need the governing documents and the compliance record.
 4. Select [[Invite a professional]].
 5. To set officer titles, an admin opens **Officers** on the same page and picks a title for each board member: President, Vice-President, Secretary, Treasurer or Director.
@@ -37,7 +37,7 @@ Your CPA and your attorney can work inside HomeownerHub without becoming part of
 ## If something goes wrong
 - You get "Money approvals go to the Treasurer first": ask the Treasurer or an admin to sign it off.
 - You get "Your sign-off is recorded": the amount is above your dual-control limit. A second board member must approve it too.
-- The invitation says it was sent but the person has no access: they may already have a HomeownerHub account tied to another HOA. Ask them for a different email address.
+- The person already has a HomeownerHub account: they get an email with a link instead. They must sign in with that same email address and select **Accept invitation** before they get any access. The link works once and expires in 7 days. You can cancel it under **Waiting to accept**.
 - You can't set a title: only an admin can, and each office (other than Director) has one holder.
 
 ## Good to know

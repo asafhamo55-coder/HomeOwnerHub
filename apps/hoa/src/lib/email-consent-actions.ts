@@ -85,6 +85,8 @@ export async function recordMemberEmailConsent(input: {
     .select('user_id')
     .eq('org_id', gate.orgId)
     .eq('user_id', input.userId)
+    // BL-168: a CPA or attorney is not an owner or member whose notice consent we record.
+    .in('role', ['admin', 'board', 'resident'])
     .maybeSingle()
   if (memberErr) return { ok: false, error: SAVE_FAILED }
   if (!member) return { ok: false, error: 'That person isn’t a member of this HOA.' }

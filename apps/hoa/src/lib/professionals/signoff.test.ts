@@ -33,6 +33,13 @@ describe('moneyGate', () => {
     expect(rpc).not.toHaveBeenCalled()
   })
 
+  it('refuses the proposer, who is never a signature on their own item', async () => {
+    const rpc = vi.fn(async (): Promise<{ data: unknown; error: { code?: string } | null }> => ({ data: 1, error: null }))
+    const db = fakeDb({ approval_requests: request({ proposed_by: 't' }), associations: { data: [] }, org_members: { data: members }, approval_signoffs: { data: [] } }, rpc)
+    expect(await moneyGate(db, { orgId: ORG, requestId: REQ, deciderId: 't' })).toMatchObject({ ok: false })
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
   it('refuses another org’s request with the same answer as a missing one', async () => {
     const db = fakeDb({ approval_requests: request({ organization_id: 'other' }) })
     expect(await moneyGate(db, { orgId: ORG, requestId: REQ, deciderId: 't' })).toEqual({ ok: false, error: 'That approval item isn’t valid.' })

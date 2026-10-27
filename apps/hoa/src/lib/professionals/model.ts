@@ -37,8 +37,8 @@ export function readOfficerTitle(raw: unknown): OfficerTitle | null {
 
 /** Default grant length in days; the board edits it on the invite form. */
 export const DEFAULT_EXPIRY_DAYS: Record<ProRole, number> = { cpa: 365, attorney: 180 }
-/** The longest grant the form accepts (24 months). */
-export const MAX_EXPIRY_DAYS = 730
+/** The longest grant the form accepts (a year; the database allows 367 days for end-of-day rounding). */
+export const MAX_EXPIRY_DAYS = 365
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a date.')
 
@@ -63,7 +63,7 @@ export function expiryProblem(expiresOn: string, today: string): string | null {
   if (!Iso.safeParse(expiresOn).success || Number.isNaN(Date.parse(`${expiresOn}T00:00:00Z`))) return 'Pick an end date.'
   const days = daysBetween(today, expiresOn)
   if (days < 1) return 'The end date must be after today.'
-  if (days > MAX_EXPIRY_DAYS) return 'Access can run for at most 24 months at a time. Renew it later.'
+  if (days > MAX_EXPIRY_DAYS) return 'Access can run for at most a year at a time. Renew it later.'
   return null
 }
 
@@ -207,10 +207,10 @@ export function isProAction(a: string | null | undefined): a is ProAction {
 /**
  * Money approvals: routed to the Treasurer first and subject to dual
  * control above the board's amount. Keep in step with the list in
- * approval_requests_dual_control() (migrations/0070_m6_roles.sql); a unit
- * test reads that file and compares.
+ * approval_is_money_action() (migrations/0070_m6_roles.sql); a unit test
+ * reads that file and compares.
  */
-export const MONEY_ACTIONS: readonly string[] = ['w36.ap_bill', PRO_ACTIONS.entry]
+export const MONEY_ACTIONS: readonly string[] = ['w18.cash_receipt', 'w36.ap_bill', 'accounting.opening_balances', PRO_ACTIONS.entry]
 
 export function isMoneyAction(actionType: string | null | undefined): boolean {
   return typeof actionType === 'string' && MONEY_ACTIONS.includes(actionType)
@@ -375,7 +375,9 @@ const isTreasurerOrAdmin = (s: Signer) => s.title === 'treasurer' || s.role === 
 
 /** How many distinct sign-offs a money item needs. */
 export function signoffsNeeded(amount: number | null, thresholdCents: number | null): 1 | 2 {
-  if (thresholdCents === null || amount === null) return 1
+  if (thresholdCents === null) return 1
+  // An amount-less money item cannot be shown to be under the limit.
+  if (amount === null) return 2
   return Math.round(amount * 100) > thresholdCents ? 2 : 1
 }
 
@@ -414,6 +416,9 @@ export const PRO_AUDIT = {
   granted: 'pro.granted',
   renewed: 'pro.renewed',
   revoked: 'pro.revoked',
+  inviteSent: 'pro.invite_sent',
+  inviteCancelled: 'pro.invite_cancelled',
+  inviteAccepted: 'pro.invite_accepted',
   matterAssigned: 'pro.matter_assigned',
   matterUnassigned: 'pro.matter_unassigned',
   matterViewed: 'pro.matter_viewed',

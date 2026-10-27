@@ -236,6 +236,8 @@ export interface ActorDirectory {
   board: Map<string, string>
   /** user_ids of current resident members (shown as "A resident"). */
   residents: Set<string>
+  /** BL-168: user_id → "CPA" / "Attorney" for outside professionals; never a resident. */
+  professionals?: Map<string, string>
 }
 
 export const EMPTY_DIRECTORY: ActorDirectory = { board: new Map(), residents: new Set() }
@@ -263,21 +265,26 @@ export async function loadActorDirectory(orgId: string): Promise<ActorDirectory>
 export function buildActorDirectory(rows: MemberRow[]): ActorDirectory {
   const board = new Map<string, string>()
   const residents = new Set<string>()
+  const professionals = new Map<string, string>()
   for (const r of rows) {
     if (r.role === 'admin' || r.role === 'board') {
       const name = r.profile?.full_name?.trim()
       board.set(r.user_id, name || (r.role === 'admin' ? 'Board admin' : 'Board member'))
+    } else if (r.role === 'cpa' || r.role === 'attorney') {
+      professionals.set(r.user_id, r.role === 'cpa' ? 'The CPA' : 'The attorney')
     } else {
       residents.add(r.user_id)
     }
   }
-  return { board, residents }
+  return { board, residents, professionals }
 }
 
 export function actorName(userId: string | null, dir: ActorDirectory): string {
   if (!userId) return 'System'
   const name = dir.board.get(userId)
   if (name) return name
+  const pro = dir.professionals?.get(userId)
+  if (pro) return pro
   if (dir.residents.has(userId)) return 'A resident'
   return 'Former member'
 }

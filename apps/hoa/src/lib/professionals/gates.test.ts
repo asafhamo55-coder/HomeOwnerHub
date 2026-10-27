@@ -47,6 +47,7 @@ const BOARD_ACTIONS: Array<[string, () => Promise<unknown>]> = [
   ['unassignMatter', () => actions.unassignMatter(ID)],
   ['setOfficerTitle', () => actions.setOfficerTitle(ID, 'treasurer')],
   ['setDualControlAmount', () => actions.setDualControlAmount(5000)],
+  ['cancelProfessionalInvite', () => actions.cancelProfessionalInvite(ID)],
 ]
 
 const CPA_ACTIONS: Array<[string, () => Promise<unknown>]> = [
@@ -76,6 +77,12 @@ describe('the board’s actions refuse every non-board role before any client', 
   it('a board member gets past the gate (control)', async () => {
     h.role = 'board'
     await expect(actions.revokeProfessional(ID)).rejects.toThrow('reached the database')
+  })
+  it('only an admin changes the two-signature amount', async () => {
+    h.role = 'board'
+    expect(await actions.setDualControlAmount(5000)).toEqual({ ok: false, error: 'Only admins can change the two-signature amount.' })
+    h.role = 'admin'
+    await expect(actions.setDualControlAmount(5000)).rejects.toThrow('reached the database')
   })
   it('only an admin sets an officer title', async () => {
     h.role = 'board'

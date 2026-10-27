@@ -46,6 +46,8 @@ const srcRoot = here // apps/hoa/src
 const ALLOWLIST: Record<string, string> = {
   'app/onboarding/actions.ts#createHoaOrg':
     'signed-in user with no org yet creates their own org + admin membership; there is no membership for RLS to check, so the service role is the only path. Requires auth.getUser().',
+  'lib/professionals/invites.ts#acceptProfessionalInvite':
+    'BL-168: the person accepting is not a member yet, so there is no role to gate on. The HMAC-signed link, a live single-use invitation row, and being signed in as the invited, confirmed email are the authorization; it creates exactly the membership the board recorded.',
   'lib/rfp-invitations.ts#validateRfpInvitationToken':
     'public vendor bid link: the 32-byte random unique_submission_token IS the authorization; it reads only the one invitation the token names.',
   'lib/vendor-invitations.ts#validateInvitationToken':

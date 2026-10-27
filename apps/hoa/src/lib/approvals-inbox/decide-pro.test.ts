@@ -60,11 +60,11 @@ describe('decideApprovalFor: professionals (BL-168)', () => {
     expect(h.approveBill).not.toHaveBeenCalled()
   })
 
-  it('the gate skips rejections and other kinds, and carries on when it answers null', async () => {
+  it('the gate skips rejections and non-money kinds, and carries on when it answers null', async () => {
     const moneyGate = vi.fn(async () => null)
     const h = handlers({ moneyGate })
     await decideApprovalFor('board', { kind: 'pro', id: ID, decision: 'reject', reason: 'No' }, h)
-    await decideApprovalFor('board', { kind: 'w18', id: ID, decision: 'approve' }, h)
+    await decideApprovalFor('board', { kind: 'collections', id: ID, decision: 'approve' }, h)
     expect(moneyGate).not.toHaveBeenCalled()
     await decideApprovalFor('board', { kind: 'pro', id: ID, decision: 'approve' }, h)
     expect(moneyGate).toHaveBeenCalledWith(ID)

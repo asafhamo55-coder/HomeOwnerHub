@@ -6,6 +6,7 @@ import { Send } from 'lucide-react'
 import { Alert, Button, Checkbox, Field, Fieldset, Input, Select, useConfirm } from '@homeowner-portal/ui'
 import {
   assignMatter,
+  cancelProfessionalInvite,
   inviteProfessional,
   renewProfessional,
   revokeProfessional,
@@ -24,7 +25,7 @@ import {
   type OfficerTitle,
   type ProRole,
 } from '@/lib/professionals/model'
-import type { MatterOption, OfficerRow, ProfessionalRow } from '@/lib/professionals/load'
+import type { MatterOption, OfficerRow, PendingInvite, ProfessionalRow } from '@/lib/professionals/load'
 
 type Msg = { ok: boolean; text: string } | null
 
@@ -76,7 +77,7 @@ export function InviteProfessionalForm({ today, options }: { today: string; opti
         run(
           () =>
             inviteProfessional({ email, fullName: name || null, role, expiresOn, generalCounsel: general, matters: Object.values(picked) }),
-          `Invitation sent to ${email}. Their access ends on ${expiresOn}.`,
+          `If ${email} can receive an invitation, it has been sent. Access ends on ${expiresOn}.`,
           () => {
             setEmail('')
             setName('')
@@ -270,7 +271,22 @@ export function OfficerTitles({ rows, canEdit }: { rows: OfficerRow[]; canEdit: 
   )
 }
 
-export function DualControlForm({ cents }: { cents: number | null }) {
+export function PendingInviteRow({ invite }: { invite: PendingInvite }) {
+  const { pending, msg, run } = useRun()
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
+      <span>
+        {invite.email} · {PRO_ROLE_LABEL[invite.role]} · access to {invite.accessExpiresOn} · link good until {invite.linkExpiresAt.slice(0, 10)}
+      </span>
+      <Button size="sm" variant="secondary" loading={pending} onClick={() => run(() => cancelProfessionalInvite(invite.id), 'Invitation cancelled.')}>
+        Cancel
+      </Button>
+      {msg ? <Alert variant={msg.ok ? 'success' : 'error'}>{msg.text}</Alert> : null}
+    </li>
+  )
+}
+
+export function DualControlForm({ cents, canEdit }: { cents: number | null; canEdit: boolean }) {
   const { pending, msg, run } = useRun()
   const [value, setValue] = useState(cents === null ? '' : String(cents / 100))
   return (
@@ -283,12 +299,16 @@ export function DualControlForm({ cents }: { cents: number | null }) {
       }}
     >
       <Field label="Needs two board members above (dollars)" hint="Applies to money approvals: scanned bills and a CPA’s adjusting entries. Leave blank for none.">
-        <Input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="5000" />
+        <Input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="5000" disabled={!canEdit} />
       </Field>
       {msg ? <Alert variant={msg.ok ? 'success' : 'error'}>{msg.text}</Alert> : null}
-      <Button type="submit" size="sm" loading={pending}>
-        Save
-      </Button>
+      {canEdit ? (
+        <Button type="submit" size="sm" loading={pending}>
+          Save
+        </Button>
+      ) : (
+        <p className="text-xs text-foreground-secondary">Only an admin can change this amount.</p>
+      )}
     </form>
   )
 }

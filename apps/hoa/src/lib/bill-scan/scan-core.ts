@@ -23,6 +23,7 @@
 // action maps it to a message. Logs carry ids, counts and codes only.
 
 import { createAdminClient } from '@homeowner-portal/db'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { MAX_BILL_TEXT_CHARS, proposeApproval, scanBill, W36_AP_BILL } from '@homeowner-portal/workflows'
 import { ApiRouteError } from '@/lib/api/errors'
 import { errorCode, logRouteFailure } from '@/lib/api/log'
@@ -238,6 +239,8 @@ export async function scanBillFile(input: ScanBillFileInput): Promise<ScanBillFi
       payload: proposal.payload as never,
       summary: proposal.summary,
       amount: proposal.amount,
+      // BL-168: the uploader proposed it, so they cannot also be a dual-control signer.
+      ...(M6_APPLIED ? { proposedBy: userId } : {}),
     })
   } catch (err) {
     logRouteFailure(`${logArea}.propose`, err, { orgId })

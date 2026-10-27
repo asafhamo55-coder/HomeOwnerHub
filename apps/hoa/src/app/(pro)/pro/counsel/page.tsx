@@ -15,7 +15,7 @@ export default async function CounselPage() {
   const supabase = await getSupabaseServerClient()
   const res = await loadOrFail(
     'pro: governing documents',
-    supabase.from('governing_documents').select('id, type, title, effective_date, superseded_at').order('type'),
+    supabase.from('governing_documents').select('id, type, title, effective_date, superseded_at').eq('organization_id', org.id).order('type'),
   )
   if (!res.ok) {
     return (

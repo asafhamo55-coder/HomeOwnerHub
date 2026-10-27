@@ -193,6 +193,7 @@ describe('board-only server actions refuse a resident before touching the databa
     ['unassignMatter (BL-168)', () => professionals.unassignMatter(ID), DENIED],
     ['setOfficerTitle (BL-168)', () => professionals.setOfficerTitle(ID, 'treasurer'), DENIED],
     ['setDualControlAmount (BL-168)', () => professionals.setDualControlAmount(5000), DENIED],
+    ['cancelProfessionalInvite (BL-168)', () => professionals.cancelProfessionalInvite(ID), DENIED],
     // ...and the professionals' own actions refuse a resident (and, in
     // professionals/gates.test.ts, a board member and the wrong professional).
     ['cpaMarkPeriodReviewed (BL-168)', () => professionals.cpaMarkPeriodReviewed({ fiscalPeriodId: ID, note: 'x' }), { ok: false, error: PRO_DENIED }],

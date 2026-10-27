@@ -24,6 +24,8 @@ import { appUrl } from '@/lib/app-origin'
 import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { createdByThisCall } from '@/lib/owner-invites'
+import { sendEmail } from '@/lib/email'
+import { inviteHref, inviteSecret, isAlreadyRegistered } from './invite-token'
 import { getSignedInUser } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { ATTACHMENT_ALLOWED_TYPES, ATTACHMENT_BUCKET, ATTACHMENT_MAX_BYTES } from '@/lib/attachment-rules'
@@ -37,6 +39,7 @@ import {
   NotePayloadSchema,
   PRO_ACTIONS,
   PRO_AUDIT,
+  PRO_ROLE_LABEL,
   PRO_SUBJECT,
   PRO_WORKFLOW,
   ReviewPayloadSchema,
@@ -68,17 +71,31 @@ const endOfDay = (isoDate: string) => `${isoDate}T23:59:59Z`
 
 // ─── board: invite, renew, revoke ────────────────────────────────────
 
-export async function inviteProfessional(
-  input: InviteProfessionalInput,
-): Promise<ActionResult<{ userId: string | null }>> {
+/**
+ * Invite a CPA or attorney. Two paths, one answer:
+ *  - a new address: Supabase creates the account and emails a sign-in link,
+ *    and the grant (with its end date) is recorded at once, because nobody
+ *    can use it before they sign in through that link;
+ *  - an address that already has an account: NOTHING is granted. An
+ *    invitation row is recorded and the person gets a signed, expiring link;
+ *    only when they open it signed in as that email and accept is the
+ *    membership created (lib/professionals/invites.ts).
+ * Every failure is reported except "already registered", which looks exactly
+ * like a fresh invitation; nothing here returns a user id, so the form cannot
+ * be used to find out who has an account.
+ */
+export async function inviteProfessional(input: InviteProfessionalInput): Promise<ActionResult> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return gate
   if (!M6_APPLIED) return fail(NOT_LIVE)
   const parsed = InviteProfessionalSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Invalid input.')
   const v = parsed.data
+  const email = v.email.toLowerCase()
   const user = await getSignedInUser()
   if (!user) return fail(NOT_SIGNED_IN)
+  const secret = inviteSecret()
+  if (!secret) return fail('Invitations aren’t set up on this server yet.')
 
   const admin = createAdminClient()
   const today = todayIn(await orgTimeZone(admin, gate.orgId))
@@ -88,30 +105,33 @@ export async function inviteProfessional(
   // Outbound guard (BL-135), as for a member invite: a held address gets
   // neither the account nor the email.
   const orgSandbox = await fetchOrgSandbox(admin, gate.orgId)
-  const guard = guardRecipients('email', [v.email], (e) => e, { orgSandbox, ref: `invite_pro:${gate.orgId}` })
+  const guard = guardRecipients('email', [email], (e) => e, { orgSandbox, ref: `invite_pro:${gate.orgId}` })
   if (guard.allowed.length === 0) {
     return fail('Sending is switched off for this address (test or sandbox mode), so no invitation was sent.')
   }
 
+  const supabase = await getSupabaseServerClient()
   const startedAt = Date.now()
-  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(v.email, {
+  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: appUrl('/auth/callback'),
     data: v.fullName ? { full_name: v.fullName } : undefined,
   })
-  let userId: string
-  let isNew = false
-  if (inviteErr || !invited?.user) {
-    // SEC-N4 as for members: an existing account is not pulled into this
-    // HOA, and the answer is the same as for a fresh invitation.
-    return { ok: true, data: { userId: null } }
+
+  if (inviteErr) {
+    // The one error that is not an error: the address already has an account.
+    if (!isAlreadyRegistered(inviteErr)) return fail('We couldn’t send that invitation. Try again.')
+    return inviteExistingAccount({ supabase, admin, orgId: gate.orgId, boardUserId: user.id, email, v, secret })
   }
-  userId = invited.user.id
-  isNew = createdByThisCall(invited.user, startedAt)
-  if (isNew) {
-    await admin.from('profiles').upsert({ id: userId, email: v.email, full_name: v.fullName ?? null } as never)
+  if (!invited?.user) return fail('We couldn’t send that invitation. Try again.')
+
+  const userId = invited.user.id
+  if (createdByThisCall(invited.user, startedAt)) {
+    const { error: profileErr } = await admin
+      .from('profiles')
+      .upsert({ id: userId, email, full_name: v.fullName ?? null } as never)
+    if (profileErr) return fail('We couldn’t send that invitation. Try again.')
   }
 
-  const supabase = await getSupabaseServerClient()
   const { error: memberErr } = await (supabase as Loose).from('org_members').insert({
     org_id: gate.orgId,
     user_id: userId,
@@ -121,16 +141,14 @@ export async function inviteProfessional(
     general_counsel: v.role === 'attorney' && v.generalCounsel,
   })
   if (memberErr) {
-    // A unique violation means they already belong to this HOA: no role change from here.
-    return fail(memberErr.code === '23505' ? 'That person is already a member of this HOA.' : 'Couldn’t add that person. Try again.')
+    // 23505: already a member (a pending invitee of this HOA). No role change from here.
+    return fail(memberErr.code === '23505' ? 'That address is already invited to this HOA.' : 'We couldn’t add that person. Try again.')
   }
 
   let assigned = 0
   for (const m of v.matters) {
-    const r = await assignInternal(supabase, gate.orgId, userId, m)
-    if (r) assigned += 1
+    if (await assignInternal(supabase, gate.orgId, userId, m)) assigned += 1
   }
-
   await writeProAudit(admin, {
     orgId: gate.orgId,
     userId: user.id,
@@ -140,7 +158,94 @@ export async function inviteProfessional(
     metadata: { role: v.role, expires_on: v.expiresOn, general_counsel: v.generalCounsel, matters: assigned },
   })
   revalidateAll()
-  return { ok: true, data: { userId } }
+  return { ok: true, data: undefined }
+}
+
+async function inviteExistingAccount(a: {
+  supabase: unknown
+  admin: ReturnType<typeof createAdminClient>
+  orgId: string
+  boardUserId: string
+  email: string
+  v: ReturnType<typeof InviteProfessionalSchema.parse>
+  secret: string
+}): Promise<ActionResult> {
+  const { v } = a
+  const { data: row, error } = await (a.supabase as Loose)
+    .from('professional_invites')
+    .insert({
+      organization_id: a.orgId,
+      email: a.email,
+      role: v.role,
+      access_expires_on: v.expiresOn,
+      general_counsel: v.role === 'attorney' && v.generalCounsel,
+      matters: v.matters,
+    })
+    .select('id')
+    .single()
+  if (error || !row) {
+    // 23505: a live invitation for this address already exists. Same answer.
+    if (error?.code === '23505') return { ok: true, data: undefined }
+    return fail('We couldn’t send that invitation. Try again.')
+  }
+
+  const { data: org } = await a.admin.from('orgs').select('name').eq('id', a.orgId).maybeSingle()
+  const orgName = org?.name ?? 'your HOA'
+  const link = appUrl(inviteHref(row.id, a.secret))
+  const orgSandbox = await fetchOrgSandbox(a.admin, a.orgId)
+  const sent = await sendEmail(
+    {
+      to: a.email,
+      subject: `${orgName} invited you to HomeownerHub`,
+      text: `${orgName} invited you to HomeownerHub as ${PRO_ROLE_LABEL[v.role]}. Sign in with this email address, then open this link to accept. It works once and expires in 7 days.\n\n${link}`,
+      html: `<p>${escapeHtml(orgName)} invited you to HomeownerHub as ${PRO_ROLE_LABEL[v.role]}.</p><p>Sign in with this email address, then <a href="${link}">accept the invitation</a>. The link works once and expires in 7 days.</p>`,
+      senderName: orgName,
+    },
+    { orgSandbox, ref: `invite_pro:${row.id}` },
+  )
+  if (!sent.ok) {
+    await (a.supabase as Loose).from('professional_invites').update({ revoked_at: new Date().toISOString() }).eq('id', row.id)
+    return fail('We couldn’t send that invitation. Try again.')
+  }
+  await writeProAudit(a.admin, {
+    orgId: a.orgId,
+    userId: a.boardUserId,
+    action: PRO_AUDIT.inviteSent,
+    entityType: 'professional_invite',
+    entityId: row.id,
+    metadata: { role: v.role, expires_on: v.expiresOn, matters: v.matters.length },
+  })
+  revalidateAll()
+  return { ok: true, data: undefined }
+}
+
+const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+
+export async function cancelProfessionalInvite(inviteId: string): Promise<ActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return gate
+  if (!M6_APPLIED) return fail(NOT_LIVE)
+  if (!/^[0-9a-f-]{36}$/i.test(inviteId)) return fail('That invitation isn’t valid.')
+  const supabase = (await getSupabaseServerClient()) as Loose
+  const { data, error } = await supabase
+    .from('professional_invites')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', inviteId)
+    .eq('organization_id', gate.orgId)
+    .is('accepted_at', null)
+    .is('revoked_at', null)
+    .select('id')
+  if (error || !data || data.length === 0) return fail('We couldn’t cancel that invitation.')
+  const user = await getSignedInUser()
+  await writeProAudit(createAdminClient(), {
+    orgId: gate.orgId,
+    userId: user?.id ?? null,
+    action: PRO_AUDIT.inviteCancelled,
+    entityType: 'professional_invite',
+    entityId: inviteId,
+  })
+  revalidateAll()
+  return { ok: true, data: undefined }
 }
 
 export async function renewProfessional(userId: string, expiresOn: string): Promise<ActionResult> {
@@ -337,6 +442,9 @@ export async function setDualControlAmount(dollars: number | null): Promise<Acti
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return gate
   if (!M6_APPLIED) return fail(NOT_LIVE)
+  // The database refuses anyone but an admin too (associations_dual_control_guard)
+  // and audits every change, so there is no app-side audit row here.
+  if (gate.role !== 'admin') return fail('Only admins can change the two-signature amount.')
   if (dollars !== null && (!Number.isFinite(dollars) || dollars <= 0 || dollars > 10_000_000)) {
     return fail('Enter an amount between $1 and $10,000,000, or leave it blank for none.')
   }
@@ -344,15 +452,6 @@ export async function setDualControlAmount(dollars: number | null): Promise<Acti
   const supabase = (await getSupabaseServerClient()) as Loose
   const { error } = await supabase.from('associations').update({ dual_control_cents: cents }).eq('organization_id', gate.orgId)
   if (error) return fail('Couldn’t save the amount. Try again.')
-  const user = await getSignedInUser()
-  await writeProAudit(createAdminClient(), {
-    orgId: gate.orgId,
-    userId: user?.id ?? null,
-    action: PRO_AUDIT.dualControlSet,
-    entityType: 'org',
-    entityId: gate.orgId,
-    metadata: { cents },
-  })
   revalidateAll()
   return { ok: true, data: undefined }
 }
@@ -403,10 +502,13 @@ async function submit(s: Submission): Promise<ActionResult<{ id: string }>> {
 }
 
 /** Can the caller read this matter through RLS (assigned, grant active)? */
-async function canReadMatter(m: MatterRef): Promise<boolean | 'error'> {
+async function canReadMatter(m: MatterRef, orgId: string): Promise<boolean | 'error'> {
   const table = m.type === 'collections_case' ? 'collection_cases' : m.type === 'violation' ? 'hoa_violations' : 'tickets'
   const supabase = (await getSupabaseServerClient()) as Loose
-  const { data, error } = await supabase.from(table).select('id').eq('id', m.id).maybeSingle()
+  // Scoped to the org the caller is acting in: a person who is an attorney in
+  // two HOAs reads (and files for) one at a time.
+  const orgCol = m.type === 'violation' ? 'org_id' : 'organization_id'
+  const { data, error } = await supabase.from(table).select('id').eq('id', m.id).eq(orgCol, orgId).maybeSingle()
   if (error) return 'error'
   return Boolean(data)
 }
@@ -421,6 +523,7 @@ export async function cpaMarkPeriodReviewed(input: { fiscalPeriodId: string; not
     .from('fiscal_periods')
     .select('id, start_date, end_date')
     .eq('id', parsed.data.fiscalPeriodId)
+    .eq('organization_id', gate.orgId)
     .maybeSingle()
   if (error) return fail('Couldn’t check the period. Try again.')
   if (!data) return fail('We couldn’t find that period.')
@@ -445,9 +548,9 @@ export async function cpaProposeEntry(input: unknown): Promise<ActionResult<{ id
   if (unbalanced) return fail(unbalanced)
   const supabase = (await getSupabaseServerClient()) as Loose
   const [period, accounts, funds] = await Promise.all([
-    supabase.from('fiscal_periods').select('id, association_id, start_date, end_date, status').eq('id', p.fiscalPeriodId).maybeSingle(),
-    supabase.from('chart_of_accounts').select('id, association_id').in('id', [...new Set(p.lines.map((l) => l.accountId))]),
-    supabase.from('funds').select('id, association_id').in('id', [...new Set(p.lines.map((l) => l.fundId))]),
+    supabase.from('fiscal_periods').select('id, association_id, start_date, end_date, status').eq('id', p.fiscalPeriodId).eq('organization_id', gate.orgId).maybeSingle(),
+    supabase.from('chart_of_accounts').select('id, association_id').eq('organization_id', gate.orgId).in('id', [...new Set(p.lines.map((l) => l.accountId))]),
+    supabase.from('funds').select('id, association_id').eq('organization_id', gate.orgId).in('id', [...new Set(p.lines.map((l) => l.fundId))]),
   ])
   if (period.error || accounts.error || funds.error) return fail('Couldn’t check the books. Try again.')
   const per = period.data
@@ -475,7 +578,7 @@ export async function attorneyAddNote(input: { matter: MatterRef; body: string; 
   if (!gate.ok) return gate
   const parsed = NotePayloadSchema.safeParse({ version: 1, kind: 'note', advice: false, ...input })
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Invalid input.')
-  const can = await canReadMatter(parsed.data.matter)
+  const can = await canReadMatter(parsed.data.matter, gate.orgId)
   if (can === 'error') return fail('Couldn’t check the matter. Try again.')
   if (!can) return fail('That matter isn’t assigned to you.')
   return submit({
@@ -495,7 +598,7 @@ export async function attorneyDraftLetter(input: { matter: MatterRef; subject: s
   if (!gate.ok) return gate
   const parsed = LetterPayloadSchema.safeParse({ version: 1, kind: 'letter', ...input })
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Invalid input.')
-  const can = await canReadMatter(parsed.data.matter)
+  const can = await canReadMatter(parsed.data.matter, gate.orgId)
   if (can === 'error') return fail('Couldn’t check the matter. Try again.')
   if (!can) return fail('That matter isn’t assigned to you.')
   return submit({
@@ -519,7 +622,7 @@ export async function attorneyUploadDocument(formData: FormData): Promise<Action
   if (!(file instanceof File) || file.size === 0) return fail('Choose a file.')
   if (file.size > ATTACHMENT_MAX_BYTES) return fail('The file is over the 10 MB limit.')
   if (!ATTACHMENT_ALLOWED_TYPES.has(file.type)) return fail('That file type isn’t supported. Use PDF, an image, Word or Excel.')
-  const can = await canReadMatter(matter.data)
+  const can = await canReadMatter(matter.data, gate.orgId)
   if (can === 'error') return fail('Couldn’t check the matter. Try again.')
   if (!can) return fail('That matter isn’t assigned to you.')
 

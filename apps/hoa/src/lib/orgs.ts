@@ -84,7 +84,22 @@ const membershipRows = cache(async (): Promise<{ userId: string; rows: Membershi
     .order('joined_at', { ascending: true })
     .limit(MEMBERSHIP_LIMIT)
   if (error || !data) return { userId: user.id, rows: null }
-  return { userId: user.id, rows: data as unknown as MembershipRow[] }
+  const rows = data as unknown as MembershipRow[]
+  // BL-168: a professional cannot read the orgs table (every column of it,
+  // billing ids included); pro_org_info() returns the name, and only the
+  // name once their grant has ended.
+  if (M6_APPLIED) {
+    await Promise.all(
+      rows
+        .filter((r) => !r.org && isProfessionalRole(r.role))
+        .map(async (r) => {
+          const { data: info } = await supabase.rpc('pro_org_info' as never, { p_org_id: r.org_id } as never)
+          const first = (info as unknown as Array<{ org_name: string }> | null)?.[0]
+          if (first) r.org = { id: r.org_id, name: first.org_name, hub_type: 'hoa', plan: 'free', doors_count: null }
+        }),
+    )
+  }
+  return { userId: user.id, rows }
 })
 
 /**

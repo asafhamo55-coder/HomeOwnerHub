@@ -8,8 +8,8 @@ export const metadata = { title: 'My matters' }
 export const dynamic = 'force-dynamic'
 
 export default async function MyMattersPage() {
-  await requireRole(['attorney'] as const)
-  const result = await loadMyMatters(await getSupabaseServerClient())
+  const { org } = await requireRole(['attorney'] as const)
+  const result = await loadMyMatters(await getSupabaseServerClient(), org.id)
   if (!result.ok) {
     return (
       <Page title="My matters">

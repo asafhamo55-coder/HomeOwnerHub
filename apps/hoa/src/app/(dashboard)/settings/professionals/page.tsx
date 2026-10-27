@@ -7,8 +7,8 @@ import { currentTimeZone } from '@/lib/association-time-current'
 import { todayIn } from '@/lib/association-time'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { expiryNote } from '@/lib/professionals/model'
-import { loadDualControlCents, loadMatterOptions, loadOfficers, loadProfessionals } from '@/lib/professionals/load'
-import { DualControlForm, InviteProfessionalForm, OfficerTitles, ProfessionalRowView } from './ProfessionalsPanel'
+import { loadDualControlCents, loadMatterOptions, loadOfficers, loadPendingInvites, loadProfessionals } from '@/lib/professionals/load'
+import { DualControlForm, InviteProfessionalForm, OfficerTitles, PendingInviteRow, ProfessionalRowView } from './ProfessionalsPanel'
 
 export const metadata = { title: 'Professionals' }
 export const dynamic = 'force-dynamic'
@@ -18,11 +18,12 @@ export default async function ProfessionalsPage() {
   const { role, org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const today = todayIn(await currentTimeZone())
-  const [pros, options, officers, dual] = await Promise.all([
+  const [pros, options, officers, dual, pending] = await Promise.all([
     loadProfessionals(supabase, org.id),
     loadMatterOptions(supabase, org.id),
     loadOfficers(supabase, org.id),
     loadDualControlCents(supabase, org.id),
+    loadPendingInvites(supabase, org.id),
   ])
 
   return (
@@ -66,6 +67,20 @@ export default async function ProfessionalsPage() {
           )}
         </Card>
 
+        {pending.ok && pending.rows.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Waiting to accept</CardTitle>
+              <CardDescription>These people already have an account. They get no access until they open the link we emailed and accept.</CardDescription>
+            </CardHeader>
+            <ul className="divide-y divide-border border-t border-border">
+              {pending.rows.map((r) => (
+                <PendingInviteRow key={r.id} invite={r} />
+              ))}
+            </ul>
+          </Card>
+        ) : null}
+
         <Card>
           <CardHeader>
             <CardTitle as="h2">Officers</CardTitle>
@@ -81,7 +96,7 @@ export default async function ProfessionalsPage() {
             <CardTitle as="h2">Dual control</CardTitle>
           </CardHeader>
           <CardContent>
-            {dual === 'error' ? <LoadFailed what="the amount" retryHref="/settings/professionals" /> : <DualControlForm cents={dual} />}
+            {dual === 'error' ? <LoadFailed what="the amount" retryHref="/settings/professionals" /> : <DualControlForm cents={dual} canEdit={role === 'admin'} />}
           </CardContent>
         </Card>
       </div>
