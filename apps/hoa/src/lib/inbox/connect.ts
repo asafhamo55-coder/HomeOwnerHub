@@ -23,7 +23,7 @@
  * A database error here must never be mistaken for an auth failure.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { PostgrestError } from '@supabase/supabase-js'
 import { createAdminClient } from '@homeowner-portal/db'
 import {
@@ -54,6 +54,33 @@ interface StatePayload {
   userId: string
   returnTo: string
   issuedAt: number
+  /**
+   * Random per-start value, also set as an httpOnly cookie in the browser
+   * that started the flow. The callback requires both to match, which binds
+   * the signed state to that browser (login-CSRF / forwarded-link defence)
+   * and, because the cookie is cleared on first use, makes it single-use.
+   */
+  nonce: string
+}
+
+/** Cookie carrying the nonce between /start and /callback. */
+export const OAUTH_NONCE_COOKIE = 'hh_gmail_oauth_nonce'
+export const OAUTH_NONCE_MAX_AGE_SECONDS = 10 * 60
+
+export function newOAuthNonce(): string {
+  return randomBytes(24).toString('base64url')
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest()
+  const hb = createHash('sha256').update(b).digest()
+  return timingSafeEqual(ha, hb)
+}
+
+/** Who is completing the flow: the live session user and the nonce cookie. */
+export interface ConnectBinding {
+  sessionUserId: string | null | undefined
+  nonce: string | null | undefined
 }
 
 function stateSecret(): string {
@@ -196,7 +223,12 @@ function logDbError(
   })
 }
 
-export function startConnect(orgId: string, userId: string, returnTo: string): string {
+export function startConnect(
+  orgId: string,
+  userId: string,
+  returnTo: string,
+  nonce: string,
+): string {
   // Defense in depth: sanitize here too, even though the route already
   // validates its query param — this keeps the guarantee attached to the
   // function itself rather than relying on every caller to remember it.
@@ -206,6 +238,7 @@ export function startConnect(orgId: string, userId: string, returnTo: string): s
       userId,
       returnTo: sanitizeReturnTo(returnTo),
       issuedAt: Date.now(),
+      nonce,
     }),
   })
 }
@@ -213,8 +246,21 @@ export function startConnect(orgId: string, userId: string, returnTo: string): s
 export async function completeConnect(
   code: string,
   state: string,
+  binding: ConnectBinding,
 ): Promise<{ accountId: string; orgId: string; returnTo: string }> {
-  const { orgId, userId, returnTo: rawReturnTo } = verifyState(state)
+  const { orgId, userId, returnTo: rawReturnTo, nonce } = verifyState(state)
+
+  // The state is a bearer token until it is tied to a person and a browser.
+  // Without these two checks a state minted for an admin could be completed
+  // by anyone who obtains the URL (or by a logged-out victim's browser), so
+  // the attacker's code would connect THEIR mailbox to the victim org.
+  // Messages stay generic; the code is all the redirect carries.
+  if (!binding.sessionUserId || binding.sessionUserId !== userId) {
+    throw new ConnectError('invalid_state', 'OAuth state is not bound to this session.')
+  }
+  if (!nonce || !binding.nonce || !safeEqual(nonce, binding.nonce)) {
+    throw new ConnectError('invalid_state', 'OAuth state nonce mismatch.')
+  }
   // Defense in depth: `state` may have been minted by an older build that
   // signed an unvalidated `returnTo`, or the signing key may have leaked.
   // Re-validate here rather than trusting the signature alone to have
@@ -243,7 +289,9 @@ export async function completeConnect(
     logDbError('completeConnect', 'org_members', { orgId, userId }, roleError)
     throw new Error(`completeConnect: failed to verify permissions: ${roleError.message}`)
   }
-  if (!membership || (membership.role !== 'admin' && membership.role !== 'board')) {
+  // Admin only, matching /start (a board member could never see or revoke
+  // what they connected).
+  if (!membership || membership.role !== 'admin') {
     throw new ConnectError('forbidden', 'You do not have permission to connect a mailbox for this organization.')
   }
 

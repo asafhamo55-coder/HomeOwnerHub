@@ -4,6 +4,12 @@ import { ConnectError } from '@/lib/inbox/connect-errors'
 // ─── Mocks ───────────────────────────────────────────────────────────
 
 const completeConnect = vi.fn()
+let sessionUser: { id: string } | null = { id: 'user-1' }
+vi.mock('@/lib/supabase/server', () => ({
+  getSupabaseServerClient: async () => ({
+    auth: { getUser: async () => ({ data: { user: sessionUser } }) },
+  }),
+}))
 vi.mock('@/lib/inbox/connect', async (importActual) => ({
   ...(await importActual<typeof import('@/lib/inbox/connect')>()),
   completeConnect: (...args: unknown[]) => completeConnect(...args),
@@ -55,8 +61,12 @@ const ORIGIN = 'https://app.example.test'
 const SECRET_TEXT = 'jane.doe@example.com'
 const PG_TEXT = 'duplicate key value violates unique constraint "mailbox_accounts_live_uniq"'
 
-function call(query: string) {
-  return GET(new Request(`${ORIGIN}/api/oauth/google/callback${query}`))
+function call(query: string, cookie: string | null = 'hh_gmail_oauth_nonce=nonce-1') {
+  return GET(
+    new Request(`${ORIGIN}/api/oauth/google/callback${query}`, {
+      headers: cookie ? { cookie } : {},
+    }),
+  )
 }
 
 function location(res: Response): URL {
@@ -70,6 +80,7 @@ let logs: string[] = []
 
 beforeEach(() => {
   completeConnect.mockReset()
+  sessionUser = { id: 'user-1' }
   inngestSend.mockReset()
   markError = null
   updates.length = 0
@@ -89,6 +100,45 @@ afterEach(() => {
 })
 
 // ─── Tests ───────────────────────────────────────────────────────────
+
+describe('GET /api/oauth/google/callback — session and nonce binding', () => {
+  it('passes the session user and the nonce cookie to completeConnect', async () => {
+    completeConnect.mockResolvedValue({ accountId: 'acct-1', orgId: 'org-1', returnTo: '/settings/mailbox' })
+    inngestSend.mockResolvedValue(undefined)
+    await call('?code=c&state=s')
+    expect(completeConnect).toHaveBeenCalledWith('c', 's', { sessionUserId: 'user-1', nonce: 'nonce-1' })
+  })
+
+  it('passes a null session user when signed out, so the connect is refused', async () => {
+    sessionUser = null
+    completeConnect.mockRejectedValue(new ConnectError('invalid_state', 'x'))
+    const url = location(await call('?code=c&state=s'))
+    expect(completeConnect).toHaveBeenCalledWith('c', 's', { sessionUserId: null, nonce: 'nonce-1' })
+    expect(url.searchParams.get('error')).toBe('invalid_state')
+  })
+
+  it('clears the nonce cookie on first use (success) so the state cannot be replayed', async () => {
+    completeConnect.mockResolvedValue({ accountId: 'acct-1', orgId: 'org-1', returnTo: '/settings/mailbox' })
+    inngestSend.mockResolvedValue(undefined)
+    const res = await call('?code=c&state=s')
+    const cookie = res.headers.get('set-cookie') ?? ''
+    expect(cookie).toContain('hh_gmail_oauth_nonce=;')
+    expect(cookie).toMatch(/Max-Age=0/i)
+  })
+
+  it('clears the nonce cookie on failure too', async () => {
+    completeConnect.mockRejectedValue(new ConnectError('forbidden', 'x'))
+    const res = await call('?code=c&state=s')
+    expect(res.headers.get('set-cookie') ?? '').toMatch(/Max-Age=0/i)
+  })
+
+  it('a replay without the cookie reaches completeConnect with a null nonce (refused there)', async () => {
+    completeConnect.mockRejectedValue(new ConnectError('invalid_state', 'x'))
+    const url = location(await call('?code=c&state=s', null))
+    expect(completeConnect).toHaveBeenCalledWith('c', 's', { sessionUserId: 'user-1', nonce: null })
+    expect(url.searchParams.get('error')).toBe('invalid_state')
+  })
+})
 
 describe('GET /api/oauth/google/callback', () => {
   it('redirects to the returnTo page on success', async () => {
