@@ -31,6 +31,10 @@ Boards can now send a community announcement (a Halloween party, happy holidays,
 ![Georgia hub](assets/marketing-restyle/georgia-after.jpg)
 ![Pricing](assets/marketing-restyle/pricing-after.jpg)
 
+## Fixes
+
+- In the Properties list, clicking any home opened the last property (in Safari). Each row now opens its own home, and clicking anywhere on a row works.
+
 ## Needs your action
 
 - OA-34 (urgent): add the email settings to the marketing project so demo requests reach you.
