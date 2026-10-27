@@ -10,6 +10,21 @@
 -- ownerships (0004), governing_documents (0004) and
 -- compliance_deadlines_done (0067), all asserted below.
 --
+-- Hardened after the security review (2026-10-26), all in this file:
+--   * sign-offs are cleared when a request's payload or amount changes;
+--     only CURRENT admin/board signers count, never the proposer; every
+--     money action type is covered (approval_is_money_action) and can only
+--     be inserted as 'proposed'; an amount-less money item needs two;
+--   * only an admin changes associations.dual_control_cents (audited);
+--   * a violation assignment resolves to ONE home (oldest unit) when
+--     written (matter_assignments.unit_id);
+--   * a professional reads no orgs/associations row (pro_org_info());
+--   * a grant lasts at most a year, org_members changes for cpa/attorney
+--     are audited, memberships cannot be moved, and removing a
+--     professional ends their assignments and rejects their pending items;
+--   * professional_invites: invitations for existing accounts grant nothing
+--     until accepted through a signed link.
+--
 -- Idempotent (safe to run any number of times).
 --
 -- The spec says `memberships`; the table in this schema is org_members
@@ -187,11 +202,12 @@ $mig$;
 -- anon role can reach call it). Only the role filter is new.
 CREATE OR REPLACE FUNCTION public.auth_org_ids() RETURNS uuid[]
     LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path = public, pg_temp
     AS $$
   SELECT COALESCE(
-    ARRAY(SELECT org_id FROM org_members
-           WHERE user_id = auth.uid()
-             AND role IN ('admin', 'board', 'resident')),
+    ARRAY(SELECT m.org_id FROM public.org_members m
+           WHERE m.user_id = auth.uid()
+             AND m.role IN ('admin', 'board', 'resident')),
     '{}'::UUID[]
   )
 $$;
@@ -251,6 +267,8 @@ CREATE TABLE IF NOT EXISTS public.matter_assignments (
   matter_type      text        NOT NULL
                                CHECK (matter_type IN ('collections_case', 'violation', 'records_request')),
   matter_id        uuid        NOT NULL,
+  -- Resolved by the scope trigger when the row is written; never client-supplied.
+  unit_id          uuid        REFERENCES public.units(id) ON DELETE SET NULL,
   created_by       uuid        REFERENCES public.profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
   created_at       timestamptz NOT NULL DEFAULT now(),
   revoked_at       timestamptz
@@ -269,7 +287,11 @@ COMMENT ON TABLE public.matter_assignments IS
   'BL-168: which attorney sees which matter (collections case, violation, records request). Board/admin write; an attorney reads their own active rows.';
 
 -- The FKs prove the org and the user exist; this proves the user is an
--- attorney member of THIS org and the matter is this org's.
+-- attorney member of THIS org and the matter is this org's, and resolves
+-- the matter to exactly ONE home (unit_id) once, here: a violation's home
+-- is the oldest unit on its property (created_at, then id: the 0045
+-- rule), so a property with two unit rows can never widen what the
+-- attorney sees. The client's unit_id is always overwritten.
 CREATE OR REPLACE FUNCTION public.matter_assignments_scope()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -284,22 +306,36 @@ BEGIN
     RAISE EXCEPTION 'matter_assignments: the person is not an attorney of this organization'
       USING errcode = '23503';
   END IF;
-  IF new.matter_type = 'collections_case' AND NOT EXISTS (
-       SELECT 1 FROM public.collection_cases c
-        WHERE c.id = new.matter_id AND c.organization_id = new.organization_id) THEN
-    RAISE EXCEPTION 'matter_assignments: the collections case is not in this organization'
-      USING errcode = '23503';
-  ELSIF new.matter_type = 'violation' AND NOT EXISTS (
-       SELECT 1 FROM public.hoa_violations v
-        WHERE v.id = new.matter_id AND v.org_id = new.organization_id) THEN
-    RAISE EXCEPTION 'matter_assignments: the violation is not in this organization'
-      USING errcode = '23503';
-  ELSIF new.matter_type = 'records_request' AND NOT EXISTS (
-       SELECT 1 FROM public.tickets t
-        WHERE t.id = new.matter_id AND t.organization_id = new.organization_id
-          AND t.category = 'records_request') THEN
-    RAISE EXCEPTION 'matter_assignments: the records request is not in this organization'
-      USING errcode = '23503';
+  new.unit_id := NULL;
+  IF new.matter_type = 'collections_case' THEN
+    SELECT c.unit_id INTO new.unit_id
+      FROM public.collection_cases c
+     WHERE c.id = new.matter_id AND c.organization_id = new.organization_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'matter_assignments: the collections case is not in this organization'
+        USING errcode = '23503';
+    END IF;
+  ELSIF new.matter_type = 'violation' THEN
+    IF NOT EXISTS (SELECT 1 FROM public.hoa_violations v
+                    WHERE v.id = new.matter_id AND v.org_id = new.organization_id) THEN
+      RAISE EXCEPTION 'matter_assignments: the violation is not in this organization'
+        USING errcode = '23503';
+    END IF;
+    SELECT x.id INTO new.unit_id
+      FROM public.hoa_violations v
+      JOIN public.units x ON x.legacy_hoa_property_id = v.property_id AND x.organization_id = v.org_id
+     WHERE v.id = new.matter_id
+     ORDER BY x.created_at, x.id
+     LIMIT 1;
+  ELSE
+    SELECT t.unit_id INTO new.unit_id
+      FROM public.tickets t
+     WHERE t.id = new.matter_id AND t.organization_id = new.organization_id
+       AND t.category = 'records_request';
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'matter_assignments: the records request is not in this organization'
+        USING errcode = '23503';
+    END IF;
   END IF;
   RETURN new;
 END;
@@ -309,7 +345,7 @@ REVOKE EXECUTE ON FUNCTION public.matter_assignments_scope() FROM PUBLIC, anon, 
 
 DROP TRIGGER IF EXISTS matter_assignments_scope ON public.matter_assignments;
 CREATE TRIGGER matter_assignments_scope
-  BEFORE INSERT OR UPDATE OF organization_id, user_id, matter_type, matter_id ON public.matter_assignments
+  BEFORE INSERT OR UPDATE OF organization_id, user_id, matter_type, matter_id, unit_id ON public.matter_assignments
   FOR EACH ROW EXECUTE FUNCTION public.matter_assignments_scope();
 
 -- created_by is the caller for a signed-in user and never changes (as
@@ -397,9 +433,9 @@ BEGIN
 END;
 $fn$;
 
--- The units behind the caller's live assignments (a collections case's
--- unit, a violation's unit through the property bridge, a records
--- request's unit), across the orgs where the grant is active. Ids only.
+-- The homes of the caller's live assignments (resolved once, when the
+-- assignment was written), across the orgs where the grant is active.
+-- Ids only.
 CREATE OR REPLACE FUNCTION public.auth_attorney_unit_ids()
 RETURNS uuid[]
 LANGUAGE plpgsql
@@ -412,19 +448,16 @@ BEGIN
     RAISE EXCEPTION 'auth_attorney_unit_ids: sign in first' USING errcode = '42501';
   END IF;
   RETURN COALESCE(ARRAY(
-    SELECT c.unit_id
-      FROM public.collection_cases c
-     WHERE c.id = ANY (public.auth_attorney_matter_ids('collections_case'))
-    UNION
-    SELECT u.id
-      FROM public.hoa_violations v
-      JOIN public.units u ON u.legacy_hoa_property_id = v.property_id AND u.organization_id = v.org_id
-     WHERE v.id = ANY (public.auth_attorney_matter_ids('violation'))
-    UNION
-    SELECT t.unit_id
-      FROM public.tickets t
-     WHERE t.id = ANY (public.auth_attorney_matter_ids('records_request'))
-       AND t.unit_id IS NOT NULL
+    SELECT a.unit_id
+      FROM public.matter_assignments a
+      JOIN public.org_members m
+        ON m.org_id = a.organization_id AND m.user_id = a.user_id
+     WHERE a.user_id = auth.uid()
+       AND a.revoked_at IS NULL
+       AND a.unit_id IS NOT NULL
+       AND m.role = 'attorney'
+       AND m.access_expires_at IS NOT NULL
+       AND m.access_expires_at > now()
   ), ARRAY[]::uuid[]);
 END;
 $fn$;
@@ -500,7 +533,8 @@ END;
 $fn$;
 
 -- The owner name and the home's address for ONE assigned matter (letters
--- need them). Nothing else of the owner leaves: no email, no phone.
+-- need them). Nothing else of the owner leaves: no email, no phone. The
+-- home is the one the assignment resolved to.
 CREATE OR REPLACE FUNCTION public.attorney_matter_party(p_org_id uuid, p_matter_type text, p_matter_id uuid)
 RETURNS TABLE (owner_name text, address_line1 text, address_line2 text, city text, state text, postal_code text)
 LANGUAGE plpgsql
@@ -518,19 +552,15 @@ BEGIN
   RETURN QUERY
   SELECT (SELECT o.owner_name FROM public.ownerships o
            WHERE o.unit_id = u.id AND o.valid_to IS NULL
-           ORDER BY o.valid_from DESC LIMIT 1),
+           ORDER BY o.valid_from DESC, o.id LIMIT 1),
          u.address_line1, u.address_line2, u.city, u.state, u.postal_code
-    FROM public.units u
-   WHERE u.organization_id = p_org_id
-     AND u.id = ANY (public.auth_attorney_unit_ids())
-     AND u.id = (
-       CASE p_matter_type
-         WHEN 'collections_case' THEN (SELECT c.unit_id FROM public.collection_cases c WHERE c.id = p_matter_id)
-         WHEN 'violation' THEN (SELECT x.id FROM public.hoa_violations v
-                                  JOIN public.units x ON x.legacy_hoa_property_id = v.property_id
-                                 WHERE v.id = p_matter_id LIMIT 1)
-         ELSE (SELECT t.unit_id FROM public.tickets t WHERE t.id = p_matter_id)
-       END)
+    FROM public.matter_assignments a
+    JOIN public.units u ON u.id = a.unit_id AND u.organization_id = a.organization_id
+   WHERE a.organization_id = p_org_id
+     AND a.user_id = auth.uid()
+     AND a.matter_type = p_matter_type
+     AND a.matter_id = p_matter_id
+     AND a.revoked_at IS NULL
    LIMIT 1;
 END;
 $fn$;
@@ -600,23 +630,71 @@ CREATE POLICY approval_requests_select_proposer ON public.approval_requests
          AND public.auth_pro_active(organization_id));
 
 -- Collections letters of an assigned case, for the attorney drafting the
--- next one. The payload's caseId is shape-checked before the cast.
+-- next one. The payload's caseId is shape-checked before the cast. The
+-- id list is cast to uuid[] so the subquery is ONE array value (an
+-- initPlan, as 0061 does), not a set of rows.
 DROP POLICY IF EXISTS approval_requests_select_attorney_letters ON public.approval_requests;
 CREATE POLICY approval_requests_select_attorney_letters ON public.approval_requests
   FOR SELECT TO authenticated
   USING (action_type = 'collections.letter'
          AND CASE
                WHEN (payload ->> 'caseId') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-               THEN (payload ->> 'caseId')::uuid = ANY ((SELECT public.auth_attorney_matter_ids('collections_case')))
+               THEN (payload ->> 'caseId')::uuid = ANY ((SELECT public.auth_attorney_matter_ids('collections_case'))::uuid[])
                ELSE false
              END);
+
+-- Money action types: every approval_requests action that moves money.
+-- Keep in step with MONEY_ACTIONS in apps/hoa/src/lib/professionals/model.ts
+-- (a unit test reads this function and compares). Refunds, vendor payments
+-- and late-fee policy changes are not approval-layer actions yet; add them
+-- here and in MONEY_ACTIONS when they become one.
+CREATE OR REPLACE FUNCTION public.approval_is_money_action(p_action text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $fn$
+  SELECT p_action IN ('w18.cash_receipt', 'w36.ap_bill', 'accounting.opening_balances', 'pro.journal_entry')
+$fn$;
 
 ALTER TABLE public.associations
   ADD COLUMN IF NOT EXISTS dual_control_cents bigint
   CHECK (dual_control_cents IS NULL OR dual_control_cents > 0);
 
 COMMENT ON COLUMN public.associations.dual_control_cents IS
-  'BL-168: a money approval above this amount (cents) needs sign-off from two different board/admin members. Null = no dual control.';
+  'BL-168: a money approval above this amount (cents) needs sign-off from two different board/admin members. Null = no dual control. Admin-set (trigger), audited.';
+
+-- Only an admin changes the amount (board UPDATE on associations would
+-- otherwise let any board member clear it through PostgREST), and every
+-- change leaves an audit row. SECURITY INVOKER on purpose: current_user is
+-- the PostgREST role. The service role passes (it has no auth.uid()).
+CREATE OR REPLACE FUNCTION public.associations_dual_control_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF new.dual_control_cents IS NOT DISTINCT FROM old.dual_control_cents THEN
+    RETURN new;
+  END IF;
+  IF current_user = 'authenticated'
+     AND (auth.uid() IS NULL OR NOT public.auth_is_admin(new.organization_id)) THEN
+    RAISE EXCEPTION 'associations: only an admin changes the dual-control amount'
+      USING errcode = '42501';
+  END IF;
+  INSERT INTO public.audit_log (org_id, user_id, action, entity_type, entity_id, metadata)
+  VALUES (new.organization_id, auth.uid(), 'dual_control.set', 'association', new.id,
+          jsonb_build_object('old_cents', old.dual_control_cents, 'new_cents', new.dual_control_cents));
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.associations_dual_control_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS associations_dual_control_guard ON public.associations;
+CREATE TRIGGER associations_dual_control_guard
+  BEFORE UPDATE OF dual_control_cents ON public.associations
+  FOR EACH ROW EXECUTE FUNCTION public.associations_dual_control_guard();
 
 CREATE TABLE IF NOT EXISTS public.approval_signoffs (
   id                   uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -632,7 +710,7 @@ CREATE INDEX IF NOT EXISTS approval_signoffs_org_idx
   ON public.approval_signoffs (organization_id);
 
 COMMENT ON TABLE public.approval_signoffs IS
-  'BL-168: who has signed off a pending approval request. Board/admin read; written only by record_approval_signoff().';
+  'BL-168: who has signed off a pending approval request. Board/admin read; written only by record_approval_signoff(); cleared when the request''s payload or amount changes.';
 
 ALTER TABLE public.approval_signoffs ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS approval_signoffs_select ON public.approval_signoffs;
@@ -664,6 +742,10 @@ BEGIN
   IF v_row.status <> 'proposed' THEN
     RAISE EXCEPTION 'record_approval_signoff: the request is already decided' USING errcode = '22023';
   END IF;
+  -- Whoever proposed an item cannot be one of its two signatures.
+  IF v_row.proposed_by IS NOT NULL AND v_row.proposed_by = v_uid THEN
+    RAISE EXCEPTION 'record_approval_signoff: the proposer cannot sign off their own item' USING errcode = '42501';
+  END IF;
   SELECT m.officer_title INTO v_title
     FROM public.org_members m
    WHERE m.org_id = v_row.organization_id AND m.user_id = v_uid;
@@ -678,12 +760,62 @@ $fn$;
 REVOKE EXECUTE ON FUNCTION public.record_approval_signoff(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.record_approval_signoff(uuid) TO authenticated, service_role;
 
--- Dual control: a money item above the association's amount is not
--- approved on one signature, whoever calls decide_approval_request. Money
--- action types (keep in step with MONEY_ACTIONS in
--- apps/hoa/src/lib/professionals/model.ts): 'w36.ap_bill', 'pro.journal_entry'.
--- SECURITY INVOKER: reads approval_signoffs and associations as the
--- decider (board/admin) or the service role; no definer needed.
+-- A money item is born 'proposed': nothing inserts one already approved or
+-- posted and so skips the sign-offs (also for the service role).
+CREATE OR REPLACE FUNCTION public.approval_requests_money_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF public.approval_is_money_action(new.action_type) AND new.status <> 'proposed' THEN
+    RAISE EXCEPTION 'approval_requests: a money item must be inserted as proposed'
+      USING errcode = '23514';
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.approval_requests_money_insert() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS approval_requests_money_insert ON public.approval_requests;
+CREATE TRIGGER approval_requests_money_insert
+  BEFORE INSERT ON public.approval_requests
+  FOR EACH ROW EXECUTE FUNCTION public.approval_requests_money_insert();
+
+-- Sign-offs belong to the item as it was when they were given: editing the
+-- payload or the amount clears them. Named with a leading 0 so it fires
+-- BEFORE approval_requests_dual_control (triggers fire in name order) when
+-- one UPDATE changes both. A trigger function cannot refuse a null
+-- auth.uid() (the service role has none); nobody can call it directly.
+CREATE OR REPLACE FUNCTION public.approval_requests_reset_signoffs()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF new.payload IS DISTINCT FROM old.payload OR new.amount IS DISTINCT FROM old.amount THEN
+    DELETE FROM public.approval_signoffs WHERE approval_request_id = new.id;
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.approval_requests_reset_signoffs() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS approval_requests_0_reset_signoffs ON public.approval_requests;
+CREATE TRIGGER approval_requests_0_reset_signoffs
+  BEFORE UPDATE OF payload, amount ON public.approval_requests
+  FOR EACH ROW EXECUTE FUNCTION public.approval_requests_reset_signoffs();
+
+-- Dual control: a money item above the association's amount (or with no
+-- amount at all, once an amount is set) is not approved on one signature,
+-- whoever calls decide_approval_request or updates the row. Only signers
+-- who are CURRENTLY admin or board of the org count, and never the
+-- proposer. SECURITY INVOKER: it reads as the decider (board/admin) or the
+-- service role.
 CREATE OR REPLACE FUNCTION public.approval_requests_dual_control()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -694,17 +826,21 @@ DECLARE
   v_threshold bigint;
   v_signers integer;
 BEGIN
-  IF new.status = 'approved' AND old.status = 'proposed'
-     AND new.action_type IN ('w36.ap_bill', 'pro.journal_entry')
-     AND new.amount IS NOT NULL THEN
+  IF new.status IN ('approved', 'posted') AND old.status NOT IN ('approved', 'posted')
+     AND public.approval_is_money_action(new.action_type) THEN
     SELECT min(a.dual_control_cents) INTO v_threshold
       FROM public.associations a
      WHERE a.organization_id = new.organization_id
        AND a.dual_control_cents IS NOT NULL;
-    IF v_threshold IS NOT NULL AND (new.amount * 100) > v_threshold THEN
+    IF v_threshold IS NOT NULL AND (new.amount IS NULL OR (new.amount * 100) > v_threshold) THEN
       SELECT count(DISTINCT s.signer_id) INTO v_signers
         FROM public.approval_signoffs s
-       WHERE s.approval_request_id = new.id;
+        JOIN public.org_members m
+          ON m.org_id = new.organization_id
+         AND m.user_id = s.signer_id
+         AND m.role IN ('admin', 'board')
+       WHERE s.approval_request_id = new.id
+         AND s.signer_id IS DISTINCT FROM new.proposed_by;
       IF v_signers < 2 THEN
         RAISE EXCEPTION 'approval_requests: this amount needs sign-off from two board members'
           USING errcode = '23514';
@@ -737,7 +873,7 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_cpa_select', t);
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated
-         USING (organization_id = ANY ((SELECT public.auth_pro_org_ids(''cpa''))))', t || '_cpa_select', t);
+         USING (organization_id = ANY ((SELECT public.auth_pro_org_ids(''cpa''))::uuid[]))', t || '_cpa_select', t);
   END LOOP;
 
   -- Child tables: through the parent's org.
@@ -745,61 +881,299 @@ BEGIN
   CREATE POLICY budget_line_items_cpa_select ON public.budget_line_items FOR SELECT TO authenticated
     USING (EXISTS (SELECT 1 FROM public.budgets b
                     WHERE b.id = budget_line_items.budget_id
-                      AND b.organization_id = ANY ((SELECT public.auth_pro_org_ids('cpa')))));
+                      AND b.organization_id = ANY ((SELECT public.auth_pro_org_ids('cpa'))::uuid[])));
   DROP POLICY IF EXISTS adjusting_entries_cpa_select ON public.adjusting_entries;
   CREATE POLICY adjusting_entries_cpa_select ON public.adjusting_entries FOR SELECT TO authenticated
     USING (EXISTS (SELECT 1 FROM public.journal_entries je
                     WHERE je.id = adjusting_entries.journal_entry_id
-                      AND je.organization_id = ANY ((SELECT public.auth_pro_org_ids('cpa')))));
+                      AND je.organization_id = ANY ((SELECT public.auth_pro_org_ids('cpa'))::uuid[])));
   DROP POLICY IF EXISTS closing_entries_cpa_select ON public.closing_entries;
   CREATE POLICY closing_entries_cpa_select ON public.closing_entries FOR SELECT TO authenticated
     USING (EXISTS (SELECT 1 FROM public.journal_entries je
                     WHERE je.id = closing_entries.journal_entry_id
-                      AND je.organization_id = ANY ((SELECT public.auth_pro_org_ids('cpa')))));
+                      AND je.organization_id = ANY ((SELECT public.auth_pro_org_ids('cpa'))::uuid[])));
 
   -- Attorney: the assigned matters.
   DROP POLICY IF EXISTS collection_cases_attorney_select ON public.collection_cases;
   CREATE POLICY collection_cases_attorney_select ON public.collection_cases FOR SELECT TO authenticated
-    USING (id = ANY ((SELECT public.auth_attorney_matter_ids('collections_case'))));
+    USING (id = ANY ((SELECT public.auth_attorney_matter_ids('collections_case'))::uuid[]));
   DROP POLICY IF EXISTS collection_events_attorney_select ON public.collection_events;
   CREATE POLICY collection_events_attorney_select ON public.collection_events FOR SELECT TO authenticated
-    USING (collection_case_id = ANY ((SELECT public.auth_attorney_matter_ids('collections_case'))));
+    USING (collection_case_id = ANY ((SELECT public.auth_attorney_matter_ids('collections_case'))::uuid[]));
   DROP POLICY IF EXISTS hoa_violations_attorney_select ON public.hoa_violations;
   CREATE POLICY hoa_violations_attorney_select ON public.hoa_violations FOR SELECT TO authenticated
-    USING (id = ANY ((SELECT public.auth_attorney_matter_ids('violation'))));
+    USING (id = ANY ((SELECT public.auth_attorney_matter_ids('violation'))::uuid[]));
   DROP POLICY IF EXISTS violation_hearings_attorney_select ON public.violation_hearings;
   CREATE POLICY violation_hearings_attorney_select ON public.violation_hearings FOR SELECT TO authenticated
-    USING (violation_id = ANY ((SELECT public.auth_attorney_matter_ids('violation'))));
+    USING (violation_id = ANY ((SELECT public.auth_attorney_matter_ids('violation'))::uuid[]));
   DROP POLICY IF EXISTS tickets_attorney_select ON public.tickets;
   CREATE POLICY tickets_attorney_select ON public.tickets FOR SELECT TO authenticated
     USING (category = 'records_request'
-           AND id = ANY ((SELECT public.auth_attorney_matter_ids('records_request'))));
+           AND id = ANY ((SELECT public.auth_attorney_matter_ids('records_request'))::uuid[]));
 
   -- The unit ledger of an assigned unit.
   DROP POLICY IF EXISTS assessments_attorney_select ON public.assessments;
   CREATE POLICY assessments_attorney_select ON public.assessments FOR SELECT TO authenticated
-    USING (unit_id = ANY ((SELECT public.auth_attorney_unit_ids())));
+    USING (unit_id = ANY ((SELECT public.auth_attorney_unit_ids())::uuid[]));
   DROP POLICY IF EXISTS payments_attorney_select ON public.payments;
   CREATE POLICY payments_attorney_select ON public.payments FOR SELECT TO authenticated
-    USING (unit_id = ANY ((SELECT public.auth_attorney_unit_ids())));
+    USING (unit_id = ANY ((SELECT public.auth_attorney_unit_ids())::uuid[]));
 
   -- General counsel.
   DROP POLICY IF EXISTS governing_documents_counsel_select ON public.governing_documents;
   CREATE POLICY governing_documents_counsel_select ON public.governing_documents FOR SELECT TO authenticated
-    USING (organization_id = ANY ((SELECT public.auth_counsel_org_ids())));
+    USING (organization_id = ANY ((SELECT public.auth_counsel_org_ids())::uuid[]));
   DROP POLICY IF EXISTS compliance_deadlines_done_counsel_select ON public.compliance_deadlines_done;
   CREATE POLICY compliance_deadlines_done_counsel_select ON public.compliance_deadlines_done FOR SELECT TO authenticated
-    USING (organization_id = ANY ((SELECT public.auth_counsel_org_ids())));
+    USING (organization_id = ANY ((SELECT public.auth_counsel_org_ids())::uuid[]));
 
-  -- Both: the org's name (even once expired, so the app can say so) and
-  -- the association's name and state.
+  -- orgs and associations are NOT readable by a professional (every column,
+  -- compliance_settings and the Stripe ids included): pro_org_info() below.
   DROP POLICY IF EXISTS orgs_pro_select ON public.orgs;
-  CREATE POLICY orgs_pro_select ON public.orgs FOR SELECT TO authenticated
-    USING (public.auth_has_pro_membership(id));
   DROP POLICY IF EXISTS associations_pro_select ON public.associations;
-  CREATE POLICY associations_pro_select ON public.associations FOR SELECT TO authenticated
-    USING (organization_id = ANY ((SELECT public.auth_pro_org_ids())));
 END
 $mig$;
+
+-- ── 5b. what a professional may know about the org ────────────────────
+-- Instead of a read policy on orgs and associations (every column,
+-- including compliance_settings and the Stripe ids), one function returns
+-- the names. An expired grant gets the org's name only.
+CREATE OR REPLACE FUNCTION public.pro_org_info(p_org_id uuid)
+RETURNS TABLE (org_name text, association_name text, association_state text)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'pro_org_info: sign in first' USING errcode = '42501';
+  END IF;
+  IF public.auth_pro_active(p_org_id) THEN
+    RETURN QUERY
+    SELECT o.name, a.name, a.state
+      FROM public.orgs o
+      LEFT JOIN public.associations a ON a.organization_id = o.id
+     WHERE o.id = p_org_id
+     ORDER BY a.name
+     LIMIT 1;
+  ELSIF public.auth_has_pro_membership(p_org_id) THEN
+    RETURN QUERY SELECT o.name, NULL::text, NULL::text FROM public.orgs o WHERE o.id = p_org_id;
+  ELSE
+    RAISE EXCEPTION 'pro_org_info: not authorized' USING errcode = '42501';
+  END IF;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.pro_org_info(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pro_org_info(uuid) TO authenticated, service_role;
+
+-- ── 6. guarding the grant itself ──────────────────────────────────────
+-- (a) A grant ends within a year (367 days leaves room for end-of-day
+-- rounding and clock skew), also for the service role; a membership never
+-- moves to another person or organization through PostgREST.
+-- SECURITY INVOKER on purpose: current_user is the PostgREST role.
+CREATE OR REPLACE FUNCTION public.org_members_pro_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF tg_op = 'UPDATE' THEN
+    IF current_user = 'authenticated'
+       AND (new.org_id IS DISTINCT FROM old.org_id OR new.user_id IS DISTINCT FROM old.user_id) THEN
+      RAISE EXCEPTION 'org_members: a membership cannot be moved to another person or organization'
+        USING errcode = '42501';
+    END IF;
+  END IF;
+  IF new.role IN ('cpa', 'attorney') AND new.access_expires_at > now() + interval '367 days' THEN
+    -- Only a new or changed grant is checked; a row already on file is left alone.
+    IF tg_op = 'INSERT' THEN
+      RAISE EXCEPTION 'org_members: professional access can run for at most a year at a time'
+        USING errcode = '23514';
+    ELSIF new.access_expires_at IS DISTINCT FROM old.access_expires_at OR new.role IS DISTINCT FROM old.role THEN
+      RAISE EXCEPTION 'org_members: professional access can run for at most a year at a time'
+        USING errcode = '23514';
+    END IF;
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.org_members_pro_guard() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS org_members_pro_guard ON public.org_members;
+CREATE TRIGGER org_members_pro_guard
+  BEFORE INSERT OR UPDATE ON public.org_members
+  FOR EACH ROW EXECUTE FUNCTION public.org_members_pro_guard();
+
+-- (b) Every grant, change and removal of a cpa/attorney row is audited
+-- (ids, role and dates only), whoever made it. A failed audit write never
+-- blocks the change (an org being deleted cascades through here).
+CREATE OR REPLACE FUNCTION public.org_members_pro_audit()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+  r public.org_members%ROWTYPE;
+BEGIN
+  IF tg_op = 'DELETE' THEN
+    r := old;
+  ELSE
+    r := new;
+  END IF;
+  IF r.role NOT IN ('cpa', 'attorney') THEN
+    -- An UPDATE that ends a professional's role is audited too.
+    IF tg_op <> 'UPDATE' THEN
+      RETURN NULL;
+    ELSIF old.role NOT IN ('cpa', 'attorney') THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.orgs WHERE id = r.org_id) THEN
+    RETURN NULL;
+  END IF;
+  BEGIN
+    INSERT INTO public.audit_log (org_id, user_id, action, entity_type, entity_id, metadata)
+    VALUES (r.org_id, auth.uid(),
+            CASE tg_op WHEN 'INSERT' THEN 'pro.member_added' WHEN 'DELETE' THEN 'pro.member_removed' ELSE 'pro.member_changed' END,
+            'org_member', r.user_id,
+            jsonb_build_object('role', r.role, 'expires_at', r.access_expires_at, 'general_counsel', r.general_counsel));
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  RETURN NULL;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.org_members_pro_audit() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS org_members_pro_audit ON public.org_members;
+CREATE TRIGGER org_members_pro_audit
+  AFTER INSERT OR UPDATE OR DELETE ON public.org_members
+  FOR EACH ROW EXECUTE FUNCTION public.org_members_pro_audit();
+
+-- (c) When a professional is removed (or stops being one), their matter
+-- assignments end and their pending proposals are rejected, so nothing
+-- they sent can still be approved by accident and a later re-invite
+-- starts clean.
+CREATE OR REPLACE FUNCTION public.org_members_pro_revoke()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF old.role NOT IN ('cpa', 'attorney') THEN
+    RETURN NULL;
+  END IF;
+  IF tg_op = 'UPDATE' THEN
+    IF new.role = old.role THEN
+      RETURN NULL;
+    END IF;
+  END IF;
+  UPDATE public.matter_assignments
+     SET revoked_at = now()
+   WHERE organization_id = old.org_id AND user_id = old.user_id AND revoked_at IS NULL;
+  UPDATE public.approval_requests
+     SET status = 'rejected', decided_at = now(), decision_reason = 'Access was removed'
+   WHERE organization_id = old.org_id
+     AND proposed_by = old.user_id
+     AND status = 'proposed'
+     AND action_type LIKE 'pro.%';
+  RETURN NULL;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.org_members_pro_revoke() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS org_members_pro_revoke ON public.org_members;
+CREATE TRIGGER org_members_pro_revoke
+  AFTER DELETE OR UPDATE OF role ON public.org_members
+  FOR EACH ROW EXECUTE FUNCTION public.org_members_pro_revoke();
+
+-- (d) Invitations for people who already have a HomeownerHub account. The
+-- board records the invitation; it grants NOTHING. The person opens a
+-- signed link while signed in as that email and accepts, and only then is
+-- the org_members row (and any matter assignment) created, by the app with
+-- the service role. Single use, expiring, revocable.
+CREATE TABLE IF NOT EXISTS public.professional_invites (
+  id               uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  uuid        NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
+  email            text        NOT NULL CHECK (email = lower(email) AND length(email) <= 254),
+  role             text        NOT NULL CHECK (role IN ('cpa', 'attorney')),
+  access_expires_on date       NOT NULL,
+  general_counsel  boolean     NOT NULL DEFAULT false CHECK (NOT general_counsel OR role = 'attorney'),
+  matters          jsonb       NOT NULL DEFAULT '[]'::jsonb
+                               CHECK (jsonb_typeof(matters) = 'array' AND jsonb_array_length(matters) <= 50),
+  created_by       uuid        REFERENCES public.profiles(id) ON DELETE SET NULL DEFAULT auth.uid(),
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  link_expires_at  timestamptz NOT NULL DEFAULT now() + interval '7 days',
+  accepted_at      timestamptz,
+  accepted_by      uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
+  revoked_at       timestamptz
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS professional_invites_live_uniq
+  ON public.professional_invites (organization_id, email)
+  WHERE accepted_at IS NULL AND revoked_at IS NULL;
+
+COMMENT ON TABLE public.professional_invites IS
+  'BL-168: a pending invitation for a CPA or attorney who already has an account. Grants nothing until accepted through the signed link. Board/admin read and write; acceptance is service-role only.';
+
+CREATE OR REPLACE FUNCTION public.professional_invites_attribution()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF current_user = 'authenticated' THEN
+    IF tg_op = 'INSERT' THEN
+      new.created_by := auth.uid();
+      new.accepted_at := NULL;
+      new.accepted_by := NULL;
+    ELSE
+      -- The board may revoke; it cannot accept on anyone's behalf or edit the grant.
+      new.created_by := old.created_by;
+      new.accepted_at := old.accepted_at;
+      new.accepted_by := old.accepted_by;
+      new.email := old.email;
+      new.role := old.role;
+      new.access_expires_on := old.access_expires_on;
+      new.general_counsel := old.general_counsel;
+      new.matters := old.matters;
+      new.link_expires_at := old.link_expires_at;
+      new.organization_id := old.organization_id;
+    END IF;
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.professional_invites_attribution() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS professional_invites_attribution ON public.professional_invites;
+CREATE TRIGGER professional_invites_attribution
+  BEFORE INSERT OR UPDATE ON public.professional_invites
+  FOR EACH ROW EXECUTE FUNCTION public.professional_invites_attribution();
+
+ALTER TABLE public.professional_invites ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS professional_invites_select ON public.professional_invites;
+DROP POLICY IF EXISTS professional_invites_insert ON public.professional_invites;
+DROP POLICY IF EXISTS professional_invites_update ON public.professional_invites;
+CREATE POLICY professional_invites_select ON public.professional_invites
+  FOR SELECT TO authenticated
+  USING (public.auth_is_board_or_admin(organization_id));
+CREATE POLICY professional_invites_insert ON public.professional_invites
+  FOR INSERT TO authenticated
+  WITH CHECK (public.auth_is_board_or_admin(organization_id));
+CREATE POLICY professional_invites_update ON public.professional_invites
+  FOR UPDATE TO authenticated
+  USING (public.auth_is_board_or_admin(organization_id))
+  WITH CHECK (public.auth_is_board_or_admin(organization_id));
 
 COMMIT;
