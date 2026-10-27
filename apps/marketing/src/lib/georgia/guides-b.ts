@@ -92,7 +92,7 @@ export const LATE_FEES: Guide = {
       a: 'The Condominium Act sets the same cap for unit owners, for late charges that the condominium instruments provide for.',
     },
   ],
-  related: ['foreclosure-threshold-2027', 'attorney-fee-notice', 'condo-vs-hoa-law', 'readiness', 'hoa-treasurer-duties', 'fines-and-violation-hearings'],
+  related: ['foreclosure-threshold-2027', 'attorney-fee-notice', 'condo-vs-hoa-law', 'readiness', 'hoa-treasurer-duties', 'fines-and-violation-hearings', 'special-assessments'],
   hoaDoes: [
     {
       text: 'No late fee is charged until the board saves a late-fee policy. Georgia’s cap is checked when the policy is saved, and a policy over the cap cannot be saved.',

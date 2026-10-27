@@ -5,6 +5,7 @@ import { ATTORNEY_FEE_NOTICE, FORECLOSURE_THRESHOLD, OWNERS_RIGHTS, REGISTRATION
 import { COMPLAINT_PROCESS, CONDO_VS_HOA, LATE_FEES } from './guides-b'
 import { FIRST_90_DAYS, TREASURER_DUTIES } from './guides-c'
 import { FINES_HEARINGS, QUORUM_PROXIES, RECORDS_REQUESTS } from './guides-d'
+import { SPECIAL_ASSESSMENTS, SWITCH_FROM_MANAGER } from './guides-e'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -23,10 +24,11 @@ export const GUIDE_LIST: readonly Guide[] = [
   QUORUM_PROXIES,
   RECORDS_REQUESTS,
   FINES_HEARINGS,
+  SPECIAL_ASSESSMENTS,
 ]
 
-/** Guides that live outside /georgia (BL-172 batch 2). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES]
+/** Guides that live outside /georgia (BL-172 batches 2 and 4). */
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -99,6 +101,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'HOA violation letter template for Georgia (printable)',
     blurb: 'A calm first-notice letter with a check-before-you-send list. Every legal detail is a blank for your own documents.',
     kind: 'tool',
+  },
+  {
+    slug: 'georgia-hoa-collections-notice',
+    path: '/templates/georgia-hoa-collections-notice',
+    title: 'Georgia HOA collections notice template (printable)',
+    blurb: 'A checklist and a fill-in first notice for an owner who is behind, built on the SB 406 fee-notice text. Every amount is a blank.',
+    kind: 'tool',
+  },
+  {
+    slug: 'hoa-board-meeting-minutes',
+    path: '/templates/hoa-board-meeting-minutes',
+    title: 'HOA board meeting minutes template (printable)',
+    blurb: 'A one-page minutes form for any state: attendance, quorum, motions and votes, and action items.',
+    kind: 'tool',
+  },
+  {
+    slug: SWITCH_FROM_MANAGER.slug,
+    path: pathOf(SWITCH_FROM_MANAGER),
+    title: 'Switch from a management company to a self-managed HOA',
+    blurb: SWITCH_FROM_MANAGER.summary[0]!,
+    kind: 'guide',
   },
 ]
 export const GENERAL_PATHS: readonly string[] = GENERAL_LINKS.map((l) => l.path)

@@ -94,9 +94,9 @@ describe('statute quotes are verbatim', () => {
 })
 
 describe('guides', () => {
-  it('there are 6 to 11 guides', () => {
+  it('there are 6 to 12 guides', () => {
     expect(GUIDE_LIST.length).toBeGreaterThanOrEqual(6)
-    expect(GUIDE_LIST.length).toBeLessThanOrEqual(11)
+    expect(GUIDE_LIST.length).toBeLessThanOrEqual(12)
   })
 
   it('covers the owner-named topics', () => {
@@ -200,11 +200,13 @@ describe('guides', () => {
 })
 
 describe('checklists', () => {
-  it('five printable checklists and templates exist', () => {
+  it('seven printable checklists and templates exist', () => {
     expect(Object.keys(CHECKLISTS).sort()).toEqual([
       'annual-meeting-notice-checklist',
       'attorney-fee-notice-checklist',
+      'georgia-hoa-collections-notice',
       'hoa-board-meeting-agenda',
+      'hoa-board-meeting-minutes',
       'hoa-violation-letter-georgia',
       'violation-notice-checklist',
     ])
@@ -455,5 +457,90 @@ describe('SEO batch 3', () => {
     expect(c.items.length).toBeGreaterThanOrEqual(8)
     for (const i of c.items) expect(['statute', 'practice'], i.text).toContain(i.basis)
     expect(c.intro.join(' ')).toMatch(/not legal advice/)
+  })
+})
+
+// SEO batch 4: collections notice, board minutes, switching from a management
+// company, and special assessments.
+describe('SEO batch 4', () => {
+  const guide = (slug: string) => ALL_GUIDES.find((g) => g.slug === slug)!
+
+  it('the new quotes pin the words the pages rely on', () => {
+    expect(QUOTES.specialDef.quote).toMatch(/^'Special assessments' means an assessment imposed on owners for costs which are not included/)
+    expect(QUOTES.specialDef.quote).toMatch(/nonroutine or emergency repairs/)
+    expect(QUOTES.lienSums.quote).toMatch(/constitute a lien in favor of the association/)
+    expect(QUOTES.condoSpecial.quote).toMatch(/one-sixth of the annual common expense assessment/)
+    expect(QUOTES.payOrder2.quote).toBe('Special assessments until current;')
+  })
+
+  it('a doctored batch 4 quote is caught', () => {
+    const q = QUOTES.condoSpecial
+    expect(fixture(q.fixture)).not.toContain(squash(q.quote.replace('one-sixth', 'one-fifth')))
+    expect(fixture(q.fixture)).toContain(squash(q.quote))
+  })
+
+  it('the collections notice quotes the fee-notice and § 44-3-232(c) text from the quote bank, and sets no amount', () => {
+    const c = CHECKLISTS['georgia-hoa-collections-notice']!
+    expect(c.path).toBe('/templates/georgia-hoa-collections-notice')
+    expect(c.quotes).toEqual(expect.arrayContaining(['feeIntro', 'feeNotice1', 'feeNotice2', 'feeNotice3', 'foreclose30', 'foreclose60', 'noticeContents60']))
+    const letter = c.letter!.lines.join('\n')
+    expect(letter).not.toMatch(/\$\s?\d/)
+    expect(JSON.stringify(c.items)).not.toMatch(/\$\s?\d/)
+    expect(letter).toMatch(/30 days from the day you receive this notice/)
+    expect(letter).toMatch(/certified mail \/ statutory overnight delivery/)
+    expect(c.letter!.lines.filter((l) => /\[amount\]|\[total\]/.test(l)).length).toBeGreaterThanOrEqual(4)
+    expect(c.items.length).toBeGreaterThanOrEqual(10)
+    for (const i of c.items) expect(['statute', 'practice'], i.text).toContain(i.basis)
+    expect(c.intro.join(' ')).toMatch(/not legal advice/)
+    expect(c.howTo).toBe(true)
+  })
+
+  it('the minutes template works in every state: Georgia appears only in the labelled quotes section', () => {
+    const c = CHECKLISTS['hoa-board-meeting-minutes']!
+    expect(c.path).toBe('/templates/hoa-board-meeting-minutes')
+    expect(c.intro.join(' ')).toMatch(/any state/)
+    expect(c.intro.join(' ')).toMatch(/not legal advice/)
+    expect(JSON.stringify([c.items, c.letter])).not.toMatch(/Georgia|O\.C\.G\.A\./)
+    expect(c.quotesHeading).toMatch(/^Georgia notes/)
+    expect(c.letter!.lines.length).toBeGreaterThan(20)
+    expect(c.items.length).toBeGreaterThanOrEqual(10)
+  })
+
+  it('the special assessments guide quotes only what the fixtures hold and says what they do not', () => {
+    const g = guide('special-assessments')
+    expect(pathOf(g)).toBe('/georgia/special-assessments')
+    expect(GEORGIA_PATHS).toContain('/georgia/special-assessments')
+    const quoted = g.sections.flatMap((s) => s.quotes ?? [])
+    expect(quoted).toEqual(expect.arrayContaining(['specialDef', 'lienSums', 'payOrder2']))
+    const text = JSON.stringify(g.sections)
+    expect(text).toMatch(/cannot tell you/)
+    expect(text).toMatch(/attorney/)
+    expect(text).toMatch(/we found no percentage of owners/)
+    expect(JSON.stringify([g.summary, g.sections.map((s) => s.body), g.faqs, g.steps])).not.toMatch(/\$\d/)
+  })
+
+  it('the switch guide is a general guide with an FAQ, a demo call to action and only shipped, routed features', () => {
+    const g = guide('switch-from-management-company-to-self-managed-hoa')
+    expect(pathOf(g)).toBe('/guides/switch-from-management-company-to-self-managed-hoa')
+    expect(GENERAL_PATHS).toContain(pathOf(g))
+    expect(g.faqs.length).toBeGreaterThanOrEqual(4)
+    expect(g.howTo).toBe(true)
+    const routes = g.hoaDoes.map((h) => h.route)
+    expect(routes).toEqual(expect.arrayContaining(['/properties/import', '/accounting/opening-balances', '/accounting/bank', '/onboarding/setup']))
+    const page = readFileSync(path.join(here, '../../components/georgia/guide-page.tsx'), 'utf8')
+    expect(page).toMatch(/<GeorgiaCta/)
+    expect(JSON.stringify(g.hoaDoes)).toMatch(/has not yet been checked against a real export/)
+  })
+
+  it('the hub, related guides and templates link to the four new pages', () => {
+    const into = (slug: string) => [...ALL_GUIDES, ...Object.values(CHECKLISTS)].filter((x) => x.related.includes(slug)).map((x) => x.slug)
+    expect(into('special-assessments')).toEqual(expect.arrayContaining(['late-fee-limits', 'foreclosure-threshold-2027']))
+    expect(into('georgia-hoa-collections-notice')).toEqual(expect.arrayContaining(['attorney-fee-notice', 'foreclosure-threshold-2027']))
+    expect(into('hoa-board-meeting-minutes')).toContain('hoa-board-meeting-agenda')
+    expect(into('switch-from-management-company-to-self-managed-hoa')).toContain('self-managed-hoa-georgia-first-90-days')
+    for (const p of ['/georgia/special-assessments', '/templates/georgia-hoa-collections-notice', '/templates/hoa-board-meeting-minutes', '/guides/switch-from-management-company-to-self-managed-hoa']) {
+      expect(SITE_LINKS.some((l) => l.path === p), p).toBe(true)
+      expect(SITEMAP_PATHS as readonly string[], p).toContain(p)
+    }
   })
 })

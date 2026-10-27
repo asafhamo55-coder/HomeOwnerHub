@@ -169,7 +169,7 @@ export const BOARD_AGENDA_TEMPLATE: Checklist = {
       a: 'Your bylaws decide. In Georgia, for a property owners’ association, the statute sets one-half of the votes of the board unless the instrument or bylaws specify a larger percentage, as quoted below.',
     },
   ],
-  related: ['annual-meeting-notice-checklist', 'hoa-treasurer-duties', 'self-managed-hoa-georgia-first-90-days', 'annual-meeting-quorum-proxies'],
+  related: ['annual-meeting-notice-checklist', 'hoa-treasurer-duties', 'self-managed-hoa-georgia-first-90-days', 'annual-meeting-quorum-proxies', 'hoa-board-meeting-minutes'],
   datePublished: '2026-10-26',
   dateModified: '2026-10-26',
 }
