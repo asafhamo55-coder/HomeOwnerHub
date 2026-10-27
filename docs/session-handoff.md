@@ -57,16 +57,19 @@ Also schedule a one-shot renewal before the 7-day cron expiry.
 
 ## Waiting on Asaf (manual steps only)
 
-Single source: `docs/owner-actions.md` (emailed to Asaf by a workflow). At 2026-10-27:
-- **OA-37 (in progress, live with Claude):** apply 0070 (tenant isolation), then 0071 (roles), using runbook Sections M and N in `docs/specs/2026-10-20-sql-runbook.md`. M1 and M2 are done: 121 links, 0 violations. Next is M3, then the M4 apply, but only after CI is green on the fixed 0070/0072. Set PRO_INVITE_SECRET before flipping M6_APPLIED. 0072 (Section O, M7) follows.
-- **OA-34 (urgent):** RESEND_API_KEY, EMAIL_FROM and DEMO_INBOX_EMAIL on the marketing project, so demo requests reach Asaf.
-- OA-35 (analytics and Search Console), OA-36 (isolation checks), OA-26 (secrets), OA-33 (Stripe test webhook secret), OA-32 (GA 590-13 PDFs, due Nov 2).
+Single source: `docs/owner-actions.md` (emailed). At 2026-10-27 18:30 EDT nothing is urgent. OA-37 (0070–0072) and OA-34 (demo email) are done.
+- Soon: OA-32 (GA 590-13 PDFs, comments due Nov 2), OA-35 (analytics and Search Console), OA-26 (signing secrets), OA-36, OA-7, OA-14, OA-25, OA-33, OA-9.
+- After the deploy: set the Treasurer in Settings → Professionals.
 
-## In flight at this update (2026-10-27 16:00 EDT)
+## In flight at this update (2026-10-27 18:30 EDT)
 
-- **Prod:** 94b8d859. Integration: claude/quality-oracle at f71fc407, which includes claude/m7 (0070 rebuilt to 121 prod links, plus 0072). Its CI is red: 7 integration tests. The M7 agent is fixing the trigger order (23503 vs 42501) and `v_num` in `record_lump_payment`. **Do not deploy quality-oracle until it is green.** It's safe once green: the migrations are applied by Asaf, and the M6/M7 code is flag-gated.
-- **Agents:** BL-044 reminder follow-ups, BL-043 date-only math, BL-059 Select styling, deck refresh.
-- **Next, by priority:** the ranked lists at the bottom of `docs/backlog.md` (rounds 5 and 6, plus owner asks BL-157 to BL-177). The "Groomed 2026-10-20" lines are a week old, so check the code before starting an item.
+- **Prod:** 7860b686. Integration: claude/quality-oracle (docs ahead). All migrations through 0072 are applied, and M1–M7 flags are all true.
+- **Agents:** a deck refresh (roles, payments and holidays now live).
+- **Next:** the round 7 list in `docs/backlog.md`. #1, #2, #4 (language part) and #5 are done. Remaining:
+  - BL-099 perf from prod logs
+  - SEO (daily batch; weekly audit due Nov 2)
+  - quiet hours (needs a migration)
+  - English-only language (needs a migration)
 
 ## Decisions taken without the owner (reversible)
 

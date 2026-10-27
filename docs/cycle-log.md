@@ -781,3 +781,27 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - The M7 agent is fixing both. Asaf holds at M3 until CI is green.
 - **Dispatched (Sonnet):** BL-044 held-reminder status and 375px preview; BL-043 date-only and timezone math; BL-059 Select trigger greyed by `read-only:`; deck refresh (product-first message).
 - **SEO:** batch 4 is live today (daily quota met). The weekly audit is next due 2026-11-02.
+
+## 2026-10-27 16:00 â†’ 18:30 EDT: three migrations applied, big deploy 7860b686
+
+- **OA-37 done.** Asaf applied 0070, 0071 and 0072 step by step, and every check matched.
+  - **0070:** the CI fixes were AFTER-ROW triggers, so RLS keeps its 42501, plus a `zz_org_fk_` prefix. The last 0072 credit test had a wrong-arithmetic case, which was corrected; nothing was loosened.
+  - **Flags:** M6 and M7 flipped. 10 unit tests that assumed the flags were off now pin them explicitly.
+  - **Digest:** recipients are verified to be board and admin only. A new security test covers it.
+- **OA-34 done:** marketing email env set, and a test demo request was verified in Asaf's inbox.
+- **Deployed 7860b686:**
+  - professional and officer roles
+  - lump payments with credit, and mail tracking
+  - holiday nudges: 20 dates, per-occasion lead days, grid kept at 16
+  - board contacts card
+  - GA late-fee prompt
+  - "Spanish only" language (only an explicit 'es' narrows, because the stored default 'en' isn't a choice)
+  - annual report narrative and attachment
+  - website closer to nice.com (REA evidence)
+  - SEO batch 5 (3 pages)
+  - The release-note email was sent.
+- **Tools:** REA (morluto/rea) is installed by Asaf as an MCP server. The "agents-dashboard" mod pane shows context, agents and token use.
+- **Lessons:**
+  - Postgres runs BEFORE triggers ahead of RLS WITH CHECK.
+  - GitHub Actions caches are per branch.
+  - Groomed backlog lines go stale: code-verify before dispatching (round 7 list).
