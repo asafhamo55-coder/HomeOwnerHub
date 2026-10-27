@@ -61,7 +61,7 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ### OA-37 · Apply two database updates: tenant isolation (0070), then CPA, attorney and treasurer roles (0071)
 
-**Urgency:** Soon (0070 is a security fix)
+**Urgency:** Soon
 
 **Why it matters:**
 - **0070** closes, at the database level, the cross-association gaps the security audit found (BL-175). The app-side fixes are already live.
