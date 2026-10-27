@@ -677,6 +677,7 @@ These go beyond the design-system v2 pass:
   `bank-rec.ts:164` stores `paid_at` from a date-only value — needs a decision.
   Fix: one association timezone (default America/New_York) and date-only helpers.
 - **BL-044 Dues-reminder follow-ups** (from c2): a per-association timezone (with BL-043);
+  - **Checked 2026-10-27:** held status (`finalSendStatus`, all-held → `cancelled` + suppressed, UI "held by safety guard") and the fluid 600px preview are done. Only the populated dry-run table with real data remains (needs Asaf). Older note follows.
   - **Groomed 2026-10-20:** Partly done: the per-association reminder day shipped (713fa17f). Still open, no migration: a reminder whose every recipient the outbound guard held back is still finished as `failed` (`packages/jobs/src/dues-reminders/run.ts`, `sent > 0 ? 'sent' : 'failed'`); the 600px email preview still scrolls sideways at 375px; the populated dry-run table has not been seen with real data.
   the populated dry-run table has never been seen with real data; a message where every
   recipient was blocked by the guard is marked `failed`; the 600px email preview scrolls
