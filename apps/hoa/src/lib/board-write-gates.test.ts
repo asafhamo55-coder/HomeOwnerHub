@@ -33,6 +33,7 @@ import { PRO_DENIED } from './professionals/guard'
 import * as conflictDisclosure from './conflict-disclosure/actions'
 import * as gaComplaints from './ga-complaints/actions'
 import * as collections from './collections/actions'
+import * as lumpPayments from './payments/lump-payment-actions'
 import * as collectionsLetters from './collections/letters/actions'
 import * as hearingActions from './violation-hearings/actions'
 import * as attachmentBill from './inbox/attachment-bill'
@@ -218,6 +219,9 @@ describe('board-only server actions refuse a resident before touching the databa
     ['saveLetterToApprovals (BL-148: GA notice before attorney’s fees)', () => collectionsLetters.saveLetterToApprovals({ propertyId: ID, kind: 'ga_fee_notice', values: {}, verified: true }), DENIED],
     ['saveLetterToApprovals (BL-148: GA notice before foreclosure)', () => collectionsLetters.saveLetterToApprovals({ propertyId: ID, kind: 'ga_pre_foreclosure', values: {}, verified: true }), DENIED],
     ['recordLetterPrinted (BL-089: records the event and audit row)', () => collectionsLetters.recordLetterPrinted({ propertyId: ID, approvalRequestId: ID, verified: true }), DENIED],
+    // BL-163: one payment split across a home's charges in § 43-17A-8's order; posts ledger entries and an audit row.
+    ['previewLumpPayment (BL-163: reads a home’s charges)', () => lumpPayments.previewLumpPayment({ unitId: ID, amount: 100 }), DENIED],
+    ['recordLumpPayment (BL-163: posts payments and journal entries)', () => lumpPayments.recordLumpPayment({ unitId: ID, amount: 100, expected: [{ chargeId: ID, cents: 10000 }] }), DENIED],
     ['saveViolationHearing (BL-133)', () => hearingActions.saveViolationHearing({ violationId: ID } as never), DENIED],
     ['cancelHearingAfterCure (BL-140: cancels a fine hearing, audited)', () => hearingActions.cancelHearingAfterCure({ violationId: ID, reason: 'cured_before_hearing' }), DENIED],
     ['sendTestAlert (service-role audience send)', () => events.sendTestAlert(ID), { ok: false, error: "You don't have permission to perform this action." }],

@@ -42,7 +42,7 @@ export const GA_PAYMENT_ORDER_STEPS: readonly string[] = [
 ]
 
 export const GA_PAYMENT_ORDER_NOT_APPLIED =
-  'This is a note only. HomeownerHub doesn’t apply payments in this order and doesn’t check how past payments were applied; the board picks the charge a payment pays when it records it.'
+  'From January 1, 2027, Record payment on the Dues page splits one payment in this order and shows the split before saving. Mark paid still pays only the charge you pick, and HomeownerHub doesn’t re-apply past payments or check how they were applied.'
 
 /** Where the 12-month figure came from. */
 export type TwelveMonths =

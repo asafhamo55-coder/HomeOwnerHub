@@ -6,12 +6,12 @@ topic: dues
 roles: [admin, board]
 routes: ["/dues", "/properties/[id]"]
 primary_route: /dues
-keywords: [check, cheque, cash, paid, payment, mark paid, record, ledger, zelle, online payment, receipt, payment receipt, send receipt, email receipt, proof of payment, did you get my check]
+keywords: [record payment, split payment, one payment several charges, lump sum, payment order, order of payment, how payments are applied, "43-17A-8", SB 406, Georgia, ask your attorney, check, cheque, cash, paid, payment, mark paid, record, ledger, zelle, online payment, receipt, payment receipt, send receipt, email receipt, proof of payment, did you get my check]
 shots:
   - name: guide-dues-record-payment
     alt: The Record payment confirmation over the Dues page, with the Record payment button highlighted
 related: [dues-generate-monthly, settings-resident-payments]
-reviewed: 2026-10-20
+reviewed: 2026-10-27
 ---
 
 Use this when an owner paid by check (or cheque), cash or any other way outside the portal.
@@ -25,6 +25,21 @@ Use this when an owner paid by check (or cheque), cash or any other way outside 
 3. Check the amount and the home in the confirmation, then select [[Record payment]].
 
 ![[guide-dues-record-payment]]
+
+### Georgia: one payment across several charges
+In a Georgia association, an owner's payment has to be applied in a set order from January 1, 2027 (§ 43-17A-8). Use [[Record payment…]] on any of the home's open charges when one check or transfer covers more than one charge.
+
+1. Select [[Record payment…]] on a row for the home.
+2. Enter **Amount received** and select [[Show the split]]. Nothing is saved yet.
+3. Read the split. From January 1, 2027 it follows the statute: "(1) Regular assessments or dues until current; (2) Special assessments until current; (3) Specific assessments until current; and (4) Other fees and fines." Within each step the oldest charge is paid first. Before 2027 it is oldest charge first, whatever the type.
+4. If the split is right, select [[Record]] with the amount shown. Each charge gets its own payment and ledger entry.
+
+Good to know about the split:
+- Only charges due on or before today are paid ("until current"). A charge not yet due is left alone.
+- Late fees and fines count as specific assessments. Interest, lien and collection costs, attorney fees and payment-plan installments aren't named in the statute, so they go last and show **Ask your attorney**. Ask yours how they should rank before relying on that order.
+- If the amount is more than is currently due, it can't be saved here. Lower it to the amount due, then record the rest on a charge you choose with [[Mark paid]].
+- If the home's charges change while you're looking, you'll be asked to preview again. If a part fails, the parts before it stay recorded and you're told so.
+- This doesn't change payments already recorded and doesn't re-apply old ones. [[Mark paid]] still pays only the charge you pick.
 
 ## What happens next
 The charge shows **Paid**, the home's balance goes down, and the payment posts to the ledger.

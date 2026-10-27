@@ -31,6 +31,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { daysSince, formatDay, plural, todayIso, usd } from '@/lib/money/format'
 import { MarkPaidButton } from './MarkPaidButton'
+import { RecordPaymentButton } from './RecordPaymentButton'
 import { SendReceiptButton } from './SendReceiptButton'
 import { paymentDay } from '@/lib/resident-ledger'
 import { MaterializeButton } from './MaterializeButton'
@@ -168,6 +169,15 @@ export default async function DuesPage({
   ])
   const generatePrefill = rates ? billingPrefill(rates, todayIsoStr, 'monthly') : null
   const prefill = generatePrefill ? { cents: generatePrefill.cents, hint: generatePrefill.hint } : null
+
+  // BL-163: "Record payment…" (one amount split in § 43-17A-8's order) is for
+  // Georgia associations. A failed read hides it; Mark paid is unaffected.
+  const stateRes = await loadOrFail(
+    'dues association state',
+    supabase.from('associations').select('state, governing_law_state').eq('id', assoc.id),
+  )
+  const stateRow = stateRes.ok ? ((stateRes.data ?? []) as Array<{ state: string | null; governing_law_state: string | null }>)[0] : undefined
+  const isGeorgia = (stateRow?.governing_law_state ?? stateRow?.state ?? '').trim().toUpperCase() === 'GA'
 
   const rows = listResult.ok ? ((listResult.data ?? []) as unknown as AssessmentRow[]) : []
   const total = listResult.ok ? (listResult.count ?? rows.length) : 0
@@ -309,6 +319,7 @@ export default async function DuesPage({
               rows={monthRows}
               today={todayIsoStr}
               timeZone={assoc.timeZone}
+              recordPayment={isGeorgia}
               partial={cutMonths.has(month)}
             />
           ))}
@@ -350,12 +361,15 @@ function MonthTable({
   rows,
   today,
   timeZone,
+  recordPayment,
   partial,
 }: {
   month: string
   rows: AssessmentRow[]
   today: string
   timeZone: string
+  /** BL-163: show "Record payment…" (Georgia associations). */
+  recordPayment: boolean
   partial: boolean
 }) {
   const billed = rows.reduce((sum, r) => sum + Number(r.amount), 0)
@@ -418,6 +432,7 @@ function MonthTable({
             ) : null}
             {open ? (
               <>
+                {recordPayment && r.unit?.id ? <RecordPaymentButton unitId={r.unit.id} unitLabel={unitLabelOf(r)} /> : null}
                 <MarkPaidButton assessmentId={r.id} balance={Math.max(Number(r.amount) - paidOf(r), 0)} unitLabel={unitLabelOf(r)} />
                 <DeleteAssessmentButton assessmentId={r.id} unitLabel={unitLabelOf(r)} />
               </>

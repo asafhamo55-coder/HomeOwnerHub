@@ -106,7 +106,10 @@ export default async function ResidentPayPage() {
                   recipient={read.settings.recipient}
                   recipientName={read.settings.recipientName}
                   instructions={read.settings.instructions}
-                  lines={payLinesFor(charges)}
+                  lines={payLinesFor(charges, {
+                    state: units.find((u) => u.association_id === assocId)?.association_state,
+                    today: dues.today,
+                  })}
                   unitLabelFor={
                     multiUnit
                       ? (id) => unitLabel(units, charges.find((c) => c.id === id)?.unitId ?? null)
