@@ -164,6 +164,7 @@ COMMENT ON TABLE public.unapplied_credits IS
 DO $triggers$
 DECLARE
   r record;
+  v_name text;
 BEGIN
   FOR r IN
     SELECT * FROM (VALUES
@@ -173,12 +174,20 @@ BEGIN
       ('unapplied_credits', 'journal_entry_id', 'journal_entries', 'organization_id', 'organization_id')
     ) v(child, fk, parent, parent_org, child_org)
   LOOP
-    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I',
-                   r.child || '_' || r.fk || '_org_scope', r.child);
+    -- The generic trigger is named zz_org_fk_* so it fires LAST (triggers fire in name order):
+    -- a table's hand-written scope triggers keep their own error codes (42501) when they apply.
+    -- A name over 63 bytes is cut and given a short deterministic hash.
+    v_name := 'zz_org_fk_' || r.child || '_' || r.fk;
+    IF octet_length(v_name) > 63 THEN
+      v_name := left(v_name, 54) || '_' || substr(md5(v_name), 1, 8);
+    END IF;
+    -- Also drop the earlier <child>_<col>_org_scope name, in case of a partial earlier apply.
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', r.child || '_' || r.fk || '_org_scope', r.child);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', v_name, r.child);
     EXECUTE format(
       'CREATE TRIGGER %I BEFORE INSERT OR UPDATE OF %I, %I ON public.%I
          FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org(%L, %L, %L, %L)',
-      r.child || '_' || r.fk || '_org_scope', r.fk, r.child_org, r.child,
+      v_name, r.fk, r.child_org, r.child,
       r.fk, r.parent, r.parent_org, r.child_org);
   END LOOP;
 END $triggers$;
@@ -252,7 +261,7 @@ BEGIN
   ON CONFLICT (association_id, year)
   DO UPDATE SET last_seq = GREATEST(c.last_seq, v_used) + 1
   RETURNING last_seq INTO v_seq;
-  RETURN v_num;
+  RETURN v_prefix || lpad(v_seq::text, 5, '0');
 END;
 $fn$;
 
@@ -652,7 +661,7 @@ BEGIN
     RAISE EXCEPTION '0072: expected 3 same-org triggers on unapplied_credits, found %', n;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger
-                  WHERE tgrelid = 'public.collection_events'::regclass AND tgname = 'collection_events_delivery_for_event_id_org_scope') THEN
+                  WHERE tgrelid = 'public.collection_events'::regclass AND tgname = 'zz_org_fk_collection_events_delivery_for_event_id') THEN
     RAISE EXCEPTION '0072: collection_events lost its same-org trigger on delivery_for_event_id';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.unapplied_credits'::regclass) THEN

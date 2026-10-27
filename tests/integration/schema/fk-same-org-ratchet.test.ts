@@ -20,7 +20,7 @@
  * that someone has to defend in review.
  *
  * HOW TO ADD AN FK. Put it in a migration with
- *   CREATE TRIGGER <child>_<col>_org_scope BEFORE INSERT OR UPDATE OF <col>, <org col>
+ *   CREATE TRIGGER zz_org_fk_<child>_<col> BEFORE INSERT OR UPDATE OF <col>, <org col>
  *   ON <child> FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org(
  *     '<col>', '<parent>', '<parent org col>', '<child org col>');
  * and it passes here with no other change.
