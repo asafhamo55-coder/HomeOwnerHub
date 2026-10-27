@@ -79,7 +79,7 @@ export interface ProposeApprovalInput {
   amount: number | null
   /**
    * Who put the item in front of the board (BL-168, M6_APPLIED: the
-   * column exists only after migration 0070). The proposer can never be one
+   * column exists only after migration 0071). The proposer can never be one
    * of a money item's two sign-offs. Omit it before M6.
    */
   proposedBy?: string

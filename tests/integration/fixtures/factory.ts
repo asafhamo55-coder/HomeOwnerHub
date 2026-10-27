@@ -182,9 +182,9 @@ export async function makeUnit(f: OrgFixture): Promise<string> {
 export async function mintUser(
   f: OrgFixture,
   role: 'admin' | 'board' | 'resident' | 'cpa' | 'attorney',
-  // BL-168 (0070): a cpa or attorney needs an expiry; a board member may
+  // BL-168 (0071): a cpa or attorney needs an expiry; a board member may
   // carry an officer title. The columns are not in the generated Database
-  // types until gen:types runs after prod has 0070, hence the cast below.
+  // types until gen:types runs after prod has 0071, hence the cast below.
   extra: { accessExpiresAt?: string; generalCounsel?: boolean; officerTitle?: string } = {},
 ): Promise<TestUser> {
   const db = adminDb()

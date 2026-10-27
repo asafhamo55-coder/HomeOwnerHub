@@ -1,5 +1,5 @@
 /**
- * Migration 0070 (migrations/0070_m6_roles.sql, batch M6, BL-168
+ * Migration 0071 (migrations/0071_m6_roles.sql, batch M6, BL-168
  * professional and officer roles) against real Postgres. CI only (no local
  * database).
  *
@@ -19,7 +19,7 @@
  * Fixture rule (fixtures/factory.ts): adminDb() seeds; every RLS assertion
  * about a user runs through that user's own client. Ids and counts only;
  * no PII. The new columns and tables are not in the generated Database
- * types until gen:types runs after prod has 0070 (CLAUDE.md footgun 3),
+ * types until gen:types runs after prod has 0071 (CLAUDE.md footgun 3),
  * hence the casts.
  */
 import { randomUUID } from 'node:crypto'
@@ -278,7 +278,7 @@ const CPA_TABLES = [
   ['payment_plans', 'paymentPlan'],
 ] as const
 
-describe('0070 CPA: read-only accounting', () => {
+describe('0071 CPA: read-only accounting', () => {
   it.each(CPA_TABLES)('allowed: an active CPA reads %s of their org, and only that org', async (table) => {
     const mine = await rows(cpa, table)
     expect(mine.length).toBeGreaterThan(0)
@@ -341,7 +341,7 @@ describe('0070 CPA: read-only accounting', () => {
   })
 })
 
-describe('0070 attorney: assigned matters only', () => {
+describe('0071 attorney: assigned matters only', () => {
   it('allowed: the assigned case, its events, the violation, its hearing and the records request', async () => {
     expect(await rows(attorney, 'collection_cases')).toEqual([ids.case])
     expect(await rows(attorney, 'collection_events')).toEqual([ids.caseEvent])
@@ -431,7 +431,7 @@ describe('0070 attorney: assigned matters only', () => {
   })
 })
 
-describe('0070 professionals and the rest of the org', () => {
+describe('0071 professionals and the rest of the org', () => {
   it('a professional is not a member: auth_org_ids() omits them, member-read tables stay shut', async () => {
     for (const u of [cpa, attorney, counsel]) {
       const { data } = await u.client.rpc('auth_org_ids' as never)
@@ -562,7 +562,7 @@ describe('0070 professionals and the rest of the org', () => {
   })
 })
 
-describe('0070 org_members: titles, expiry, who writes which row', () => {
+describe('0071 org_members: titles, expiry, who writes which row', () => {
   const insertMember = (client: TestUser['client'], user: string, extra: Record<string, unknown>) =>
     client.from('org_members').insert({ org_id: org.orgId, user_id: user, ...extra } as never)
 
@@ -585,13 +585,15 @@ describe('0070 org_members: titles, expiry, who writes which row', () => {
     }
   })
 
-  it('board invites residents and professionals but not board or admin; admin sets officer titles; board does not', async () => {
+  it('board adds residents but not professionals, board or admin; admin sets officer titles; board does not', async () => {
     const a = await mintUser(other, 'resident')
     const b = await mintUser(other, 'resident')
     const c = await mintUser(other, 'resident')
     for (const u of [a, b, c]) await adminDb().from('org_members').delete().eq('user_id', u.id)
-    expect((await insertMember(board.client, a.id, { role: 'cpa', access_expires_at: FUTURE })).error).toBeNull()
-    expect((await insertMember(board.client, b.id, { role: 'attorney', access_expires_at: FUTURE })).error).toBeNull()
+    // A professional joins by accepting an invitation (service role), never by a REST insert.
+    expect((await insertMember(board.client, a.id, { role: 'cpa', access_expires_at: FUTURE })).error?.code).toBe('42501')
+    expect((await insertMember(board.client, b.id, { role: 'attorney', access_expires_at: FUTURE })).error?.code).toBe('42501')
+    expect((await insertMember(board.client, a.id, { role: 'resident' })).error).toBeNull()
     expect((await insertMember(board.client, c.id, { role: 'board' })).error?.code).toBe('42501')
     expect((await insertMember(board.client, c.id, { role: 'admin' })).error?.code).toBe('42501')
     expect((await insertMember(resident.client, c.id, { role: 'cpa', access_expires_at: FUTURE })).error?.code).toBe('42501')
@@ -621,7 +623,7 @@ describe('0070 org_members: titles, expiry, who writes which row', () => {
   })
 })
 
-describe('0070 matter_assignments', () => {
+describe('0071 matter_assignments', () => {
   it('board and admin assign and revoke; created_by is the caller; an attorney reads only their own live rows', async () => {
     const ins = await board.client.from('matter_assignments' as never).insert({
       organization_id: org.orgId,
@@ -666,7 +668,7 @@ describe('0070 matter_assignments', () => {
   })
 })
 
-describe('0070 dual control and sign-offs', () => {
+describe('0071 dual control and sign-offs', () => {
   const money = (extra: Record<string, unknown> = {}) => ({
     organization_id: org.orgId,
     workflow_id: 'professionals',
@@ -762,7 +764,7 @@ async function memberCount(): Promise<number> {
   return count ?? 0
 }
 
-describe('0070 hardening: dual control cannot be edited around', () => {
+describe('0071 hardening: dual control cannot be edited around', () => {
   it('H1: sign-offs do not survive an edit of the payload or the amount', async () => {
     await setThreshold(100_000)
     const id = await insertOne('approval_requests', moneyRow())
@@ -819,7 +821,7 @@ describe('0070 hardening: dual control cannot be edited around', () => {
 
   it('M2: the proposer cannot sign off their own item, and never counts toward the two', async () => {
     await setThreshold(100_000)
-    const id = await insertOne('approval_requests', moneyRow({ proposed_by: board.id }))
+    const id = await insertOne('approval_requests', moneyRow({ action_type: 'w36.ap_bill', proposed_by: board.id }))
     const own = await sign(board, id)
     expect(own.error?.code).toBe('42501')
     expect(own.error?.message ?? '').toMatch(/proposer/)
@@ -873,7 +875,7 @@ describe('0070 hardening: dual control cannot be edited around', () => {
   })
 })
 
-describe('0070 hardening: matters resolve to one home', () => {
+describe('0071 hardening: matters resolve to one home', () => {
   it('a violation-only attorney sees the oldest unit of the property, never its twin or another home', async () => {
     expect(await rows(attorneyV, 'hoa_violations')).toEqual([ids.violation])
     expect(await rows(attorneyV, 'collection_cases')).toEqual([])
@@ -931,7 +933,7 @@ describe('0070 hardening: matters resolve to one home', () => {
   })
 })
 
-describe('0070 hardening: the grant itself', () => {
+describe('0071 hardening: the grant itself', () => {
   it('L5: removing a professional ends their matters and rejects what they had pending; a re-invite starts clean', async () => {
     const pending = await insertOne('approval_requests', {
       organization_id: org.orgId,
@@ -981,7 +983,7 @@ describe('0070 hardening: the grant itself', () => {
     const forever = await adminDb().from('org_members').insert({ org_id: org.orgId, user_id: u.id, role: 'cpa', access_expires_at: '9999-12-31T00:00:00Z' } as never)
     expect(forever.error?.code).toBe('23514')
     const viaBoard = await board.client.from('org_members').insert({ org_id: org.orgId, user_id: u.id, role: 'attorney', access_expires_at: '9999-12-31T00:00:00Z' } as never)
-    expect(viaBoard.error?.code).toBe('23514')
+    expect(viaBoard.error?.code).toBe('42501')
     const extend = await board.client.from('org_members').update({ access_expires_at: '9999-12-31T00:00:00Z' } as never).eq('org_id', org.orgId).eq('user_id', cpaExpired.id).select('user_id')
     expect(extend.error?.code).toBe('23514')
     const ok = await board.client.from('org_members').update({ access_expires_at: FUTURE } as never).eq('org_id', org.orgId).eq('user_id', cpaExpired.id).select('user_id')
@@ -1004,7 +1006,7 @@ describe('0070 hardening: the grant itself', () => {
   })
 })
 
-describe('0070 hardening: professionals write nothing', () => {
+describe('0071 hardening: professionals write nothing', () => {
   it('no write on tickets, hearings, governing documents, charges, payments, budgets or sign-offs', async () => {
     const results = await Promise.all([
       attorney.client.from('tickets').update({ subject: 'x' } as never).eq('id', ids.records!).select('id'),
@@ -1031,7 +1033,7 @@ describe('0070 hardening: professionals write nothing', () => {
   })
 })
 
-describe('0070 professional_invites', () => {
+describe('0071 professional_invites', () => {
   const invite = (extra: Record<string, unknown> = {}) => ({
     organization_id: org.orgId,
     email: 'someone@example.test',
@@ -1073,5 +1075,123 @@ describe('0070 professional_invites', () => {
     const { data: after } = await adminDb().from('professional_invites' as never).select('email, role, accepted_at, revoked_at').eq('id' as never, id).single()
     expect(after).toMatchObject({ email: 'someone@example.test', role: 'cpa', accepted_at: null })
     expect((after as unknown as { revoked_at: string | null }).revoked_at).not.toBeNull()
+  })
+})
+
+// ─── second review ───────────────────────────────────────────────────
+
+describe('0071 second review', () => {
+  it('L1: a new invitation starts now and lives seven days whatever the board sends; revoking is one-way', async () => {
+    const r = await board.client
+      .from('professional_invites' as never)
+      .insert({
+        organization_id: org.orgId,
+        email: 'forced@example.test',
+        role: 'cpa',
+        access_expires_on: '2027-01-01',
+        link_expires_at: '2099-01-01T00:00:00Z',
+        created_at: '2020-01-01T00:00:00Z',
+        revoked_at: '2020-01-02T00:00:00Z',
+      } as never)
+      .select('id, link_expires_at, created_at, revoked_at')
+    expect(r.error).toBeNull()
+    const row = (r.data as unknown as Array<{ id: string; link_expires_at: string; created_at: string; revoked_at: string | null }>)[0]!
+    expect(row.revoked_at).toBeNull()
+    expect(Date.parse(row.created_at)).toBeGreaterThan(Date.now() - 60_000)
+    const days = (Date.parse(row.link_expires_at) - Date.parse(row.created_at)) / 86_400_000
+    expect(days).toBeGreaterThan(6.99)
+    expect(days).toBeLessThan(7.01)
+
+    // Revoke once; then try to bring it back, and to stretch the link.
+    await board.client.from('professional_invites' as never).update({ revoked_at: new Date().toISOString() } as never).eq('id' as never, row.id)
+    const again = await board.client
+      .from('professional_invites' as never)
+      .update({ revoked_at: null, link_expires_at: '2099-01-01T00:00:00Z' } as never)
+      .eq('id' as never, row.id)
+    expect(again.error).toBeNull()
+    const { data } = await adminDb().from('professional_invites' as never).select('revoked_at, link_expires_at').eq('id' as never, row.id).single()
+    const after = data as unknown as { revoked_at: string | null; link_expires_at: string }
+    expect(after.revoked_at).not.toBeNull()
+    expect(after.link_expires_at).toBe(row.link_expires_at)
+  })
+
+  it('L1: an invitation cannot ask for more than a year of access', async () => {
+    const r = await board.client
+      .from('professional_invites' as never)
+      .insert({ organization_id: org.orgId, email: 'long@example.test', role: 'cpa', access_expires_on: '2099-01-01' } as never)
+    expect(r.error?.code).toBe('23514')
+  })
+
+  it('L2: an association cannot be moved to another org by a board member, or silently gain an amount', async () => {
+    await adminDb().from('org_members').insert({ org_id: other.orgId, user_id: board.id, role: 'board' } as never)
+    const move = await board.client.from('associations').update({ organization_id: other.orgId } as never).eq('id', org.associationId).select('id')
+    expect(move.error?.code === '42501' || (move.data ?? []).length === 0).toBe(true)
+    const { data } = await adminDb().from('associations').select('organization_id').eq('id', org.associationId).single()
+    expect((data as unknown as { organization_id: string }).organization_id).toBe(org.orgId)
+
+    // An association created with an amount is audited as a change from nothing.
+    const created = await adminDb()
+      .from('associations')
+      .insert({ organization_id: org.orgId, name: 'Second', state: 'GA', dual_control_cents: 50_000 } as never)
+      .select('id')
+      .single()
+    expect(created.error).toBeNull()
+    const { data: audit } = await adminDb().from('audit_log').select('metadata').eq('org_id', org.orgId).eq('action', 'dual_control.set')
+    expect((audit ?? []).some((r) => (r.metadata as { new_cents?: number }).new_cents === 50_000)).toBe(true)
+  })
+
+  it('L3: an approval request keeps its action type and its organization, for everyone', async () => {
+    const id = await insertOne('approval_requests', moneyRow({ action_type: 'pro.note', amount: null }))
+    const relabel = await adminDb().from('approval_requests').update({ action_type: 'collections.letter' } as never).eq('id', id)
+    expect(relabel.error?.code).toBe('23514')
+    const move = await adminDb().from('approval_requests').update({ organization_id: other.orgId } as never).eq('id', id)
+    expect(move.error?.code).toBe('23514')
+    const { data } = await adminDb().from('approval_requests').select('action_type, organization_id').eq('id', id).single()
+    expect(data).toEqual({ action_type: 'pro.note', organization_id: org.orgId })
+  })
+
+  it('L5: a board member or admin cannot create or upgrade a professional through REST; only the invitation flow can', async () => {
+    const u = await mintUser(org, 'resident')
+    await adminDb().from('org_members').delete().eq('user_id', u.id)
+    for (const who of [board, admin]) {
+      const ins = await who.client.from('org_members').insert({ org_id: org.orgId, user_id: u.id, role: 'cpa', access_expires_at: FUTURE } as never)
+      expect(ins.error?.code, 'insert').toBe('42501')
+    }
+    // Upgrading a resident is refused too.
+    const r = await mintUser(org, 'resident')
+    const up = await admin.client.from('org_members').update({ role: 'attorney', access_expires_at: FUTURE } as never).eq('org_id', org.orgId).eq('user_id', r.id).select('user_id')
+    expect(up.error?.code).toBe('42501')
+    const { data } = await adminDb().from('org_members').select('role').eq('user_id', r.id).single()
+    expect((data as unknown as { role: string }).role).toBe('resident')
+    // The service role (the invitation flow) can; and a board member can still renew.
+    const ok = await adminDb().from('org_members').insert({ org_id: org.orgId, user_id: u.id, role: 'cpa', access_expires_at: FUTURE } as never)
+    expect(ok.error).toBeNull()
+    const renew = await board.client.from('org_members').update({ access_expires_at: FUTURE } as never).eq('org_id', org.orgId).eq('user_id', u.id).select('user_id')
+    expect(renew.error).toBeNull()
+    expect(renew.data ?? []).toHaveLength(1)
+  })
+
+  it('L4: an item from a professional whose access has ended cannot be approved until it is renewed', async () => {
+    const id = await insertOne('approval_requests', moneyRow({ action_type: 'pro.note', amount: null, proposed_by: cpaExpired.id }))
+    expect((await decide(board, id)).error?.code).toBe('23514')
+    const renewed = await board.client.from('org_members').update({ access_expires_at: FUTURE } as never).eq('org_id', org.orgId).eq('user_id', cpaExpired.id).select('user_id')
+    expect(renewed.error).toBeNull()
+    expect((await decide(board, id)).error).toBeNull()
+  })
+
+  it('L4: an assignment survives expiry and comes back with a renewal', async () => {
+    await adminDb().from('org_members').update({ access_expires_at: PAST } as never).eq('user_id', attorney.id)
+    expect(await rows(attorney, 'collection_cases')).toEqual([])
+    await board.client.from('org_members').update({ access_expires_at: FUTURE } as never).eq('org_id', org.orgId).eq('user_id', attorney.id)
+    expect(await rows(attorney, 'collection_cases')).toEqual([ids.case])
+  })
+
+  it('L7: leaving the board clears the officer title', async () => {
+    const before = await adminDb().from('org_members').select('officer_title').eq('user_id', board.id).single()
+    expect((before.data as unknown as { officer_title: string }).officer_title).toBe('treasurer')
+    const r = await admin.client.from('org_members').update({ role: 'resident' } as never).eq('org_id', org.orgId).eq('user_id', board.id).select('user_id')
+    expect(r.error).toBeNull()
+    const after = await adminDb().from('org_members').select('role, officer_title').eq('user_id', board.id).single()
+    expect(after.data).toEqual({ role: 'resident', officer_title: null })
   })
 })

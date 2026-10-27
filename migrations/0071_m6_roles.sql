@@ -1,4 +1,4 @@
--- 0070_m6_roles.sql — migration batch M6 (BL-168 professional and officer
+-- 0071_m6_roles.sql — migration batch M6 (BL-168 professional and officer
 -- roles: CPA, Attorney, Treasurer; BL-156 and BL-166 append their own parts)
 --
 -- Apply: docs/specs/2026-10-20-sql-runbook.md, Section M. Design:
@@ -24,6 +24,20 @@
 --     professional ends their assignments and rejects their pending items;
 --   * professional_invites: invitations for existing accounts grant nothing
 --     until accepted through a signed link.
+--
+-- Numbering: 0070 is the tenant-isolation hardening migration (BL-175b,
+-- 0070_tenant_isolation.sql), applied FIRST; this file is 0071 and must
+-- come after it. Both recreate auth_org_ids(): this file's version keeps the
+-- members-only role filter and must also keep 0070's suspended/archived
+-- filter, search_path and guards when the two are merged.
+--
+-- Second review (2026-10-26): the invite row's link expiry and creation time
+-- are forced, an un-revoke is refused, an invite's end date is capped;
+-- dual-control guard also watches organization_id and audits inserts;
+-- approval_requests.action_type and organization_id are immutable; only the
+-- service role (the invite flow) creates or upgrades a cpa/attorney row; an
+-- item from a professional whose grant ended cannot be approved; leaving the
+-- board clears the officer title.
 --
 -- Idempotent (safe to run any number of times).
 --
@@ -89,41 +103,41 @@ BEGIN;
 DO $pre$
 BEGIN
   IF to_regclass('public.org_members') IS NULL THEN
-    RAISE EXCEPTION '0070: org_members is missing';
+    RAISE EXCEPTION '0071: org_members is missing';
   END IF;
   IF to_regprocedure('public.auth_is_board_or_admin(uuid)') IS NULL THEN
-    RAISE EXCEPTION '0070: auth_is_board_or_admin(uuid) is missing (0012)';
+    RAISE EXCEPTION '0071: auth_is_board_or_admin(uuid) is missing (0012)';
   END IF;
   IF to_regprocedure('public.auth_is_admin(uuid)') IS NULL THEN
-    RAISE EXCEPTION '0070: auth_is_admin(uuid) is missing (0012)';
+    RAISE EXCEPTION '0071: auth_is_admin(uuid) is missing (0012)';
   END IF;
   IF to_regprocedure('public.auth_org_ids()') IS NULL THEN
-    RAISE EXCEPTION '0070: auth_org_ids() is missing (0000)';
+    RAISE EXCEPTION '0071: auth_org_ids() is missing (0000)';
   END IF;
   IF to_regclass('public.approval_requests') IS NULL THEN
-    RAISE EXCEPTION '0070: approval_requests is missing (0060)';
+    RAISE EXCEPTION '0071: approval_requests is missing (0060)';
   END IF;
   IF to_regclass('public.journal_entries') IS NULL OR to_regclass('public.assessments') IS NULL
      OR to_regclass('public.adjusting_entries') IS NULL OR to_regclass('public.budget_line_items') IS NULL THEN
-    RAISE EXCEPTION '0070: the accounting tables are missing (0006, 0061)';
+    RAISE EXCEPTION '0071: the accounting tables are missing (0006, 0061)';
   END IF;
   IF to_regclass('public.collection_cases') IS NULL OR to_regclass('public.collection_events') IS NULL THEN
-    RAISE EXCEPTION '0070: collection_cases / collection_events are missing (0047)';
+    RAISE EXCEPTION '0071: collection_cases / collection_events are missing (0047)';
   END IF;
   IF to_regclass('public.violation_hearings') IS NULL THEN
-    RAISE EXCEPTION '0070: violation_hearings is missing (0068)';
+    RAISE EXCEPTION '0071: violation_hearings is missing (0068)';
   END IF;
   IF to_regclass('public.hoa_violations') IS NULL OR to_regclass('public.tickets') IS NULL THEN
-    RAISE EXCEPTION '0070: hoa_violations / tickets are missing';
+    RAISE EXCEPTION '0071: hoa_violations / tickets are missing';
   END IF;
   IF to_regclass('public.units') IS NULL OR to_regclass('public.ownerships') IS NULL THEN
-    RAISE EXCEPTION '0070: units / ownerships are missing (0004)';
+    RAISE EXCEPTION '0071: units / ownerships are missing (0004)';
   END IF;
   IF to_regclass('public.governing_documents') IS NULL THEN
-    RAISE EXCEPTION '0070: governing_documents is missing (0004)';
+    RAISE EXCEPTION '0071: governing_documents is missing (0004)';
   END IF;
   IF to_regclass('public.compliance_deadlines_done') IS NULL THEN
-    RAISE EXCEPTION '0070: compliance_deadlines_done is missing (0067)';
+    RAISE EXCEPTION '0071: compliance_deadlines_done is missing (0067)';
   END IF;
 END $pre$;
 
@@ -674,7 +688,17 @@ SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $fn$
 BEGIN
-  IF new.dual_control_cents IS NOT DISTINCT FROM old.dual_control_cents THEN
+  IF tg_op = 'UPDATE' THEN
+    -- An association never moves to another organization through PostgREST
+    -- (it would carry its amount, or lack of one, into the other org).
+    IF current_user = 'authenticated' AND new.organization_id IS DISTINCT FROM old.organization_id THEN
+      RAISE EXCEPTION 'associations: an association cannot be moved to another organization'
+        USING errcode = '42501';
+    END IF;
+    IF new.dual_control_cents IS NOT DISTINCT FROM old.dual_control_cents THEN
+      RETURN new;
+    END IF;
+  ELSIF new.dual_control_cents IS NULL THEN
     RETURN new;
   END IF;
   IF current_user = 'authenticated'
@@ -682,9 +706,15 @@ BEGIN
     RAISE EXCEPTION 'associations: only an admin changes the dual-control amount'
       USING errcode = '42501';
   END IF;
-  INSERT INTO public.audit_log (org_id, user_id, action, entity_type, entity_id, metadata)
-  VALUES (new.organization_id, auth.uid(), 'dual_control.set', 'association', new.id,
-          jsonb_build_object('old_cents', old.dual_control_cents, 'new_cents', new.dual_control_cents));
+  IF tg_op = 'UPDATE' THEN
+    INSERT INTO public.audit_log (org_id, user_id, action, entity_type, entity_id, metadata)
+    VALUES (new.organization_id, auth.uid(), 'dual_control.set', 'association', new.id,
+            jsonb_build_object('old_cents', old.dual_control_cents, 'new_cents', new.dual_control_cents));
+  ELSE
+    INSERT INTO public.audit_log (org_id, user_id, action, entity_type, entity_id, metadata)
+    VALUES (new.organization_id, auth.uid(), 'dual_control.set', 'association', new.id,
+            jsonb_build_object('old_cents', NULL, 'new_cents', new.dual_control_cents));
+  END IF;
   RETURN new;
 END;
 $fn$;
@@ -693,7 +723,7 @@ REVOKE EXECUTE ON FUNCTION public.associations_dual_control_guard() FROM PUBLIC,
 
 DROP TRIGGER IF EXISTS associations_dual_control_guard ON public.associations;
 CREATE TRIGGER associations_dual_control_guard
-  BEFORE UPDATE OF dual_control_cents ON public.associations
+  BEFORE INSERT OR UPDATE OF dual_control_cents, organization_id ON public.associations
   FOR EACH ROW EXECUTE FUNCTION public.associations_dual_control_guard();
 
 CREATE TABLE IF NOT EXISTS public.approval_signoffs (
@@ -810,6 +840,32 @@ CREATE TRIGGER approval_requests_0_reset_signoffs
   BEFORE UPDATE OF payload, amount ON public.approval_requests
   FOR EACH ROW EXECUTE FUNCTION public.approval_requests_reset_signoffs();
 
+-- An approval request never changes what it is or whose it is: action_type
+-- and organization_id are fixed at insert, whoever updates the row. (Else a
+-- non-money row could be re-labelled after it was approved, or a money row
+-- relabelled to dodge the dual-control and money-insert rules.)
+CREATE OR REPLACE FUNCTION public.approval_requests_immutable_identity()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF new.action_type IS DISTINCT FROM old.action_type OR new.organization_id IS DISTINCT FROM old.organization_id THEN
+    RAISE EXCEPTION 'approval_requests: action_type and organization_id cannot be changed'
+      USING errcode = '23514';
+  END IF;
+  RETURN new;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.approval_requests_immutable_identity() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS approval_requests_00_immutable_identity ON public.approval_requests;
+CREATE TRIGGER approval_requests_00_immutable_identity
+  BEFORE UPDATE OF action_type, organization_id ON public.approval_requests
+  FOR EACH ROW EXECUTE FUNCTION public.approval_requests_immutable_identity();
+
 -- Dual control: a money item above the association's amount (or with no
 -- amount at all, once an amount is set) is not approved on one signature,
 -- whoever calls decide_approval_request or updates the row. Only signers
@@ -826,6 +882,21 @@ DECLARE
   v_threshold bigint;
   v_signers integer;
 BEGIN
+  -- An item from a CPA or attorney is approvable only while that person's
+  -- grant is active. A grant that has ended leaves the item waiting; renew
+  -- the grant (their matter assignments come back with it) or reject it.
+  IF new.status IN ('approved', 'posted') AND old.status NOT IN ('approved', 'posted')
+     AND new.action_type LIKE 'pro.%' AND new.proposed_by IS NOT NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM public.org_members m
+                    WHERE m.org_id = new.organization_id
+                      AND m.user_id = new.proposed_by
+                      AND m.role IN ('cpa', 'attorney')
+                      AND m.access_expires_at IS NOT NULL
+                      AND m.access_expires_at > now()) THEN
+      RAISE EXCEPTION 'approval_requests: the professional''s access has ended; renew it or reject this item'
+        USING errcode = '23514';
+    END IF;
+  END IF;
   IF new.status IN ('approved', 'posted') AND old.status NOT IN ('approved', 'posted')
      AND public.approval_is_money_action(new.action_type) THEN
     SELECT min(a.dual_control_cents) INTO v_threshold
@@ -981,9 +1052,26 @@ SET search_path = public, pg_temp
 AS $fn$
 BEGIN
   IF tg_op = 'UPDATE' THEN
+    -- Leaving the board ends the office.
+    IF old.role = 'board' AND new.role <> 'board' THEN
+      new.officer_title := NULL;
+    END IF;
     IF current_user = 'authenticated'
        AND (new.org_id IS DISTINCT FROM old.org_id OR new.user_id IS DISTINCT FROM old.user_id) THEN
       RAISE EXCEPTION 'org_members: a membership cannot be moved to another person or organization'
+        USING errcode = '42501';
+    END IF;
+  END IF;
+  -- A cpa/attorney row is created (or a member upgraded to one) only by the
+  -- service role: the invitation flow, which requires the person's own
+  -- consent. A board member or admin on PostgREST can renew, change or
+  -- remove one, never make one.
+  IF new.role IN ('cpa', 'attorney') AND current_user = 'authenticated' THEN
+    IF tg_op = 'INSERT' THEN
+      RAISE EXCEPTION 'org_members: a professional joins by accepting an invitation'
+        USING errcode = '42501';
+    ELSIF old.role NOT IN ('cpa', 'attorney') THEN
+      RAISE EXCEPTION 'org_members: a professional joins by accepting an invitation'
         USING errcode = '42501';
     END IF;
   END IF;
@@ -1114,7 +1202,10 @@ CREATE TABLE IF NOT EXISTS public.professional_invites (
   link_expires_at  timestamptz NOT NULL DEFAULT now() + interval '7 days',
   accepted_at      timestamptz,
   accepted_by      uuid        REFERENCES public.profiles(id) ON DELETE SET NULL,
-  revoked_at       timestamptz
+  revoked_at       timestamptz,
+  -- A grant requested today ends within a year (366 days leaves room for the
+  -- association's time zone against UTC).
+  CONSTRAINT professional_invites_window CHECK (access_expires_on <= ((created_at AT TIME ZONE 'UTC')::date + 366))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS professional_invites_live_uniq
@@ -1131,24 +1222,36 @@ SECURITY INVOKER
 SET search_path = public, pg_temp
 AS $fn$
 BEGIN
-  IF current_user = 'authenticated' THEN
-    IF tg_op = 'INSERT' THEN
+  IF tg_op = 'INSERT' THEN
+    -- Whatever the caller sends, a new invitation starts now, lives seven
+    -- days, and is neither accepted nor revoked.
+    new.created_at := now();
+    new.link_expires_at := now() + interval '7 days';
+    new.revoked_at := NULL;
+    IF current_user = 'authenticated' THEN
       new.created_by := auth.uid();
       new.accepted_at := NULL;
       new.accepted_by := NULL;
-    ELSE
-      -- The board may revoke; it cannot accept on anyone's behalf or edit the grant.
-      new.created_by := old.created_by;
-      new.accepted_at := old.accepted_at;
-      new.accepted_by := old.accepted_by;
-      new.email := old.email;
-      new.role := old.role;
-      new.access_expires_on := old.access_expires_on;
-      new.general_counsel := old.general_counsel;
-      new.matters := old.matters;
-      new.link_expires_at := old.link_expires_at;
-      new.organization_id := old.organization_id;
     END IF;
+  ELSIF current_user = 'authenticated' THEN
+    -- The board may revoke (NULL -> a time, once); it cannot accept on
+    -- anyone's behalf, un-revoke, extend the link, or edit the grant.
+    IF old.revoked_at IS NOT NULL THEN
+      new.revoked_at := old.revoked_at;
+    ELSIF new.revoked_at IS NOT NULL THEN
+      new.revoked_at := now();
+    END IF;
+    new.created_by := old.created_by;
+    new.created_at := old.created_at;
+    new.accepted_at := old.accepted_at;
+    new.accepted_by := old.accepted_by;
+    new.email := old.email;
+    new.role := old.role;
+    new.access_expires_on := old.access_expires_on;
+    new.general_counsel := old.general_counsel;
+    new.matters := old.matters;
+    new.link_expires_at := old.link_expires_at;
+    new.organization_id := old.organization_id;
   END IF;
   RETURN new;
 END;

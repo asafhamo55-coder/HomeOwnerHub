@@ -108,8 +108,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // One file, one entry: later parts append to it.
   '0069_m5_batch.sql',
   // M6: BL-168 professional and officer roles (security/m6-roles.test.ts).
-  // One file, one entry: BL-156 and BL-166 append to it.
-  '0070_m6_roles.sql',
+  // One file, one entry: BL-156 and BL-166 append to it. Goes AFTER
+  // '0070_tenant_isolation.sql' (BL-175b) once that is merged.
+  '0071_m6_roles.sql',
 ]
 
 /**
