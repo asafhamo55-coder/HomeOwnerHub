@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Landmark } from 'lucide-react'
-import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, useToast } from '@homeowner-portal/ui'
+import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, Select, useToast } from '@homeowner-portal/ui'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import { previewLumpPayment, recordLumpPayment } from '@/lib/payments/lump-payment-actions'
 import { expectedOf, parseDollarsToCents, type LumpPreview } from '@/lib/payments/lump-payment'
 import { isBooksNotOpen } from '@/lib/accounting/books-not-open'
@@ -12,6 +13,17 @@ import { BooksNotOpenNotice } from '../_components/BooksNotOpenNotice'
 import { formatDay, usd } from '@/lib/money/format'
 
 const dollars = (cents: number) => usd(cents / 100)
+
+/** BL-177: how the money arrived (the payments.payment_method values a board records by hand). */
+const METHOD_OPTIONS = [
+  ['check', 'Check'],
+  ['cash', 'Cash'],
+  ['ach', 'Bank transfer (ACH)'],
+  ['zelle_assisted', 'Zelle'],
+  ['card', 'Card'],
+  ['other', 'Other'],
+] as const
+type Method = (typeof METHOD_OPTIONS)[number][0]
 
 /**
  * BL-163: record one payment across a Georgia home's open charges. The
@@ -25,6 +37,10 @@ export function RecordPaymentButton({ unitId, unitLabel }: { unitId: string; uni
   const toast = useToast()
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState('')
+  // BL-177 (M7_APPLIED): method, date and note. Blank date = the association's today.
+  const [method, setMethod] = useState<Method>('check')
+  const [paidOn, setPaidOn] = useState('')
+  const [note, setNote] = useState('')
   const [error, setError] = useState<string | undefined>()
   const [preview, setPreview] = useState<LumpPreview | null>(null)
   const [booksGap, setBooksGap] = useState<{ canOpenBooks: boolean } | null>(null)
@@ -61,8 +77,15 @@ export function RecordPaymentButton({ unitId, unitLabel }: { unitId: string; uni
       const r = await recordLumpPayment({
         unitId,
         amount: cents / 100,
-        paymentMethod: 'other',
+        paymentMethod: M7_APPLIED ? method : 'other',
         expected: expectedOf(preview),
+        ...(M7_APPLIED
+          ? {
+              expectedCreditCents: preview.unappliedCents,
+              ...(paidOn ? { paidOn } : {}),
+              ...(note.trim() ? { note: note.trim() } : {}),
+            }
+          : {}),
       })
       if (isBooksNotOpen(r)) {
         setBooksGap({ canOpenBooks: r.canOpenBooks })
@@ -76,16 +99,25 @@ export function RecordPaymentButton({ unitId, unitLabel }: { unitId: string; uni
       }
       setOpen(false)
       setAmount('')
+      setPaidOn('')
+      setNote('')
       reset()
+      const credit = r.creditCents ?? 0
       toast({
         tone: 'success',
-        message: `${dollars(r.recordedCents)} recorded across ${r.chargeCount} ${r.chargeCount === 1 ? 'charge' : 'charges'} for ${unitLabel}.`,
+        message:
+          r.chargeCount === 0
+            ? `${dollars(credit)} kept as credit for ${unitLabel}.`
+            : `${dollars(r.recordedCents)} recorded across ${r.chargeCount} ${r.chargeCount === 1 ? 'charge' : 'charges'} for ${unitLabel}${credit > 0 ? `, and ${dollars(credit)} kept as credit` : ''}.`,
       })
       router.refresh()
     })
   }
 
-  const blocked = preview !== null && (preview.lines.length === 0 || preview.unappliedCents > 0)
+  // Before M7 an overpayment cannot be saved; after it the rest becomes credit.
+  const blocked =
+    preview !== null &&
+    (M7_APPLIED ? preview.lines.length === 0 && preview.unappliedCents === 0 : preview.lines.length === 0 || preview.unappliedCents > 0)
 
   return (
     <Dialog
@@ -111,7 +143,7 @@ export function RecordPaymentButton({ unitId, unitLabel }: { unitId: string; uni
             </Button>
             {preview ? (
               <Button onClick={save} loading={pending} disabled={blocked}>
-                Record {dollars(preview.appliedCents)}
+                Record {dollars(M7_APPLIED ? preview.totalCents : preview.appliedCents)}
               </Button>
             ) : (
               <Button type="submit" form={`record-payment-${unitId}`} loading={pending}>
@@ -135,6 +167,27 @@ export function RecordPaymentButton({ unitId, unitLabel }: { unitId: string; uni
               disabled={pending}
             />
           </Field>
+          {M7_APPLIED ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="How it was paid">
+                  <Select value={method} onValueChange={(v) => setMethod(v as Method)} disabled={pending}>
+                    {METHOD_OPTIONS.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Date received (blank = today)">
+                  <Input type="date" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} disabled={pending} />
+                </Field>
+              </div>
+              <Field label="Note (optional, for the books)">
+                <Input value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} disabled={pending} placeholder="Check no. 1042" />
+              </Field>
+            </>
+          ) : null}
         </form>
 
         {preview ? <SplitTable preview={preview} /> : null}
@@ -156,7 +209,11 @@ function SplitTable({ preview }: { preview: LumpPreview }) {
         {preview.mode === 'ga_statutory' ? 'Split in Georgia’s required order' : 'Split, oldest charge first'}
       </p>
       {preview.lines.length === 0 ? (
-        <p className="text-sm text-muted">Nothing is due on this home right now, so there is nothing to apply this payment to.</p>
+        <p className="text-sm text-muted">
+          {M7_APPLIED && preview.unappliedCents > 0
+            ? 'Nothing is due on this home right now, so none of this payment goes to a charge.'
+            : 'Nothing is due on this home right now, so there is nothing to apply this payment to.'}
+        </p>
       ) : (
         <ol className="divide-y divide-border rounded-lg border border-border text-sm">
           {preview.lines.map((l) => (
@@ -182,7 +239,13 @@ function SplitTable({ preview }: { preview: LumpPreview }) {
           ))}
         </ol>
       )}
-      {preview.unappliedCents > 0 ? (
+      {preview.unappliedCents > 0 && M7_APPLIED ? (
+        <p className="rounded-lg border border-border p-3 text-sm">
+          {dollars(preview.unappliedCents)} is more than is currently due ({dollars(preview.eligibleCents)}). It will be kept as a credit on this
+          home and shown on its ledger.
+        </p>
+      ) : null}
+      {preview.unappliedCents > 0 && !M7_APPLIED ? (
         <p className="rounded-lg border border-border p-3 text-sm">
           {dollars(preview.unappliedCents)} is more than is currently due ({dollars(preview.eligibleCents)}). It can’t be saved here:
           lower the amount to {dollars(preview.eligibleCents)}, then record the rest on a charge you choose with Mark paid.

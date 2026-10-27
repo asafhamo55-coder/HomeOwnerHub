@@ -218,3 +218,19 @@ describe('buildLedger — payments dated on the association day (BL-043)', () =>
     expect(entries[0].date).toBe('2026-10-01')
   })
 })
+
+describe('buildLedger: unapplied credit (BL-177)', () => {
+  const credit = { id: 'c1', unit_id: U1, remaining: 25, received_on: '2026-10-05', payment_method: 'check' }
+
+  it('shows the credit as money in and takes it off the balance', () => {
+    const { entries, totals } = buildLedger([charge({ id: 'a1', due_date: '2026-10-01', amount: 100, status: 'paid' })], [pay({ id: 'p1', paid_at: '2026-10-05T15:00:00Z', amount: 100, assessment_id: 'a1' })], 'America/New_York', [credit])
+    const c = entries.find((e) => e.kind === 'credit')!
+    expect(c).toMatchObject({ description: 'Unapplied credit · Check', payment: 25 })
+    expect(entries.at(-1)!.balance).toBe(-25)
+    expect(totals).toMatchObject({ credits: 25, balance: -25 })
+  })
+  it('ignores a used-up credit, and without credits the ledger is unchanged', () => {
+    const a = [charge({ id: 'a1', due_date: '2026-10-01', amount: 100 })]
+    expect(buildLedger(a, [], 'America/New_York', [{ ...credit, remaining: 0 }])).toEqual(buildLedger(a, [], 'America/New_York'))
+  })
+})

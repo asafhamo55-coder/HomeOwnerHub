@@ -112,6 +112,10 @@ export const MIGRATION_MANIFEST: string[] = [
   // M6: BL-168 professional and officer roles (security/m6-roles.test.ts).
   // One file, one entry: BL-156 and BL-166 append to it.
   '0071_m6_roles.sql',
+  // M7: BL-166 mail tracking on collection_events, BL-177 record_lump_payment()
+  // + unapplied_credits, BL-176 admin-only state/type trigger on associations
+  // (security/m7-batch.test.ts). One file, one entry.
+  '0072_m7_batch.sql',
 ]
 
 /**

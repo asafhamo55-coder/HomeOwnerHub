@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { Alert, Button, Card, CardContent, Input, Select, Textarea, Field } from '@homeowner-portal/ui'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import { recordCollectionEvent } from '@/lib/collections/actions'
+import { MAIL_METHODS, MAIL_METHOD_LABELS, isStatutoryMethod, type MailMethod } from '@/lib/collections/mail-tracking'
 import { StateLawCheckPanel } from '@/components/compliance/StateLawCheckPanel'
 import type { DriftCheck, DriftCode, OverrideReason } from '@/lib/compliance/statute-drift'
 import {
@@ -14,6 +16,9 @@ import {
   type CollectionStatus,
 } from '@/lib/collections/statuses'
 
+/** BL-166: the events a mailing can be recorded on (a notice went out, or a note about one). */
+const MAIL_EVENT_TYPES: CollectionEventType[] = ['note', 'collection_letter_sent', 'lien_warning_sent', 'lien_letter_sent', 'demand_letter_sent']
+
 /**
  * Append one action to the case trail.
  *
@@ -24,14 +29,19 @@ export function RecordCollectionEvent({
   caseId,
   currentStatus,
   today,
+  mailings = [],
 }: {
   caseId: string
   currentStatus: CollectionStatus
   /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
   today: string
+  /** BL-166: earlier mailed entries without a delivery yet, for "this is the delivery of…". */
+  mailings?: Array<{ id: string; label: string }>
 }) {
   const [open, setOpen] = useState(false)
   const [eventType, setEventType] = useState<CollectionEventType>('note')
+  // BL-166: how it was mailed, once M7_APPLIED. '' = not recorded.
+  const [mailMethod, setMailMethod] = useState<MailMethod | ''>('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   // BL-149: the state law check the server ran on "Lien filed", and the board's override reasons.
@@ -42,6 +52,7 @@ export function RecordCollectionEvent({
   const implied = statusImpliedBy(eventType)
   // Only offer to move the stage when it would actually change something.
   const wouldAdvance = implied !== null && implied !== currentStatus
+  const showMail = M7_APPLIED && MAIL_EVENT_TYPES.includes(eventType)
 
   if (!open) {
     return (
@@ -80,6 +91,15 @@ export function RecordCollectionEvent({
                 amount: rawAmount === '' ? undefined : Number(rawAmount),
                 actorInitials: String(formData.get('actorInitials') ?? '').trim() || undefined,
                 advanceStatus: formData.get('advanceStatus') === 'on',
+                ...(M7_APPLIED && showMail && mailMethod
+                  ? {
+                      mailMethod,
+                      trackingNumber: String(formData.get('trackingNumber') ?? '').trim() || undefined,
+                      mailedOn: String(formData.get('mailedOn') ?? '') || undefined,
+                      deliveredOn: String(formData.get('deliveredOn') ?? '') || undefined,
+                      deliveryForEventId: String(formData.get('deliveryForEventId') ?? '') || undefined,
+                    }
+                  : {}),
                 ...(eventType === 'lien_filed' && Object.keys(lawOverrides).length > 0
                   ? { lawOverrides: lawOverrides as Record<DriftCode, OverrideReason> }
                   : {}),
@@ -130,6 +150,52 @@ export function RecordCollectionEvent({
           <Field label="Note (optional)">
             <Textarea name="note" rows={2} placeholder="D&amp;D sent dvl to owner" />
           </Field>
+
+          {showMail ? (
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <p className="text-sm font-medium">How and when it was mailed (optional)</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="How it was sent">
+                  <Select name="mailMethod" value={mailMethod} onValueChange={(v) => setMailMethod(v as MailMethod | '')}>
+                    <option value="">Not recorded</option>
+                    {MAIL_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {MAIL_METHOD_LABELS[m]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {mailMethod ? (
+                  <>
+                    <Field label="Tracking number (optional)">
+                      <Input name="trackingNumber" maxLength={100} />
+                    </Field>
+                    <Field label="Mailed on">
+                      <Input type="date" name="mailedOn" max={today} />
+                    </Field>
+                    <Field label="Delivered on">
+                      <Input type="date" name="deliveredOn" max={today} />
+                    </Field>
+                    {mailings.length > 0 ? (
+                      <Field label="This is the delivery of (optional)">
+                        <select name="deliveryForEventId" defaultValue="" className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm">
+                          <option value="">An entry of its own</option>
+                          {mailings.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+              {mailMethod && !isStatutoryMethod(mailMethod) ? (
+                <p className="text-xs text-muted">Georgia’s waiting periods start only from certified mail or statutory overnight delivery.</p>
+              ) : null}
+            </div>
+          ) : null}
 
           {wouldAdvance ? (
             <label className="flex items-center gap-2 text-sm">

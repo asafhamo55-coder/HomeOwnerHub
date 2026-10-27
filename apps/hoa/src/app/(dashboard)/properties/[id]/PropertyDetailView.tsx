@@ -70,6 +70,7 @@ import { ContactIcons } from '@/components/contact/ContactIcons'
 import { ContactLink } from '@/components/contact/ContactLink'
 import { ActiveTabIntoView } from './ActiveTabIntoView'
 import { AddResidentForm } from './AddResidentForm'
+import { ApplyCreditButton } from './ApplyCreditButton'
 import { CollectionsSection } from './CollectionsSection'
 import type { GaThresholdRead } from './GaThresholdPanel'
 import type { GaComplaintRead } from './GaComplaintPanel'
@@ -745,6 +746,7 @@ function MoneySection({
   /** BL-161: the Georgia complaint record read; null when the viewer isn't board/admin. */
   gaComplaints: GaComplaintRead | null
 }) {
+  const canApplyCredit = letterHref !== null
   const stats = data.stats
   const lastPayment = data.payments?.ok ? (data.payments.data[0] ?? null) : null
   const plan = data.plans?.ok ? (data.plans.data.find((x) => x.status === 'active' || x.status === 'proposed') ?? data.plans.data[0] ?? null) : null
@@ -817,6 +819,28 @@ function MoneySection({
           )}
         </CardContent>
       </Card>
+
+      {data.credit && data.credit.ok && data.credit.data.cents > 0 ? (
+        <p className="px-1 text-sm" data-testid="unapplied-credit">
+          Credit on account: <span className="num font-medium">{usd(data.credit.data.cents / 100)}</span>
+          <span className="text-muted"> (money received beyond what was due; not yet applied to a charge)</span>
+          {canApplyCredit && data.openAssessments && data.openAssessments.ok ? (
+            <span className="ml-2">
+              <ApplyCreditButton
+                credits={data.credit.data.items}
+                charges={data.openAssessments.data
+                  .map((a) => ({
+                    id: a.id,
+                    label: a.assessment_type.replace(/_/g, ' '),
+                    dueDate: a.due_date,
+                    remainingCents: Math.round(Number(a.amount) * 100) - (a.payments ?? []).reduce((n, p) => n + Math.round(Number(p.amount) * 100), 0),
+                  }))
+                  .filter((c) => c.remainingCents > 0)}
+              />
+            </span>
+          ) : null}
+        </p>
+      ) : null}
 
       <UnitGate part={data.ledger} what="the ledger" unlinked="No unit linked.">
         {(ledger) => (

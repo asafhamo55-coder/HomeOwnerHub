@@ -248,7 +248,7 @@ export function kindsFor(j: LetterJurisdiction, gaCondo = false): LetterKind[] {
 
 export type LetterInput = Pick<
   EstoppelInput,
-  'state' | 'associationType' | 'associationName' | 'propertyId' | 'address' | 'unitNumber' | 'unitId' | 'lotNumber' | 'owners' | 'charges' | 'payments' | 'plans' | 'planInstallmentIds' | 'timeZone'
+  'state' | 'associationType' | 'associationName' | 'propertyId' | 'address' | 'unitNumber' | 'unitId' | 'lotNumber' | 'owners' | 'charges' | 'payments' | 'plans' | 'planInstallmentIds' | 'timeZone' | 'unappliedCreditCents'
 > & {
   /**
    * BL-149: the association's Georgia SB 406 registration, verified on the
@@ -257,6 +257,8 @@ export type LetterInput = Pick<
   gaRegistration?: GaRegistrationStatusOnly
   /** BL-161: this home's Secretary of State complaints (verified on the server). Georgia only. */
   gaComplaintStay?: GaComplaintStayGate
+  /** BL-166: set by the loader when M7_APPLIED, so the delivery warnings point at the mailing form. */
+  mailTracking?: boolean
 }
 
 /** A recorded collections event (collection_events), as the waiting rule reads it. */
@@ -924,13 +926,15 @@ export interface PrintedLetterRecord {
   kind: LetterKind
   /** The first print's timestamp (audit_log created_at). */
   printedAt: string
+  /** BL-166 (M7_APPLIED): the recorded delivery day, for a certified / statutory-overnight mailing only (clockStartOf). */
+  deliveredOn?: string | null
 }
 
 /** Printed letters as association days, for the check's waiting periods. */
 export function printedLetters(records: readonly PrintedLetterRecord[], timeZone: string): PrintedLetter[] {
   return records.flatMap((r) => {
     const day = dayOf(r.printedAt, timeZone)
-    return day ? [{ kind: r.kind, printedOn: day }] : []
+    return day ? [{ kind: r.kind, printedOn: day, ...(r.deliveredOn ? { deliveredOn: r.deliveredOn } : {}) }] : []
   })
 }
 
@@ -941,7 +945,7 @@ export function printedLetters(records: readonly PrintedLetterRecord[], timeZone
  * lists, and the case's history.
  */
 export function letterLawCheck(
-  input: Pick<LetterInput, 'state' | 'associationType' | 'timeZone' | 'gaRegistration' | 'gaComplaintStay'>,
+  input: Pick<LetterInput, 'state' | 'associationType' | 'timeZone' | 'gaRegistration' | 'gaComplaintStay' | 'mailTracking'>,
   letter: Letter,
   values: FieldValues,
   events: LetterEvent[],
@@ -951,6 +955,7 @@ export function letterLawCheck(
   return checkCollectionsLetter({
     gaRegistration: input.gaRegistration,
     gaComplaintStay: input.gaComplaintStay,
+    ...(input.mailTracking ? { mailTracking: true } : {}),
     state: input.state,
     // BL-155: the SB 406 § 7 fee rules are Article 6's, not a condominium's.
     gaCondo: isGaCondo(input.state, input.associationType),

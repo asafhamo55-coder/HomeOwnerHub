@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import type { CollectionEventType, CollectionStatus } from './statuses'
+import type { MailMethod } from './mail-tracking'
 
 /**
  * Reads for the collections system of record.
@@ -29,6 +31,13 @@ export interface CollectionEvent {
   actorInitials: string | null
   communicationId: string | null
   createdAt: string
+  /** BL-166 (M7_APPLIED): present only when the mail columns were read. */
+  mailMethod?: MailMethod | null
+  trackingNumber?: string | null
+  mailedOn?: string | null
+  deliveredOn?: string | null
+  /** The earlier event this one delivers (a delivery event), or null. */
+  deliveryForEventId?: string | null
 }
 
 export const CASE_COLUMNS =
@@ -36,6 +45,14 @@ export const CASE_COLUMNS =
 
 export const EVENT_COLUMNS =
   'id, event_type, occurred_on, note, amount, actor_initials, communication_id, created_at'
+
+/** BL-166: columns 0072 adds. Read only after M7_APPLIED (before it they do not exist). */
+export const MAIL_EVENT_COLUMNS = 'mail_method, tracking_number, mailed_on, delivered_on, delivery_for_event_id'
+
+/** The event columns to select: the mail columns join them once 0072 is applied. */
+export function eventColumns(): string {
+  return M7_APPLIED ? `${EVENT_COLUMNS}, ${MAIL_EVENT_COLUMNS}` : EVENT_COLUMNS
+}
 
 export function toCase(r: Record<string, unknown>): CollectionCase {
   return {
@@ -109,7 +126,7 @@ export async function listEventsForCase(
 ): Promise<CollectionEvent[]> {
   const { data, error } = await supabase
     .from('collection_events')
-    .select(EVENT_COLUMNS)
+    .select(eventColumns())
     .eq('collection_case_id', caseId)
     .order('occurred_on', { ascending: false })
     .order('created_at', { ascending: false })
@@ -117,7 +134,7 @@ export async function listEventsForCase(
 
   if (error) throw new Error(`collections: event list failed: ${error.message}`)
 
-  return ((data ?? []) as Record<string, unknown>[]).map(toEvent)
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toEvent)
 }
 
 /** A collection_events row (EVENT_COLUMNS) in the shape the UI reads. */
@@ -133,6 +150,15 @@ export function toEvent(r: Record<string, unknown>): CollectionEvent {
     actorInitials: (r.actor_initials as string | null) ?? null,
     communicationId: (r.communication_id as string | null) ?? null,
     createdAt: String(r.created_at),
+    ...('mail_method' in r
+      ? {
+          mailMethod: (r.mail_method as MailMethod | null) ?? null,
+          trackingNumber: (r.tracking_number as string | null) ?? null,
+          mailedOn: (r.mailed_on as string | null) ?? null,
+          deliveredOn: (r.delivered_on as string | null) ?? null,
+          deliveryForEventId: (r.delivery_for_event_id as string | null) ?? null,
+        }
+      : {}),
   }
 }
 

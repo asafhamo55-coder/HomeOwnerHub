@@ -541,6 +541,12 @@ export function daysBetween(a: string, b: string): number | null {
   return x === null || y === null ? null : Math.round((y - x) / 86_400_000)
 }
 
+/** `day` plus `n` calendar days (YYYY-MM-DD in, YYYY-MM-DD out). */
+function addDaysIso(day: string, n: number): string {
+  const ms = dayMs(day)
+  return ms === null ? day : new Date(ms + n * 86_400_000).toISOString().slice(0, 10)
+}
+
 function finding(code: DriftCode, severity: DriftSeverity, message: string, citations: DriftCitation[], overrideReasons: OverrideReason[] = []): DriftFinding {
   return { code, severity, message, citations, overrideReasons: severity === 'block' ? [...overrideReasons, 'attorney_advised'] : [] }
 }
@@ -865,6 +871,13 @@ export interface PrintedLetter {
   kind: string
   /** The association day it was first printed (YYYY-MM-DD). */
   printedOn: string
+  /**
+   * BL-166 (M7_APPLIED only): the day the owner RECEIVED it, recorded by
+   * the board for a certified or statutory-overnight mailing. The 30-day
+   * fee-notice clock counts from here instead of from printedOn. Absent or
+   * null = not recorded (the clock falls back to printedOn and warns).
+   */
+  deliveredOn?: string | null
 }
 
 export interface LetterCheckInput {
@@ -892,6 +905,8 @@ export interface LetterCheckInput {
   gaCondo?: boolean
   /** BL-161: Georgia only, this home's recorded complaints, checked on the letter date. undefined = not loaded. */
   gaComplaintStay?: GaComplaintStayGate
+  /** BL-166: the board can record mailing and delivery (M7_APPLIED). Changes the wording of the delivery warnings only. */
+  mailTracking?: boolean
 }
 
 /** The letter check reads the status only: the letter date is the day it is checked on. */
@@ -981,19 +996,40 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
         finding(
           'ga_fee_notice_delivery',
           'warn',
-          'Send this notice by certified mail or statutory overnight delivery. The owner’s 30 days to pay run from the day they receive it. HomeownerHub doesn’t record how it was mailed or when it was received: keep the receipt, and add the tracking number and delivery date as a note on the collections case.',
+          input.mailTracking
+            ? 'Send this notice by certified mail or statutory overnight delivery. The owner’s 30 days to pay run from the day they receive it. After printing, record how and when it was mailed and the delivery date on this page: the attorney’s-fee check counts the 30 days from that delivery date.'
+            : 'Send this notice by certified mail or statutory overnight delivery. The owner’s 30 days to pay run from the day they receive it. HomeownerHub doesn’t record how it was mailed or when it was received: keep the receipt, and add the tracking number and delivery date as a note on the collections case.',
           [GA_SB406_NOTICE, GA_SB406_RECEIPT],
         ),
       )
     } else if (has(ATTORNEY_FEE_TYPES) && input.letterDate >= GA_SB406_FEES_FROM) {
-      const noticed = input.printed.some((p) => p.kind === 'ga_fee_notice' && atLeast(p.printedOn, GA_FEE_NOTICE_DAYS))
-      if (noticed) {
+      const notices = input.printed.filter((p) => p.kind === 'ga_fee_notice')
+      // BL-166: a delivery date the board recorded decides the clock. Thirty
+      // days after it is a clean pass; before that the owner's time has not run.
+      const delivered = notices.filter((p) => p.deliveredOn)
+      const receiptCleared = delivered.some((p) => atLeast(p.deliveredOn!, GA_FEE_NOTICE_DAYS))
+      const waitingOnReceipt = delivered.length > 0 && !receiptCleared
+      const noticed = notices.some((p) => !p.deliveredOn && atLeast(p.printedOn, GA_FEE_NOTICE_DAYS))
+      if (receiptCleared) {
+        // Recorded delivery at least 30 days ago: nothing to confirm.
+      } else if (noticed) {
         findings.push(
           finding(
             'ga_attorney_fees_receipt',
             'warn',
             'A Georgia notice before attorney’s fees was printed on this case at least 30 days ago. The 30 days run from the day the owner received it, which HomeownerHub doesn’t record. Confirm the receipt date, and that the owner was given an itemized list of the attorney’s fees claimed.',
             [GA_SB406_RECEIPT, GA_SB406_ITEMIZED],
+          ),
+        )
+      } else if (waitingOnReceipt) {
+        const soonest = delivered.map((p) => p.deliveredOn!).sort().pop()!
+        findings.push(
+          finding(
+            'ga_attorney_fees_prerequisites',
+            'block',
+            `This letter lists attorney’s fees. The notice before attorney’s fees was delivered on ${soonest}, and the owner has 30 days from receipt to pay. Those 30 days have not run yet; they end ${addDaysIso(soonest, GA_FEE_NOTICE_DAYS)}.`,
+            [GA_SB406_FEES, GA_SB406_NOTICE, GA_SB406_RECEIPT],
+            ['notice_sent_outside_app', 'emergency_conditions'],
           ),
         )
       } else {
@@ -1014,7 +1050,11 @@ export function checkCollectionsLetter(input: LetterCheckInput): DriftCheck {
         finding(
           'ga_foreclosure_notice_delivery',
           'warn',
-          `Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the owner at the lot’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than ${sb406In2027 ? 60 : 30} days after it is sent. HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.`,
+          `Send this notice by certified mail or statutory overnight delivery, return receipt requested, to the owner at the lot’s address and at every other address the owner gave the association in writing. The lien can be foreclosed no sooner than ${sb406In2027 ? 60 : 30} days after it is sent. ${
+            input.mailTracking
+              ? 'After printing, record how and when it was mailed and the delivery date on this page: the earliest foreclosure date is counted from the delivery date.'
+              : 'HomeownerHub doesn’t record how it was mailed: keep the receipts, and add the tracking numbers as a note on the collections case.'
+          }`,
           [sb406In2027 ? GA_232C_2027_NOTICE : GA_232C_NOTICE],
         ),
       )

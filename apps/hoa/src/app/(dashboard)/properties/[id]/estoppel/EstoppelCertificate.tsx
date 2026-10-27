@@ -459,10 +459,20 @@ export function CertificateDocument({ cert, input, values, printClass }: { cert:
           </Row>
           <Line field={field('paidThrough')} values={values} />
           <Line field={field('nextDue')} values={values} />
-          <Row label="Current balance owed on the date of issuance">
+          <Row label={f.creditOnAccountCents > 0 ? 'Current balance owed on the date of issuance, before credit' : 'Current balance owed on the date of issuance'}>
             <span className="num font-semibold">{usdCents(f.currentBalanceCents)}</span>
             {f.pastDueCents > 0 ? <span className="num block text-xs text-foreground-secondary">of which {usdCents(f.pastDueCents)} is past due</span> : null}
           </Row>
+          {f.creditOnAccountCents > 0 ? (
+            <>
+              <Row label="Credit on account, not applied to a charge">
+                <span className="num">{usdCents(f.creditOnAccountCents)}</span>
+              </Row>
+              <Row label="Total due after credit">
+                <span className="num font-semibold">{usdCents(f.totalDueAfterCreditCents)}</span>
+              </Row>
+            </>
+          ) : null}
         </dl>
         <h4 className="pt-2 font-medium text-foreground">Itemized amounts owed on the date of issuance</h4>
         <Items items={f.owedItems} empty="Nothing is owed on the date of issuance." />

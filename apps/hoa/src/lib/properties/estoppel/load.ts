@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { installmentsByPlan, loadInstallments } from '@homeowner-portal/workflows/payment-plans'
-import { loadLedgerRows } from '@/lib/resident-ledger'
+import { loadLedgerRows, loadUnappliedCredits } from '@/lib/resident-ledger'
 import { readAll } from '@/lib/supabase/read-all'
 import { todayIn } from '@/lib/association-time'
 import type { CollectionStatus } from '@/lib/collections/statuses'
@@ -91,6 +91,10 @@ export async function loadEstoppelInput(
   ])
   if (!ledger.ok) throw new Error('estoppel: ledger read failed')
   if (ledger.truncated) throw new Error('estoppel: ledger has more rows than one read returns; refusing a partial certificate')
+  // BL-177: unapplied credit, shown on the certificate as its own line (none, and no query, before M7_APPLIED).
+  const credits = await loadUnappliedCredits(supabase as unknown as SupabaseClient<Database>, unitIds, orgId)
+  if (!credits.ok) throw new Error('estoppel: credit read failed')
+  const unappliedCreditCents = credits.credits.reduce((n, c) => n + Math.round(c.remaining * 100), 0)
 
   const unit = unitRows[0] ?? null
   const unitAssoc = unit?.association_id ? assoc.rows.find((a) => a.id === unit.association_id) : undefined
@@ -155,6 +159,7 @@ export async function loadEstoppelInput(
       planInstallmentIds,
       collectionCase: live ? { id: live.id, status: live.status as CollectionStatus, attorneyFirm: live.attorney_firm } : null,
       timeZone: assoc.timeZone,
+      ...(unappliedCreditCents > 0 ? { unappliedCreditCents } : {}),
     },
   }
 }

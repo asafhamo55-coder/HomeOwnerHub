@@ -7,6 +7,7 @@ import {
   collectionStatusLabel,
   collectionStatusTone,
 } from '@/lib/collections/statuses'
+import { describeMail } from '@/lib/collections/mail-tracking'
 import { RecordCollectionEvent } from './RecordCollectionEvent'
 import { OpenCollectionCase } from './OpenCollectionCase'
 import { Suspense } from 'react'
@@ -132,7 +133,14 @@ export function CollectionsSection({
 
       {complaints}
 
-      <RecordCollectionEvent caseId={openCase.id} currentStatus={openCase.status} today={today} />
+      <RecordCollectionEvent
+        caseId={openCase.id}
+        currentStatus={openCase.status}
+        today={today}
+        mailings={events
+          .filter((e) => e.mailMethod && !e.deliveredOn && !events.some((d) => d.deliveryForEventId === e.id))
+          .map((e) => ({ id: e.id, label: `${collectionEventLabel(e.eventType)} ${e.occurredOn}${e.trackingNumber ? ` · ${e.trackingNumber}` : ''}` }))}
+      />
 
       <Card>
         <CardHeader>
@@ -164,6 +172,17 @@ export function CollectionsSection({
                       </span>
                     ) : null}
                     {e.note ? <span className="block text-muted">{e.note}</span> : null}
+                    {/* BL-166: only present once the mail columns are read (M7_APPLIED). */}
+                    {e.mailMethod ? (
+                      <span className="block text-xs text-muted">
+                        {describeMail({
+                          method: e.mailMethod,
+                          trackingNumber: e.trackingNumber ?? null,
+                          mailedOn: e.mailedOn ?? null,
+                          deliveredOn: e.deliveredOn ?? null,
+                        })}
+                      </span>
+                    ) : null}
                   </span>
                   {e.actorInitials ? (
                     <span className="shrink-0 text-xs uppercase text-muted">{e.actorInitials}</span>
