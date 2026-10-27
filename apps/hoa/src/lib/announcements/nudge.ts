@@ -1,9 +1,15 @@
 /**
- * BL-173: "the next occasion within 7 days" for the dashboard card and the
+ * BL-173: "the next occasion coming up" for the dashboard card and the
  * digest line. A static date table, no database.
  *
  * Each rule gives one date per year. The nudge key is `<occasion>:<year of
  * the date>`, so dismissing Halloween 2026 does not hide Halloween 2027.
+ * Because the key is per occasion, every entry has its own occasion id
+ * (daylight saving ending and starting are two occasions).
+ *
+ * Each entry can set `leadDays`, how far ahead it appears (default 7).
+ * When several fall in their windows at once, the nearest is the card and
+ * the rest are listed in `others` (one card, never a stack).
  *
  * Pure and client-safe. Nothing here logs.
  */
@@ -20,28 +26,54 @@ export interface NudgeEntry {
   rule: Rule
   /** The short name used in "<name> is Friday". */
   name: string
+  /**
+   * Days ahead the card first appears. Defaults to NUDGE_WINDOW_DAYS (7).
+   * Greetings 3 to 5; things that need planning 10 to 14.
+   */
+  leadDays?: number
 }
 
 /**
  * Only occasions with a date that does not move with the community. Yard
  * sale, meetings, trash, landscaping and pet reminders have no date of
  * their own, so they are never nudged (they are always one tap away on the
- * grid).
+ * grid). No religious-only holidays: "The holidays" is the one general
+ * seasonal greeting.
  */
 export const NUDGE_TABLE: readonly NudgeEntry[] = [
-  { occasionId: 'new-year', name: 'New Year', rule: { kind: 'fixed', month: 1, day: 1 } },
-  { occasionId: 'severe-weather', name: 'Hurricane season', rule: { kind: 'fixed', month: 6, day: 1 } },
-  { occasionId: 'pool-opening', name: 'Memorial Day', rule: { kind: 'nth', month: 5, weekday: 1, n: -1 } },
+  // New Year: nudged from Dec 25, the week the board is writing holiday notes.
+  { occasionId: 'new-year', name: 'New Year', rule: { kind: 'fixed', month: 1, day: 1 }, leadDays: 7 },
+  { occasionId: 'mlk-day', name: 'Martin Luther King Jr. Day', rule: { kind: 'nth', month: 1, weekday: 1, n: 3 }, leadDays: 5 },
+  { occasionId: 'valentines-day', name: "Valentine's Day", rule: { kind: 'fixed', month: 2, day: 14 }, leadDays: 3 },
+  { occasionId: 'presidents-day', name: "Presidents' Day", rule: { kind: 'nth', month: 2, weekday: 1, n: 3 }, leadDays: 5 },
+  { occasionId: 'dst-starts', name: 'The start of daylight saving time', rule: { kind: 'nth', month: 3, weekday: 0, n: 2 }, leadDays: 7 },
+  { occasionId: 'earth-day', name: 'Earth Day', rule: { kind: 'fixed', month: 4, day: 22 }, leadDays: 10 },
+  { occasionId: 'mothers-day', name: "Mother's Day", rule: { kind: 'nth', month: 5, weekday: 0, n: 2 }, leadDays: 5 },
   { occasionId: 'graduation', name: 'Graduation season', rule: { kind: 'fixed', month: 5, day: 20 } },
-  { occasionId: 'fourth-of-july', name: 'The Fourth of July', rule: { kind: 'fixed', month: 7, day: 4 } },
+  { occasionId: 'pool-opening', name: 'Memorial Day', rule: { kind: 'nth', month: 5, weekday: 1, n: -1 }, leadDays: 10 },
+  { occasionId: 'severe-weather', name: 'Hurricane season', rule: { kind: 'fixed', month: 6, day: 1 } },
+  { occasionId: 'juneteenth', name: 'Juneteenth', rule: { kind: 'fixed', month: 6, day: 19 }, leadDays: 5 },
+  { occasionId: 'fathers-day', name: "Father's Day", rule: { kind: 'nth', month: 6, weekday: 0, n: 3 }, leadDays: 5 },
+  { occasionId: 'fourth-of-july', name: 'The Fourth of July', rule: { kind: 'fixed', month: 7, day: 4 }, leadDays: 14 },
   { occasionId: 'pool-closing', name: 'Labor Day', rule: { kind: 'nth', month: 9, weekday: 1, n: 1 } },
-  { occasionId: 'halloween-party', name: 'Halloween', rule: { kind: 'fixed', month: 10, day: 31 } },
-  { occasionId: 'thanksgiving', name: 'Thanksgiving', rule: { kind: 'nth', month: 11, weekday: 4, n: 4 } },
-  { occasionId: 'holiday-lights', name: 'Holiday lights season', rule: { kind: 'fixed', month: 12, day: 1 } },
-  { occasionId: 'happy-holidays', name: 'The holidays', rule: { kind: 'fixed', month: 12, day: 24 } },
+  // Fire Prevention Week is the Sunday-to-Saturday week containing Oct 9, so
+  // the date is Oct 9 and the card appears a week ahead, as the week nears.
+  { occasionId: 'fire-prevention', name: 'Fire Prevention Week', rule: { kind: 'fixed', month: 10, day: 9 }, leadDays: 7 },
+  { occasionId: 'halloween-party', name: 'Halloween', rule: { kind: 'fixed', month: 10, day: 31 }, leadDays: 10 },
+  { occasionId: 'dst-ends', name: 'The end of daylight saving time', rule: { kind: 'nth', month: 11, weekday: 0, n: 1 }, leadDays: 7 },
+  { occasionId: 'veterans-day', name: 'Veterans Day', rule: { kind: 'fixed', month: 11, day: 11 }, leadDays: 5 },
+  { occasionId: 'thanksgiving', name: 'Thanksgiving', rule: { kind: 'nth', month: 11, weekday: 4, n: 4 }, leadDays: 10 },
+  { occasionId: 'holiday-lights', name: 'Holiday lights season', rule: { kind: 'fixed', month: 12, day: 1 }, leadDays: 14 },
+  // Mid-December: the card runs Dec 8 to 15, before people leave town.
+  { occasionId: 'happy-holidays', name: 'The holidays', rule: { kind: 'fixed', month: 12, day: 15 }, leadDays: 7 },
 ]
 
+/** How far ahead a card appears when an entry gives no `leadDays`. */
 export const NUDGE_WINDOW_DAYS = 7
+
+export function leadDaysOf(entry: NudgeEntry): number {
+  return entry.leadDays ?? NUDGE_WINDOW_DAYS
+}
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -72,6 +104,15 @@ function daysBetween(from: string, to: string): number {
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
+/** A further occasion inside its window, shown as a small "also" line. */
+export interface OtherNudge {
+  occasionId: string
+  name: string
+  /** "YYYY-MM-DD". */
+  date: string
+  daysAway: number
+}
+
 export interface Nudge {
   /** Stable per occasion and year; what a dismissal stores. */
   key: string
@@ -83,6 +124,8 @@ export interface Nudge {
   headline: string
   /** The question on the card. */
   prompt: string
+  /** Other undismissed occasions in their windows, nearest first. */
+  others: OtherNudge[]
 }
 
 const KEY_RE = /^([a-z][a-z-]*):(\d{4})$/
@@ -102,8 +145,9 @@ function when(daysAway: number, date: string): string {
 }
 
 /**
- * The nearest occasion from today through the next 7 days that the board
- * has not dismissed, or null. `today` is the association's own day.
+ * The nearest occasion that is inside its own lead window and not
+ * dismissed, or null. Ties go to the earlier table entry. Anything else in
+ * its window comes back in `others`. `today` is the association's own day.
  */
 export function nextNudge(today: string, dismissed: ReadonlySet<string> = new Set()): Nudge | null {
   const year = Number(today.slice(0, 4))
@@ -112,7 +156,7 @@ export function nextNudge(today: string, dismissed: ReadonlySet<string> = new Se
     for (const y of [year, year + 1]) {
       const date = ruleDate(entry.rule, y)
       const daysAway = daysBetween(today, date)
-      if (daysAway < 0 || daysAway > NUDGE_WINDOW_DAYS) continue
+      if (daysAway < 0 || daysAway > leadDaysOf(entry)) continue
       const key = `${entry.occasionId}:${y}`
       if (dismissed.has(key)) continue
       const label = getOccasion(entry.occasionId)?.label ?? 'an announcement'
@@ -123,11 +167,17 @@ export function nextNudge(today: string, dismissed: ReadonlySet<string> = new Se
         daysAway,
         headline: `${entry.name} is ${when(daysAway, date)}`,
         prompt: `Send a notice? (${label.toLowerCase()})`,
+        others: [],
       })
     }
   }
+  // Array.prototype.sort is stable, so equal distances keep table order.
   candidates.sort((a, b) => a.daysAway - b.daysAway)
-  return candidates[0] ?? null
+  const first = candidates[0]
+  if (!first) return null
+  const nameOf = (id: string) => NUDGE_TABLE.find((e) => e.occasionId === id)?.name ?? id
+  first.others = candidates.slice(1).map((c) => ({ occasionId: c.occasionId, name: nameOf(c.occasionId), date: c.date, daysAway: c.daysAway }))
+  return first
 }
 
 /** The digest line for a nudge. */
