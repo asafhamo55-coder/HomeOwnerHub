@@ -30,6 +30,7 @@ import { dateOnly, daysUntil, shortDate, tradesLabel, usd } from '@/components/v
 import { coiExpiryLabel } from '@homeowner-portal/workflows/vendor-coi'
 import { loadCoiRequestDraft } from '@/lib/vendor-coi-request/actions'
 import { ApproveVendorButton } from './ApproveVendorButton'
+import { ConflictDisclosurePanel } from '@/components/conflict-disclosure/ConflictDisclosurePanel'
 import { RequestCertificateButton } from './RequestCertificateButton'
 import { VendorActions } from './VendorActions'
 
@@ -103,6 +104,7 @@ export default async function VendorDetailPage({
         </>
       }
     >
+      {canApprove ? <ConflictDisclosurePanel decisionKind="contract_approval" decisionId={vendor.id} /> : null}
       {/* A vendor fast-created from an email has no EIN and often no trade,
           because a signature block never states them. Say so here rather
           than letting it look fully onboarded — it cannot legitimately be
