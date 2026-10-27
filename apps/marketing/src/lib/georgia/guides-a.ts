@@ -213,7 +213,7 @@ export const ATTORNEY_FEE_NOTICE: Guide = {
       a: 'The Act says Section 7 applies to actions filed on or after July 1, 2026.',
     },
   ],
-  related: ['foreclosure-threshold-2027', 'late-fee-limits', 'attorney-fee-notice-checklist', 'readiness'],
+  related: ['foreclosure-threshold-2027', 'late-fee-limits', 'attorney-fee-notice-checklist', 'readiness', 'georgia-hoa-collections-notice'],
   hoaDoes: [
     {
       text: 'The collections-letter page drafts the Georgia fee notice and the notice before foreclosure for the board to approve. A letter that claims attorney’s fees stays blocked until the fee notice has gone out. The app does not record when the owner received a notice, so keep your own delivery receipts.',
@@ -312,7 +312,7 @@ export const FORECLOSURE_THRESHOLD: Guide = {
       a: 'Four years until the end of 2026. The 2027 text says six years after the assessment first became due.',
     },
   ],
-  related: ['attorney-fee-notice', 'late-fee-limits', 'owners-rights-2027', 'readiness'],
+  related: ['attorney-fee-notice', 'late-fee-limits', 'owners-rights-2027', 'readiness', 'special-assessments', 'georgia-hoa-collections-notice'],
   hoaDoes: [
     {
       text: 'Each open collections case shows whether the amount owed clears the threshold: today’s rule and the stricter 2027 rule side by side, using the regular and special assessments owed less unapplied credit. The panel is read-only.',

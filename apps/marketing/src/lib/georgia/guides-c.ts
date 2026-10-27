@@ -133,7 +133,7 @@ export const FIRST_90_DAYS: Guide = {
       a: 'For collections, foreclosure, document amendments and the registration decision, yes. A self-managed board uses an attorney for judgment calls and does the routine work itself.',
     },
   ],
-  related: ['registration-2027', 'violation-notice-checklist', 'hoa-board-meeting-agenda', 'late-fee-limits', 'hoa-treasurer-duties', 'annual-meeting-quorum-proxies', 'records-inspection-requests'],
+  related: ['registration-2027', 'violation-notice-checklist', 'hoa-board-meeting-agenda', 'late-fee-limits', 'hoa-treasurer-duties', 'annual-meeting-quorum-proxies', 'records-inspection-requests', 'switch-from-management-company-to-self-managed-hoa'],
   hoaDoes: [
     {
       text: 'The Compliance page lists what Georgia law asks of your association, with an overdue banner, so the yearly obligations are on one calendar.',
@@ -259,7 +259,7 @@ export const TREASURER_DUTIES: Guide = {
       a: 'The ledger, bank statements and reconciliations, the budget, the owner balances, vendor contracts, and written access to every account, with passwords moved to the new treasurer by the bank or provider.',
     },
   ],
-  related: ['late-fee-limits', 'hoa-board-meeting-agenda', 'self-managed-hoa-georgia-first-90-days', 'annual-meeting-notice-checklist'],
+  related: ['late-fee-limits', 'hoa-board-meeting-agenda', 'self-managed-hoa-georgia-first-90-days', 'annual-meeting-notice-checklist', 'special-assessments', 'hoa-board-meeting-minutes'],
   hoaDoes: [
     {
       text: 'Bank statement import: for a bank that is not linked, upload a CSV, OFX or QFX file, preview it, and send the new transactions to the reconciliation queue. Re-importing the same file never adds a transaction twice.',

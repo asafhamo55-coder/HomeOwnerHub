@@ -1,6 +1,7 @@
 import type { QuoteId } from '../georgia-quotes'
 import type { HoaDoes } from './types'
 import { BOARD_AGENDA_TEMPLATE, VIOLATION_LETTER_TEMPLATE, VIOLATION_NOTICE_CHECKLIST } from './checklists-b'
+import { COLLECTIONS_NOTICE_TEMPLATE, MINUTES_TEMPLATE } from './checklists-c'
 
 export interface Checklist {
   slug: string
@@ -57,7 +58,7 @@ export const FEE_NOTICE_CHECKLIST: Checklist = {
     { q: 'Is there a required form for the fee notice?', a: 'The statute text we quote sets the content and delivery method but does not supply a form. Your attorney may have one.' },
     { q: 'When does the rule start?', a: 'The Act says Section 7 applies to actions filed on or after July 1, 2026.' },
   ],
-  related: ['attorney-fee-notice', 'foreclosure-threshold-2027', 'readiness'],
+  related: ['attorney-fee-notice', 'foreclosure-threshold-2027', 'readiness', 'georgia-hoa-collections-notice'],
   datePublished: '2026-10-26',
   dateModified: '2026-10-26',
 }
@@ -101,4 +102,6 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [VIOLATION_NOTICE_CHECKLIST.slug]: VIOLATION_NOTICE_CHECKLIST,
   [BOARD_AGENDA_TEMPLATE.slug]: BOARD_AGENDA_TEMPLATE,
   [VIOLATION_LETTER_TEMPLATE.slug]: VIOLATION_LETTER_TEMPLATE,
+  [COLLECTIONS_NOTICE_TEMPLATE.slug]: COLLECTIONS_NOTICE_TEMPLATE,
+  [MINUTES_TEMPLATE.slug]: MINUTES_TEMPLATE,
 }

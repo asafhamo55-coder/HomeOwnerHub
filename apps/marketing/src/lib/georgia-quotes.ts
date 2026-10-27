@@ -465,6 +465,37 @@ export const QUOTES = {
     fixture: "ga-ocga-14-3-2026.txt",
     quote: "A corporation shall keep as permanent records minutes of all meetings of its members and board of directors, executed consents evidencing all actions taken by the members or board of directors without a meeting, a record of all actions taken by a committee of the board of directors in place of the board of directors on behalf of the corporation, and waivers of notice of all meetings of the board of directors and its committees.",
   },
+  // SEO batch 4: special assessments.
+  assessmentDef: {
+    cite: "O.C.G.A. § 43-17A-1(2) (SB 406 § 2)",
+    fixture: "ga-sb406-2026-2027-text.txt",
+    quote: "'Assessment' means and includes regular assessments, special assessments, and specific assessments.",
+  },
+  specialDef: {
+    cite: "O.C.G.A. § 43-17A-1(9) (SB 406 § 2)",
+    fixture: "ga-sb406-2026-2027-text.txt",
+    quote: "'Special assessments' means an assessment imposed on owners for costs which are not included in the owners' association's regular operating budget, and which may include, but shall not be limited to, legal costs and common area nonroutine or emergency repairs, renovations, and other capital projects. Such term shall not include regular assessments or specific assessments.",
+  },
+  lienSums: {
+    cite: "O.C.G.A. § 44-3-232(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "All sums lawfully assessed by the association against any lot owner or property owners’ association lot, whether for the share of the common expenses pertaining to that lot, fines, or otherwise, and all reasonable charges made to any lot owner or lot for materials furnished or services rendered by the association at the owner’s request to or on behalf of the lot owner or lot, shall, from the time the sums became due and payable, be the personal obligation of the lot owner and constitute a lien in favor of the association on the lot prior and superior to all other liens whatsoever except:",
+  },
+  noExempt: {
+    cite: "O.C.G.A. § 44-3-225(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "No lot owner other than the association shall be exempted from any liability for any assessment under this Code section or under any instrument for any reason whatsoever, including, without limitation, abandonment, nonuse, or waiver of the use or enjoyment of his or her lot or any part of the common area",
+  },
+  condoSpecialIntro: {
+    cite: "O.C.G.A. § 44-3-80(g) (Georgia Condominium Act)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "A condominium instrument recorded on or after July 1, 2015, shall not authorize the board of directors to impose:",
+  },
+  condoSpecial: {
+    cite: "O.C.G.A. § 44-3-80(g)(1) (Georgia Condominium Act)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "Except as provided in subsections (a) and (b) of this Code section and subsections (a) and (b) of Code Section 44-3-109, a special assessment fee per unit in excess of one-sixth of the annual common expense assessment for the unit levied pursuant to subsection (c) of this Code section per fiscal year without the approval of a majority of the unit owners;",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES
