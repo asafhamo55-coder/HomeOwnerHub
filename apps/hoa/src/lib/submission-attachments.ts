@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
+import { isSubmissionAttachmentPath } from '@/lib/storage-path'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import {
   ATTACHMENT_ALLOWED_TYPES,
@@ -196,9 +197,17 @@ export async function recordAttachmentUpload(input: {
   const role = await getCurrentUserRoleInOrg(org.id)
   if (!role) return { ok: false, error: 'You do not have access to this HOA.' }
 
-  // Refuse a path outside this org's prefix, so a tampered client cannot
-  // attach a row pointing at another organisation's object.
-  if (!input.storagePath.startsWith(`${org.id}/submissions/`)) {
+  // Refuse a path outside this org AND this thread's prefix, so a tampered
+  // client cannot attach a row pointing at another organisation's object,
+  // or at another thread's file in its own org.
+  if (
+    !isSubmissionAttachmentPath(
+      input.storagePath,
+      org.id,
+      parsed.data.threadType,
+      parsed.data.parentId,
+    )
+  ) {
     console.error('[attach] reject: storage path outside org prefix')
     return { ok: false, error: 'Invalid upload path.' }
   }
