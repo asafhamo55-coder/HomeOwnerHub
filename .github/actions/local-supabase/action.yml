@@ -103,8 +103,11 @@ runs:
       run: |
         set -uo pipefail
         mkdir -p ~/.cache/supabase-images
-        images="$(docker ps --filter 'name=supabase_' --format '{{.Image}}' | sort -u)"
-        echo "Images of running Supabase containers:"
+        # Every Supabase image on the runner, not just running containers':
+        # the first cache (2026-10-27) held only 4 of 6, so a later hit still
+        # pulled postgrest/storage-api and ran into the registry's data limit.
+        images="$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^(public\.ecr\.aws|ghcr\.io)/supabase/' | grep -v '<none>' | sort -u)"
+        echo "Supabase images on this runner:"
         echo "$images"
         if [ -z "$images" ]; then echo "no images found; not caching"; exit 0; fi
         # shellcheck disable=SC2086
