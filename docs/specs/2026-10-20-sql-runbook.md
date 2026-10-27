@@ -54,6 +54,7 @@ database.
 | I | Migration 0066: owner records requests, the billing-columns guard on orgs, and the Fined / Dismissed violation statuses | BL-123 (3), security finding (orgs_update), live bug (violation status check) | I1–I3 | Yes (I2, widens two checks, adds a column and two guards) | none |
 | J | Migration 0067 (batch M3): no late fees on opening balances, inbox snooze and reply clock, link and filing checks, compliance "done" table | BL-136, BL-134, BL-131 | J1–J4 | Yes (J3, adds columns, a table and three automatic rules) | none |
 | L | Migration 0069 (batch M5): dues rate schedule (BL-137) and join requests (BL-143); more M5 parts may join | BL-137, BL-143 | L1–L4, L-BL143a–c | Yes (L3, adds four tables, their rules, four automatic checks and three join functions) | none |
+| M | Migration 0070 (BL-175b): tenant-isolation hardening (SECURITY; apply before any other pending migration) | BL-175b | M1–M5 | Yes (M4, adds 11 same-HOA checks, replaces security functions and rules) | none |
 
 50 steps in total. Sections A and B are **Urgent**. If you only have ten
 minutes today, do A and B.
@@ -950,6 +951,206 @@ on its own, before and after.
 - **If `hardened_ok` is false:** an older copy of the file was pasted. Ask Claude for the current file ("copy step L3") and run L3 again; it is safe to re-run. The hardening is in functions and one new column, so re-running replaces the functions and adds the column.
 - **Send:** the row (with L4).
 - **If `request_rules` is not 1 or `attempt_rules` is not 0:** stop and tell Claude. Requests must be readable by the board only and written by nobody directly; attempts must be readable by nobody.
+
+---
+
+## Section M · Migration 0070, tenant-isolation hardening (BL-175b) (SECURITY, apply before any other pending migration)
+
+File: `migrations/0070_tenant_isolation.sql`. *Needs:* nothing new (it asserts
+the tables and functions it touches, and changes nothing if one is missing).
+**Apply this before the BL-168 migration**; that one will be renumbered after it.
+
+The problem it fixes: anyone can create their own HOA account and become its
+admin. The security rules only checked which HOA a row belongs to, so that
+admin could add rows to their own HOA that *point at another HOA's records*
+(a neighbour's home, a mailbox, a bank account), and then read or act on them.
+
+What it does, in plain words:
+
+1. **Same-HOA checks.** Eleven new automatic checks refuse a record that
+   points into a different HOA (inbox drafts and threads to a mailbox or
+   thread; bank transactions to a bank account; recurring journal entries to a
+   template; owners, tenants, residents and homes to their home or property;
+   message recipients to a message; tickets to a home). They apply to everyone
+   including the app's background jobs. **They only look at new and changed
+   rows; existing rows are not touched** (M2 counts the bad ones).
+2. **"My homes" checks.** The two functions that decide which homes a resident
+   may see now require the owner/resident record to be in the *same HOA as the
+   home*, require a **confirmed** sign-in email for the email match, and treat a
+   blank email as no match.
+3. **Message visibility.** A resident sees a message only through a recipient
+   record in the message's own HOA.
+4. **State-law updates** can be written only by platform admins (and the
+   service role), no longer by the board of any HOA. **The in-app "Law updates"
+   editor under Legal therefore works for platform admins only.**
+5. **Suspended or archived HOAs.** Their members can read and change nothing.
+   They still see their own membership and the HOA's name/status (so billing and
+   a "suspended" screen can load); billing columns stay locked to the service role.
+6. **Function hardening.** The security functions get a fixed search path and
+   explicitly return nothing for a signed-out visitor.
+7. **AI run log.** Board and admins can read it and update a run's review
+   status; nobody can insert or delete rows from the app.
+8. **Violation photos and eviction documents** become board/admin-only
+   (residents never used them).
+9. **Resident attachment paths** must start with `<HOA>/submissions/`.
+10. **One HOA per Stripe customer** (a unique index).
+
+Nothing in this section outputs names, emails or addresses: ids and counts only.
+
+### M1 · Prerequisites (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT to_regprocedure('public.auth_is_platform_admin()') IS NOT NULL   AS platform_admin_fn_ok,
+         to_regprocedure('public.storage_object_org_id(text)') IS NOT NULL AS storage_helper_ok,
+         to_regclass('public.state_statute_changes') IS NOT NULL           AS statute_changes_ok,
+         to_regclass('public.submission_attachments') IS NOT NULL          AS attachments_ok,
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'orgs'
+                    AND column_name IN ('suspended_at', 'archived_at')
+                  HAVING count(*) = 2)                                     AS org_status_cols_ok,
+         to_regclass('public.orgs_stripe_customer_id_uniq') IS NOT NULL    AS already_applied;
+  ```
+
+- **Expect:** five `true` and `already_applied` = false.
+- **If any `_ok` is false:** stop and tell Claude (M4 would refuse to run, changing nothing). If `already_applied` is true, M is done; run M5.
+
+### M2 · Rows that already break each new same-HOA rule (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT 'inbox_drafts.mailbox_account_id' AS rule, count(*) AS violating_rows
+    FROM public.inbox_drafts c JOIN public.mailbox_accounts p ON p.id = c.mailbox_account_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'inbox_drafts.thread_id', count(*)
+    FROM public.inbox_drafts c JOIN public.inbox_threads p ON p.id = c.thread_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'inbox_threads.mailbox_account_id', count(*)
+    FROM public.inbox_threads c JOIN public.mailbox_accounts p ON p.id = c.mailbox_account_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'bank_transactions.bank_account_id', count(*)
+    FROM public.bank_transactions c JOIN public.bank_accounts p ON p.id = c.bank_account_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'recurring_journal_entries.template_je_id', count(*)
+    FROM public.recurring_journal_entries c JOIN public.journal_entries p ON p.id = c.template_je_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'ownerships.unit_id', count(*)
+    FROM public.ownerships c JOIN public.units p ON p.id = c.unit_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'tenancies.unit_id', count(*)
+    FROM public.tenancies c JOIN public.units p ON p.id = c.unit_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'property_residents.property_id', count(*)
+    FROM public.property_residents c JOIN public.hoa_properties p ON p.id = c.property_id
+   WHERE p.org_id <> c.organization_id
+  UNION ALL SELECT 'units.legacy_hoa_property_id', count(*)
+    FROM public.units c JOIN public.hoa_properties p ON p.id = c.legacy_hoa_property_id
+   WHERE p.org_id <> c.organization_id
+  UNION ALL SELECT 'communication_recipients.communication_id', count(*)
+    FROM public.communication_recipients c JOIN public.communications p ON p.id = c.communication_id
+   WHERE p.organization_id <> c.organization_id
+  UNION ALL SELECT 'tickets.unit_id', count(*)
+    FROM public.tickets c JOIN public.units p ON p.id = c.unit_id
+   WHERE p.organization_id <> c.organization_id;
+  ```
+
+- **Does:** counts, for each new rule, the rows that already point into a different HOA. Counts only.
+- **Read-only:** yes. **Time:** ~1 s.
+- **Expect:** eleven rows, **every `violating_rows` = 0**.
+- **Send:** the eleven rows.
+- **If any is above 0:** do not clean it yourself. Those are either planted rows or an old bug. The migration still applies (it checks new and changed rows only, and the new "my homes" functions already ignore such rows), but tell Claude the rule name and count first so the rows can be reviewed and removed.
+
+### M3 · Other things that change for existing users (read-only)
+
+Run these as **separate queries** (the editor shows only the last result).
+
+- **M3a, duplicate Stripe customers (blocks M4 if above 0):**
+
+  ```sql
+  SELECT count(*) AS duplicate_stripe_customers
+    FROM (SELECT stripe_customer_id FROM public.orgs
+           WHERE stripe_customer_id IS NOT NULL
+           GROUP BY stripe_customer_id HAVING count(*) > 1) d;
+  ```
+
+  **Expect:** 0. If not, **stop**: two HOAs share one Stripe customer; M4 refuses to run until one is fixed. Send the number to Claude.
+
+- **M3b, residents who match only by an unconfirmed email:**
+
+  ```sql
+  SELECT count(*) AS residents_with_unconfirmed_email
+    FROM public.property_residents pr
+    JOIN auth.users au ON lower(au.email) = lower(pr.email)
+   WHERE pr.moved_out_at IS NULL AND pr.email IS NOT NULL
+     AND au.email_confirmed_at IS NULL;
+  ```
+
+  **Expect:** a small number (often 0). Those residents lose their email-matched home view until they confirm their email. Send the number.
+
+- **M3c, HOAs that will lose all member access:**
+
+  ```sql
+  SELECT count(*) FILTER (WHERE suspended_at IS NOT NULL) AS suspended_orgs,
+         count(*) FILTER (WHERE archived_at  IS NOT NULL) AS archived_orgs
+    FROM public.orgs;
+  ```
+
+  **Expect:** the HOAs you have suspended or archived on purpose (often 0 and 0). If a *live, paying* HOA appears here, stop and tell Claude.
+
+- **M3d, security functions without a fixed search path (informational):**
+
+  ```sql
+  SELECT p.proname
+    FROM pg_proc p
+   WHERE p.pronamespace = 'public'::regnamespace AND p.prosecdef
+     AND NOT EXISTS (SELECT 1 FROM unnest(coalesce(p.proconfig, '{}'::text[])) c WHERE c LIKE 'search_path=%')
+   ORDER BY 1;
+  ```
+
+  **Expect:** `auth_org_ids` only (M4 fixes it). Send any other name: M4 does not change those.
+
+- **M3e, who writes the law-updates table today (informational):**
+
+  ```sql
+  SELECT policyname, cmd FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'state_law_updates' ORDER BY 1;
+  ```
+
+  **Expect:** `public_read` (SELECT) and the three `board_or_admin_*` rules; M4 removes the three.
+
+### M4 · Apply 0070 (changes the database)
+
+- **Paste:** the **whole file** `migrations/0070_tenant_isolation.sql` (it is one transaction; say "copy step M4").
+- **Does:** everything listed above. All-or-nothing; safe to re-run.
+- **Time:** about 2 s.
+- **Expect:** `Success`. A notice `0070 ok: tenant isolation hardening applied.` may show.
+- **If it errors:** copy the red text to Claude. Nothing is changed (the file is one transaction). The most likely message is the duplicate Stripe customer from M3a.
+- **After:** sign in as a board member and as a resident and open the dashboard; both should look unchanged. Platform admins: the Legal > Law updates editor still works for you; other boards now see an error when they save there.
+
+### M5 · Verify (read-only)
+
+- **Paste:** this query, on its own:
+
+  ```sql
+  SELECT (SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+           WHERE NOT t.tgisinternal AND p.proname = 'tenant_fk_same_org')        AS same_org_triggers,
+         (SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
+            AND tablename IN ('ai_runs', 'ai_feedback') AND cmd = 'ALL')         AS ai_all_policies,
+         (SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
+            AND tablename = 'state_law_updates' AND cmd <> 'SELECT')             AS law_write_policies,
+         (SELECT count(*) FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+            AND p.prosecdef AND p.proname IN ('auth_org_ids', 'auth_is_admin', 'auth_is_board_or_admin',
+                'auth_resident_unit_ids', 'auth_resident_property_ids')
+            AND p.proconfig @> ARRAY['search_path=public, pg_temp'])             AS pinned_helpers,
+         to_regclass('public.orgs_stripe_customer_id_uniq') IS NOT NULL           AS stripe_unique,
+         has_function_privilege('anon', 'public.auth_org_ids()', 'EXECUTE')       AS anon_can_call_org_ids;
+  ```
+
+- **Expect:** one row: `same_org_triggers` = 11, `ai_all_policies` = 0, `law_write_policies` = 1 (the platform-admin rule), `pinned_helpers` = 5, `stripe_unique` = true, `anon_can_call_org_ids` = false.
+- **Send:** the row.
+- **If a number is off:** stop and tell Claude.
 
 ---
 

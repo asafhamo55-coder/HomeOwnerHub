@@ -107,6 +107,7 @@ export const MIGRATION_MANIFEST: string[] = [
   // compliance_deadlines_done.document_id (security/m5-compliance-evidence.test.ts).
   // One file, one entry: later parts append to it.
   '0069_m5_batch.sql',
+  '0070_tenant_isolation.sql',
 ]
 
 /**
