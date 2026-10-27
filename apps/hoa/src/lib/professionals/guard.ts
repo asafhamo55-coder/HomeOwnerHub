@@ -3,7 +3,7 @@
 // Server actions are public POST endpoints (see the gate ratchet in
 // src/server-action-gate-ratchet.test.ts): the (pro) and (dashboard)
 // layouts redirecting the wrong role does nothing to stop a direct POST.
-// RLS (migration 0070) is the real boundary; these fail fast with a
+// RLS (migration 0071) is the real boundary; these fail fast with a
 // readable error, before any service-role client is built.
 //
 // Returns a result rather than redirecting, like accounting/guard.ts.

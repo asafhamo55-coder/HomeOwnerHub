@@ -193,7 +193,7 @@ describe('Treasurer routing and dual control', () => {
 describe('the money list matches the database trigger', () => {
   it('approval_is_money_action() names exactly MONEY_ACTIONS', () => {
     const here = path.dirname(fileURLToPath(import.meta.url))
-    const sql = readFileSync(path.resolve(here, '../../../../../migrations/0070_m6_roles.sql'), 'utf8')
+    const sql = readFileSync(path.resolve(here, '../../../../../migrations/0071_m6_roles.sql'), 'utf8')
     const m = /approval_is_money_action\(p_action text\)[\s\S]*?p_action IN \(([^)]*)\)/.exec(sql)
     expect(m).not.toBeNull()
     const inSql = [...m![1]!.matchAll(/'([^']+)'/g)].map((x) => x[1])

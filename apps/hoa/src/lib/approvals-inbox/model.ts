@@ -31,7 +31,7 @@
 //   pro    approval_requests rows (action_type 'pro.*', status
 //          'proposed') — what an outside CPA or attorney sent the board:
 //          a review note, a proposed adjusting entry, a matter note, an
-//          upload, a draft letter (BL-168, migration 0070, M6_APPLIED).
+//          upload, a draft letter (BL-168, migration 0071, M6_APPLIED).
 //          Approving a CPA's entry posts it; the rest are accepted onto
 //          the record and send nothing. Money items go to the Treasurer
 //          first, and above the board's amount need two sign-offs.

@@ -37,7 +37,7 @@ const ITEMS: Array<{ label: string; href: SettingsPath; adminOnly: boolean }> = 
   { label: 'Notifications', href: '/settings/notifications', adminOnly: false },
   { label: 'Activity log', href: '/settings/activity', adminOnly: false },
   { label: 'Board handover', href: '/settings/handover', adminOnly: false },
-  // BL-168: only once migration 0070 is applied (M6_APPLIED).
+  // BL-168: only once migration 0071 is applied (M6_APPLIED).
   { label: 'Professionals', href: '/settings/professionals', adminOnly: false },
 ]
 

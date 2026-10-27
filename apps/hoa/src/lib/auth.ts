@@ -11,7 +11,7 @@ import { getCurrentOrg, getMembershipRole, type CurrentOrg } from '@/lib/orgs'
 
 import { homeFor, isProfessionalRole, type ProfessionalRole, type Role } from '@/lib/roles'
 
-// BL-168 (migration 0070): cpa and attorney are outside professionals, not
+// BL-168 (migration 0071): cpa and attorney are outside professionals, not
 // members. They resolve only once M6_APPLIED is true; with it false the
 // vocabulary is exactly today's three roles. The sync helpers live in
 // lib/roles.ts (a 'use server' file may export only async functions).

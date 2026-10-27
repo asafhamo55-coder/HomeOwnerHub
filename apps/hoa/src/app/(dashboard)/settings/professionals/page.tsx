@@ -70,8 +70,8 @@ export default async function ProfessionalsPage() {
         {pending.ok && pending.rows.length > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle as="h2">Waiting to accept</CardTitle>
-              <CardDescription>These people already have an account. They get no access until they open the link we emailed and accept.</CardDescription>
+              <CardTitle as="h2">Invited</CardTitle>
+              <CardDescription>They get no access until they open the link we emailed, sign in with that address and accept.</CardDescription>
             </CardHeader>
             <ul className="divide-y divide-border border-t border-border">
               {pending.rows.map((r) => (

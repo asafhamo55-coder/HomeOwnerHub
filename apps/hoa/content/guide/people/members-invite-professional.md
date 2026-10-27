@@ -37,7 +37,7 @@ Your CPA and your attorney can work inside HomeownerHub without becoming part of
 ## If something goes wrong
 - You get "Money approvals go to the Treasurer first": ask the Treasurer or an admin to sign it off.
 - You get "Your sign-off is recorded": the amount is above your dual-control limit. A second board member must approve it too.
-- The person already has a HomeownerHub account: they get an email with a link instead. They must sign in with that same email address and select **Accept invitation** before they get any access. The link works once and expires in 7 days. You can cancel it under **Waiting to accept**.
+- Everyone you invite gets the same thing: an email with a link. They must sign in with that same email address and select **Accept invitation** before they get any access. The link works once and expires in 7 days. You can cancel it under **Invited**.
 - You can't set a title: only an admin can, and each office (other than Director) has one holder.
 
 ## Good to know

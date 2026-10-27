@@ -11,6 +11,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@homeowner-portal/db'
+import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import type { Json } from '@homeowner-portal/db'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -52,7 +53,14 @@ export async function editBillProposal(input: unknown): Promise<BillEditOutcome>
     updateProposal: async (id, next) => {
       const { data, error } = await adminDb
         .from('approval_requests')
-        .update({ payload: next.payload as unknown as Json, summary: next.summary, amount: next.amount })
+        .update({
+          payload: next.payload as unknown as Json,
+          summary: next.summary,
+          amount: next.amount,
+          // BL-168: whoever changes a bill's figures is its proposer from here on, so
+          // they can't also be one of its two sign-offs (and their edit cleared the earlier ones).
+          ...(M6_APPLIED ? ({ proposed_by: user.id } as object) : {}),
+        })
         .eq('id', id)
         .eq('organization_id', orgId)
         .eq('action_type', BILL_ACTION)

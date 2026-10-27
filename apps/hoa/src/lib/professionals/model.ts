@@ -2,7 +2,7 @@
 // imports only (no Next, no Supabase, no `@/`), so the approvals inbox,
 // the integration suite and unit tests load it directly.
 //
-// Design: docs/specs/2026-10-26-professional-roles.md. Migration 0070
+// Design: docs/specs/2026-10-26-professional-roles.md. Migration 0071
 // (batch M6), behind M6_APPLIED (packages/db/src/m6.ts).
 //
 // Every contribution from an outside professional is an approval_requests
@@ -207,7 +207,7 @@ export function isProAction(a: string | null | undefined): a is ProAction {
 /**
  * Money approvals: routed to the Treasurer first and subject to dual
  * control above the board's amount. Keep in step with the list in
- * approval_is_money_action() (migrations/0070_m6_roles.sql); a unit test
+ * approval_is_money_action() (migrations/0071_m6_roles.sql); a unit test
  * reads that file and compares.
  */
 export const MONEY_ACTIONS: readonly string[] = ['w18.cash_receipt', 'w36.ap_bill', 'accounting.opening_balances', PRO_ACTIONS.entry]

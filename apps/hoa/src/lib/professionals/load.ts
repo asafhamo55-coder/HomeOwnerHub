@@ -1,6 +1,6 @@
 // BL-168 — reads for the professional pages and Settings → Professionals.
 // Every professional read runs on the caller's OWN RLS client, so what a
-// CPA or attorney sees is exactly what migration 0070 grants (an expired
+// CPA or attorney sees is exactly what migration 0071 grants (an expired
 // or unassigned professional reads nothing). Board reads of the access list
 // use the service role only for profile names and emails (profiles RLS is
 // own-row), after the page's board gate.

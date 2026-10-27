@@ -2,7 +2,7 @@
 // just before a money item (a scanned bill, a CPA's adjusting entry) is
 // approved. Runs on the DECIDER's own RLS client: board/admin read
 // approval_requests, approval_signoffs, org_members and associations, and
-// record_approval_signoff() (migration 0070) refuses anyone else (42501).
+// record_approval_signoff() (migration 0071) refuses anyone else (42501).
 //
 // The hard rule lives in the database: approval_requests_dual_control()
 // refuses to approve a money item above the association's amount without

@@ -13,7 +13,7 @@ export const metadata = { title: 'Professional access' }
 /**
  * BL-168: the home of an outside CPA or attorney. Not the board dashboard:
  * its own sidebar, and every page below asks for its own role. Before
- * migration 0070 is applied (M6_APPLIED false) nothing here is reachable.
+ * migration 0071 is applied (M6_APPLIED false) nothing here is reachable.
  */
 export default async function ProLayout({ children }: { children: React.ReactNode }) {
   if (!M6_APPLIED) redirect('/')

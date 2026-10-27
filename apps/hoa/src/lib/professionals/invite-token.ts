@@ -8,8 +8,17 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 const DOMAIN = 'professional-invite:v1'
 
-/** Same server-only secret chain as the GA registration record and the pay settings. */
+/**
+ * The signing key for invitation links: PRO_INVITE_SECRET (at least 32
+ * characters). In production there is NO fallback, so a missing key stops
+ * invitations instead of signing them with a key that does other jobs
+ * (the service role). Outside production the usual server-only chain is
+ * used so local runs and tests need no setup.
+ */
 export function inviteSecret(env: Record<string, string | undefined> = process.env): string | null {
+  const dedicated = env.PRO_INVITE_SECRET
+  if (dedicated && dedicated.length >= 32) return dedicated
+  if (env.NODE_ENV === 'production') return null
   return env.PAY_SETTINGS_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
 }
 

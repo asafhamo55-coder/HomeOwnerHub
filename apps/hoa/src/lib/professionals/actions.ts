@@ -1,10 +1,10 @@
 'use server'
 
-// BL-168 — professional and officer actions (migration 0070, M6_APPLIED).
+// BL-168 — professional and officer actions (migration 0071, M6_APPLIED).
 //
 // Board side: invite / renew / revoke a professional, assign matters,
 // officer titles (admin), the dual-control amount. Writes go through the
-// caller's own RLS client (0070 lets board/admin write cpa and attorney
+// caller's own RLS client (0071 lets board/admin write cpa and attorney
 // rows and matter_assignments); the service role is used only to create
 // the auth user and to write audit rows.
 //
@@ -54,7 +54,7 @@ import {
 } from './model'
 
 // The M6 tables and columns are not in the generated Database types until
-// gen:types runs after prod has 0070 (CLAUDE.md footgun 3).
+// gen:types runs after prod has 0071 (CLAUDE.md footgun 3).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any
 
@@ -72,17 +72,19 @@ const endOfDay = (isoDate: string) => `${isoDate}T23:59:59Z`
 // ─── board: invite, renew, revoke ────────────────────────────────────
 
 /**
- * Invite a CPA or attorney. Two paths, one answer:
- *  - a new address: Supabase creates the account and emails a sign-in link,
- *    and the grant (with its end date) is recorded at once, because nobody
- *    can use it before they sign in through that link;
- *  - an address that already has an account: NOTHING is granted. An
- *    invitation row is recorded and the person gets a signed, expiring link;
- *    only when they open it signed in as that email and accept is the
- *    membership created (lib/professionals/invites.ts).
- * Every failure is reported except "already registered", which looks exactly
- * like a fresh invitation; nothing here returns a user id, so the form cannot
- * be used to find out who has an account.
+ * Invite a CPA or attorney. ONE path for every address, new or existing:
+ * the board's invitation is recorded in professional_invites and GRANTS
+ * NOTHING. The person gets a signed, single-use link (7 days) and, signed
+ * in as that confirmed email, accepts it; only then is the membership
+ * created (lib/professionals/invites.ts), with an audit row.
+ *
+ *  - A new address: Supabase creates the account and emails a sign-in link
+ *    that lands on the accept page.
+ *  - An address that already has an account: we email the accept link.
+ *
+ * Every failure is reported except "already registered", which answers
+ * exactly like a fresh invitation; nothing here returns a user id or says
+ * whether an account exists, so the form cannot be used to find out.
  */
 export async function inviteProfessional(input: InviteProfessionalInput): Promise<ActionResult> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
@@ -111,71 +113,11 @@ export async function inviteProfessional(input: InviteProfessionalInput): Promis
   }
 
   const supabase = await getSupabaseServerClient()
-  const startedAt = Date.now()
-  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: appUrl('/auth/callback'),
-    data: v.fullName ? { full_name: v.fullName } : undefined,
-  })
-
-  if (inviteErr) {
-    // The one error that is not an error: the address already has an account.
-    if (!isAlreadyRegistered(inviteErr)) return fail('We couldn’t send that invitation. Try again.')
-    return inviteExistingAccount({ supabase, admin, orgId: gate.orgId, boardUserId: user.id, email, v, secret })
-  }
-  if (!invited?.user) return fail('We couldn’t send that invitation. Try again.')
-
-  const userId = invited.user.id
-  if (createdByThisCall(invited.user, startedAt)) {
-    const { error: profileErr } = await admin
-      .from('profiles')
-      .upsert({ id: userId, email, full_name: v.fullName ?? null } as never)
-    if (profileErr) return fail('We couldn’t send that invitation. Try again.')
-  }
-
-  const { error: memberErr } = await (supabase as Loose).from('org_members').insert({
-    org_id: gate.orgId,
-    user_id: userId,
-    role: v.role,
-    invited_at: new Date().toISOString(),
-    access_expires_at: endOfDay(v.expiresOn),
-    general_counsel: v.role === 'attorney' && v.generalCounsel,
-  })
-  if (memberErr) {
-    // 23505: already a member (a pending invitee of this HOA). No role change from here.
-    return fail(memberErr.code === '23505' ? 'That address is already invited to this HOA.' : 'We couldn’t add that person. Try again.')
-  }
-
-  let assigned = 0
-  for (const m of v.matters) {
-    if (await assignInternal(supabase, gate.orgId, userId, m)) assigned += 1
-  }
-  await writeProAudit(admin, {
-    orgId: gate.orgId,
-    userId: user.id,
-    action: PRO_AUDIT.granted,
-    entityType: 'org_member',
-    entityId: userId,
-    metadata: { role: v.role, expires_on: v.expiresOn, general_counsel: v.generalCounsel, matters: assigned },
-  })
-  revalidateAll()
-  return { ok: true, data: undefined }
-}
-
-async function inviteExistingAccount(a: {
-  supabase: unknown
-  admin: ReturnType<typeof createAdminClient>
-  orgId: string
-  boardUserId: string
-  email: string
-  v: ReturnType<typeof InviteProfessionalSchema.parse>
-  secret: string
-}): Promise<ActionResult> {
-  const { v } = a
-  const { data: row, error } = await (a.supabase as Loose)
+  const { data: row, error } = await (supabase as Loose)
     .from('professional_invites')
     .insert({
-      organization_id: a.orgId,
-      email: a.email,
+      organization_id: gate.orgId,
+      email,
       role: v.role,
       access_expires_on: v.expiresOn,
       general_counsel: v.role === 'attorney' && v.generalCounsel,
@@ -189,34 +131,66 @@ async function inviteExistingAccount(a: {
     return fail('We couldn’t send that invitation. Try again.')
   }
 
+  const undo = async () => {
+    await (supabase as Loose).from('professional_invites').update({ revoked_at: new Date().toISOString() }).eq('id', row.id)
+  }
+  const href = inviteHref(row.id, secret)
+  const startedAt = Date.now()
+  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: appUrl(`/auth/callback?next=${encodeURIComponent(href)}`),
+    data: v.fullName ? { full_name: v.fullName } : undefined,
+  })
+
+  if (inviteErr) {
+    // The one error that is not an error: the address already has an account.
+    if (!isAlreadyRegistered(inviteErr)) {
+      await undo()
+      return fail('We couldn’t send that invitation. Try again.')
+    }
+    const sent = await emailAcceptLink({ admin, orgId: gate.orgId, orgSandbox, email, role: v.role, link: appUrl(href), inviteId: row.id })
+    if (!sent) {
+      await undo()
+      return fail('We couldn’t send that invitation. Try again.')
+    }
+  } else if (invited?.user && createdByThisCall(invited.user, startedAt) && v.fullName) {
+    // A brand-new account: seed its name (the profile row is made by the auth trigger).
+    await admin.from('profiles').update({ full_name: v.fullName } as never).eq('id', invited.user.id)
+  }
+
+  await writeProAudit(admin, {
+    orgId: gate.orgId,
+    userId: user.id,
+    action: PRO_AUDIT.inviteSent,
+    entityType: 'professional_invite',
+    entityId: row.id,
+    metadata: { role: v.role, expires_on: v.expiresOn, general_counsel: v.generalCounsel, matters: v.matters.length },
+  })
+  revalidateAll()
+  return { ok: true, data: undefined }
+}
+
+async function emailAcceptLink(a: {
+  admin: ReturnType<typeof createAdminClient>
+  orgId: string
+  orgSandbox: boolean
+  email: string
+  role: 'cpa' | 'attorney'
+  link: string
+  inviteId: string
+}): Promise<boolean> {
   const { data: org } = await a.admin.from('orgs').select('name').eq('id', a.orgId).maybeSingle()
   const orgName = org?.name ?? 'your HOA'
-  const link = appUrl(inviteHref(row.id, a.secret))
-  const orgSandbox = await fetchOrgSandbox(a.admin, a.orgId)
   const sent = await sendEmail(
     {
       to: a.email,
       subject: `${orgName} invited you to HomeownerHub`,
-      text: `${orgName} invited you to HomeownerHub as ${PRO_ROLE_LABEL[v.role]}. Sign in with this email address, then open this link to accept. It works once and expires in 7 days.\n\n${link}`,
-      html: `<p>${escapeHtml(orgName)} invited you to HomeownerHub as ${PRO_ROLE_LABEL[v.role]}.</p><p>Sign in with this email address, then <a href="${link}">accept the invitation</a>. The link works once and expires in 7 days.</p>`,
+      text: `${orgName} invited you to HomeownerHub as ${PRO_ROLE_LABEL[a.role]}. Sign in with this email address, then open this link to accept. It works once and expires in 7 days.\n\n${a.link}`,
+      html: `<p>${escapeHtml(orgName)} invited you to HomeownerHub as ${PRO_ROLE_LABEL[a.role]}.</p><p>Sign in with this email address, then <a href="${a.link}">accept the invitation</a>. The link works once and expires in 7 days.</p>`,
       senderName: orgName,
     },
-    { orgSandbox, ref: `invite_pro:${row.id}` },
+    { orgSandbox: a.orgSandbox, ref: `invite_pro:${a.inviteId}` },
   )
-  if (!sent.ok) {
-    await (a.supabase as Loose).from('professional_invites').update({ revoked_at: new Date().toISOString() }).eq('id', row.id)
-    return fail('We couldn’t send that invitation. Try again.')
-  }
-  await writeProAudit(a.admin, {
-    orgId: a.orgId,
-    userId: a.boardUserId,
-    action: PRO_AUDIT.inviteSent,
-    entityType: 'professional_invite',
-    entityId: row.id,
-    metadata: { role: v.role, expires_on: v.expiresOn, matters: v.matters.length },
-  })
-  revalidateAll()
-  return { ok: true, data: undefined }
+  return sent.ok
 }
 
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
