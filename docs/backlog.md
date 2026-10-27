@@ -1961,3 +1961,12 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - Analyze www.nice.com: palette, type, sections, components. Map it onto the BL-170 design system tokens and restyle all marketing pages, including the BL-171 Georgia hub, guides and readiness check.
    - No copied assets, copy or code; the HomeownerHub identity stays.
    - **Status:** dispatched 2026-10-26 (Sonnet).
+
+175. **BL-175 Tenant isolation audit and hardening (no cross-tenant data leaks or cross talk).** Migration: maybe (RLS fixes go into the next batch). Owner ask (Asaf, 2026-10-26).
+   - **Audit scope (read-only, Opus advisor):**
+     - RLS coverage and WITH CHECK, SECURITY DEFINER RPCs, service-role IDOR in server actions and routes;
+     - active-org selection and impersonation, storage paths and signed URLs;
+     - AI retrieval filters, jobs mixing orgs, Next caching keys, webhook org resolution;
+     - exports, search, realtime, and logs.
+   - **Then:** fix confirmed issues and add CI integration tests so isolation is enforced going forward.
+   - **Status:** audit dispatched 2026-10-26.
