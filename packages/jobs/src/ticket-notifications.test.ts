@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   buildTicketNotification,
   isDeadSubscription,
   boardRecipients,
+  runTicketNotifications,
 } from './ticket-notifications'
 
 /**
@@ -92,5 +93,59 @@ describe('isDeadSubscription', () => {
 
   it('keeps the subscription when there is no status code at all', () => {
     expect(isDeadSubscription(undefined)).toBe(false)
+  })
+})
+
+// BL-175a M2: the ticket's own org decides recipients and the unit read.
+describe('runTicketNotifications tenant scoping', () => {
+  it('ignores a payload org that differs from the ticket org', async () => {
+    const orgFilters: Array<[string, string, unknown]> = []
+    const inserted: Array<Record<string, unknown>> = []
+    const db = {
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: (c: string, v: unknown) => {
+            orgFilters.push([table, c, v])
+            return chain
+          },
+          maybeSingle: async () => {
+            if (table === 'tickets') {
+              return {
+                data: {
+                  id: 'tk-1',
+                  subject: 's',
+                  category: null,
+                  unit_id: 'unit-1',
+                  submitted_by: null,
+                  organization_id: 'org-real',
+                },
+              }
+            }
+            return { data: { label: 'Unit 1', address_line1: null } }
+          },
+          insert: async (rows: Array<Record<string, unknown>>) => {
+            inserted.push(...rows)
+            return { error: null }
+          },
+          then: (r: (v: unknown) => unknown) =>
+            r({ data: table === 'org_members' ? [{ user_id: 'u1', role: 'board' }] : [] }),
+        }
+        return chain
+      },
+    }
+    const step = { run: async (_id: string, fn: () => Promise<unknown>) => (_id === 'send-push' ? 0 : fn()) }
+    const logger = { warn: vi.fn() }
+    await runTicketNotifications(db as never, step, logger, {
+      ticketId: 'tk-1',
+      organizationId: 'org-attacker',
+    })
+
+    expect(orgFilters).toContainEqual(['org_members', 'org_id', 'org-real'])
+    expect(orgFilters).toContainEqual(['units', 'organization_id', 'org-real'])
+    expect(orgFilters.some(([, , v]) => v === 'org-attacker')).toBe(false)
+    expect(inserted.every((r) => r.organization_id === 'org-real')).toBe(true)
+    expect(inserted).toHaveLength(1)
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('does not match'))
   })
 })
