@@ -511,10 +511,13 @@ describe('buildArcBlock', () => {
  * member sees only their own counts; a member with nothing due gets no
  * email unless something org-wide is wrong. Counts only in logs. */
 describe('runDailyDigest — board tasks', () => {
+  // Today in New York, then plus whole calendar days, as the digest computes
+  // it. Adding 24h in UTC first and converting afterwards lands a day short
+  // across a DST change (failed in CI at 04:40Z on 2026-10-28, DST ends Nov 1).
   const day = (offset: number) => {
-    const d = new Date()
-    d.setUTCDate(d.getUTCDate() + offset)
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d)
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+    const [y, m, d] = today.split('-').map(Number)
+    return new Date(Date.UTC(y!, m! - 1, d! + offset)).toISOString().slice(0, 10)
   }
   const TASKS: Row = {
     data: [
@@ -591,10 +594,13 @@ describe('runDailyDigest — board tasks', () => {
 })
 
 describe('runDailyDigest — owner records requests (BL-123)', () => {
+  // Today in New York, then plus whole calendar days, as the digest computes
+  // it. Adding 24h in UTC first and converting afterwards lands a day short
+  // across a DST change (failed in CI at 04:40Z on 2026-10-28, DST ends Nov 1).
   const day = (offset: number) => {
-    const d = new Date()
-    d.setUTCDate(d.getUTCDate() + offset)
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(d)
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+    const [y, m, d] = today.split('-').map(Number)
+    return new Date(Date.UTC(y!, m! - 1, d! + offset)).toISOString().slice(0, 10)
   }
   const at = (offset: number) => `${day(offset)}T17:00:00+00:00`
   const TICKETS: Row = {
