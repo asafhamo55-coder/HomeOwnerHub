@@ -1957,6 +1957,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
 
 171. **BL-171 Marketing growth: measurement, demo funnel, Georgia SB 406 guides and readiness check.** Migration: no. Owner ask (Asaf, 2026-10-26). Plan: `docs/specs/2026-10-26-marketing-growth-plan.md`.
    - **Checked 2026-10-27 (b):** OA-34 (demo email) is now done, so only OA-35 (Search Console tag) waits outside the code. The weekly analytics digest is still unbuilt, no migration (round 8 #3).
+   - **Done 2026-10-28:** weekly counts-only digest (`packages/jobs/src/weekly-analytics.ts`, Mondays 13:00 UTC, to `ANALYTICS_REPORT_TO`, OA-38). Help-beacon events and demo requests are not stored, so they need a small table (a later migration) before they can be counted.
    - **Done 2026-10-26:** a demo request no longer fakes success in production when email isn't configured. Delivery waits on OA-34.
    - **Build:**
      - Vercel Web Analytics and conversion events;
