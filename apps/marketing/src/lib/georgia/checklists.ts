@@ -3,6 +3,7 @@ import type { HoaDoes } from './types'
 import { BOARD_AGENDA_TEMPLATE, VIOLATION_LETTER_TEMPLATE, VIOLATION_NOTICE_CHECKLIST } from './checklists-b'
 import { COLLECTIONS_NOTICE_TEMPLATE, MINUTES_TEMPLATE } from './checklists-c'
 import { ANNOUNCEMENT_TEMPLATES } from './checklists-d'
+import { ANNUAL_REPORT_CHECKLIST } from './checklists-e'
 
 export interface Checklist {
   slug: string
@@ -106,4 +107,5 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [COLLECTIONS_NOTICE_TEMPLATE.slug]: COLLECTIONS_NOTICE_TEMPLATE,
   [MINUTES_TEMPLATE.slug]: MINUTES_TEMPLATE,
   [ANNOUNCEMENT_TEMPLATES.slug]: ANNOUNCEMENT_TEMPLATES,
+  [ANNUAL_REPORT_CHECKLIST.slug]: ANNUAL_REPORT_CHECKLIST,
 }
