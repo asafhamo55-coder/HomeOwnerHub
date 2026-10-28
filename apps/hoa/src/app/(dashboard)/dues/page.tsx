@@ -30,6 +30,8 @@ import { loadOverdueHeadline } from '@/lib/dues/overdue-headline'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { daysSince, formatDay, plural, todayIso, usd } from '@/lib/money/format'
+import { CreditBadge } from './CreditBadge'
+import { loadCreditByUnit } from '@/lib/dues/unit-credit'
 import { MarkPaidButton } from './MarkPaidButton'
 import { RecordPaymentButton } from './RecordPaymentButton'
 import { SendReceiptButton } from './SendReceiptButton'
@@ -183,6 +185,11 @@ export default async function DuesPage({
   const total = listResult.ok ? (listResult.count ?? rows.length) : 0
   const listData = listResult.ok ? listResult : null
 
+  // Round-8 #4: one batched read of unapplied credit for the units on this page.
+  const creditByUnit = await timed(R, 'dues.credits', () =>
+    loadCreditByUnit(supabase as unknown as SupabaseClient, rows.map((r) => r.unit?.id)),
+  )
+
   // Group by the month each charge is due, newest first, so the page reads
   // as a stack of billing months.
   const byMonth = new Map<string, AssessmentRow[]>()
@@ -321,6 +328,7 @@ export default async function DuesPage({
               timeZone={assoc.timeZone}
               recordPayment={isGeorgia}
               partial={cutMonths.has(month)}
+              creditByUnit={creditByUnit}
             />
           ))}
           {total > PAGE_SIZE ? (
@@ -363,7 +371,9 @@ function MonthTable({
   timeZone,
   recordPayment,
   partial,
+  creditByUnit,
 }: {
+  creditByUnit: Map<string, number>
   month: string
   rows: AssessmentRow[]
   today: string
@@ -396,6 +406,7 @@ function MonthTable({
             <span className="block font-medium text-foreground">{r.unit?.address_line1 ?? 'Unknown property'}</span>
           )}
           {r.unit?.unit_number ? <span className="block text-xs text-muted">Unit {r.unit.unit_number}</span> : null}
+          {r.unit?.id ? <CreditBadge unitId={r.unit.id} amount={creditByUnit.get(r.unit.id) ?? 0} /> : null}
         </span>
       ),
     },
