@@ -41,6 +41,18 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-38 · Choose where the weekly numbers email goes
+
+**Urgency:** Whenever
+
+**Why it matters:** a new weekly job emails you a short counts-only summary every Monday: new orgs and associations, active boards, approvals, announcements and AI drafts, each against the week before. It sends nothing until you set one address. It never emails residents or boards, and the email has no names, addresses or org names.
+
+**Steps:**
+
+1. In Vercel, open the project **home-owner-hub-hoa** → **Settings** → **Environment Variables**.
+2. Add `ANALYTICS_REPORT_TO` for **Production** and set it to the address that should get the email (for example your own inbox).
+3. Redeploy the project (or wait for the next deploy) so the job sees it.
+
 ### OA-36 · Three read-only checks for the tenant-isolation audit
 
 **Urgency:** Soon

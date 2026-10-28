@@ -7,6 +7,7 @@ import {
   createVendorCoiRemindersJob,
   createScheduledCommunicationsJob,
   createAiSpendAlertJob,
+  createWeeklyAnalyticsJob,
   createBillingBandSyncJob,
   createBillingRenewalJob,
   hoaLateFeeJob,
@@ -72,6 +73,9 @@ const aiSpendAlertJob = createAiSpendAlertJob({
   thresholdUsd: PLATFORM_AI_DAILY_ALERT_USD,
 })
 
+// BL-171 weekly counts-only product digest to ANALYTICS_REPORT_TO (guarded sendEmail).
+const weeklyAnalyticsJob = createWeeklyAnalyticsJob({ sendEmail })
+
 // BL-104 billing jobs, both no-ops while PRICING_V2 is off. Stripe is
 // injected through the app's adapter (lib/billing-stripe-port.ts); every
 // change is proration_behavior 'none'.
@@ -120,6 +124,7 @@ export const { GET, POST, PUT } = serve({
     vendorCoiRemindersJob,
     scheduledCommunicationsJob,
     aiSpendAlertJob,
+    weeklyAnalyticsJob,
     billingBandSyncJob,
     billingRenewalJob,
     hoaLateFeeJob,
