@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { cappedFakeDb } from '@/lib/supabase/capped-fake-db'
 import { heldDb, settle } from '@/lib/supabase/held-fake-db'
 import { getDashboardKpis } from './charts'
-import { getLeaseSummary } from './queries'
+import { getApprovalsInbox, getAtRiskThisWeek, getComplianceHeatMap, getLeaseSummary } from './queries'
 
 /**
  * BL-099 static pass: the dashboard's shared loaders send their
@@ -89,5 +89,81 @@ describe('getLeaseSummary', () => {
     h.release()
     const s = await result
     expect(s).toMatchObject({ failed: false, totalUnits: 600, leasedCount: 90, waitingListCount: 1 })
+  })
+})
+
+describe('lease: leased counts overlap the unit paging', () => {
+  const mk = () => {
+    const units = Array.from({ length: 1500 }, (_, i) => ({
+      id: id('u', i),
+      association_id: 'assoc-1',
+      legacy_hoa_property_id: id('p', i),
+    }))
+    const props = units.map((u, i) => ({
+      id: u.legacy_hoa_property_id,
+      deleted_at: null,
+      tenure: i < 200 ? 'leased' : 'owner_occupied',
+    }))
+    return {
+      associations: [{ id: 'assoc-1', organization_id: ORG, lease_cap_pct: 25 }],
+      units,
+      hoa_properties: props,
+      lease_waiting_list: [],
+    }
+  }
+
+  it('sends the leased counts before the unit read finishes, with the same numbers', async () => {
+    const { db, calls } = cappedFakeDb(mk())
+    const h = heldDb(db, ['hoa_properties'])
+    const result = getLeaseSummary(ORG, h.db)
+    await settle()
+    await settle()
+    // Page one (1000 ids = 7 chunks) is counted while page two is still being read.
+    expect(h.started.filter((t) => t === 'hoa_properties').length).toBeGreaterThanOrEqual(7)
+    h.release()
+    expect(await result).toMatchObject({ failed: false, totalUnits: 1500, leasedCount: 200 })
+    // Round-trip budget: 3 unit reads (1000, 500, end probe) and 11 count chunks (7 + 4).
+    expect(calls.filter((c) => c.table === 'units')).toHaveLength(3)
+    expect(calls.filter((c) => c.table === 'hoa_properties')).toHaveLength(11)
+  })
+
+  it('a failed units page reports zeros with failed: true', async () => {
+    const { db } = cappedFakeDb(mk(), { failAt: { table: 'units', from: 1000 } })
+    expect(await getLeaseSummary(ORG, db)).toMatchObject({ failed: true, totalUnits: 0, leasedCount: 0 })
+  })
+})
+
+describe('independent reads start before the associations read returns', () => {
+  const assoc = [{ id: 'assoc-1', organization_id: ORG, name: 'A', state: 'FL' }]
+
+  it('getAtRiskThisWeek sends violations while associations is open', async () => {
+    const { db } = cappedFakeDb({ associations: assoc, hoa_violations: [], assessments: [], vendor_compliance: [] })
+    const h = heldDb(db, ['associations'])
+    const result = getAtRiskThisWeek(ORG, h.db)
+    await settle()
+    expect(h.started).toContain('hoa_violations')
+    h.release()
+    expect((await result).failed).toBe(false)
+  })
+
+  it('getComplianceHeatMap sends violations while associations is open', async () => {
+    const { db } = cappedFakeDb({ associations: assoc, hoa_violations: [], assessments: [] })
+    const h = heldDb(db, ['associations'])
+    const result = getComplianceHeatMap(ORG, h.db)
+    await settle()
+    expect(h.started).toContain('hoa_violations')
+    h.release()
+    expect((await result).failed).toBe(false)
+  })
+
+  it('getApprovalsInbox sends violations, invoices and rfps while the zone read is open', async () => {
+    const { db } = cappedFakeDb({ associations: assoc, hoa_violations: [], hoa_meeting_minutes: [], invoices: [], rfps: [] })
+    const h = heldDb(db, ['associations'])
+    const result = getApprovalsInbox(ORG, h.db)
+    await settle()
+    expect(h.started).toEqual(expect.arrayContaining(['hoa_violations', 'invoices', 'rfps']))
+    expect(h.started).not.toContain('hoa_meeting_minutes')
+    h.release()
+    expect((await result).failed).toBe(false)
   })
 })
