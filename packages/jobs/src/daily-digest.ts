@@ -42,6 +42,10 @@ import {
   type PendingComplianceItem,
 } from '../../../apps/hoa/src/lib/compliance/deadlines'
 import { M3_APPLIED } from '@homeowner-portal/db/m3'
+// BL-173: the seasonal nudge. Pure table (no imports but occasions.ts) and the
+// signed-dismissal reader (node:crypto only), same relative-path rule.
+import { digestNudge, digestNudgeText, nudgeAnnouncePath, type Nudge } from '../../../apps/hoa/src/lib/announcements/nudge'
+import { readDismissedKeys } from '../../../apps/hoa/src/lib/announcements/dismiss'
 // BL-139: FL director certification (§ 720.3033(1)). Same dependency-free,
 // relative-path rule.
 import {
@@ -166,6 +170,12 @@ import {
  * end within 30 days and how many have ended, to every board member,
  * linking to Settings -> Professionals. Counts only, no names; no new email
  * is sent for either (they ride the existing digest).
+ *
+ * BL-173: and, on the first day an occasion enters its lead window and the
+ * day before, one line ("Halloween is Saturday: send your community a note")
+ * linking to /communications/announce?occasion=<id>. A rider only: it is added
+ * to an email that goes out anyway and never causes one. Skipped when every
+ * association has a signed dismissal for that occasion and year.
  *
  * The Inngest function id stays 'daily-digest' deliberately. Changing an
  * id registers a NEW function and leaves the old one scheduled, so the
@@ -657,6 +667,54 @@ export function buildComplianceBlock(args: { items: PendingComplianceItem[]; das
   return { lines, text, html }
 }
 
+// ─── Seasonal nudge (BL-173) ───────────────────────────────────────
+
+/**
+ * The occasion the digest mentions today for one org, or null. Speaks only on
+ * the first day an occasion enters its lead window and on the day before.
+ * Dismissal is per association (signed, in compliance_settings), so an
+ * occasion counts as dismissed only when every association in the org
+ * dismissed it. A failed read is null (logged by code): better silence than
+ * nagging about something the board already dismissed. Never a reason to email.
+ */
+export async function loadSeasonalNudge(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+  secret: string | null = complianceAckSecret(),
+): Promise<Nudge | null> {
+  // Cheap pre-check: no query on the many days nothing is due.
+  if (!digestNudge(today)) return null
+  const { data, error } = await db
+    .from('associations')
+    .select('id, compliance_settings')
+    .eq('organization_id', orgId)
+  if (error) {
+    logger.error(`[daily-digest] ${orgId}: failed to load nudge dismissals`, { code: error.code })
+    return null
+  }
+  const rows = ((data ?? []) as Array<{ id?: string; compliance_settings?: unknown }>).filter(
+    (r): r is { id: string; compliance_settings?: unknown } => typeof r.id === 'string',
+  )
+  const sets = rows.map((r) => readDismissedKeys(r.id, r.compliance_settings, secret))
+  const dismissed = new Set<string>()
+  if (sets.length > 0) {
+    for (const key of sets[0]!) if (sets.every((s) => s.has(key))) dismissed.add(key)
+  }
+  return digestNudge(today, dismissed)
+}
+
+/** The nudge block: one line linking into the announce flow. */
+export function buildNudgeBlock(args: { nudge: Nudge; announceUrl: string }): { text: string; html: string } {
+  const line = digestNudgeText(args.nudge)
+  return {
+    text: `${line} → ${args.announceUrl}`,
+    html: `
+  <p style="margin:16px 0"><a href="${escapeHtml(args.announceUrl)}">${escapeHtml(line)} →</a></p>`,
+  }
+}
+
 /**
  * BL-132: the org's insurance policies expiring within 90 days (or
  * expired) with no renewal recorded. M4_APPLIED off: null and NO query
@@ -1060,6 +1118,8 @@ export function buildDigestEmail(args: {
   proTreasurer?: { entries: number; reviews: number; approvalsUrl: string } | null
   /** BL-168: professional grants ending soon or ended. Omitted or all-zero adds nothing. */
   proExpiry?: { expiring: number; expired: number; professionalsUrl: string } | null
+  /** BL-173: the seasonal nudge. A rider only: it never makes an email on its own. */
+  nudge?: { nudge: Nudge; announceUrl: string } | null
 }): { subject: string; html: string; text: string } {
   const block = args.waiting && args.waiting.total > 0 ? buildWaitingBlock(args.waiting) : null
   const arcBlock = args.arc && (args.arc.overdue > 0 || args.arc.dueSoon > 0) ? buildArcBlock(args.arc) : null
@@ -1092,6 +1152,9 @@ export function buildDigestEmail(args: {
   const proExpiryBlock =
     args.proExpiry && (args.proExpiry.expiring > 0 || args.proExpiry.expired > 0) ? buildProExpiryBlock(args.proExpiry) : null
   if (proExpiryBlock) extras.push(proExpiryBlock)
+  // Appended after the subject-driving blocks, and only when there is already
+  // something to say: a nudge alone is not a reason to email.
+  if (args.nudge && (extras.length > 0 || args.mailboxes.length > 0)) extras.push(buildNudgeBlock(args.nudge))
   if (args.mailboxes.length > 0) {
     const alert = buildMailboxAlert(args)
     if (extras.length === 0) return alert
@@ -1420,6 +1483,16 @@ export async function runDailyDigest(
     proExpiringTotal += proExpiring
     proExpiredTotal += proExpired
 
+    // BL-173: a rider on a digest that goes out anyway (never a trigger).
+    let nudge: Nudge | null = null
+    try {
+      nudge = await loadSeasonalNudge(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: seasonal nudge check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+
     const orgWide =
       proExpiring > 0 ||
       proExpired > 0 ||
@@ -1547,6 +1620,7 @@ export async function runDailyDigest(
             proExpiring > 0 || proExpired > 0
               ? { expiring: proExpiring, expired: proExpired, professionalsUrl: deps.appUrl('/settings/professionals') }
               : null,
+          nudge: nudge ? { nudge, announceUrl: deps.appUrl(nudgeAnnouncePath(nudge)) } : null,
         })
         try {
           const res = await deps.sendEmail({ to, ...alert }, outbound)
