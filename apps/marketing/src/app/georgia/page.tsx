@@ -166,7 +166,7 @@ export default function GeorgiaHubPage() {
                 <Link href="/professionals" className="card group flex h-full flex-col p-6 transition-shadow hover:shadow-md">
                   <ClipboardCheck className="h-5 w-5 text-primary" aria-hidden />
                   <span className="mt-3 text-[17px] font-semibold leading-snug text-foreground group-hover:text-primary">For attorneys and CPAs</span>
-                  <span className="mt-2 text-sm leading-relaxed text-foreground-secondary">What a board can share with you today. Professional seats are coming soon.</span>
+                  <span className="mt-2 text-sm leading-relaxed text-foreground-secondary">Boards can invite you with limited, time-boxed access, and send you reports.</span>
                 </Link>
               </li>
             </ul>

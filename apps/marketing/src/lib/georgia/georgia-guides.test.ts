@@ -12,7 +12,7 @@ import { QUOTES, type QuoteId } from '../georgia-quotes'
 import { faqLd, breadcrumbLd, articleLd, howToLd, organizationLd, jsonLdString } from '../jsonld'
 import { SITEMAP_PATHS } from '../site'
 import {
-  PLANNED,
+  ACCESS_LIVE, OFFICER_CONTROLS,
   PROFESSIONALS_FAQS,
   PROFESSIONALS_META,
   PROFESSIONALS_PATH,
@@ -186,7 +186,7 @@ describe('guides', () => {
   })
 
   it('no invented figures: banned claims stay out', () => {
-    const all = JSON.stringify([ALL_GUIDES, Object.values(CHECKLISTS), READINESS_QUESTIONS, SHARE_TODAY, PLANNED, PROFESSIONALS_FAQS])
+    const all = JSON.stringify([ALL_GUIDES, Object.values(CHECKLISTS), READINESS_QUESTIONS, SHARE_TODAY, ACCESS_LIVE, OFFICER_CONTROLS, PROFESSIONALS_FAQS])
     for (const re of [/\d+% of (HOAs|boards)/i, /\bcustomers?\b/i, /testimonial/i, /guarantee/i, /\blandlord/i, /Eviction Hub|PM Hub/, /in seconds/i, /saves? \d+/i]) {
       expect(all, String(re)).not.toMatch(re)
     }
@@ -358,14 +358,26 @@ describe('SEO batch 2 (BL-172)', () => {
   })
 })
 
-describe('/professionals (BL-168 seats are not live)', () => {
+describe('/professionals (BL-168 seats are live)', () => {
   const page = readFileSync(path.join(here, '../../app/professionals/page.tsx'), 'utf8')
 
-  it('says professional seats are coming soon and not live', () => {
-    expect(page).toMatch(/Professional seats are coming soon/)
-    expect(page).toMatch(/Not live yet\./)
-    expect(page).toMatch(/Planned, not live/)
-    expect(page).toMatch(/do not promise one/)
+  it('no longer says professional access is coming soon or not live', () => {
+    const all = JSON.stringify([ACCESS_LIVE, OFFICER_CONTROLS, SHARE_TODAY, PROFESSIONALS_FAQS, PROFESSIONALS_META]) + page
+    for (const re of [/coming soon/i, /not live/i, /planned/i, /rolling out/i, /launch date/i, /early access/i]) {
+      expect(all, String(re)).not.toMatch(re)
+    }
+    expect(page).toMatch(/Professional access is live/)
+  })
+
+  it('states the shipped facts: 7-day signed single-use link, end date within a year, CPA read-only, attorney assigned only', () => {
+    const all = JSON.stringify([ACCESS_LIVE, OFFICER_CONTROLS, PROFESSIONALS_FAQS]) + page
+    expect(all).toMatch(/single-use/)
+    expect(all).toMatch(/7 days/)
+    expect(all).toMatch(/at most a year/)
+    expect(all).toMatch(/read-only/i)
+    expect(all).toMatch(/only the matters the board assigns/i)
+    expect(all).toMatch(/Treasurer/)
+    expect(all).toMatch(/two board members/)
   })
 
   it('everything a board can share today names an app route and a release note that exist', () => {
@@ -376,13 +388,11 @@ describe('/professionals (BL-168 seats are not live)', () => {
     }
   })
 
-  it('does not say seats, roles or invitations are available now, and names no partners', () => {
-    const all = JSON.stringify([SHARE_TODAY, PLANNED, PROFESSIONALS_FAQS, PROFESSIONALS_META]) + page
+  it('names no partners, customers or testimonials', () => {
+    const all = JSON.stringify([SHARE_TODAY, ACCESS_LIVE, OFFICER_CONTROLS, PROFESSIONALS_FAQS, PROFESSIONALS_META]) + page
     for (const re of [/invite (your|an?) (CPA|attorney|accountant)/i, /\bpartners?\b(?! list| program)/i, /\bcustomers?\b/i, /testimonial/i, /guarantee/i, /\d+% /, /referral fee/i, /PM Hub|Eviction Hub|landlord/i]) {
       expect(all, String(re)).not.toMatch(re)
     }
-    // Planned items are only ever shown under the "Planned, not live" label.
-    expect(page.indexOf('Planned, not live')).toBeLessThan(page.indexOf('PLANNED.map'))
   })
 
   it('has a demo call to action and a contact address', () => {

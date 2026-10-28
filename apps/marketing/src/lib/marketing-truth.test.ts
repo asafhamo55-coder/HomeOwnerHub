@@ -511,7 +511,7 @@ describe('Georgia growth pages (BL-171)', () => {
     const prof = read('app/professionals/page.tsx')
     expect(prof).toMatch(/event="demo_cta_click"/)
     expect(prof).toMatch(/NotLegalAdvice/)
-    expect(prof).toMatch(/coming soon/i)
+    expect(prof).not.toMatch(/coming soon/i)
   })
 
   it('the how-to guide emits HowTo data; checklists emit Article, FAQPage and BreadcrumbList', () => {

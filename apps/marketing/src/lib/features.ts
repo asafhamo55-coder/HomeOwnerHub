@@ -126,4 +126,14 @@ export const SHIPPED_FEATURES: readonly ShippedFeature[] = [
     route: '/accounting/payment-plans',
     release: '2026-10-19-2220-plans-speed',
   },
+  {
+    text: 'Invite a CPA or attorney with a signed, single-use link: read-only books for a CPA, assigned matters only for an attorney',
+    route: '/settings/professionals',
+    release: '2026-10-27-1758-roles-payments-holidays',
+  },
+  {
+    text: 'Officer titles, Treasurer routing and an optional amount that needs two board members to approve',
+    route: '/settings/professionals',
+    release: '2026-10-27-1758-roles-payments-holidays',
+  },
 ]

@@ -1,9 +1,9 @@
 // Content for /professionals (BL-172 batch 2): HOA attorneys and CPAs.
 //
 // Truth rules (BL-002, BL-168):
-// - Professional seats (a CPA role and an Attorney role, BL-168) are NOT
-//   deployed. The page says "coming soon" and promises no date. The planned
-//   behavior is described only as planned.
+// - Professional seats (a CPA role and an Attorney role, BL-168) are LIVE as
+//   of the 2026-10-27 prod deploy (release 2026-10-27-1758-roles-payments-holidays).
+//   The page describes only what that release shipped.
 // - What a board can do today is limited to shipped features: each names an
 //   apps/hoa route and the docs/releases note that announced it. The tests
 //   check both exist.
@@ -12,12 +12,12 @@
 // No "@/..." imports: marketing-truth tests import this module.
 
 export const PROFESSIONALS_PATH = '/professionals'
-export const PROFESSIONALS_UPDATED = '2026-10-26'
+export const PROFESSIONALS_UPDATED = '2026-10-27'
 
 export const PROFESSIONALS_META = {
   title: 'HOA attorneys and CPAs: work with boards',
   description:
-    'Seats for HOA attorneys and CPAs are coming soon. A board can hand you the year-end package, monthly report, meeting packet. Ask for early access.',
+    'A board can invite you as its CPA or attorney with limited, time-boxed access: read-only books for a CPA, assigned matters only for an attorney.',
 }
 
 export interface ShippedShare {
@@ -68,31 +68,41 @@ export const SHARE_TODAY: readonly ShippedShare[] = [
   },
 ]
 
-export interface PlannedItem {
+export interface AccessItem {
   role: 'CPA' | 'Attorney' | 'Both'
   text: string
 }
 
 /**
- * What the BL-168 design intends. Shown under a "Planned, not live" label.
- * Nothing here is promised for a date.
+ * What shipped on 2026-10-27 (docs/releases/2026-10-27-1758-roles-payments-holidays.md,
+ * docs/specs/2026-10-26-professional-roles.md). Settings -> Professionals in apps/hoa.
  */
-export const PLANNED: readonly PlannedItem[] = [
-  { role: 'CPA', text: 'Read-only access to the association’s accounting, with exports.' },
-  { role: 'CPA', text: 'Mark a period as reviewed, and propose adjusting entries that post only after the board approves.' },
-  { role: 'Attorney', text: 'See only the matters the board assigns, such as a collections case or a records request.' },
-  { role: 'Attorney', text: 'Add notes and documents, and draft letters that the board approves.' },
-  { role: 'Both', text: 'Access that the board grants for a set period and can end at any time.' },
+export const ACCESS_LIVE: readonly AccessItem[] = [
+  { role: 'Both', text: 'The board invites you from Settings → Professionals with a signed, single-use link that is good for 7 days.' },
+  { role: 'Both', text: 'Every invitation carries an end date, at most a year out. The board sets it.' },
+  { role: 'CPA', text: 'Read-only access to the association’s books. Owners appear by name only, with no email, phone or address.' },
+  { role: 'Attorney', text: 'You see only the matters the board assigns you: collections cases, violations and records requests.' },
+]
+
+/** Officer controls a board has, so money approvals reach the right person. */
+export const OFFICER_CONTROLS: readonly string[] = [
+  'Officer titles: President, Treasurer, Secretary and others.',
+  'Money approvals can be routed to the Treasurer.',
+  'An optional amount above which two board members must approve a money item.',
 ]
 
 export const PROFESSIONALS_FAQS: readonly { q: string; a: string }[] = [
   {
-    q: 'Can I get a login to a client’s HomeownerHub today?',
-    a: 'Not as a professional seat. Seats for HOA attorneys and CPAs are coming soon and are not live. Today a board member can export the year-end package, the monthly report or the meeting packet and send it to you.',
+    q: 'Can I get a login to a client’s HomeownerHub?',
+    a: 'Yes, if the board invites you. A board member sends a signed, single-use link from Settings → Professionals. The link works for 7 days, and the access ends on the date the board sets, at most a year out.',
   },
   {
-    q: 'When will professional seats launch?',
-    a: 'We have not set a date and will not promise one here. Tell us you are interested and we will write to you when they are available.',
+    q: 'What does a CPA see?',
+    a: 'The association’s books, read-only. Owners appear by name only, with no email, phone or address. The year-end package, monthly report and meeting packet are also still available as exports.',
+  },
+  {
+    q: 'What does an attorney see?',
+    a: 'Only the matters the board assigns: collections cases, violations and records requests. Nothing else in the association is opened to you.',
   },
   {
     q: 'Does HomeownerHub give legal or tax advice?',
