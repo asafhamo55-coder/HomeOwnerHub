@@ -1585,6 +1585,7 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
 - **BL-137 open (not in the asked set):** money changes through /approvals, and a dues-generation job. Below the line, after M5.
 
 1. **BL-147 Late-fee policy the board controls, with state caps (Georgia first).** Migration: no. Effort M (1.5). Score 3.00 (I 5 × C 0.9 ÷ 1.5). Override: a live job.
+   - **Checked 2026-10-27 (b):** The dashboard late-fee policy prompt is Done (04be1cde).
    - **Status:** Built on `claude/quality-oracle`, not yet deployed. No migration.
      - **Safe default:** no policy means no late fee (`docs/decisions/2026-10-21-late-fee-policy-safe-default.md`). This replaces "keep today's 5%" below.
      - **Board screen:** /settings/late-fees.
@@ -1781,6 +1782,7 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - Quotes tested word for word.
    - **Files:** `scripts/fixtures/state-law/`, `apps/hoa/src/lib/compliance/{deadlines,obligations,law}.ts`, `apps/hoa/src/lib/records-requests/law.ts`, `data/statutes/README.md`.
 7. **BL-153 Georgia annual-meeting report for owners (§ 44-3-230(a)).** Migration: no. Effort M (1). Score 2.40 (3 × 0.8 ÷ 1).
+   - **Checked 2026-10-27 (b):** The annual-report narrative and notice attachment are Done (375cb4a0).
    - **Pain:** at every annual meeting, Georgia requires "comprehensive reports of the affairs, finances, and budget projections of the association". Volunteer treasurers build these by hand. Owners in the Gwinnett story could not get financials.
    - **Evidence:** fixture § 44-3-230(a) (and § 44-3-102 for condos, see BL-155); the WSB story in BL-147.
    - **Today:**
@@ -1865,6 +1867,7 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
      - A "POA Act / Condo Act / declaration only" setting, because a GA HOA not submitted to Art. 6 gets neither statute's lien rules.
    - **Files:** `scripts/fixtures/state-law/`, `apps/hoa/src/lib/compliance/`, `apps/hoa/src/lib/properties/estoppel/law.ts`, `apps/hoa/src/lib/insurance/model.ts`, `apps/hoa/src/lib/meetings/notice-law.ts`.
 10. **BL-156 Electronic ballots and written consent (after BL-141).** Migration: **yes (M6)**: `ballots`, `ballot_responses` and consent records, with RLS. Effort L (4). Score 0.60 (4 × 0.6 ÷ 4).
+   - **Checked 2026-10-27 (b):** Still open and still needs a migration. M6 (0071) held only BL-168: no `ballots` or `ballot_responses` table exists in `migrations/` and there is no ballot code in `apps/hoa/src`. It needs its own batch.
     - **Pain:** paper ballots and proxies are why annual meetings miss quorum. Georgia's Nonprofit Code allows action by written or electronic consent that identifies the member and the date (§ 14-3-708), and proxies appointed electronically (§ 14-3-724). Competitors:
       - TownSq shipped a Digital Voting upgrade (Oct 2025).
       - Condo Control (Feb 2026) and Vantaca (Jun 2026) are moving to AI assistants.
@@ -1905,9 +1908,11 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
 ## Round 5 follow-ups (2026-10-22, from BL-149/150/152/154 gaps)
 
 158. **BL-158 Georgia 2027 foreclosure-threshold check on the collections case.** Migration: no. Effort S–M.
+   - **Checked 2026-10-27 (b):** Done (`lib/collections/ga-threshold.ts`, `GaThresholdPanel.tsx`).
    - **Pain:** from 2027-01-01 a GA association may not foreclose below the lesser of $4,000 or 12 months of regular assessments (never below $2,000). Today the only way to apply that is the letter's "12 months" blank (BL-154).
    - **Build:** a read-only panel on the collections case for GA associations. It shows the counted balance (regular and special assessments, less unapplied credit, per BL-154's reading), the 12-month figure from the dues-rate schedule (BL-137) where one exists, the threshold, and whether the case is above it. It also shows SB 406's payment order (§ 43-17A-8) as a read-only "how payments should be applied" note. Quotes come only from `ga-sb406-2026-2027-text.txt`. It changes no payment application.
 159. **BL-159 Georgia follow-ups: officer-change clock and the § 14-3-724 proxy quote.** Migration: no. Effort S.
+   - **Checked 2026-10-27 (b):** Done (`startGaOfficerChangeClock` is called from `changeMemberRole`; the § 14-3-724 quote is in `lib/meeting-quorum/law.ts`).
    - **Build:** `changeMemberRole` (lib/members.ts) starts the BL-151 30-day amended-registration row when a GA association's board role changes (BL-149 "not built"). The quorum kit quotes § 14-3-724 from `ga-ocga-14-3-2026.txt` (BL-150 named it without quoting). Audit rows carry ids and codes only.
 
 ## Ranked open work — round 6 (2026-10-26)
@@ -1920,14 +1925,18 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
 4. **BL-163 Apply SB 406's payment order (§ 43-17A-8) in the Zelle pay lines and in a new "record one payment" split.** Migration: no. In force 2027-01-01. Touches money: needs careful review.
 5. **BL-164 GA owners' rights page in the resident portal (the § 43-17A-7 rights, quoted).** Migration: no. Ships with BL-162.
 6. **BL-165 Conflict-of-interest disclosure at bid award and contract approval (§ 43-17A-7(10)).** Migration: no.
+   - **Checked 2026-10-27 (b):** Done in code, no migration (`lib/conflict-disclosure/`, `components/conflict-disclosure/ConflictDisclosurePanel.tsx`).
 7. **BL-166 Certified-mail tracking fields on collection events.** Migration: **yes (M6, with BL-156)**.
+   - **Checked 2026-10-27 (b):** Done (M7_APPLIED = true, 0072 applied): `collection_events.mail_method/tracking_number/mailed_on/delivered_on`, `lib/collections/mail-tracking.ts`, `recordLetterMailing`, and the 30-day fee-notice clock counting from `delivered_on` (`lib/compliance/statute-drift.ts`). It shipped in M7, not M6 as labelled above.
 8. **BL-167 1099-NEC and 1120-H deadlines on /compliance and in the digest.** Migration: no. Not Georgia-specific.
+   - **Checked 2026-10-27 (b):** Done in code, no migration (federal 1099-NEC and 1120-H dates in `lib/compliance/deadlines.ts`).
 
 **Status 2026-10-26:** dispatched BL-162+BL-164 together, then BL-161.
 
 ## Owner request 2026-10-26: CPA, attorney and treasurer access
 
 168. **BL-168 Professional and officer roles: CPA, Attorney, Treasurer.** Migration: **yes (M6, with BL-156 and BL-166)**. Owner ask (Asaf, 2026-10-26). Design: `docs/specs/2026-10-26-professional-roles.md`.
+   - **Checked 2026-10-27 (b):** Done (M6_APPLIED = true, 0071 applied; flag flip 9dec2354): (pro) route group, /settings/professionals, officer titles, Treasurer routing and dual control. Nothing left waits on a migration.
    - **CPA:** read-only accounting plus exports. Can mark a period "reviewed" and propose adjusting entries, which post only after board approval. Time-boxed grant.
    - **Attorney:** sees only the matters the board assigns (collections cases, violations and hearings, records requests). Adds notes and documents and drafts letters, which the board approves. Optional general-counsel read access to governing documents and compliance. Time-boxed grant.
    - **Treasurer:** a board member with an officer title. Money approvals and bank-reconciliation sign-off route to the Treasurer, with dual control above a board-set amount. Titles also feed the GA registration kit's officer list.
@@ -1937,6 +1946,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
 ## Added 2026-10-26 (owner ask and a finding)
 
 169. **BL-169 Refresh the GA Article 6 fixture with the 2025 and 2026 Code revisions.** Migration: no. Found by BL-155.
+   - **Checked 2026-10-27 (b):** Done (9af6a9a9, merged 89deeac3).
    - `ga-ocga-44-3-art6-2026.txt` misses 2025 SB 153 (§ 44-3-230(b) "may called" becomes "may be called"; § 44-3-231(a)(4)) and 2026 HB 1268 (§§ 44-3-221, 225, 226, 234). Its header wrongly says "2025 none found". `lib/elections/law.ts` quotes "may called".
    - Fix: apply both Acts from the official signed copies, re-verify every Article 6 quote and the dated snapshot (BL-154), and update the header.
 170. **BL-170 Marketing website visual redesign.** Migration: no. Owner ask (Asaf, 2026-10-26: "it looks terrible … lift it up dramatically").
@@ -1946,6 +1956,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Checked 2026-10-27:** Done (62a9378f merge). Before/after screenshots are the release note's job.
 
 171. **BL-171 Marketing growth: measurement, demo funnel, Georgia SB 406 guides and readiness check.** Migration: no. Owner ask (Asaf, 2026-10-26). Plan: `docs/specs/2026-10-26-marketing-growth-plan.md`.
+   - **Checked 2026-10-27 (b):** OA-34 (demo email) is now done, so only OA-35 (Search Console tag) waits outside the code. The weekly analytics digest is still unbuilt, no migration (round 8 #3).
    - **Done 2026-10-26:** a demo request no longer fakes success in production when email isn't configured. Delivery waits on OA-34.
    - **Build:**
      - Vercel Web Analytics and conversion events;
@@ -1958,6 +1969,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Checked 2026-10-27:** Part done: demo form and delivery guard, analytics, /georgia hub and guides, readiness check (bd196b49 merge, 4b540ea1). Still open, no migration: the weekly analytics digest to Asaf (counts only) has no code. The Search Console verification tag waits on OA-35 and demo email delivery on OA-34.
 
 172. **BL-172 SEO content program (primary growth channel, ongoing).** Migration: no. Owner decision (Asaf, 2026-10-26: "invest the most in SEO"). Plan: `docs/decisions/2026-10-26-seo-primary-growth-channel.md`.
+   - **Checked 2026-10-27 (b):** SEO batch 5 shipped (9a0a21e1). The program stays open (round 8 #6).
    - **Content:** Georgia law guides, free templates and tools, self-managed-HOA how-tos, factual comparison pages, and local pages only where there is real local substance. FL, CA and TX follow.
    - **Cadence:** at least 3 new or improved pages a day through a Sonnet SEO agent; a weekly full-site SEO audit; every deploy's release note lists the new pages.
    - **Quality:** official-fixture quotes only (tested); shipped features only; "not legal advice"; a demo or tool CTA on every page.
@@ -1965,6 +1977,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Checked 2026-10-27:** Still open (ongoing program): batches 1 to 4 shipped (b0481d7f, c072ee21, f731f1e5, a34d6254, 1b5e4518); the 3-pages-a-day cadence and weekly site audit continue.
 
 173. **BL-173 Community announcements in three clicks (Halloween party, happy holidays, graduation reminders, pet control).** Migration: no (reuse the existing composer and send path). Owner ask (Asaf, 2026-10-26: "very simple to generate one; focus on simplicity").
+   - **Checked 2026-10-27 (b):** Done except the digest half of the seasonal nudges. The dashboard card links into the existing announce flow, which already sends. `packages/jobs/src/daily-digest.ts` has no nudge line (round 8 #2).
    - **Flow:**
      1. **Pick an occasion** from a grid of ready templates (Halloween party, happy holidays, New Year, Fourth of July, graduation congratulations and parking reminder, pet waste and leash rules, pool opening and closing, trash or bulk-pickup change, landscaping and water day, community yard sale, holiday lights, meeting reminder, severe weather), or **type one sentence** ("Halloween party Oct 31 at 6pm at the clubhouse").
      2. **The app drafts it:** a friendly subject and body, plus a short SMS version (279 characters or less) and the Spanish version where the composer supports it. Event fields (date, time, place) come from the sentence.
@@ -1999,6 +2012,7 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
    - **Fixes dispatched:** BL-175a code-only (H1/H2 job checks, H4, H6, M1–M3, M7, M8, L3, L9) and BL-175b migration 0070_tenant_isolation (same-org triggers, org-scoped resident helpers, communications_select, H5, M5, M6, L1, L2, L5, L7) plus CI tests. BL-168 is renumbered to 0071 and must reuse the org-scoped helpers. OA-36 covers the dashboard-only checks.
 
 177. **BL-177 Atomic multi-charge payment recording, plus unapplied credit (BL-163 follow-up).** Migration: **yes (next batch)**.
+   - **Checked 2026-10-27 (b):** Done (M7_APPLIED = true, 0072 applied; flag flip 5c505c9c): `record_lump_payment()` RPC, `unapplied_credits`, method/date/note on the dialog, installment identity in the Zelle lines (`planInstallment` in `lib/payments/lump-payment-actions.ts`), credit on the resident ledger and the estoppel. Open, no migration: the resident pay and dues pages still show no credit balance (round 8 #1).
    - BL-163's board "Record payment" posts each part through `markAssessmentPaid` one at a time. If a later part fails, the earlier parts stay posted (the audit row says `complete: false`).
    - **Build:** a SECURITY DEFINER RPC that posts every part in one transaction (with a null-uid guard and an org check); an unapplied-credit column or table so overpayments can be stored; payment method, date and note fields on the dialog; and installment identity on the resident Zelle side (today an installment ranks as special there).
 
@@ -2007,11 +2021,25 @@ Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-
 
 Each item was checked against the code and `git log` on 2026-10-27 and is still open. All need **no migration**, are HOA-only (`apps/hoa`, plus one SEO item), and are ranked by value to self-managed boards, Georgia first.
 
-1. **BL-147 leftover: late-fee policy prompt on the dashboard.** A Georgia association with no late-fee policy set sees a dashboard card linking to `/settings/late-fees`, because the nightly late-fee job otherwise charges at a rate nobody chose (O.C.G.A. § 44-3-232(b)). Files: `apps/hoa/src/app/(dashboard)/page.tsx`, `apps/hoa/src/lib/late-fees/`.
-2. **BL-153 leftover: keep the annual-meeting report and attach it to the notice.** Save the board's narrative and attach the printable owners' report to the meeting notice draft (O.C.G.A. § 44-3-230(a)). Files: `apps/hoa/src/app/(dashboard)/meetings/[id]/annual-report/`, `apps/hoa/src/lib/meetings/notice-law.ts`.
-3. **BL-099 follow-up: fix the slowest pages from real `[perf]` numbers.** Read a week of production `[perf]` log lines (ids and timings only), then fix the top 3 slow loaders. Index ideas go to `docs/specs/2026-10-19-perf-indexes.sql`, never applied by an agent.
-4. **Resident notification preferences.** A `/resident/account` card for language (EN/ES) and quiet hours, using the existing `language` and `quiet_hours` columns, so the sender honours them. Files: `apps/hoa/src/app/resident/account/`, `apps/hoa/src/lib/communications/send.ts`.
-5. **Board and emergency contacts on the resident portal.** A read-only card on the resident home with the board roster and the association's emergency numbers, kept in `associations.compliance_settings`. Files: `apps/hoa/src/app/resident/page.tsx`, `apps/hoa/src/app/(dashboard)/settings/association/`.
-6. **BL-172 SEO batch 5 (Georgia first).** Three or more new Georgia guides or templates a day from the official-fixture quotes, then FL, CA and TX pages. Every page carries a demo or tool CTA, and the release note lists the new pages. Files: `apps/marketing/src/app/georgia/`, `apps/marketing/src/app/templates/`.
+1. **BL-147 leftover: late-fee policy prompt on the dashboard.** **Done 2026-10-27 (04be1cde).** A Georgia association with no late-fee policy set sees a dashboard card linking to `/settings/late-fees`, because the nightly late-fee job otherwise charges at a rate nobody chose (O.C.G.A. § 44-3-232(b)). Files: `apps/hoa/src/app/(dashboard)/page.tsx`, `apps/hoa/src/lib/late-fees/`.
+2. **BL-153 leftover: keep the annual-meeting report and attach it to the notice.** **Done 2026-10-27 (375cb4a0).** Save the board's narrative and attach the printable owners' report to the meeting notice draft (O.C.G.A. § 44-3-230(a)). Files: `apps/hoa/src/app/(dashboard)/meetings/[id]/annual-report/`, `apps/hoa/src/lib/meetings/notice-law.ts`.
+3. **BL-099 follow-up: fix the slowest pages from real `[perf]` numbers.** **In progress 2026-10-27.** Read a week of production `[perf]` log lines (ids and timings only), then fix the top 3 slow loaders. Index ideas go to `docs/specs/2026-10-19-perf-indexes.sql`, never applied by an agent.
+4. **Resident notification preferences.** **Language Done 2026-10-27 (8fa115b7); quiet hours still open, needs a migration.** A `/resident/account` card for language (EN/ES) and quiet hours, using the existing `language` and `quiet_hours` columns, so the sender honours them. Files: `apps/hoa/src/app/resident/account/`, `apps/hoa/src/lib/communications/send.ts`.
+5. **Board and emergency contacts on the resident portal.** **Done 2026-10-27 (5c785f08).** A read-only card on the resident home with the board roster and the association's emergency numbers, kept in `associations.compliance_settings`. Files: `apps/hoa/src/app/resident/page.tsx`, `apps/hoa/src/app/(dashboard)/settings/association/`.
+6. **BL-172 SEO batch 5 (Georgia first).** **Done 2026-10-27 (9a0a21e1).** Three or more new Georgia guides or templates a day from the official-fixture quotes, then FL, CA and TX pages. Every page carries a demo or tool CTA, and the release note lists the new pages. Files: `apps/marketing/src/app/georgia/`, `apps/marketing/src/app/templates/`.
 
 **Not ranked (waiting on something outside the code):** BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-171 Search Console tag (OA-35) and demo email (OA-34), BL-160 (OA-32), and everything on migrations M1 to M7.
+
+
+## Ranked open work — round 8 (2026-10-27, code-verified)
+
+Migrations through 0072 are applied and M1 to M7 are all true. Each item below was checked against the code on 2026-10-27, is still open, needs **no migration**, is HOA-only (`apps/hoa`, `packages/jobs`; marketing only for SEO), and is ranked by value to self-managed boards, Georgia first. Georgia's code-side list (BL-158, 159, 161 to 169) is now built; what remains there is BL-160 (waits on OA-32), BL-156 ballots (needs a migration) and the SEO program.
+
+1. **Credit balance on the resident pay and dues pages (BL-177 follow-up).** A resident with an unapplied credit (overpayment) sees it on the ledger and statement but not on `/resident/dues` or `/resident/dues/pay`, where the Zelle lines still ask for the full charge. Show "You have $X credit on account", and say the board applies it. Verified: `loadUnappliedCredits` feeds only `resident-dashboard.ts` (ledger), the estoppel and `resident-ledger.ts`; neither page references it. Files: `apps/hoa/src/app/resident/dues/page.tsx`, `apps/hoa/src/app/resident/dues/pay/page.tsx`, `apps/hoa/src/lib/resident-dashboard.ts`.
+2. **Holiday and occasion nudge in the board's daily digest (BL-173 leftover).** The dashboard card already links to `/communications/announce?occasion=…`, whose flow sends, so no new send path is needed; what is missing is the digest line ("Halloween is Friday: send a party notice?") with a link into that flow, honouring the dismissal cookie. Verified: `nextNudge` is pure and client-safe, and `packages/jobs/src/daily-digest.ts` has no nudge. Files: `apps/hoa/src/lib/announcements/nudge.ts`, `packages/jobs/src/daily-digest.ts`.
+3. **BL-171 weekly analytics digest to Asaf (counts only).** A weekly job emailing page views, demo requests and Georgia-guide visits as counts, no addresses or bodies. Verified: no code exists (BL-171 "Checked" line). Demo email (OA-34) is now done; only the Search Console tag waits on OA-35. Files: `packages/jobs/src/`, `apps/hoa/src/lib/platform-admin-analytics-counts.ts` (pattern).
+4. **Unapplied credit visible on the board's `/dues` list.** Show a credit badge per unit with a link to the existing "Apply credit" action, so a board member does not have to open each property to find overpayments. Verified: `app/(dashboard)/dues/page.tsx` has no credit reference; `ApplyCreditButton` exists only on `properties/[id]`. Files: `apps/hoa/src/app/(dashboard)/dues/page.tsx`, `apps/hoa/src/app/(dashboard)/properties/[id]/ApplyCreditButton.tsx`.
+5. **Owner-actions and release-note hygiene for M6/M7 screens: "From your professionals" and mail-tracking empty states.** Add the next action to the empty states of `/settings/professionals` and the collections mail-tracking panel now that both flags are on (BL-012 pattern). Lower confidence: verify the current empty states before building.
+6. **BL-172 SEO batch 6 (Georgia first).** Three or more new Georgia guides or templates per day quoting the official fixtures (SB 406 payment order, owners' records rights, conflict disclosure, ballots-by-consent § 14-3-708), each with a demo or tool CTA, then FL, CA, TX. Files: `apps/marketing/src/app/georgia/`, `apps/marketing/src/app/templates/`.
+
+**Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
