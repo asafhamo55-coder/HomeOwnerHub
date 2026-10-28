@@ -17,6 +17,9 @@ const PUBLIC_PREFIXES = [
   '/api/vendor-onboard',
   '/rfp-bid',
   '/api/rfp-bid',
+  // Pictures inside announcement emails: mail clients fetch them with no
+  // session. The route serves only <org>/announcement-images/<uuid>.<ext>.
+  '/api/announcement-image',
   // Dev-only component gallery (pnpm ui:shots). The page itself 404s in
   // production builds; this keeps it reachable without a session locally.
   ...(process.env.NODE_ENV !== 'production' ? ['/ui-gallery'] : []),

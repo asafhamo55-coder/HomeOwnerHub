@@ -31,6 +31,8 @@ import { sendCommunication, type SendCommunicationInput, type SendCommunicationR
 import { loadStreetOptions } from '@/lib/communications/streets'
 import { htmlToMessageText, plainTextToHtml } from '@/lib/communications/plain-text'
 import { SCHEDULING_ENABLED } from '@/lib/communications/scheduling'
+import { appOrigin } from '@/lib/app-origin'
+import { MAX_IMAGES_PER_MESSAGE, countMarkers, dropUnresolvedMarkers, markersToImgHtml } from './inline-images'
 import { getOccasion } from './occasions'
 import { isNudgeKey } from './nudge'
 import { NUDGE_SETTINGS_KEY, signDismissal, withDismissal } from './dismiss'
@@ -121,7 +123,17 @@ export async function sendAnnouncement(input: SendAnnouncementInput): Promise<Se
     }
   }
 
-  const bodyHtml = plainTextToHtml(v.bodyText)
+  // Pasted images: only well-formed id markers survive, each becomes an <img>
+  // on this app's own image route under the caller's org (never one the
+  // browser names). Everything else the board typed stays escaped text, and
+  // the text/SMS versions below are made from the finished HTML, where an
+  // <img> is dropped like any tag.
+  if (countMarkers(v.bodyText) > MAX_IMAGES_PER_MESSAGE || (v.spanish && countMarkers(v.spanish.bodyText) > MAX_IMAGES_PER_MESSAGE)) {
+    return { ok: false, error: `Use at most ${MAX_IMAGES_PER_MESSAGE} images in a message.` }
+  }
+  const imageOpts = { origin: appOrigin(), orgId: gate.orgId }
+  const toHtml = (text: string) => markersToImgHtml(plainTextToHtml(dropUnresolvedMarkers(text)), imageOpts)
+  const bodyHtml = toHtml(v.bodyText)
   const channels: SendCommunicationInput['channels'] = ['email', 'portal']
   // Never a text channel the server cannot deliver. Who actually gets a
   // text is still decided per resident at send time (opt-in and consent).
@@ -139,7 +151,7 @@ export async function sendAnnouncement(input: SendAnnouncementInput): Promise<Se
       ? {
           spanish: {
             subject: v.spanish.subject,
-            bodyHtml: plainTextToHtml(v.spanish.bodyText),
+            bodyHtml: toHtml(v.spanish.bodyText),
             reviewed: v.spanish.reviewed,
           },
         }

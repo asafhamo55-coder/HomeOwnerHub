@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition, type ClipboardEvent } from 'react'
 import Link from 'next/link'
 import {
   Car,
@@ -44,6 +44,18 @@ import { htmlToPlainEditorText, plainTextToHtml } from '@/lib/communications/pla
 import { htmlToPlainText } from '@/lib/communications/bilingual'
 import { localNowString } from '@/lib/communications/proposal-to-wizard'
 import { streetSelection, type StreetOption } from '@/lib/communications/streets'
+import {
+  MAX_ANNOUNCEMENT_IMAGE_BYTES,
+  MAX_IMAGES_PER_MESSAGE,
+  countMarkers,
+  dropUnresolvedMarkers,
+  markersIn,
+  markersToImgHtml,
+  stripImageMarkers,
+  toIdMarkers,
+} from '@/lib/announcements/inline-images'
+import { uploadAnnouncementImage } from '@/lib/announcements/upload-image'
+import { insertMarkers, isInlineImageType, pastedImageName, removeMarker } from '@/lib/inbox/draft/inline-images'
 import { PhonePreview } from '../new/PhonePreview'
 
 const ICONS: Record<OccasionIcon, LucideIcon> = {
@@ -136,6 +148,54 @@ export function AnnouncementFlow({
   const [esEdited, setEsEdited] = useState(false)
   const [esLoading, setEsLoading] = useState(false)
   const [esError, setEsError] = useState<string | null>(null)
+
+  // Images pasted into either message. The editor shows `[image: name]`; the
+  // map says which hosted file each name is. A marker goes in at the caret
+  // at once and the upload runs behind it; a failed upload takes its marker
+  // back out. Moving on is blocked while any upload is running.
+  const [images, setImages] = useState<Record<string, { id: string; orgId: string }>>({})
+  const [pasting, setPasting] = useState(0)
+  const [pasteError, setPasteError] = useState<string | null>(null)
+  async function onPasteImages(
+    event: ClipboardEvent<HTMLTextAreaElement>,
+    current: string,
+    set: (update: (text: string) => string) => void,
+    onEdited: () => void,
+  ) {
+    const found = Array.from(event.clipboardData.files).filter((file) => isInlineImageType(file.type))
+    if (found.length === 0) return
+    event.preventDefault()
+    if (countMarkers(current) + found.length > MAX_IMAGES_PER_MESSAGE) {
+      setPasteError(`Use at most ${MAX_IMAGES_PER_MESSAGE} images in a message.`)
+      return
+    }
+    if (found.some((file) => file.size > MAX_ANNOUNCEMENT_IMAGE_BYTES)) {
+      setPasteError('That image is too large. Keep it under 5 MB.')
+      return
+    }
+    setPasteError(null)
+    const now = new Date()
+    const files = found.map((file, index) => new File([file], pastedImageName(file.type, now, index), { type: file.type }))
+    const field = event.currentTarget
+    const next = insertMarkers(current, field.selectionStart, field.selectionEnd, files.map((file) => file.name))
+    set(() => next.body)
+    requestAnimationFrame(() => field.setSelectionRange(next.caret, next.caret))
+    onEdited()
+    setPasting((count) => count + files.length)
+    await Promise.all(
+      files.map(async (file) => {
+        try {
+          const uploaded = await uploadAnnouncementImage(file)
+          setImages((map) => ({ ...map, [file.name]: uploaded }))
+        } catch (err) {
+          setPasteError(err instanceof Error ? err.message : 'The image did not upload. Try again.')
+          set((text) => removeMarker(text, file.name))
+        } finally {
+          setPasting((count) => count - 1)
+        }
+      }),
+    )
+  }
 
   const [audienceMode, setAudienceMode] = useState<'all' | 'street'>('all')
   const [streetKey, setStreetKey] = useState(streets[0]?.key ?? '')
@@ -302,7 +362,7 @@ export function AnnouncementFlow({
       const res = await fetch('/api/ai/translate-communication', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ subject: subject.trim(), bodyHtml: plainTextToHtml(body) }),
+        body: JSON.stringify({ subject: subject.trim(), bodyHtml: plainTextToHtml(stripImageMarkers(body)) }),
       })
       if (!res.ok) throw new Error(await responseErrorMessage(res, `Translation failed (${res.status}).`))
       const data = (await res.json().catch(() => null)) as { subject?: unknown; bodyHtml?: unknown } | null
@@ -310,7 +370,11 @@ export function AnnouncementFlow({
         throw new Error('Translation failed. Try again.')
       }
       setEsSubject(data.subject)
-      setEsBody(htmlToPlainEditorText(data.bodyHtml) ?? htmlToPlainText(data.bodyHtml))
+      // The translator never sees the pictures; they are put back at the end so
+      // a resident who gets only the Spanish version sees them too.
+      const translated = htmlToPlainEditorText(data.bodyHtml) ?? htmlToPlainText(data.bodyHtml)
+      const pictures = markersIn(body)
+      setEsBody(pictures.length > 0 ? `${translated}\n\n${pictures.join('\n')}` : translated)
       setEsEdited(true)
     } catch (err) {
       setEsError(err instanceof Error ? err.message : 'Translation failed.')
@@ -328,8 +392,17 @@ export function AnnouncementFlow({
   // ── Review and send ─────────────────────────────────────────────────
 
   const spanishReady = esOn && esSubject.trim() !== '' && esBody.trim() !== ''
-  const bodyHtml = useMemo(() => plainTextToHtml(body), [body])
-  const spanishHtml = useMemo(() => (spanishReady ? plainTextToHtml(esBody) : ''), [spanishReady, esBody])
+  const idByName = useMemo(() => Object.fromEntries(Object.entries(images).map(([name, v]) => [name, v.id])), [images])
+  const imageOrgId = Object.values(images)[0]?.orgId ?? null
+  // The same conversion the server makes at send, so the preview and the
+  // test email show the real hosted pictures. The browser's own origin is
+  // used so the preview is not blocked by the page's image policy.
+  const toPreviewHtml = (text: string) => {
+    const html = plainTextToHtml(dropUnresolvedMarkers(toIdMarkers(text, idByName)))
+    return imageOrgId ? markersToImgHtml(html, { origin: window.location.origin, orgId: imageOrgId }) : html
+  }
+  const bodyHtml = useMemo(() => toPreviewHtml(body), [body, idByName, imageOrgId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const spanishHtml = useMemo(() => (spanishReady ? toPreviewHtml(esBody) : ''), [spanishReady, esBody, idByName, imageOrgId]) // eslint-disable-line react-hooks/exhaustive-deps
   const streetPick = street ? streetSelection(street, new Set(), ownersOnly) : null
   const recipientCount = audienceMode === 'street' ? (streetPick?.count ?? 0) : everyoneCount
 
@@ -382,8 +455,8 @@ export function AnnouncementFlow({
       const result = await sendAnnouncement({
         occasionId: occasionId || CUSTOM_OCCASION_ID,
         subject,
-        bodyText: body,
-        spanish: spanishReady ? { subject: esSubject, bodyText: esBody, reviewed: true } : null,
+        bodyText: toIdMarkers(body, idByName),
+        spanish: spanishReady ? { subject: esSubject, bodyText: toIdMarkers(esBody, idByName), reviewed: true } : null,
         audience:
           audienceMode === 'street' && street
             ? { mode: 'street', streetKey: street.key, ...(ownersOnly ? { ownersOnly: true } : {}) }
@@ -598,8 +671,13 @@ export function AnnouncementFlow({
                 setBody(e.target.value)
                 setSource('edited')
               }}
+              onPaste={(e) => void onPasteImages(e, body, (update) => setBody(update), () => setSource('edited'))}
             />
           </Field>
+          <p className="-mt-3 text-xs text-muted" aria-live="polite">
+            {pasting > 0 ? 'Uploading the pasted image…' : 'Paste a picture to put it in the message itself.'}
+          </p>
+          {pasteError ? <Alert variant="error">{pasteError}</Alert> : null}
 
           <section className="space-y-3 rounded-xl border border-border bg-subtle/50 p-4">
             <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-foreground">
@@ -640,6 +718,7 @@ export function AnnouncementFlow({
                       setEsBody(e.target.value)
                       setEsEdited(true)
                     }}
+                    onPaste={(e) => void onPasteImages(e, esBody, (update) => setEsBody(update), () => setEsEdited(true))}
                   />
                 </Field>
                 {isCustom ? (
@@ -652,7 +731,7 @@ export function AnnouncementFlow({
           </section>
 
           <div className="flex flex-wrap gap-3">
-            <Button type="button" size="lg" onClick={goReview} disabled={polishing || esLoading}>
+            <Button type="button" size="lg" onClick={goReview} disabled={polishing || esLoading || pasting > 0}>
               Looks good, review it
             </Button>
           </div>
