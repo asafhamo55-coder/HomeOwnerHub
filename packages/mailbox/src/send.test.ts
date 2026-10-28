@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { buildMimeMessage, sendReply, assertNoBoundaryCollision } from './send'
+import { buildMimeMessage, sendReply, assertNoBoundaryCollision, splitInlineImages } from './send'
 import { MailboxAuthError } from './types'
 
 describe('buildMimeMessage — single part', () => {
@@ -291,5 +291,84 @@ describe('buildMimeMessage — attachments', () => {
     })
     expect(out).toContain('=?UTF-8?B?')
     expect(out).not.toContain('filename="Grünanlage.pdf"')
+  })
+})
+
+describe('buildMimeMessage — images pasted into the body', () => {
+  const base = {
+    from: 'hoa@example.com',
+    to: ['resident@example.com'],
+    subject: 'Re: Fence',
+    body: 'Here is the spot:\n[image: pasted-1.png]\nThanks',
+    inReplyTo: null,
+    references: [],
+  }
+  const png = { fileName: 'pasted-1.png', contentType: 'image/png', bytes: Buffer.from('fake-png') }
+  const pdf = { fileName: 'ccrs.pdf', contentType: 'application/pdf', bytes: Buffer.from('%PDF') }
+
+  it('sends a marked image inline, referenced from an HTML body by Content-ID', () => {
+    const out = buildMimeMessage({ ...base, attachments: [png] })
+    const cid = out.match(/Content-ID: <([^>]+)>/)![1]
+    expect(out).toMatch(/^Content-Type: multipart\/related; type="multipart\/alternative"; boundary="/m)
+    expect(out).not.toContain('multipart/mixed')
+    expect(out).toContain('Content-Type: multipart/alternative')
+    expect(out).toContain('Content-Type: text/html; charset="UTF-8"')
+    expect(out).toContain(`<img src="cid:${cid}" alt="pasted-1.png"`)
+    expect(out).toContain('Content-Disposition: inline; filename="pasted-1.png"')
+    expect(out).not.toContain('Content-Disposition: attachment')
+    // The plain-text alternative keeps the marker for text-only clients.
+    expect(out).toContain('Here is the spot:\n[image: pasted-1.png]\nThanks')
+  })
+
+  it('puts the headers and body of an inline-only message in the right place', () => {
+    const out = buildMimeMessage({ ...base, attachments: [png] })
+    const [head] = out.split('\r\n\r\n')
+    expect(head).toContain('Subject: Re: Fence')
+    expect(head).toContain('MIME-Version: 1.0\r\nContent-Type: multipart/related')
+    expect(head).not.toContain('Content-Transfer-Encoding')
+  })
+
+  it('wraps inline images and ordinary attachments in multipart/mixed', () => {
+    const out = buildMimeMessage({ ...base, attachments: [png, pdf] })
+    expect(out).toMatch(/^Content-Type: multipart\/mixed; boundary="/m)
+    expect(out).toContain('Content-Type: multipart/related')
+    expect(out).toContain('Content-Disposition: inline; filename="pasted-1.png"')
+    expect(out).toContain('Content-Disposition: attachment; filename="ccrs.pdf"')
+  })
+
+  it('escapes the body text in the HTML part', () => {
+    const out = buildMimeMessage({ ...base, body: '<b>a & b</b> [image: pasted-1.png]', attachments: [png] })
+    expect(out).toContain('&lt;b&gt;a &amp; b&lt;/b&gt; <img src="cid:')
+  })
+
+  it('leaves an image with no marker as an ordinary attachment, byte-identical in shape', () => {
+    const out = buildMimeMessage({ ...base, body: 'See attached.', attachments: [png] })
+    expect(out).not.toContain('multipart/related')
+    expect(out).not.toContain('text/html')
+    expect(out).toContain('Content-Disposition: attachment; filename="pasted-1.png"')
+  })
+
+  it('does not inline a non-image file even when the body names it', () => {
+    const split = splitInlineImages('[image: ccrs.pdf]', [pdf])
+    expect(split.inline).toHaveLength(0)
+    expect(split.attached).toEqual([pdf])
+  })
+
+  it('inlines a duplicate name once and attaches the rest', () => {
+    const split = splitInlineImages('[image: pasted-1.png]', [png, png])
+    expect(split.inline).toHaveLength(1)
+    expect(split.attached).toHaveLength(1)
+  })
+
+  it('gives each inline image its own Content-ID', () => {
+    const second = { ...png, fileName: 'pasted-2.png' }
+    const out = buildMimeMessage({
+      ...base,
+      body: '[image: pasted-1.png]\n[image: pasted-2.png]',
+      attachments: [png, second],
+    })
+    const ids = [...out.matchAll(/Content-ID: <([^>]+)>/g)].map((m) => m[1])
+    expect(ids).toHaveLength(2)
+    expect(new Set(ids).size).toBe(2)
   })
 })

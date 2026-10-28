@@ -158,16 +158,37 @@ export function buildMimeMessage(opts: {
     return `${headers.join('\r\n')}\r\n\r\n${opts.body}`
   }
 
-  const boundary = makeBoundary()
+  const { inline, attached } = splitInlineImages(opts.body, attachments)
+
+  const textPart = [
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    opts.body,
+  ].join('\r\n')
+
+  // With images pasted into the body, the body becomes a multipart/related
+  // block: a text/plain + text/html alternative, then each image as an
+  // inline part the HTML points at by Content-ID. Clients that render HTML
+  // show the image in place; the rest see the plain text, whose
+  // `[image: name]` marker still says what was there.
+  const bodyPart =
+    inline.length === 0
+      ? textPart
+      : relatedPart(
+          textPart,
+          [
+            'Content-Type: text/html; charset="UTF-8"',
+            'Content-Transfer-Encoding: 8bit',
+            '',
+            bodyToHtml(opts.body, inline),
+          ].join('\r\n'),
+          inline,
+        )
 
   const parts = [
-    [
-      'Content-Type: text/plain; charset="UTF-8"',
-      'Content-Transfer-Encoding: 8bit',
-      '',
-      opts.body,
-    ].join('\r\n'),
-    ...attachments.map((file) =>
+    bodyPart,
+    ...attached.map((file) =>
       [
         `Content-Type: ${file.contentType ?? 'application/octet-stream'}; name="${encodeHeader(file.fileName)}"`,
         `Content-Disposition: attachment; filename="${encodeHeader(file.fileName)}"`,
@@ -178,8 +199,6 @@ export function buildMimeMessage(opts: {
     ),
   ]
 
-  assertNoBoundaryCollision(parts, boundary)
-
   // Swap the single-part content headers for the multipart declaration. The
   // 8bit transfer encoding moves onto the body PART; a multipart container
   // must not declare one.
@@ -188,14 +207,115 @@ export function buildMimeMessage(opts: {
       !h.startsWith('Content-Type: text/plain') &&
       !h.startsWith('Content-Transfer-Encoding:'),
   )
-  multipartHeaders.splice(
-    multipartHeaders.findIndex((h) => h === 'MIME-Version: 1.0') + 1,
-    0,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-  )
+  const mimeVersionAt = multipartHeaders.findIndex((h) => h === 'MIME-Version: 1.0') + 1
+
+  // Every attachment was an inline image: the related block IS the message,
+  // with no multipart/mixed wrapper around a single part.
+  if (attached.length === 0) {
+    const [contentType, ...rest] = bodyPart.split('\r\n')
+    multipartHeaders.splice(mimeVersionAt, 0, contentType)
+    return `${multipartHeaders.join('\r\n')}\r\n${rest.join('\r\n')}`
+  }
+
+  const boundary = makeBoundary()
+  assertNoBoundaryCollision(parts, boundary)
+  multipartHeaders.splice(mimeVersionAt, 0, `Content-Type: multipart/mixed; boundary="${boundary}"`)
 
   const bodyBlock = `--${boundary}\r\n${parts.join(`\r\n--${boundary}\r\n`)}\r\n--${boundary}--`
   return `${multipartHeaders.join('\r\n')}\r\n\r\n${bodyBlock}`
+}
+
+/**
+ * Image types every mainstream mail client renders inline. Anything else
+ * named by a marker still goes out — as an ordinary attachment.
+ */
+const INLINE_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+
+/** `[image: name.png]` — what the composer puts in the body on paste. */
+const IMAGE_MARKER_RE = /\[image: ([^\]\r\n]+)\]/g
+
+interface InlineImage extends OutboundAttachment {
+  contentId: string
+}
+
+/**
+ * Exported for tests. An attachment is inline when the body carries its
+ * marker and it is a renderable image; a file attached twice under the same
+ * name is inlined once and the rest stay attachments.
+ */
+export function splitInlineImages(
+  body: string,
+  attachments: OutboundAttachment[],
+): { inline: InlineImage[]; attached: OutboundAttachment[] } {
+  const named = new Set([...body.matchAll(IMAGE_MARKER_RE)].map((m) => m[1]))
+  const inline: InlineImage[] = []
+  const attached: OutboundAttachment[] = []
+  for (const file of attachments) {
+    const type = (file.contentType ?? '').split(';')[0].trim().toLowerCase()
+    if (named.has(file.fileName) && INLINE_IMAGE_TYPES.has(type)) {
+      named.delete(file.fileName)
+      inline.push({ ...file, contentId: `img${inline.length}.${randomBytes(8).toString('hex')}@homeownerhub` })
+    } else {
+      attached.push(file)
+    }
+  }
+  return { inline, attached }
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * The plain body as HTML: escaped, line breaks kept, and each image marker
+ * swapped for the image itself. Markers with no matching image stay as text.
+ */
+function bodyToHtml(body: string, inline: InlineImage[]): string {
+  const byName = new Map(inline.map((file) => [escapeHtml(file.fileName), file]))
+  const html = escapeHtml(body)
+    .replace(IMAGE_MARKER_RE, (marker, escapedName: string) => {
+      const file = byName.get(escapedName)
+      if (!file) return marker
+      return `<img src="cid:${file.contentId}" alt="${escapedName}" style="max-width:100%;height:auto">`
+    })
+    .replace(/\r?\n/g, '<br>\r\n')
+  return `<div dir="auto">${html}</div>`
+}
+
+function relatedPart(textPart: string, htmlPart: string, inline: InlineImage[]): string {
+  const alternativeBoundary = makeBoundary()
+  const alternativeParts = [textPart, htmlPart]
+  assertNoBoundaryCollision(alternativeParts, alternativeBoundary)
+  const alternative = [
+    `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
+    '',
+    `--${alternativeBoundary}\r\n${alternativeParts.join(`\r\n--${alternativeBoundary}\r\n`)}\r\n--${alternativeBoundary}--`,
+  ].join('\r\n')
+
+  const relatedBoundary = makeBoundary()
+  const relatedParts = [
+    alternative,
+    ...inline.map((file) =>
+      [
+        `Content-Type: ${file.contentType}; name="${encodeHeader(file.fileName)}"`,
+        `Content-Disposition: inline; filename="${encodeHeader(file.fileName)}"`,
+        `Content-ID: <${file.contentId}>`,
+        'Content-Transfer-Encoding: base64',
+        '',
+        base64Lines(file.bytes),
+      ].join('\r\n'),
+    ),
+  ]
+  assertNoBoundaryCollision(relatedParts, relatedBoundary)
+  return [
+    `Content-Type: multipart/related; type="multipart/alternative"; boundary="${relatedBoundary}"`,
+    '',
+    `--${relatedBoundary}\r\n${relatedParts.join(`\r\n--${relatedBoundary}\r\n`)}\r\n--${relatedBoundary}--`,
+  ].join('\r\n')
 }
 
 /**

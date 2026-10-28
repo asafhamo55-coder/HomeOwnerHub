@@ -1,21 +1,13 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { FileText, Paperclip, Upload, X } from 'lucide-react'
+import { FileText, Image as ImageIcon, Paperclip, Upload, X } from 'lucide-react'
 import { Alert, Button } from '@homeowner-portal/ui'
-// The repo's singleton, NOT a bare createBrowserClient — one browser client
-// per page load, so we don't add duplicate auth listeners and websocket fanout
-// every time the picker mounts.
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-import {
-  createAttachmentUploadUrl,
-  addDraftAttachment,
-  removeDraftAttachment,
-} from '@/lib/inbox/draft/attachment-actions'
+import { addDraftAttachment, removeDraftAttachment } from '@/lib/inbox/draft/attachment-actions'
 import { checkAttachmentFits, formatBytes, remainingBudget } from '@/lib/inbox/draft/attachments'
+import { hasMarker } from '@/lib/inbox/draft/inline-images'
+import { uploadDraftAttachment } from '@/lib/inbox/draft/upload-attachment'
 import type { DraftAttachment } from '@/lib/inbox/queries'
-
-const BUCKET = 'hoa-documents'
 
 interface Props {
   draftId: string
@@ -24,6 +16,10 @@ interface Props {
   threadFiles: Array<{ id: string; fileName: string; sizeBytes: number }>
   libraryFiles: Array<{ id: string; name: string; type: string; sizeBytes: number }>
   disabled?: boolean
+  /** The live message text: an image whose marker is in it shows as "in message". */
+  body?: string
+  /** Told after a file is removed, so the composer can drop its marker. */
+  onRemoved?: (fileName: string) => void
 }
 
 export function AttachmentPicker({
@@ -32,6 +28,8 @@ export function AttachmentPicker({
   threadFiles,
   libraryFiles,
   disabled,
+  body = '',
+  onRemoved,
 }: Props) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -72,26 +70,7 @@ export function AttachmentPicker({
       }
       setError(null)
       setUploading(true)
-      // Bytes go browser → storage directly. A server action caps its
-      // request body at 1MB, so a 15MB file could never pass through one.
-      const signed = await createAttachmentUploadUrl(draftId, file.name, file.size)
-      if ('error' in signed) {
-        setError(signed.error)
-        return
-      }
-      const supabase = getSupabaseBrowserClient()
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .uploadToSignedUrl(signed.path, signed.token, file)
-      if (uploadError) {
-        setError('The upload did not finish. Try again.')
-        return
-      }
-      const result = await addDraftAttachment(draftId, 'upload', signed.path, {
-        fileName: file.name,
-        contentType: file.type || null,
-        sizeBytes: file.size,
-      })
+      const result = await uploadDraftAttachment(draftId, file)
       if ('error' in result) setError(result.error)
     } finally {
       setUploading(false)
@@ -99,11 +78,12 @@ export function AttachmentPicker({
     }
   }
 
-  function remove(attachmentId: string) {
+  function remove(attachmentId: string, fileName: string) {
     setError(null)
     startTransition(async () => {
       const result = await removeDraftAttachment(attachmentId)
       if ('error' in result) setError(result.error)
+      else onRemoved?.(fileName)
     })
   }
 
@@ -116,25 +96,33 @@ export function AttachmentPicker({
 
       {attachments.length > 0 ? (
         <ul className="flex flex-wrap gap-2">
-          {attachments.map((file) => (
+          {attachments.map((file) => {
+            const inMessage = hasMarker(body, file.fileName)
+            return (
             <li
               key={file.id}
               className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-border bg-subtle py-1 pl-2.5 pr-1 text-xs"
             >
-              <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
+              {inMessage ? (
+                <ImageIcon className="size-3.5 shrink-0 text-muted" aria-hidden />
+              ) : (
+                <Paperclip className="size-3.5 shrink-0 text-muted" aria-hidden />
+              )}
               <span className="truncate text-foreground">{file.fileName}</span>
+              {inMessage ? <span className="shrink-0 text-muted">in message</span> : null}
               <span className="num shrink-0 text-muted">{formatBytes(file.sizeBytes)}</span>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-xs"
                 aria-label={`Remove ${file.fileName}`}
-                onClick={() => remove(file.id)}
+                onClick={() => remove(file.id, file.fileName)}
                 disabled={busy}
                 icon={<X aria-hidden />}
               />
             </li>
-          ))}
+            )
+          })}
         </ul>
       ) : null}
 

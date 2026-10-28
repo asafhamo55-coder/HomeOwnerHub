@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent } from 'react'
 import { AlertTriangle, BookOpen, Send } from 'lucide-react'
 import { Alert, Button, Field, Input, Textarea } from '@homeowner-portal/ui'
+import { checkAttachmentFits } from '@/lib/inbox/draft/attachments'
 import { hasUnfilledBlanks, UNDO_WINDOW_SECONDS } from '@/lib/inbox/draft/blanks'
+import { insertMarkers, isInlineImageType, pastedImageName, removeMarker } from '@/lib/inbox/draft/inline-images'
+import { uploadDraftAttachment } from '@/lib/inbox/draft/upload-attachment'
 import { INBOX_APPROVE_CLOSE_EVENT, INBOX_EDIT_EVENT } from '@/lib/inbox/keys'
 import { INBOX_INSERT_EVENT, insertIntoBody, type InsertDetail } from '@/lib/inbox/reply-insert'
 import type { DraftAttachment, ThreadDraft } from '@/lib/inbox/queries'
@@ -110,13 +113,56 @@ export function Composer({
     setBody((current) => insertIntoBody(current, insertOnOpen).body)
   }, [draft.id, insertOnOpen])
 
+  // An image pasted into the message: its marker goes in at the cursor
+  // straight away and the bytes upload as a draft attachment behind it.
+  // buildMimeMessage sends every marked image inline, in place. A failed
+  // upload takes its marker back out, so nothing points at a missing file.
+  const [pasting, setPasting] = useState(0)
+  const [pasteError, setPasteError] = useState<string | null>(null)
+  async function onPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const images = Array.from(event.clipboardData.files).filter((file) => isInlineImageType(file.type))
+    if (images.length === 0) return
+    event.preventDefault()
+    const now = new Date()
+    const files = images.map((file, index) => new File([file], pastedImageName(file.type, now, index), { type: file.type }))
+    let budget: Array<{ sizeBytes: number }> = attachments
+    for (const file of files) {
+      const fits = checkAttachmentFits(budget, file.size)
+      if (!fits.ok) {
+        setPasteError(fits.error)
+        return
+      }
+      budget = [...budget, { sizeBytes: file.size }]
+    }
+    setPasteError(null)
+    const field = event.currentTarget
+    const next = insertMarkers(body, field.selectionStart, field.selectionEnd, files.map((file) => file.name))
+    setBody(next.body)
+    caret.current = next.caret
+    requestAnimationFrame(() => field.setSelectionRange(next.caret, next.caret))
+    setPasting((count) => count + files.length)
+    await Promise.all(
+      files.map(async (file) => {
+        try {
+          const result = await uploadDraftAttachment(draft.id, file)
+          if ('error' in result) throw new Error(result.error)
+        } catch (error) {
+          setPasteError(error instanceof Error ? error.message : 'The image did not upload. Try again.')
+          setBody((current) => removeMarker(current, file.name))
+        } finally {
+          setPasting((count) => count - 1)
+        }
+      }),
+    )
+  }
+
   // Computed from the LIVE edits, not the stored arrays — this is what makes
   // filling a blank or adding a recipient enable Approve immediately, and
   // removing it re-disable. approveDraft re-checks all of it server-side;
   // this is the affordance, not the guarantee.
   const noRecipients = to.length === 0
   const blanksLeft = hasUnfilledBlanks(subject) || hasUnfilledBlanks(body)
-  const blocked = blanksLeft || noRecipients
+  const blocked = blanksLeft || noRecipients || pasting > 0
 
   // Keyboard (BL-101 A3): "a" approves and closes, "e" puts the cursor in
   // the message. Both arrive as window events from InboxKeyboard. "a" goes
@@ -202,11 +248,16 @@ export function Composer({
             onChange={(event) => setBody(event.target.value)}
             onClick={rememberCaret}
             onKeyUp={rememberCaret}
+            onPaste={(event) => void onPaste(event)}
             rows={12}
             disabled={pending}
             className="leading-relaxed"
           />
         </Field>
+        <p className="-mt-2 text-xs text-muted" aria-live="polite">
+          {pasting > 0 ? 'Uploading the pasted image…' : 'Paste an image to put it in the message itself.'}
+        </p>
+        {pasteError ? <Alert variant="error">{pasteError}</Alert> : null}
 
         {threadId && draft.kind === 'reply' ? <SavedReplyPicker threadId={threadId} disabled={pending} /> : null}
 
@@ -252,6 +303,8 @@ export function Composer({
           threadFiles={threadFiles}
           libraryFiles={libraryFiles}
           disabled={pending}
+          body={body}
+          onRemoved={(fileName) => setBody((current) => removeMarker(current, fileName))}
         />
 
         {actionError ? <Alert variant="error">{actionError}</Alert> : null}
