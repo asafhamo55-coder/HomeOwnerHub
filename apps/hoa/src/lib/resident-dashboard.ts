@@ -26,6 +26,7 @@ import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { buildLedger, loadLedgerRows, loadUnappliedCredits, type Ledger } from '@/lib/resident-ledger'
+import { loadResidentCredit, type ResidentCredit } from '@/lib/resident-credit'
 import { todayIn } from '@/lib/association-time'
 import { chargeWindow, scopeAssessments, scopeLedgerRows, type ChargeWindow } from '@/lib/resident-sale-window'
 import {
@@ -140,11 +141,18 @@ export async function getResidentDues(): Promise<{
   units: ResidentUnit[]
   dues: ResidentDues
   failed: boolean
+  /** Credit on account (M7); null = nothing to show, including a failed read. */
+  credit: ResidentCredit | null
 }> {
   const [actor, units] = await Promise.all([getResidentActor(), getResidentUnits()])
   const today = todayIn(residentTimeZone(units))
-  const dues = await getDues(actor.client, units.map((u) => u.unit_id), actor.orgId, today, chargeWindow(units))
-  return { units, dues: dues ?? emptyResidentDues(today), failed: dues === null }
+  const unitIds = units.map((u) => u.unit_id)
+  // Batched with the dues read: one extra query, no extra round trip.
+  const [dues, credit] = await Promise.all([
+    getDues(actor.client, unitIds, actor.orgId, today, chargeWindow(units)),
+    loadResidentCredit(actor.client, unitIds, actor.orgId),
+  ])
+  return { units, dues: dues ?? emptyResidentDues(today), failed: dues === null, credit }
 }
 
 /**

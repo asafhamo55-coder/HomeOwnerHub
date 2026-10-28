@@ -8,6 +8,7 @@ import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { chargeDueText, nextDueText } from '@/lib/resident-due-text'
 import { DuesTabs } from '@/components/resident/DuesTabs'
 import { Hero, Panel, RowGroup, ScreenEmpty, ScreenHeader, Section, TappableRow } from '@/components/resident/screen'
+import { CreditOnAccountCard } from '@/components/resident/CreditOnAccountCard'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'Dues' }
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic'
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
 
 export default async function ResidentDuesPage() {
-  const { units, dues, failed } = await timed('/resident/dues', 'resident.dues', () => getResidentDues())
+  const { units, dues, failed, credit } = await timed('/resident/dues', 'resident.dues', () => getResidentDues())
 
   if (units.length === 0) {
     return (
@@ -85,6 +86,8 @@ export default async function ResidentDuesPage() {
           description="No outstanding charges on your account."
         />
       )}
+
+      <CreditOnAccountCard credit={credit} />
 
       {dues.charges.length > 0 ? (
         <Section label={overdue ? 'Open charges · past due first' : 'Open charges'}>

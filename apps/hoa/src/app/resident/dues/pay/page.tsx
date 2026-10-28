@@ -8,6 +8,7 @@ import type { ResidentUnit } from '@/lib/resident'
 import { ZellePayInstructions } from '@/components/resident/ZellePayInstructions'
 import { Hero, Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
 import { TrackOnMount } from '@/components/analytics/ProductAnalytics'
+import { CreditOnAccountCard } from '@/components/resident/CreditOnAccountCard'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'Pay dues' }
@@ -21,7 +22,7 @@ const BACK = { href: '/resident/dues', label: 'Dues' }
 // by memo code + amount, and a board member approves the posting.
 
 export default async function ResidentPayPage() {
-  const { units, dues, failed } = await getResidentDues()
+  const { units, dues, failed, credit } = await getResidentDues()
 
   if (units.length === 0) {
     return (
@@ -89,6 +90,8 @@ export default async function ResidentPayPage() {
         value={usd.format(dues.balance)}
         footer={`${dues.openCount} open ${dues.openCount === 1 ? 'charge' : 'charges'}`}
       />
+
+      <CreditOnAccountCard credit={credit} variant="pay" />
 
       {!settings.ok ? (
         <LoadFailed what="your board’s payment details" hint="Try again in a minute. Your balance above is correct." />
