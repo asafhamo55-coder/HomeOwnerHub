@@ -8,6 +8,7 @@ import { todayIn } from '@/lib/association-time'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
 import { expiryLabel } from '@/lib/professionals/model'
 import { loadDualControlCents, loadMatterOptions, loadOfficers, loadPendingInvites, loadProfessionals } from '@/lib/professionals/load'
+import { INVITE_FORM_ID, NoProfessionalsYet, NoTreasurerNotice, OFFICERS_LIST_ID } from './EmptyStates'
 import { DualControlForm, InviteProfessionalForm, OfficerTitles, PendingInviteRow, ProfessionalRowView } from './ProfessionalsPanel'
 
 export const metadata = { title: 'Professionals' }
@@ -30,7 +31,7 @@ export default async function ProfessionalsPage() {
     <Page title="Professionals" description="Your CPA and attorney get only the access their job needs, for a time you set. Everything they send comes to Approvals first.">
       <SettingsTabs current="/settings/professionals" role={role} />
       <div className="mt-6 space-y-6">
-        <Card>
+        <Card id={INVITE_FORM_ID} className="scroll-mt-20">
           <CardHeader>
             <CardTitle as="h2">Invite a professional</CardTitle>
             <CardDescription>A CPA reads the books and reports. An attorney sees only the matters you assign.</CardDescription>
@@ -50,7 +51,7 @@ export default async function ProfessionalsPage() {
             </div>
           ) : pros.rows.length === 0 ? (
             <CardContent>
-              <p className="text-sm text-foreground-secondary">No outside professionals yet.</p>
+              <NoProfessionalsYet />
             </CardContent>
           ) : (
             <ul className="divide-y divide-border border-t border-border">
@@ -87,7 +88,12 @@ export default async function ProfessionalsPage() {
             <CardDescription>The Treasurer signs off money approvals first. Titles also name your officers elsewhere.</CardDescription>
           </CardHeader>
           <CardContent>
-            {officers.ok ? <OfficerTitles rows={officers.rows} canEdit={role === 'admin'} /> : <LoadFailed what="the board" retryHref="/settings/professionals" />}
+            {officers.ok ? (
+              <div id={OFFICERS_LIST_ID} className="scroll-mt-20 space-y-3">
+                <NoTreasurerNotice rows={officers.rows} canEdit={role === 'admin'} />
+                <OfficerTitles rows={officers.rows} canEdit={role === 'admin'} />
+              </div>
+            ) : <LoadFailed what="the board" retryHref="/settings/professionals" />}
           </CardContent>
         </Card>
 

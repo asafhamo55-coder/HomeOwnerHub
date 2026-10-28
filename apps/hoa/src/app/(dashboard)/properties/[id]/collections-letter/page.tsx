@@ -25,6 +25,7 @@ import {
 } from '@/lib/collections/mail-tracking'
 import { CollectionsLetter } from './CollectionsLetter'
 import { MailingForm } from './MailingForm'
+import { MailingNotRecorded } from './MailingEmpty'
 
 /** BL-166: the Georgia notices whose waiting period runs from delivery. */
 const GA_MAIL_KINDS = ['ga_fee_notice', 'ga_pre_foreclosure', 'ga_condo_pre_foreclosure'] as const
@@ -151,13 +152,11 @@ function MailingBlock({ request: r, today, propertyId }: { request: { id: string
     clock = r.mail.method && r.mail.method !== 'certified' && r.mail.method !== 'statutory_overnight'
       ? 'This method does not start Georgia’s clock. Only certified mail or statutory overnight delivery does.'
       : 'Add the delivery date to start the clock.'
-  } else {
-    clock = 'Not recorded yet. The waiting period counts from the day the owner received it.'
   }
   return (
     <div className="text-sm">
       {r.mail ? <p className="text-foreground-secondary">{describeMail(r.mail)}</p> : null}
-      <p className="text-foreground-secondary">{clock}</p>
+      {clock ? <p className="text-foreground-secondary">{clock}</p> : <MailingNotRecorded />}
       <details>
         <summary className="cursor-pointer text-xs underline">{r.mail ? 'Add or update the mailing record' : 'Record how and when it was mailed'}</summary>
         <MailingForm propertyId={propertyId} approvalRequestId={r.id} initial={r.mail ?? null} today={today} />
