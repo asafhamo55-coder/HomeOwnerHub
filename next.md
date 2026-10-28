@@ -6,6 +6,71 @@ this file is the reference it points to.
 
 ---
 
+## 0. PAUSED 2026-10-28 at Asaf's request (read this first; it supersedes the dated state in §4, §6 and §7)
+
+Asaf paused the 24/7 loop on 2026-10-28 around 08:00 ET. The hourly cron and its 7-day renewal were deleted. **Do not restart the loop until Asaf says so.** When he does, recreate the cron from §3.
+
+### State at pause
+- **Prod:** see `/api/health` for the deployed SHA. Every migration through **0072** is applied in prod and verified (OA-37). All flags M1–M7 are `true`.
+- **Live since 2026-10-27:**
+  - tenant isolation in the database (121 same-HOA checks)
+  - CPA, attorney and treasurer roles (Settings → Professionals; `PRO_INVITE_SECRET` set)
+  - one-step lump payments with unapplied credit
+  - certified-mail tracking
+  - 20 holiday and event nudges, plus a digest line
+  - GA late-fee prompt
+  - board and emergency contacts
+  - "Spanish only" message language
+  - annual-report narrative and attachment
+  - resident credit on dues and pay
+  - "Credit $X" badge on the board's /dues
+  - website: closer to nice.com, /professionals live, SEO batches 4–6 (about 30 content pages)
+  - demo requests reach Asaf (OA-34 done)
+- **Last deploy before the pause:** the empty-state next actions (Settings → Professionals, mail tracking), the weekly counts-only analytics email (it sends nothing until OA-38), and the dashboard's shared associations read (one read per request). Confirm with `/api/health`.
+- **Decks** (`~/HomeownerHub-decks/`): refreshed on 2026-10-28. Product deck 45 slides, investor deck 25. Slides 41–42 still show "Screenshot pending".
+
+### Waiting on Asaf (full steps in `docs/owner-actions.md`, which is emailed)
+- **Has a deadline:**
+  - OA-32: Georgia proposed 590-13 rules PDFs; comments due **Nov 2**. Unblocks BL-160.
+- **Soon:**
+  - OA-35: Vercel Analytics and Search Console. Without it, SEO results can't be measured.
+  - OA-26: `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`.
+  - OA-36: three read-only isolation checks.
+  - OA-7: Inngest scheduled-messages job.
+  - OA-14: two Stripe webhook events.
+  - OA-25: Stripe portal quantity editing off.
+  - OA-33: Stripe test webhook secret, starting `whsec_`.
+  - OA-9: FL, CA and TX law load.
+- **In the app:** Settings → Professionals: set the Treasurer, then invite a CPA or attorney.
+- **Whenever:**
+  - OA-38: `ANALYTICS_REPORT_TO` for the weekly numbers email.
+  - Plus OA-5, 8, 11, 12, 13, 15, 16, 18, 19, 20, 22, 23, 24 and 27.
+
+### Backlog leftovers (single source: `docs/backlog.md`)
+- **Round 8 is done,** all 6 items. The next ranked list needs a fresh code-verified grooming pass (round 9) first.
+- **Needs a migration** (batch it, then Asaf applies it):
+  - quiet hours for resident notices (needs a "held until" design)
+  - English-only language: a nullable `language` or a `language_chosen` flag, so the default 'en' isn't read as a choice
+  - BL-156 electronic ballots and written consent
+  - a small no-PII `product_events` table, so the weekly email can count help-route views and demo requests
+  - five perf indexes, listed in the 2026-10-28 cycle-log entry
+- **No migration, ready to pick up:**
+  - perf: `readAll` trailing-probe round trip; `mw.session` (~450ms); a short `PERF_LOG=1` window for true p50
+  - weekly analytics: consider excluding `ai.usage.*` rows from "active boards"
+  - SEO batch 7+ (FL, CA, TX once fixtures exist; Georgia overpayments and credits); the weekly SEO audit is due **Nov 2**
+  - deck screenshots for the Professionals and board-convenience slides
+  - Fire Prevention Week uses Oct 9; it could use the real Sun–Sat week
+- **Waiting on Asaf:** BL-160 (OA-32), BL-069 monthly law sync (M2 plus keys).
+
+### Lessons from this stretch (keep)
+- **Trigger order:** Postgres runs BEFORE ROW triggers ahead of RLS WITH CHECK, so same-org FK guards are AFTER ROW triggers. That keeps RLS's 42501.
+- **CI cache:** GitHub Actions caches are per branch. Test migration branches by merging into claude/quality-oracle.
+- **DST in tests:** add calendar days to the local date string; never add 24h in UTC and then format.
+- **Machine load:** keep at most 2 agents building at once. A load average above 100 makes builds take hours and causes vitest worker timeouts, which are false failures, so re-run the file alone.
+- **Groomed lines:** they go stale, so code-verify before dispatching.
+- **Flag flips:** flipping a flag breaks tests that assumed its default. Pin flags in tests.
+- **Old crons:** they come back after a restart. Run CronList and delete duplicates.
+
 ## Paste this to start the new session
 
 > Read `next.md` at the repo root, then `docs/session-handoff.md`, `docs/backlog.md` (bottom sections first) and the last 5 entries of `docs/cycle-log.md`.
