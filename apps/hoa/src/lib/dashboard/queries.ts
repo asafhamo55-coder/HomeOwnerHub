@@ -190,7 +190,9 @@ export async function getApprovalsInbox(
   const supabase = await resolveClient(client)
   // Minutes of a meeting that hasn't happened yet are its agenda, not
   // something to approve: the meetings list shows them as Scheduled.
-  const todayISO = todayIn(await orgTimeZone(supabase, orgId))
+  // The zone read is sent together with the three reads that do not need it
+  // (BL-099 follow-up); only the minutes read waits for it.
+  const todayPromise = orgTimeZone(supabase, orgId).then((tz) => todayIn(tz))
 
   const [violations, minutes, invoices, rfps] = await Promise.all([
     // AI-drafted violation letters awaiting human approval (Bar B gate).
@@ -207,15 +209,17 @@ export async function getApprovalsInbox(
       .limit(10),
 
     // Meeting minutes that haven't been approved by the board yet.
-    supabase
-      .from('hoa_meeting_minutes')
-      .select('id, meeting_date, meeting_type, status, updated_at')
-      .eq('org_id', orgId)
-      .is('deleted_at', null)
-      .neq('status', 'approved')
-      .lte('meeting_date', todayISO)
-      .order('meeting_date', { ascending: false })
-      .limit(10),
+    todayPromise.then((todayISO) =>
+      supabase
+        .from('hoa_meeting_minutes')
+        .select('id, meeting_date, meeting_type, status, updated_at')
+        .eq('org_id', orgId)
+        .is('deleted_at', null)
+        .neq('status', 'approved')
+        .lte('meeting_date', todayISO)
+        .order('meeting_date', { ascending: false })
+        .limit(10),
+    ),
 
     // Invoices coded by AI and awaiting manager review before posting.
     supabase
@@ -427,44 +431,55 @@ export async function getLeaseSummary(
     error: { code?: string; message?: string } | null
   }>
 
-  const { data: unitsRows, error: unitsError } = await readAllResult<{ legacy_hoa_property_id: string | null }>(
-    (from, to) =>
-      supabase
+  // Pipelined (BL-099 follow-up): each page of units sends its leased-count
+  // chunks as soon as it arrives, so they overlap the next page read and the
+  // end-of-list probe instead of waiting for every page. Same pages, same
+  // chunks, same counts; a failed page still marks the summary failed.
+  type CountResult = { count: number | null; error: { code?: string; message?: string } | null }
+  const propertyIds: string[] = []
+  const leasedReads: Promise<CountResult>[] = []
+  const { error: unitsError } = await readAllResult<{ legacy_hoa_property_id: string | null }>(
+    async (from, to) => {
+      const page = (await supabase
         .from('units' as never)
         .select('id, legacy_hoa_property_id')
         .in('association_id', assocIds)
         .not('legacy_hoa_property_id', 'is', null)
         .order('id', { ascending: true })
-        .range(from, to) as never,
+        .range(from, to)) as unknown as {
+        data: Array<{ legacy_hoa_property_id: string | null }> | null
+        error: { code?: string; message?: string } | null
+      }
+      if (!page.error) {
+        const ids = (page.data ?? []).map((r) => r.legacy_hoa_property_id).filter((id): id is string => !!id)
+        propertyIds.push(...ids)
+        for (const c of chunk(ids)) {
+          leasedReads.push(
+            Promise.resolve(
+              supabase
+                .from('hoa_properties')
+                .select('id', { count: 'exact', head: true })
+                .in('id', c)
+                .is('deleted_at', null)
+                .eq('tenure' as never, 'leased'),
+            ) as unknown as Promise<CountResult>,
+          )
+        }
+      }
+      return page
+    },
   )
   note(unitsError)
-  const propertyIds = ((unitsRows ?? []) as unknown as Array<{
-    legacy_hoa_property_id: string | null
-  }>)
-    .map((r) => r.legacy_hoa_property_id)
-    .filter((id): id is string => !!id)
+  // A failed page left no usable unit list before this change either: report
+  // zeros (with failed: true), never a partial denominator.
+  if (unitsError) propertyIds.length = 0
 
   // Count-only, chunked: a single `.in()` over thousands of ids overflows
-  // the request URL. A failed chunk marks the summary failed. The chunks
-  // are independent, so they are sent together, not one after another.
+  // the request URL. A failed chunk marks the summary failed.
   let leasedCount = 0
-  const leasedChunks = await Promise.all(
-    chunk(propertyIds).map(
-      (ids) =>
-        supabase
-          .from('hoa_properties')
-          .select('id', { count: 'exact', head: true })
-          .in('id', ids)
-          .is('deleted_at', null)
-          .eq('tenure' as never, 'leased') as PromiseLike<{
-          count: number | null
-          error: { code?: string; message?: string } | null
-        }>,
-    ),
-  )
-  for (const { count, error: leasedError } of leasedChunks) {
+  for (const { count, error: leasedError } of await Promise.all(leasedReads)) {
     note(leasedError)
-    leasedCount += count ?? 0
+    if (!unitsError) leasedCount += count ?? 0
   }
   const totalUnits = propertyIds.length
 
@@ -731,6 +746,24 @@ export async function getComplianceHeatMap(
 ): Promise<ComplianceHeatMapResult> {
   const supabase = await resolveClient(client)
 
+  // The violations read needs neither the association ids nor the zone, so it
+  // is sent now and overlaps the associations read (BL-099 follow-up).
+  const violationsPromise = readAllResult<{
+    id: string
+    status: string
+    notice_sent_at: string | null
+    cure_period_days: number | null
+  }>((from, to) =>
+    supabase
+      .from('hoa_violations')
+      .select('id, status, notice_sent_at, cure_period_days')
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .not('notice_sent_at', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, to) as never,
+  )
+
   // assessments replaces hoa_dues for the heat map's dues lane. Query
   // is org-wide via the associations FK.
   const { data: assocs, error: assocError } = await supabase
@@ -769,20 +802,7 @@ export async function getComplianceHeatMap(
           error: null,
         })
 
-  const [violations, dues] = await Promise.all([
-    readAllResult<{ id: string; status: string; notice_sent_at: string | null; cure_period_days: number | null }>(
-      (from, to) =>
-        supabase
-          .from('hoa_violations')
-          .select('id, status, notice_sent_at, cure_period_days')
-          .eq('org_id', orgId)
-          .is('deleted_at', null)
-          .not('notice_sent_at', 'is', null)
-          .order('id', { ascending: true })
-          .range(from, to) as never,
-    ),
-    duesPromise,
-  ])
+  const [violations, dues] = await Promise.all([violationsPromise, duesPromise])
 
   const cellMap = new Map<string, DayCell>()
 
@@ -865,6 +885,23 @@ export async function getAtRiskThisWeek(
 ): Promise<AtRiskResult> {
   const supabase = await resolveClient(client)
 
+  // The violations read needs neither the association ids nor the zone, so it
+  // is sent now and overlaps the associations read (BL-099 follow-up). The
+  // assessments and COI reads need the zone's today and still wait for it.
+  const violationsPromise = readAllResult((from, to) =>
+    supabase
+      .from('hoa_violations')
+      .select(
+        'id, description, notice_sent_at, cure_period_days, property:hoa_properties(address, unit_number)',
+      )
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .eq('status', 'notice_sent')
+      .not('notice_sent_at', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, to) as never,
+  )
+
   // Tenant-scope assessments via associations FK.
   const { data: assocs, error: assocError } = await supabase
     .from('associations')
@@ -915,19 +952,7 @@ export async function getAtRiskThisWeek(
         })
 
   const [violations, assessments, cois] = await Promise.all([
-    readAllResult((from, to) =>
-      supabase
-        .from('hoa_violations')
-        .select(
-          'id, description, notice_sent_at, cure_period_days, property:hoa_properties(address, unit_number)',
-        )
-        .eq('org_id', orgId)
-        .is('deleted_at', null)
-        .eq('status', 'notice_sent')
-        .not('notice_sent_at', 'is', null)
-        .order('id', { ascending: true })
-        .range(from, to) as never,
-    ),
+    violationsPromise,
 
     assessmentsPromise,
 
