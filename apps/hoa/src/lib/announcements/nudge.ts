@@ -150,6 +150,11 @@ function when(daysAway: number, date: string): string {
  * its window comes back in `others`. `today` is the association's own day.
  */
 export function nextNudge(today: string, dismissed: ReadonlySet<string> = new Set()): Nudge | null {
+  return withOthers(collectNudges(today, dismissed))
+}
+
+/** Every undismissed occasion inside its window, nearest first (table order on ties). */
+function collectNudges(today: string, dismissed: ReadonlySet<string>): Nudge[] {
   const year = Number(today.slice(0, 4))
   const candidates: Nudge[] = []
   for (const entry of NUDGE_TABLE) {
@@ -173,11 +178,41 @@ export function nextNudge(today: string, dismissed: ReadonlySet<string> = new Se
   }
   // Array.prototype.sort is stable, so equal distances keep table order.
   candidates.sort((a, b) => a.daysAway - b.daysAway)
+  return candidates
+}
+
+function withOthers(candidates: Nudge[]): Nudge | null {
   const first = candidates[0]
   if (!first) return null
   const nameOf = (id: string) => NUDGE_TABLE.find((e) => e.occasionId === id)?.name ?? id
   first.others = candidates.slice(1).map((c) => ({ occasionId: c.occasionId, name: nameOf(c.occasionId), date: c.date, daysAway: c.daysAway }))
   return first
+}
+
+/**
+ * The occasion the board's daily digest mentions today, or null. The digest
+ * runs every day, so it speaks only on the FIRST day an occasion is inside
+ * its lead window (daysAway equals its leadDays) and on the day before
+ * (daysAway 1), not daily. The nearest such occasion wins; one line, never a
+ * stack. A dismissed occasion (per year) is never mentioned.
+ */
+export function digestNudge(today: string, dismissed: ReadonlySet<string> = new Set()): Nudge | null {
+  const leadOf = (id: string) => {
+    const e = NUDGE_TABLE.find((x) => x.occasionId === id)
+    return e ? leadDaysOf(e) : NUDGE_WINDOW_DAYS
+  }
+  const due = collectNudges(today, dismissed).filter((c) => c.daysAway === leadOf(c.occasionId) || c.daysAway === 1)
+  return withOthers(due)
+}
+
+/** Where the digest line goes: the announce flow, pre-filled with the occasion and its date. */
+export function nudgeAnnouncePath(nudge: Pick<Nudge, 'occasionId' | 'date'>): string {
+  return `/communications/announce?occasion=${encodeURIComponent(nudge.occasionId)}&date=${nudge.date}`
+}
+
+/** The email's one line: "Halloween is Saturday: send your community a note". */
+export function digestNudgeText(nudge: Pick<Nudge, 'headline'>): string {
+  return `${nudge.headline}: send your community a note`
 }
 
 /** The digest line for a nudge. */
