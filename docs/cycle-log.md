@@ -805,3 +805,20 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - Postgres runs BEFORE triggers ahead of RLS WITH CHECK.
   - GitHub Actions caches are per branch.
   - Groomed backlog lines go stale: code-verify before dispatching (round 7 list).
+
+## 2026-10-28 00:00 → 03:30 EDT: deploy 3634f936
+
+- **Deployed 3634f936:**
+  - /professionals copy changed from "coming soon" to live, with a truth test.
+  - Resident credit on the dues and pay pages.
+  - Holiday line in the board daily digest: first day of the window and the day before; dismissal honoured; never triggers an email on its own.
+  - Dashboard lease loader saves one round trip (BL-099 follow-up, from about 70 prod `[perf]` lines).
+  - Release note sent.
+- **Root cause, CI failure on 1ce99fcf:** the digest test's `day()` added 24h in UTC and then formatted in New York, so it landed a day short across the Nov 1 DST change. Fixed in the test.
+- **Load:** too many concurrent agent builds drove the load average to 100–150, with hoa builds taking 3.5h and vitest worker fetch timeouts. Keep at most 2 building agents at once.
+- **Perf recommendations not built (backlog):**
+  - memoize the shared `associations` read per request
+  - the `readAll` trailing-probe round trip
+  - five indexes (needs a migration)
+  - `mw.session` at about 450ms
+  - a short `PERF_LOG=1` window for true p50
