@@ -7,6 +7,7 @@ import { FIRST_90_DAYS, TREASURER_DUTIES } from './guides-c'
 import { FINES_HEARINGS, QUORUM_PROXIES, RECORDS_REQUESTS } from './guides-d'
 import { SPECIAL_ASSESSMENTS, SWITCH_FROM_MANAGER } from './guides-e'
 import { AI_MEETING_MINUTES, AI_VIOLATION_LETTERS } from './guides-f'
+import { CERTIFIED_MAIL_COLLECTIONS, CPA_ATTORNEY_ACCESS } from './guides-g'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -29,7 +30,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -137,6 +138,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'AI HOA meeting minutes from a transcript',
     blurb: AI_MEETING_MINUTES.summary[0]!,
     kind: 'guide',
+  },
+  {
+    slug: CPA_ATTORNEY_ACCESS.slug,
+    path: pathOf(CPA_ATTORNEY_ACCESS),
+    title: 'Give your HOA’s CPA and attorney limited access',
+    blurb: CPA_ATTORNEY_ACCESS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: CERTIFIED_MAIL_COLLECTIONS.slug,
+    path: pathOf(CERTIFIED_MAIL_COLLECTIONS),
+    title: 'Georgia HOA collections: certified mail and notice clocks',
+    blurb: CERTIFIED_MAIL_COLLECTIONS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'georgia-annual-meeting-report-checklist',
+    path: '/templates/georgia-annual-meeting-report-checklist',
+    title: 'Georgia annual meeting report to owners checklist (printable)',
+    blurb: 'A one-page checklist for the affairs, finances and budget report Georgia boards make at the annual meeting.',
+    kind: 'tool',
   },
   {
     slug: 'hoa-announcement-templates',
