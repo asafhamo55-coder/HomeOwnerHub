@@ -11,7 +11,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { readAllResult } from '@/lib/supabase/read-all'
 import { addCalendarDays, dayOf, instantAtLocalTime, todayIn } from '@/lib/association-time'
-import { orgTimeZone } from '@/lib/association-time-server'
+import { dashboardOrgTimeZone } from './org-associations'
 
 type AnyClient = SupabaseClient<any, any, any>
 
@@ -195,7 +195,7 @@ export async function getThirtyDayActivity(
   const supabase = await resolveClient(client)
   // Days are the association's (BL-043): a violation logged at 9pm
   // Eastern belongs to that day's bar, not the next UTC day's.
-  const timeZone = await orgTimeZone(supabase, orgId)
+  const timeZone = await dashboardOrgTimeZone(orgId, supabase, client)
   const firstDay = addCalendarDays(todayIn(timeZone), -29)
   const startIso = instantAtLocalTime(firstDay, 0, timeZone).toISOString()
 
@@ -278,7 +278,7 @@ export async function getDashboardKpis(
   // The association's zone. Started now, awaited only where the dues split needs it: the zone read
   // and the five KPI reads below are independent, so they run together
   // (BL-099 static pass). Before, each waited for the one above it.
-  const timeZonePromise = orgTimeZone(supabase, orgId)
+  const timeZonePromise = dashboardOrgTimeZone(orgId, supabase, client)
 
   // Outstanding dues — sum of remaining unpaid balance across all
   // assessments rows. Replaces the legacy hoa_dues path which is no

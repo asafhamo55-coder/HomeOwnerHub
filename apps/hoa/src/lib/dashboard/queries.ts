@@ -3,8 +3,9 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { chunk, readAllResult } from '@/lib/supabase/read-all'
 import type { DayCell, DayLevel } from '@/components/dashboard/heat-map-grid'
-import { ASSOCIATION_ZONE_COLUMNS, addCalendarDays, calendarDaysBetween, dayOf, todayIn } from '@/lib/association-time'
-import { orgTimeZone, primaryAssociationZone } from '@/lib/association-time-server'
+import { addCalendarDays, calendarDaysBetween, dayOf, todayIn } from '@/lib/association-time'
+import { primaryAssociationZone } from '@/lib/association-time-server'
+import { dashboardOrgTimeZone, readOrgAssociations } from './org-associations'
 import { overdueUnitLabel } from './row-labels'
 
 // Optional `client` on every fetcher lets ./cached.ts pass an admin
@@ -192,7 +193,7 @@ export async function getApprovalsInbox(
   // something to approve: the meetings list shows them as Scheduled.
   // The zone read is sent together with the three reads that do not need it
   // (BL-099 follow-up); only the minutes read waits for it.
-  const todayPromise = orgTimeZone(supabase, orgId).then((tz) => todayIn(tz))
+  const todayPromise = dashboardOrgTimeZone(orgId, supabase, client).then((tz) => todayIn(tz))
 
   const [violations, minutes, invoices, rfps] = await Promise.all([
     // AI-drafted violation letters awaiting human approval (Bar B gate).
@@ -369,15 +370,8 @@ export async function getLeaseSummary(
   }
 
   // 1. Resolve associations + their caps in one query.
-  const { data: assocs, error: assocsError } = await supabase
-    .from('associations' as never)
-    .select('id, lease_cap_pct')
-    .eq('organization_id', orgId)
+  const { rows: assocRows, error: assocsError } = await readOrgAssociations(orgId, supabase, client)
   note(assocsError)
-  const assocRows = ((assocs ?? []) as unknown as Array<{
-    id: string
-    lease_cap_pct: number | string | null
-  }>)
   if (assocRows.length === 0) {
     return {
       hasAssociation: false,
@@ -666,7 +660,7 @@ export async function getStaleApprovalCount(
   const supabase = await resolveClient(client)
   const cutoff = new Date(Date.now() - days * 86_400_000).toISOString()
   // Same rule as getApprovalsInbox: an upcoming meeting's minutes aren't pending.
-  const todayISO = todayIn(await orgTimeZone(supabase, orgId))
+  const todayISO = todayIn(await dashboardOrgTimeZone(orgId, supabase, client))
 
   const [violations, minutes, invoices, rfps] = await Promise.all([
     supabase
@@ -766,10 +760,7 @@ export async function getComplianceHeatMap(
 
   // assessments replaces hoa_dues for the heat map's dues lane. Query
   // is org-wide via the associations FK.
-  const { data: assocs, error: assocError } = await supabase
-    .from('associations')
-    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
-    .eq('organization_id', orgId)
+  const { rows: assocs, error: assocError } = await readOrgAssociations(orgId, supabase, client)
   if (assocError) logQueryError('getComplianceHeatMap', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
 
@@ -903,10 +894,7 @@ export async function getAtRiskThisWeek(
   )
 
   // Tenant-scope assessments via associations FK.
-  const { data: assocs, error: assocError } = await supabase
-    .from('associations')
-    .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}`)
-    .eq('organization_id', orgId)
+  const { rows: assocs, error: assocError } = await readOrgAssociations(orgId, supabase, client)
   if (assocError) logQueryError('getAtRiskThisWeek', assocError)
   const assocIds = (assocs ?? []).map((a) => a.id)
 
@@ -1115,7 +1103,7 @@ export async function getNextMeetingResult(
 ): Promise<NextMeetingResult> {
   const supabase = await resolveClient(client)
   // The association's today (BL-043); meeting_date is a calendar date.
-  const todayISO = todayIn(await orgTimeZone(supabase, orgId))
+  const todayISO = todayIn(await dashboardOrgTimeZone(orgId, supabase, client))
 
   // Soonest future meeting first.
   const { data: future, error: futureError } = await supabase
