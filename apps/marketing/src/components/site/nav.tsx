@@ -86,6 +86,7 @@ export function Nav() {
   const solid = scrolled || open
 
   return (
+    <>
     <header
       className={cn(
         'fixed inset-x-0 top-0 z-50 border-b bg-surface/95 backdrop-blur-lg print:hidden transition-[border-color,box-shadow] duration-200',
@@ -102,7 +103,7 @@ export function Nav() {
             { href: '/roadmap', label: 'Roadmap' },
             { href: '/status', label: 'Status' },
           ].map((l) => (
-            <Link key={l.href} href={l.href} className="transition-colors hover:text-foreground hover:underline">
+            <Link key={l.href} href={l.href} className="inline-flex min-h-8 items-center transition-colors hover:text-foreground hover:underline">
               {l.label}
             </Link>
           ))}
@@ -269,6 +270,10 @@ export function Nav() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </header>
+    {/* Skip-link target. <main> wraps the nav on every page, so pointing the
+        skip link at <main> would land on the nav it is meant to skip. */}
+    <div id="content-start" tabIndex={-1} className="outline-none" />
+    </>
   )
 }
 

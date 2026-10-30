@@ -47,13 +47,13 @@ export default function DemoPage() {
     <main id="main-content">
       <Nav />
 
-      <section className="hero-wash relative overflow-hidden pb-20 pt-14 md:pt-20">
+      <section className="hero-wash relative overflow-hidden pb-20 pt-28 md:pt-36">
         
         <div className="container-page">
           <div className="grid items-start gap-12 md:grid-cols-[1.05fr,1fr]">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground-secondary ring-soft">
-                <Calendar className="h-3.5 w-3.5 text-accent-fg" />
+                <Calendar className="h-3.5 w-3.5 text-accent-fg" aria-hidden />
                 20 minutes. Your CC&R. Your decision.
               </div>
               <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
@@ -69,7 +69,7 @@ export default function DemoPage() {
                 {agenda.map((a) => (
                   <div key={a.title} className="flex gap-4">
                     <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                      <a.Icon className="h-5 w-5" />
+                      <a.Icon className="h-5 w-5" aria-hidden />
                     </span>
                     <div>
                       <p className="text-sm font-semibold text-foreground">{a.title}</p>
@@ -92,7 +92,7 @@ export default function DemoPage() {
 
               {/* 2026-10-19 owner-delegated defaults: no customer quote is
                   verified, so none is shown here. */}
-              <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-muted">
+              <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium text-muted">
                 <span className="inline-flex items-center gap-1">
                   <span className="h-1 w-1 rounded-full bg-success-solid" />
                   Citations on every legal answer
@@ -120,7 +120,7 @@ export default function DemoPage() {
             <Stat label="Every AI draft" value="Approvals" sub="Letters, bills and minutes wait for the board" />
             <Stat label="Setup + roster import" value="Self-serve" sub="CSV or Excel, CINC exports included" />
           </div>
-          <p className="mt-10 text-center text-xs text-muted">
+          <p className="mt-10 text-center text-sm text-muted">
             HomeownerHub works for an HOA in any state. {STATE_COVERAGE_SENTENCE}{' '}
             Tell us where you are.
           </p>
