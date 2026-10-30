@@ -122,8 +122,8 @@ describe('lease: leased counts overlap the unit paging', () => {
     expect(h.started.filter((t) => t === 'hoa_properties').length).toBeGreaterThanOrEqual(7)
     h.release()
     expect(await result).toMatchObject({ failed: false, totalUnits: 1500, leasedCount: 200 })
-    // Round-trip budget: 3 unit reads (1000, 500, end probe) and 11 count chunks (7 + 4).
-    expect(calls.filter((c) => c.table === 'units')).toHaveLength(3)
+    // Round-trip budget: 2 unit reads (1000, 500; the short page is provably final) and 11 count chunks (7 + 4).
+    expect(calls.filter((c) => c.table === 'units')).toHaveLength(2)
     expect(calls.filter((c) => c.table === 'hoa_properties')).toHaveLength(11)
   })
 

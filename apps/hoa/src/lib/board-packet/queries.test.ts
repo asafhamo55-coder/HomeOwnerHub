@@ -77,7 +77,6 @@ describe('readAll — reads past the server row cap', () => {
       [0, 999],
       [1000, 1999],
       [2000, 2999],
-      [2500, 3499],
     ])
   })
 
