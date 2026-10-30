@@ -22,6 +22,7 @@ import {
   type ReaderIdentity,
 } from '@/lib/resident-announcements'
 import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
+import { loadLatestAnnouncement, type LatestAnnouncement } from '@/lib/resident-latest-announcement'
 import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
 import { loadOrFail } from '@/lib/load-or-fail'
@@ -66,6 +67,8 @@ export interface ResidentDashboard {
   orgId: string | null
   orgName: string | null
   recentAnnouncements: number
+  /** Newest announcement addressed to this reader, or null (none, or the read failed: see failed.announcement). */
+  latestAnnouncement: LatestAnnouncement | null
   openViolations: OpenViolationRow[]
   dues: ResidentDues
   /** Tickets still open or in progress (closed ones are dropped). */
@@ -77,7 +80,7 @@ export interface ResidentDashboard {
    * which on its own would render as "You're all caught up" — callers must
    * check these before stating anything about the account.
    */
-  failed: { dues: boolean; violations: boolean; requests: boolean }
+  failed: { dues: boolean; violations: boolean; requests: boolean; announcement: boolean }
 }
 
 type Supabase = SupabaseClient<Database>
@@ -94,7 +97,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
   const unitIds = units.map((u) => u.unit_id)
   const today = todayIn(residentTimeZone(units))
 
-  const [firstName, openViolations, dues, tickets, arc, recentAnnouncements] = await Promise.all([
+  const [firstName, openViolations, dues, tickets, arc, recentAnnouncements, latest] = await Promise.all([
     resolveFirstName(supabase, actorUser),
     getOpenViolations(supabase, unitIds, actor.orgId),
     getDues(supabase, unitIds, actor.orgId, today, chargeWindow(units)),
@@ -105,6 +108,12 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
       userId: actor.id,
       email: actor.email,
     }),
+    loadLatestAnnouncement(
+      supabase,
+      org?.id ?? null,
+      { unitIds, userId: actor.id, email: actor.email },
+      units,
+    ).catch(() => ({ ok: false as const })),
   ])
 
   const associationName =
@@ -117,6 +126,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
     orgId: org?.id ?? null,
     orgName: org?.name ?? null,
     recentAnnouncements,
+    latestAnnouncement: latest.ok ? latest.announcement : null,
     openViolations: openViolations ?? [],
     dues: dues ?? emptyResidentDues(today),
     openTickets: tickets.ok
@@ -129,6 +139,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
       dues: dues === null,
       violations: openViolations === null,
       requests: !tickets.ok || !arc.ok,
+      announcement: !latest.ok,
     },
   }
 }

@@ -203,7 +203,7 @@ export default async function ResidentAnnouncementsPage({
       ) : (
         <ul className="space-y-3">
           {ordered.map(({ comm: c, subject, body, sentAt }) => (
-            <li key={c.id} className="rounded-xl border border-border bg-surface p-4">
+            <li key={c.id} id={c.id} className="scroll-mt-20 rounded-xl border border-border bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h2 className="text-sm font-semibold text-foreground">{subject}</h2>
                 <Badge variant="outline" size="sm">
