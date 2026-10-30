@@ -3,7 +3,8 @@ import { buildReminderPackets } from '@/lib/dues-reminders/packets'
 import { getLastRemindedByEmail, RECENT_REMINDER_DAYS } from '@/lib/dues-reminders/queries'
 import { SendRemindersDialog } from './SendRemindersDialog'
 import { AgingFilter } from './AgingFilter'
-import { AGING_LABELS, agingForCharges, summarizeAging, type AgingBucket } from '@/lib/dues/aging'
+import { ageOwners, ownersForAging } from '@/lib/dues/who-owes'
+import { AGING_LABELS, summarizeAging, type AgingBucket } from '@/lib/dues/aging'
 import { todayIn } from '@/lib/association-time'
 import { timed } from '@/lib/perf/timing'
 
@@ -99,16 +100,9 @@ export async function WhoOwesPanel({
   // Each owner sits in the bucket of their oldest unpaid charge across all
   // their properties. Balance is everything they owe, not just the late part.
   const today = todayIn(timeZone)
-  const aged = packets.map((p) => ({
-    packet: p,
-    bucket:
-      agingForCharges(
-        p.properties.flatMap((prop) => prop.charges.map((c) => ({ dueDate: c.dueDate, balance: c.balance }))),
-        today,
-      )?.bucket ?? 'current',
-  }))
+  const aged = ageOwners(packets, today)
   const agingSummary = summarizeAging(aged.map((a) => ({ bucket: a.bucket, amount: a.packet.totalDue })))
-  const visible = aging ? aged.filter((a) => a.bucket === aging).map((a) => a.packet) : packets
+  const visible = ownersForAging(aged, aging).map((a) => a.packet)
   return (
     <Card className="overflow-hidden">
       <CardHeader
