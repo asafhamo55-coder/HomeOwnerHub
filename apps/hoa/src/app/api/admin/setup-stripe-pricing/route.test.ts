@@ -169,7 +169,7 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
     const b = await body(res)
     expect(b.error).toBeUndefined()
     expect(b).toEqual({
-      product: { id: 'prod_new', name: 'HOA Hub' },
+      product: { id: 'prod_new', name: 'HomeownerHub' },
       prices: {
         monthly: {
           id: 'price_hoa_per_door_monthly',
@@ -195,7 +195,7 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
   it('is idempotent: finds the product past the first page and reuses prices (RC-9)', async () => {
     h.products = [
       ...Array.from({ length: 150 }, (_, i) => ({ id: `prod_${i}`, name: `Other ${i}` })),
-      { id: 'prod_hoa', name: 'HOA Hub' },
+      { id: 'prod_hoa', name: 'HomeownerHub' },
     ]
     h.existingPrices = {
       hoa_per_door_monthly: { id: 'price_m', unit_amount: 499, lookup_key: 'hoa_per_door_monthly' },

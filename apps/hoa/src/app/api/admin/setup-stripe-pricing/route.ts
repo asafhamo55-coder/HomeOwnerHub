@@ -22,7 +22,7 @@ import { logRouteFailure } from '@/lib/api/log'
 
 // POST /api/admin/setup-stripe-pricing
 //
-// One-shot setup: creates the HOA Hub Product + two recurring Prices
+// One-shot setup: creates the HomeownerHub Product + two recurring Prices
 // (monthly @ $4.99 / door, annual @ $53.88 / door = 10% off) in your
 // Stripe account using STRIPE_SECRET_KEY from Vercel.
 //
@@ -39,7 +39,7 @@ import { logRouteFailure } from '@/lib/api/log'
 // No request body is read. Middleware skips this path (curl caller), so the
 // route runs its own auth before anything else (RC-3).
 
-const PRODUCT_NAME = 'HOA Hub'
+const PRODUCT_NAME = 'HomeownerHub'
 const MONTHLY_LOOKUP_KEY = 'hoa_per_door_monthly'
 const ANNUAL_LOOKUP_KEY = 'hoa_per_door_annual'
 
@@ -82,7 +82,7 @@ async function ensurePrice(
     currency: 'usd',
     recurring: { interval },
     lookup_key: lookupKey,
-    nickname: `HOA Hub — ${interval === 'month' ? 'Monthly' : 'Annual'} per door`,
+    nickname: `HomeownerHub — ${interval === 'month' ? 'Monthly' : 'Annual'} per door`,
     metadata: { managed_by: 'hoa_hub_setup' },
   })
 }
@@ -110,7 +110,7 @@ async function ensureTieredPrice(
     tiers_mode: 'volume',
     tiers: stripeTiers(plan, cadence),
     lookup_key: lookupKey,
-    nickname: `HOA Hub — ${PLAN_LABEL[plan]} ${cadence === 'annual' ? 'Annual' : 'Monthly'} (size bands)`,
+    nickname: `HomeownerHub — ${PLAN_LABEL[plan]} ${cadence === 'annual' ? 'Annual' : 'Monthly'} (size bands)`,
     metadata: { managed_by: 'hoa_hub_setup', plan },
   })
 }
