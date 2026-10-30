@@ -1,10 +1,12 @@
-import { ClipboardList, FileText, MessageSquarePlus, ShieldAlert } from 'lucide-react'
+import { Clock, ClipboardList, FileText, MessageSquarePlus, ShieldAlert } from 'lucide-react'
 import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
 import { Badge, LoadFailed } from '@homeowner-portal/ui'
 import { loadMyTickets } from '@/lib/resident-tickets'
 import { timed } from '@/lib/perf/timing'
 import { loadMyArcRequests, loadMyViolationReports } from '@/lib/resident-submissions'
-import { RowGroup, ScreenHeader, Section, TappableRow, type Tone } from '@/components/resident/screen'
+import { RowGroup, ScreenEmpty, ScreenHeader, Section, TappableRow, type Tone } from '@/components/resident/screen'
+import { ResidentStatus } from '@/components/resident/status'
+import { buildLatestActivity, relativeDate, type ActivityKind } from '@/lib/resident-activity'
 
 export const metadata = { title: 'Requests' }
 export const dynamic = 'force-dynamic'
@@ -25,6 +27,8 @@ export default async function ResidentRequestsPage() {
   const ticketsOpen = tickets?.filter((t) => t.status === 'open' || t.status === 'in_progress').length ?? 0
   const arcOpen = arc?.filter((a) => a.status === 'submitted' || a.status === 'in_review').length ?? 0
   const reportsOpen = reports?.filter((r) => !CLOSED_REPORT.has(r.status)).length ?? 0
+  const activity = buildLatestActivity({ tickets, arc, reports })
+  const now = new Date()
   const anyFailed = tickets === null || arc === null || reports === null
 
   return (
@@ -63,6 +67,32 @@ export default async function ResidentRequestsPage() {
         </RowGroup>
       </Section>
 
+      {!anyFailed && activity.length === 0 ? (
+        <Section label="Latest activity">
+          <ScreenEmpty
+            icon={<Clock />}
+            title="No activity yet"
+            description="When you send a request, application or concern, it shows up here with its status."
+          />
+        </Section>
+      ) : activity.length > 0 ? (
+        <Section label="Latest activity">
+          <RowGroup>
+            {activity.map((item) => (
+              <TappableRow
+                key={`${item.kind}-${item.id}`}
+                href={item.href}
+                icon={ACTIVITY_ICON[item.kind]}
+                tone={ACTIVITY_TONE[item.kind]}
+                title={item.title}
+                subtitle={`${ACTIVITY_LABEL[item.kind]} · ${relativeDate(item.at, now)}`}
+                status={<ResidentStatus kind={item.kind} status={item.status} />}
+              />
+            ))}
+          </RowGroup>
+        </Section>
+      ) : null}
+
       <Section label="Start something new">
         <RowGroup>
           <TappableRow
@@ -97,6 +127,18 @@ export default async function ResidentRequestsPage() {
       </Section>
     </div>
   )
+}
+
+const ACTIVITY_ICON: Record<ActivityKind, React.ReactNode> = {
+  ticket: <MessageSquarePlus />,
+  arc: <ClipboardList />,
+  report: <ShieldAlert />,
+}
+const ACTIVITY_TONE: Record<ActivityKind, Tone | undefined> = { ticket: undefined, arc: 'emerald', report: 'amber' }
+const ACTIVITY_LABEL: Record<ActivityKind, string> = {
+  ticket: 'Support request',
+  arc: 'ARC application',
+  report: 'Concern',
 }
 
 function TrackRow({
