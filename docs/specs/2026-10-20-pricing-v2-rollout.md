@@ -2,6 +2,8 @@
 
 **Decision:** `docs/decisions/2026-10-20-pricing.md` · **Backlog:** BL-104 · **Flag:** `PRICING_V2` in `packages/billing/src/pricing-flag.ts`, mirrored in `apps/marketing/src/lib/hoa-pricing.ts`.
 
+> **Cut-over done 2026-10-30 (OA-16).** `PRICING_V2` is `true` in both `packages/billing/src/pricing-flag.ts` and `apps/marketing/src/lib/hoa-pricing.ts`, shipped on branch `claude/pricing-v2-cutover`. Production had no org with a Stripe customer or subscription, so nobody needed grandfathering; the grandfathering code is intact. The live account (`acct_1TURnh…`) already holds the legacy per-door Prices; the four band Prices are created by `POST /api/admin/setup-stripe-pricing` after the deploy. Until they exist, checkout shows the generic "checkout isn't set up" error (step 5 below). Still open for the owner: step 6 (customer portal) and step 8 (investor deck). Price lookup is by lookup key; no `STRIPE_PRICE_*` env vars are set in production. The "(off)" and "Behind `PRICING_V2`" wording below describes the state before the cut-over.
+
 ## What is live and what is flagged
 
 | Part | State | Where |
@@ -9,9 +11,9 @@
 | Shared board AI cap on the board-only routes that had no limit: violation drafting (wizard, /inspect, analyze-violation), the daily digest, parse-document and suggest-fields, shared with the compose box. 200/day for every org today (the Complete level) | **Live** | `board_ai` bucket + `BOARD_AI_POOL` in `apps/hoa/src/lib/api/ai-limits.ts` |
 | Existing orgs | **Live:** today's per-feature limits, unchanged. No current customer loses capacity | `aiTierFor` returns `null` = the base ceilings |
 | Per-band AI ceilings (worst-case AI ≤ 30% of the band price) for orgs on the new plans; board cap 100/day on Essentials | **Code ready, applies only after `PRICING_V2`**, and only to `essentials` / `complete` orgs and trials | `aiLimitFor`, `AI_BAND_MULTIPLIER`, tier read in `lib/api/rate-limit.ts` (`loadAiTier`) |
-| Essentials / Complete band prices, Stripe tier params, checkout, entitlements, grandfathering, Settings → Billing copy, marketing copy | **Behind `PRICING_V2` (off)** | `packages/billing/src/{pricing-v2,checkout-v2,entitlements,grandfathering}.ts`, `apps/hoa/src/lib/billing.ts`, `settings/billing/*`, `apps/marketing/src/lib/hoa-pricing.ts` |
+| Essentials / Complete band prices, Stripe tier params, checkout, entitlements, grandfathering, Settings → Billing copy, marketing copy | **Live since 2026-10-30 (`PRICING_V2` on)** | `packages/billing/src/{pricing-v2,checkout-v2,entitlements,grandfathering}.ts`, `apps/hoa/src/lib/billing.ts`, `settings/billing/*`, `apps/marketing/src/lib/hoa-pricing.ts` |
 
-With the flag off, checkout, Settings → Billing and the marketing site charge and show $4.99/door exactly as before.
+With the flag off (the rollback state), checkout, Settings → Billing and the marketing site charge and show $4.99/door exactly as before.
 
 ### Why a code constant, not an env var
 
@@ -53,7 +55,7 @@ Decision: `docs/decisions/2026-10-20-ai-spend-ceiling.md`. Code: `apps/hoa/src/l
 
 ## Stripe objects to create (at the cut-over, not before)
 
-All on the existing product **"HOA Hub"**. Each is a recurring Price, `currency: usd`, `billing_scheme: tiered`, `tiers_mode: volume`. Amounts in cents. In volume mode Stripe prices every unit at the tier the quantity lands in: a closed band is its `flat_amount`, 401+ is `flat_amount + unit_amount × doors`. `stripeTiers()` in `pricing-v2.ts` generates exactly these, and a test proves they equal `planPriceCents` at every size from 1 to 2,000.
+All on the existing product **"HomeownerHub"** (the live account's product, renamed from "HOA Hub" on 2026-10-30; the setup route finds it by that name). Each is a recurring Price, `currency: usd`, `billing_scheme: tiered`, `tiers_mode: volume`. Amounts in cents. In volume mode Stripe prices every unit at the tier the quantity lands in: a closed band is its `flat_amount`, 401+ is `flat_amount + unit_amount × doors`. `stripeTiers()` in `pricing-v2.ts` generates exactly these, and a test proves they equal `planPriceCents` at every size from 1 to 2,000.
 
 | Lookup key | Interval | ≤50 | ≤100 | ≤200 | ≤400 | 401+ (`inf`) |
 |---|---|---:|---:|---:|---:|---|

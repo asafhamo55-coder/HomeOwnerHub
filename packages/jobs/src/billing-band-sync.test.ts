@@ -41,11 +41,14 @@ function world(orgs: Array<{ id: string; plan: string; sub: string; homes: numbe
 }
 
 describe('runBandSync', () => {
-  it('ships off: with PRICING_V2 off it is a no-op — no read, no Stripe', async () => {
-    expect(PRICING_V2).toBe(false)
+  it('live since the 2026-10-30 cut-over: the flag defaults on', () => {
+    expect(PRICING_V2).toBe(true)
+  })
+
+  it('rollback switch: with PRICING_V2 off it is a no-op — no read, no Stripe', async () => {
     const f = world([{ id: 'org-1', plan: 'essentials', sub: 'sub_1', homes: 60 }])
     const stripe = vi.fn(() => fakeStripe({ sub_1: sub('sub_1', 48) }).port)
-    const r = await runBandSync(f.db, { stripe }, { now: NOW, logger: silentLogger() })
+    const r = await runBandSync(f.db, { stripe }, { pricingV2: false, now: NOW, logger: silentLogger() })
     expect(r).toMatchObject({ skipped: 'pricing_v2_off', checked: 0, changed: 0 })
     expect(f.queries).toHaveLength(0)
     expect(stripe).not.toHaveBeenCalled()

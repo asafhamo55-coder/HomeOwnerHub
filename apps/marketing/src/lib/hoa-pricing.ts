@@ -17,7 +17,7 @@
 // it is false, nothing below the legacy section reaches a page.
 
 /** Mirrors packages/billing/src/pricing-flag.ts. Flip both in one commit. */
-export const PRICING_V2: boolean = false
+export const PRICING_V2: boolean = true
 
 // ─── Legacy: $4.99/door (what checkout charges while PRICING_V2 is off) ──
 
@@ -121,8 +121,10 @@ export interface HoaPricingView {
     term: string
     /** One sentence for teasers, metadata and FAQs. */
     summary: string
-    /** Short form for page titles. */
+    /** Short form for page titles (the layout adds " · HomeownerHub"). */
     title: string
+    /** Search-result length form of `summary` (at most about 110 characters). */
+    metaSummary: string
     /** /pricing hero and the homepage teaser heading. */
     headline: string
     /** The /pricing "Is there a contract?" answer. */
@@ -170,6 +172,7 @@ function legacyView(): HoaPricingView {
       term,
       summary: `${perDoor} per door per month, ${minimum}. ${HOA_PRICING.ANNUAL_DISCOUNT_PCT}% off when you pay for the year.`,
       title: `${perDoor} per door per month`,
+      metaSummary: `${perDoor} per door per month, ${minimum}. ${HOA_PRICING.ANNUAL_DISCOUNT_PCT}% off when you pay for the year.`,
       headline: 'One price per door. No tiers, no add-ons.',
       contract: `Both plans start with a ${HOA_PRICING.COMMIT_MONTHS}-month first year that can't be cancelled. From month ${HOA_PRICING.COMMIT_MONTHS + 1} you can cancel any time from Settings → Billing. The six-month pilot comes before that and never converts on its own.`,
       contractShort: `First ${HOA_PRICING.COMMIT_MONTHS} months, after the pilot`,
@@ -210,7 +213,8 @@ function v2View(): HoaPricingView {
       minimum: 'no door minimum',
       term: 'month to month',
       summary: `Essentials from ${ess} a month and Complete from ${comp} a month, priced in size bands (up to ${bands}). 2 months free when you pay for the year. ${TRIAL_DAYS}-day free trial, cancel any time.`,
-      title: `Essentials from ${ess}/mo, Complete from ${comp}/mo`,
+      title: `Essentials ${ess}, Complete ${comp}/mo`,
+      metaSummary: `Essentials from ${ess} a month, Complete from ${comp}, by community size. ${TRIAL_DAYS}-day free trial.`,
       headline: 'Two plans. Priced by the size of your community.',
       contract: `No. Both plans are month to month and you can cancel any time from Settings → Billing. Paying for the year gets you 2 months free. Every plan starts with a ${TRIAL_DAYS}-day free trial, no card needed.`,
       contractShort: 'Month to month',

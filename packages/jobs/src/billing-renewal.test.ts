@@ -95,13 +95,16 @@ function deps(stripe: ReturnType<typeof fakeStripe>, sendEmail = vi.fn(async () 
 const at = (iso: string) => ({ pricingV2: true, now: Date.parse(iso), logger: silentLogger() })
 
 describe('runRenewalJob', () => {
-  it('ships off: with PRICING_V2 off it is a no-op — no read, no Stripe, no email', async () => {
-    expect(PRICING_V2).toBe(false)
+  it('live since the 2026-10-30 cut-over: the flag defaults on', () => {
+    expect(PRICING_V2).toBe(true)
+  })
+
+  it('rollback switch: with PRICING_V2 off it is a no-op — no read, no Stripe, no email', async () => {
     const w = world()
     const s = fakeStripe({ sub_1: legacySub() }, PRICES)
     const d = deps(s)
     const stripe = vi.fn(d.stripe)
-    const r = await runRenewalJob(w.db, { ...d, stripe }, { now: Date.parse('2026-11-05T14:00:00Z'), logger: silentLogger() })
+    const r = await runRenewalJob(w.db, { ...d, stripe }, { pricingV2: false, now: Date.parse('2026-11-05T14:00:00Z'), logger: silentLogger() })
     expect(r).toMatchObject({ skipped: 'pricing_v2_off', noticesSent: 0, switched: 0 })
     expect(w.queries).toHaveLength(0)
     expect(stripe).not.toHaveBeenCalled()

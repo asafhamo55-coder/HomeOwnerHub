@@ -52923,6 +52923,32 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    "id": "2026-10-30-2359-essentials-and-complete-plans#1",
+    "note": "2026-10-30-2359-essentials-and-complete-plans",
+    "date": "2026-10-30",
+    "title": "Choose Essentials or Complete",
+    "body": "Settings, then Billing, now offers two plans. The price depends on how many homes you manage, from $49 a month for Essentials and $99 for Complete at up to 50 homes. Paying for the year gets two months free.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": "settings-billing",
+    "label": "new"
+  },
+  {
+    "id": "2026-10-30-2359-essentials-and-complete-plans#2",
+    "note": "2026-10-30-2359-essentials-and-complete-plans",
+    "date": "2026-10-30",
+    "title": "Plans include a monthly text allowance",
+    "body": "Each plan comes with a monthly allowance of text messages. Billing shows how much you have used, warns you as you near it, and holds texts back at the limit. Email and the portal keep going.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": "settings-billing",
+    "label": "new"
+  },
+  {
     "id": "2026-10-30-1800-proposed-georgia-rules#1",
     "note": "2026-10-30-1800-proposed-georgia-rules",
     "date": "2026-10-30",

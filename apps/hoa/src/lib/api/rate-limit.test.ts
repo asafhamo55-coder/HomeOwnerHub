@@ -324,10 +324,10 @@ describe('resident_assistant bucket (BL-096): hourly + daily per person, daily p
 describe('BL-104: band ceilings only for the new plans; today’s limits for everyone else', () => {
   const askRows = (n: number) => usage(n, { org: 'org-1', user: 'other' }, (i) => i, 'ai.usage.ask_docs')
 
-  it('PRICING_V2 off: a 40-door org keeps today’s 500 doc questions a day', async () => {
-    const f = fakeDb(askRows(499), { org: { plan: 'free', doors_count: 40 } })
+  it('grandfathered $4.99/door org (plan monthly) keeps today’s 500 doc questions a day, flag on', async () => {
+    const f = fakeDb(askRows(499), { org: { plan: 'monthly', doors_count: 40 } })
     await expect(checkAndRecordAiUsage('ask_docs', WHO, { db: f.db, now: clock })).resolves.toEqual({ usageId: 'usage-1' })
-    const g = fakeDb(askRows(500), { org: { plan: 'free', doors_count: 40 } })
+    const g = fakeDb(askRows(500), { org: { plan: 'monthly', doors_count: 40 } })
     const err = await checkAndRecordAiUsage('ask_docs', WHO, { db: g.db, now: clock }).catch((e) => e)
     expect(err.publicMessage).toContain('limit of 500 questions a day')
   })
@@ -601,7 +601,7 @@ const copilotCalls = (n: number) => ({ 'ai.usage.ask_community': n })
 describe('BL-108 spend meter in checkAndRecordAiUsage', () => {
   beforeEach(() => resetAiSpendCache())
 
-  it('before PRICING_V2 (the shipped default) the meter never runs: no count reads, today’s limits', async () => {
+  it('with no org budget (flag off, or a legacy org) the meter never runs: no count reads, today’s limits', async () => {
     const f = meteredDb([], copilotCalls(100_000))
     const notify = vi.fn()
     await expect(checkAndRecordAiUsage('ask_docs', WHO, { db: f.db, now: clock, notify })).resolves.toEqual({ usageId: 'usage-1' })

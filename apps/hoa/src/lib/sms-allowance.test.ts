@@ -34,11 +34,14 @@ function fakeDb(o: { plan?: string | null; homes?: number; texts?: number; texts
 const NOW = Date.parse('2026-11-17T12:00:00Z')
 
 describe('readSmsAllowance', () => {
-  it('ships off: null with no read while PRICING_V2 is off', async () => {
-    expect(PRICING_V2).toBe(false)
+  it('live since the 2026-10-30 cut-over: the flag defaults on', () => {
+    expect(PRICING_V2).toBe(true)
+  })
+
+  it('rollback switch: null with no read while PRICING_V2 is off', async () => {
     const f = fakeDb({ plan: 'essentials', homes: 40, texts: 100 })
-    expect(await readSmsAllowance(f.db, 'org-1', { now: NOW })).toBeNull()
-    expect(await smsAllowanceGate(f.db, 'org-1', { now: NOW })).toBeNull()
+    expect(await readSmsAllowance(f.db, 'org-1', { now: NOW, pricingV2: false })).toBeNull()
+    expect(await smsAllowanceGate(f.db, 'org-1', { now: NOW, pricingV2: false })).toBeNull()
     expect(f.from).not.toHaveBeenCalled()
   })
 

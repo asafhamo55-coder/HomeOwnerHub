@@ -22,4 +22,4 @@
  *
  * No imports: pure modules (and the marketing test) read this file.
  */
-export const PRICING_V2: boolean = false
+export const PRICING_V2: boolean = true

@@ -19,8 +19,8 @@ import {
 // docs/decisions/2026-10-20-pricing.md §1.
 
 describe('PRICING_V2', () => {
-  it('ships off: checkout and the site keep $4.99/door until the cut-over', () => {
-    expect(PRICING_V2).toBe(false)
+  it('on since the 2026-10-30 cut-over: checkout and the site sell Essentials / Complete', () => {
+    expect(PRICING_V2).toBe(true)
   })
 })
 

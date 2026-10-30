@@ -44,8 +44,8 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     title: `Pricing | ${HOA_PRICE_COPY.title}`,
     // BL-097: PM and Eviction are not offered right now.
     description: OTHER_HUBS_ENABLED
-      ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
-      : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary}`,
+      ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
+      : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary}`,
   },
   '/compare': {
     title: 'HomeownerHub vs managers, Vantaca and DIY',

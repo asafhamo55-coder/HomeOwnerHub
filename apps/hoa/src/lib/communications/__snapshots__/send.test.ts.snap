@@ -574,6 +574,29 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
     "org-1",
   ],
   [
+    "db",
+    "orgs",
+    [
+      [
+        "select",
+        [
+          "plan",
+        ],
+      ],
+      [
+        "eq",
+        [
+          "id",
+          "org-1",
+        ],
+      ],
+      [
+        "maybeSingle",
+        [],
+      ],
+    ],
+  ],
+  [
     "sendEmailBatch",
     [
       {
