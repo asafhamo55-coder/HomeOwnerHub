@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { Button, Checkbox, ConfirmDialog, useToast } from '@homeowner-portal/ui'
 import { approveMany } from '@/lib/approvals-inbox/actions'
-import { BULK_CAP, summarizeBulk, type BulkSource } from '@/lib/approvals-inbox/bulk'
+import { BULK_CAP, summarizeBulk, type BulkSource } from '@/lib/approvals-inbox/bulk-shared'
 
 // Selection for bulk approve. Only rows whose source is non-money get a
 // checkbox (page.tsx decides with isBulkEligible); approveMany re-checks.
