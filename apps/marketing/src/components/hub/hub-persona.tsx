@@ -58,7 +58,7 @@ export function HubPersona({
                   <p className="text-2xl font-semibold tracking-tight text-foreground">
                     {b.value}
                   </p>
-                  <p className="mt-1 text-xs text-muted">{b.label}</p>
+                  <p className="mt-1 text-sm text-muted">{b.label}</p>
                 </div>
               ))}
             </div>
@@ -88,7 +88,7 @@ export function HubPersona({
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{persona.name}</p>
-                    <p className="text-xs text-muted">{persona.role}</p>
+                    <p className="text-sm text-muted">{persona.role}</p>
                   </div>
                 </div>
               </>

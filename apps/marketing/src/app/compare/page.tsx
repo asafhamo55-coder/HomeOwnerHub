@@ -187,7 +187,7 @@ export default function ComparePage() {
                   <p className={cn('text-sm font-semibold', c.key === 'hh' ? 'text-primary' : 'text-foreground')}>
                     {c.name}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-muted">{c.sub}</p>
+                  <p className="mt-0.5 text-sm text-muted">{c.sub}</p>
                 </div>
               ))}
             </div>
@@ -278,7 +278,7 @@ function SummaryCard({ title, body, note }: { title: string; body: string; note:
       <h3 className="t-h3 text-foreground">{title}</h3>
       <p className="mt-3 text-[15px] leading-relaxed text-foreground-secondary">{body}</p>
       <div className="mt-5 rounded-xl border border-primary/25 bg-primary-subtle/40 p-3">
-        <p className="text-xs font-medium text-primary">{note}</p>
+        <p className="text-sm font-medium text-primary">{note}</p>
       </div>
     </div>
   )

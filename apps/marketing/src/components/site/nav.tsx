@@ -199,7 +199,7 @@ export function Nav() {
                       <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', p.dot)} aria-hidden />
                       <span className="flex flex-col">
                         <span className="text-sm font-semibold text-foreground">{p.name}</span>
-                        <span className="text-[13px] leading-snug text-muted">{p.blurb}</span>
+                        <span className="text-sm leading-snug text-muted">{p.blurb}</span>
                       </span>
                       <ArrowRight
                         aria-hidden

@@ -135,7 +135,7 @@ export function BarExplorer() {
                 </p>
                 <ul className="mt-2 space-y-1.5">
                   {b.requires.map((r) => (
-                    <li key={r} className="flex gap-2 text-xs leading-relaxed text-foreground-secondary">
+                    <li key={r} className="flex gap-2 text-sm leading-relaxed text-foreground-secondary">
                       <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-muted" />
                       {r}
                     </li>
