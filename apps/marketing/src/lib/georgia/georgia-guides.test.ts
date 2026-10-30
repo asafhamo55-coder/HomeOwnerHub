@@ -216,11 +216,12 @@ describe('guides', () => {
 })
 
 describe('checklists', () => {
-  it('fourteen printable checklists and templates exist', () => {
+  it('sixteen printable checklists and templates exist', () => {
     expect(Object.keys(CHECKLISTS).sort()).toEqual([
       'annual-meeting-notice-checklist',
       'apply-hoa-credit-to-owner-balance-checklist',
       'attorney-fee-notice-checklist',
+      'florida-hoa-fine-hearing-notice',
       'georgia-annual-meeting-report-checklist',
       'georgia-hoa-collections-notice',
       'georgia-hoa-payment-plan-agreement',
@@ -231,6 +232,7 @@ describe('checklists', () => {
       'hoa-board-meeting-agenda',
       'hoa-board-meeting-minutes',
       'hoa-violation-letter-georgia',
+      'texas-hoa-payment-plan-agreement',
       'violation-notice-checklist',
     ])
     for (const c of Object.values(CHECKLISTS)) expect(c.items.length).toBeGreaterThanOrEqual(8)
