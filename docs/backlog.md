@@ -2046,11 +2046,30 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 10 (2026-10-30, code-verified)
+
+Checked at 929e9527. None of these needs a migration or an owner action. The order mixes product work with visible UI/UX, per the owner on 2026-10-30.
+
+1. **Dues aging buckets with "remind this bucket".** On /dues, add chips for Current, 1 to 30, 31 to 60 and 61+ days. Each chip filters the list, and the reminders dialog then starts with that bucket selected. Files: `dues/page.tsx`, `WhoOwesPanel.tsx`, `SendRemindersDialog.tsx`, `lib/dues/`. Effort 2.
+2. **Approve several items at once in the approvals queue, for sources that don't move money.** Covers violation drafts, ARC reviews and vendor results. Anything involving money stays one at a time, so dual control is unchanged. Before building, confirm that approving twice is harmless for each source. Files: `approvals/page.tsx`, `lib/approvals.ts`. Effort 3.
+3. **"Add to calendar" for residents on the Next meeting card and the meeting page.** Reuse the signed calendar route that already exists. Files: `app/resident/page.tsx`, `resident/meetings/[id]/page.tsx`. Effort 1.
+4. **Show the latest announcement on the resident home.** Replace the "N new" badge with a card showing the title, date and first line. Files: `app/resident/page.tsx`, `lib/resident-dashboard.ts`. Effort 1.
+5. **Summary strip on approvals; dues table polish.** Approvals gets three counts above the list: waiting, oldest wait, and AI-proposed share. The dues table gets status pills, a header that stays visible while scrolling, and the amount shown on phone cards. Effort 2.
+6. **Announcement composer: email and text-message previews side by side, plus a recipient count on Send.** Check first whether the review step already shows a preview. File: `AnnouncementFlow.tsx`. Effort 2.
+7. **BL-172 SEO batch 8: Georgia governance.** Topics: ballots by written consent (§ 14-3-708), conflict-of-interest disclosure, amending covenants (§ 44-3-226), and lien rules (§ 44-3-232). Also add inbound links to attorney-fee-notice-checklist. The weekly audit is due Nov 2. Effort 2.
+8. **Put the product tour on /hoa and /pricing.** Reuse `ProductTour`. Every tab must map to a shipped feature. Effort 2.
+
+**Dropped:**
+- Already done: round-8 credit items, digest nudge, weekly analytics, fiscal-year rollover, GA BL-161 to 165 and 167.
+- Need a migration: quiet hours, ballots, polls, reserves, product_events, indexes.
+- Need an owner action: BL-031, BL-035, BL-059, BL-061, BL-086.
+- Low gain: loading skeletons (23 of 25 routes already have them), inbox restyle.
+
 ## Ranked open work — round 9 (2026-10-30, code-verified)
 
 Every item below was checked against the code at 4d123290. None needs a migration. Owner (2026-10-30): "resume the work per the prioritized backlog", and also keep making UI/UX changes that are visible.
 
-0. **Visible brand and product refresh (owner: "still haven't seen major change").** In progress 2026-10-30.
+0. **Visible brand and product refresh (owner: "still haven't seen major change").** Done 2026-10-30: violet brand in the app, product tour, dashboard polish, static assets. Items 1 to 7 below: Done 2026-10-30.
    - The app takes the website's violet brand and Be Vietnam Pro font, and gets a branded sign-in.
    - The website gets a product tour section that shows real screens.
 1. **BL-172 SEO batch 7: Georgia overpayments and credits.** 3 or more guides or templates on credits on account, how a board applies a credit, and the SB 406 payment order. Each quotes the fixtures and has a demo CTA. Files: `apps/marketing/src/app/georgia/`, `templates/`. Effort 2.
