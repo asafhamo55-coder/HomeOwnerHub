@@ -125,7 +125,7 @@ export function RoiCalculator() {
           </div>
         </div>
 
-        <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-muted">
+        <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted">
           Estimates only. Management-company fees vary by region and scope.
           HomeownerHub pricing is fixed and published on this page.
         </p>
@@ -175,7 +175,7 @@ function Slider({
           '[&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer',
         )}
       />
-      {hint && <p className="mt-2 text-xs text-muted">{hint}</p>}
+      {hint && <p className="mt-2 text-sm text-muted">{hint}</p>}
     </div>
   )
 }
@@ -183,7 +183,7 @@ function Slider({
 function Line({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between">
-      <dt className="text-xs text-foreground-secondary">{label}</dt>
+      <dt className="text-sm text-foreground-secondary">{label}</dt>
       <dd className="font-mono text-xs font-medium text-foreground">{value}</dd>
     </div>
   )

@@ -41,7 +41,7 @@ export default function StatusPage() {
               <Activity className="h-7 w-7 shrink-0 text-muted" />
               <div>
                 <p className="text-base font-semibold text-foreground">No live status feed yet</p>
-                <p className="text-xs text-muted">
+                <p className="text-sm text-muted">
                   If something looks wrong in the app, email us and we’ll tell you what we know.
                 </p>
               </div>
@@ -60,7 +60,7 @@ export default function StatusPage() {
               </ul>
             </div>
 
-            <p className="mt-10 text-center text-xs text-muted">
+            <p className="mt-10 text-center text-sm text-muted">
               To report a production incident, email{' '}
               <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:support@homeownerledger.com">
                 support@homeownerledger.com

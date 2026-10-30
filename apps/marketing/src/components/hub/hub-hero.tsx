@@ -69,7 +69,7 @@ export function HubHero({
                 {stats.map((s) => (
                   <div key={s.label}>
                     <dt className="text-2xl font-semibold tracking-tight text-foreground sm:text-[28px]">{s.value}</dt>
-                    <dd className="mt-1 text-[13px] leading-snug text-muted">{s.label}</dd>
+                    <dd className="mt-1 text-sm leading-snug text-muted">{s.label}</dd>
                   </div>
                 ))}
               </dl>

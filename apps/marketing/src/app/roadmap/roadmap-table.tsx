@@ -3,9 +3,9 @@
 import { useMemo, useState } from 'react'
 import { m as motionEl, AnimatePresence } from 'framer-motion'
 import { ShieldCheck, AlertCircle, BookOpen } from 'lucide-react'
-import { WORKFLOWS, type Bar, type Hub, type Status } from '@/lib/workflows'
-import { cn } from '@/lib/cn'
-import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
+import { WORKFLOWS, type Bar, type Hub, type Status } from '../../lib/workflows'
+import { cn } from '../../lib/cn'
+import { OTHER_HUBS_ENABLED } from '../../lib/hubs'
 
 const months = ['M1', 'M2', 'M3', 'M4', 'M5-6', 'M7+'] as const
 
@@ -98,7 +98,7 @@ export function RoadmapTable() {
           <FilterGroup label="Status" options={STATUS_FILTERS} value={status} onChange={setStatus} />
         </div>
         <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-3">
-          <p className="font-mono text-[11px] text-muted">
+          <p className="font-mono text-sm text-muted">
             <span className="font-semibold text-foreground">{filtered.length}</span> of{' '}
             <span className="font-semibold text-foreground">{WORKFLOWS.length}</span> workflows
           </p>
@@ -140,8 +140,8 @@ export function RoadmapTable() {
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-border/70 bg-surface">
-                  <table className="w-full">
-                    <thead className="border-b border-border/70 bg-subtle/40 text-left">
+                  <table className="block w-full sm:table">
+                    <thead className="hidden border-b border-border/70 bg-subtle/40 text-left sm:table-header-group">
                       <tr>
                         <th className="px-5 py-3 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted">
                           Workflow
@@ -157,26 +157,26 @@ export function RoadmapTable() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="block divide-y divide-border sm:table-row-group">
                       {rows.map((w) => {
                         const Icon = barIcon[w.bar]
                         return (
-                          <tr key={w.id} className="transition-colors hover:bg-subtle/40">
-                            <td className="px-5 py-4">
+                          <tr key={w.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-4 transition-colors hover:bg-subtle/40 sm:table-row sm:px-0 sm:py-0">
+                            <td className="basis-full sm:table-cell sm:px-5 sm:py-4">
                               <p className="text-sm font-semibold text-foreground">{w.name}</p>
-                              <p className="mt-1 text-xs leading-relaxed text-muted">
+                              <p className="mt-1 text-sm leading-relaxed text-muted">
                                 {w.description}
                               </p>
                             </td>
                             <td
                               className={cn(
-                                'px-5 py-4 align-top font-mono text-xs font-semibold uppercase tracking-wider',
+                                'align-top font-mono text-xs sm:table-cell sm:px-5 sm:py-4 font-semibold uppercase tracking-wider',
                                 hubColor[w.hub],
                               )}
                             >
                               {w.hub}
                             </td>
-                            <td className="px-5 py-4 align-top">
+                            <td className="align-top sm:table-cell sm:px-5 sm:py-4">
                               <span
                                 className={cn(
                                   'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ring-1',
@@ -187,7 +187,7 @@ export function RoadmapTable() {
                                 Bar {w.bar}
                               </span>
                             </td>
-                            <td className="px-5 py-4 align-top">
+                            <td className="align-top sm:table-cell sm:px-5 sm:py-4">
                               <span
                                 className={cn(
                                   'inline-flex items-center rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ring-1',

@@ -86,14 +86,14 @@ export default function RoadmapPage() {
                         {BAR_TARGETS[b].name}
                       </span>
                     </div>
-                    <p className="mt-3 text-xs leading-relaxed text-foreground-secondary">
+                    <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">
                       {BAR_TARGETS[b].threshold}
                     </p>
                   </div>
                 )
               })}
             </div>
-            <p className="mt-6 text-xs text-muted">
+            <p className="mt-6 text-sm text-muted">
               Movement between bars (A → B → C) needs a human review gate and
               passing tests, and every move is published here.{' '}
               <Link href="/honesty-bars" className="font-semibold text-foreground underline-offset-4 hover:underline">
@@ -163,7 +163,7 @@ function Stat({
     <div className={cn('rounded-2xl border bg-surface p-6 text-left', colors)}>
       <p className="text-4xl font-semibold tracking-tight text-foreground">{value}</p>
       <p className="mt-2 text-sm font-semibold text-foreground-secondary">{label}</p>
-      <p className="mt-1 text-xs text-muted">{sub}</p>
+      <p className="mt-1 text-sm text-muted">{sub}</p>
     </div>
   )
 }

@@ -48,7 +48,7 @@ export default function StatesPage() {
                 <p className="mt-3 text-[15px] leading-relaxed text-foreground-secondary">{card.benefit}</p>
                 <ul className="mt-5 flex flex-wrap gap-2">
                   {s.items.map((i) => (
-                    <li key={i} className="rounded-full bg-subtle px-3 py-1.5 text-[13px] font-medium text-foreground-secondary">
+                    <li key={i} className="rounded-full bg-subtle px-3 py-1.5 text-sm font-medium text-foreground-secondary">
                       {i}
                     </li>
                   ))}
@@ -64,7 +64,7 @@ export default function StatesPage() {
           })}
         </div>
         <div className="container-page mt-8">
-          <p className="mx-auto max-w-3xl text-center text-xs leading-relaxed text-muted">
+          <p className="mx-auto max-w-3xl text-center text-sm leading-relaxed text-muted">
             State-law answers: {STATE_LAW_ANSWERS_NOTE} {GEORGIA_SCOPE_NOTE}
           </p>
           <div className="mt-8 flex justify-center">

@@ -106,7 +106,7 @@ export function ChecklistPage({ list }: { list: Checklist }) {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-4 text-xs text-muted">The board approves every draft. HomeownerHub prepares paperwork and cites the law; it does not file for you or give legal advice.</p>
+                <p className="mt-4 text-sm text-muted">The board approves every draft. HomeownerHub prepares paperwork and cites the law; it does not file for you or give legal advice.</p>
               </section>
             )}
 

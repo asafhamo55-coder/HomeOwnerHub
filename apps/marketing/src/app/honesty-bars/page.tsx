@@ -76,7 +76,7 @@ export default function HonestyBarsPage() {
                     <span className="font-mono text-sm font-semibold text-primary">
                       {m.arrow}
                     </span>
-                    <span className="text-xs text-muted">{m.duration}</span>
+                    <span className="text-sm text-muted">{m.duration}</span>
                   </div>
                   <h3 className="mt-3 text-lg font-semibold tracking-tight text-foreground">
                     {m.title}
