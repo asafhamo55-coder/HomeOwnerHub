@@ -387,7 +387,7 @@ export default async function ViolationDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="letter-first">
             <CardHeader>
               <CardTitle as="h2">Notice as sent</CardTitle>
               <CardDescription>The letter the board approved. This is the version of record.</CardDescription>
@@ -448,7 +448,7 @@ export default async function ViolationDetailPage({
                     const letter = letterOf(r.output)
                     const pending = r.status === 'pending_human_approval'
                     return (
-                      <li key={r.id} className="rounded-lg border border-border p-3">
+                      <li key={r.id} id={`letter-${r.id}`} className="scroll-mt-20 rounded-lg border border-border p-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-medium text-foreground">
                             {fu ? followUpLabel(fu) : 'Follow-up letter'}{' '}
