@@ -496,6 +496,132 @@ export const QUOTES = {
     fixture: "ga-ocga-44-3-art3-2026.txt",
     quote: "Except as provided in subsections (a) and (b) of this Code section and subsections (a) and (b) of Code Section 44-3-109, a special assessment fee per unit in excess of one-sixth of the annual common expense assessment for the unit levied pursuant to subsection (c) of this Code section per fiscal year without the approval of a majority of the unit owners;",
   },
+  // SEO batch 8: ballots, amending the covenants, liens, conflicts.
+  ballotAction: {
+    cite: "O.C.G.A. § 14-3-707(a)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Unless prohibited or limited by the articles or bylaws, any action that may be taken at any annual, regular, or special meeting of members may be taken without a meeting if the corporation delivers a ballot in writing or by electronic transmission to every member entitled to vote on the matter.",
+  },
+  ballotContents: {
+    cite: "O.C.G.A. § 14-3-707(b)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A ballot in writing or by electronic transmission shall:",
+  },
+  ballotEach: {
+    cite: "O.C.G.A. § 14-3-707(b)(1)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Set forth each proposed action;",
+  },
+  ballotForAgainst: {
+    cite: "O.C.G.A. § 14-3-707(b)(3)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Provide an opportunity to vote for or against each other proposed action.",
+  },
+  ballotSolicitIntro: {
+    cite: "O.C.G.A. § 14-3-707(d)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "All solicitations for votes by ballot in writing or by electronic transmission shall:",
+  },
+  ballotSolicit1: {
+    cite: "O.C.G.A. § 14-3-707(d)(1)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Indicate the number of responses needed to meet the quorum requirements;",
+  },
+  ballotSolicit2: {
+    cite: "O.C.G.A. § 14-3-707(d)(2)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "State the percentage of approvals necessary to approve each matter other than election of directors; and",
+  },
+  ballotSolicit3: {
+    cite: "O.C.G.A. § 14-3-707(d)(3)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Specify the time by which a ballot must be received by the corporation in order to be counted.",
+  },
+  ballotNoRevoke: {
+    cite: "O.C.G.A. § 14-3-707(e)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Except as otherwise provided in the articles or bylaws, a ballot in writing or by electronic transmission may not be revoked.",
+  },
+  amendTwoThirds: {
+    cite: "O.C.G.A. § 44-3-226(a)(1)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Except to the extent expressly permitted or required by other provisions of this article, the instrument shall be amended only by the agreement of lot owners of lots to which two-thirds of the votes in the association pertain or such larger majority as the instrument may specify",
+  },
+  amendRental: {
+    cite: "O.C.G.A. § 44-3-226(a)(2)(B)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "No amendment shall be made to the instrument so as to prohibit or restrict a nonowner occupied lot from continuing to be leased or rented for an initial term of six months or longer pursuant to the preamended instrument",
+  },
+  amendCap80: {
+    cite: "O.C.G.A. § 44-3-226(b) (numbered (b)(1) from Jan. 1, 2027)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "No amendment of an instrument shall require approval of lot owners to which more than 80 percent of the association vote pertains and the mortgagees holding 80 percent of the voting interest of mortgaged lots",
+  },
+  amendNoLotChange: {
+    cite: "O.C.G.A. § 44-3-226(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "no amendment to the instrument shall change the boundaries of any lot, the number of votes in the association pertaining thereto, or the liability for common expenses pertaining thereto.",
+  },
+  amendEvidence: {
+    cite: "O.C.G.A. § 44-3-226(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Agreement of the required majority of lot owners to any amendment of the instrument shall be evidenced by their execution of the amendment.",
+  },
+  amendEffective: {
+    cite: "O.C.G.A. § 44-3-226(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any such amendment of the instrument shall become effective only when recorded or at such later date as may be specified in the amendment itself.",
+  },
+  amendMortgagee: {
+    cite: "O.C.G.A. § 44-3-226(e)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "the approval of any proposed amendment by a mortgagee shall be deemed implied and consented to if the mortgagee fails to submit a response to any written proposal for an amendment within 30 days after the mortgagee receives notice of the proposed amendment sent by certified mail or statutory overnight delivery, return receipt requested.",
+  },
+  amendPresumption: {
+    cite: "O.C.G.A. § 44-3-226(f)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "In any court suit or action where the validity of the adoption of an amendment to an instrument is at issue, the adoption of the amendment shall be presumed valid if the suit is commenced more than one year after the recording of the amendment on the public record.",
+  },
+  lienRecordNotice: {
+    cite: "O.C.G.A. § 44-3-232(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The recording of the declaration pursuant to this article shall constitute record notice of the existence of the lien, and no further recordation of any claim of lien for assessments shall be required.",
+  },
+  lienAddOnsIntro: {
+    cite: "O.C.G.A. § 44-3-232(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "To the extent that the instrument provides, the personal obligation of the lot owner and the lien for assessments shall also include:",
+  },
+  stmtRight: {
+    cite: "O.C.G.A. § 44-3-232(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any lot owner, mortgagee of a lot, person having executed a contract for the purchase of a lot, or lender considering the loan of funds to be secured by a lot shall be entitled upon request to a statement from the association or its management agent setting forth the amount of assessments past due and unpaid together with late charges and interest applicable thereto against that lot.",
+  },
+  stmtWriting: {
+    cite: "O.C.G.A. § 44-3-232(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Such request shall be in writing, shall be delivered to the registered office of the association, and shall state an address to which the statement is to be directed.",
+  },
+  stmtFiveDays: {
+    cite: "O.C.G.A. § 44-3-232(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Failure on the part of the association, within five business days from the receipt of such request, to mail or otherwise furnish such statement regarding amounts due and payable at the expiration of such five-day period with respect to the lot involved to such address as may be specified in the written request therefor shall cause the lien for assessments created by this Code section to be extinguished and of no further force or effect as to the title or interest acquired by the purchaser or lender, if any, as the case may be, and their respective successors and assigns, in the transaction contemplated in connection with such request.",
+  },
+  stmtBinding: {
+    cite: "O.C.G.A. § 44-3-232(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The information specified in such statement shall be binding upon the association and upon every lot owner.",
+  },
+  stmtFee: {
+    cite: "O.C.G.A. § 44-3-232(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Payment of a fee not exceeding $10.00 may be required as a prerequisite to the issuance of such a statement if the instrument so provides.",
+  },
+  lienSuit: {
+    cite: "O.C.G.A. § 44-3-232(e)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Nothing in this Code section shall be construed to prohibit actions maintainable pursuant to Code Section 44-3-223 to recover sums for which subsection (a) of this Code section creates a lien.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES
