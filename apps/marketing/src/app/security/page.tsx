@@ -60,8 +60,9 @@ const policies = [
 
 export default function SecurityPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <PageHero
         eyebrow="Security · Privacy · Audit"
@@ -121,7 +122,8 @@ export default function SecurityPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

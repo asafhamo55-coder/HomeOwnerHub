@@ -44,8 +44,9 @@ const agenda = [
 
 export default function DemoPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <section className="hero-wash relative overflow-hidden pb-20 pt-28 md:pt-36">
         
@@ -238,8 +239,9 @@ export default function DemoPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }
 

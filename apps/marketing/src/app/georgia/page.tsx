@@ -18,8 +18,9 @@ const tools = GEORGIA_LINKS.filter((l) => l.kind === 'tool')
 
 export default function GeorgiaHubPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <JsonLd
         data={[
           breadcrumbLd([
@@ -199,7 +200,8 @@ export default function GeorgiaHubPage() {
       </section>
 
       <GeorgiaCta position="georgia_hub_end" />
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

@@ -53,6 +53,8 @@ export function Nav() {
   const toggleRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const wasOpen = useRef(false)
+  const productsTriggerRef = useRef<HTMLButtonElement>(null)
+  const focusFirstProduct = useRef(false)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -123,6 +125,48 @@ export function Nav() {
     }
   }, [open])
 
+  // Keyboard open of the Products menu: once it is visible, focus the first
+  // item (hidden links cannot take focus before then).
+  useEffect(() => {
+    if (productsOpen && focusFirstProduct.current) {
+      focusFirstProduct.current = false
+      productsRef.current?.querySelector<HTMLElement>('#nav-products a[href]')?.focus()
+    }
+  }, [productsOpen])
+
+  const onProductsTriggerKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      focusFirstProduct.current = true
+      if (productsOpen) {
+        focusFirstProduct.current = false
+        productsRef.current?.querySelector<HTMLElement>('#nav-products a[href]')?.focus()
+      } else {
+        setProductsOpen(true)
+      }
+    }
+  }
+
+  const onProductsItemKey = (e: React.KeyboardEvent) => {
+    const items = Array.from(productsRef.current?.querySelectorAll<HTMLElement>('#nav-products a[href]') ?? [])
+    const i = items.indexOf(document.activeElement as HTMLElement)
+    let next: HTMLElement | undefined
+    if (e.key === 'ArrowDown') next = items[(i + 1) % items.length]
+    else if (e.key === 'ArrowUp') next = items[(i - 1 + items.length) % items.length]
+    else if (e.key === 'Home') next = items[0]
+    else if (e.key === 'End') next = items[items.length - 1]
+    else if (e.key === 'Escape') {
+      e.preventDefault()
+      setProductsOpen(false)
+      productsTriggerRef.current?.focus()
+      return
+    }
+    if (next) {
+      e.preventDefault()
+      next.focus()
+    }
+  }
+
   const solid = scrolled || open
 
   return (
@@ -169,7 +213,9 @@ export function Nav() {
               }}
             >
               <button
+                ref={productsTriggerRef}
                 type="button"
+                onKeyDown={onProductsTriggerKey}
                 aria-expanded={productsOpen}
                 aria-controls="nav-products"
                 onClick={() => setProductsOpen((v) => !v)}
@@ -183,6 +229,7 @@ export function Nav() {
               </button>
               <div
                 id="nav-products"
+                onKeyDown={onProductsItemKey}
                 className={cn(
                   'absolute left-1/2 top-full w-[340px] -translate-x-1/2 pt-2 transition-[opacity,transform] duration-200',
                   productsOpen ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-1 opacity-0',
@@ -312,9 +359,6 @@ export function Nav() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </header>
-    {/* Skip-link target. <main> wraps the nav on every page, so pointing the
-        skip link at <main> would land on the nav it is meant to skip. */}
-    <div id="content-start" tabIndex={-1} className="outline-none" />
     </>
   )
 }

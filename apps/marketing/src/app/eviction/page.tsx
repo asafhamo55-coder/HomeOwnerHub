@@ -26,8 +26,9 @@ export default function EvictionPage() {
   if (!OTHER_HUBS_ENABLED) redirect('/hoa')
 
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <HubHero
         theme={theme}
@@ -137,7 +138,8 @@ export default function EvictionPage() {
         footnote="Not legal advice. Subject to attorney review. v1 limited to GA and select counties."
       />
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

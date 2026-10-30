@@ -122,8 +122,9 @@ function CellIcon({ value }: { value: Cell }) {
 
 export default function ComparePage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <PageHero
         eyebrow="HomeownerHub vs the alternatives"
@@ -267,8 +268,9 @@ export default function ComparePage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }
 

@@ -15,8 +15,9 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/case-studies']!,
 
 export default function CaseStudiesPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <section className="relative overflow-hidden pt-32 pb-12">
         <div className="absolute inset-0 -z-10 bg-radial-spot" />
@@ -81,7 +82,8 @@ export default function CaseStudiesPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

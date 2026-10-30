@@ -38,8 +38,9 @@ const sections = [
 
 export default function DocsPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <PageHero
         eyebrow="Documentation"
@@ -93,7 +94,8 @@ export default function DocsPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

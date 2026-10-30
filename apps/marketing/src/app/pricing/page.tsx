@@ -181,8 +181,9 @@ const faqs = OTHER_HUBS_ENABLED ? allFaqs : allFaqs.filter((f) => !/eviction/i.t
 
 export default function PricingPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <section className="hero-wash relative overflow-hidden pb-16 pt-32 md:pb-20 md:pt-40">
         <div className="container-page text-center">
@@ -262,8 +263,9 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }
 

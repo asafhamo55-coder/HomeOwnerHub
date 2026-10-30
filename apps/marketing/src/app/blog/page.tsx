@@ -45,8 +45,9 @@ const planned = OTHER_HUBS_ENABLED
 
 export default function BlogPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <PageHero
         eyebrow="Blog · No posts yet"
@@ -115,7 +116,8 @@ export default function BlogPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

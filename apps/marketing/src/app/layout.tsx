@@ -69,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${beVietnam.variable} ${jetbrainsMono.variable}`}>
       <body className="bg-background text-foreground">
-        <a href="#content-start" className="skip-link">
+        <a href="#main-content" className="skip-link">
           Skip to content
         </a>
         <JsonLd data={organizationLd()} />

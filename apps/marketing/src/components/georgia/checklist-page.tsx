@@ -14,8 +14,9 @@ export function ChecklistPage({ list }: { list: Checklist }) {
   const general = !path.startsWith('/georgia/')
   const trail = general ? [{ name: 'Home', href: '/' }] : [{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }]
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <JsonLd
         data={[
           articleLd({ headline: list.title, description: list.description, path, datePublished: list.datePublished, dateModified: list.dateModified }),
@@ -131,7 +132,8 @@ export function ChecklistPage({ list }: { list: Checklist }) {
         </div>
       </article>
       <GeorgiaCta position={`checklist_${list.slug}`} general={general} />
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }
