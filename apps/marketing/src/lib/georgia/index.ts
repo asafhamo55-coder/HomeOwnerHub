@@ -9,6 +9,7 @@ import { SPECIAL_ASSESSMENTS, SWITCH_FROM_MANAGER } from './guides-e'
 import { AI_MEETING_MINUTES, AI_VIOLATION_LETTERS } from './guides-f'
 import { CERTIFIED_MAIL_COLLECTIONS, CPA_ATTORNEY_ACCESS } from './guides-g'
 import { OVERPAYMENTS_CREDITS, PAYMENT_ORDER } from './guides-h'
+import { AMEND_COVENANTS, LIEN_RULES, WRITTEN_BALLOTS } from './guides-i'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -31,7 +32,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -173,6 +174,34 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: '/templates/apply-hoa-credit-to-owner-balance-checklist',
     title: 'Apply a credit to an owner’s balance: checklist (printable)',
     blurb: 'A one-page checklist for a board putting an owner’s credit on account against a charge, with the Georgia payment order quoted.',
+    kind: 'tool',
+  },
+  {
+    slug: WRITTEN_BALLOTS.slug,
+    path: pathOf(WRITTEN_BALLOTS),
+    title: 'Georgia HOA written ballots: voting without a meeting',
+    blurb: WRITTEN_BALLOTS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: AMEND_COVENANTS.slug,
+    path: pathOf(AMEND_COVENANTS),
+    title: 'Amending HOA covenants in Georgia: the two-thirds rule',
+    blurb: AMEND_COVENANTS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: LIEN_RULES.slug,
+    path: pathOf(LIEN_RULES),
+    title: 'Georgia HOA assessment lien rules explained',
+    blurb: LIEN_RULES.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'hoa-board-conflict-of-interest-disclosure-checklist',
+    path: '/templates/hoa-board-conflict-of-interest-disclosure-checklist',
+    title: 'HOA board conflict-of-interest disclosure checklist (printable)',
+    blurb: 'A one-page checklist for recording each director’s conflict disclosure before a bid or vendor decision, with the Georgia SB 406 text quoted.',
     kind: 'tool',
   },
   {
