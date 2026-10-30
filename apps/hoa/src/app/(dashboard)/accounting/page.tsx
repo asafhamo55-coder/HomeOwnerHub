@@ -31,7 +31,10 @@ import { tryLoad, type LoadResult } from '@/lib/load-or-fail'
 import { timed } from '@/lib/perf/timing'
 import { formatDay, periodLabel, plural, todayIso, usd } from '@/lib/money/format'
 import { JOURNAL_STATUS, PERIOD_STATUS, sourceLabel, statusOf } from '@/lib/money/status'
+import { loadBudgetGlance } from '@/lib/accounting/budget-overview-data'
+import type { BudgetGlance } from '@/lib/accounting/budget-overview'
 import { AccountingTabs } from './AccountingTabs'
+import { BudgetGlanceCard } from './_components/BudgetGlanceCard'
 import { AccountingLoadFailed, AccountingNotSetUp, MoneyStatus } from './_components/shared'
 
 export const metadata = { title: 'Accounting' }
@@ -61,6 +64,9 @@ export default async function AccountingIndexPage() {
     : Promise.resolve(null)
   const recentP = timed(R, 'accounting.recentEntries', () =>
     tryLoad('recent journal entries', () => listJournalEntries(aid, { limit: 8 })),
+  )
+  const budgetP = timed(R, 'accounting.budgetGlance', () =>
+    tryLoad('budget vs actual', () => loadBudgetGlance(aid, period?.id ?? null, today)),
   )
   const attentionP = Promise.all([
     timed(R, 'accounting.unpaidInvoices', () => tryLoad('unpaid invoices', () => summarizeUnpaidInvoices(aid, today))),
@@ -94,6 +100,10 @@ export default async function AccountingIndexPage() {
     >
       <Suspense fallback={<KeyFiguresSkeleton netIncomeLabel={period ? `Net income · ${periodLabel(period)}` : 'Net income'} />}>
         <KeyFigures bs={bsP} inc={incP} period={period} />
+      </Suspense>
+
+      <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+        <StreamedBudget budget={budgetP} />
       </Suspense>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -183,6 +193,11 @@ async function KeyFigures({
       />
     </section>
   )
+}
+
+async function StreamedBudget({ budget }: { budget: Promise<Loaded<BudgetGlance>> }) {
+  const res = await budget
+  return <BudgetGlanceCard glance={res.ok ? res.data : null} />
 }
 
 function KeyFiguresSkeleton({ netIncomeLabel }: { netIncomeLabel: string }) {
