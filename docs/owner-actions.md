@@ -133,30 +133,6 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
-### OA-18 · Confirm the new wording of your founder quote
-
-**Urgency:** Whenever
-
-**Why it matters:** the marketing site quotes you. Two phrases in it couldn't be backed up, so Claude changed them: "180-home HOAs" is now "whole HOAs" (Madison Park has 49 homes), and "We're the only platform built around that" is now "We built HomeownerHub around that". They are your words, so you should approve them.
-
-**Steps:**
-
-1. Read the "From the founder" quote in `apps/marketing` (Claude can paste it into an email to you).
-2. Tell Claude "OK" or send the wording you want.
-
-### OA-20 · Check one Georgia law paragraph against the official code
-
-**Urgency:** Whenever
-
-**Why it matters:** the new Georgia "Statement of Amounts Due" follows O.C.G.A. § 44-3-232(d): 5 business days, and a $10 fee only if the declaration allows it. Claude couldn't open Georgia's official online code (LexisNexis public access) automatically, so it used two matching copies of that paragraph from bills on legis.ga.gov. A single look at the official text confirms it.
-
-**Steps:**
-
-1. Open the Georgia Code public-access site (via legis.ga.gov → "Georgia Code"), go to Title 44, Chapter 3, Article 6, § 44-3-232, subsection (d).
-2. Compare it with `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`, and tell Claude "matches" or paste any difference.
-
-**Files:** `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`
-
 ### OA-23 · Let residents text STOP and START (Vonage setup)
 
 **Urgency:** Whenever
@@ -189,6 +165,34 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-20 · Check one Georgia law paragraph against the official code
+
+**Done 2026-10-30:** checked without LexisNexis. Subsection (d) in `ga-ocga-44-3-232-2026.txt` matches the Official Code of Georgia Annotated release 86 (State of Georgia electronic release via Public.Resource.Org, `ga-ocga-44-3-art6-2026.txt`) word for word. HB 512 and HB 1222 reprint it unchanged, and SB 406 revises only (c).
+
+**Urgency:** Whenever
+
+**Why it matters:** the new Georgia "Statement of Amounts Due" follows O.C.G.A. § 44-3-232(d): 5 business days, and a $10 fee only if the declaration allows it. Claude couldn't open Georgia's official online code (LexisNexis public access) automatically, so it used two matching copies of that paragraph from bills on legis.ga.gov. A single look at the official text confirms it.
+
+**Steps:**
+
+1. Open the Georgia Code public-access site (via legis.ga.gov → "Georgia Code"), go to Title 44, Chapter 3, Article 6, § 44-3-232, subsection (d).
+2. Compare it with `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`, and tell Claude "matches" or paste any difference.
+
+**Files:** `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`
+
+### OA-18 · Confirm the new wording of your founder quote
+
+**Done 2026-10-30:** obsolete. The home-page redesign (c0d795d4) removed the founder quote, and the live site has none. If one comes back, it uses only claims we can back up.
+
+**Urgency:** Whenever
+
+**Why it matters:** the marketing site quotes you. Two phrases in it couldn't be backed up, so Claude changed them: "180-home HOAs" is now "whole HOAs" (Madison Park has 49 homes), and "We're the only platform built around that" is now "We built HomeownerHub around that". They are your words, so you should approve them.
+
+**Steps:**
+
+1. Read the "From the founder" quote in `apps/marketing` (Claude can paste it into an email to you).
+2. Tell Claude "OK" or send the wording you want.
 
 ### OA-19 · Decide: should vendors get automatic insurance-expiry emails?
 
