@@ -21,6 +21,9 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { currentTimeZone } from '@/lib/association-time-current'
 import { todayIn } from '@/lib/association-time'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadOrFail } from '@/lib/load-or-fail'
+import { readAllResult } from '@/lib/supabase/read-all'
+import { recordsChecklistFor, type LibraryDoc } from '@/lib/compliance/records-checklist'
 import { NOT_LEGAL_ADVICE } from '@/lib/compliance/law'
 import { stateName, type ComplianceObligation, type ObligationTone } from '@/lib/compliance/obligations'
 import { loadComplianceOverview } from '@/lib/compliance/overview-load'
@@ -28,6 +31,7 @@ import { caBudgetLoader } from '@/lib/compliance/ca-budget-load'
 import type { LooseDb } from '@/lib/compliance/evidence'
 import { EvidenceControls, type EvidenceOption } from './EvidenceControls'
 import { ProposedRulesCard } from './ProposedRulesCard'
+import { RecordsChecklistCard } from './RecordsChecklistCard'
 
 export const metadata = { title: 'Compliance' }
 export const dynamic = 'force-dynamic'
@@ -103,6 +107,25 @@ export default async function CompliancePage() {
     )
   }
 
+  // Library documents for the records checklist: org-scoped, only when some
+  // association is in a state that has a list. null = the read failed.
+  let libraryDocs: LibraryDoc[] | null = []
+  if (overview.groups.some((g) => recordsChecklistFor(g.state))) {
+    const res = await loadOrFail(
+      'records checklist documents',
+      readAllResult<LibraryDoc>((from, to) =>
+        supabase
+          .from('hoa_documents')
+          .select('id, name, type')
+          .eq('org_id', org.id)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to) as never,
+      ),
+    )
+    libraryDocs = res.ok ? res.data : null
+  }
+
   const evidenceOn = M5_APPLIED && M3_APPLIED
   const options: EvidenceOption[] = documents ?? []
   const multiple = overview.groups.length > 1
@@ -149,6 +172,15 @@ export default async function CompliancePage() {
             ))}
           </CardContent>
         </Card>
+      ))}
+
+      {overview.groups.map((g) => (
+        <RecordsChecklistCard
+          key={`records-${g.associationId}`}
+          state={g.state}
+          docs={libraryDocs}
+          heading={multiple ? `Records your owners can see: ${g.associationName}` : undefined}
+        />
       ))}
 
       {overview.groups.some((g) => g.state === 'GA') ? <ProposedRulesCard today={today} /> : null}
