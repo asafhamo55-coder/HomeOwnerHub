@@ -140,3 +140,23 @@ describe('library filter', () => {
     expect(libraryEntries()).toHaveLength(total + templateGroups().reduce((n, g) => n + g.items.length, 0))
   })
 })
+
+describe('batch 14 pages are in the library', () => {
+  const pages = ['/guides/texas-hoa-third-party-collections-notice', '/guides/california-hoa-pre-lien-notice-and-collections', '/templates/florida-hoa-notice-of-intent-to-lien']
+
+  it('lists them on /guides or /templates and in the palette feed', () => {
+    const guides = guideGroups().flatMap((g) => g.items.map((i) => i.path))
+    const templates = templateGroups().flatMap((g) => g.items.map((i) => i.path))
+    expect(guides).toEqual(expect.arrayContaining(pages.slice(0, 2)))
+    expect(templates).toContain(pages[2])
+    const feed = libraryEntries().map((e) => e.path)
+    for (const p of pages) expect(feed, p).toContain(p)
+  })
+
+  it('puts them in the sitemap, with a page file each', () => {
+    for (const p of pages) {
+      expect(SITEMAP_PATHS, p).toContain(p)
+      expect(read(`app${p}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+})

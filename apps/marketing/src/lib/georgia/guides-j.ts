@@ -225,7 +225,7 @@ export const FL_ESTOPPEL: Guide = {
       a: 'The Georgia text we hold has a statement of amounts due with a five-business-day deadline. It is a different rule with a different consequence.',
     },
   ],
-  related: ['florida-hoa-fine-hearing-committee', 'georgia-hoa-assessment-lien-rules', 'hoa-treasurer-duties', 'overpayments-credits'],
+  related: ['florida-hoa-fine-hearing-committee', 'georgia-hoa-assessment-lien-rules', 'hoa-treasurer-duties', 'overpayments-credits', 'florida-hoa-notice-of-intent-to-lien'],
   hoaDoes: [
     {
       text: 'On a property, the board can prepare an estoppel certificate filled in from the home’s account: the balance, the regular assessment and paid-through date, special assessments, and any payment plan.',
@@ -344,7 +344,7 @@ export const TX_PAYMENT_PLANS: Guide = {
       a: 'The statute says that does not stop an owner from receiving a payment plan. File them anyway.',
     },
   ],
-  related: ['georgia-hoa-payment-order-sb-406', 'overpayments-credits', 'hoa-treasurer-duties', 'florida-hoa-estoppel-certificate-rules', 'texas-hoa-payment-plan-agreement'],
+  related: ['georgia-hoa-payment-order-sb-406', 'overpayments-credits', 'hoa-treasurer-duties', 'florida-hoa-estoppel-certificate-rules', 'texas-hoa-payment-plan-agreement', 'texas-hoa-third-party-collections-notice'],
   hoaDoes: [
     {
       text: 'Accounting has a Payment plans page. A plan moves to Completed on its own when every installment is paid, waived or written off, and the board can see which plans are behind.',
@@ -466,7 +466,7 @@ export const CA_FINE_HEARING: Guide = {
       a: 'The statute says the discipline is not effective against the member unless the board fulfills the requirements of § 5855.',
     },
   ],
-  related: ['fines-and-violation-hearings', 'florida-hoa-fine-hearing-committee', 'california-hoa-internal-dispute-resolution', 'violation-notice-checklist', 'ai-hoa-violation-letters-board-approval'],
+  related: ['fines-and-violation-hearings', 'florida-hoa-fine-hearing-committee', 'california-hoa-internal-dispute-resolution', 'violation-notice-checklist', 'ai-hoa-violation-letters-board-approval', 'california-hoa-pre-lien-notice-and-collections'],
   hoaDoes: [
     {
       text: 'In California, a violation can only move to Fined once the hearing record shows the notice sent in time, the hearing held, and the outcome recorded. "Attorney advised" is the only override, and it is recorded.',

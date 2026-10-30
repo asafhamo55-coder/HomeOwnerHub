@@ -137,7 +137,7 @@ export const CA_IDR: Guide = {
       a: 'The statute says the § 5915 meet and confer procedure applies and satisfies the requirement. The annual policy statement should still describe the process the association uses.',
     },
   ],
-  related: ['california-hoa-fine-hearing-and-penalty-rules', 'california-hoa-records-inspection-rules', 'fines-and-violation-hearings', 'violation-notice-checklist'],
+  related: ['california-hoa-fine-hearing-and-penalty-rules', 'california-hoa-records-inspection-rules', 'fines-and-violation-hearings', 'violation-notice-checklist', 'california-hoa-pre-lien-notice-and-collections'],
   hoaDoes: [
     {
       text: 'In California, the fine and suspension letters mention the 14-day written decision and the owner’s right to ask for internal dispute resolution under § 5910 after a disputed hearing.',

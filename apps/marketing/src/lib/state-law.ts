@@ -199,17 +199,20 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
     { href: '/guides/florida-hoa-estoppel-certificate-rules', label: 'Florida estoppel certificates' },
     { href: '/guides/florida-hoa-official-records-inspection', label: 'Florida official records inspection' },
     { href: '/templates/florida-hoa-fine-hearing-notice', label: 'Florida fine hearing notice template' },
+    { href: '/templates/florida-hoa-notice-of-intent-to-lien', label: 'Florida 45-day notice of intent to lien' },
   ],
   CA: [
     { href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' },
     { href: '/guides/california-hoa-records-inspection-rules', label: 'California records inspection' },
     { href: '/guides/california-hoa-internal-dispute-resolution', label: 'California internal dispute resolution' },
+    { href: '/guides/california-hoa-pre-lien-notice-and-collections', label: 'California pre-lien notice and collections' },
   ],
   TX: [
     { href: '/guides/texas-hoa-payment-plans-and-payment-priority', label: 'Texas payment plans and payment priority' },
     { href: '/guides/texas-hoa-management-certificate', label: 'Texas management certificate' },
     { href: '/guides/texas-hoa-resale-certificate-chapter-207', label: 'Texas resale certificate' },
     { href: '/templates/texas-hoa-payment-plan-agreement', label: 'Texas payment plan agreement template' },
+    { href: '/guides/texas-hoa-third-party-collections-notice', label: 'Texas notice before collections' },
   ],
 }
 

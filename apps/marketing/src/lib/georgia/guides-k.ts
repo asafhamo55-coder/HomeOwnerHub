@@ -332,7 +332,7 @@ export const TX_MANAGEMENT_CERT: Guide = {
       a: 'The statute says an owner is not liable for the association’s collection attorney’s fees or for interest that accrues during the period no certificate is recorded and filed.',
     },
   ],
-  related: ['texas-hoa-payment-plans-and-payment-priority', 'florida-hoa-estoppel-certificate-rules', 'hoa-board-meeting-minutes', 'georgia-hoa-assessment-lien-rules'],
+  related: ['texas-hoa-payment-plans-and-payment-priority', 'florida-hoa-estoppel-certificate-rules', 'hoa-board-meeting-minutes', 'georgia-hoa-assessment-lien-rules', 'texas-hoa-third-party-collections-notice'],
   hoaDoes: [],
   hoaDoesNot:
     'HomeownerHub does not prepare, record or file a management certificate, and it does not watch the 30-day and 7-day deadlines. Your officer, managing agent or attorney does that, and a calendar reminder keeps it from slipping.',

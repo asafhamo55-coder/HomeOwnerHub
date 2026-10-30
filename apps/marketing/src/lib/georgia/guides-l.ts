@@ -240,7 +240,7 @@ export const TX_RESALE: Guide = {
       a: 'No. The chapter says it does not apply to a condominium council of owners under chapter 81 or a condominium unit owners’ association under chapter 82.',
     },
   ],
-  related: ['texas-hoa-management-certificate', 'florida-hoa-estoppel-certificate-rules', 'georgia-hoa-estoppel-letter-resale', 'hoa-treasurer-duties'],
+  related: ['texas-hoa-management-certificate', 'florida-hoa-estoppel-certificate-rules', 'georgia-hoa-estoppel-letter-resale', 'hoa-treasurer-duties', 'texas-hoa-third-party-collections-notice'],
   hoaDoes: [
     {
       text: 'On a property, the board can prepare a Texas resale certificate. It shows the 10-business-day deadline, the $375 fee cap and that no fee applies if it is late. The app fills in the assessment, the amount owed and open violations.',

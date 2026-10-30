@@ -95,7 +95,7 @@ export const TX_PAYMENT_PLAN_AGREEMENT: Checklist = {
       a: 'No. The statute text we hold does not supply a form. This is a working list of fields for a volunteer board. Have your attorney review the final agreement.',
     },
   ],
-  related: ['texas-hoa-payment-plans-and-payment-priority', 'georgia-hoa-payment-plan-agreement', 'texas-hoa-management-certificate', 'apply-hoa-credit-to-owner-balance-checklist'],
+  related: ['texas-hoa-payment-plans-and-payment-priority', 'georgia-hoa-payment-plan-agreement', 'texas-hoa-management-certificate', 'apply-hoa-credit-to-owner-balance-checklist', 'texas-hoa-third-party-collections-notice'],
   datePublished: '2026-10-31',
   dateModified: '2026-10-31',
   howTo: true,
