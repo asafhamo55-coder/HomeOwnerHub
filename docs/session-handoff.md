@@ -29,7 +29,7 @@ CronCreate `23 * * * *`, recurring. Prompt: the "HOA product cycle, 24/7 mode" t
 
 1. If agents are still running, check on them and deploy if a gated tip is waiting.
 2. Health check and CI.
-3. Pick 2–3 items with no migration, and dispatch one worktree agent per item.
+3. Work the newest ranked round in docs/backlog.md from the top; groom the next round when it is used up. Run at most 2 building agents at once.
 4. Merge, then run the gates.
 5. Deploy: merge the prod branch in first, check fast-forward, push, poll /api/health.
 6. Update the backlog, the cycle log and this file.
@@ -61,15 +61,18 @@ Single source: `docs/owner-actions.md` (emailed). At 2026-10-27 18:30 EDT nothin
 - Soon: OA-32 (GA 590-13 PDFs, comments due Nov 2), OA-35 (analytics and Search Console), OA-26 (signing secrets), OA-36, OA-7, OA-14, OA-25, OA-33, OA-9.
 - After the deploy: set the Treasurer in Settings → Professionals.
 
-## In flight at this update (2026-10-27 18:30 EDT)
+## In flight at this update (2026-10-30 19:00 UTC)
 
-- **Prod:** 7860b686. Integration: claude/quality-oracle (docs ahead). All migrations through 0072 are applied, and M1–M7 flags are all true.
-- **Agents:** a deck refresh (roles, payments and holidays now live).
-- **Next:** the round 7 list in `docs/backlog.md`. #1, #2, #4 (language part) and #5 are done. Remaining:
-  - BL-099 perf from prod logs
-  - SEO (daily batch; weekly audit due Nov 2)
-  - quiet hours (needs a migration)
-  - English-only language (needs a migration)
+- **Prod:** ad6dd2df. 528a1572 deploys at 19:21 UTC; CI is green. All migrations through 0072 are applied.
+- **Backlog:** rounds 9 to 12 are done. In round 13, items 1 to 4 and 7 are built; item 5 (SEO batch 11) is building; item 6 (the weekly SEO audit) is due Mon Nov 2.
+- **Gates now include `pnpm turbo run build --filter=hoa`.** A client component that imported server-only code passed typecheck and vitest but broke the CI build on 2026-10-30.
+- **Peer session homeownerhub-42.** It handles Stripe and owner-actions. It commits to claude/quality-oracle at most once an hour, right after one of our deploys, and announces any urgent env redeploy first. Send it a message when a deploy lands.
+- **Visible changes on 2026-10-30:**
+  - violet brand and Be Vietnam Pro across the app, site, emails and decks
+  - product tour
+  - summary strips on most board lists
+  - resident receipts, timeline and tiles
+- **Decks:** refreshed 2026-10-30 (product deck 53 slides, investor deck 25). Traction still waits on OA-15.
 
 ## Decisions taken without the owner (reversible)
 
