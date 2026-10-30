@@ -295,23 +295,19 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
-### OA-26 · Give board settings and sessions their own signing secrets
+### OA-26 · Remove the old signing secret (one last step, from Nov 6)
 
-**Urgency:** Soon
+**Urgency:** Whenever
 
-**Progress 2026-10-30:** Asaf added `PAY_SETTINGS_SECRET`, `SESSION_CAP_SECRET` and `PAY_SETTINGS_SECRET_PREVIOUS` (the service-role key) to home-owner-hub-hoa Production; Claude redeployed. Only one association had signed settings besides Zelle (`d15eac74…`: payment receipts, resident notifications), so its board must re-save those two. Remove `PAY_SETTINGS_SECRET_PREVIOUS` on or after 2026-11-06, once they have.
+**Where it stands (2026-10-30):** done except one cleanup step. `PAY_SETTINGS_SECRET`, `SESSION_CAP_SECRET` and `PAY_SETTINGS_SECRET_PREVIOUS` are set on home-owner-hub-hoa Production and live (deploy 74e14079). Board settings, the "view as resident" cookie, sessions and compliance records no longer depend on the database key that is in the public git history. The only association with signed settings besides Zelle re-saved payment receipts and resident notifications; both stay on after a reload, and Zelle still shows as set up.
 
-**Update 2026-10-26 (tenant-isolation audit, BL-175):** besides board settings, this secret also signs the "view as resident" impersonation cookie and several compliance records. Today they all fall back to the database key that is in the public git history, so anyone holding that key could forge them. Moving to dedicated secrets closes that. Add `SESSION_CAP_SECRET` too (step 2b); the only side effect is that everyone signs in once more.
+**Why it matters:** `PAY_SETTINGS_SECRET_PREVIOUS` holds the service-role key so the old Zelle signature keeps verifying. Once Zelle has been re-saved under the new secret, the old one should go, so nothing accepts a signature made with the leaked key.
 
-**Why it matters:** board settings saved in the app (Zelle details, reminders, receipts and similar) are signed so they can't be tampered with. Today that signature reuses an older database key. A dedicated secret is cleaner. **The catch:** after the switch, every saved board setting except Zelle reads as "off" until a board member saves it again. So do this when you can tell boards to re-save their settings, not before.
+**Steps (on or after 2026-11-06):**
 
-**Steps:**
-
-1. Ask Claude first. It will confirm which settings each HOA has saved, so you know who to tell.
-2. In Vercel (both the hoa and jobs projects, Production), add `PAY_SETTINGS_SECRET` with a long random value. You can make one in Terminal with `openssl rand -base64 48`.
-2b. Also add `SESSION_CAP_SECRET` (another `openssl rand -base64 48`). Everyone will be asked to sign in once more.
-3. In the same place, add `PAY_SETTINGS_SECRET_PREVIOUS`, set to the value the app uses today (Claude will tell you which one).
-4. Redeploy, tell boards to re-save their settings, then remove `PAY_SETTINGS_SECRET_PREVIOUS` a week later.
+1. Ask Claude first. It gives you a read-only query that confirms Zelle has been re-saved under the new secret (or asks a board member to re-save it once).
+2. In Vercel, **home-owner-hub-hoa → Settings → Environment Variables**: delete `PAY_SETTINGS_SECRET_PREVIOUS` (Production).
+3. Tell Claude. It redeploys and checks that Zelle still shows to residents.
 
 ### OA-27 · Show "delivered" on texts (Vonage delivery receipts)
 
