@@ -29,6 +29,7 @@ import {
   APPROVAL_SOURCES,
   SOURCE_META,
   buildInbox,
+  decisionId,
   parseApprovalFilter,
   vendorSection,
   type ApprovalFilter,
@@ -42,6 +43,8 @@ import { formatStamp, usd } from '@/lib/money/format'
 import { loadBillEditOptions } from '@/lib/bill-scan/load'
 import { vendorLabel } from '@/lib/bill-scan/proposal'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
+import { BulkApproveProvider, BulkRowCheckbox, BulkSelectAll } from '@/components/approvals/BulkApprove'
+import { isBulkEligible, isBulkSource } from '@/lib/approvals-inbox/bulk'
 import { ArcReviewActions } from '@/components/arc-review/ArcReviewActions'
 import { BillDetails } from './BillDetails'
 import { ContactDetails } from './ContactDetails'
@@ -137,11 +140,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       <Suspense fallback={null}>
         <InboxZero orgId={org.id} orgName={org.name} />
       </Suspense>
-      {shown.map((source) => (
-        <Suspense key={source} fallback={<SourceSectionSkeleton source={source} />}>
-          <StreamedSection source={source} orgId={org.id} orgName={org.name} filter={filter} />
-        </Suspense>
-      ))}
+      <BulkApproveProvider>
+        {shown.map((source) => (
+          <Suspense key={source} fallback={<SourceSectionSkeleton source={source} />}>
+            <StreamedSection source={source} orgId={org.id} orgName={org.name} filter={filter} />
+          </Suspense>
+        ))}
+      </BulkApproveProvider>
     </Page>
   )
 }
@@ -303,6 +308,17 @@ function amountLabel(item: InboxItem): string | null {
   return `${usd(item.amount)}${item.amountNote ? ` ${item.amountNote}` : ''}`
 }
 
+/** Bulk approve (non-money sources only): the checkbox column, shown for those sections. */
+const SELECT_COLUMN: DataTableColumn<InboxItem> = {
+  key: 'select',
+  header: <span className="sr-only">Select</span>,
+  className: 'md:w-px',
+  cell: (item) =>
+    isBulkEligible(item) && item.decision && isBulkSource(item.source) ? (
+      <BulkRowCheckbox source={item.source} id={decisionId(item.decision)} title={item.title} />
+    ) : null,
+}
+
 const COLUMNS: DataTableColumn<InboxItem>[] = [
   {
     key: 'item',
@@ -426,11 +442,25 @@ function SourceSection({
 }) {
   const meta = SOURCE_META[section.source]
   const headingId = `approvals-${section.source}`
+  const bulkIds =
+    section.ok && isBulkSource(section.source)
+      ? section.items.flatMap((i) => (isBulkEligible(i) && i.decision ? [decisionId(i.decision)] : []))
+      : []
+  const columns = bulkIds.length > 0 ? [SELECT_COLUMN, ...COLUMNS] : COLUMNS
   return (
     <section aria-labelledby={headingId}>
       <Card className="overflow-hidden">
         <CardHeader
-          actions={section.ok && section.total > 0 ? <StatusPill tone="ai" size="sm" label={`${section.total} waiting`} /> : undefined}
+          actions={
+            section.ok && section.total > 0 ? (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {bulkIds.length > 0 && isBulkSource(section.source) ? (
+                  <BulkSelectAll source={section.source} ids={bulkIds} sectionTitle={meta.title} />
+                ) : null}
+                <StatusPill tone="ai" size="sm" label={`${section.total} waiting`} />
+              </div>
+            ) : undefined
+          }
         >
           <CardTitle as="h2" id={headingId}>
             {meta.title}
@@ -465,7 +495,7 @@ function SourceSection({
                 framed={false}
                 mobile="cards"
                 caption={meta.title}
-                columns={COLUMNS}
+                columns={columns}
                 rows={section.items}
                 rowKey={(item) => item.id}
                 empty={

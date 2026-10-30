@@ -32,7 +32,7 @@ vi.mock('@homeowner-portal/workflows', () => ({ approveRequest: vi.fn(), rejectR
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { BOARD_ONLY_DENIED } from '@/lib/accounting/guard'
-import { decideApproval } from './actions'
+import { approveMany, decideApproval } from './actions'
 import { rejectVendor } from '@/lib/vendors'
 
 const ID = '11111111-1111-4111-8111-111111111111'
@@ -63,6 +63,24 @@ describe('decideApproval refuses a resident before touching the database', () =>
   it('a board member gets past the gate (control)', async () => {
     h.role = 'board'
     await expect(decideApproval({ kind: 'w3', id: ID, decision: 'approve' })).rejects.toThrow('reached the database')
+  })
+})
+
+describe('approveMany refuses a resident before touching the database', () => {
+  it('even for bulk-eligible sources', async () => {
+    expect(await approveMany({ w3: [ID], contact: [ID] })).toEqual({ ok: false, error: BOARD_ONLY_DENIED })
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+    expect(createAdminClient).not.toHaveBeenCalled()
+  })
+
+  it('and for injected money ids', async () => {
+    expect((await approveMany({ w18: [ID], bill: [ID] })).ok).toBe(false)
+    expect(getSupabaseServerClient).not.toHaveBeenCalled()
+  })
+
+  it('a board member gets past the gate (control)', async () => {
+    h.role = 'board'
+    await expect(approveMany({ w3: [ID] })).rejects.toThrow('reached the database')
   })
 })
 
