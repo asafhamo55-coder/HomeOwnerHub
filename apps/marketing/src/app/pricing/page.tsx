@@ -4,6 +4,7 @@ import { ArrowRight, Check, Clock, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
+import { ApprovalsScreen, AskScreen, DuesScreen } from '@/components/site/tour-screens'
 import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
@@ -206,6 +207,8 @@ export default function PricingPage() {
         tiers={hoaTiers}
       />
 
+      <WhatYouGet />
+
       <RoiCalculator />
 
 
@@ -364,6 +367,47 @@ function PricingBlock({
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  )
+}
+
+// "What you get" strip: three tour screens at half size, each linking to the
+// full tour on the home page. Screens are decorative (aria-hidden); the
+// caption carries the meaning. Fixed 640px design width scaled to 0.5 so
+// nothing can overflow a 375px viewport.
+const WHAT_YOU_GET = [
+  { screen: <ApprovalsScreen />, title: 'Approvals', caption: 'Every AI draft waits here until a board member approves it.' },
+  { screen: <DuesScreen />, title: 'Dues and credits', caption: 'Who has paid, who has a credit, and notices drafted from the ledger.' },
+  { screen: <AskScreen />, title: 'Ask your documents', caption: 'Plain-English rule questions, answered with the section cited.' },
+]
+
+function WhatYouGet() {
+  return (
+    <section aria-labelledby="what-you-get-h" className="pb-14 md:pb-20">
+      <div className="container-page">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <h2 id="what-you-get-h" className="text-xl font-semibold tracking-tight text-foreground">
+            What you get
+          </h2>
+          <Link href="/#product-tour" className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-primary hover:underline">
+            See the full tour
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </div>
+        <ul className="mt-4 grid gap-5 md:grid-cols-3">
+          {WHAT_YOU_GET.map((w) => (
+            <li key={w.title} className="min-w-0">
+              <Link href="/#product-tour" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                <div aria-hidden className="pointer-events-none h-[190px] w-full overflow-hidden rounded-xl border border-border/70 bg-subtle/60">
+                  <div className="w-[640px] origin-top-left scale-50">{w.screen}</div>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-foreground group-hover:text-primary">{w.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-foreground-secondary">{w.caption}</p>
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   )
