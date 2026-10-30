@@ -41,9 +41,31 @@ describe.skipIf(!RUN || !WEBHOOKS)('webhook handler with signed test payloads', 
     holder.db = null
   })
 
+  // SEC-N2 verifies a newer applied row against Stripe's event store. These
+  // cases synthesize their events (made-up ids Stripe has never seen), so a
+  // real events.retrieve would 404 and call every such row forged. Serve
+  // exactly the events this test delivered; any other id 404s as Stripe does,
+  // which is what makes a forged audit row still fail verification.
+  const delivered = new Map<string, Stripe.Event>()
+  let lookupStripe: Stripe
+  beforeAll(() => {
+    lookupStripe = {
+      webhooks: stripe.webhooks,
+      events: {
+        retrieve: async (id: string) => {
+          const hit = delivered.get(id)
+          if (!hit) throw Object.assign(new Error(`No such event: ${id}`), { statusCode: 404, code: 'resource_missing' })
+          return hit
+        },
+      },
+    } as unknown as Stripe
+  })
+
   const deliver = (event: Stripe.Event | string, mem: MemDb, m1: boolean, opts: { secret?: string; timestamp?: number } = {}) => {
     const d = signEvent(stripe, event, opts.secret ?? SECRET, { timestamp: opts.timestamp })
-    return handleStripeWebhook({ ...d, webhookSecret: SECRET }, { db: mem.db, stripe, m1 })
+    const obj = typeof event === 'string' ? (JSON.parse(event) as Stripe.Event) : event
+    if (obj?.id) delivered.set(obj.id, obj)
+    return handleStripeWebhook({ ...d, webhookSecret: SECRET }, { db: mem.db, stripe: lookupStripe, m1 })
   }
 
   const checkoutSub = (orgId: string, subId: string, plan: string, created?: number) =>
@@ -191,6 +213,25 @@ describe.skipIf(!RUN || !WEBHOOKS)('webhook handler with signed test payloads', 
         expect(await deliver(subUpdated('sub_o', 'past_due', { created: T + 30 }), mem, m1)).toEqual({ ok: true, outcome: 'ignored', message: 'stale_event' })
         expect(mem.audit(AUDIT_SUBSCRIPTION_UPDATED)).toHaveLength(1)
         expect(banner(mem, org)).toBeNull()
+      })
+
+      it('a newer audit row Stripe has no such event for does NOT make an older event stale (SEC-N2)', async () => {
+        const mem = createMemDb()
+        const org = newOrgId()
+        mem.addOrg(org)
+        const T = 1_790_000_000
+        await deliver(checkoutSub(org, 'sub_f2', 'monthly', T), mem, m1)
+        // A member-forged row: future clock, event id Stripe never issued.
+        await mem.db.from('audit_log').insert({
+          org_id: org,
+          user_id: null,
+          action: AUDIT_SUBSCRIPTION_UPDATED,
+          entity_type: 'stripe_subscription',
+          metadata: { event_id: 'evt_forged', event_created: new Date((T + 99_999) * 1000).toISOString(), sub_id: 'sub_f2', status: 'active', plan: 'monthly', quantity: 41 },
+        })
+        expect(await deliver(subUpdated('sub_f2', 'past_due', { created: T + 30 }), mem, m1)).toEqual({ ok: true, outcome: 'subscription_updated' })
+        // The genuine event was applied (recorded), not dropped as stale.
+        expect(mem.audit(AUDIT_SUBSCRIPTION_UPDATED).filter((r) => r.metadata.status === 'past_due')).toHaveLength(1)
       })
 
       it('unknown and unhandled events are ignored and write nothing', async () => {
