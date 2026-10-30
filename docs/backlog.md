@@ -2046,6 +2046,29 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 16 (2026-10-30, code-verified)
+
+None of these needs a migration or an owner action. Billing and pricing belong to the other session.
+
+1. **BUG: scheduled meetings can't get their minutes approved.** Add an "Approve minutes" button (board only, with a confirm step) that sets `status='approved'` and `approved_at`. Until then, residents never see these minutes. Effort 2.
+2. **Letter history per property** in the Compliance tab. Read-only. Effort 2.
+3. **Email this statement to one owner. Touches money and sends email.** Reuse the receipt-run shape. Honor `email_opt_in`, the outbound guard, a dedupe window and an audit row. Effort 3.
+4. **Accounting reports index: a "this period at a glance" strip.** Effort 2.
+5. **Bank and reconciliation: a summary strip and the reconcile state for each account.** Effort 2.
+6. **Vendor detail: an "at a glance" header.** COI chip, days to expiry, linked tickets and RFPs. Effort 2.
+7. **BL-172 SEO batch 14: collections.**
+   - TX § 209.0064 guide
+   - FL § 720.3085 pre-lien notice
+   - CA §§ 5650 to 5660 pre-lien guide
+
+   Effort 2.
+8. **Weekly SEO audit, due Mon Nov 2.** Effort 1.
+
+**Dropped:**
+- Already exist: board contacts, document categories, resident meetings list.
+- Need a migration: import status page, ARC guidelines doc type, polls, amenities.
+- Low gain: notifications page.
+
 ## Ranked open work — round 15 (2026-10-30, code-verified) — Done 2026-10-30 (all 8)
 
 None of these needs a migration or an owner action. Money items are read-only. OA-19 is decided, so item 2 is board-only.
