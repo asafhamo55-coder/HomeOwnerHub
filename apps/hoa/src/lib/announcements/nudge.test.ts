@@ -108,8 +108,16 @@ describe('national holidays and observances', () => {
     expect(ruleDate(rule('veterans-day'), 2026)).toBe('2026-11-11')
     expect(ruleDate(rule('earth-day'), 2027)).toBe('2027-04-22')
     expect(ruleDate(rule('valentines-day'), 2026)).toBe('2026-02-14')
-    expect(ruleDate(rule('fire-prevention'), 2026)).toBe('2026-10-09')
+    expect(ruleDate(rule('fire-prevention'), 2026)).toBe('2026-10-04') // Oct 9 is a Friday
     expect(ruleDate(rule('happy-holidays'), 2026)).toBe('2026-12-15')
+  })
+
+  it('starts Fire Prevention Week on the Sunday of the week containing Oct 9', () => {
+    expect(ruleDate(rule('fire-prevention'), 2027)).toBe('2027-10-03') // Oct 9 is a Saturday
+    expect(ruleDate(rule('fire-prevention'), 2022)).toBe('2022-10-09') // Oct 9 is a Sunday
+    expect(ruleDate(rule('fire-prevention'), 2025)).toBe('2025-10-05') // Oct 9 is a Thursday
+    expect(nextNudge('2026-09-27')!.occasionId).toBe('fire-prevention')
+    expect(nextNudge('2026-09-26')).toBeNull()
   })
 
   it('gives every entry a real lead time and both-language templates', () => {

@@ -13,7 +13,7 @@ interface Reads {
 }
 
 // Counts keyed by table + window start; audit rows keyed by window start.
-function fakeDb(opts: { counts?: Record<string, number>; audit?: Record<string, string[]>; error?: boolean } = {}) {
+function fakeDb(opts: { counts?: Record<string, number>; audit?: Record<string, Array<string | { org_id: string; action: string }>>; error?: boolean } = {}) {
   const reads: Reads[] = []
   const db = {
     from: (table: string) => {
@@ -26,7 +26,11 @@ function fakeDb(opts: { counts?: Record<string, number>; audit?: Record<string, 
         reads.push({ table, f: { ...f } })
         const start = (f.gte as string[])[1]!
         if (isHead) return { count: opts.counts?.[`${table}@${start}`] ?? 0, error: null }
-        const rows = (opts.audit?.[start] ?? []).map((org_id) => ({ org_id }))
+        const notLike = (f.notLike as string[] | undefined) ?? []
+        const rows = (opts.audit?.[start] ?? [])
+          .map((r) => (typeof r === 'string' ? { org_id: r, action: 'approval.created' } : r))
+          .filter((r) => !notLike.some((p) => r.action.startsWith(p.replace(/%$/, ''))))
+          .map(({ org_id }) => ({ org_id }))
         return { data: rows.slice(from, to + 1), error: null }
       }
       const q: Record<string, unknown> = {
@@ -35,6 +39,10 @@ function fakeDb(opts: { counts?: Record<string, number>; audit?: Record<string, 
         in: (c: string, v: unknown) => ((f[`in:${c}`] = v), q),
         gte: (c: string, v: string) => ((f.gte = [c, v]), q),
         lt: (c: string, v: string) => ((f.lt = [c, v]), q),
+        not: (_c: string, op: string, v: string) => {
+          if (op === 'like') f.notLike = [...((f.notLike as string[] | undefined) ?? []), v]
+          return q
+        },
         order: () => q,
         range: (a: number, b: number) => ((from = a), (to = b), q),
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => Promise.resolve(settle()).then(res, rej),
@@ -72,6 +80,21 @@ describe('runWeeklyAnalytics', () => {
     expect(email.text).toContain('Active boards (any activity): 3 (+2 vs last week)')
     expect(f.reads.some((x) => x.table === 'communications' && x.f['eq:category'] === 'announcement')).toBe(true)
     expect(f.reads.some((x) => x.table === 'approval_requests' && Array.isArray(x.f['in:status']))).toBe(true)
+  })
+
+  it('does not count AI meter rows as board activity', async () => {
+    const f = fakeDb({
+      audit: {
+        [THIS_START]: [
+          { org_id: 'meter-only', action: 'ai.usage.draft' },
+          { org_id: 'meter-only', action: 'ai.spend.notice.80' },
+          { org_id: 'real', action: 'approval.created' },
+          { org_id: 'real', action: 'ai.usage.draft' },
+        ],
+      },
+    })
+    const r = await runWeeklyAnalytics(f.db, { sendEmail: sender() }, { now: NOW, env: ENV })
+    expect(r.counts?.activeBoards).toBe(1)
   })
 
   it('pages the audit scan past 1000 rows', async () => {
