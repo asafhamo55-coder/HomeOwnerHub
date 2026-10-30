@@ -836,3 +836,19 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - app UI/UX items 1 and 6: Choice rows at 44px, reduced motion
   - website WU-2: mobile menu focus
   - website WU-6: footer headings
+
+## 2026-10-30 13:40 → 16:45 IST: UI/UX window ends, loop resumed
+
+- **Deployed 5150dcc8:** choice rows at 44px on touch, a spinner that still turns under reduced motion, a focus trap in the website mobile menu, footer link landmarks.
+- **Owner, ~16:10:** "resume the work per the prioritized backlog", then "continue the UI UX as well, I haven't seen major change". The UI/UX-only cron was replaced by the standard `23 * * * *` cycle, with a renewal on Nov 6.
+- **Round 9 groomed and code-verified.** Built so far: items 1–5 and 7, plus two visible-change items.
+  - The app takes the website's violet and Be Vietnam Pro, with a branded split-screen sign-in.
+  - The homepage gets a "See it work" product tour and a bigger hero.
+  - The dashboard gets a welcome band and stat-card polish.
+  - Static brand assets and emails were regenerated in violet.
+- **Caught by the local gates before CI:**
+  - the root vitest `@` alias broke nav.test.tsx, fixed with relative imports;
+  - the ux-ratchet flagged raw `text-white` in AuthShell, fixed with on-solid tokens;
+  - the release-note, backlog and owner-actions email tests pinned the old blue;
+  - the product-tour test depended on run order (module-level JSX without a React import).
+- **Merge with another session:** that session pushed cf044048 and ade174a3 (the GA 590-13 proposed-rules card, and OA-32 done) straight to prod. They were merged into the integration branch before the next deploy.
