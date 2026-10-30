@@ -160,9 +160,11 @@ export default async function TicketsPage({
                 hint: 'Days since it was opened',
               },
               {
-                label: 'Unassigned',
+                // Tickets have no assignee column; this counts open tickets
+                // with no follow-up task that names someone.
+                label: 'No one on it',
                 value: summary ? String(summary.unassigned) : null,
-                hint: 'Open, no action item with an owner',
+                hint: 'Open, with no follow-up task assigned',
               },
             ]}
           />
@@ -194,7 +196,7 @@ export default async function TicketsPage({
             <EmptyState
               icon={<MessageSquare aria-hidden />}
               title="No tickets yet"
-              description="When residents submit a request from the portal — a broken gate, a billing question — it lands here for the board to answer."
+              description="When residents submit a request from the portal (a broken gate, a billing question), it lands here for the board to answer."
               action={
                 <Button asChild variant="secondary">
                   <Link href="/communications/new">Tell residents about the portal</Link>
