@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import type { CollectionEventType, CollectionStatus } from './statuses'
-import type { MailMethod } from './mail-tracking'
+import type { MailMethod, MailRecord } from './mail-tracking'
+import { readAll, chunk } from '@/lib/supabase/read-all'
+import { asPropertyId, asUnitId } from '@/lib/properties/resolve'
+import { latestMailDelivery, sortOpenCases, withDays, type OpenCaseInput, type OpenCaseRow } from './open-cases'
 
 /**
  * Reads for the collections system of record.
@@ -193,4 +196,128 @@ export async function getOpenCaseStatusByUnit(
     out.set(r.unit_id, r.status as CollectionStatus)
   }
   return out
+}
+
+export interface OpenCasesPage {
+  rows: OpenCaseRow[]
+  /** Every open case in the org, before the page slice. */
+  total: number
+}
+
+/**
+ * Every open case in an org for the board overview, longest since the last
+ * event first, then sliced to one page.
+ *
+ * Org-scoped on collection_cases.organization_id (and RLS on top). The sort
+ * key is derived from events, so the whole open set is read, sorted, and
+ * only then cut to `limit`/`offset`; open cases are few, and each read goes
+ * through readAll so nothing is capped at 1000. Throws on any failed read.
+ */
+export async function listOpenCases(
+  supabase: SupabaseClient,
+  orgId: string,
+  today: string,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<OpenCasesPage> {
+  const { limit = 50, offset = 0 } = opts
+  const fail = (what: string) => (e: { message?: string }) => new Error(`collections: ${what} failed: ${e.message ?? 'unknown'}`)
+
+  const cases = await readAll<Record<string, unknown>>(
+    (from, to) =>
+      supabase
+        .from('collection_cases')
+        .select(CASE_COLUMNS)
+        .eq('organization_id', orgId)
+        .is('deleted_at', null)
+        .not('status', 'in', '("resolved","written_off")')
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { message?: string } | null }>,
+    fail('open case list'),
+  )
+  if (cases.length === 0) return { rows: [], total: 0 }
+
+  const eventCols = M7_APPLIED
+    ? `collection_case_id, event_type, occurred_on, created_at, ${MAIL_EVENT_COLUMNS}`
+    : 'collection_case_id, event_type, occurred_on, created_at'
+  const events: Record<string, unknown>[] = []
+  for (const ids of chunk(cases.map((c) => String(c.id)))) {
+    events.push(
+      ...(await readAll<Record<string, unknown>>(
+        (from, to) =>
+          supabase
+            .from('collection_events')
+            .select(eventCols)
+            .eq('organization_id', orgId)
+            .in('collection_case_id', ids)
+            .order('id', { ascending: true })
+            .range(from, to) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { message?: string } | null }>,
+        fail('event list'),
+      )),
+    )
+  }
+  const eventsByCase = new Map<string, Record<string, unknown>[]>()
+  for (const e of events) {
+    const k = String(e.collection_case_id)
+    const list = eventsByCase.get(k)
+    if (list) list.push(e)
+    else eventsByCase.set(k, [e])
+  }
+
+  const units = new Map<string, { label: string; propertyId: string | null }>()
+  for (const ids of chunk([...new Set(cases.map((c) => String(c.unit_id)))])) {
+    const rows = await readAll<Record<string, unknown>>(
+      (from, to) =>
+        supabase
+          .from('units')
+          .select('id, unit_number, address_line1, legacy_hoa_property_id')
+          .eq('organization_id', orgId)
+          .in('id', ids)
+          .order('id', { ascending: true })
+          .range(from, to) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { message?: string } | null }>,
+      fail('unit lookup'),
+    )
+    for (const u of rows) {
+      const number = (u.unit_number as string | null)?.trim()
+      units.set(String(u.id), {
+        label: number || (u.address_line1 as string | null) || 'Unnamed unit',
+        propertyId: (u.legacy_hoa_property_id as string | null) ?? null,
+      })
+    }
+  }
+
+  const all = cases.map((r) => {
+    const c = toCase(r)
+    const evs = eventsByCase.get(c.id) ?? []
+    // Newest by the action date a human typed, then by when it was recorded.
+    const newest = [...evs].sort(
+      (a, b) =>
+        String(b.occurred_on).localeCompare(String(a.occurred_on)) || String(b.created_at).localeCompare(String(a.created_at)),
+    )[0]
+    const unit = units.get(c.unitId)
+    const input: OpenCaseInput = {
+      caseId: c.id,
+      unitId: c.unitId,
+      linkId: unit?.propertyId ? asPropertyId(unit.propertyId) : asUnitId(c.unitId),
+      unitLabel: unit?.label ?? 'Unknown unit',
+      status: c.status,
+      attorneyFirm: c.attorneyFirm,
+      openedOn: c.openedOn,
+      lastEventOn: newest ? String(newest.occurred_on) : null,
+      lastEventType: newest ? (newest.event_type as CollectionEventType) : null,
+      mailDeliveredOn: M7_APPLIED ? latestMailDelivery(evs.map(toMailRecord)) : null,
+    }
+    return withDays(input, today)
+  })
+
+  const sorted = sortOpenCases(all)
+  return { rows: sorted.slice(offset, offset + limit), total: sorted.length }
+}
+
+function toMailRecord(e: Record<string, unknown>): MailRecord {
+  return {
+    method: (e.mail_method as MailMethod | null) ?? null,
+    trackingNumber: (e.tracking_number as string | null) ?? null,
+    mailedOn: (e.mailed_on as string | null) ?? null,
+    deliveredOn: (e.delivered_on as string | null) ?? null,
+  }
 }

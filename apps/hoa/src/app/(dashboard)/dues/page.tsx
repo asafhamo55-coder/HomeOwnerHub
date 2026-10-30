@@ -39,6 +39,7 @@ import { paymentDay } from '@/lib/resident-ledger'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 import { WhoOwesPanel } from './WhoOwesPanel'
+import { OpenCasesPanel } from './OpenCasesPanel'
 import { duesRowStatus } from '@/lib/dues/row-status'
 import { parseAgingParam } from '@/lib/dues/aging'
 import { asPropertyId, asUnitId, resolveUnitForProperty } from '@/lib/properties/resolve'
@@ -275,6 +276,12 @@ export default async function DuesPage({
       <Suspense fallback={<WhoOwesSkeleton />}>
         <WhoOwesPanel associationId={assoc.id} timeZone={assoc.timeZone} aging={parseAgingParam(sp.aging)} />
       </Suspense>
+
+      {!scope && org ? (
+        <Suspense fallback={null}>
+          <OpenCasesPanel orgId={org.id} timeZone={assoc.timeZone} />
+        </Suspense>
+      ) : null}
 
       {scope ? (
         <PropertyScopeBanner
