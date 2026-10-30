@@ -12,6 +12,7 @@ import { OVERPAYMENTS_CREDITS, PAYMENT_ORDER } from './guides-h'
 import { AMEND_COVENANTS, LIEN_RULES, WRITTEN_BALLOTS } from './guides-i'
 import { CA_FINE_HEARING, FL_ESTOPPEL, FL_FINE_HEARING, TX_PAYMENT_PLANS } from './guides-j'
 import { CA_RECORDS, FL_RECORDS, TX_MANAGEMENT_CERT } from './guides-k'
+import { GA_ESTOPPEL, TX_RESALE } from './guides-l'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -34,7 +35,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -247,6 +248,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'Texas HOA management certificate: what to record and when to update it',
     blurb: TX_MANAGEMENT_CERT.summary[0]!,
     kind: 'guide',
+  },
+  {
+    slug: GA_ESTOPPEL.slug,
+    path: pathOf(GA_ESTOPPEL),
+    title: 'Georgia HOA estoppel letter at resale: the five-business-day statement',
+    blurb: GA_ESTOPPEL.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: TX_RESALE.slug,
+    path: pathOf(TX_RESALE),
+    title: 'Texas HOA resale certificate: contents, deadline and fee cap',
+    blurb: TX_RESALE.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'hoa-annual-budget-worksheet',
+    path: '/templates/hoa-annual-budget-worksheet',
+    title: 'HOA annual budget and reserve contribution worksheet (printable)',
+    blurb: 'A one-page worksheet for income and expense lines, the reserve contribution, the dues math and the summary owners get.',
+    kind: 'tool',
   },
   {
     slug: 'hoa-board-conflict-of-interest-disclosure-checklist',

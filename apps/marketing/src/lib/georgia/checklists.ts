@@ -6,6 +6,7 @@ import { ANNOUNCEMENT_TEMPLATES } from './checklists-d'
 import { ANNUAL_REPORT_CHECKLIST } from './checklists-e'
 import { APPLY_CREDIT_CHECKLIST } from './checklists-f'
 import { CONFLICT_DISCLOSURE_CHECKLIST } from './checklists-g'
+import { BUDGET_WORKSHEET } from './checklists-h'
 
 export interface Checklist {
   slug: string
@@ -112,4 +113,5 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [ANNUAL_REPORT_CHECKLIST.slug]: ANNUAL_REPORT_CHECKLIST,
   [APPLY_CREDIT_CHECKLIST.slug]: APPLY_CREDIT_CHECKLIST,
   [CONFLICT_DISCLOSURE_CHECKLIST.slug]: CONFLICT_DISCLOSURE_CHECKLIST,
+  [BUDGET_WORKSHEET.slug]: BUDGET_WORKSHEET,
 }
