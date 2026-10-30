@@ -19,7 +19,3 @@ Georgia associations now see a "Proposed rules (not in force)" card on the Compl
 ## Under the hood
 
 - The draft text is kept in the repository with the official PDFs, and a test checks every quote on the card word for word against it.
-
-## Needs your action
-
-- Open Compliance for a Georgia association and read the card. Comments are due Monday, November 2, 2026.

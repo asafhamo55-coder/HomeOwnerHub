@@ -77,18 +77,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 2. In a terminal in the repo, run `gh secret set STRIPE_TEST_WEBHOOK_SECRET` and paste it when asked. Never paste it into a file.
 3. Tell Claude. Claude reruns the suite and checks the webhook cases run.
 
-### OA-32 · Download Georgia's proposed HOA rules (and optionally comment by Nov 2)
-
-**Urgency:** Soon
-
-**Why it matters:** the Georgia Secretary of State has proposed rules (chapter 590-13) for the new HOA registration and complaint process. They are planned to take effect Jan 1, 2027. The state's website blocks automated downloads, so Claude can't read the official text, and the app must not quote rules it hasn't seen (BL-160). Comments are due **Monday, Nov 2**; hearings are Nov 4–5.
-
-**Steps:**
-
-1. In Safari, open https://sos.ga.gov/page/hoa-rules and download every proposed-rule PDF on the page.
-2. Put them in the repo folder `scripts/fixtures/state-law/ga-sos-590-13-proposed/` (or just tell Claude where they are in Downloads). Claude turns them into a quoted fixture and builds the "Proposed rules (not in force)" card.
-3. Optional, your decision: send a short written comment to HOA@sos.ga.gov by Nov 2. Points that matter to small volunteer boards: let records be delivered electronically, let meeting notice go by email where owners agree, and keep the registration filing simple for associations without a manager. Claude can draft it once the PDFs are in.
-
 ### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
 **Urgency:** Whenever
@@ -311,6 +299,20 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-32 · Download Georgia's proposed HOA rules (and optionally comment by Nov 2)
+
+**Done 2026-10-30:** Asaf downloaded the notices (8 distinct PDFs). Claude transcribed them into `scripts/fixtures/state-law/ga-sos-590-13-proposed-2026.txt` and shipped the "Proposed rules (not in force)" card on /compliance (BL-160). Asaf decided not to send a public comment.
+
+**Urgency:** Soon
+
+**Why it matters:** the Georgia Secretary of State has proposed rules (chapter 590-13) for the new HOA registration and complaint process. They are planned to take effect Jan 1, 2027. The state's website blocks automated downloads, so Claude can't read the official text, and the app must not quote rules it hasn't seen (BL-160). Comments are due **Monday, Nov 2**; hearings are Nov 4–5.
+
+**Steps:**
+
+1. In Safari, open https://sos.ga.gov/page/hoa-rules and download every proposed-rule PDF on the page.
+2. Put them in the repo folder `scripts/fixtures/state-law/ga-sos-590-13-proposed/` (or just tell Claude where they are in Downloads). Claude turns them into a quoted fixture and builds the "Proposed rules (not in force)" card.
+3. Optional, your decision: send a short written comment to HOA@sos.ga.gov by Nov 2. Points that matter to small volunteer boards: let records be delivered electronically, let meeting notice go by email where owners agree, and keep the registration filing simple for associations without a manager. Claude can draft it once the PDFs are in.
 
 ### OA-26 · Give board settings and sessions their own signing secrets
 
