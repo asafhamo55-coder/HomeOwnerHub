@@ -55,9 +55,11 @@ export function buildStandardAgenda(input: StandardAgendaInput): string {
     ['Officer and treasurer reports'],
   ]
   if (input.includeOwnersReport && ownersReportApplies(input)) {
-    // No statute cited: § 44-3-230(a) is the members' meeting NOTICE rule,
-    // not a reporting duty, so citing it here would misattribute it.
-    items.push(['Annual report to the owners'])
+    // § 44-3-230(a) sets the members' meeting notice AND says "At the annual
+    // meeting, comprehensive reports of the affairs, finances, and budget
+    // projections of the association shall be made to the lot owners."
+    // (verbatim in ga-ocga-44-3-art6-2026.txt; marketing quote meetingReports).
+    items.push(['Annual report to the owners (O.C.G.A. § 44-3-230(a))'])
   }
 
   const old = ['Old business']

@@ -24,7 +24,7 @@ describe('buildStandardAgenda', () => {
 
   it('Georgia annual meeting: adds the annual report to the owners, uncited', () => {
     const text = buildStandardAgenda({ meetingType: 'annual', state: 'GA', includeOwnersReport: true })
-    expect(text).toContain('5. Annual report to the owners'); expect(text).not.toContain('44-3-230')
+    expect(text).toContain('5. Annual report to the owners (O.C.G.A. § 44-3-230(a))')
     expect(text).toContain('6. Old business')
     expect(text.endsWith('9. Adjourn')).toBe(true)
   })
