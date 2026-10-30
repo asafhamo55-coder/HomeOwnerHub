@@ -1,4 +1,4 @@
-import { LoadFailed } from '@homeowner-portal/ui'
+import { LoadFailed, TableScroll } from '@homeowner-portal/ui'
 import type { OwnerLine, Section } from '@/lib/annual-report/model'
 import type { FinancialPacket, PacketYearSection } from '@/lib/records-requests/financial-packet'
 import { formatDay, plural, usd } from '@/lib/money/format'
@@ -60,7 +60,8 @@ function YearSection({ y }: { y: PacketYearSection }) {
           ) : (
             <div className="space-y-4">
               {funds.map((f, i) => (
-                <table key={i} className="w-full text-sm">
+                <TableScroll key={i} role="region" aria-label={`Budget and actual, ${f.fund}`}>
+                <table className="w-full text-sm">
                   <caption className="pb-1 text-left text-sm font-medium text-foreground">{f.fund}</caption>
                   <thead>
                     <tr className="border-b border-border text-left text-muted">
@@ -84,6 +85,7 @@ function YearSection({ y }: { y: PacketYearSection }) {
                     </tr>
                   </tbody>
                 </table>
+                </TableScroll>
               ))}
             </div>
           )
@@ -149,13 +151,15 @@ function Muted({ children }: { children: React.ReactNode }) {
 
 function MoneyTable({ groups }: { groups: { title: string; rows: OwnerLine[]; total: [string, number] }[] }) {
   return (
-    <table className="w-full text-sm">
-      <tbody>
-        {groups.map((g) => (
-          <MoneyGroup key={g.title} g={g} />
-        ))}
-      </tbody>
-    </table>
+    <TableScroll role="region" aria-label="Financial statement">
+      <table className="w-full text-sm">
+        <tbody>
+          {groups.map((g) => (
+            <MoneyGroup key={g.title} g={g} />
+          ))}
+        </tbody>
+      </table>
+    </TableScroll>
   )
 }
 
