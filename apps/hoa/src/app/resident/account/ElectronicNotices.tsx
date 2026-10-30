@@ -39,7 +39,7 @@ export function ElectronicNotices({ consent, readOnly = false }: { consent: Cons
   const status = known ? consentSummary(consent).detail : null
 
   return (
-    <section className="space-y-2.5" aria-labelledby="e-notices-heading">
+    <section id="e-notices" className="scroll-mt-20 space-y-2.5" aria-labelledby="e-notices-heading">
       <SectionLabel>
         <span id="e-notices-heading">Notices</span>
       </SectionLabel>

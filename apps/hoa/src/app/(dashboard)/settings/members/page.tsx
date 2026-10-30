@@ -16,6 +16,8 @@ import { tryLoad } from '@/lib/load-or-fail'
 import { countMyPushDevices } from '@/lib/push-subscriptions'
 import { EnablePushButton } from '@/components/notifications/EnablePushButton'
 import { SettingsTabs } from '@/components/settings/SettingsTabs'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { peopleSummaryTiles } from './people-summary'
 import { InviteMemberForm } from './InviteMemberForm'
 import { MemberRow } from './MemberRow'
 import { InviteAllOwners, PendingInvitations } from './OwnerInvites'
@@ -89,6 +91,17 @@ export default async function MembersPage() {
       tabs={<SettingsTabs current="/settings/members" role={role} />}
       linkAs={Link}
     >
+      <SummaryStrip
+        ariaLabel="People summary"
+        testId="people-summary"
+        tiles={peopleSummaryTiles({
+          boardMembers: membersResult.ok ? membersResult.data.filter((m) => m.role === 'board').length : null,
+          ownersWithAccount: membersResult.ok ? membersResult.data.filter((m) => m.role === 'resident').length : null,
+          ownersNotInvited: ownerPreview.ok ? ownerPreview.data.total : null,
+          invitesPending: pending ? pending.length : null,
+        })}
+      />
+
       <Card>
         <CardHeader className="pb-4">
           <CardTitle as="h2">Invite a member</CardTitle>
@@ -102,7 +115,7 @@ export default async function MembersPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="invite-owners" className="scroll-mt-20">
         <CardHeader className="pb-4">
           <CardTitle as="h2">Invite owners to the portal</CardTitle>
           <CardDescription>
@@ -134,7 +147,7 @@ export default async function MembersPage() {
         </Card>
       ) : null}
 
-      <Card>
+      <Card id="pending-invitations" className="scroll-mt-20">
         <CardHeader
           className="pb-3"
           actions={
@@ -157,7 +170,7 @@ export default async function MembersPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="members" className="scroll-mt-20">
         <CardHeader
           className="pb-3"
           actions={

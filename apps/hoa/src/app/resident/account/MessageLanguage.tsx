@@ -50,7 +50,7 @@ export function MessageLanguage({
   }
 
   return (
-    <section className="space-y-2.5" aria-labelledby="msg-language-heading">
+    <section id="message-language" className="scroll-mt-20 space-y-2.5" aria-labelledby="msg-language-heading">
       <SectionLabel>
         <span id="msg-language-heading">Message language</span>
       </SectionLabel>
