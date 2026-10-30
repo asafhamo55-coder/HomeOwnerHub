@@ -32,6 +32,7 @@ import { NoticePostedControl } from './NoticePostedControl'
 import { QuorumKitCard } from './QuorumKitCard'
 import { ElectionCard } from './ElectionCard'
 import { AnnualReportCard } from './AnnualReportCard'
+import { canApproveMinutes } from '@/lib/meetings/approve-minutes'
 import { minutesBlocks } from './minutes-blocks'
 import { MeetingNoticeSection } from './MeetingNoticeSection'
 import { AnnualChecklistCard } from './AnnualChecklistCard'
@@ -107,6 +108,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
   // The association's today (BL-043); the server clock is UTC.
   const todayIso = todayIn(await currentTimeZone())
   const isUpcoming = meeting.meeting_date >= todayIso && meeting.status !== 'approved'
+  const canApprove = canApproveMinutes(meeting, todayIso)
   const motions = meeting.motions ?? []
   const attendees = meeting.attendees ?? []
 
@@ -124,7 +126,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
       }
       breadcrumbs={[{ label: 'Meetings', href: '/meetings' }, { label: format(dateObj, 'MMM d, yyyy') }]}
       linkAs={Link}
-      actions={<MeetingActions meetingId={meeting.id} />}
+      actions={<MeetingActions meetingId={meeting.id} canApprove={canApprove} />}
     >
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2" data-testid="meeting-main">
@@ -149,7 +151,11 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
                     ) : (
                       <span className="inline-flex items-center gap-1.5 text-foreground-secondary">
                         <Clock className="size-4 text-muted" aria-hidden />
-                        {isUpcoming ? 'Not held yet' : 'Awaiting approval'}
+                        {isUpcoming
+                          ? 'Not held yet'
+                          : meeting.ai_summary?.trim()
+                            ? 'Minutes ready to approve'
+                            : 'Minutes not recorded'}
                       </span>
                     )
                   }
@@ -181,7 +187,9 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
                   ? 'Notes for the upcoming meeting. Record minutes once it has happened.'
                   : meeting.status === 'approved'
                     ? 'The approved record of this meeting.'
-                    : 'Draft — not yet approved by the board.'}
+                    : meeting.ai_summary?.trim()
+                      ? 'Draft. Owners can’t see these until the board approves them.'
+                      : 'Draft. Edit this meeting to add the minutes, then approve them.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
