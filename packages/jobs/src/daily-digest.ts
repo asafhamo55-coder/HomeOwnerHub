@@ -25,7 +25,8 @@ import {
   taskDigestCountsByAssignee,
   weekEnd,
 } from '../../../apps/hoa/src/lib/tasks/model'
-import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from './association-time'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, addCalendarDays, calendarDaysBetween, todayIn } from './association-time'
+import { readAll } from './read-all'
 // BL-123 (3): owner records-request deadlines. Same dependency-free,
 // relative-path rule; inert until RECORDS_REQUESTS_LIVE (migration 0066).
 import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
@@ -244,6 +245,8 @@ export interface DailyDigestResult {
   complianceDeadlines: number
   /** Insurance policies expiring within 90 days or expired, summed across orgs (BL-132). 0 while M4 is off. */
   insuranceRenewals: number
+  /** Vendor certificates expired or expiring within 30 days, summed across orgs (round 15). */
+  vendorCoiAlerts: number
   /** Fine hearing timer items (BL-140), summed across orgs. 0 while M4 is off. */
   hearingDeadlines: number
   /** FL directors whose certificate is due within 30 days, overdue or expired, summed across orgs (BL-139). */
@@ -762,6 +765,97 @@ export function buildInsuranceBlock(args: { reminders: PolicyReminder[]; insuran
   return { lines, text, html }
 }
 
+// ─── Vendor insurance (round 15, OA-19) ────────────────────────────
+
+/** Mirrors COI_EXPIRING_DAYS in apps/hoa/src/app/(dashboard)/vendors/coi-filter.ts (jobs cannot import it). */
+export const VENDOR_COI_EXPIRING_DAYS = 30
+/** Same tracked statuses as the dashboard's COI list (apps/hoa/src/lib/dashboard/queries.ts). */
+const VENDOR_COI_TRACKED_STATUSES: readonly string[] = ['active', 'prospect']
+
+export interface VendorCoiCounts {
+  expired: number
+  expiring: number
+}
+
+/**
+ * Board-only vendor certificate counts. Mirrors the dashboard's COI read
+ * (apps/hoa/src/lib/dashboard/queries.ts): vendor_compliance rows for the org,
+ * active or prospect vendors that are not deleted, one count per vendor on
+ * its earliest date, "expired" before today and "expiring" within
+ * VENDOR_COI_EXPIRING_DAYS (the vendors page coi filter). Counts only: no
+ * vendor name or email is selected. null on a failed read (logged by code),
+ * so a failure never reads as "nothing is expiring".
+ */
+export async function loadVendorCoiCounts(
+  db: Db,
+  orgId: string,
+  today: string,
+  logger: DigestLogger,
+): Promise<VendorCoiCounts | null> {
+  const throughDay = addCalendarDays(today, VENDOR_COI_EXPIRING_DAYS)
+  type Row = { vendor_id: string; coi_expiration_date: string | null; vendor: { status: string; deleted_at: string | null } | null }
+  let rows: Row[]
+  try {
+    rows = await readAll<Row>(
+      (from, to) =>
+        db
+          .from('vendor_compliance')
+          .select('id, vendor_id, coi_expiration_date, vendor:vendors(status, deleted_at)')
+          .eq('organization_id', orgId)
+          .not('coi_expiration_date', 'is', null)
+          .lte('coi_expiration_date', throughDay)
+          .order('id', { ascending: true })
+          .range(from, to) as never,
+      (e) => Object.assign(new Error('vendor_compliance read failed'), { code: e.code }),
+    )
+  } catch (err) {
+    logger.error(`[daily-digest] ${orgId}: failed to load vendor certificates`, { code: (err as { code?: string }).code })
+    return null
+  }
+  const earliest = new Map<string, string>()
+  for (const r of rows) {
+    if (!r.coi_expiration_date || !r.vendor) continue
+    if (r.vendor.deleted_at !== null || !VENDOR_COI_TRACKED_STATUSES.includes(r.vendor.status)) continue
+    const day = r.coi_expiration_date.slice(0, 10)
+    const prev = earliest.get(r.vendor_id)
+    if (!prev || day < prev) earliest.set(r.vendor_id, day)
+  }
+  const counts: VendorCoiCounts = { expired: 0, expiring: 0 }
+  for (const day of earliest.values()) {
+    const left = calendarDaysBetween(today, day)
+    if (!Number.isFinite(left) || left > VENDOR_COI_EXPIRING_DAYS) continue
+    if (left < 0) counts.expired += 1
+    else counts.expiring += 1
+  }
+  return counts
+}
+
+export function vendorCoiHeadline(c: VendorCoiCounts): string {
+  const n = (k: number) => `${k} vendor certificate${k === 1 ? '' : 's'}`
+  if (c.expired > 0 && c.expiring > 0) return `${n(c.expired)} expired, ${c.expiring} expiring within ${VENDOR_COI_EXPIRING_DAYS} days`
+  if (c.expired > 0) return `${n(c.expired)} expired`
+  return `${n(c.expiring)} expiring within ${VENDOR_COI_EXPIRING_DAYS} days`
+}
+
+/** The vendor insurance block: one counts line and the link. No vendor names or emails, ever. */
+export function buildVendorCoiBlock(args: { counts: VendorCoiCounts; vendorsUrl: string }): {
+  lines: string[]
+  text: string
+  html: string
+} {
+  const headline = vendorCoiHeadline(args.counts)
+  const lines = [headline]
+  const text = ['Vendor insurance', headline, `Review vendors: ${args.vendorsUrl}`].join('\n')
+  const border = args.counts.expired > 0 ? '#b91c1c' : '#b45309'
+  const html = `
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+    <p style="margin:0 0 4px;font-weight:600">Vendor insurance</p>
+    <p style="margin:0 0 12px">${escapeHtml(headline)}</p>
+    <a href="${escapeHtml(args.vendorsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Review vendors</a>
+  </div>`
+  return { lines, text, html }
+}
+
 // ─── Fine hearing timers (BL-140) ──────────────────────────────────
 
 /**
@@ -1111,6 +1205,8 @@ export function buildDigestEmail(args: {
   compliance?: { items: PendingComplianceItem[]; dashboardUrl: string } | null
   /** BL-132: insurance renewals. Omitted or empty adds nothing. */
   insurance?: { reminders: PolicyReminder[]; insuranceUrl: string } | null
+  /** Round 15 (OA-19): vendor certificate counts, board only. Omitted or all-zero adds nothing. */
+  vendorCoi?: { counts: VendorCoiCounts; vendorsUrl: string } | null
   /** BL-140: fine hearing timers. Omitted or all-zero adds nothing. */
   hearings?: { counts: HearingDigestCounts; violationsUrl: string } | null
   /** BL-139: FL director certification. Omitted or empty adds nothing. */
@@ -1141,6 +1237,9 @@ export function buildDigestEmail(args: {
   const insuranceBlock =
     args.insurance && args.insurance.reminders.length > 0 ? buildInsuranceBlock(args.insurance) : null
   if (insuranceBlock) extras.push(insuranceBlock)
+  const vendorCoiBlock =
+    args.vendorCoi && args.vendorCoi.counts.expired + args.vendorCoi.counts.expiring > 0 ? buildVendorCoiBlock(args.vendorCoi) : null
+  if (vendorCoiBlock) extras.push(vendorCoiBlock)
   const hearingBlock =
     args.hearings && hearingDigestTotal(args.hearings.counts) > 0 ? buildHearingBlock(args.hearings) : null
   if (hearingBlock) extras.push(hearingBlock)
@@ -1177,6 +1276,9 @@ export function buildDigestEmail(args: {
   <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(args.orgName)}.</p>${extras.map((b) => b.html).join('')}
 </div>`
   const firstDeadline = args.compliance?.items[0]
+  // Vendor insurance: lowest precedence, so its own subject only when nothing else is in the email.
+  const vendorOnly =
+    vendorCoiBlock && !proTreasurerBlock && !proExpiryBlock && !lateFeeBlock && !directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
   // BL-139: lowest precedence — its own subject only when it is the only block.
   const directorOnly =
     directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
@@ -1188,6 +1290,8 @@ export function buildDigestEmail(args: {
     !lateFeeBlock && !directorCertBlock && !arcBlock && !taskBlock && !recordsBlock && !complianceBlock && !insuranceBlock && !hearingBlock
   const subject = block
     ? `${who} waiting for a reply — ${args.orgName}`
+    : vendorOnly
+      ? `${vendorCoiHeadline(args.vendorCoi!.counts)} — ${args.orgName}`
     : proOnly
       ? proTreasurerBlock
         ? `${proTreasurerBlock.lines[0]} — ${args.orgName}`
@@ -1320,6 +1424,7 @@ export async function runDailyDigest(
   let recordsDueSoonTotal = 0
   let complianceTotal = 0
   let insuranceTotal = 0
+  let vendorCoiTotal = 0
   let hearingTotal = 0
   let directorCertTotal = 0
   let lateFeeTotal = 0
@@ -1434,6 +1539,18 @@ export async function runDailyDigest(
     const insuranceCount = insurance?.length ?? 0
     insuranceTotal += insuranceCount
 
+    // Round 15 (OA-19): board-only counts; vendors are never emailed.
+    let vendorCoi: VendorCoiCounts | null = null
+    try {
+      vendorCoi = await loadVendorCoiCounts(db, orgId, todayIn(DEFAULT_ASSOCIATION_TIME_ZONE, new Date(now)), logger)
+    } catch (err) {
+      logger.error(`[daily-digest] ${orgId}: vendor certificate check failed`, {
+        message: err instanceof Error ? err.name : 'unknown',
+      })
+    }
+    const vendorCoiCount = (vendorCoi?.expired ?? 0) + (vendorCoi?.expiring ?? 0)
+    vendorCoiTotal += vendorCoiCount
+
     // BL-140: no query at all while M4_APPLIED is off.
     let hearings: HearingDigestCounts | null = null
     try {
@@ -1509,6 +1626,7 @@ export async function runDailyDigest(
       recordsDueSoon > 0 ||
       complianceCount > 0 ||
       insuranceCount > 0 ||
+      vendorCoiCount > 0 ||
       hearingCount > 0
 
     if (!orgWide && orgTasksOverdue === 0 && orgTasksDueSoon === 0 && proQueue === 0) continue
@@ -1539,6 +1657,11 @@ export async function runDailyDigest(
     if (insuranceCount > 0) {
       // A count only, never carriers or policy numbers.
       logger.info(`[daily-digest] ${orgId}: ${insuranceCount} insurance polic${insuranceCount === 1 ? 'y' : 'ies'} expiring or expired`)
+    }
+
+    if (vendorCoiCount > 0) {
+      // Counts only, never which vendor.
+      logger.info(`[daily-digest] ${orgId}: ${vendorCoi!.expired} vendor certificate(s) expired, ${vendorCoi!.expiring} expiring`)
     }
 
     if (hearingCount > 0) {
@@ -1612,6 +1735,7 @@ export async function runDailyDigest(
               : null,
           compliance: complianceCount > 0 ? { items: compliance!, dashboardUrl: deps.appUrl('/#compliance-deadlines') } : null,
           insurance: insuranceCount > 0 ? { reminders: insurance!, insuranceUrl: deps.appUrl('/insurance') } : null,
+          vendorCoi: vendorCoiCount > 0 ? { counts: vendorCoi!, vendorsUrl: deps.appUrl('/vendors') } : null,
           hearings: hearingCount > 0 ? { counts: hearings!, violationsUrl: deps.appUrl('/violations') } : null,
           directorCerts:
             directorCertCount > 0
@@ -1658,6 +1782,7 @@ export async function runDailyDigest(
     recordsDueSoon: recordsDueSoonTotal,
     complianceDeadlines: complianceTotal,
     insuranceRenewals: insuranceTotal,
+    vendorCoiAlerts: vendorCoiTotal,
     hearingDeadlines: hearingTotal,
     directorCertAlerts: directorCertTotal,
     lateFeesCharged: lateFeeTotal,
