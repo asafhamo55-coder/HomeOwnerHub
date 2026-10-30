@@ -2,6 +2,9 @@ import { Alert, Button, Card, CardDescription, CardHeader, CardTitle, DataTable,
 import { buildReminderPackets } from '@/lib/dues-reminders/packets'
 import { getLastRemindedByEmail, RECENT_REMINDER_DAYS } from '@/lib/dues-reminders/queries'
 import { SendRemindersDialog } from './SendRemindersDialog'
+import { AgingFilter } from './AgingFilter'
+import { AGING_LABELS, agingForCharges, summarizeAging, type AgingBucket } from '@/lib/dues/aging'
+import { todayIn } from '@/lib/association-time'
 import { timed } from '@/lib/perf/timing'
 
 import { usd } from '@/lib/money/format'
@@ -24,7 +27,16 @@ function errorMessage(reason: unknown): string {
  * only past-due owners — so its label carries the real count rather than
  * a bare "Send reminders".
  */
-export async function WhoOwesPanel({ associationId, timeZone }: { associationId: string; timeZone: string }) {
+export async function WhoOwesPanel({
+  associationId,
+  timeZone,
+  aging = null,
+}: {
+  associationId: string
+  timeZone: string
+  /** The `?aging=` bucket from the URL; null shows everyone. */
+  aging?: AgingBucket | null
+}) {
   // allSettled, not all: this component has no error boundary of its own,
   // so an unhandled rejection here would bubble to the dashboard layout's
   // and replace the period tables below too, not just this panel.
@@ -83,6 +95,20 @@ export async function WhoOwesPanel({ associationId, timeZone }: { associationId:
   const cutoff = Date.now() - RECENT_REMINDER_DAYS * 86_400_000
 
   type Packet = (typeof packets)[number]
+
+  // Each owner sits in the bucket of their oldest unpaid charge across all
+  // their properties. Balance is everything they owe, not just the late part.
+  const today = todayIn(timeZone)
+  const aged = packets.map((p) => ({
+    packet: p,
+    bucket:
+      agingForCharges(
+        p.properties.flatMap((prop) => prop.charges.map((c) => ({ dueDate: c.dueDate, balance: c.balance }))),
+        today,
+      )?.bucket ?? 'current',
+  }))
+  const agingSummary = summarizeAging(aged.map((a) => ({ bucket: a.bucket, amount: a.packet.totalDue })))
+  const visible = aging ? aged.filter((a) => a.bucket === aging).map((a) => a.packet) : packets
   return (
     <Card className="overflow-hidden">
       <CardHeader
@@ -120,12 +146,19 @@ export async function WhoOwesPanel({ associationId, timeZone }: { associationId:
         </div>
       ) : null}
 
+      <AgingFilter summary={agingSummary} selected={aging} selectedEmails={aging ? visible.map((p) => p.email) : []} />
+
+      {aging && visible.length === 0 ? (
+        <p className="border-t border-border px-5 py-6 text-sm text-muted">
+          No owners are in the {AGING_LABELS[aging].toLowerCase()} group right now.
+        </p>
+      ) : (
       <DataTable<Packet>
         framed={false}
         density="compact"
         mobile="cards"
-        caption="Owners with a balance"
-        rows={packets}
+        caption={aging ? `Owners in the ${AGING_LABELS[aging].toLowerCase()} group` : 'Owners with a balance'}
+        rows={visible}
         rowKey={(p) => p.email}
         columns={[
           {
@@ -173,6 +206,7 @@ export async function WhoOwesPanel({ associationId, timeZone }: { associationId:
           },
         ]}
       />
+      )}
 
       {skipped.length > 0 ? (
         <p className="border-t border-border px-5 py-3 text-xs text-muted">
