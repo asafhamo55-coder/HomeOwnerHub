@@ -41,30 +41,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-38 · Choose where the weekly numbers email goes
-
-**Urgency:** Whenever
-
-**Why it matters:** a new weekly job emails you a short counts-only summary every Monday: new orgs and associations, active boards, approvals, announcements and AI drafts, each against the week before. It sends nothing until you set one address. It never emails residents or boards, and the email has no names, addresses or org names.
-
-**Steps:**
-
-1. In Vercel, open the project **home-owner-hub-hoa** → **Settings** → **Environment Variables**.
-2. Add `ANALYTICS_REPORT_TO` for **Production** and set it to the address that should get the email (for example your own inbox).
-3. Redeploy the project (or wait for the next deploy) so the job sees it.
-
-### OA-35 · Turn on website analytics and Google Search Console
-
-**Urgency:** Soon
-
-**Why it matters:** we can't see how many people visit, which pages bring them, or how many click "Book a demo". Search Console gets the new Georgia guide pages into Google quickly.
-
-**Steps:**
-
-1. In Vercel, open **homeownerhub-marketing** → **Analytics** → **Enable** (Web Analytics; cookieless, no banner needed).
-2. Go to https://search.google.com/search-console, add the property `https://www.homeownerledger.online`, and choose **HTML tag**. Send Claude the tag's `content` value (it isn't secret); Claude adds it to the site.
-3. After Claude deploys, click **Verify**, then **Sitemaps → add `sitemap.xml`**.
-
 ### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
 **Urgency:** Whenever
@@ -218,17 +194,6 @@ prices; review it before pitching.
 
 **Files:** `scripts/fixtures/state-law/ga-ocga-44-3-232-2026.txt`
 
-### OA-22 · Choose who gets the daily AI-cost alert
-
-**Urgency:** Whenever
-
-**Why it matters:** a new daily check emails a warning if the whole platform's estimated AI spend passes $50 in a day, so a runaway bug or abuse is caught within a day. It needs an address to send to; until then it only writes a log line.
-
-**Steps:**
-
-1. In Vercel → the `home-owner-hub-hoa` project → Settings → Environment Variables, add `AI_SPEND_ALERT_TO` for **Production** with your email address (you can list several, separated by commas).
-2. Tell Claude. It redeploys and confirms the next morning's run.
-
 ### OA-23 · Let residents text STOP and START (Vonage setup)
 
 **Urgency:** Whenever
@@ -244,18 +209,6 @@ prices; review it before pitching.
 5. Set `SMS_INBOUND_ENABLED=true` in Vercel production and tell Claude. Claude redeploys and tests STOP/START with you.
 
 **Files:** `docs/specs/2026-10-20-sms-inbound.md`
-
-### OA-24 · Turn on privacy-safe usage analytics
-
-**Urgency:** Whenever
-
-**Why it matters:** we can't see which features boards and residents actually use. The app now has cookieless, privacy-safe analytics built in: page views with record ids scrubbed out, plus 8 named events (for example "approval decided" and "message sent") that carry no names, emails or text. It records nothing until you turn it on.
-
-**Steps:**
-
-1. In Vercel, open the `home-owner-hub-hoa` project → **Analytics** → **Web Analytics** → **Enable**.
-2. In Settings → Environment Variables, add `NEXT_PUBLIC_ANALYTICS_ENABLED` = `1` for **Production**.
-3. Tell Claude. It redeploys, since the setting takes effect only on a new build. The 8 named events need a Vercel Pro plan; page views work on any plan.
 
 ### OA-27 · Show "delivered" on texts (Vonage delivery receipts)
 
@@ -273,6 +226,61 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-24 · Turn on privacy-safe usage analytics
+
+**Done 2026-10-30:** Asaf enabled Web Analytics on home-owner-hub-hoa and set `NEXT_PUBLIC_ANALYTICS_ENABLED=1` (Production); it takes effect with the next build. Named events need Vercel Pro.
+
+**Urgency:** Whenever
+
+**Why it matters:** we can't see which features boards and residents actually use. The app now has cookieless, privacy-safe analytics built in: page views with record ids scrubbed out, plus 8 named events (for example "approval decided" and "message sent") that carry no names, emails or text. It records nothing until you turn it on.
+
+**Steps:**
+
+1. In Vercel, open the `home-owner-hub-hoa` project → **Analytics** → **Web Analytics** → **Enable**.
+2. In Settings → Environment Variables, add `NEXT_PUBLIC_ANALYTICS_ENABLED` = `1` for **Production**.
+3. Tell Claude. It redeploys, since the setting takes effect only on a new build. The 8 named events need a Vercel Pro plan; page views work on any plan.
+
+### OA-22 · Choose who gets the daily AI-cost alert
+
+**Done 2026-10-30:** Asaf set `AI_SPEND_ALERT_TO` (Production); it takes effect with the next deploy.
+
+**Urgency:** Whenever
+
+**Why it matters:** a new daily check emails a warning if the whole platform's estimated AI spend passes $50 in a day, so a runaway bug or abuse is caught within a day. It needs an address to send to; until then it only writes a log line.
+
+**Steps:**
+
+1. In Vercel → the `home-owner-hub-hoa` project → Settings → Environment Variables, add `AI_SPEND_ALERT_TO` for **Production** with your email address (you can list several, separated by commas).
+2. Tell Claude. It redeploys and confirms the next morning's run.
+
+### OA-38 · Choose where the weekly numbers email goes
+
+**Done 2026-10-30:** Asaf set `ANALYTICS_REPORT_TO` (Production); it takes effect with the next deploy.
+
+**Urgency:** Whenever
+
+**Why it matters:** a new weekly job emails you a short counts-only summary every Monday: new orgs and associations, active boards, approvals, announcements and AI drafts, each against the week before. It sends nothing until you set one address. It never emails residents or boards, and the email has no names, addresses or org names.
+
+**Steps:**
+
+1. In Vercel, open the project **home-owner-hub-hoa** → **Settings** → **Environment Variables**.
+2. Add `ANALYTICS_REPORT_TO` for **Production** and set it to the address that should get the email (for example your own inbox).
+3. Redeploy the project (or wait for the next deploy) so the job sees it.
+
+### OA-35 · Turn on website analytics and Google Search Console
+
+**Done 2026-10-30:** Web Analytics is enabled on homeownerhub-marketing. `NEXT_PUBLIC_GSC_VERIFICATION` is set and the tag is live on www.homeownerledger.online. Search Console ownership is verified and `sitemap.xml` is submitted. Its first status read "Couldn't fetch" with no "Last read", which means Google had not fetched it yet; the sitemap serves 200 with 47 URLs, also to Googlebot. Re-check in a day.
+
+**Urgency:** Soon
+
+**Why it matters:** we can't see how many people visit, which pages bring them, or how many click "Book a demo". Search Console gets the new Georgia guide pages into Google quickly.
+
+**Steps:**
+
+1. In Vercel, open **homeownerhub-marketing** → **Analytics** → **Enable** (Web Analytics; cookieless, no banner needed).
+2. Go to https://search.google.com/search-console, add the property `https://www.homeownerledger.online`, and choose **HTML tag**. Send Claude the tag's `content` value (it isn't secret); Claude adds it to the site.
+3. After Claude deploys, click **Verify**, then **Sitemaps → add `sitemap.xml`**.
 
 ### OA-33 · Re-enter the Stripe test webhook secret
 
