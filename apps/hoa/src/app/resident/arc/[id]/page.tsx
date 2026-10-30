@@ -1,8 +1,10 @@
+import type { ReactNode } from 'react'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { formatDay } from '@/lib/money/format'
-import { Gavel } from 'lucide-react'
-import { Badge, KeyValue, KeyValueList } from '@homeowner-portal/ui'
+import { CheckCircle2, Circle, Clock, Gavel, Send, Undo2, XCircle } from 'lucide-react'
+import { Badge, KeyValue, KeyValueList, Timeline, type TimelineItem } from '@homeowner-portal/ui'
+import { arcTimelineSteps, type ArcStepKind } from '@/lib/resident-arc-timeline'
 import { getMyArcRequest, type ArcStatus } from '@/lib/resident-submissions'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
@@ -19,6 +21,16 @@ export const dynamic = 'force-dynamic'
 // Once a decision lands (or they withdraw), the thread is read-only.
 const PENDING: ArcStatus[] = ['submitted', 'in_review']
 
+const STEP_ICON: Record<ArcStepKind, ReactNode> = {
+  submitted: <Send />,
+  in_review: <Clock />,
+  decision: <Circle />,
+  approved: <CheckCircle2 />,
+  denied: <XCircle />,
+  withdrawn: <Undo2 />,
+}
+const STEP_TONE: Record<string, TimelineItem['tone']> = { approved: 'success', denied: 'danger' }
+
 export default async function ResidentArcDetailPage({
   params,
 }: {
@@ -34,6 +46,15 @@ export default async function ResidentArcDetailPage({
   // proposed_start/proposed_completion are DATE columns: calendar days, not instants.
   const day = (d: string | null) => (d ? formatDay(d) : null)
 
+  const steps: TimelineItem[] = arcTimelineSteps(arc).map((st) => ({
+    id: st.id,
+    title: <span className={st.state === 'upcoming' ? 'text-muted' : undefined}>{st.label}</span>,
+    meta: st.state === 'current' ? 'Now' : undefined,
+    time: st.at ? <time dateTime={st.at}>{format(new Date(st.at), 'PP')}</time> : undefined,
+    icon: STEP_ICON[st.id],
+    tone: st.state === 'upcoming' ? 'neutral' : st.state === 'current' ? (STEP_TONE[st.id] ?? 'brand') : 'success',
+  }))
+
   return (
     <div className="space-y-8">
       <ScreenHeader
@@ -48,6 +69,10 @@ export default async function ResidentArcDetailPage({
           </>
         }
       />
+
+      <Panel className="py-3">
+        <Timeline items={steps} label="Application progress" className="space-y-3" />
+      </Panel>
 
       {arc.board_response ? (
         <Hero
