@@ -9,9 +9,10 @@ import { createArcRequest, type ArcCategory } from '@/lib/resident-submissions'
 import type { ResidentUnit } from '@/lib/resident'
 import { trackEvent } from '@/lib/analytics/track'
 import { responseErrorMessage } from '@/lib/api/client'
+import { ATTACH_LATER_NOTE, whatToInclude } from '@/lib/arc-review/what-to-include'
 import { ArcPrecheckResult, type ArcPrecheckResponse } from './ArcPrecheckResult'
 
-const CATEGORIES: Array<{ value: ArcCategory; label: string }> = [
+export const CATEGORIES: Array<{ value: ArcCategory; label: string }> = [
   { value: 'paint', label: 'Exterior paint / stain' },
   { value: 'fence', label: 'Fence or wall' },
   { value: 'deck_patio', label: 'Deck / patio / screened enclosure' },
@@ -39,6 +40,7 @@ export function ArcRequestForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const scopeRef = useRef<HTMLTextAreaElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  const [category, setCategory] = useState('')
   // BL-024: the optional rules check. Advisory; submitting never depends on it.
   const [checking, setChecking] = useState(false)
   const [precheck, setPrecheck] = useState<ArcPrecheckResponse | null>(null)
@@ -132,7 +134,7 @@ export function ArcRequestForm({
       )}
 
       <Field label="Type of change" required error={fieldErrors.category}>
-        <Select name="category" placeholder="Choose one…">
+        <Select name="category" placeholder="Choose one…" onValueChange={setCategory}>
           {CATEGORIES.map((c) => (
             <option key={c.value} value={c.value}>
               {c.label}
@@ -140,6 +142,8 @@ export function ArcRequestForm({
           ))}
         </Select>
       </Field>
+
+      <ArcWhatToInclude category={category} />
 
       <Field
         label="One-line summary"
@@ -235,6 +239,23 @@ export function ArcPrecheckStep({
       </Button>
       {error ? <Alert variant="warning">{error}</Alert> : null}
       {result ? <ArcPrecheckResult result={result} /> : null}
+    </div>
+  )
+}
+
+/** A short checklist of what to have ready, keyed to the chosen category. */
+export function ArcWhatToInclude({ category }: { category: string }) {
+  const items = whatToInclude(category)
+  if (items.length === 0) return null
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-subtle p-4" aria-live="polite">
+      <p className="text-sm font-medium text-foreground">What to include</p>
+      <p className="text-xs text-foreground-secondary">{ATTACH_LATER_NOTE}</p>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-foreground">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
     </div>
   )
 }
