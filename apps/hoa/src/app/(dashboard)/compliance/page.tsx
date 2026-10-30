@@ -27,6 +27,7 @@ import { loadComplianceOverview } from '@/lib/compliance/overview-load'
 import { caBudgetLoader } from '@/lib/compliance/ca-budget-load'
 import type { LooseDb } from '@/lib/compliance/evidence'
 import { EvidenceControls, type EvidenceOption } from './EvidenceControls'
+import { ProposedRulesCard } from './ProposedRulesCard'
 
 export const metadata = { title: 'Compliance' }
 export const dynamic = 'force-dynamic'
@@ -149,6 +150,8 @@ export default async function CompliancePage() {
           </CardContent>
         </Card>
       ))}
+
+      {overview.groups.some((g) => g.state === 'GA') ? <ProposedRulesCard today={today} /> : null}
 
       <p className="text-xs text-muted">{NOT_LEGAL_ADVICE} Check your governing documents and ask your association’s attorney.</p>
     </Page>

@@ -1920,6 +1920,7 @@ Round 4 is closed. BL-137, BL-143 and BL-145 evidence wait only on Asaf applying
 Full items (Pain / Evidence / Today / Build / Files): `docs/research/2026-10-22-round-6.md`. Georgia first. Summary, ranked:
 
 1. **BL-160 GA proposed 590-13 rules.** A "Proposed rules (not in force)" card on /compliance. Migration: no. **Waits on OA-32** (official PDFs; sos.ga.gov blocks our fetchers). Comments are due Nov 2.
+   - **Checked 2026-10-30:** Built on branch `claude/bl-160`: card on /compliance for Georgia (`ProposedRulesCard.tsx`, `lib/compliance/proposed-ga.ts`), verbatim fixture `ga-sos-590-13-proposed-2026.txt` with the 8 PDFs and their sha256. The PDFs are scans, read with `scripts/ocr-ga-590-13.swift` and proofread against page images.
 2. **BL-161 SB 406 automatic stay on a Secretary of State complaint (§ 43-17A-5(c)).** A board-only "complaint filed" record, fines and fee letters blocked, late fees skipped. Migration: no. In force 2027-01-01.
 3. **BL-162 GA owners' records rights from 2027 (§ 43-17A-7(1)–(2)).** A 3-year financial packet and an insurance-certificate request kind. Migration: no.
 4. **BL-163 Apply SB 406's payment order (§ 43-17A-8) in the Zelle pay lines and in a new "record one payment" split.** Migration: no. In force 2027-01-01. Touches money: needs careful review.

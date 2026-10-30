@@ -1,0 +1,686 @@
+# PROPOSED -- NOT IN FORCE. Georgia Secretary of State, Division of Securities and Business Registration,
+# proposed new Chapter 590-13 "Owners' Associations" (rules under the Georgia Property Owners' Bill of Rights Act,
+# O.C.G.A. Title 43, Chapter 17A, added by Ga. L. 2026, SB 406). Notices of Proposed Rulemaking dated 2 October 2026.
+# Proposed adoption date in every notice: Friday, January 1, 2027. These are drafts open for public comment; the
+# text can change before adoption, and none of it is law today.
+#
+# Where the text comes from (retrieved 2026-10-30 by the owner, https://sos.ga.gov/page/hoa-rules, eight PDFs kept
+# beside this file in ga-sos-590-13-proposed/; the sos.ga.gov site blocks automated fetchers):
+#      rule_590-13-1-.01_notice_fe.pdf
+#        sha256 c98f3fb8da13c10737e1952834257eb56928a733ddb2e4eba42222acd70ccc6a
+#      rule_590-13-1-.02_590-13-2-.01_590-13-4-.01_notice_fe.pdf
+#        sha256 0755847897631ef741a124b3a3d248833f5457dd945dd478cbb8a2193eda696f
+#      rule_590-13-2-.02_and_.03_notice_fe.pdf
+#        sha256 47209fe77fc3f78e85dded60ba9e4105c7caadf9fb2488269ba5459659543d69
+#      rule_590-13-3-.01_to_.04_notice_fe.pdf
+#        sha256 79a2ec6008209982b32a5767c7b29aaa72cd0aa5c63d4f4fca84ffc16d28a922
+#      rule_590-13-5-.01_to_.09_notice_fe.pdf
+#        sha256 6939d0015e7f6b1b2a2d5b8311137132c90b943ae7b93f07c1e4755198008044
+#      rule_590-13-6-.01_to_.06_notice_fe.pdf
+#        sha256 d0ede18946bbe35cde722be2447745c593d3bbbae40bfe713441583a2e502437
+#      rule_590-13-7-.01_notice_fe.pdf
+#        sha256 610592f8773ce397df43a278800b288b19afc585fab92836eef5fb14e738986f
+#      rule_590-13-7-.02_notice_fe.pdf
+#        sha256 87b864afeb028c85c04ed115fec197601107b56b499d57a88a9f2028929aed7d
+#
+# How the text was read. The PDFs are scans with no text layer, so scripts/extract-ga-590-13.ts finds nothing and
+# scripts/ocr-ga-590-13.swift read them with macOS Vision. Each rule's "TEXT OF PROPOSED NEW RULE" was then corrected
+# by looking at the page images, not from memory. The scans underline every word of the proposed text, and the
+# underline makes commas and semicolons print like full stops and colons, so this file writes a comma where a
+# sentence needs one and a semicolon at the end of a list item. Every word is as printed. Page images were checked
+# for: 590-13-1-.01 (pages 2 and 3, including definitions (9) and (20)), 2-.01 (page 3), 2-.03 (pages 4 and 5),
+# 3-.01 (pages 2 and 3), 3-.04 (page 6), 4-.01 (page 5), 5-.01 (page 3), 6-.03 (page 8), 6-.05 (page 13) and 7-.01 (page 2). The other rules were
+# read from the OCR and corrected for obvious errors; the app quotes none of them.
+# Only the "TEXT OF PROPOSED NEW RULE" of each rule is kept, plus its hearing time, adoption date, legal authority
+# and, where the synopsis states a dollar impact, the "Economic Impact" line (and two "Main Features" sentences
+# about the December 31 expiry). Nothing is paraphrased.
+#
+# The notices (all eight say the same) give the comment rules in these words:
+#   Written comments: no later than close of business on Monday, November 2, 2026, by emailing hoa@sos.ga.gov
+#   or by hard copy to the Division of Securities and Business Registration, 2 Martin Luther King Jr. Drive SE,
+#   West Tower, Suite 341, Atlanta, Georgia 30334. Verbal comments at the public hearings, 2 minutes per speaker.
+#   Hearings are in the Floyd Conference Room, 2 Martin Luther King Jr. Drive, S.E., West Tower, 20th Floor.
+#
+# Block format: "=== Rule 590-13-x-.xx | ..." then the rule text, one block per rule.
+
+=== Notices | Deadline for Submission of Comments
+Written comments must be received by Monday, November 2, 2026.
+
+=== Rule 590-13-1-.01 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 9:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-1, 43-17A-9
+Text:
+Rule 590-13-1-.01. Definitions
+All definitions contained in Section 43-17A-1 of the Official Code of Georgia Annotated
+("Code" or "O.C.G.A.") are incorporated by reference herein. When used in the Act and in these
+Rules, the below terms shall have the following meanings:
+(1) "Act" means the Georgia Property Owners' Bill of Rights Act as set forth in Chapter 17A
+of Title 43 of the Official Code of Georgia Annotated. (O.C.G.A. §§ 43-17A-1et seq.).
+(2) "Affected Person" means a Resident or Owner who resides in an Owners' Development
+whose Owners' Association is subject to a hearing under O.C.G.A. § 43-17A-4.
+(3) "Agent" means any person authorized to act on behalf of an Owner, Resident, or Owners'
+Association, including but not limited to, a management company, advocate, attorney, or
+collection agency.
+(4) "Applicant" means an Owners' Association submitting an application for a registration
+pursuant to O.C.G.A. § 43-17A-2.
+(5) "Assets" means a resource or property, tangible or intangible, that has economic or
+physical value to which a person or entity has legal or equitable rights.
+(6) "Board" means the governing body of an Owners' Association as designated in its
+governing documents.
+(7) "Business Day(s)" means any day other than Saturday, Sunday and State of Georgia
+holidays.
+(8) "Complainant" means an Owner or Resident who files a complaint as per O.C.G.A. § 43-
+17A-5.
+(9) "Day" means calendar day.
+(10) "Digital Asset" means any electronic account, system, domain, page, profile, database,
+content, data set, telephone number or credential created, acquired, maintained, branded,
+promoted or used primarily for association business.
+(11) "Director" means the Director of the Securities and Business Regulation Division of the
+Office of the Secretary of State.
+(12) "Discovery" means a formal process after a request for hearing is filed but prior to a
+hearing where parties in a conflict file motions, issue subpoenas, or utilize other legal
+mechanisms to gather information from other individuals.
+(13) "Division" means the Division of Securities and Business Regulation of the Office of the
+Secretary of State.
+(14) "Filing" means the submission of a document to the Office of the Secretary of State by an
+external party for purposes of effectuating an action under the Act.
+(15) "Filing Fee" means an amount owed to the Office of the Secretary of State in connection
+with the filing of a registration, renewal, amendment, or other filing required under the Act.
+This does not include Administrative Services Fees as described in O.C.G.A. § 43-17A-4(i)
+and § 43-17A-5(d).
+(16) "The Office of the Secretary of State" means the Office of the Secretary of State of the
+State of Georgia and all Divisions encompassed thereunder.
+(17) "Personally Identifiable Information" or "PII" means information that can be used to
+identify an individual, either directly or indirectly. This includes data that, when combined
+with other available information, could reasonably allow someone to trace or distinguish a
+person's identity.
+(18) "Referee" means an individual appointed by the Secretary of State pursuant to O.C.G.A.
+43-17A-4(f)(1) to preside over and prepare a report relating to hearings held under 43-17A-
+4.
+(19) "Registered Address" means the address of the Owners' Association as listed on an active
+registration filed pursuant to the Act.
+(20) "Registration Statement" or "Registration" means a functional document which, when
+active, permits Owners' Associations to complete all acts permitted under the Act.
+(21) "Residing in" means lawfully occupying a dwelling as a Resident or being an Owner of a
+dwelling in an Owners' Development.
+(22) "Resident" means a natural person who lawfully occupies a dwelling in an Owners'
+Development.
+(23) "Respondent" means an individual or Owners' Association requesting a hearing under
+O.C.G.A. §43-17A-4 to challenge an order issued by the Office of Secretary of State.
+(24) "Rules" means these rules and any others promulgated pursuant to the Act.
+(25) "The Secretary of State" means the Secretary of State of the State of Georgia.
+
+=== Rule 590-13-1-.02 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 10:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-3, 43-17A-9
+Text:
+Rule 590-13-1-.02: Delegation
+The Director is empowered to sign all documents, make all decisions and perform all actions under
+the Act. All actions of the Director are of the same force and effect as such actions would be if
+performed by the Secretary of State.
+
+=== Rule 590-13-2-.01 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 10:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-I,43-17A-2, 43-17A-3, 43-17A-4, 43-17A-5, 43-17A-6, 43-17A-9, 50-18- 70, et seq 3
+Text:
+Rule 590-13-2-.01: Records Filed with the Secretary of State
+(1) All applications, records or documents, correspondence, annual reports, and other documents
+filed with the Division pursuant to the Act may be maintained in its original form, by electronic
+means, or other methods acceptable to the Secretary of State pursuant to applicable retention
+schedules.
+(2) Except as provided in the Georgia Open Records Act (O.C.G.A. § 50-18-70 et seq), the Act.
+and these Rules, all investigations and investigative proceedings shall be confidential, unless
+the Secretary of State or its designee determines that all or part of an investigation or
+investigative proceeding be made public.
+(4) Reports of Referees, Notices, Findings and Conclusions of Hearing Officers, and Final Orders
+issued by the Secretary of State or its' designee shall constitute public information under the
+Act and these Rules.
+
+=== Rule 590-13-2-.02 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:30 P.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-1,43-17A-2, 43-17A-3, 43-17A-4, 43-17A-5, 43-17A-6, 43-17A-7, 43- 17A-8, 43-17A-9
+Text:
+Rule 590-13-2-.02. Records and Documents of Owners' Associations
+(1) All Owners' Associations shall maintain records and documents required pursuant to their
+governing documents, the Act, and these Rules.
+(2) All records or documents of an Owners' Association required to be created and maintained by
+the Owners' Association's governing documents, the Act, or these Rules shall be open for
+inspection by Owners, except those which by order of a court of competent jurisdiction, by law
+or by these regulations are exempted from disclosure.
+(3) Records or documents that are fully exempt are:
+a. Proposals or other documents related to an active procurement of the Owners' Association;
+Once the procurement is complete, documents related to procurement shall be subject
+to inspection.
+b. Records or documents that are not final; and
+c. Secret-ballot selections.
+(4) If a portion of a record or document is exempt. Owners' Associations shall produce reasonably
+Owners' Associations may redact exempt information
+segregable, nonexempt portions,
+including, but not limited to:
+a. Account numbers;
+b. Personal contact information or other PII; and
+c. Communications that are privileged under applicable law.
+
+=== Rule 590-13-2-.03 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:30 P.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-1,43-17A-2, 43-17A-3, 43-17A-4, 43-17A-5, 43-17A-6, 43-17A-7, 43- 17A-8, 43-17A-9
+Text:
+Rule 590-13-2-.03. Request for Records or Documents maintained by Owners' Associations
+(1) Requests for records or documents maintained pursuant to this Act may be submitted for any
+reason or purpose, unless such request is otherwise prohibited by an order of a court of
+competent jurisdiction. However:
+a. An Owner may not request records or documents relating to specific assessments or
+collection actions relating to persons who do not reside in the Owner's residence.
+b. An Owners' Association is not required to respond to requests from persons who do not
+reside in the Owners' Development.
+(2) Requests for Owners' Association's records or documents must be in writing and sufficiently
+detailed to allow the Owners' Association to determine the specific records or documents being
+requested.
+a. Requests for records or documents shall be submitted to the contact information provided
+in the registration on file with the Office of the Secretary of State.
+(3) Requests for records or documents maintained by an Owners' Association pursuant to the Act
+shall be acknowledged in writing within five (5) business days and made available to a
+requesting Owner within ten (10) days of acknowledgement of the Owner's written request.
+a. If unusual circumstances prevent complete production within ten (10) days of
+acknowledgement, the Owners' Association shall provide written notice stating the reason
+for an extension, the records or documents affected, records or documents that can be
+produced sooner, and a date certain for completion.
+b. Delay by an Owners' Association's Agent is not good cause for an extension absent
+providential cause or excusable neglect.
+(4) Permissible Charges for records or documents.
+a. Charges for an Owners' Association's records or documents shall be limited to actual,
+reasonable, and documented costs.
+b. Electronic transmission shall be provided without charge when no material staff time or
+media cost is required.
+C.
+The Owners' Association shall give an advance itemized estimate before charges exceed
+$25.00 and shall not condition access to undisputed records or documents on payment of a
+disputed charge.
+(5) This rule does not apply to requests or subpoenas issued by the Office of the Secretary of State
+or their designees.
+
+=== Rule 590-13-3-.01 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 11:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9
+Main Features (excerpt): If the application is fully complete and filing fees are paid, the temporary application will transition to an annual registration which will expire on December 31st of the year it was filed.
+Economic Impact: The filing fee for each initial registration statement is $100.00. Our office estimates that there are between 11,000 and 15,000 Owners' Associations in the State of Georgia. Estimated economic impact is between $1,100,000.00 and $1,500,000.00 in one-time initial registration fees being paid by Owners' Associations for the initial registration period in January of 2027. Estimates for initial registrations in following years will result in minimal economic impact.
+Text:
+Rule 590-13-3-.01: Initial Application and Deficient Registrations
+(1) Upon initial submission of an application for registration, an Owners' Association will be
+issued a temporary registration effective immediately.
+a. Temporary registrations will be effective for thirty (30) days and may be extended at the
+discretion of the Director.
+b. If the Division verifies that the application is not deficient and all filing fees have been
+paid, the registration will be moved from a temporary registration to an annual registration.
+c. Once advised of any deficiencies or failure to pay the filing fee, the Owners' Association
+must remedy within thirty (30) days.
+(2) Any registration application filed pursuant to the Act may be deemed deficient if any of the
+following conditions exist:
+a. the application is not completed on the proper form prescribed by the Secretary of State
+electronically or in writing;
+b. the application is incomplete;
+c. required documentation is irrelevant or otherwise incomplete;
+d. the associated filing fee is not properly submitted and paid; or
+e. the application is not in compliance with any provision of the Act or associated rules.
+
+=== Rule 590-13-3-.02 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 11:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9
+Text:
+Rule 590-13-3-.02: Withdrawn Registrations
+Any Owners' Association may withdraw its registration at any time via a form prescribed by the
+Secretary of State.
+
+=== Rule 590-13-3-.03 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 11:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9
+Text:
+Rule 590-13-3-.03: Amendments to Registrations
+If an effective registration becomes materially inaccurate or misleading, then the Owners'
+Association must file an amended registration within thirty (30) days thereafter on a form
+prescribed by the Secretary of State.
+
+=== Rule 590-13-3-.04 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 11:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9
+Main Features: The proposed rule permits for the Owners' Association to register 90 days prior to the annual expiration date of December 31st each year. It also requires the submission of an updated financial statement.
+Economic Impact: The filing fee for each renewal registration is $100.00. Our office estimates that there are between 11,000 and 15,000 Owners' Associations in the State of Georgia. Estimated economic impact is between $1,100,000.00 to $1,500,000.00 in renewal fees annually.
+Text:
+Rule 590-13-3-.04: Renewal of Registrations
+(1) An application for renewal of registration may be filed at any time within ninety (90) days
+prior to the expiration of the most recent active registration.
+(2) Each renewal must contain an updated year-end financial statement dated no more than one
+year prior to the renewal application.
+
+=== Rule 590-13-4-.01 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 10:00 A.M. EST, Wednesday, November 4, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-5, 43-17A-6, 43-17A-7, 43-17A-8, 43- 5 17A-9
+Text:
+Rule 590-13-4-.01. Enforcement and Investigatory Procedures
+(1) The Secretary of State or designee may investigate the actions of any Owners' Association or
+Agent acting on behalf of an Owners' Association to determine whether any person has
+violated or is about to violate the Act or any rule, regulation, or order created under the Act or
+to aid in the violation of the Act.
+(2) All examinations and audits of the financial records or documents pursuant to the Act
+conducted by the Secretary of State or their designee shall not be subject to public inspection,
+unless the Secretary of State or designee determines it to be in the public interest to release
+examinations and audits, or unless otherwise required by law.
+(3) The Secretary of State or designee may refer any alleged violations of the Act or other laws to
+any federal or state regulator, prosecutor, or other appropriate law enforcement agency.
+(4) The Director may appoint a qualified auditor, examiner, or regulatory monitor to assess any
+records or documents held by an Owners' Association or their Agent or otherwise obtained by
+the Office of the Secretary of State.
+
+=== Rule 590-13-5-.01 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.01: Applicability and Scope of Rules
+(1) The rules of this title 590-13-5 shall govern all hearings arising under O.C.G.A. § 43-17A-4.
+Hearings, if requested, will be conducted before the Secretary of State, the Director, or a
+Referee appointed by the Secretary of State or Director. For purposes of these rules, the term
+"Presider" shall refer to any person presiding over a hearing requested under O.C.G.A. § 43-
+17A-4 and pre-hearing matters.
+(2) The Presider may modify procedures at his or her discretion where such adjustment will
+facilitate the resolution of the matter without prejudice to the parties so long as such
+modifications comply with the Act.
+
+=== Rule 590-13-5-.02 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.02: Appointment of Referee
+(1) The Secretary of State or Director may at his or her discretion appoint a Referee to preside
+over hearings held pursuant to O.C.G.A § 43-17A-4.
+(2) Any Referee appointed shall possess the necessary skills and expertise to properly analyze the
+evidence and prepare a comprehensive report.
+(3) The Secretary of State or the Director shall require the submission of a résumé, completion of
+a criminal background check, and any other information deemed necessary to evaluate the
+Referee's qualifications.
+(4) The Referee must certify that they do not have a conflict of interest in the matter. If a Referee
+identifies a conflict between themselves and either party, they must advise the Secretary of
+State's Office within two (2) business days of appointment in writing. The Secretary of State's
+Office shall timely determine if disqualification and appointment of a new Referee is
+appropriate.
+(5) The Secretary of State or Director shall appoint by order which shall:
+a. State the matter;
+b. State the qualifications of the individual appointed as Referee, including sufficient
+information to allow the parties to determine if there may be a conflict of interest;
+c. Define reporting requirements; and
+d. Establish the rate of compensation and invoicing procedures.
+
+=== Rule 590-13-5-.03 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.03: Pre-Hearing Processes
+(1) If a hearing is requested by a Respondent pursuant to O.C.G.A. § 43-17A-4, the Secretary of
+State or designee shall select a Presider to oversee the hearing. The Presider shall issue a
+Notice of Hearing to the Director and the Owners' Association associated with the order that
+is being challenged.
+a. Notices of Hearing will be publicly posted by the Secretary of State's Office.
+(2) The Secretary of State or designee shall select a Clerk to handle administrative portions of the
+hearing.
+a. The Clerk shall maintain and furnish to the parties on the Notice of the Hearing the name,
+service address, and telephone number of each party.
+(3) Service of Process.
+a. All filings submitted to the Presider shall be filed with the Clerk and the parties included
+on the Notice of Hearing.
+b. All filings shall be signed by the party or Agent making the filing and shall state the name,
+address, telephone number and the representative capacity of the person making the
+submission.
+c. Service shall be made by first-class mail or electronic delivery to the addressees on the
+Notice of Hearing.
+(4) Communications with the Presider by Parties.
+a. No party shall communicate with the Presider regarding the proceeding without including
+the other party until it has been resolved, except for administrative, procedural purposes,
+or emergencies that do not deal with substantive matters of the case.
+b. This rule does not include normal and customary contact between the Secretary of State
+and their staff with a Presider not relating to the contested case.
+
+=== Rule 590-13-5-.04 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.04: Time
+(1) Time limits begin on the start of the next business day after the event that triggered it.
+(2) Three (3) days shall be added to any deadline period if the filing is served by mail.
+(3) The Presider may adjust any time limit prescribed by these rules that are not otherwise
+specified by law. The Presider shall notify all parties of any determination to change any time
+limit in writing.
+(4) A continuance may be requested by either party and may be approved at the Presider's sole
+discretion.
+
+=== Rule 590-13-5-.05 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.05: Motions
+(1) A Presider may permit the filing of motions.
+(2) Multiple motions may be consolidated at the discretion of the Presider.
+
+=== Rule 590-13-5-.06 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.06: Withdrawal of a Request for Hearing
+(1) The Respondent may withdraw a request for hearing at any time prior to the start of the hearing.
+If filed, the Presider may advise the Director to cancel the hearing.
+(2) Upon withdrawal, either:
+a. The original order subject to hearing will become effective; or
+b. The Secretary of State or designee may issue a consent order.
+
+=== Rule 590-13-5-.07 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.07: Subpoenas and Notices to Produce
+The Presider shall have the authority to issue subpoenas requiring the attendance and testimony of
+witnesses and the production of objects or documents at hearings.
+
+=== Rule 590-13-5-.08 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.08: Hearing Procedures
+(1) In any hearing conducted under O.C.G.A. § 43-17A-4, the Presider shall make an independent
+determination on the basis of the evidence presented.
+(2) The standard of proof on all issues shall be a preponderance of the evidence. The Respondent shall bear
+the burden of proof in all matters relating to an order of the Secretary of State.
+(3) Representation.
+a. Any Respondent or affected person may appear at a hearing conducted under O.C.G.A. §
+43-17A-4 "pro se", on their own behalf, without representation by an attorney.
+b. Any Respondent or affected person may appear at a hearing conducted under O.C.G.A. §
+43-17A-4 represented by an attorney duly licensed or otherwise permitted to practice in
+Georgia.
+c. Any Respondent may have an Agent act on its behalf to file, appear, or otherwise assist at
+a hearing conducted under O.C.G.A. § 43-17A-4.
+i. Prior to taking any action under this rule, an Agent must submit a fully executed form
+prescribed by the Secretary of State indicating they are permitted to act on the behalf
+of the Respondent.
+1. Such form must be signed by a Board Member or the individual challenging the
+order
+d. An affected person may have an Agent act on its behalf to file, appear, or otherwise assist
+at a hearing conducted under O.C.G.A. § 43-17A-4.
+i. Prior to taking any action under this rule, an Agent must submit a fully executed form
+prescribed by the Secretary of State indicating they are permitted to act on the behalf
+of the affected person.
+(4) The Presider shall conduct a fair and impartial hearing, take action to avoid unnecessary delay
+in the disposition of the proceedings, and maintain order.
+(5) Record of Hearings:
+a. Any hearing conducted under O.C.G.A. § 43-17A-4 may be conducted virtually if the
+record reflects that the Respondent and the Secretary of State or designee have consented
+in writing.
+b. Hearings shall be stenographically reported verbatim or recorded.
+(6) If a party fails to attend a hearing held pursuant O.C.G.A. § 43-17A-4 after having been given
+written notice, the Presider may proceed with the hearing in the absence of the party.
+(7) Whenever a Presider determines that an expedited time frame is necessary to protect the
+interests of the parties or is in the public interest, they may require expedited proceedings.
+
+=== Rule 590-13-5-.09 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 1:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-4, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-5-.09: Post-Hearing Matters
+(1) Reports of Referees.
+a. In hearings where a Referee is appointed, the Referee's report must contain all information
+as stated in O.C.G.A. § 43-17A-4(f)(2). In addition, all reports must clearly advise:
+i. The Respondent's right to file written objections to the report;
+ii. Procedure for filing such objections;
+iii. Any of the applicable deadlines for filing objections; and
+iv. The manner of filing such objection, and any other requirements necessary to ensure
+timely and proper submission.
+b. The Secretary of State or designee shall review and evaluate the report and any timely
+submitted written objections submitted by the Respondent and affected persons.
+c. The Secretary of State or designee shall render their final order within thirty (30) days after
+the close of the period to submit written objections unless the Secretary of State or designee
+determines that the complexity of the issues and the length of the record require an
+extension.
+(2) Hearings held by Secretary of State or designee.
+a. The Secretary of State or designee shall render their Final Order within thirty (30) days of
+the hearing unless the Secretary of State or designee determines that the complexity of the
+issues and the length of the record require an extension.
+(3) Participation in a hearing held pursuant to O.C.G.A. § 43-17A-4 shall not bar or otherwise
+impact any individual's right to file a complaint pursuant to O.C.G.A. § 43-17A-5.
+
+=== Rule 590-13-6-.01 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 3:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-5, 43-17A-9, 50-13-1 et seq. 3
+Text:
+Rule 590-13-6-.01. Applicability and Scope of Rules
+(1) The rules in this chapter govern hearings held under O.C.G.A. § 43-17A-5. If a hearing is held,
+the hearing will be conducted before the Secretary of State, the Director, or another individual
+selected by the Secretary of State. The term "Hearing Officer" shall refer to the Secretary of
+State or the Director, or an appointed individual.
+(2) Computation of Time.
+a. Time limits begin on the start of the next business day after the event that triggered it.
+b. Three (3) days shall be added to any deadline period if the filing is served by mail.
+c. The Hearing Officer may adjust any time limit prescribed or allowed by these rules that
+are not otherwise specified by law. The Hearing Officer shall notify all parties of any
+determination to change any time limit.
+(3) Whenever an expedited time frame is necessary to protect the parties or is in the public interest,
+the Hearing Officer may review complaints and conduct the hearing with shorter time frames
+as justice requires.
+
+=== Rule 590-13-6-.02 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 3:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-5, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-6-.02. Appointment of Hearing Officers
+(1) The Secretary of State or designee shall appoint a Hearing Officer to review complaints and
+oversee hearings.
+(2) A Hearing Officer must be unbiased in any proceeding they oversee. Prior to appointing a
+Hearing Officer, the Secretary of State or designee shall require a Hearing Officer to provide
+any information deemed necessary to determine if there is any potential conflict of interest.
+(3) Hearing Officers shall only evaluate if an action or inaction of an Owner's Association was
+prohibited or required by the Act, these Rules, and/or governing documents of the Owners'
+Association.
+
+=== Rule 590-13-6-.03 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 3:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-5, 43-17A-9, 50-13-1 et seq. 8
+Text:
+Rule 590-13-6-.03. Complaint Processes
+(1) Filing of Complaint
+a. All complaints will be accepted by the Secretary of State.
+b. Complaints may be submitted online, via hard copy mail, or verbally.
+i. For verbal complaints, the Office will document the verbal complaint in writing.
+c. Anonymous Complaints
+i. Complaints may be submitted anonymously, however, no stay will apply to any charges
+associated with an anonymous complaint.
+ii. Anonymous complaints will be taken under advisement for purposes of investigations
+related to reviewing registration denial, registration suspension, and other actions that
+may be taken under O.C.G.A. § 43-17A-3.
+(2) Stay of Collection
+a. Stays will become effective once the complaint is documented in writing and filed with the
+Secretary of State's Office.
+(3) Incomplete Complaints
+a. If more information about the complaint is needed, the Secretary of State will issue a letter
+to the Complainant.
+b. Issuance of a letter advising of an incomplete complaint removes the stay on any charges
+associated with the complaint.
+c. Individuals may resubmit complaints that were incomplete.
+(4) Assignment of Hearing Officer
+a. Once a complaint is complete, it will be assigned to a Hearing Officer for review. The
+Secretary of State will advise the Complainant and the Owners' Association of the
+assignment and provide the Hearing Officer's resume.
+b. If the Hearing Officer identifies a conflict between themselves and either party, they must
+advise the Secretary of State's Office within two (2) business days of appointment in
+writing.
+c. If a party believes the Hearing Officer has a conflict, they may object to the appointment
+in writing in a form as prescribed by the Secretary of State within ten (10) days of the
+issuance of the notice of assignment prescribed by the Office of the Secretary of State. The
+Secretary of State or designee shall determine if a dispute will be reassigned to another
+Hearing Officer in their sole discretion.
+(5) Administrative Determinations without Hearing
+a. Findings and conclusions may be reached with or without a hearing at the discretion of the
+Hearing Officer after investigation, review of documents, and review of the complaint.
+b. Findings and conclusions issued without a hearing will be issued in writing and will state
+the Hearing Officer's findings, their basis, and any required actions.
+c. Any stays will expire upon the date of issuance of the written findings and conclusions
+issued without a hearing.
+
+=== Rule 590-13-6-.04 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 3:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-5, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-6-.04. Pre-Hearing Processes
+(1) If a hearing is determined appropriate by the assigned Hearing Officer, the Hearing Officer
+shall issue a Notice of Hearing to the complainant and the Owners' Association associated
+with complaint, which shall include:
+a. the time, place, and nature of the hearing;
+b. a short and plain statement of the matters asserted; and
+c. the Hearing Officer's resume.
+(2) The Secretary of State shall appoint a Clerk to handle administrative portions of the hearing.
+All filings made to the Hearing Officer shall be filed with the Clerk and the parties included
+on the Notice of Hearing.
+(3) Communications with the Hearing Officer by Parties.
+a. No party shall communicate with the Hearing Officer regarding the proceeding without
+including the other party until it has been resolved, except for administrative, procedural
+purposes, or emergencies that do not deal with substantive matters of the case.
+b. This rule does not include normal and customary contact between the Secretary of State
+and their staff with a Hearing Officer not relating to the contested case.
+(4) If multiple individuals have filed complaints regarding the same action or inaction of an
+Owners' Association, the Hearing Officer may consolidate their complaints and hold one
+hearing to address the issue.
+
+=== Rule 590-13-6-.05 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 3:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-5, 43-17A-9, 50-13-1 et seq.
+Text:
+Rule 590-13-6-.05. Hearing Procedure
+(1) General Hearing Procedures
+a. The Hearing Officer shall conduct a fair and impartial hearing, take action to avoid
+unnecessary delay in the disposition of the proceedings and maintain order.
+b. The Hearing Officer shall afford a liberal interpretation of the rules and procedural
+requirements where one or both parties in a hearing are not represented by an attorney.
+c. The Hearing Officer may set their own rules relating to hearing procedures. However,
+Hearing Officers shall not permit:
+i. Written Filings, unless on forms prescribed by the Office of the Secretary of State;
+ii. Depositions or written testimony; or
+iii. Discovery.
+(2) Hearings may be held virtually unless requested by either party and as circumstances require
+at the discretion of the Hearing Officer.
+(3) Hearings shall be recorded or have a transcript.
+(4) Representation.
+a. Any party may appear at the hearing under the Act "pro se", on his or her own behalf,
+without representation by an attorney.
+b. Any party may appear at the hearing under the Act represented by an attorney duly licensed
+or otherwise permitted to practice in Georgia.
+c. A Complainant may have an Agent act on its behalf to file, appear, or otherwise assist at a
+hearing.
+i. Prior to taking any action under this rule, an Agent must submit a fully executed form
+prescribed by the Secretary of State indicating they are permitted to act on the behalf
+of the Complainant.
+d. An Owners' Association may have an Agent act on its behalf to file, appear, or otherwise
+assist at a hearing.
+i. Prior to taking any action under this rule, an Agent must submit a fully executed form
+prescribed by the Secretary of State indicating they are permitted to act on the behalf
+of the Owners' Association.
+1. Such form must be signed by a Board Member or the individual challenging the
+order
+
+=== Rule 590-13-6-.06 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 3:00 P.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-2, 43-17A-3, 43-17A-5, 43-17A-9, 50-13-1 et seq.
+Economic Impact: The non-prevailing party in a hearing conducted under O.C.G.A. § 43-17A-5 must pay a $100 administrative services fee to the Secretary of State's Office. As the volume of complaints that will be submitted and the number of those complaints that are subject to hearing is unknown at this, an economic analysis of impact to State of Georgia funds is unavailable. Overall, this process is anticipated to expedite resolution of disputes resulting in fines and fees which will lower the amounts that will be assessed due to delays in the judicial process. Further it will save Owners and Owners' Associations on attorney and court costs to resolve disputes.
+Text:
+Rule 590-13-6-.06: Post-Hearing Matters
+(1) Failure to attend a hearing may result in a finding or conclusion in favor of the attending party
+at the discretion of the Hearing Officer.
+(2) Voluntary Withdrawal and Settlements:
+a. The party requesting the hearing may request to withdraw their complaint prior to start of
+a hearing in writing.
+i.
+The Hearing Officer will review the request to withdraw and either approve or reject
+the request to withdraw in writing.
+1. If approved, the Hearing Officer shall timely issue a written determination without
+a hearing which ends any stays on the collection of charges.
+2. If rejected, the hearing shall proceed.
+b. If the parties can resolve the issue prior to hearing, they may submit written notice to the
+Hearing Officer advising that they have reached a settlement.
+i. The Hearing Officer shall timely issue a written determination without a hearing
+advising a settlement was reached. Any stays on the collection of charges issued
+pursuant to the Act will end upon the issuance of the written determination without a
+hearing.
+(3) If a hearing is held, the Hearing Officer shall render their findings and conclusions in writing
+to the Complainant, the Owners' Association, and the Office of Secretary of State no later than
+thirty (30) days after the hearing.
+
+=== Rule 590-13-7-.01 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 9:00 A.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§43-17A-7, 43-17A-9
+Text:
+Rule 590-13-7-.01: Notice and Meetings
+(1) Notice of a Meeting is fair and reasonable if:
+a. The Board of an Owners' Association notifies the Owners of the place, date, and time of
+each annual, regular, and special meeting no fewer than seven (7) days nor more than sixty
+(60) days before the meeting date;
+b. Notice of any meeting must include a description of the matters for which the meeting is
+called.
+c. Notice is:
+i.
+Posted in a common area accessible by residents, if applicable; and
+ii.
+Provided in writing via:
+1. Hardcopy to the address of the residents in the Owner's Development unless
+requested to be mailed to another address as specified in writing by the Owner; or
+2. Electronic means.
+(2) Meeting Requirements
+a.
+Meetings open to all members of an Owners' Association should be scheduled at a time
+and place reasonably calculated to permit Owners to attend.
+b. Boards are not required to reschedule a member meeting if an Owner has a conflict and the
+board has a quorum.
+c. Any Owner is permitted to attend open meetings.
+d. A Board may not bar an Owner from attending a meeting due to a failure or delay in
+payment of charges.
+
+=== Rule 590-13-7-.02 | Proposed Adoption Date: Friday, January 1, 2027.
+Hearing: 10:00 A.M. EST, Thursday, November 5, 2026
+Legal Authority: O.C.G.A. §§ 43-17A-7, 43-17A-9
+Text:
+Rule 590-13-7-.02: Good Faith of Owners' Association's Board
+(1) Every Board Member shall perform their duties in good faith and with the degree of care an
+ordinary, prudent person in a like position would exercise under similar circumstances. Subject
+to any other applicable law, requirements include but are not limited to:
+a. Making reasonable efforts to ensure Owners and residents are aware of their obligations
+while residing in the Owners' Development.
+b. Not making materially misleading or false statements to Owners about or related to the
+Owners' Association.
+c. Ensuring all payments or authorization of payment of charges on behalf of an Owner are
+in compliance with the Act and governing documents.
+d. Providing written notice, including the method to resolve and challenge, when charging
+an Owner specific assessments or other fines or fees.
+e. Properly segregating and accounting for an Owners' Association's funds.
+f. Enforcing governing documents consistently. If an enforcement action is not consistent, a
+documented basis for the differential treatment must be maintained.
+g. Disclosing conflicts of interest relating to an Owners' Association's transaction to the other
+board members prior to the execution of a contract or payment for goods or services,
+whichever occurs first.
+h. Ensuring they and their fellow board members do not direct or permit an Agent to engage
+in conduct that the Owners' Association could not lawfully undertake directly.
+(2) Board members must take reasonable steps to safeguard and maintain records, documents, and
+all other assets of an Owners' Association.
+a. Owners' Associations must maintain control over their records and documents.
+i. Failure of an Agent to remit records and documents shall not alleviate the Owners'
+Association of its duty to provide records and documents to a requesting Owner or the
+Secretary of State.
+b. Board members or Agents acting on their behalf must take reasonable steps to preserve
+records, documents, and assets after notice of an election, resignation, termination,
+complaint, audit, investigation, litigation or other permissible request to ensure proper
+transition and compliance with Act.
+(3) Board members must timely transition all Owners' Association's assets to any newly elected
+board for the continued function and ongoing compliance of the Owners' Association with the
+Act and these rules.
+a. Owners' Association records, documents, and administrative credentials are the Owners'
+Association's assets, not the personal property of any board member, director, officer,
+manager, Agent or vendor.
+b. A digital asset or credential to manage such digital asset created, acquired, maintained,
+branded, promoted or used primarily to conduct an Owners' Association's business is an
+asset of an Owners' Association regardless of who opened the account, whose personal
+email address or telephone number was initially used, who paid an initial charge, or whose
+name appears as the original administrator.
+c. Funds associated with an Owners' Association may not be transitioned or otherwise
+comingled with an individual's personal accounts.
+d. Intentional deletion or diversion of an Owners' Association's asset is an act of bad faith.
