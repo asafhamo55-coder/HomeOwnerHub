@@ -73,6 +73,16 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     description:
       'Ten yes/no questions to see how ready your Georgia HOA is for SB 406. You get a score and a checklist with plain-language guides. Nothing is stored or sent.',
   },
+  '/guides': {
+    title: 'HOA guides for boards, by state',
+    description:
+      'Plain-language HOA guides for volunteer boards, grouped by Georgia, Florida, California and Texas, plus guides that apply in any state.',
+  },
+  '/templates': {
+    title: 'Free HOA templates and checklists',
+    description:
+      'Printable HOA board templates and checklists: meeting agendas, minutes, violation and collections letters, and Georgia notice checklists. No sign-up.',
+  },
   '/professionals': {
     title: PROFESSIONALS_META.title,
         description: PROFESSIONALS_META.description,

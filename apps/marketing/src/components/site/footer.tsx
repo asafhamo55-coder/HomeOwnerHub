@@ -12,6 +12,8 @@ const allProduct = [
   { label: 'State laws', href: '/states' },
   { label: 'Georgia SB 406 guides', href: '/georgia' },
   { label: 'SB 406 readiness check', href: '/georgia/readiness' },
+  { label: 'HOA guides by state', href: '/guides' },
+  { label: 'Free HOA templates', href: '/templates' },
   { label: 'HOA board agenda template', href: '/templates/hoa-board-meeting-agenda' },
   { label: 'HOA treasurer duties', href: '/guides/hoa-treasurer-duties' },
   { label: 'For attorneys and CPAs', href: '/professionals' },

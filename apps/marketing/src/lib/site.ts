@@ -68,6 +68,8 @@ export const SITEMAP_PATHS: readonly string[] = [
   ...STATE_HUB_PATHS,
   ...GEORGIA_PATHS,
   ...GENERAL_PATHS,
+  '/guides',
+  '/templates',
   PROFESSIONALS_PATH,
   '/about',
   '/roadmap',
