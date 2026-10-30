@@ -4,6 +4,7 @@ import { getAccountingContext, getBudget } from '@/lib/accounting/queries'
 import { adoptionAgenda } from '@/lib/budget-adoption/model'
 import { tryLoad } from '@/lib/load-or-fail'
 import { periodLabel } from '@/lib/money/format'
+import { loadAgendaContext } from '@/lib/meetings/agenda-queries'
 import { ScheduleMeetingForm, type AdoptionBudgetRef } from './ScheduleMeetingForm'
 
 export const metadata = { title: 'Schedule meeting' }
@@ -31,6 +32,7 @@ async function adoptionBudget(id: string | undefined): Promise<AdoptionBudgetRef
 export default async function ScheduleMeetingPage({ searchParams }: { searchParams: Promise<{ budget?: string }> }) {
   const { budget: budgetParam } = await searchParams
   const budget = await adoptionBudget(typeof budgetParam === 'string' ? budgetParam : undefined)
+  const agendaContext = await loadAgendaContext()
   return (
     <Page
       width="narrow"
@@ -43,7 +45,7 @@ export default async function ScheduleMeetingPage({ searchParams }: { searchPara
       breadcrumbs={[{ label: 'Meetings', href: '/meetings' }, { label: 'Schedule' }]}
       linkAs={Link}
     >
-      <ScheduleMeetingForm budget={budget} />
+      <ScheduleMeetingForm budget={budget} agendaContext={agendaContext} />
     </Page>
   )
 }

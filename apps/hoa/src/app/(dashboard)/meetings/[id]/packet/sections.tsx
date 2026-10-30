@@ -404,7 +404,7 @@ export function AgendaSection({ text, meetingId }: { text: string | null; meetin
         variant="compact"
         icon={<ScrollText aria-hidden />}
         title="No agenda yet"
-        description="Add the agenda on the meeting so it prints here."
+        description="Add an agenda to the meeting, or insert the standard one, and it prints here."
         action={
           <Button asChild variant="secondary" size="sm" className="print:hidden">
             <Link href={`/meetings/${meetingId}/edit`}>Edit meeting</Link>

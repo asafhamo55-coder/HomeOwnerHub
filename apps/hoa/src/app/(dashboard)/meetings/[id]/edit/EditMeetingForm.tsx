@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Button,
@@ -14,6 +14,8 @@ import {
   useToast,
 } from '@homeowner-portal/ui'
 import { updateMeeting } from '@/lib/meetings'
+import type { AgendaActionItem } from '@/lib/meetings/agenda-template'
+import { InsertAgendaButton } from '../../InsertAgendaButton'
 
 interface Props {
   meetingId: string
@@ -23,9 +25,19 @@ interface Props {
     attendees: string
     approvedSummary: string
   }
+  /** The meeting has not happened yet, so the text field still holds its agenda: offer the agenda builder. */
+  upcoming?: boolean
+  agendaContext?: { state: string | null; associationType: string | null; openActionItems: AgendaActionItem[] }
 }
 
-export function EditMeetingForm({ meetingId, defaultValues }: Props) {
+export function EditMeetingForm({
+  meetingId,
+  defaultValues,
+  upcoming = false,
+  agendaContext = { state: null, associationType: null, openActionItems: [] },
+}: Props) {
+  const minutesRef = useRef<HTMLTextAreaElement>(null)
+  const [type, setType] = useState(defaultValues.meetingType)
   const router = useRouter()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
@@ -75,7 +87,7 @@ export function EditMeetingForm({ meetingId, defaultValues }: Props) {
               <Input name="meetingDate" type="date" defaultValue={defaultValues.meetingDate} required />
             </Field>
             <Field label="Type" error={errors.meetingType}>
-              <Select name="meetingType" defaultValue={defaultValues.meetingType}>
+              <Select name="meetingType" value={type} onValueChange={(v) => setType(v as typeof type)}>
                 <option value="regular">Regular board meeting</option>
                 <option value="special">Special meeting</option>
                 <option value="annual">Annual meeting</option>
@@ -87,8 +99,13 @@ export function EditMeetingForm({ meetingId, defaultValues }: Props) {
             <Input name="attendees" defaultValue={defaultValues.attendees} placeholder="Linda Williams, John Smith" />
           </Field>
           <Field label="Minutes" required error={errors.approvedSummary}>
-            <Textarea name="approvedSummary" defaultValue={defaultValues.approvedSummary} rows={12} required />
+            <Textarea ref={minutesRef} name="approvedSummary" defaultValue={defaultValues.approvedSummary} rows={12} required />
           </Field>
+          {upcoming ? (
+            <div className="flex justify-end">
+              <InsertAgendaButton fieldRef={minutesRef} meetingType={type} {...agendaContext} />
+            </div>
+          ) : null}
         </CardContent>
         <CardFooter className="justify-end">
           <Button type="button" variant="ghost" onClick={() => router.back()} disabled={pending}>
