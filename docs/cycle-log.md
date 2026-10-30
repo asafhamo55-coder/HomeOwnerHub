@@ -893,3 +893,20 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - The tickets "Unassigned" tile counted something else. Tickets have no assignee column, so it is relabelled "No one on it".
 - **Decks.** Rebuilt in violet and Be Vietnam Pro. The product deck has 53 slides and the investor deck 25. The three overflowing slides were fixed and checked in Keynote. There are no new traction numbers (OA-15).
 - **Round 13 groomed.** The groomer reused stale round-8 items (credit on the resident pages and the /dues badge). They were caught by a code check and dropped.
+
+## 2026-10-30 20:20 → 00:50 IST (17:20 → 22:50 UTC): rounds 13 to 16
+
+- **Deploys:**
+  - 528a1572: records checklist, resident tiles and activity, meetings strip.
+  - cf68741f: guides library, SEO 11, agenda citation restored.
+  - b3576963: round 14, plus the peer session's PRICING_V2 cut-over (live 22:16 UTC). Asaf still has to run setup-stripe-pricing.
+  - beb428b3: round 15, deploying 23:17 UTC.
+- **Rounds:** 13, 14 and 15 are done. Round 16 is done except the Nov 2 audit.
+  - Includes the minutes-approval BUG fix. Scheduled meetings could never be approved, so residents never saw those minutes.
+- **Corrections:**
+  - § 44-3-230(a) does require annual-meeting reports to owners. The removal of that citation was reverted.
+  - The groomers proposed already-shipped items twice; code checks caught them.
+  - Bridge, row-cap and records ratchets caught new code, and it was fixed before CI.
+  - Resolving the owner-actions merge by taking one side dropped OA-14 and OA-40. Merge that file by hand from now on.
+- **Outbound:** "Email this statement" is gated by consent, the outbound guard, dedupe and audit. An integration test against CI's ephemeral database is being written before it ships.
+- **SEO:** batches 7 to 14 shipped or merged today (about 50 pages, including the first FL, CA and TX templates).
