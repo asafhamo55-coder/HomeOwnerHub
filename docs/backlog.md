@@ -2046,6 +2046,24 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 13 (2026-10-30, code-verified)
+
+None of these needs a migration or an owner action.
+
+1. **Records your owners can see: a statutory records checklist on /compliance.** Florida § 720.303(4) first, then Georgia. Each category shows posted or missing and links to upload. This closes competitor gap 4a.5. Effort 2.
+2. **Resident home: Meetings and Announcements tiles with unread dots.** Fix the "seven tiles" comment while there. On the pay page, add the line "shows on your ledger once the board posts it". Effort 1.
+3. **Resident requests: a "Latest activity" list with status chips**, plus "Needs your attention" when the board has replied. Effort 2.
+4. **Board meetings list: a summary strip and Upcoming / Past / Needs minutes chips.** Effort 2.
+5. **BL-172 SEO batch 11.** Georgia estoppel/resale letter and a reserve and annual budget template. Add inbound links to attorney-fee-notice-checklist. Effort 2.
+6. **Weekly SEO audit, due Mon Nov 2.** Cover title and description lengths, sitemap URL checks (200 / canonical / og / JSON-LD), first-load JS, and internal-link counts, and propose the next 10 keywords. Effort 1.
+7. **Website: /templates and /guides index pages.** Add a state filter and footer and nav links. Effort 2.
+
+**Dropped:**
+- Stale (already shipped): credit on the resident pay and dues pages; the credit badge on /dues.
+- Need a migration: polls, amenity booking, reserve study, online pay status.
+- Owner keys or decisions: Stripe ACH; the resident directory.
+- Already good: onboarding checklist, inbox filters, properties header.
+
 ## Ranked open work — round 12 (2026-10-30, code-verified) — Done 2026-10-30 (all 8)
 
 None of these need a migration or an owner action. OA-19 stays the owner's decision, so item 1 is view-only.
