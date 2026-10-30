@@ -5,6 +5,7 @@ import type { SubmissionAttachment } from '@/lib/submission-attachments'
 import type { MyViolationThread } from '@/lib/violation-response-load'
 import type { ResidentViolationView } from '@/lib/violation-response'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
+import { PhotoViewer } from '@/components/PhotoViewer'
 import { Panel, ScreenHeader, Section } from '@/components/resident/screen'
 import { ResidentStatus } from '@/components/resident/status'
 import { Conversation, ThreadClosed } from '@/components/resident/Conversation'
@@ -127,18 +128,9 @@ export function HomeViolationView({
         <Section label="Photos from the board">
           <Panel>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {v.photos.map((url, i) => (
-                <a
-                  key={url}
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt={`Photo ${i + 1} from the board`} className="h-32 w-full object-cover" />
-                </a>
-              ))}
+              <PhotoViewer
+                photos={v.photos.map((url, i) => ({ src: url, alt: `Photo ${i + 1} of the violation` }))}
+              />
             </div>
           </Panel>
         </Section>

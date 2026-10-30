@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PhotoViewer } from '@/components/PhotoViewer'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { notFound } from 'next/navigation'
@@ -516,18 +517,9 @@ export default async function ViolationDetailPage({
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {v.photo_urls.map((url, i) => (
-                  <a
-                    key={url}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-lg border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Violation photo ${i + 1}`} className="h-32 w-full object-cover" />
-                  </a>
-                ))}
+                <PhotoViewer
+                  photos={v.photo_urls.map((url, i) => ({ src: url, alt: `Photo ${i + 1} of the violation` }))}
+                />
               </CardContent>
             </Card>
           ) : null}
