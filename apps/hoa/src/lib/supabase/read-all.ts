@@ -5,10 +5,19 @@
  * config.toml, and Supabase's hosted default) whatever range is asked
  * for: `.range(0, 49_999)` still returns at most 1000 rows, silently. A
  * total summed from that is a truncated total (UX decision 11). This
- * walks the result page by page until an EMPTY page comes back. Not a
- * short one: a server whose cap is below PAGE_ROWS returns short pages
- * that are not the end, so the next offset is however many rows actually
- * arrived. One extra round trip per read buys independence from the cap.
+ * walks the result page by page. A short page alone does not prove the
+ * end: a server whose cap is below PAGE_ROWS returns short pages that
+ * are not the last, so the next offset is however many rows actually
+ * arrived.
+ *
+ * When it may stop without an empty probe page. Under any cap c, every
+ * NON-final page holds exactly min(c, PAGE_ROWS) rows. So if an earlier
+ * page held m rows and this page holds fewer than m, this page cannot be
+ * a capped (non-final) one: it is the last, and we return. Until a page
+ * larger than the current one has been seen (the first page, or a page
+ * equal to the largest so far) a short page may still be capped, so we
+ * fetch the next page; an empty page ends the read as before. Worst case
+ * is unchanged; a multi-page read saves its trailing empty round trip.
  *
  * `page(from, to)` must build a FRESH query each call with a stable
  * order (e.g. `.order('id')`), or rows can repeat or go missing between
@@ -28,6 +37,7 @@ export async function readAll<T>(
   maxRows = 200_000,
 ): Promise<T[]> {
   const out: T[] = []
+  let largest = 0 // most rows any earlier page returned
   for (;;) {
     const from = out.length
     if (from > maxRows) throw new Error(`readAll: more than ${maxRows} rows; refusing a partial result`)
@@ -36,6 +46,9 @@ export async function readAll<T>(
     const rows = data ?? []
     if (rows.length === 0) return out
     out.push(...rows)
+    // Shorter than an earlier page => cannot be a capped page => final.
+    if (rows.length < largest) return out
+    largest = Math.max(largest, rows.length)
   }
 }
 
