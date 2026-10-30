@@ -68,7 +68,8 @@ function ChoiceRow({
           {label}
         </label>
         {description ? (
-          <p id={descriptionId} className="text-xs text-muted">
+          // Above the label's touch overlay, so a link in a description stays tappable.
+          <p id={descriptionId} className="text-xs text-muted coarse:relative coarse:z-[1]">
             {description}
           </p>
         ) : null}
