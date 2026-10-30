@@ -13,6 +13,7 @@ import { AMEND_COVENANTS, LIEN_RULES, WRITTEN_BALLOTS } from './guides-i'
 import { CA_FINE_HEARING, FL_ESTOPPEL, FL_FINE_HEARING, TX_PAYMENT_PLANS } from './guides-j'
 import { CA_RECORDS, FL_RECORDS, TX_MANAGEMENT_CERT } from './guides-k'
 import { GA_ESTOPPEL, TX_RESALE } from './guides-l'
+import { GA_BOARD_POWERS } from './guides-m'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -35,7 +36,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -262,6 +263,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'Texas HOA resale certificate: contents, deadline and fee cap',
     blurb: TX_RESALE.summary[0]!,
     kind: 'guide',
+  },
+  {
+    slug: GA_BOARD_POWERS.slug,
+    path: pathOf(GA_BOARD_POWERS),
+    title: 'What a Georgia HOA board can do under O.C.G.A. § 44-3-231',
+    blurb: GA_BOARD_POWERS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'georgia-hoa-proxy-and-written-ballot-form',
+    path: '/templates/georgia-hoa-proxy-and-written-ballot-form',
+    title: 'Georgia HOA proxy and written ballot form fields (printable)',
+    blurb: 'The fields a proxy appointment form and a written ballot should carry, with the Georgia Nonprofit Code text behind each.',
+    kind: 'tool',
+  },
+  {
+    slug: 'georgia-hoa-payment-plan-agreement',
+    path: '/templates/georgia-hoa-payment-plan-agreement',
+    title: 'Georgia HOA payment plan agreement fields (printable)',
+    blurb: 'The fields a written payment plan agreement can carry, with the Georgia late charge, interest and payment order text that may bear on it.',
+    kind: 'tool',
   },
   {
     slug: 'hoa-annual-budget-worksheet',

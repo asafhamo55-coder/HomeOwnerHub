@@ -115,7 +115,7 @@ export const WRITTEN_BALLOTS: Guide = {
       a: 'The ballot rule covers action on a matter. Georgia’s HOA Act still expects a meeting of members at least annually, with reports to owners.',
     },
   ],
-  related: ['annual-meeting-quorum-proxies', 'georgia-hoa-amend-covenants-two-thirds', 'annual-meeting-notice-checklist', 'attorney-fee-notice-checklist'],
+  related: ['annual-meeting-quorum-proxies', 'georgia-hoa-proxy-and-written-ballot-form', 'georgia-hoa-amend-covenants-two-thirds', 'annual-meeting-notice-checklist', 'attorney-fee-notice-checklist'],
   hoaDoes: [
     {
       text: 'The election planner works back from the meeting date to set the dates for a paper board election, and prints ballots that never name the voter, envelope labels and a tellers’ tally sheet.',
@@ -236,7 +236,7 @@ export const AMEND_COVENANTS: Guide = {
       a: 'Possibly, if your bylaws allow it. See our written ballot guide, and have your attorney confirm the route.',
     },
   ],
-  related: ['georgia-hoa-written-ballots-without-a-meeting', 'annual-meeting-quorum-proxies', 'condo-vs-hoa-law', 'attorney-fee-notice-checklist'],
+  related: ['georgia-hoa-written-ballots-without-a-meeting', 'georgia-hoa-board-powers-44-3-231', 'annual-meeting-quorum-proxies', 'condo-vs-hoa-law', 'attorney-fee-notice-checklist'],
   hoaDoes: [
     {
       text: 'Send meeting notice on a scheduled meeting opens a message already filled in with the type, date and agenda. You add the time and place, and nothing goes out until you press Send.',
