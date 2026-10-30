@@ -144,19 +144,6 @@ prices; review it before pitching.
 1. Read the "From the founder" quote in `apps/marketing` (Claude can paste it into an email to you).
 2. Tell Claude "OK" or send the wording you want.
 
-### OA-19 · Decide: should vendors get automatic insurance-expiry emails?
-
-**Urgency:** Whenever
-
-**Why it matters:** until today, when a board turned on vendor insurance reminders, the app emailed vendors automatically 30, 7 and 0 days before their insurance certificate expired. That automatic email is now off (decision `docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md`). The board gets a notice instead and can send a ready-made "please send your updated certificate" email with one click.
-
-**Steps:**
-
-1. Tell Claude either "keep it board-only" or "turn automatic vendor emails back on".
-2. If you want them back on, Claude may need you to allow that change in Claude Code's permissions. It will say exactly what to allow.
-
-**Files:** `docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md`
-
 ### OA-20 · Check one Georgia law paragraph against the official code
 
 **Urgency:** Whenever
@@ -202,6 +189,21 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-19 · Decide: should vendors get automatic insurance-expiry emails?
+
+**Done 2026-10-30:** Asaf decided "keep it board-only". Vendors get no automatic insurance-expiry emails; the board gets the notice and sends the one-click request.
+
+**Urgency:** Whenever
+
+**Why it matters:** until today, when a board turned on vendor insurance reminders, the app emailed vendors automatically 30, 7 and 0 days before their insurance certificate expired. That automatic email is now off (decision `docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md`). The board gets a notice instead and can send a ready-made "please send your updated certificate" email with one click.
+
+**Steps:**
+
+1. Tell Claude either "keep it board-only" or "turn automatic vendor emails back on".
+2. If you want them back on, Claude may need you to allow that change in Claude Code's permissions. It will say exactly what to allow.
+
+**Files:** `docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md`
 
 ### OA-8 · Rename the Stripe product
 
