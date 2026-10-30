@@ -41,19 +41,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-39 · Retire 9 old Georgia law summaries the refresh doesn't manage
-
-**Urgency:** Soon
-
-**Why it matters:** Georgia's HOA Act (Article 6) is now loaded word for word (OA-9). Nine older Georgia rows from the May seed are still live: Nonprofit Corporation Code §§ 14-3-701, 14-3-720, 14-3-805, 14-3-830 and 14-3-851, and covenant §§ 44-5-60, 44-5-60.1, 44-5-61 and 44-5-62. They are paraphrased summaries with no source, and the weekly refresh never checks them, so the app can quote them as if they were the law. Retiring them hides them from law answers; nothing is deleted, and it can be undone.
-
-**Steps:**
-
-1. In the Supabase SQL editor (production), run:
-   `UPDATE public.state_statutes SET superseded_at = now() WHERE state = 'GA' AND superseded_at IS NULL AND source_name IS NULL AND (code_citation LIKE 'O.C.G.A. Section 14-3-%' OR code_citation LIKE 'O.C.G.A. Section 44-5-6%') RETURNING code_citation;`
-   Expected: exactly 9 rows, the citations above.
-2. Send Claude the result. Then the GA count should read 18 current, 11 retired.
-
 ### OA-38 · Choose where the weekly numbers email goes
 
 **Urgency:** Whenever
@@ -360,6 +347,21 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-39 · Retire 9 old Georgia law summaries the refresh doesn't manage
+
+**Done 2026-10-30:** Asaf ran the update; it returned exactly the 9 expected citations. GA now has 18 current rows, all from the Article 6 snapshot.
+
+**Urgency:** Soon
+
+**Why it matters:** Georgia's HOA Act (Article 6) is now loaded word for word (OA-9). Nine older Georgia rows from the May seed are still live: Nonprofit Corporation Code §§ 14-3-701, 14-3-720, 14-3-805, 14-3-830 and 14-3-851, and covenant §§ 44-5-60, 44-5-60.1, 44-5-61 and 44-5-62. They are paraphrased summaries with no source, and the weekly refresh never checks them, so the app can quote them as if they were the law. Retiring them hides them from law answers; nothing is deleted, and it can be undone.
+
+**Steps:**
+
+1. In the Supabase SQL editor (production), run:
+   `UPDATE public.state_statutes SET superseded_at = now() WHERE state = 'GA' AND superseded_at IS NULL AND source_name IS NULL AND (code_citation LIKE 'O.C.G.A. Section 14-3-%' OR code_citation LIKE 'O.C.G.A. Section 44-5-6%') RETURNING code_citation;`
+   Expected: exactly 9 rows, the citations above.
+2. Send Claude the result. Then the GA count should read 18 current, 11 retired.
 
 ### OA-9 · Load Florida, California and Texas law into the app (and Georgia's verbatim text)
 
