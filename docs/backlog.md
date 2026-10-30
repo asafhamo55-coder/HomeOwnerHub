@@ -2046,7 +2046,26 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
-## Ranked open work — round 10 (2026-10-30, code-verified)
+## Ranked open work — round 11 (2026-10-30, code-verified)
+
+None of these needs a migration or an owner action. Product work and visible UI are mixed, per the owner.
+
+1. **Status timeline on the resident's ARC request.** Show Submitted, In review, Decision (with the board's note), or Withdrawn. Reuse `Timeline` from the resident violation view. Files: `resident/arc/[id]/page.tsx`, `lib/resident-submissions.ts`. Effort 1.
+2. **Agenda builder.** Add "Insert standard agenda" to the schedule and edit pages. It carries open action items in, and adds the § 44-3-230 owners' report line for Georgia annual meetings. Files: `ScheduleMeetingForm.tsx`, `meetings/[id]/edit/`, new `lib/meetings/agenda-template.ts`. Effort 2.
+3. **Printable payment receipt for residents.** Add a "Receipt" link on each payment in `/resident/dues/ledger`. It opens `/resident/dues/receipt/[id]`. Check resident RLS first. Effort 2.
+4. **Summary strips on /violations and /arc.** Counts link to their filters. Promote `SummaryStrip` to shared components. Effort 2.
+5. **Settings General as a setup hub.** Cards show each section's state with a link. Effort 2.
+6. **Meeting detail: two columns.** Agenda or minutes on the left, with a "Meeting kit" rail on the right. Builds on item 2. Effort 2.
+7. **BL-172 SEO batch 9: FL, CA and TX starters.** Quote fixtures only. Check the CA verification doc before making any CA claim. Effort 2.
+8. **Website state hubs `/states/[state]` for FL, CA and TX.** These replace the anchor links. Effort 2.
+
+**Dropped:**
+- Cure-deadline reminder emails need a marker table.
+- Work orders need a migration.
+- Owner statement, properties pages, /security, /compare and the resident dues pages are already good.
+- Quiet hours, ballots and polls need a migration.
+
+## Ranked open work — round 10 (2026-10-30, code-verified) — Done 2026-10-30 (all 8)
 
 Checked at 929e9527. None of these needs a migration or an owner action. The order mixes product work with visible UI/UX, per the owner on 2026-10-30.
 
