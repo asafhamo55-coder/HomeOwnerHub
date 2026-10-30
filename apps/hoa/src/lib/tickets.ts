@@ -7,6 +7,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { notifyResidentAfterResponse } from '@/lib/resident-notify/notify'
+import { summarizeTickets, ticketSearchPattern, type TicketSummary } from '@/lib/tickets-board'
+import { orgTimeZone } from '@/lib/association-time-server'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
@@ -95,6 +97,10 @@ export type TicketBoardPage =
       openCount: number
       /** Per-status totals across the association (for the filter chips). */
       statusCounts: Record<TicketStatus, number>
+      /** Strip counts over all open tickets, whatever the filter or search. Null when their reads failed. */
+      summary: TicketSummary | null
+      /** The association timezone the ages are counted in. */
+      timeZone: string
     }
   | { ok: false }
 
@@ -102,8 +108,10 @@ export async function listTicketsForBoard(opts: {
   page: number
   pageSize: number
   status?: TicketStatus
+  /** Free text matched against the subject and the resident or unit label. */
+  q?: string
 }): Promise<TicketBoardPage> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const from = (opts.page - 1) * opts.pageSize
   let query = supabase
@@ -116,6 +124,32 @@ export async function listTicketsForBoard(opts: {
     .order('created_at', { ascending: false })
   if (opts.status) query = query.eq('status', opts.status)
 
+  const pattern = ticketSearchPattern(opts.q)
+  if (pattern) {
+    // Residents and units live in related tables: find their ids first, then
+    // OR them with the subject match. Both lookups are capped.
+    const [people, units] = await Promise.all([
+      supabase
+        .from('profiles' as never)
+        .select('id')
+        .or(`full_name.ilike.${pattern},email.ilike.${pattern}`)
+        .limit(200),
+      supabase
+        .from('units' as never)
+        .select('id')
+        .ilike('unit_number' as never, pattern)
+        .limit(200),
+    ])
+    if (people.error || units.error) return { ok: false }
+    const idsOf = (rows: unknown) => ((rows ?? []) as { id: string }[]).map((r) => r.id)
+    const clauses = [`subject.ilike.${pattern}`]
+    const personIds = idsOf(people.data)
+    const unitIds = idsOf(units.data)
+    if (personIds.length) clauses.push(`submitted_by.in.(${personIds.join(',')})`)
+    if (unitIds.length) clauses.push(`unit_id.in.(${unitIds.join(',')})`)
+    query = query.or(clauses.join(','))
+  }
+
   const countFor = (status: TicketStatus) =>
     loadOrFail(
       `${status} ticket count`,
@@ -126,13 +160,43 @@ export async function listTicketsForBoard(opts: {
         .eq('status', status),
     )
 
-  const [list, open, inProgress, closed] = await Promise.all([
+  const [list, open, inProgress, closed, openRows, assignedRows, timeZone] = await Promise.all([
     loadOrFail('tickets', query.range(from, from + opts.pageSize - 1)),
     countFor('open'),
     countFor('in_progress'),
     countFor('closed'),
+    loadOrFail(
+      'open tickets',
+      supabase
+        .from('tickets' as never)
+        .select('id, created_at')
+        .eq('organization_id', org.id)
+        .is('deleted_at', null)
+        .in('status', ['open', 'in_progress'])
+        .limit(2000),
+    ),
+    loadOrFail(
+      'assigned ticket action items',
+      supabase
+        .from('meeting_action_items' as never)
+        .select('ticket_id')
+        .eq('org_id', org.id)
+        .not('ticket_id' as never, 'is', null)
+        .not('assignee_name' as never, 'is', null)
+        .limit(5000),
+    ),
+    orgTimeZone(supabase, org.id),
   ])
   if (!list.ok || !open.ok || !inProgress.ok || !closed.ok) return { ok: false }
+  // The strip is secondary: if its reads fail the list still renders and the tiles show a dash.
+  const summary =
+    openRows.ok && assignedRows.ok
+      ? summarizeTickets(
+          (openRows.data ?? []) as unknown as { id: string; created_at: string }[],
+          ((assignedRows.data ?? []) as unknown as { ticket_id: string }[]).map((r) => r.ticket_id),
+          timeZone,
+        )
+      : null
   const statusCounts: Record<TicketStatus, number> = {
     open: open.count ?? 0,
     in_progress: inProgress.count ?? 0,
@@ -157,6 +221,8 @@ export async function listTicketsForBoard(opts: {
     total: list.count ?? rows.length,
     openCount: statusCounts.open + statusCounts.in_progress,
     statusCounts,
+    summary,
+    timeZone,
     rows: rows.map((r) => ({
       id: r.id,
       unit_id: r.unit_id,
