@@ -39,6 +39,7 @@ import { paymentDay } from '@/lib/resident-ledger'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 import { WhoOwesPanel } from './WhoOwesPanel'
+import { parseAgingParam } from '@/lib/dues/aging'
 import { asPropertyId, asUnitId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { propertyHref } from '@/lib/properties/href'
 import { loadPropertyScope } from '@/lib/property-scope'
@@ -79,7 +80,7 @@ interface AssessmentRow {
 export default async function DuesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; property?: string }>
+  searchParams: Promise<{ page?: string; property?: string; aging?: string }>
 }) {
   // BL-046: "none yet" gets a working next step (create it inline, or —
   // for a board member — find an admin); a failed read is LoadFailed, not
@@ -271,7 +272,7 @@ export default async function DuesPage({
           charge plus its owners, and the charges table below needs none
           of it, so it no longer holds the whole page. */}
       <Suspense fallback={<WhoOwesSkeleton />}>
-        <WhoOwesPanel associationId={assoc.id} timeZone={assoc.timeZone} />
+        <WhoOwesPanel associationId={assoc.id} timeZone={assoc.timeZone} aging={parseAgingParam(sp.aging)} />
       </Suspense>
 
       {scope ? (
