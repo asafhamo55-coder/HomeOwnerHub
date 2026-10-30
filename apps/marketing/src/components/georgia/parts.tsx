@@ -50,7 +50,7 @@ export function NotLegalAdvice() {
   )
 }
 
-export function RelatedLinks({ slugs, title = 'Keep reading' }: { slugs: readonly string[]; title?: string }) {
+export function RelatedLinks({ slugs, title = 'Keep reading', hub }: { slugs: readonly string[]; title?: string; hub?: { href: string; label: string } }) {
   return (
     <section aria-labelledby="related-heading" className="print:hidden">
       <h2 id="related-heading" className="t-h3 text-foreground">
@@ -74,8 +74,8 @@ export function RelatedLinks({ slugs, title = 'Keep reading' }: { slugs: readonl
         })}
       </ul>
       <p className="mt-5 text-sm">
-        <Link href={GEORGIA_HUB_PATH} className="font-semibold text-primary hover:underline">
-          All Georgia guides and tools
+        <Link href={hub?.href ?? GEORGIA_HUB_PATH} className="font-semibold text-primary hover:underline">
+          {hub?.label ?? 'All Georgia guides and tools'}
         </Link>
       </p>
     </section>

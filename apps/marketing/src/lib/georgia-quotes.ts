@@ -6,6 +6,9 @@ export type QuoteFixture =
   | 'ga-ocga-44-3-art6-2026.txt'
   | 'ga-ocga-44-3-art3-2026.txt'
   | 'ga-ocga-14-3-2026.txt'
+  | 'flsenate-ch720-2026.html'
+  | 'tx-prop-209-0062-2026.txt'
+  | 'ca-civ-davis-stirling-2026.txt'
 
 export interface StatuteQuote {
   cite: string
@@ -14,7 +17,10 @@ export interface StatuteQuote {
   quote: string
 }
 
+import { STATE_QUOTES } from './state-quotes'
+
 export const QUOTES = {
+  ...STATE_QUOTES,
   regRequired: {
     cite: "O.C.G.A. § 43-17A-2(a)(1) (SB 406 § 2)",
     fixture: "ga-sb406-2026-2027-text.txt",

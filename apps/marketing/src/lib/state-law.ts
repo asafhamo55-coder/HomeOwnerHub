@@ -188,6 +188,20 @@ export const STATE_CARDS: readonly StateCard[] = [
   },
 ]
 
+/**
+ * Guides about each non-Georgia state's law (BL-172 batch 9), listed on that
+ * state's /states card. Slugs are guides in lib/georgia (state-quotes.ts holds
+ * the verbatim statute text). Another change will add /states/[state] hubs.
+ */
+export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string; label: string }[]>> = {
+  FL: [
+    { href: '/guides/florida-hoa-fine-hearing-committee', label: 'Florida fine hearings and the committee' },
+    { href: '/guides/florida-hoa-estoppel-certificate-rules', label: 'Florida estoppel certificates' },
+  ],
+  CA: [{ href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' }],
+  TX: [{ href: '/guides/texas-hoa-payment-plans-and-payment-priority', label: 'Texas payment plans and payment priority' }],
+}
+
 /** Routes behind STATE_COVERAGE items outside Georgia, for the truth test. */
 export const OTHER_STATE_ROUTES: readonly string[] = [
   '/properties/[id]/estoppel',

@@ -10,6 +10,7 @@ import { AI_MEETING_MINUTES, AI_VIOLATION_LETTERS } from './guides-f'
 import { CERTIFIED_MAIL_COLLECTIONS, CPA_ATTORNEY_ACCESS } from './guides-g'
 import { OVERPAYMENTS_CREDITS, PAYMENT_ORDER } from './guides-h'
 import { AMEND_COVENANTS, LIEN_RULES, WRITTEN_BALLOTS } from './guides-i'
+import { CA_FINE_HEARING, FL_ESTOPPEL, FL_FINE_HEARING, TX_PAYMENT_PLANS } from './guides-j'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -32,7 +33,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -195,6 +196,34 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: pathOf(LIEN_RULES),
     title: 'Georgia HOA assessment lien rules explained',
     blurb: LIEN_RULES.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: FL_FINE_HEARING.slug,
+    path: pathOf(FL_FINE_HEARING),
+    title: 'Florida HOA fine hearings: the 14-day notice and the committee',
+    blurb: FL_FINE_HEARING.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: FL_ESTOPPEL.slug,
+    path: pathOf(FL_ESTOPPEL),
+    title: 'Florida HOA estoppel certificates: deadline, fees and validity',
+    blurb: FL_ESTOPPEL.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: TX_PAYMENT_PLANS.slug,
+    path: pathOf(TX_PAYMENT_PLANS),
+    title: 'Texas HOA payment plans and the order payments are applied',
+    blurb: TX_PAYMENT_PLANS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: CA_FINE_HEARING.slug,
+    path: pathOf(CA_FINE_HEARING),
+    title: 'California HOA fines: the $100 cap and the hearing before discipline',
+    blurb: CA_FINE_HEARING.summary[0]!,
     kind: 'guide',
   },
   {

@@ -13,7 +13,7 @@ export function formatDate(iso: string): string {
 export function GuidePage({ guide }: { guide: Guide }) {
   const path = pathOf(guide)
   const general = !path.startsWith('/georgia/')
-  const trail = general ? [{ name: 'Home', href: '/' }] : [{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }]
+  const trail = guide.state ? [{ name: 'Home', href: '/' }, { name: 'State laws', href: '/states' }] : general ? [{ name: 'Home', href: '/' }] : [{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }]
   return (
     <>
       <Nav />
@@ -132,7 +132,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
             </section>
 
             <div className="mt-14">
-              <RelatedLinks slugs={guide.related} />
+              <RelatedLinks slugs={guide.related} hub={guide.state ? { href: '/states', label: 'All state laws' } : undefined} />
             </div>
           </div>
         </div>

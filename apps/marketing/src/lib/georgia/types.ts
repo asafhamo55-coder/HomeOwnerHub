@@ -52,6 +52,8 @@ export interface Guide {
   hoaDoesNot?: string
   /** Pages outside /georgia (BL-172 batch 2): the page's own path. Default /georgia/<slug>. */
   path?: string
+  /** Set on a guide about another state's law (BL-172 batch 9): the closing links point at /states, not /georgia. */
+  state?: 'FL' | 'TX' | 'CA'
   /** Emit HowTo JSON-LD built from `steps`. */
   howTo?: boolean
 }
