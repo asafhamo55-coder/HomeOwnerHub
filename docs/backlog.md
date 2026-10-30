@@ -2046,7 +2046,25 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
-## Ranked open work — round 11 (2026-10-30, code-verified)
+## Ranked open work — round 12 (2026-10-30, code-verified)
+
+None of these need a migration or an owner action. OA-19 stays the owner's decision, so item 1 is view-only.
+
+1. **Vendor insurance (COI) attention strip and filter chips.** Expired, expiring within 30 days, missing, all clear. View only. Effort 2.
+2. **Board document library: search and type chips.** Reuse the resident `SearchForm` pattern. Effort 1.
+3. **Violation photo viewer with previous and next.** One viewer shared by the board and resident pages. Effort 2.
+4. **Tickets list: summary strip, search and an age column.** Effort 2.
+5. **Resident ARC form: a "what to include" checklist per category.** Effort 1.
+6. **Accounting overview: a budget-vs-actual mini panel.** Show the top 3 over-budget lines, with a link to the full report. Effort 2.
+7. **BL-172 SEO batch 10.** Florida official records (§ 720.303), California records (§ 5200 and following), and the Texas management certificate (§ 209.004). Effort 2.
+8. **Homepage FAQ with FAQPage JSON-LD.** Reuse the pricing FAQ. Effort 1.
+
+**Dropped:**
+- Already exist: task assignment, budget-vs-actual report, resident document search, inbox empty states.
+- No code base yet: resident directory.
+- Owner decision: COI emails (OA-19).
+
+## Ranked open work — round 11 (2026-10-30, code-verified) — Done 2026-10-30 (all 8)
 
 None of these needs a migration or an owner action. Product work and visible UI are mixed, per the owner.
 
