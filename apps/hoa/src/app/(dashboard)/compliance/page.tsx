@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ExternalLink, FileCheck2, Scale } from 'lucide-react'
+import { CalendarPlus, ExternalLink, FileCheck2, Scale } from 'lucide-react'
 import {
   Alert,
   Button,
@@ -132,6 +132,14 @@ export default async function CompliancePage() {
 
   return (
     <Page title="Compliance" description={DESCRIPTION} linkAs={Link}>
+      <div>
+        <Button asChild variant="secondary">
+          <a href="/compliance/calendar" download>
+            <CalendarPlus className="size-4" aria-hidden /> Add to my calendar (.ics)
+          </a>
+        </Button>
+      </div>
+
       {overview.overdue.length > 0 ? (
         <Alert variant="error" title={overview.overdue.length === 1 ? '1 obligation is overdue' : `${overview.overdue.length} obligations are overdue`}>
           <ul className="mt-1 space-y-1">

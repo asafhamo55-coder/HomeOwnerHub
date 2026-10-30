@@ -73,19 +73,9 @@ function nextDay(day: string): string {
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 
-/** The .ics text (CRLF line endings) for one event. */
-export function buildIcs(event: IcsEvent): string {
+function eventLines(event: IcsEvent): string[] {
   if (!DAY_RE.test(event.date)) throw new Error('buildIcs: date must be YYYY-MM-DD')
-  const lines: string[] = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//HomeownerHub//Meeting notice//EN',
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
-    'BEGIN:VEVENT',
-    `UID:${escapeIcsText(event.uid)}`,
-    `DTSTAMP:${utcStamp(event.now ?? new Date())}`,
-  ]
+  const lines: string[] = ['BEGIN:VEVENT', `UID:${escapeIcsText(event.uid)}`, `DTSTAMP:${utcStamp(event.now ?? new Date())}`]
   if (event.start && !Number.isNaN(event.start.at.getTime())) {
     const end = new Date(event.start.at.getTime() + Math.max(1, event.start.minutes) * 60_000)
     lines.push(`DTSTART:${utcStamp(event.start.at)}`, `DTEND:${utcStamp(end)}`)
@@ -96,6 +86,25 @@ export function buildIcs(event: IcsEvent): string {
   if (event.location?.trim()) lines.push(`LOCATION:${escapeIcsText(event.location.trim())}`)
   if (event.description?.trim()) lines.push(`DESCRIPTION:${escapeIcsText(event.description.trim())}`)
   if (event.url?.trim()) lines.push(`URL:${event.url.trim().replace(/[\r\n]/g, '')}`)
-  lines.push('END:VEVENT', 'END:VCALENDAR')
+  lines.push('END:VEVENT')
+  return lines
+}
+
+/** The .ics text (CRLF line endings) for any number of events. */
+export function buildIcsCalendar(events: readonly IcsEvent[], opts: { prodId?: string } = {}): string {
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:${opts.prodId ?? '-//HomeownerHub//Meeting notice//EN'}`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    ...events.flatMap(eventLines),
+    'END:VCALENDAR',
+  ]
   return lines.map(foldIcsLine).join('\r\n') + '\r\n'
+}
+
+/** The .ics text (CRLF line endings) for one event. */
+export function buildIcs(event: IcsEvent): string {
+  return buildIcsCalendar([event])
 }
