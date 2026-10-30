@@ -16,6 +16,8 @@ import { ElectronicNotices } from './ElectronicNotices'
 import { TextMessages } from './TextMessages'
 import { loadTextMessagesState, type TextMessagesState } from '@/lib/sms-consent'
 import { createAdminClient } from '@homeowner-portal/db'
+import { StatusChips } from './StatusChips'
+import { statusChips } from './status-chips'
 import { MessageLanguage } from './MessageLanguage'
 import { loadMyLanguage, type LanguageState } from '@/lib/language-preference'
 
@@ -108,22 +110,27 @@ export default async function ResidentAccountPage() {
     ...new Set(units.map((u) => u.association_name).filter((n): n is string => n != null && n !== '')),
   ]
 
+  const unitLabels = units.map((u) => u.unit_number ?? u.address).filter((v): v is string => !!v)
+
   return (
     <div className="space-y-8">
       <ScreenHeader title="Account" />
 
       {/* Identity */}
-      <Panel className="flex items-center gap-4">
+      <Panel className="space-y-4">
+        <div className="flex items-center gap-4">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-lg font-semibold text-primary">
           {initialsFrom(fullName || email || 'R')}
         </span>
         <div className="min-w-0">
           <p className="truncate text-lg font-semibold text-foreground">{displayName}</p>
           {email ? <p className="truncate text-sm text-muted">{email}</p> : null}
-          {communities.length > 0 ? (
-            <p className="mt-0.5 truncate text-xs text-muted">{communities.join(' · ')}</p>
+          {communities.length > 0 || unitLabels.length > 0 ? (
+            <p className="mt-0.5 truncate text-xs text-muted">{[...communities, ...unitLabels].join(' · ')}</p>
           ) : null}
         </div>
+        </div>
+        <StatusChips chips={statusChips({ consent, texts, language })} />
       </Panel>
 
       {/* Homes */}
