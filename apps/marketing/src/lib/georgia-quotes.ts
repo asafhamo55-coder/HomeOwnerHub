@@ -9,6 +9,7 @@ export type QuoteFixture =
   | 'flsenate-ch720-2026.html'
   | 'tx-prop-209-0062-2026.txt'
   | 'tx-prop-209-004-2026.txt'
+  | 'tx-prop-207-2026.txt'
   | 'ca-civ-davis-stirling-2026.txt'
 
 export interface StatuteQuote {

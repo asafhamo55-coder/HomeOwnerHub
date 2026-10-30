@@ -12,6 +12,7 @@ const FL = 'flsenate-ch720-2026.html'
 const TX = 'tx-prop-209-0062-2026.txt'
 const CA = 'ca-civ-davis-stirling-2026.txt'
 const TX4 = 'tx-prop-209-004-2026.txt'
+const TX7 = 'tx-prop-207-2026.txt'
 
 export const STATE_QUOTES = {
   // Florida: estoppel certificates, Fla. Stat. § 720.30851
@@ -481,5 +482,91 @@ export const STATE_QUOTES = {
     cite: 'Tex. Prop. Code § 209.004(f)',
     fixture: TX4,
     quote: "For purposes of this section, \"bona fide purchaser\" means:",
+  },
+  // Texas: resale certificate, Tex. Prop. Code ch. 207 (BL-172 batch 11)
+  txResaleDeadline: {
+    cite: 'Tex. Prop. Code § 207.003(a)',
+    fixture: TX7,
+    quote: "Not later than the 10th business day after the date a written request for subdivision information is received from an owner or the owner's agent, a purchaser of property in a subdivision or the purchaser's agent, or a title insurance company or its agent acting on behalf of the owner or purchaser and the evidence of the requestor's authority to order a resale certificate under Subsection (a-1) is received and verified, the property owners' association shall deliver to the owner or the owner's agent, the purchaser or the purchaser's agent, or the title insurance company or its agent:",
+  },
+  txResaleFresh: {
+    cite: 'Tex. Prop. Code § 207.003(a)(3)',
+    fixture: TX7,
+    quote: "a resale certificate prepared not earlier than the 60th day before the date the certificate is delivered that complies with Subsection (b).",
+  },
+  txResaleContents: {
+    cite: 'Tex. Prop. Code § 207.003(b)',
+    fixture: TX7,
+    quote: "A resale certificate under Subsection (a) must contain:",
+  },
+  txResaleAssessments: {
+    cite: 'Tex. Prop. Code § 207.003(b)(2)',
+    fixture: TX7,
+    quote: "the frequency and amount of any regular assessments;",
+  },
+  txResaleOwed: {
+    cite: 'Tex. Prop. Code § 207.003(b)(4)',
+    fixture: TX7,
+    quote: "the total of all amounts due and unpaid to the property owners' association that are attributable to the owner's property;",
+  },
+  txResaleReserves: {
+    cite: 'Tex. Prop. Code § 207.003(b)(6)',
+    fixture: TX7,
+    quote: "the amount of reserves, if any, for capital expenditures;",
+  },
+  txResaleBudget: {
+    cite: 'Tex. Prop. Code § 207.003(b)(7)',
+    fixture: TX7,
+    quote: "the property owners' association's current operating budget and balance sheet;",
+  },
+  txResaleViolations: {
+    cite: 'Tex. Prop. Code § 207.003(b)(11)',
+    fixture: TX7,
+    quote: "a description of any conditions on the owner's property that the property owners' association board has actual knowledge are in violation of the restrictions applying to the subdivision or the bylaws or rules of the property owners' association;",
+  },
+  txResaleTransferFees: {
+    cite: 'Tex. Prop. Code § 207.003(b)(16)',
+    fixture: TX7,
+    quote: "a statement of all fees associated with the transfer of ownership, including a description of each fee, to whom each fee is paid, and the amount of each fee.",
+  },
+  txResaleFee: {
+    cite: 'Tex. Prop. Code § 207.003(c)',
+    fixture: TX7,
+    quote: "A property owners' association may charge a reasonable and necessary fee, not to exceed $375, to assemble, copy, and deliver the information required by this section and may charge a reasonable and necessary fee, not to exceed $75, to prepare and deliver an update of a resale certificate under Subsection (f).",
+  },
+  txResaleLateFee: {
+    cite: 'Tex. Prop. Code § 207.003(c-1)',
+    fixture: TX7,
+    quote: "The association may not charge a fee if the certificate is not provided in the time prescribed by Subsection (a).",
+  },
+  txResaleAddress: {
+    cite: 'Tex. Prop. Code § 207.003(d)',
+    fixture: TX7,
+    quote: "A written request that does not specify the name and location to which the information is to be sent is not effective.",
+  },
+  txResaleUpdate: {
+    cite: 'Tex. Prop. Code § 207.003(f)',
+    fixture: TX7,
+    quote: "Not later than the seventh business day after the date a written request for an update of a resale certificate delivered under Subsection (a) is received from an owner, owner's agent, or title insurance company or its agent acting on behalf of the owner, the property owners' association shall deliver to the owner, owner's agent, or title insurance company or its agent an updated resale certificate that contains the following information:",
+  },
+  txResaleUpdateWindow: {
+    cite: 'Tex. Prop. Code § 207.003(g)',
+    fixture: TX7,
+    quote: "Requests for an updated resale certificate pursuant to Subsection (f) must be made within 180 days of the date a resale certificate is issued under Subsection (a).",
+  },
+  txResaleSecond: {
+    cite: 'Tex. Prop. Code § 207.004(a)',
+    fixture: TX7,
+    quote: "If a property owners' association does not timely deliver information in accordance with Section 207.003, the owner, owner's agent, or title insurance company or its agent acting on behalf of the owner may submit a second request for the information.",
+  },
+  txResaleJudgment: {
+    cite: 'Tex. Prop. Code § 207.004(b)(1)(B)',
+    fixture: TX7,
+    quote: "a judgment against the property owners' association for not more than $5,000;",
+  },
+  txResaleCondo: {
+    cite: 'Tex. Prop. Code § 207.002(b)',
+    fixture: TX7,
+    quote: "This chapter does not apply to a condominium council of owners governed by Chapter 81 or a condominium unit owners' association governed by Chapter 82.",
   },
 } as const satisfies Record<string, StatuteQuote>

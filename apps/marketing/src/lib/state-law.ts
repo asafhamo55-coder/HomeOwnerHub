@@ -206,6 +206,7 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
   TX: [
     { href: '/guides/texas-hoa-payment-plans-and-payment-priority', label: 'Texas payment plans and payment priority' },
     { href: '/guides/texas-hoa-management-certificate', label: 'Texas management certificate' },
+    { href: '/guides/texas-hoa-resale-certificate-chapter-207', label: 'Texas resale certificate' },
   ],
 }
 

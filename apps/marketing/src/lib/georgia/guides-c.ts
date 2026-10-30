@@ -259,7 +259,7 @@ export const TREASURER_DUTIES: Guide = {
       a: 'The ledger, bank statements and reconciliations, the budget, the owner balances, vendor contracts, and written access to every account, with passwords moved to the new treasurer by the bank or provider.',
     },
   ],
-  related: ['late-fee-limits', 'hoa-board-meeting-agenda', 'self-managed-hoa-georgia-first-90-days', 'annual-meeting-notice-checklist', 'special-assessments', 'hoa-board-meeting-minutes'],
+  related: ['late-fee-limits', 'hoa-board-meeting-agenda', 'self-managed-hoa-georgia-first-90-days', 'annual-meeting-notice-checklist', 'special-assessments', 'hoa-board-meeting-minutes', 'hoa-annual-budget-worksheet', 'attorney-fee-notice-checklist'],
   hoaDoes: [
     {
       text: 'Bank statement import: for a bank that is not linked, upload a CSV, OFX or QFX file, preview it, and send the new transactions to the reconciliation queue. Re-importing the same file never adds a transaction twice.',
