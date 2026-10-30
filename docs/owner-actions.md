@@ -53,26 +53,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 2. Add `ANALYTICS_REPORT_TO` for **Production** and set it to the address that should get the email (for example your own inbox).
 3. Redeploy the project (or wait for the next deploy) so the job sees it.
 
-### OA-36 · Three read-only checks for the tenant-isolation audit
-
-**Urgency:** Soon
-
-**Why it matters:** a security audit (BL-175) checked that one association can never see another's data. The code and migrations look sound for plain reads. A few things live only in your dashboards, and Claude can't see them. Nothing here changes anything.
-
-**Progress (2026-10-30):** step 1 passed: all 4 storage buckets are private and no tables are published to realtime. Steps 2 and 3 are still open.
-
-**Steps:**
-
-1. **Supabase SQL editor (production), read-only.** Paste this one query and send Claude the result (it shows only ids, names and true/false):
-   `SELECT 'bucket' AS kind, id AS name, public::text AS value FROM storage.buckets UNION ALL SELECT 'realtime', schemaname||'.'||tablename, 'published' FROM pg_publication_tables WHERE pubname='supabase_realtime';`
-   Expected: every bucket `false` (not public), and no realtime rows (or tell Claude which).
-2. **Supabase → Authentication → Providers → Email:** is **"Confirm email"** turned on? Tell Claude yes or no.
-3. **Vercel, project home-owner-hub-hoa → Settings → Environment Variables (Production):** tell Claude (names only, never values) whether these exist:
-   - `INNGEST_SIGNING_KEY`: should be set.
-   - `INNGEST_DEV`: should not exist.
-   - `DEV_AUTOLOGIN`: should not exist.
-   - `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`: should be set (see OA-26). Today the app's signed settings fall back to the database service key.
-
 ### OA-35 · Turn on website analytics and Google Search Console
 
 **Urgency:** Soon
@@ -347,6 +327,26 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-36 · Three read-only checks for the tenant-isolation audit
+
+**Urgency:** Soon
+
+**Why it matters:** a security audit (BL-175) checked that one association can never see another's data. The code and migrations look sound for plain reads. A few things live only in your dashboards, and Claude can't see them. Nothing here changes anything.
+
+**Done 2026-10-30:** all 4 storage buckets are private and nothing is published to realtime. "Confirm email" is on. In Vercel Production, `INNGEST_SIGNING_KEY` is set, and `INNGEST_DEV` and `DEV_AUTOLOGIN` don't exist. `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET` are not set yet; they are tracked in OA-26, which stays open. Mailbox Sync shows the new `*/5` schedule.
+
+**Steps:**
+
+1. **Supabase SQL editor (production), read-only.** Paste this one query and send Claude the result (it shows only ids, names and true/false):
+   `SELECT 'bucket' AS kind, id AS name, public::text AS value FROM storage.buckets UNION ALL SELECT 'realtime', schemaname||'.'||tablename, 'published' FROM pg_publication_tables WHERE pubname='supabase_realtime';`
+   Expected: every bucket `false` (not public), and no realtime rows (or tell Claude which).
+2. **Supabase → Authentication → Providers → Email:** is **"Confirm email"** turned on? Tell Claude yes or no.
+3. **Vercel, project home-owner-hub-hoa → Settings → Environment Variables (Production):** tell Claude (names only, never values) whether these exist:
+   - `INNGEST_SIGNING_KEY`: should be set.
+   - `INNGEST_DEV`: should not exist.
+   - `DEV_AUTOLOGIN`: should not exist.
+   - `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`: should be set (see OA-26). Today the app's signed settings fall back to the database service key.
 
 ### OA-39 · Retire 9 old Georgia law summaries the refresh doesn't manage
 
