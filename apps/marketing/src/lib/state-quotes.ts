@@ -11,6 +11,7 @@ import type { StatuteQuote } from './georgia-quotes'
 const FL = 'flsenate-ch720-2026.html'
 const TX = 'tx-prop-209-0062-2026.txt'
 const CA = 'ca-civ-davis-stirling-2026.txt'
+const TX4 = 'tx-prop-209-004-2026.txt'
 
 export const STATE_QUOTES = {
   // Florida: estoppel certificates, Fla. Stat. § 720.30851
@@ -309,5 +310,176 @@ export const STATE_QUOTES = {
     cite: 'Cal. Civ. Code § 5865',
     fixture: CA,
     quote: "Nothing in Section 5850 or 5855 shall be construed to create, expand, or reduce the authority of the board to impose monetary penalties on a member for a violation of the governing documents.",
+  },
+
+  // Florida: official records, Fla. Stat. § 720.303(5) (BL-172 batch 10)
+  flRecInspect: {
+    cite: 'Fla. Stat. § 720.303(5)(a)',
+    fixture: FL,
+    quote: "Unless otherwise provided by law or the governing documents of the association, the official records must be maintained within this state for at least 7 years and be made available to a parcel owner for inspection or photocopying within 45 miles of the community or within the county in which the association is located within 10 business days after receipt by the board or its designee of a written request from the parcel owner.",
+  },
+  flRecElectronic: {
+    cite: 'Fla. Stat. § 720.303(5)(a)',
+    fixture: FL,
+    quote: "This subsection may be complied with by having a copy of the official records available for inspection or copying in the community or by making the records available to a parcel owner electronically via the Internet or by allowing the records to be viewed in electronic format on a computer screen and printed upon request.",
+  },
+  flRecDevice: {
+    cite: 'Fla. Stat. § 720.303(5)(a)',
+    fixture: FL,
+    quote: "An association shall allow a member or his or her authorized representative to use a portable device, including a smartphone, tablet, portable scanner, or any other technology capable of scanning or taking photographs, to make an electronic copy of the official records in lieu of the association’s providing the member or his or her authorized representative with a copy of such records. The association may not charge a fee to a member or his or her authorized representative for the use of a portable device.",
+  },
+  flRecPresumption: {
+    cite: 'Fla. Stat. § 720.303(5)(b)',
+    fixture: FL,
+    quote: "The failure of an association to provide access to the records within 10 business days after receipt of a written request submitted by certified mail, return receipt requested, creates a rebuttable presumption that the association willfully failed to comply with this subsection.",
+  },
+  flRecDamages: {
+    cite: 'Fla. Stat. § 720.303(5)(c)',
+    fixture: FL,
+    quote: "A member denied access to official records is entitled to the actual damages or minimum damages for the association’s willful failure to comply with this subsection. The minimum damages are to be $50 per calendar day up to 10 days, the calculation to begin on the 11th business day after receipt of the written request.",
+  },
+  flRecCriminal: {
+    cite: 'Fla. Stat. § 720.303(5)(d)',
+    fixture: FL,
+    quote: "Any director or member of the board or association or a community association manager who knowingly, willfully, and repeatedly violates paragraph (a), with the intent of causing harm to the association or one or more of its members, commits a misdemeanor of the second degree, punishable as provided in s. 775.082 or s. 775.083.",
+  },
+  flRecRules: {
+    cite: 'Fla. Stat. § 720.303(5)(g)',
+    fixture: FL,
+    quote: "The association may adopt reasonable written rules governing the frequency, time, location, notice, records to be inspected, and manner of inspections, but may not require a parcel owner to demonstrate any proper purpose for the inspection, state any reason for the inspection, or limit a parcel owner’s right to inspect records to less than one 8-hour business day per month.",
+  },
+  flRecFees: {
+    cite: 'Fla. Stat. § 720.303(5)(g)',
+    fixture: FL,
+    quote: "The association may impose fees to cover the costs of providing copies of the official records, including the costs of copying and the costs required for personnel to retrieve and copy the records if the time spent retrieving and copying the records exceeds one-half hour and if the personnel costs do not exceed $20 per hour. Personnel costs may not be charged for records requests that result in the copying of 25 or fewer pages. The association may charge up to 25 cents per page for copies made on the association’s photocopier.",
+  },
+  flRecNotAccessible: {
+    cite: 'Fla. Stat. § 720.303(5)(g)',
+    fixture: FL,
+    quote: "Notwithstanding this subsection, the following records are not accessible to members or parcel owners:",
+  },
+  flRecPersonal: {
+    cite: 'Fla. Stat. § 720.303(5)(g)6.',
+    fixture: FL,
+    quote: "Social security numbers, driver license numbers, credit card numbers, electronic mailing addresses, telephone numbers, facsimile numbers, emergency contact information, any addresses for a parcel owner other than as provided for association notice requirements, and other personal identifying information of any person, excluding the person’s name, parcel designation, mailing address, and property address.",
+  },
+
+  // California: association records, Civ. Code §§ 5200, 5210, 5220 (BL-172 batch 10)
+  caRecDef: {
+    cite: 'Cal. Civ. Code § 5200(a)',
+    fixture: CA,
+    quote: "“Association records” means all of the following:",
+  },
+  caRecMinutes: {
+    cite: 'Cal. Civ. Code § 5200(a)(8)',
+    fixture: CA,
+    quote: "Agendas and minutes of meetings of the members, the board, and any committees appointed by the board pursuant to Section 7212 of the Corporations Code; excluding, however, minutes and other information from executive sessions of the board as described in Article 2 (commencing with Section 4900).",
+  },
+  caRecMembers: {
+    cite: 'Cal. Civ. Code § 5200(a)(9)',
+    fixture: CA,
+    quote: "Membership lists, including name, property address, mailing address, email address, as collected by the association in accordance with Section 4041 where applicable, but not including information for members who have opted out pursuant to Section 5220.",
+  },
+  caRecEnhanced: {
+    cite: 'Cal. Civ. Code § 5200(b)',
+    fixture: CA,
+    quote: "“Enhanced association records” means invoices, receipts, and canceled checks for payments made by the association, purchase orders approved by the association, bank account statements for bank accounts in which assessments are deposited or withdrawn, credit card statements for credit cards issued in the name of the association, statements for services rendered, and reimbursement requests submitted to the association.",
+  },
+  caRecElection: {
+    cite: 'Cal. Civ. Code § 5200(c)',
+    fixture: CA,
+    quote: "Signed voter envelopes may be inspected but may not be copied. An association shall maintain association election materials for one year after the date of the election.",
+  },
+  caRecPeriod: {
+    cite: 'Cal. Civ. Code § 5210(a)(1)',
+    fixture: CA,
+    quote: "For the current fiscal year and for each of the previous two fiscal years.",
+  },
+  caRecMinutesForever: {
+    cite: 'Cal. Civ. Code § 5210(a)(2)',
+    fixture: CA,
+    quote: "Notwithstanding paragraph (1), minutes of member and board meetings are subject to inspection permanently.",
+  },
+  caRecCurrent: {
+    cite: 'Cal. Civ. Code § 5210(b)(1)',
+    fixture: CA,
+    quote: "Association records prepared during the current fiscal year, within 10 business days following the association’s receipt of the request.",
+  },
+  caRecPrevious: {
+    cite: 'Cal. Civ. Code § 5210(b)(2)',
+    fixture: CA,
+    quote: "Association records prepared during the previous two fiscal years, within 30 calendar days following the association’s receipt of the request.",
+  },
+  caRecMemberList: {
+    cite: 'Cal. Civ. Code § 5210(b)(6)',
+    fixture: CA,
+    quote: "Membership list, within the timeframe specified in Section 8330 of the Corporations Code.",
+  },
+  caRecOptOut: {
+    cite: 'Cal. Civ. Code § 5220',
+    fixture: CA,
+    quote: "A member of the association may opt out of the sharing of that member’s name, property address, email address, and mailing address by notifying the association in writing that the member prefers to be contacted via the alternative process described in subdivision (c) of Section 8330 of the Corporations Code.",
+  },
+
+  // Texas: management certificates, Tex. Prop. Code § 209.004 (BL-172 batch 10)
+  txMcRecord: {
+    cite: 'Tex. Prop. Code § 209.004(a)',
+    fixture: TX4,
+    quote: "A property owners' association shall record in each county in which any portion of the residential subdivision is located a management certificate, signed and acknowledged by an officer or the managing agent of the association, stating:",
+  },
+  txMcContact: {
+    cite: 'Tex. Prop. Code § 209.004(a)(6)',
+    fixture: TX4,
+    quote: "the name, mailing address, telephone number, and e-mail address of the person managing the association or the association's designated representative;",
+  },
+  txMcWebsite: {
+    cite: 'Tex. Prop. Code § 209.004(a)(7)',
+    fixture: TX4,
+    quote: "the website address of any Internet website on which the association's dedicatory instruments are available in accordance with Section 207.006;",
+  },
+  txMcTransferFee: {
+    cite: 'Tex. Prop. Code § 209.004(a)(8)',
+    fixture: TX4,
+    quote: "the amount and description of a fee or fees charged by the association relating to a property transfer in the subdivision; and",
+  },
+  txMcClerk: {
+    cite: 'Tex. Prop. Code § 209.004(a-1)',
+    fixture: TX4,
+    quote: "The county clerk of each county in which a management certificate is filed as required by this section shall record the management certificate in the real property records of the county and index the document as a \"Property Owners' Association Management Certificate.\"",
+  },
+  txMcAmend: {
+    cite: 'Tex. Prop. Code § 209.004(b)',
+    fixture: TX4,
+    quote: "The property owners' association shall record an amended management certificate in each county in which any portion of the residential subdivision is located not later than the 30th day after the date the association has notice of a change in any information in the recorded certificate required by Subsection (a).",
+  },
+  txMcTrec: {
+    cite: 'Tex. Prop. Code § 209.004(b-1)',
+    fixture: TX4,
+    quote: "Not later than the seventh day after the date a property owners' association files a management certificate for recording under Subsection (a) or files an amended management certificate for recording under Subsection (b), the property owners' association shall electronically file the management certificate or amended management certificate with the Texas Real Estate Commission.",
+  },
+  txMcLiability: {
+    cite: 'Tex. Prop. Code § 209.004(c)',
+    fixture: TX4,
+    quote: "Except as provided under Subsections (d) and (e), the property owners' association and its officers, directors, employees, and agents are not subject to liability to any person for a delay in recording or failure to record a management certificate with a county clerk's office or electronically file the management certificate with the Texas Real Estate Commission, unless the delay or failure is wilful or caused by gross negligence.",
+  },
+  txMcPurchaser: {
+    cite: 'Tex. Prop. Code § 209.004(d)',
+    fixture: TX4,
+    quote: "If a property owners' association fails to record a management certificate or an amended management certificate under this section, the purchaser, lender, or title insurance company or its agent in a transaction involving property in the property owners' association is not liable to the property owners' association for:",
+  },
+  txMcLien: {
+    cite: 'Tex. Prop. Code § 209.004(e)',
+    fixture: TX4,
+    quote: "A lien of a property owners' association that fails to file a management certificate or an amended management certificate under this section to secure an amount due on the effective date of a transfer to a bona fide purchaser is enforceable only for an amount incurred after the effective date of sale.",
+  },
+  txMcOwnerFees: {
+    cite: 'Tex. Prop. Code § 209.004(e)',
+    fixture: TX4,
+    quote: "An owner is not liable for attorney's fees incurred by a property owners' association relating to the collection of a delinquent assessment against the owner or interest on the amount of a delinquent assessment if the attorney's fees are incurred by the association or the interest accrues during the period a management certificate is not recorded with a county clerk or electronically filed with the Texas Real Estate Commission as required by this section.",
+  },
+  txMcBfp: {
+    cite: 'Tex. Prop. Code § 209.004(f)',
+    fixture: TX4,
+    quote: "For purposes of this section, \"bona fide purchaser\" means:",
   },
 } as const satisfies Record<string, StatuteQuote>

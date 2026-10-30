@@ -11,6 +11,7 @@ import { CERTIFIED_MAIL_COLLECTIONS, CPA_ATTORNEY_ACCESS } from './guides-g'
 import { OVERPAYMENTS_CREDITS, PAYMENT_ORDER } from './guides-h'
 import { AMEND_COVENANTS, LIEN_RULES, WRITTEN_BALLOTS } from './guides-i'
 import { CA_FINE_HEARING, FL_ESTOPPEL, FL_FINE_HEARING, TX_PAYMENT_PLANS } from './guides-j'
+import { CA_RECORDS, FL_RECORDS, TX_MANAGEMENT_CERT } from './guides-k'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -33,7 +34,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -224,6 +225,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: pathOf(CA_FINE_HEARING),
     title: 'California HOA fines: the $100 cap and the hearing before discipline',
     blurb: CA_FINE_HEARING.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: FL_RECORDS.slug,
+    path: pathOf(FL_RECORDS),
+    title: 'Florida HOA official records: how an owner inspects them',
+    blurb: FL_RECORDS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: CA_RECORDS.slug,
+    path: pathOf(CA_RECORDS),
+    title: 'California HOA records: what members can inspect and how fast',
+    blurb: CA_RECORDS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: TX_MANAGEMENT_CERT.slug,
+    path: pathOf(TX_MANAGEMENT_CERT),
+    title: 'Texas HOA management certificate: what to record and when to update it',
+    blurb: TX_MANAGEMENT_CERT.summary[0]!,
     kind: 'guide',
   },
   {
