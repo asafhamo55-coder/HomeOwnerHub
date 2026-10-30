@@ -4,6 +4,7 @@ import { ArrowRight, Check, Clock, Sparkles } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
+import { FaqList } from '@/components/site/faq'
 import { ApprovalsScreen, AskScreen, DuesScreen } from '@/components/site/tour-screens'
 import { RoiCalculator } from '@/components/site/roi-calculator'
 import { cn } from '@/lib/cn'
@@ -238,19 +239,7 @@ export default function PricingPage() {
             <h2 className="t-h2 mt-4 text-foreground">Common questions.</h2>
           </div>
 
-          <div className="card mx-auto mt-12 max-w-3xl divide-y divide-border">
-            {faqs.map((f) => (
-              <details key={f.q} className="group p-6 md:px-8 [&_summary::-webkit-details-marker]:hidden">
-                <summary className="flex cursor-pointer items-center justify-between gap-4 rounded text-left text-[17px] font-semibold text-foreground">
-                  {f.q}
-                  <span className="text-xl text-muted transition-transform group-open:rotate-45" aria-hidden>
-                    ＋
-                  </span>
-                </summary>
-                <p className="mt-3 text-[15px] leading-relaxed text-foreground-secondary">{f.a}</p>
-              </details>
-            ))}
-          </div>
+          <FaqList items={faqs} />
 
           <div className="mt-16 text-center">
 <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
