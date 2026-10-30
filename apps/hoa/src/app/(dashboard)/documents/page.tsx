@@ -1,14 +1,17 @@
 import Link from 'next/link'
-import { FileText, Upload } from 'lucide-react'
+import { FileText, Search, Upload } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Badge,
   Button,
   DataTable,
   EmptyState,
+  FilterChips,
+  ListToolbar,
   LoadFailed,
   NoOrgSelected,
   Page,
+  SearchForm,
   StatusBadge,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
@@ -21,6 +24,7 @@ import {
   DOCUMENT_TYPE_LABELS,
   documentParseStatus,
 } from '@/lib/status/knowledge'
+import { LIBRARY_TYPES, filterDocs, parseLibraryType, searchDocs, typeCounts } from '@/lib/documents/filter'
 import { DocumentTabs, formatBytes } from '@/components/knowledge/DocumentTabs'
 
 export const metadata = { title: 'Documents' }
@@ -85,7 +89,14 @@ const columns: DataTableColumn<DocRow>[] = [
   },
 ]
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; type?: string }>
+}) {
+  const { q: rawQ, type: rawType } = await searchParams
+  const q = rawQ?.trim() ?? ''
+  const type = parseLibraryType(rawType)
   const org = await getCurrentOrg()
   if (!org) return <NoOrgSelected />
 
@@ -101,6 +112,16 @@ export default async function DocumentsPage() {
 
   const docs = result.ok ? ((result.data ?? []) as DocRow[]) : []
   const needsText = docs.filter((d) => !d.parsed_at).length
+  const counts = typeCounts(searchDocs(docs, q))
+  const shown = filterDocs(docs, q, type)
+  const filtered = Boolean(q || type)
+  const hrefFor = (t: string | null) => {
+    const p = new URLSearchParams()
+    if (q) p.set('q', q)
+    if (t) p.set('type', t)
+    const qs = p.toString()
+    return qs ? `/documents?${qs}` : '/documents'
+  }
 
   return (
     <Page
@@ -135,14 +156,57 @@ export default async function DocumentsPage() {
               {needsText === 1 ? 'it' : 'one'} and paste its text so violations can cite it.
             </p>
           ) : null}
+          {docs.length > 0 ? (
+            <>
+              <ListToolbar>
+                <FilterChips
+                  label="Filter documents by type"
+                  linkAs={Link}
+                  items={[
+                    { label: 'All', href: hrefFor(null), active: !type, count: counts.all },
+                    ...LIBRARY_TYPES.map((t) => ({
+                      label: DOCUMENT_TYPE_LABELS[t] ?? t,
+                      href: hrefFor(t),
+                      active: type === t,
+                      count: counts[t],
+                    })),
+                  ]}
+                />
+                <SearchForm
+                  action="/documents"
+                  defaultValue={q || undefined}
+                  label="Search documents"
+                  placeholder="Search by name"
+                  keep={{ type }}
+                  linkAs={Link}
+                />
+              </ListToolbar>
+              <p className="num text-sm text-muted" aria-live="polite">
+                {shown.length} {shown.length === 1 ? 'document' : 'documents'}
+              </p>
+            </>
+          ) : null}
           <DataTable
             caption="Documents"
             columns={columns}
-            rows={docs}
+            rows={shown}
             rowKey={(d) => d.id}
             mobile="cards"
             linkAs={Link}
             empty={
+              filtered ? (
+                <EmptyState
+                  variant="compact"
+                  icon={<Search aria-hidden />}
+                  title="No documents match"
+                  description="Try a different word or type, or clear the search to see every document."
+                  action={
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href="/documents">Clear search</Link>
+                    </Button>
+                  }
+                />
+              ) : (
               <EmptyState
                 variant="compact"
                 icon={<FileText aria-hidden />}
@@ -159,6 +223,7 @@ export default async function DocumentsPage() {
                   </Button>
                 }
               />
+              )
             }
           />
         </>
