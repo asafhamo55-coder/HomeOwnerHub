@@ -12,6 +12,8 @@ import { loadInsuranceDocumentOptions, loadInsurancePolicies, type LooseDb } fro
 import { fidelityAdequacy, renewalComparisons, type FidelityAdequacy } from '@/lib/insurance/analysis'
 import { isActive } from '@/lib/insurance/model'
 import { loadHeldFunds } from '@/lib/insurance/held-funds'
+import { InsuranceSummary } from './InsuranceSummary'
+import { insuranceCounts, missingKindMessages, parseInsuranceStatus, policiesForStatus } from '@/lib/insurance/status-filter'
 import { CoverageCheckPanel } from './CoverageCheckPanel'
 import { FidelityPanel, RenewalPanel } from './RenewalPanel'
 import { PolicyList } from './PolicyList'
@@ -35,7 +37,9 @@ export const dynamic = 'force-dynamic'
 const DESCRIPTION =
   'The association’s insurance policies and fidelity bond: who insures you, for how much, and when each policy ends. The board gets a reminder 90, 60 and 30 days before a policy expires.'
 
-export default async function InsurancePage() {
+export default async function InsurancePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const { status: statusParam } = await searchParams
+  const status = parseInsuranceStatus(statusParam)
   const { org } = await requireBoardOrAdmin()
 
   if (!M4_APPLIED) {
@@ -86,6 +90,8 @@ export default async function InsurancePage() {
     const own: InsurancePolicy[] = policies.filter((p) => p.associationId === null || p.associationId === a.id)
     return { associationId: a.id, associationName: a.name, check: coverageCheck(a.state, own, today, { associationType: a.type }) }
   })
+  const counts = insuranceCounts(policies, reminders, checks, today)
+  const shown = status ? policiesForStatus(status, policies, reminders, today) : policies
   const renewals = renewalComparisons(policies, today)
   const fidelityRows = await Promise.all(
     associations
@@ -117,8 +123,11 @@ export default async function InsurancePage() {
 
   return (
     <Page title="Insurance" description={DESCRIPTION} linkAs={Link}>
+      <InsuranceSummary counts={counts} status={status} total={policies.length} />
       <PolicyList
-        policies={policies}
+        policies={shown}
+        status={status}
+        missingMessages={status === 'missing' ? missingKindMessages(checks) : []}
         reminders={reminders}
         today={today}
         associations={associations.map(({ id, name }) => ({ id, name }))}

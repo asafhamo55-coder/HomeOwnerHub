@@ -13,6 +13,7 @@ import {
   type InsurancePolicy,
   type PolicyReminder,
 } from '@/lib/insurance/model'
+import { STATUS_EMPTY, type InsuranceStatus } from '@/lib/insurance/status-filter'
 import { PolicyDialog, type Option } from './PolicyDialog'
 
 function expiryTone(r: PolicyReminder | undefined): 'danger' | 'warning' | 'info' | null {
@@ -27,6 +28,8 @@ export function PolicyList({
   associations,
   documents,
   documentsFailed,
+  status = null,
+  missingMessages = [],
 }: {
   policies: InsurancePolicy[]
   reminders: PolicyReminder[]
@@ -34,6 +37,8 @@ export function PolicyList({
   associations: Option[]
   documents: Option[]
   documentsFailed: boolean
+  status?: InsuranceStatus | null
+  missingMessages?: string[]
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -52,7 +57,26 @@ export function PolicyList({
             You can still add or edit policies; the document picker is empty until you reload.
           </Alert>
         ) : null}
-        {policies.length === 0 ? (
+        {status === 'missing' && missingMessages.length > 0 ? (
+          <ul className="space-y-2 text-sm">
+            {missingMessages.map((m) => (
+              <li key={m} className="rounded-md border border-border p-3">
+                {m}
+              </li>
+            ))}
+          </ul>
+        ) : policies.length === 0 && status ? (
+          <EmptyState
+            icon={<ShieldCheck aria-hidden />}
+            title={STATUS_EMPTY[status].title}
+            description={STATUS_EMPTY[status].description}
+            action={
+              <Button asChild variant="secondary">
+                <Link href="/insurance">Show all policies</Link>
+              </Button>
+            }
+          />
+        ) : policies.length === 0 ? (
           <EmptyState
             icon={<ShieldCheck aria-hidden />}
             title="No policies yet"
