@@ -34,6 +34,7 @@ import { ElectionCard } from './ElectionCard'
 import { AnnualReportCard } from './AnnualReportCard'
 import { minutesBlocks } from './minutes-blocks'
 import { MeetingNoticeSection } from './MeetingNoticeSection'
+import { AnnualChecklistCard } from './AnnualChecklistCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -307,6 +308,14 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
         {/* Meeting kit rail: the notice, quorum, election and report tools. */}
         <aside aria-label="Meeting kit" data-testid="meeting-kit" className="space-y-6">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Meeting kit</h2>
+          {/* Round 15: ordered progress for an annual meeting. */}
+          {meeting.meeting_type === 'annual' ? (
+            <AnnualChecklistCard
+              meeting={{ id: meeting.id, meetingDate: meeting.meeting_date, meetingType: meeting.meeting_type, status: meeting.status }}
+              held={!isUpcoming}
+            />
+          ) : null}
+
           {/* BL-118: send the meeting notice to owners. */}
           <MeetingNoticeSection
             meeting={{ id: meeting.id, meetingDate: meeting.meeting_date, meetingType: meeting.meeting_type, status: meeting.status }}
