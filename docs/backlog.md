@@ -2046,7 +2046,7 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
-## Ranked open work — round 12 (2026-10-30, code-verified)
+## Ranked open work — round 12 (2026-10-30, code-verified) — Done 2026-10-30 (all 8)
 
 None of these need a migration or an owner action. OA-19 stays the owner's decision, so item 1 is view-only.
 
