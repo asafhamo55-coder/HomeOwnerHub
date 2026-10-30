@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as React from 'react'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -87,5 +87,30 @@ describe('reduced motion', () => {
     expect(src).toMatch(/animationDuration: '0\.01ms !important'/)
     expect(src).toMatch(/transitionDuration: '0\.01ms !important'/)
     expect(src).toMatch(/'\.animate-spin': \{[^}]*animationIterationCount: 'infinite !important'/)
+  })
+})
+
+describe('12px text floor and hand-rolled touch targets', () => {
+  it('text-[10px] / text-[11px] never reappear in apps/hoa/src or packages/ui/src', () => {
+    const hits: string[] = []
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const p = path.join(dir, name)
+        if (statSync(p).isDirectory()) {
+          if (name !== 'node_modules' && name !== '.next') walk(p)
+        } else if (/\.(tsx?|css)$/.test(name) && !p.endsWith('touch-and-token-a11y.test.tsx')) {
+          if (/text-\[1[01]px\]/.test(readFileSync(p, 'utf8'))) hits.push(path.relative(repoRoot, p))
+        }
+      }
+    }
+    walk(path.join(repoRoot, 'apps/hoa/src'))
+    walk(path.join(repoRoot, 'packages/ui/src'))
+    expect(hits).toEqual([])
+  })
+
+  it('filter chips, remove-filter and sort links lift to 44px on touch', () => {
+    expect(read('packages/ui/src/components/ListToolbar.tsx')).toMatch(/sm:h-7 coarse:min-h-11/)
+    const f = read('apps/hoa/src/app/(dashboard)/properties/PropertyListFilters.tsx')
+    expect(f.match(/coarse:min-h-11/g)?.length).toBe(2)
   })
 })

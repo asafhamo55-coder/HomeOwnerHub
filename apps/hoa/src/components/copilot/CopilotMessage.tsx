@@ -73,7 +73,7 @@ export function CopilotMessage({ message }: { message: Message }) {
               <Badge
                 key={c.chunkId}
                 variant="outline"
-                className="gap-1 text-[10px] font-normal"
+                className="gap-1 text-xs font-normal"
               >
                 <span className="font-medium">{capitalize(c.docType)}</span>
                 <span className="text-muted">{c.section ?? '—'}</span>
@@ -85,7 +85,7 @@ export function CopilotMessage({ message }: { message: Message }) {
         {message.confidence ? (
           <p
             className={cn(
-              'text-[10px] font-medium uppercase tracking-wide',
+              'text-xs font-medium uppercase tracking-wide',
               message.confidence === 'HIGH' && 'text-emerald-700',
               message.confidence === 'MEDIUM' && 'text-amber-700',
               message.confidence === 'LOW' && 'text-muted',
@@ -96,7 +96,7 @@ export function CopilotMessage({ message }: { message: Message }) {
         ) : null}
 
         {message.error ? (
-          <p className="text-[10px] text-muted/80">{message.error}</p>
+          <p className="text-xs text-muted/80">{message.error}</p>
         ) : null}
       </div>
     </div>

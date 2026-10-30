@@ -85,7 +85,7 @@ export function PropertyListFilters({
         {menuFilter ? (
           <Link
             href={href('all')}
-            className="inline-flex h-8 items-center gap-1 rounded-full border border-primary/30 bg-primary-subtle px-2.5 text-xs font-medium text-primary no-underline hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-7"
+            className="inline-flex h-8 items-center gap-1 rounded-full border border-primary/30 bg-primary-subtle px-2.5 text-xs font-medium text-primary no-underline hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-7 coarse:min-h-11"
           >
             {MENU_FILTER_LABELS[menuFilter]}
             <X className="size-3.5" aria-hidden />
@@ -105,7 +105,7 @@ export function PropertyListFilters({
               href={propertyListHref(params, { sort: s.key, page: 1 })}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'inline-flex h-10 items-center rounded-md px-2.5 no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'inline-flex h-10 items-center rounded-md px-2.5 coarse:min-h-11 no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 active ? 'bg-subtle font-semibold text-foreground' : 'hover:bg-subtle hover:text-foreground',
               )}
             >
