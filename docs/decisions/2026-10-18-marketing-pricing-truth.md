@@ -28,20 +28,9 @@ The owner has decided new prices (pricing scenario A, extended by BL-068 module 
 
 The in-app `annualCostUsd()` uses `monthly × 12 × 0.9` and gets $9,700.56 at 180 doors. The Stripe annual Price is 5388 cents per door, which gives $9,698.40. Marketing shows the Stripe figure. The in-app display is off by about $2 at that size. Fix this along with the floor when billing is next touched.
 
-## Coming soon — not advertised, not charged
+## Module prices (superseded 2026-10-30)
 
-These are the decided BL-068 module prices. They appear **only in this document** until checkout charges them. Existing subscriptions keep their price until renewal.
-
-| Module | Per door / month | Monthly minimum |
-|---|---:|---:|
-| Core | $0.60 | $39 |
-| Accounting | $0.40 | $20 |
-| AI | $0.50 | $25 |
-| Mailbox | $0.10 | $5 |
-| Vendors | $0.10 | $5 |
-| Leases | $0.10 | $5 |
-
-Status: **coming soon**, gated on BL-068 (module switches) and the M2 migration batch.
+The per-module price table that stood here (BL-068, never charged) was removed in the PRICING_V2 cut-over. Pricing is now Essentials / Complete size bands: `docs/decisions/2026-10-20-pricing.md`.
 
 ## Testimonials (coordinator decision, 2026-10-18)
 

@@ -55,7 +55,7 @@ function fakeStripe() {
 }
 
 vi.mock('@homeowner-portal/billing', async (orig) => ({
-  // The real pure pricing (BL-104 tiers, PRICING_V2 = false); Stripe is faked.
+  // The real pure pricing (BL-104 tiers, PRICING_V2 = true); Stripe is faked.
   ...(await orig<typeof import('@homeowner-portal/billing')>()),
   MONTHLY_UNIT_CENTS: 499,
   ANNUAL_UNIT_CENTS: 5388,
@@ -184,12 +184,17 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
           lookupKey: 'hoa_per_door_annual',
         },
       },
-      // BL-104: the band Prices are created only once PRICING_V2 is on.
-      bandPrices: [],
+      // BL-104: PRICING_V2 is on, so the four tiered band Prices come too.
+      bandPrices: [
+        { plan: 'essentials', cadence: 'monthly', id: 'price_hoa_essentials_monthly', lookupKey: 'hoa_essentials_monthly' },
+        { plan: 'essentials', cadence: 'annual', id: 'price_hoa_essentials_annual', lookupKey: 'hoa_essentials_annual' },
+        { plan: 'complete', cadence: 'monthly', id: 'price_hoa_complete_monthly', lookupKey: 'hoa_complete_monthly' },
+        { plan: 'complete', cadence: 'annual', id: 'price_hoa_complete_annual', lookupKey: 'hoa_complete_annual' },
+      ],
       nextSteps: expect.any(Array),
     })
     expect(h.productCreates).toBe(1)
-    expect(h.priceCreates).toBe(2)
+    expect(h.priceCreates).toBe(6) // 2 legacy per-door + 4 band Prices
   })
 
   it('is idempotent: finds the product past the first page and reuses prices (RC-9)', async () => {
@@ -201,11 +206,21 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
       hoa_per_door_monthly: { id: 'price_m', unit_amount: 499, lookup_key: 'hoa_per_door_monthly' },
       hoa_per_door_annual: { id: 'price_a', unit_amount: 5388, lookup_key: 'hoa_per_door_annual' },
     }
+    // The legacy Prices already exist on the live account; the band ones don't yet.
     const res = await POST(req(`Bearer ${SECRET}`))
     expect(res.status).toBe(200)
     const b = (await res.json()) as { product: { id: string }; prices: { monthly: { id: string } } }
     expect(b.product.id).toBe('prod_hoa')
     expect(b.prices.monthly.id).toBe('price_m')
+    expect(h.productCreates).toBe(0)
+    expect(h.priceCreates).toBe(4) // only the four band Prices; the legacy ones are reused
+
+    // A second run finds the band Prices too and creates nothing.
+    for (const k of ['hoa_essentials_monthly', 'hoa_essentials_annual', 'hoa_complete_monthly', 'hoa_complete_annual']) {
+      h.existingPrices[k] = { id: `price_${k}`, unit_amount: 0, lookup_key: k }
+    }
+    h.priceCreates = 0
+    expect((await POST(req(`Bearer ${SECRET}`))).status).toBe(200)
     expect(h.productCreates + h.priceCreates).toBe(0)
   })
 })
