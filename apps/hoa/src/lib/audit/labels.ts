@@ -101,6 +101,7 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   // Messages & consent
   sms_consent_granted: { label: 'Text messages turned on for a number', area: 'communications' },
   sms_consent_revoked: { label: 'Text messages turned off for a number', area: 'communications' },
+  'statement.emailed': { label: 'Emailed an account statement to an owner', area: 'communications' },
   // Records & exports
   data_export: { label: 'Downloaded all association data', area: 'records' },
   statutory_roster_export: { label: 'Exported the owner roster', area: 'records' },
