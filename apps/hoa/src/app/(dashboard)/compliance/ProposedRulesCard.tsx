@@ -78,7 +78,7 @@ function PartRow({ p }: { p: ProposedPart }) {
           </li>
         ))}
       </ul>
-      <details className="rounded-md border border-border bg-surface-subtle px-3 py-2">
+      <details className="rounded-md border border-border bg-subtle px-3 py-2">
         <summary className="cursor-pointer text-xs font-medium text-foreground-secondary">What the proposed text says ({p.quotes.length})</summary>
         <div className="mt-2 space-y-3">
           {p.quotes.map((q) => (
