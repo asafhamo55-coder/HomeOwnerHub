@@ -1,6 +1,6 @@
 import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
-import { ClipboardList, SearchX } from 'lucide-react'
+import { CalendarX, ClipboardList, Hourglass, SearchX, Timer } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Badge,
@@ -18,7 +18,7 @@ import {
   type DataTableColumn,
 } from '@homeowner-portal/ui'
 import {
-  countArcRequestsByStatus,
+  readArcStatusRows,
   listArcRequestsForBoard,
   type ArcRequestBoardRow,
   type ArcStatus,
@@ -30,6 +30,9 @@ import { ArcClockChip } from '@/components/arc-review/ArcClockChip'
 import { getArcClockSettings } from '@/lib/arc-review/clock-actions'
 import { ARC_DEEMED_APPROVAL_NOTE, arcClock, pickArcClockSettings } from '@/lib/arc-review/clock'
 import { ArcClockSettingsForm } from './ArcClockSettingsForm'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { countByStatus, countPastDecideBy, oldestArcWaitDays } from '@/lib/arc-review/summary'
+import { plural } from '@/lib/money/format'
 
 export const metadata = { title: 'ARC review' }
 export const dynamic = 'force-dynamic'
@@ -57,12 +60,12 @@ export default async function ArcReviewListPage({
   const { from, to } = pageRange(page, PAGE_SIZE)
   const statuses = FILTERS[filter].statuses
 
-  const [list, counts, clockLoad] = await Promise.all([
+  const [list, statusRows, clockLoad] = await Promise.all([
     timed('/arc', 'arc.list', () =>
       // The work queue opens oldest first: the most urgent on the decision clock (BL-113).
       listArcRequestsForBoard({ status: statuses ?? undefined, from, to, oldestFirst: filter === 'pending' }),
     ),
-    timed('/arc', 'arc.statusCounts', () => countArcRequestsByStatus()),
+    timed('/arc', 'arc.statusCounts', () => readArcStatusRows()),
     timed('/arc', 'arc.clockSettings', () => getArcClockSettings()),
   ])
   const clockSettings = clockLoad.ok
@@ -77,6 +80,7 @@ export default async function ArcReviewListPage({
       now,
     })
 
+  const counts = statusRows ? countByStatus(statusRows) : null
   const countFor = (key: Filter): number | null => {
     if (!counts) return null
     const set = FILTERS[key].statuses as readonly string[] | null
@@ -86,6 +90,11 @@ export default async function ArcReviewListPage({
   }
   const pending = countFor('pending')
   const all = countFor('all')
+
+  // The strip reads the same status rows as the chips. A failed read shows
+  // "Not available", never 0. Past decide-by needs the clock settings too.
+  const oldestWait = statusRows ? oldestArcWaitDays(statusRows, new Date(now)) : null
+  const pastDecideBy = statusRows && clockLoad.ok ? countPastDecideBy(statusRows, clockSettings, new Date(now)) : null
 
   const href = (f: Filter, p = 1) => {
     const q = new URLSearchParams()
@@ -166,6 +175,35 @@ export default async function ArcReviewListPage({
       }
       linkAs={Link}
     >
+      <SummaryStrip
+        ariaLabel="ARC summary"
+        testId="arc-summary"
+        tiles={[
+          {
+            label: 'Waiting',
+            icon: <Hourglass />,
+            value: pending === null ? null : String(pending),
+            hint: pending === 0 ? 'Nothing needs a decision' : 'Need a board decision',
+            href: href('pending'),
+          },
+          {
+            label: 'Oldest wait',
+            icon: <Timer />,
+            value: statusRows ? (oldestWait === null ? 'None' : plural(oldestWait, 'day')) : null,
+            hint: oldestWait === null ? 'Nothing waiting' : oldestWait === 0 ? 'Submitted today' : 'Since it was submitted',
+            href: href('pending'),
+          },
+          {
+            label: 'Past decide-by date',
+            icon: <CalendarX />,
+            value: pastDecideBy === null ? null : String(pastDecideBy),
+            hint: pastDecideBy === 0 ? 'All within the deadline' : 'Open the list to see which',
+            tone: pastDecideBy ? 'danger' : 'default',
+            href: href('pending'),
+          },
+        ]}
+      />
+
       <ListToolbar>
         <FilterChips
           label="Filter by status"

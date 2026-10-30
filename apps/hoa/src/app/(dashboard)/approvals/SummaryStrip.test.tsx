@@ -43,3 +43,22 @@ describe('SummaryStrip', () => {
     expect(html).toContain('Loading Waiting now')
   })
 })
+
+describe('shared SummaryStrip', () => {
+  it('shows "Not available", never 0, for an unknown value, and links a tile with an href', async () => {
+    const { SummaryStrip: Shared } = await import('@/components/SummaryStrip')
+    const html = renderToStaticMarkup(
+      createElement(Shared, {
+        ariaLabel: 'Test summary',
+        tiles: [
+          { label: 'A', value: null },
+          { label: 'B', value: '3', hint: 'three', href: '/x?y=1', tone: 'danger' },
+        ],
+      }),
+    )
+    expect(html).toContain('Not available')
+    expect(html).toContain('href="/x?y=1"')
+    expect(html).toContain('text-danger')
+    expect(html).not.toMatch(/>0</)
+  })
+})

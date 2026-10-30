@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
-import { AlertTriangle, Camera, Download, Plus, Search } from 'lucide-react'
-import { format } from 'date-fns'
+import { AlertTriangle, BellRing, CalendarX, Camera, CircleDot, Download, Plus, Search } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import {
   Button,
   DataTable,
@@ -32,6 +32,11 @@ import { loadPropertyScope, withPropertyParam } from '@/lib/property-scope'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { cureDueDay, isCurePassed, summarizeViolations, type ViolationSummaryRow } from '@/lib/violation-summary'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
+import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
+import { plural } from '@/lib/money/format'
 
 export const metadata = { title: 'Violations' }
 export const dynamic = 'force-dynamic'
@@ -71,18 +76,16 @@ interface ViolationRow {
 // far as this page was concerned. Same page size, now with a pager.
 const PAGE_SIZE = 100
 
-/** Cure deadline = notice sent + cure period (only while the notice is live). */
-function cureDue(v: ViolationRow): Date | null {
-  if (v.status !== 'notice_sent' || !v.notice_sent_at || !v.cure_period_days) return null
-  return new Date(new Date(v.notice_sent_at).getTime() + v.cure_period_days * 86_400_000)
-}
+/** Most ids the "cure date passed" view can filter by in one request. Past this the tile links to the cure period chip. */
+const MAX_CURE_IDS = 250
 
 export default async function ViolationsListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; status?: string; property?: string }>
+  searchParams: Promise<{ q?: string; page?: string; status?: string; property?: string; cure?: string }>
 }) {
-  const { q: qParam, page: pageParam, status: statusParam, property: propertyParam } = await searchParams
+  const { q: qParam, page: pageParam, status: statusParam, property: propertyParam, cure: cureParam } = await searchParams
+  const wantCurePassed = cureParam === 'passed'
   const search = (qParam ?? '').trim()
   const statusFilter = parseStatusFilter(statusParam)
   const page = parsePageParam(pageParam)
@@ -116,18 +119,35 @@ export default async function ViolationsListPage({
   if (statuses) query = query.in('status', [...statuses])
   if (scope) query = query.eq('property_id', scope.id)
 
-  // Status column only, for the chip counts. Small (one short text per
-  // violation), independent of paging, and read to the END — a single read
-  // stopped at PostgREST's 1000-row cap (BL-047). A failure hides the counts.
-  const [result, statusRes] = await Promise.all([
-    timed('/violations', 'violations.list', () => loadOrFail('violations', query.range(from, to))),
-    timed('/violations', 'violations.statusCounts', () =>
-      loadOrFail('violation status counts', readViolationStatusRows(supabase as unknown as SupabaseClient, org.id, scope?.id ?? null)),
-    ),
+  // Status, notice date and cure days only, for the chip counts and the
+  // summary strip. Small, independent of paging, and read to the END — a single read
+  // stopped at PostgREST's 1000-row cap (BL-047). A failure hides the counts and the strip shows "Not available".
+  const statusPromise = timed('/violations', 'violations.statusCounts', () =>
+    loadOrFail('violation status counts', readViolationStatusRows(supabase as unknown as SupabaseClient, org.id, scope?.id ?? null)),
+  )
+  const loadList = () => timed('/violations', 'violations.list', () => loadOrFail('violations', query.range(from, to)))
+  // The list runs alongside the other two reads, except for the cure view, which needs the status rows first.
+  const [assoc, statusRes, earlyList] = await Promise.all([
+    getPrimaryAssociationResult(),
+    statusPromise,
+    wantCurePassed ? null : loadList(),
   ])
+  const timeZone = (assoc.ok && assoc.data?.timeZone) || DEFAULT_ASSOCIATION_TIME_ZONE
+  const now = new Date()
+  const statusRows = statusRes.ok ? ((statusRes.data ?? []) as unknown as ViolationSummaryRow[]) : null
+  const summary = statusRows ? summarizeViolations(statusRows, timeZone, now) : null
 
-  const rows = result.ok ? ((result.data ?? []) as unknown as ViolationRow[]) : []
-  const total = result.ok ? (result.count ?? rows.length) : 0
+  // "Cure date passed" is a calendar-day rule the database cannot express, so
+  // the view filters by the ids found above. A failed status read cannot
+  // filter, and says so instead of listing everything.
+  const cureIds = summary && summary.curePassedIds.length <= MAX_CURE_IDS ? summary.curePassedIds : null
+  const cureFilterOn = wantCurePassed && cureIds !== null
+  const cureUnavailable = wantCurePassed && summary === null
+  if (cureFilterOn && cureIds) query = query.in('id', cureIds.length > 0 ? cureIds : ['00000000-0000-0000-0000-000000000000'])
+  const result = earlyList ?? (cureUnavailable ? null : await loadList())
+
+  const rows = result?.ok ? ((result.data ?? []) as unknown as ViolationRow[]) : []
+  const total = result?.ok ? (result.count ?? rows.length) : 0
 
   const counts: Partial<Record<StatusFilter, number>> = {}
   if (statusRes.ok) {
@@ -138,19 +158,20 @@ export default async function ViolationsListPage({
     }
   }
 
-  const href = (opts: { page?: number; status?: StatusFilter; q?: string; dropProperty?: boolean }): string => {
+  const href = (opts: { page?: number; status?: StatusFilter; q?: string; dropProperty?: boolean; cure?: boolean }): string => {
     const params = new URLSearchParams()
     const q = opts.q ?? search
     const st = opts.status ?? statusFilter
     if (q) params.set('q', q)
     if (st !== 'all') params.set('status', st)
+    if (opts.cure) params.set('cure', 'passed')
     if (opts.page && opts.page > 1) params.set('page', String(opts.page))
     if (scope && !opts.dropProperty) params.set('property', scope.id)
     const qs = params.toString()
     return qs ? `/violations?${qs}` : '/violations'
   }
 
-  const filtered = search.length > 0 || statusFilter !== 'all' || scope !== null
+  const filtered = search.length > 0 || statusFilter !== 'all' || scope !== null || cureFilterOn
 
   const columns: DataTableColumn<ViolationRow>[] = [
     {
@@ -208,9 +229,10 @@ export default async function ViolationsListPage({
       key: 'cure',
       header: 'Cure due',
       cell: (v) => {
-        const due = cureDue(v)
-        if (!due) return <span className="text-muted">—</span>
-        const overdue = due < new Date()
+        const dueDay = cureDueDay(v, timeZone)
+        if (!dueDay) return <span className="text-muted">—</span>
+        const due = parseISO(dueDay)
+        const overdue = isCurePassed(v, timeZone, now)
         return (
           <span className={overdue ? 'whitespace-nowrap font-medium text-danger' : 'whitespace-nowrap text-foreground-secondary'}>
             {overdue ? 'Overdue · ' : ''}
@@ -263,6 +285,44 @@ export default async function ViolationsListPage({
       tabs={<Tabs items={violationTabs('/violations')} aria-label="Violation sections" linkAs={Link} />}
     >
       {scope ? <PropertyScopeBanner scope={scope} noun="violations" clearHref={href({ dropProperty: true, page: 1 })} /> : null}
+      <SummaryStrip
+        ariaLabel="Violations summary"
+        testId="violations-summary"
+        tiles={[
+          {
+            label: 'Open',
+            icon: <CircleDot />,
+            value: summary ? String(summary.open) : null,
+            hint: summary?.open === 0 ? 'Nothing waiting on the board' : 'No notice sent yet',
+            href: href({ status: 'action', q: '', page: 1 }),
+          },
+          {
+            label: 'In cure period',
+            icon: <BellRing />,
+            value: summary ? String(summary.inCure) : null,
+            hint: summary?.inCure === 0 ? 'No owners are being waited on' : 'Notice sent, owner has time left',
+            href: href({ status: 'notice', q: '', page: 1 }),
+          },
+          {
+            label: 'Cure date passed',
+            icon: <CalendarX />,
+            value: summary ? String(summary.curePassed) : null,
+            hint: summary?.curePassed === 0 ? 'No one is past the deadline' : `${plural(summary?.curePassed ?? 0, 'notice')} past the cure date`,
+            tone: summary && summary.curePassed > 0 ? 'danger' : 'default',
+            href: href({ status: 'notice', q: '', page: 1, cure: !summary || summary.curePassed <= MAX_CURE_IDS }),
+          },
+        ]}
+      />
+
+      {cureFilterOn ? (
+        <p className="text-sm text-muted">
+          Showing only violations past their cure date.{' '}
+          <Link href={href({ status: 'notice', page: 1 })} className="font-medium text-primary hover:underline">
+            Show the whole cure period
+          </Link>
+        </p>
+      ) : null}
+
       <ListToolbar>
         <FilterChips
           label="Filter by status"
@@ -270,7 +330,7 @@ export default async function ViolationsListPage({
           items={(Object.keys(STATUS_FILTERS) as StatusFilter[]).map((key) => ({
             label: STATUS_FILTERS[key].label,
             href: href({ status: key, page: 1 }),
-            active: key === statusFilter,
+            active: key === statusFilter && !cureFilterOn,
             count: counts[key] ?? null,
           }))}
         />
@@ -279,12 +339,12 @@ export default async function ViolationsListPage({
           label="Search violations"
           placeholder="Search description or CC&R"
           defaultValue={search}
-          keep={{ status: statusFilter === 'all' ? null : statusFilter, property: scope?.id ?? null }}
+          keep={{ status: statusFilter === 'all' ? null : statusFilter, property: scope?.id ?? null, cure: cureFilterOn ? 'passed' : null }}
           linkAs={Link}
         />
       </ListToolbar>
 
-      {!result.ok ? (
+      {!result?.ok ? (
         <LoadFailed what="violations" />
       ) : (
         <DataTable
@@ -338,7 +398,7 @@ export default async function ViolationsListPage({
                 pageSize={PAGE_SIZE}
                 total={total}
                 rowCount={rows.length}
-                hrefFor={(p) => href({ page: p })}
+                hrefFor={(p) => href({ page: p, cure: cureFilterOn })}
                 linkAs={Link}
                 noun="violations"
               />
