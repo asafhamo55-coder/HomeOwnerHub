@@ -4,6 +4,7 @@ import { BOARD_AGENDA_TEMPLATE, VIOLATION_LETTER_TEMPLATE, VIOLATION_NOTICE_CHEC
 import { COLLECTIONS_NOTICE_TEMPLATE, MINUTES_TEMPLATE } from './checklists-c'
 import { ANNOUNCEMENT_TEMPLATES } from './checklists-d'
 import { ANNUAL_REPORT_CHECKLIST } from './checklists-e'
+import { APPLY_CREDIT_CHECKLIST } from './checklists-f'
 
 export interface Checklist {
   slug: string
@@ -108,4 +109,5 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [MINUTES_TEMPLATE.slug]: MINUTES_TEMPLATE,
   [ANNOUNCEMENT_TEMPLATES.slug]: ANNOUNCEMENT_TEMPLATES,
   [ANNUAL_REPORT_CHECKLIST.slug]: ANNUAL_REPORT_CHECKLIST,
+  [APPLY_CREDIT_CHECKLIST.slug]: APPLY_CREDIT_CHECKLIST,
 }

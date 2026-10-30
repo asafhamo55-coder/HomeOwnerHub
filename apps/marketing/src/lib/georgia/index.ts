@@ -8,6 +8,7 @@ import { FINES_HEARINGS, QUORUM_PROXIES, RECORDS_REQUESTS } from './guides-d'
 import { SPECIAL_ASSESSMENTS, SWITCH_FROM_MANAGER } from './guides-e'
 import { AI_MEETING_MINUTES, AI_VIOLATION_LETTERS } from './guides-f'
 import { CERTIFIED_MAIL_COLLECTIONS, CPA_ATTORNEY_ACCESS } from './guides-g'
+import { OVERPAYMENTS_CREDITS, PAYMENT_ORDER } from './guides-h'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -30,7 +31,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -152,6 +153,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'Georgia HOA collections: certified mail and notice clocks',
     blurb: CERTIFIED_MAIL_COLLECTIONS.summary[0]!,
     kind: 'guide',
+  },
+  {
+    slug: OVERPAYMENTS_CREDITS.slug,
+    path: pathOf(OVERPAYMENTS_CREDITS),
+    title: 'Georgia HOA overpayments and credits on an owner’s account',
+    blurb: OVERPAYMENTS_CREDITS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: PAYMENT_ORDER.slug,
+    path: pathOf(PAYMENT_ORDER),
+    title: 'Georgia HOA payment order under SB 406',
+    blurb: PAYMENT_ORDER.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'apply-hoa-credit-to-owner-balance-checklist',
+    path: '/templates/apply-hoa-credit-to-owner-balance-checklist',
+    title: 'Apply a credit to an owner’s balance: checklist (printable)',
+    blurb: 'A one-page checklist for a board putting an owner’s credit on account against a charge, with the Georgia payment order quoted.',
+    kind: 'tool',
   },
   {
     slug: 'georgia-annual-meeting-report-checklist',
