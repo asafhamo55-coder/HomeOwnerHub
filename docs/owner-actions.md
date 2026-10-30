@@ -299,6 +299,8 @@ prices; review it before pitching.
 
 **Urgency:** Soon
 
+**Progress 2026-10-30:** Asaf added `PAY_SETTINGS_SECRET`, `SESSION_CAP_SECRET` and `PAY_SETTINGS_SECRET_PREVIOUS` (the service-role key) to home-owner-hub-hoa Production; Claude redeployed. Only one association had signed settings besides Zelle (`d15eac74…`: payment receipts, resident notifications), so its board must re-save those two. Remove `PAY_SETTINGS_SECRET_PREVIOUS` on or after 2026-11-06, once they have.
+
 **Update 2026-10-26 (tenant-isolation audit, BL-175):** besides board settings, this secret also signs the "view as resident" impersonation cookie and several compliance records. Today they all fall back to the database key that is in the public git history, so anyone holding that key could forge them. Moving to dedicated secrets closes that. Add `SESSION_CAP_SECRET` too (step 2b); the only side effect is that everyone signs in once more.
 
 **Why it matters:** board settings saved in the app (Zelle details, reminders, receipts and similar) are signed so they can't be tampered with. Today that signature reuses an older database key. A dedicated secret is cleaner. **The catch:** after the switch, every saved board setting except Zelle reads as "off" until a board member saves it again. So do this when you can tell boards to re-save their settings, not before.
