@@ -122,6 +122,11 @@ export default async function ResidentPayPage() {
               ) : (
                 <NotSetUp />
               )}
+              {read.state === 'configured' ? (
+                <p className="mt-3 text-sm text-foreground-secondary">
+                  Your payment shows on your ledger once the board records it.
+                </p>
+              ) : null}
             </Section>
           )
         })
