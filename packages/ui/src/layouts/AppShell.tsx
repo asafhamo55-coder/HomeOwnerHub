@@ -170,7 +170,7 @@ export function AppShellSidebar({
         <button
           type="button"
           onClick={() => setMobileOpen(false)}
-          className="absolute right-2 top-3 inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-subtle hover:text-foreground md:hidden"
+          className="absolute right-2 top-1.5 inline-flex size-11 items-center justify-center rounded-md text-muted hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
           aria-label="Close navigation"
           tabIndex={mobileOpen ? 0 : -1}
         >
@@ -248,7 +248,7 @@ export function AppShellHeader({
       <button
         type="button"
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="inline-flex size-9 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+        className="inline-flex size-11 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
         aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
         aria-expanded={mobileOpen}
       >
@@ -300,7 +300,7 @@ export function AppShellSearchTrigger({
       <button
         type="button"
         onClick={() => setPaletteOpen(true)}
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bar-sm:hidden"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bar-sm:hidden"
         aria-label="Search"
       >
         <Search className="size-5" aria-hidden />

@@ -137,7 +137,7 @@ function ToastBody({ toast, onDismiss }: { toast: ToastRow; onDismiss: () => voi
               toast.action?.onClick()
               onDismiss()
             }}
-            className="mt-2 text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            className="mt-2 rounded text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring coarse:-mb-1 coarse:min-h-11"
           >
             {toast.action.label}
           </button>
@@ -147,7 +147,7 @@ function ToastBody({ toast, onDismiss }: { toast: ToastRow; onDismiss: () => voi
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss notification"
-        className="-mr-1.5 -mt-1 inline-flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="-mr-1.5 -mt-1 inline-flex size-7 coarse:size-11 coarse:-mr-3 coarse:-mt-2.5 items-center justify-center rounded-md text-muted transition-colors hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <X className="size-4" aria-hidden />
       </button>

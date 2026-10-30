@@ -82,6 +82,9 @@ function designSystemPlugin(hub: HubKey) {
     //   in-rail:            anything inside a *collapsible* sidebar, when
     //                       collapsed — a non-collapsible sidebar on the same
     //                       origin (platform admin) is unaffected.
+    // coarse: — touch-first pointers (phones, tablets). Used to lift small
+    // controls to the 44px minimum target without bloating desktop density.
+    addVariant('coarse', '@media (pointer: coarse)')
     addVariant('sidebar-collapsed', ':root[data-sidebar="collapsed"] &')
     addVariant('in-rail', ':root[data-sidebar="collapsed"] [data-collapsible] &')
 

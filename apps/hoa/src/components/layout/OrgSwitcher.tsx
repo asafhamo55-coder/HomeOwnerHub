@@ -51,10 +51,10 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, orgs }: Props) {
         <button
           type="button"
           className={cn(
-            'flex w-full items-center gap-1 rounded-md py-0.5 text-left transition-colors',
+            'flex min-h-11 w-full items-center gap-1 rounded-md py-0.5 text-left sm:min-h-0 transition-colors',
             'hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
           )}
-          aria-label="Switch HOA"
+          aria-label={`Switch HOA, current: ${currentOrgName}`}
         >
           <span className="min-w-0 flex-1 truncate text-xs text-muted" title={currentOrgName}>
             {currentOrgName}
@@ -76,7 +76,7 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, orgs }: Props) {
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           )}
         >
-          <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted">
             Switch HOA
           </div>
           {orgs.map((org) => {
@@ -90,9 +90,9 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, orgs }: Props) {
                   handleSelect(org.id)
                 }}
                 className={cn(
-                  'flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm outline-none',
+                  'flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm outline-none sm:min-h-0',
                   'focus:bg-subtle data-[disabled]:cursor-default data-[disabled]:opacity-60',
-                  isCurrent ? 'text-foreground' : 'text-muted-fg',
+                  isCurrent ? 'text-foreground' : 'text-foreground-secondary',
                 )}
               >
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center">
@@ -101,14 +101,14 @@ export function OrgSwitcher({ currentOrgId, currentOrgName, orgs }: Props) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{org.name}</span>
                   {org.doors_count !== null && (
-                    <span className="block text-[11px] text-muted">{org.doors_count} doors</span>
+                    <span className="block text-xs text-muted">{org.doors_count} doors</span>
                   )}
                 </span>
               </DropdownMenu.Item>
             )
           })}
           {error && (
-            <div className="border-t border-border px-3 py-2 text-[11px] text-destructive">
+            <div className="border-t border-border px-3 py-2 text-xs text-destructive" role="alert">
               {error}
             </div>
           )}
