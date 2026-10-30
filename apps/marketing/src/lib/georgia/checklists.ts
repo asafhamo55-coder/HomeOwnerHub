@@ -7,6 +7,7 @@ import { ANNUAL_REPORT_CHECKLIST } from './checklists-e'
 import { APPLY_CREDIT_CHECKLIST } from './checklists-f'
 import { CONFLICT_DISCLOSURE_CHECKLIST } from './checklists-g'
 import { BUDGET_WORKSHEET } from './checklists-h'
+import { PAYMENT_PLAN_AGREEMENT, PROXY_BALLOT_FORM } from './checklists-i'
 
 export interface Checklist {
   slug: string
@@ -114,4 +115,6 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [APPLY_CREDIT_CHECKLIST.slug]: APPLY_CREDIT_CHECKLIST,
   [CONFLICT_DISCLOSURE_CHECKLIST.slug]: CONFLICT_DISCLOSURE_CHECKLIST,
   [BUDGET_WORKSHEET.slug]: BUDGET_WORKSHEET,
+  [PROXY_BALLOT_FORM.slug]: PROXY_BALLOT_FORM,
+  [PAYMENT_PLAN_AGREEMENT.slug]: PAYMENT_PLAN_AGREEMENT,
 }

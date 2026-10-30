@@ -216,7 +216,7 @@ export const PAYMENT_ORDER: Guide = {
       a: 'The text we hold does not say. Treat the extra as a credit on account and follow your policy. See the overpayments guide.',
     },
   ],
-  related: ['overpayments-credits', 'special-assessments', 'foreclosure-threshold-2027', 'late-fee-limits'],
+  related: ['overpayments-credits', 'georgia-hoa-payment-plan-agreement', 'special-assessments', 'foreclosure-threshold-2027', 'late-fee-limits'],
   hoaDoes: [
     {
       text: 'Record payment posts every part of a payment at once, and if any part fails nothing is posted. Money beyond what is owed is kept as a credit.',

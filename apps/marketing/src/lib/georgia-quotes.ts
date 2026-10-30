@@ -630,6 +630,86 @@ export const QUOTES = {
     fixture: "ga-ocga-44-3-art6-2026.txt",
     quote: "Nothing in this Code section shall be construed to prohibit actions maintainable pursuant to Code Section 44-3-223 to recover sums for which subsection (a) of this Code section creates a lien.",
   },
+  powIntro: {
+    cite: "O.C.G.A. § 44-3-231(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Except to the extent prohibited by the instrument and subject to any restrictions and limitations specified therein, the association shall have the power to:",
+  },
+  powEmploy: {
+    cite: "O.C.G.A. § 44-3-231(a)(1)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Employ, retain, dismiss, and replace agents and employees to exercise and discharge the powers and responsibilities of the association;",
+  },
+  powImprove: {
+    cite: "O.C.G.A. § 44-3-231(a)(2)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Make or cause to be made additional improvements on and as a part of the common area;",
+  },
+  powArc: {
+    cite: "O.C.G.A. § 44-3-231(a)(3)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Grant or withhold approval of any action by one or more lot owners or other persons entitled to occupancy of any lot if such action would change the exterior appearance of any lot, or any structure thereon, or of any other portion of the development or elect or provide for the appointment of an architectural control committee to grant or withhold such approval; and",
+  },
+  powEnforce: {
+    cite: "O.C.G.A. § 44-3-231(a)(4)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Enforce all lawful provisions of the property owners’ association instrument in accordance with and pursuant to all powers granted by this article, by Chapter 2 or 3 of Title 14 as may be applicable, and as provided for in the instrument, including, but not limited to, by an action to recover sums due; for damages; for injunctive relief, without regard to whether other remedies may exist or be adequate, provided that the provisions of Code Section 44-3-223 and the instrument are complied with; or for any other remedy available at law or in equity to the association.",
+  },
+  powBorrow: {
+    cite: "O.C.G.A. § 44-3-231(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The association shall also have the power to acquire, lease, and own in its own name property of any nature, real, personal, or mixed, tangible or intangible; to borrow money; and to pledge, mortgage, or hypothecate all or any portion of the property of the association for any lawful purpose within the association’s inherent or expressly granted powers.",
+  },
+  powResolution: {
+    cite: "O.C.G.A. § 44-3-231(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any third party dealing with the association shall be entitled to rely in good faith upon a certified resolution of the board of directors of the association authorizing any such act or transaction as conclusive evidence of the authority and power of the association so to act and of full compliance with all restraints, conditions, and limitations, if any, upon the exercise of such authority and power.",
+  },
+  powAmend: {
+    cite: "O.C.G.A. § 44-3-231(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The association shall have the power to amend the instrument, the articles of incorporation, and the bylaws of the association in such respects as may be required to conform to mandatory provisions of this article or of any other applicable law without a vote of the lot owners.",
+  },
+  powMinutes: {
+    cite: "O.C.G.A. § 44-3-231(d)(1)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Detailed minutes of all meetings of the members of the association and of the board of directors;",
+  },
+  powFinancial: {
+    cite: "O.C.G.A. § 44-3-231(d)(2)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Detailed and accurate financial records, including itemized records of all receipts and expenditures; and",
+  },
+  powBoard: {
+    cite: "O.C.G.A. § 44-3-231(f)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Except to the extent otherwise expressly required by this article, by Chapter 2 or 3 of Title 14, by the instrument, by the articles of incorporation, or by the bylaws of the association, the powers inherent in or expressly granted to the association may be exercised by the board of directors, acting through the officers, without any further consent or action on the part of the lot owners.",
+  },
+  powLitigate: {
+    cite: "O.C.G.A. § 44-3-231(h)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The association shall have the capacity, power, and standing to institute, intervene, prosecute, represent, or defend in its own name litigation or administrative or other proceedings of any kind concerning claims or other matters relating to any portion of the lots or common area which the association has the responsibility to administer, repair, or maintain.",
+  },
+  proxySign: {
+    cite: "O.C.G.A. § 14-3-724(b)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "An electronic transmission must contain or be accompanied by information from which it can be determined that the member, the member’s agent, or the member’s attorney in fact authorized the electronic transmission.",
+  },
+  proxyEffective: {
+    cite: "O.C.G.A. § 14-3-724(c)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "An appointment of a proxy is effective when a signed appointment form or electronic transmission of the appointment is received by the secretary or other officer or agent authorized to tabulate votes.",
+  },
+  proxyFace: {
+    cite: "O.C.G.A. § 14-3-724(g)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Subject to Code Section 14-3-727 and any express limitation on the proxy’s authority appearing on the face of the appointment form or in the electronic transmission, a corporation is entitled to accept the proxy’s vote or other action as that of the member making the appointment.",
+  },
+  ballotDirector: {
+    cite: "O.C.G.A. § 14-3-707(b)(2)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Provide an opportunity to vote for, or withhold a vote for, each candidate for election as a director, if any; and",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES
