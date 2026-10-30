@@ -242,6 +242,25 @@ export function statementWindow(ledger: Ledger, from: string): StatementWindow {
   }
 }
 
+/**
+ * Narrow a ledger to `from`..`to` (both inclusive, 'YYYY-MM-DD'). Without
+ * `to` this is exactly statementWindow. With it, the closing balance is the
+ * running balance after the last entry on or before `to`, so a statement for
+ * a past period closes where the ledger stood that day.
+ */
+export function statementBetween(ledger: Ledger, from: string, to?: string | null): StatementWindow {
+  if (!to) return statementWindow(ledger, from)
+  const upto = ledger.entries.filter((e) => e.date <= to)
+  const closing = upto.length > 0 ? upto[upto.length - 1]!.balance : 0
+  return statementWindow({ entries: upto, totals: { ...ledger.totals, balance: closing } }, from)
+}
+
+/** 'YYYY-MM-DD' one year earlier; Feb 29 falls back to Feb 28. */
+export function sameDayLastYear(day: string): string {
+  const prev = `${Number(day.slice(0, 4)) - 1}${day.slice(4)}`
+  return prev.endsWith('-02-29') ? `${prev.slice(0, 8)}28` : prev
+}
+
 // ─── read ───────────────────────────────────────────────────────────
 
 /**

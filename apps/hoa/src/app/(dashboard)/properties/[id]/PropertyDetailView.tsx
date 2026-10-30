@@ -362,6 +362,14 @@ function ActionBar({
           Record payment
         </Link>
       </Button>
+      {canManage ? (
+        <Button asChild variant="secondary">
+          <Link href={propertyHref(asPropertyId(propertyId), { statement: true })}>
+            <FileText aria-hidden />
+            Statement
+          </Link>
+        </Button>
+      ) : null}
       <Button asChild variant="secondary">
         <Link href={scoped('/violations/new')}>
           <Plus aria-hidden />
