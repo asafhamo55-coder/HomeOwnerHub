@@ -20,6 +20,11 @@ type Rule =
   | { kind: 'fixed'; month: number; day: number }
   /** The nth weekday of a month; n = -1 means the last one. weekday 0 = Sunday. */
   | { kind: 'nth'; month: number; weekday: number; n: number }
+  /**
+   * The week (starting on `weekStart`, 0 = Sunday) that contains month/day;
+   * the rule's date is that week's first day.
+   */
+  | { kind: 'weekContaining'; month: number; day: number; weekStart: number }
 
 export interface NudgeEntry {
   occasionId: string
@@ -56,9 +61,9 @@ export const NUDGE_TABLE: readonly NudgeEntry[] = [
   { occasionId: 'fathers-day', name: "Father's Day", rule: { kind: 'nth', month: 6, weekday: 0, n: 3 }, leadDays: 5 },
   { occasionId: 'fourth-of-july', name: 'The Fourth of July', rule: { kind: 'fixed', month: 7, day: 4 }, leadDays: 14 },
   { occasionId: 'pool-closing', name: 'Labor Day', rule: { kind: 'nth', month: 9, weekday: 1, n: 1 } },
-  // Fire Prevention Week is the Sunday-to-Saturday week containing Oct 9, so
-  // the date is Oct 9 and the card appears a week ahead, as the week nears.
-  { occasionId: 'fire-prevention', name: 'Fire Prevention Week', rule: { kind: 'fixed', month: 10, day: 9 }, leadDays: 7 },
+  // Fire Prevention Week (NFPA) is the Sunday-to-Saturday week containing
+  // Oct 9; the date is that week's Sunday and the card appears a week ahead.
+  { occasionId: 'fire-prevention', name: 'Fire Prevention Week', rule: { kind: 'weekContaining', month: 10, day: 9, weekStart: 0 }, leadDays: 7 },
   { occasionId: 'halloween-party', name: 'Halloween', rule: { kind: 'fixed', month: 10, day: 31 }, leadDays: 10 },
   { occasionId: 'dst-ends', name: 'The end of daylight saving time', rule: { kind: 'nth', month: 11, weekday: 0, n: 1 }, leadDays: 7 },
   { occasionId: 'veterans-day', name: 'Veterans Day', rule: { kind: 'fixed', month: 11, day: 11 }, leadDays: 5 },
@@ -91,6 +96,12 @@ export function nthWeekdayOfMonth(year: number, month: number, weekday: number, 
 }
 
 export function ruleDate(rule: Rule, year: number): string {
+  if (rule.kind === 'weekContaining') {
+    // Calendar-day arithmetic on a UTC date, never +/-24h, so DST cannot shift it.
+    const d = new Date(Date.UTC(year, rule.month - 1, rule.day))
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() - rule.weekStart + 7) % 7))
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
+  }
   const day = rule.kind === 'fixed' ? rule.day : nthWeekdayOfMonth(year, rule.month, rule.weekday, rule.n)
   return `${year}-${pad(rule.month)}-${pad(day)}`
 }

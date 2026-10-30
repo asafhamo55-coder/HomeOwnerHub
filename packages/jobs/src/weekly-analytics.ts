@@ -70,6 +70,7 @@ type Q = PromiseLike<Result> & {
   in: (col: string, v: string[]) => Q
   gte: (col: string, v: string) => Q
   lt: (col: string, v: string) => Q
+  not: (col: string, op: string, v: string) => Q
   order: (col: string) => Q
   range: (from: number, to: number) => Q
 }
@@ -87,14 +88,18 @@ async function count(q: Q): Promise<number> {
 
 const head = (db: Db, table: string) => db.from(table).select('id', { count: 'exact', head: true })
 
+// AI meter rows (usage and spend-notice ledger) are not board activity. Mirrors
+// AI_LEDGER_PREFIXES in apps/hoa/src/lib/audit/labels.ts (packages/jobs cannot
+// import apps/hoa); keep the two lists in step. audit_log.action is NOT NULL,
+// so NOT LIKE never drops a row through SQL null semantics.
+const AI_LEDGER_PREFIXES: readonly string[] = ['ai.usage.', 'ai.spend.notice.']
+
 async function distinctActiveOrgs(db: Db, start: string, end: string): Promise<{ n: number; capped: boolean }> {
   const seen = new Set<string>()
   for (let page = 0; page < MAX_PAGES; page++) {
-    const { data, error } = await db
-      .from('audit_log')
-      .select('org_id')
-      .gte('created_at', start)
-      .lt('created_at', end)
+    let q = db.from('audit_log').select('org_id').gte('created_at', start).lt('created_at', end)
+    for (const prefix of AI_LEDGER_PREFIXES) q = q.not('action', 'like', `${prefix}%`)
+    const { data, error } = await q
       .order('id')
       .range(page * PAGE, page * PAGE + PAGE - 1)
     if (error) fail(error)
