@@ -25,8 +25,8 @@ const jetbrainsMono =JetBrains_Mono({
 
 // BL-097: PM and Eviction are not offered right now.
 const description = OTHER_HUBS_ENABLED
-  ? 'The AI-native operating system for HOA boards, small landlords, and the legal work when tenancies break down. Less paperwork. More peace of mind.'
-  : 'The AI-native operating system for self-managed HOA boards. Less paperwork. More peace of mind.'
+  ? 'AI tools for HOA boards, small landlords, and the paperwork that follows when a tenancy goes bad. The AI drafts, you approve.'
+  : 'AI tools for self-managed HOA boards: letters, notices, minutes and covenant answers drafted from your own documents. The board approves everything.'
 const shortDescription = OTHER_HUBS_ENABLED
   ? 'AI for HOA boards, landlords, and eviction support. Less paperwork.'
   : 'AI for self-managed HOA boards. Less paperwork.'
@@ -43,8 +43,8 @@ export const metadata: Metadata = {
   ...(GSC_VERIFICATION ? { verification: { google: GSC_VERIFICATION } } : {}),
   title: {
     default: OTHER_HUBS_ENABLED
-      ? 'HomeownerHub — AI for the people who run residential property'
-      : 'HomeownerHub — AI for self-managed HOA boards',
+      ? 'HomeownerHub: AI for the people who run residential property'
+      : 'HomeownerHub: AI for self-managed HOA boards',
     template: `%s · ${SITE_NAME}`,
   },
   description,

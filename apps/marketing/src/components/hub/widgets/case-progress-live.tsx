@@ -30,7 +30,7 @@ const STAGES: StageDef[] = [
     label: '30-day notice drafted',
     Icon: FileText,
     bar: 'B',
-    detail: 'County-specific template generated. Bar B — awaiting attorney review.',
+    detail: 'County-specific template generated. Bar B: awaiting attorney review.',
     citation: 'GA OCGA Section 44-7-50',
     duration: 2500,
   },
@@ -55,7 +55,7 @@ const STAGES: StageDef[] = [
     label: 'Court filing package (demo)',
     Icon: Gavel,
     bar: 'A',
-    detail: 'Complaint in Replevin · Affidavit · Summons. Bar A — your attorney files.',
+    detail: 'Complaint in Replevin · Affidavit · Summons. Bar A: your attorney files.',
     duration: 3500,
   },
 ]
@@ -229,7 +229,7 @@ export function CaseProgressLive() {
           </span>
           <span className="inline-flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-            Court filings stay Bar A in v1 — your attorney files the real thing
+            Court filings stay Bar A in v1: your attorney files the real thing
           </span>
         </div>
       </div>

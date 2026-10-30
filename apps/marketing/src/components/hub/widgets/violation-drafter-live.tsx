@@ -17,7 +17,7 @@ const SCENARIOS: Scenario[] = [
   {
     trigger: 'Unapproved fence height',
     location: '211 Oak St',
-    citation: 'CC&R Section 3.4 — Architectural Standards',
+    citation: 'CC&R Section 3.4: Architectural Standards',
     draftLines: [
       'Your fence at 211 Oak St exceeds the 6-foot height limit specified in Section 3.4 of your CC&R.',
       'The Architectural Review Committee requires fence modifications to be submitted at least 14 days in advance.',
@@ -28,7 +28,7 @@ const SCENARIOS: Scenario[] = [
   {
     trigger: 'Trash bins left curbside',
     location: '88 Ridge Rd',
-    citation: 'Bylaws Section 4.1 — Common Area Standards',
+    citation: 'Bylaws Section 4.1: Common Area Standards',
     draftLines: [
       'Trash and recycling containers must be returned to the side or rear of the property within 24 hours of pickup, per Bylaws Section 4.1.',
       'Repeated occurrences over the past 30 days have been documented and photographed.',
@@ -39,7 +39,7 @@ const SCENARIOS: Scenario[] = [
   {
     trigger: 'Landscaping below standard',
     location: '412 Elm Ave',
-    citation: 'CC&R Section 5.2 — Property Maintenance',
+    citation: 'CC&R Section 5.2: Property Maintenance',
     draftLines: [
       'The front lawn at 412 Elm Ave does not meet the maintenance standard described in CC&R Section 5.2 ("kept in a neat and orderly manner").',
       'Specific issues observed: grass exceeding 8 inches, visible weed growth in landscaping beds.',
@@ -110,7 +110,7 @@ export function ViolationDrafterLive() {
           </div>
           <p className="mt-4 max-w-md text-base leading-relaxed text-muted md:mt-0">
             The Violation Drafter reads your CC&amp;R, matches the rule, and
-            drafts a letter that cites it. Bar B — board reviews before
+            drafts a letter that cites it. Bar B: board reviews before
             it goes out.
           </p>
         </header>

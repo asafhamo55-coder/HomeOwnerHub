@@ -12,7 +12,7 @@ import { PmRentVisual } from '@/components/hub/visuals/pm-rent-card'
 import { RentTimelineLive } from '@/components/hub/widgets/rent-timeline-live'
 
 export const metadata: Metadata = {
-  title: 'PM Hub — For small landlords',
+  title: 'PM Hub for small landlords',
   description:
     'Zero-touch rent collection. Delinquency Coach. Lease Q&A. Predictive maintenance. Free for one property; paid tiers from $19/mo.',
 }
@@ -32,7 +32,7 @@ export default function LandlordsPage() {
         theme={theme}
         eyebrow="PM Hub · for 2–50 unit landlords"
         title="Rent that collects itself."
-        subtitle="PM Hub is the operating system for landlords with one to fifty units. Zero-touch rent, AI-drafted lease answers, late-rent coaching that doesn't go straight to threats."
+        subtitle="PM Hub is for landlords with one to fifty units. Zero-touch rent, AI-drafted lease answers, late-rent coaching that doesn't go straight to threats."
         primaryCta={{ label: 'Start free', href: '/demo' }}
         secondaryCta={{ label: 'See features', href: '#features' }}
         visual={<PmRentVisual />}
@@ -87,7 +87,7 @@ export default function LandlordsPage() {
             icon: 'FileSearch',
             bar: 'C',
             title: 'Lease & Document Q&A',
-            body: '"What does Section 4.2 say about pet deposits?" — answered in 3 seconds, with the lease section cited.',
+            body: '"What does Section 4.2 say about pet deposits?" Answered in 3 seconds, with the lease section cited.',
           },
           {
             icon: 'Wrench',
@@ -111,7 +111,7 @@ export default function LandlordsPage() {
             icon: 'ShieldCheck',
             bar: 'A',
             title: 'Tenant Risk Score',
-            body: 'Conversational tenant screening with audit trail. Demo only in v1 — we won\'t pretend it\'s production until it is.',
+            body: 'Conversational tenant screening with audit trail. Demo only in v1. We won\'t call it production until it is.',
           },
         ]}
       />

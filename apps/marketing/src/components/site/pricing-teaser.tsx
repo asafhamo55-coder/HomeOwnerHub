@@ -10,14 +10,14 @@ import { HOA_PLANS, HOA_PRICE_COPY, PRICING_V2, type HoaPlan } from '@/lib/hoa-p
 // essentials / complete render only once PRICING_V2 is on (BL-104).
 const TEASER_BULLETS: Record<HoaPlan['id'], string[]> = {
   monthly: [
-    'Ask your governing documents — cited answers',
+    'Ask your governing documents and get cited answers',
     'Violation letters drafted from photos, approved in one click',
     'Accounting, bank feeds and AI bill scan',
     'Month-end board report and resident portal',
   ],
-  annual: ['Everything in HOA Monthly — same product', 'Paid once a year'],
+  annual: ['Everything in HOA Monthly, same product', 'Paid once a year'],
   essentials: [
-    'Ask your governing documents — cited answers',
+    'Ask your governing documents and get cited answers',
     'Violation letters drafted from photos, approved in one click',
     'Dues, resident portal and announcements',
   ],

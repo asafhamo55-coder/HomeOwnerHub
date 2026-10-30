@@ -18,13 +18,13 @@ const allPlanned = [
   },
   {
     category: 'HOA',
-    title: 'Georgia HOA fine schedules — what\'s actually enforceable',
+    title: 'Georgia HOA fine schedules: what\'s actually enforceable',
     note: 'Reading GA OCGA Title 44 in plain English. The 14-day cure rule explained.',
   },
   {
     category: 'PM',
     title: 'When to escalate late rent: a 30-day calendar for new landlords',
-    note: 'Day 5 vs. day 15 vs. day 25 — what the data says and what your lease should say.',
+    note: 'Day 5 vs. day 15 vs. day 25: what the data says and what your lease should say.',
   },
   {
     category: 'AI',
@@ -34,7 +34,7 @@ const allPlanned = [
   {
     category: 'Eviction',
     title: 'The pay-or-quit notice your county actually requires',
-    note: 'Fulton vs. Cobb vs. Gwinnett — formatting differences that reset the clock.',
+    note: 'Fulton vs. Cobb vs. Gwinnett: formatting differences that reset the clock.',
   },
 ]
 

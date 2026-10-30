@@ -8,14 +8,14 @@ import { cn } from '@/lib/cn'
 const QUERIES = [
   {
     q: 'Can residents paint their fence without approval?',
-    citation: 'CC&R Section 3.4 — Architectural Standards',
+    citation: 'CC&R Section 3.4: Architectural Standards',
     answer:
       'No. Section 3.4 of your CC&R requires fence color and material changes to be submitted to the Architectural Review Committee at least 14 days before work begins. Repainting in the original approved color is exempt.',
     chips: ['Sec. 3.4 Architectural', 'ARC review', '14-day notice'],
   },
   {
     q: 'What are the quiet hours?',
-    citation: 'CC&R Section 6.2 — Nuisance and Noise',
+    citation: 'CC&R Section 6.2: Nuisance and Noise',
     answer:
       '10:00 PM to 7:00 AM on weekdays, and 11:00 PM to 8:00 AM on weekends. Section 6.2 of your CC&R prohibits any noise audible beyond the unit during these hours. Repeat violations carry a $50 fine per occurrence.',
     chips: ['Sec. 6.2 Nuisance', '$50 fine', 'Weekend hours'],

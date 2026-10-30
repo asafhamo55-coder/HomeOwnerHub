@@ -37,7 +37,7 @@ export function PmRentVisual() {
             Delinquency Coach
           </p>
           <p className="mt-1 text-[12px] leading-snug text-foreground-secondary">
-            Riley has paid on-time 14 months running. First late payment — likely temporary. Suggest a check-in call before escalating.
+            Riley has paid on-time 14 months running. First late payment, likely temporary. Suggest a check-in call before escalating.
           </p>
           <button className="mt-2 inline-flex items-center gap-1 rounded-md bg-surface px-2 py-1 text-[10px] font-semibold text-foreground ring-1 ring-border">
             <Phone className="h-2.5 w-2.5" />

@@ -96,7 +96,7 @@ export default function TermsPage() {
             </p>
 
             <p className="mt-12 text-xs text-muted">
-              This is a working draft — the production terms are being reviewed
+              This is a working draft. The production terms are being reviewed
               by counsel and will replace this page before public launch.
             </p>
           </article>

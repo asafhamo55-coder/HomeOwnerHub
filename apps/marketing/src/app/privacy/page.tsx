@@ -109,7 +109,7 @@ export default function PrivacyPage() {
             </p>
 
             <p className="mt-12 text-xs text-muted">
-              This is a working draft — the production privacy policy is being
+              This is a working draft. The production privacy policy is being
               reviewed by counsel and will replace this page before public
               launch.
             </p>

@@ -5,7 +5,7 @@ import { SITE_DISPLAY_HOST } from '@/lib/site'
 // applies to this segment and all below it). Text only, in the brand blue,
 // so it needs no font or image fetch at build time.
 
-export const alt = 'HomeownerHub — AI for self-managed HOA boards'
+export const alt = 'HomeownerHub: AI for self-managed HOA boards'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 

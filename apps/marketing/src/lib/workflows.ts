@@ -71,7 +71,7 @@ export const ALL_WORKFLOWS: Workflow[] = [
   { id: 10, name: 'Delinquency Coach (day 5–30)', hub: 'PM', bar: 'B', status: 'planned', month: 'M3',
     description: 'Notices, follow-ups, payment-plan offers. Calibrated by tenant history.' },
   { id: 11, name: 'Tenant Risk Score', hub: 'PM', bar: 'A', status: 'planned', month: 'M3',
-    description: 'Demo-only screening tool. Bar A in v1 — not safe for business decisions yet.' },
+    description: 'Demo-only screening tool. Bar A in v1, not safe for business decisions yet.' },
   { id: 17, name: 'Court-filing Templates', hub: 'Eviction', bar: 'A', status: 'planned', month: 'M4',
     description: 'County-correct templates, watermarked DEMO until your attorney signs off.' },
   { id: 15, name: 'Predictive Maintenance', hub: 'PM', bar: 'B', status: 'planned', month: 'M5-6',

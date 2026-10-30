@@ -10,12 +10,12 @@ import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 const months = ['M1', 'M2', 'M3', 'M4', 'M5-6', 'M7+'] as const
 
 const monthLabel: Record<(typeof months)[number], string> = {
-  M1: 'Month 1 — Pillars',
-  M2: 'Month 2 — HOA core',
-  M3: OTHER_HUBS_ENABLED ? 'Month 3 — PM + financial' : 'Month 3 — Financial',
-  M4: OTHER_HUBS_ENABLED ? 'Month 4 — Eviction + launch' : 'Month 4 — Launch',
-  'M5-6': 'Months 5–6 — Stabilize',
-  'M7+': 'Months 7+ — Scale',
+  M1: 'Month 1: Pillars',
+  M2: 'Month 2: HOA core',
+  M3: OTHER_HUBS_ENABLED ? 'Month 3: PM + financial' : 'Month 3: Financial',
+  M4: OTHER_HUBS_ENABLED ? 'Month 4: Eviction + launch' : 'Month 4: Launch',
+  'M5-6': 'Months 5–6: Stabilize',
+  'M7+': 'Months 7+: Scale',
 }
 
 const statusStyle: Record<Status, { label: string; cls: string }> = {

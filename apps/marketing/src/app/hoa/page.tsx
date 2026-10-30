@@ -128,7 +128,7 @@ export default function HoaPage() {
             icon: 'Bot',
             bar: 'B',
             title: 'Board Copilot',
-            body: 'Ask about your community — who’s overdue, open violations, an owner’s contact, recent meetings — and get answers from your records and documents.',
+            body: 'Ask about your community (who’s overdue, open violations, an owner’s contact, recent meetings) and get answers from your records and documents.',
           },
           {
             icon: 'Mail',

@@ -51,7 +51,7 @@ export default function HonestyBarsPage() {
             Tell people what's production and what's demo.
           </>
         }
-        subtitle="Every workflow ships with a labeled quality bar — Bar A, B, or C — published on this site and on the public roadmap. No hidden hallucination risk."
+        subtitle="Every workflow ships with a labeled quality bar (Bar A, B, or C), published on this site and on the public roadmap, so you can see how far to trust each one."
       />
 
       <BarExplorer />

@@ -82,7 +82,7 @@ export const SITEMAP_PATHS: readonly string[] = [
 
 /** The default OG image: app/opengraph-image.tsx, 1200x630. */
 export const OG_IMAGE_PATH = '/opengraph-image'
-export const OG_IMAGE_ALT = 'HomeownerHub — AI for self-managed HOA boards'
+export const OG_IMAGE_ALT = 'HomeownerHub: AI for self-managed HOA boards'
 
 export interface PageMeta {
   /** Page title without the " · HomeownerHub" suffix the layout template adds. */

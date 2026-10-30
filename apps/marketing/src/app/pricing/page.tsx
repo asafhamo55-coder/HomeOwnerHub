@@ -29,8 +29,8 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/pricing']!, path
 // (Accounting, Mailbox, Vendors & RFPs: docs/decisions/2026-10-20-pricing.md §1).
 const HOA_FEATURE_LIST: Array<{ text: string; complete?: true }> = [
   { text: 'AI Daily Digest + Compliance Heat Map' }, // (dashboard)/page.tsx
-  { text: 'Ask your governing documents — cited answers' }, // /ai/ask, W1
-  { text: 'Violation letters drafted from photos — approve or reject in one click' }, // /violations/new, /approvals, W3
+  { text: 'Ask your governing documents and get cited answers' }, // /ai/ask, W1
+  { text: 'Violation letters drafted from photos, approved or rejected in one click' }, // /violations/new, /approvals, W3
   { text: 'Meeting minutes drafted from your transcript; board packet as of month end' }, // /meetings, /meetings/[id]/packet
   { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073, /accounting/reports/monthly-report
   { text: 'Shared Gmail inbox with AI reply drafts, saved replies and Create from email', complete: true }, // /inbox, /inbox/[id], W32
@@ -45,7 +45,7 @@ const HOA_FEATURE_LIST: Array<{ text: string; complete?: true }> = [
   { text: 'Spanish version of announcements, reviewed by the board before sending' }, // /communications/new, BL-025
   { text: 'Announcements drafted from a sentence, phone preview, street audiences, scheduled sends and templates' }, // /communications/new, /api/ai/compose-communication
   { text: 'Message results by home, with a reminder to those who haven’t opened' }, // /communications/[id]
-  { text: 'Resident portal — dues balance, ARC, requests, documents' }, // /resident
+  { text: 'Resident portal: dues balance, ARC, requests, documents' }, // /resident
   { text: 'Resident assistant that answers from the resident’s account and your documents, cited' }, // /resident/ask, /api/ai/resident-assistant
   { text: 'Roster import from CSV or Excel, CINC exports included' }, // /properties/import
   { text: '⌘K record search, built-in user guide and Ask the guide' }, // /api/search, /help, /api/help/ask
@@ -64,7 +64,7 @@ const HOA_ROADMAP = [
 ]
 
 const ANNUAL_BULLETS = [
-  'Everything in HOA Monthly — same product',
+  'Everything in HOA Monthly, same product',
   `${HOA_PRICING.ANNUAL_DISCOUNT_PCT}% off for paying a year up front`,
 ]
 
@@ -160,7 +160,7 @@ const allFaqs = [
   },
   {
     q: 'What does "Bar A / B / C" mean on the pricing list?',
-    a: 'Bar C is production-ready. Bar B is functional but requires a human review gate before output is sent. Bar A is demo-only — useful for education but never used in live workflows without explicit attorney or board sign-off. Every workflow ships at its labeled bar; no hidden risk.',
+    a: 'Bar C is production-ready. Bar B is functional but requires a human review gate before output is sent. Bar A is demo-only: useful for education, but never used in live workflows without explicit attorney or board sign-off. Every workflow ships at its labeled bar, so you can see the risk up front.',
   },
   {
     q: 'Do we keep our data?',
@@ -173,7 +173,7 @@ const allFaqs = [
   {
     // Eviction Hub only — dropped below while it is not offered (BL-097).
     q: 'Is eviction legal in v1?',
-    a: 'Court-filing templates are Bar A — demo only, watermarked, and not for filing. A Georgia attorney reviews every output and files the real thing. We open Bar B per county only after attorney sign-off.',
+    a: 'Court-filing templates are Bar A: demo only, watermarked, and not for filing. A Georgia attorney reviews every output and files the real thing. We open Bar B per county only after attorney sign-off.',
   },
 ]
 

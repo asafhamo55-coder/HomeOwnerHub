@@ -76,7 +76,7 @@ export async function submitDemoRequest(
     process.env.DEMO_FROM_EMAIL || process.env.EMAIL_FROM || 'HomeownerHub <support@homeownerledger.com>'
 
   const summary = `
-New demo request — HomeownerHub
+New demo request: HomeownerHub
 ================================
 
 Name:    ${data.name}
@@ -85,7 +85,6 @@ HOA:     ${data.hoa}
 County:  ${data.county || 'not given'}
 Homes:   ${data.homes || 'not given'}
 
-—
 Submitted at ${new Date().toISOString()}
 `.trim()
 
@@ -103,7 +102,7 @@ Submitted at ${new Date().toISOString()}
     }
     // Dev mode: log to the server console so the submission is visible
     // during local development, then succeed.
-    console.log('[demo-request] RESEND_API_KEY not set — logging only')
+    console.log('[demo-request] RESEND_API_KEY not set, logging only')
     console.log(summary)
     return { status: 'success' }
   }
@@ -121,7 +120,7 @@ Submitted at ${new Date().toISOString()}
       from,
       to,
       replyTo: data.email,
-      subject: `New demo request — ${data.hoa}`,
+      subject: `New demo request: ${data.hoa}`,
       text: summary,
     })
 

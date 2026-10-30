@@ -246,7 +246,7 @@ export default function DemoPage() {
 const FAQS: { q: string; a: string }[] = [
   {
     q: 'Will HomeownerHub replace our community manager?',
-    a: 'No. HomeownerHub replaces the slow paperwork — covenant lookups, notice drafts, minutes, AR reminders — so your manager (or your treasurer) has time for the human work. A board with a manager can keep them and use HomeownerHub alongside.',
+    a: 'No. HomeownerHub takes over the slow paperwork (covenant lookups, notice drafts, minutes, AR reminders) so your manager or treasurer can spend their time on people. A board with a manager can keep them and use HomeownerHub alongside.',
   },
   {
     q: 'What happens to data we already have?',
@@ -258,11 +258,11 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: 'What about privacy and data security?',
-    a: 'Your tenant is RLS-isolated in Postgres — no other association can read your rows. We do not train on your data. Documents stay in your tenant. Board members can download every record from Settings → Your data at any time, and we delete on request.',
+    a: 'Your association is isolated in Postgres with row-level security, so no other association can read your rows. We do not train on your data. Documents stay in your tenant. Board members can download every record from Settings → Your data at any time, and we delete on request.',
   },
   {
     q: 'What does it cost after the six-month pilot?',
-    a: `${HOA_PRICE_COPY.model} ${HOA_PRICE_COPY.summary} It is published on /pricing so the board sees the full picture before the demo. No auto-conversion — you opt in.`,
+    a: `${HOA_PRICE_COPY.model} ${HOA_PRICE_COPY.summary} It is published on /pricing so the board sees the full picture before the demo. Nothing converts automatically. You opt in.`,
   },
   {
     q: 'How long until our community is live?',

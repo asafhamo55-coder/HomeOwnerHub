@@ -47,7 +47,7 @@ export function EvictionCaseVisual() {
               </p>
             </div>
             <p className="mt-1 text-[12px] leading-snug text-foreground">
-              Court filing packet is generated for education. Your Georgia attorney files the real document — no exceptions.
+              Court filing packet is generated for education. Your Georgia attorney files the real document, every time.
             </p>
           </div>
         </m.div>

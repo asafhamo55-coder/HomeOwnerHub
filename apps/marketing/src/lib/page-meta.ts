@@ -23,7 +23,7 @@ export interface PageMetaEntry {
 
 export const TITLE_SUFFIX = ` · ${SITE_NAME}`
 
-export const HOME_TITLE = 'HomeownerHub — AI workspace for HOA boards'
+export const HOME_TITLE = 'HomeownerHub: AI workspace for HOA boards'
 
 export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   '/': {
@@ -35,12 +35,12 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   '/hoa': {
     // The layout template appends " · HomeownerHub", so with the other hubs
     // hidden the product name would just repeat.
-    title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME} — AI workspace for HOA boards` : 'AI workspace for volunteer HOA boards',
+    title: OTHER_HUBS_ENABLED ? `${HOA_PRODUCT_NAME}: AI workspace for HOA boards` : 'AI workspace for volunteer HOA boards',
     description:
       'Run a self-managed HOA without a management company: AI drafts letters, notices, minutes and replies from your records, the board approves. State law built in.',
   },
   '/pricing': {
-    title: `Pricing — ${HOA_PRICE_COPY.title}`,
+    title: `Pricing | ${HOA_PRICE_COPY.title}`,
     // BL-097: PM and Eviction are not offered right now.
     description: OTHER_HUBS_ENABLED
       ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.summary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
@@ -52,7 +52,7 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
       'The comparison your board can send around: AI workflows, HomeownerHub’s checkout price, and what the alternatives publish.',
   },
   '/demo': {
-    title: 'Book a demo — 20 minutes for your board',
+    title: 'Book a demo: 20 minutes for your board',
     description:
       'Send us your CC&R. We pre-load it. We show Covenant Brain answering your actual rules. Your board decides.',
   },
@@ -76,7 +76,7 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
         description: PROFESSIONALS_META.description,
   },
   '/about': {
-    title: 'About — AI for volunteer HOA boards',
+    title: 'About: AI for volunteer HOA boards',
     description:
       'Why HomeownerHub exists, what we believe, and how we work. Built in Atlanta for the volunteer board members doing the unpaid hours.',
   },
@@ -86,7 +86,7 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
       'The public HomeownerHub roadmap. Every workflow with its current quality bar, shipped/building/planned status, and target month.',
   },
   '/honesty-bars': {
-    title: 'AI honesty bars — What Bar A, B, and C mean',
+    title: 'AI honesty bars: what Bar A, B, and C mean',
     description:
       'Every HomeownerHub workflow ships with a quality bar label. Here’s what each bar means, what it requires, and how workflows move between them.',
   },
@@ -95,7 +95,7 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     description: 'HomeownerHub case studies will be published once a customer approves them.',
   },
   '/security': {
-    title: 'Security — How we protect your data',
+    title: 'Security: how we protect your data',
     description:
       'Encryption at rest and in transit. Postgres row-level security by tenant. Named AI providers, owner contact details kept out of prompts. AI runs logged.',
   },

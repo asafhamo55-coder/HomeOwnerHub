@@ -83,7 +83,7 @@ export function RoiCalculator() {
               value={hoursPerWeek}
               onChange={setHoursPerWeek}
               display={`${hoursPerWeek} hrs / wk`}
-              hint="Valued at $50/hr — typical opportunity cost"
+              hint="Valued at $50/hr, a typical opportunity cost"
             />
           </div>
 

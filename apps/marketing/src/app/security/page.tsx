@@ -66,7 +66,7 @@ export default function SecurityPage() {
       <PageHero
         eyebrow="Security · Privacy · Audit"
         title="Built like the legal record it has to be."
-        subtitle="An HOA board holds sensitive data on every household in the community. We built HomeownerHub so the security posture is the product, not a checkbox."
+        subtitle="An HOA board holds sensitive data on every household in the community. We built HomeownerHub so security is part of the product and not an afterthought."
       />
 
       <AuditLogLive />
@@ -99,7 +99,7 @@ export default function SecurityPage() {
               Security posture at a glance
             </h2>
             <p className="mt-2 text-sm text-foreground-secondary">
-              For your security team, your insurance carrier, or your own peace of mind.
+              For your security team, your insurance carrier, or your own records.
             </p>
             <dl className="mt-8 grid gap-x-8 gap-y-5 sm:grid-cols-2">
               {policies.map((p) => (

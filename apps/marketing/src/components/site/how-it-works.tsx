@@ -17,7 +17,7 @@ const steps = [
     Icon: MessageCircleQuestion,
     title: 'Ask your first question',
     body:
-      'Covenant Brain answers in plain English, citing the exact section — and says so when your documents don’t cover it.',
+      'Covenant Brain answers in plain English, citing the exact section, and says so when your documents don’t cover it.',
   },
   {
     Icon: Users,

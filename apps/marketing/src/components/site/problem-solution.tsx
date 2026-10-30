@@ -32,7 +32,7 @@ export function ProblemSolution() {
           </h2>
           <p className="t-lead mt-5">
             {OTHER_HUBS_ENABLED
-              ? 'HOA boards, landlords, and operators all do the same paperwork — at different stages of the same life cycle. We built one system that handles all of it.'
+              ? 'HOA boards, landlords, and operators all do the same paperwork at different stages of the same life cycle. We built one system that handles all of it.'
               : 'Rules, notices, minutes and money: the same paperwork every self-managed board does, handled in one system.'}
           </p>
         </div>

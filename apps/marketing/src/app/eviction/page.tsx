@@ -13,7 +13,7 @@ import { EvictionCaseVisual } from '@/components/hub/visuals/eviction-case'
 import { CaseProgressLive } from '@/components/hub/widgets/case-progress-live'
 
 export const metadata: Metadata = {
-  title: 'Eviction Hub — Guided, attorney-reviewed',
+  title: 'Eviction Hub: guided, attorney-reviewed',
   description:
     'Eviction support for landlords who have never done one before. County-specific notices, attorney-reviewed templates, demo-only filings. Currently Harris TX, Fulton GA waitlist.',
 }
@@ -33,7 +33,7 @@ export default function EvictionPage() {
         theme={theme}
         eyebrow="Eviction Hub · attorney-reviewed"
         title="When a tenancy breaks down, don't go in alone."
-        subtitle="Most landlords have never done an eviction. Templates are state-specific, timing matters, and one wrong notice resets the clock. Eviction Hub walks you through every step — every template reviewed by a Georgia attorney."
+        subtitle="Most landlords have never done an eviction. Templates are state-specific, timing matters, and one wrong notice resets the clock. Eviction Hub walks you through every step, and a Georgia attorney has reviewed every template."
         primaryCta={{ label: 'Join the waitlist', href: '/demo' }}
         secondaryCta={{ label: 'How the gate works', href: '#features' }}
         visual={<EvictionCaseVisual />}
@@ -51,7 +51,7 @@ export default function EvictionPage() {
           <div className="flex flex-col items-center gap-3 text-center md:flex-row md:justify-center md:gap-6">
             <span className="inline-flex items-center gap-2 text-xs font-medium text-eviction">
               <Lock className="h-4 w-4" />
-              Bar A in v1 — court filings are demo-only, watermarked, and gated behind attorney review
+              Bar A in v1: court filings are demo-only, watermarked, and gated behind attorney review
             </span>
           </div>
         </div>
@@ -61,12 +61,12 @@ export default function EvictionPage() {
         theme={theme}
         eyebrow="The first-time landlord"
         title="Sarah, first-time eviction, terrified she'll do it wrong."
-        description="The landlord who needs this most is the one doing it for the first time. We give her a Georgia attorney's eyes on every template, a clear timeline, and a demo of what the filing looks like — so the lawyer's call costs less and runs faster."
+        description="The landlord who needs this most is the one doing it for the first time. We give her a Georgia attorney's eyes on every template, a clear timeline, and a demo of what the filing looks like, so the lawyer's call costs less and runs faster."
         persona={{
           name: 'Sarah M.',
           role: 'Two single-family rentals · Smyrna, GA',
           quote:
-            'I almost served the wrong notice and reset the whole 30-day clock. Eviction Hub caught it, sent the right Georgia template, and looped in an attorney before I did anything I couldn\'t undo. The peace of mind was worth ten times the case fee.',
+            'I almost served the wrong notice and reset the whole 30-day clock. Eviction Hub caught it, sent the right Georgia template, and looped in an attorney before I did anything I couldn\'t undo. Worth ten times the case fee.',
           initials: 'SM',
         }}
         bullets={[
@@ -80,14 +80,14 @@ export default function EvictionPage() {
       <HubFeatures
         theme={theme}
         eyebrow="How the gate works"
-        title="Helpful, not reckless. Demo-only until your lawyer signs."
-        description="We can't be your attorney. We can give you the template, the timeline, and the audit trail — and connect you to someone who can file the real thing."
+        title="Useful, but demo-only until your lawyer signs."
+        description="We can't be your attorney. We can give you the template, the timeline, and the audit trail, and connect you to someone who can file the real thing."
         features={[
           {
             icon: 'FileText',
             bar: 'B',
             title: 'County-specific notices',
-            body: 'The 30-day pay-or-quit looks different in Fulton vs. Harris. We render the right one and cite the statute. Bar B — human review required.',
+            body: 'The 30-day pay-or-quit looks different in Fulton vs. Harris. We render the right one and cite the statute. Bar B: human review required.',
           },
           {
             icon: 'Scale',
@@ -111,13 +111,13 @@ export default function EvictionPage() {
             icon: 'AlertTriangle',
             bar: 'C',
             title: 'Full audit trail',
-            body: 'Every AI draft, every human review, every send — logged and time-stamped. Defensible if you ever need it.',
+            body: 'Every AI draft, every human review, every send is logged and time-stamped, so you can defend it if you ever need it.',
           },
           {
             icon: 'Lock',
             bar: 'C',
             title: 'Watermarked demos',
-            body: 'Every demo-only document carries "DEMO ONLY — NOT FOR FILING" across every page. No accidental usage.',
+            body: 'Every demo-only document carries "DEMO ONLY: NOT FOR FILING" across every page, so nobody files one by accident.',
           },
         ]}
       />

@@ -38,7 +38,7 @@ const STEPS: Step[] = [
   },
   {
     day: 'Mar 06',
-    description: 'Riley\'s payment 5 days late — Coach activated',
+    description: 'Riley\'s payment 5 days late, Coach activated',
     state: { paid: ['U-01', 'U-02', 'U-03'], late: ['U-04'], coachActive: true, coachStep: 'Reading tenant payment history…' },
   },
   {
@@ -216,7 +216,7 @@ export function RentTimelineLive() {
                       Recommended action
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-foreground">
-                      Send a friendly check-in SMS — not a formal notice.
+                      Send a friendly check-in SMS, not a formal notice.
                       Historical data shows 87% of first-time late payments
                       resolve within 48 hours of a low-pressure outreach.
                     </p>
