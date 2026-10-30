@@ -111,7 +111,7 @@ export function InsertAgendaButton({ fieldRef, meetingType, state, associationTy
           {showOwnersReport ? (
             <Checkbox
               label="Report to the owners"
-              description="Georgia annual meeting. Cites O.C.G.A. § 44-3-230."
+              description="For a Georgia annual meeting."
               checked={ownersReport}
               onChange={(e) => setOwnersReport(e.target.checked)}
             />

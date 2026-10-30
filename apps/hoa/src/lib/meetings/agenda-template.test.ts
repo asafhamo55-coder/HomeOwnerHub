@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { GA_MEMBERS } from './notice-law'
 import { applyAgenda, buildStandardAgenda, MAX_AGENDA_ACTION_ITEMS } from './agenda-template'
 
 const ITEMS = [
@@ -23,19 +22,18 @@ describe('buildStandardAgenda', () => {
     )
   })
 
-  it('Georgia annual meeting: adds the owners’ report under § 44-3-230', () => {
+  it('Georgia annual meeting: adds the annual report to the owners, uncited', () => {
     const text = buildStandardAgenda({ meetingType: 'annual', state: 'GA', includeOwnersReport: true })
-    expect(text).toContain('5. Report to the owners (O.C.G.A. § 44-3-230)')
-    expect(GA_MEMBERS.cite).toContain('§ 44-3-230')
+    expect(text).toContain('5. Annual report to the owners'); expect(text).not.toContain('44-3-230')
     expect(text).toContain('6. Old business')
     expect(text.endsWith('9. Adjourn')).toBe(true)
   })
 
   it('Georgia annual meeting: the line is skipped when the box is off, and for a condo', () => {
-    expect(buildStandardAgenda({ meetingType: 'annual', state: 'GA', includeOwnersReport: false })).not.toContain('Report to the owners')
+    expect(buildStandardAgenda({ meetingType: 'annual', state: 'GA', includeOwnersReport: false })).not.toContain('Annual report to the owners')
     expect(
       buildStandardAgenda({ meetingType: 'annual', state: 'GA', associationType: 'condo', includeOwnersReport: true }),
-    ).not.toContain('Report to the owners')
+    ).not.toContain('Annual report to the owners')
   })
 
   it('non-Georgia annual meeting: no owners’ report line even if asked', () => {
@@ -47,7 +45,7 @@ describe('buildStandardAgenda', () => {
   })
 
   it('a Georgia regular meeting never gets the owners’ report', () => {
-    expect(buildStandardAgenda({ meetingType: 'regular', state: 'GA', includeOwnersReport: true })).not.toContain('Report to the owners')
+    expect(buildStandardAgenda({ meetingType: 'regular', state: 'GA', includeOwnersReport: true })).not.toContain('Annual report to the owners')
   })
 
   it('owner comments can be left out', () => {

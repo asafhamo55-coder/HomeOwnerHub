@@ -1,4 +1,3 @@
-import { GA_MEMBERS } from './notice-law'
 import { isGaCondo } from '@/lib/ga-condo/law'
 
 /**
@@ -56,7 +55,9 @@ export function buildStandardAgenda(input: StandardAgendaInput): string {
     ['Officer and treasurer reports'],
   ]
   if (input.includeOwnersReport && ownersReportApplies(input)) {
-    items.push([`Report to the owners (${GA_MEMBERS.cite.replace(/\(a\)$/, '')})`])
+    // No statute cited: § 44-3-230(a) is the members' meeting NOTICE rule,
+    // not a reporting duty, so citing it here would misattribute it.
+    items.push(['Annual report to the owners'])
   }
 
   const old = ['Old business']
