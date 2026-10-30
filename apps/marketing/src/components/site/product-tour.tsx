@@ -1,4 +1,5 @@
 'use client'
+import * as React from 'react'
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ClipboardCheck, Megaphone, MessageCircleQuestion, ShieldAlert, Wallet } from 'lucide-react'
