@@ -25,7 +25,7 @@ Do this once, so the email residents send to your HOA address shows up in **Mess
 5. Check **What we found in the last 30 days**. It shows how many threads matched a property and how many need review, with a sample to check.
 
 ## What happens next
-HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 2 minutes. Mail that matches a home is filed under it. Mail it can't match waits under **Needs review** in the Inbox.
+HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 5 minutes. Mail that matches a home is filed under it. Mail it can't match waits under **Needs review** in the Inbox.
 
 ## If something goes wrong
 - "Google consent was cancelled, so no mailbox was connected.": you closed or declined the Google screen. Select [[Continue with Google]] again.

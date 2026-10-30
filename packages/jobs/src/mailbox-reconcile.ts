@@ -14,7 +14,7 @@ import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
 /**
- * Gmail state reconciliation — every 15 minutes.
+ * Gmail state reconciliation — every 30 minutes.
  *
  * The fix for the mailbox integration being append-only. Sync captured a
  * message once and nothing ever reconciled it, so a board that filed,
@@ -22,15 +22,15 @@ import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
  * forever. This job re-reads what is actually in the mailbox now and
  * updates the stored state to match.
  *
- * WHY NOT THE 2-MINUTE SYNC JOB. Two reasons, both about cost. This walks
+ * WHY NOT THE 5-MINUTE SYNC JOB. Two reasons, both about cost. This walks
  * the whole in-scope inbox rather than a history delta, so it is the
  * expensive operation in this feature; running it 7.5× more often would
  * multiply Gmail quota for no benefit. And responsiveness is not the
  * constraint here — nobody files an email and then checks HomeownerHub
  * fifteen seconds later to confirm it left. New MAIL still appears within
- * two minutes; ingest stamps label state at capture time
+ * five minutes; ingest stamps label state at capture time
  * (apps/hoa/src/lib/inbox/ingest.ts), and a resident replying to a filed
- * thread un-hides it on that same two-minute path via the fast path
+ * thread un-hides it on that same five-minute path via the fast path
  * there. Only the filing direction waits for this job.
  *
  * Per-account failures are caught and recorded rather than thrown, same
@@ -332,7 +332,7 @@ export const mailboxReconcileJob = inngest.createFunction(
     // full reasoning.
     concurrency: [{ limit: 1 }],
   },
-  { cron: '*/15 * * * *' },
+  { cron: '*/30 * * * *' },
   async ({ logger }) => {
     const db = createAdminClient()
 
@@ -376,9 +376,9 @@ export const mailboxReconcileJob = inngest.createFunction(
           // cause anywhere in the product.
           //
           // This used to be written to sync_error, which made it invisible:
-          // mailboxSyncJob runs every 2 minutes and writes sync_error=null
+          // mailboxSyncJob runs every 5 minutes and writes sync_error=null
           // on any clean run (mailbox-sync.ts:186-196), so a skip reason
-          // recorded here survived at most two minutes. At Madison Park
+          // recorded here survived at most five minutes. At Madison Park
           // that produced an account reporting no error at all while 103 of
           // 108 threads sat unreconciled. 0049 gives reconciliation its own
           // columns; nothing else writes them.
@@ -407,7 +407,7 @@ export const mailboxReconcileJob = inngest.createFunction(
         reconciled++
 
         // Stamp the successful pass. Without this, "reconciliation has
-        // never run for this account" and "it runs every 15 minutes and
+        // never run for this account" and "it runs every 30 minutes and
         // legitimately has nothing to change" are indistinguishable from
         // outside, and they call for completely different responses. The
         // clearing of reconcile_error matters too: a mailbox that drops

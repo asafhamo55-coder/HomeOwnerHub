@@ -7,7 +7,8 @@ import { inngest } from './client'
 import { getAccessTokenFor, markAuthFailed } from './mailbox-tokens'
 
 /**
- * Mailbox sync — every 2 minutes.
+ * Mailbox sync — every 5 minutes (was 2; slowed to stay inside the
+ * Inngest Hobby plan's 50k executions/month).
  *
  * This is a plain global lock (`limit: 1`, no key), not a per-account one.
  * The job is cron-triggered — Inngest's internal cron event carries no
@@ -33,7 +34,7 @@ export const mailboxSyncJob = inngest.createFunction(
     name: 'Mailbox Sync',
     concurrency: [{ limit: 1 }],
   },
-  { cron: '*/2 * * * *' },
+  { cron: '*/5 * * * *' },
   async ({ logger }) => {
     const db = createAdminClient()
 
@@ -270,12 +271,12 @@ export const mailboxSyncJob = inngest.createFunction(
 )
 
 /**
- * Stall watchdog — every 15 minutes.
+ * Stall watchdog — every 30 minutes.
  *
  * The most dangerous failure in this feature is the silent one: the cron
  * stops, or every run throws, and nobody notices for a week while
  * residents go unanswered. A sync that has not completed in 30 minutes is
- * broken by definition — the cron runs every 2.
+ * broken by definition — the cron runs every 5.
  *
  * A second, independent check below covers the historical backfill chain
  * (mailbox-backfill.ts). That chain's own try/catch records
@@ -333,7 +334,7 @@ export const mailboxSyncJob = inngest.createFunction(
  */
 export const mailboxWatchdogJob = inngest.createFunction(
   { id: 'mailbox-watchdog', name: 'Mailbox Stall Watchdog' },
-  { cron: '*/15 * * * *' },
+  { cron: '*/30 * * * *' },
   async ({ logger }) => {
     const db = createAdminClient()
     const threshold = new Date(Date.now() - 30 * 60 * 1000).toISOString()
@@ -341,7 +342,7 @@ export const mailboxWatchdogJob = inngest.createFunction(
     // A never-synced account (last_synced_at IS NULL) is measured from
     // `connected_at`, NOT treated as instantly stale. The previous
     // condition — a bare `last_synced_at.is.null` — flagged every mailbox
-    // the moment it was connected, so the next 15-minute tick told a board
+    // the moment it was connected, so the next watchdog tick told a board
     // that had just finished onboarding "Mail sync has stalled, resident
     // email may not be arriving" before the first sync had any chance to
     // run. Caught in live testing on a freshly connected mailbox.

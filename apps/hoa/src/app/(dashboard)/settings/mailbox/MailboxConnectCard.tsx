@@ -71,7 +71,7 @@ export function MailboxConnectCard({ status, preview, scopeOptions, returnTo }: 
               <p className="font-medium text-foreground">{status.emailAddress}</p>
               <p className={partialSync ? 'text-xs text-warning' : 'text-xs text-muted'}>
                 {status.syncStatus === 'ok'
-                  ? `Syncing every 2 minutes · last check ${
+                  ? `Syncing every 5 minutes · last check ${
                       status.lastSyncedAt
                         ? new Date(status.lastSyncedAt).toLocaleTimeString()
                         : 'pending'

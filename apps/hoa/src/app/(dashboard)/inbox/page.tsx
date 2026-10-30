@@ -300,7 +300,7 @@ export default async function InboxPage({
                 variant="compact"
                 icon={<MailPlus aria-hidden />}
                 title="No mail yet"
-                description="Mail syncs every 2 minutes. You can also start a conversation yourself."
+                description="Mail syncs every 5 minutes. You can also start a conversation yourself."
                 action={
                   <Button asChild variant="secondary" size="sm">
                     <Link href="/inbox/compose">New email</Link>

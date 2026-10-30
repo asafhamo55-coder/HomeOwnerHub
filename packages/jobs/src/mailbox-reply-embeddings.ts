@@ -145,7 +145,7 @@ export async function runMailboxReplyEmbeddings(
   // BL-112: AI_PLATFORM_KILL_SWITCH stops every embedding call. Return,
   // don't throw: a throw makes Inngest retry a run that cannot succeed
   // until the switch is off. The candidates stay unembedded and the next
-  // 10-minute run picks them up. Counts only in the log.
+  // 30-minute run picks them up. Counts only in the log.
   if (aiKillSwitchOn()) {
     logger.info(`[mailbox-reply-embeddings] AI paused; deferred ${usable.length}`)
     return { embedded: 0, skipped, paused: true }
@@ -254,7 +254,7 @@ export async function runMailboxReplyEmbeddings(
 
 export const mailboxReplyEmbeddingsJob = inngest.createFunction(
   { id: 'mailbox-reply-embeddings', name: 'Mailbox Reply Embeddings' },
-  { cron: '*/10 * * * *' },
+  { cron: '*/30 * * * *' },
   async ({ logger }) => {
     const db = createAdminClient()
     return runMailboxReplyEmbeddings(db, logger)
