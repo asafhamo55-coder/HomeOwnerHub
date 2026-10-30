@@ -9,7 +9,7 @@ import { cn } from '../lib/cn'
 /**
  * Button. One primary per view; everything else is `secondary` (alias
  * `outline`) or `ghost`. Sizes: sm 32px, md 36px, lg 44px (touch-first
- * CTAs). Icons go in `icon` / `iconRight`, never as raw children, so
+ * CTAs); on coarse pointers (touch) every size lifts to a 44px target. Icons go in `icon` / `iconRight`, never as raw children, so
  * spacing and the loading swap stay consistent.
  */
 const buttonVariants = cva(
@@ -39,13 +39,13 @@ const buttonVariants = cva(
         link: 'h-auto bg-transparent px-0 text-primary underline-offset-4 hover:underline',
       },
       size: {
-        xs: 'h-7 px-2.5 text-xs [&_svg]:size-3.5',
-        sm: 'h-8 px-3 text-sm [&_svg]:size-4',
-        md: 'h-9 px-3.5 text-sm [&_svg]:size-4',
+        xs: 'h-7 px-2.5 text-xs coarse:min-h-11 [&_svg]:size-3.5',
+        sm: 'h-8 px-3 text-sm coarse:min-h-11 [&_svg]:size-4',
+        md: 'h-9 px-3.5 text-sm coarse:min-h-11 [&_svg]:size-4',
         lg: 'h-11 px-5 text-base [&_svg]:size-[18px]',
-        icon: 'size-9 [&_svg]:size-4',
-        'icon-sm': 'size-8 [&_svg]:size-4',
-        'icon-xs': 'size-7 [&_svg]:size-3.5',
+        icon: 'size-9 coarse:size-11 [&_svg]:size-4',
+        'icon-sm': 'size-8 coarse:size-11 [&_svg]:size-4',
+        'icon-xs': 'size-7 coarse:size-11 [&_svg]:size-3.5',
       },
     },
     // min-h-6: a standalone link-style button still meets the 24px target

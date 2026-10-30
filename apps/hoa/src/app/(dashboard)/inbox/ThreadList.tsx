@@ -108,7 +108,7 @@ export function ThreadList({
                 <p className="flex items-center gap-1.5 text-sm text-foreground">
                   <span className="truncate">{thread.subject ?? '(no subject)'}</span>
                   {thread.hasAttachments ? (
-                    <Paperclip className="size-3.5 shrink-0 text-muted" aria-label="Has attachments" />
+                    <Paperclip className="size-3.5 shrink-0 text-muted" role="img" aria-label="Has attachments" />
                   ) : null}
                 </p>
                 {thread.snippet ? <p className="truncate text-xs text-muted">{thread.snippet}</p> : null}

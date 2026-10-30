@@ -110,7 +110,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="relative rounded-md p-1.5 text-muted hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="relative inline-flex size-9 items-center justify-center rounded-md text-muted coarse:size-11 hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           aria-label={
             unreadCount > 0
               ? `Notifications, ${unreadCount} unread`
@@ -118,7 +118,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
           }
           title="Notifications"
         >
-          <Bell className="h-4 w-4" />
+          <Bell className="h-4 w-4" aria-hidden />
           {badge ? (
             <span
               aria-hidden
@@ -140,7 +140,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
           )}
         >
           <div className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
               Notifications
             </span>
             {unreadCount > 0 ? (
@@ -148,12 +148,12 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
                 type="button"
                 disabled={pending}
                 onClick={handleMarkAll}
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted hover:bg-background hover:text-foreground disabled:opacity-60"
+                className="inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 coarse:min-h-11"
               >
                 {pending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
                 ) : (
-                  <CheckCheck className="h-3 w-3" />
+                  <CheckCheck className="h-3 w-3" aria-hidden />
                 )}
                 Mark all read
               </button>
@@ -194,7 +194,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
                       <span
                         className={cn(
                           'block truncate',
-                          unread ? 'font-medium text-foreground' : 'text-muted-fg',
+                          unread ? 'font-medium text-foreground' : 'text-foreground-secondary',
                         )}
                       >
                         {item.title}
@@ -204,7 +204,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
                           {item.body}
                         </span>
                       ) : null}
-                      <span className="mt-0.5 block text-[11px] text-muted">{item.age}</span>
+                      <span className="mt-0.5 block text-xs text-muted">{item.age}</span>
                     </span>
                   </DropdownMenu.Item>
                 )
@@ -213,7 +213,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
           )}
 
           {error ? (
-            <div className="border-t border-border px-3 py-2 text-[11px] text-destructive">
+            <div className="border-t border-border px-3 py-2 text-xs text-destructive" role="alert">
               {error}
             </div>
           ) : null}
