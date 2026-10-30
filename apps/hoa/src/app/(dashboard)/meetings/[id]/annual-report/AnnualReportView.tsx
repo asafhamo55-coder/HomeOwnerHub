@@ -1,4 +1,4 @@
-import { LoadFailed, cn } from '@homeowner-portal/ui'
+import { LoadFailed, TableScroll, cn } from '@homeowner-portal/ui'
 import { formatCents } from '@/lib/insurance/model'
 import { ANNUAL_REPORT_NOT_LEGAL_ADVICE, annualReportLawNote, annualReportQuotes } from '@/lib/annual-report/law'
 import type { AnnualReport, OwnerBudgetRow, OwnerLine, Section } from '@/lib/annual-report/model'
@@ -56,6 +56,7 @@ export function AnnualReportView({ report, boardMessage }: { report: AnnualRepor
                       {f.period ? ` · ${f.period}` : ''}
                       <span className="text-muted"> · {f.adopted ? 'adopted' : 'draft'}</span>
                     </p>
+                    <TableScroll role="region" aria-label={`Budget and actual, ${f.fund}`}>
                     <table className="w-full text-sm">
                       <caption className="sr-only">Budget and actual, {f.fund}</caption>
                       <thead>
@@ -76,6 +77,7 @@ export function AnnualReportView({ report, boardMessage }: { report: AnnualRepor
                         </tr>
                       </tbody>
                     </table>
+                    </TableScroll>
                   </div>
                 ))}
               </div>
@@ -189,6 +191,7 @@ export function AnnualReportView({ report, boardMessage }: { report: AnnualRepor
             policies.length === 0 ? (
               <Empty>No policy in force is on record in HomeownerHub.</Empty>
             ) : (
+              <TableScroll role="region" aria-label="Association insurance">
               <table className="w-full text-sm">
                 <caption className="sr-only">Association insurance</caption>
                 <thead>
@@ -212,6 +215,7 @@ export function AnnualReportView({ report, boardMessage }: { report: AnnualRepor
                   ))}
                 </tbody>
               </table>
+              </TableScroll>
             )
           }
         </Body>
@@ -371,14 +375,16 @@ function Figures({ items, extra }: { items: [string, number][]; extra?: [string,
 
 function MoneyTable({ caption, groups }: { caption: string; groups: { title: string; rows: OwnerLine[]; total: [string, number] }[] }) {
   return (
-    <table className="w-full text-sm">
-      <caption className="sr-only">{caption}</caption>
-      <tbody>
-        {groups.map((g) => (
-          <MoneyGroup key={g.title} group={g} />
-        ))}
-      </tbody>
-    </table>
+    <TableScroll role="region" aria-label={caption}>
+      <table className="w-full text-sm">
+        <caption className="sr-only">{caption}</caption>
+        <tbody>
+          {groups.map((g) => (
+            <MoneyGroup key={g.title} group={g} />
+          ))}
+        </tbody>
+      </table>
+    </TableScroll>
   )
 }
 
