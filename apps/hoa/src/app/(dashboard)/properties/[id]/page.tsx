@@ -18,6 +18,7 @@ import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { loadEmailConsent } from '@/lib/email-consent'
 import { timed } from '@/lib/perf/timing'
 import { loadGaThreshold } from '@/lib/collections/ga-threshold-load'
+import { loadLetterHistory } from '@/lib/violations/letter-history'
 import { loadGaComplaintView } from '@/lib/ga-complaints/load'
 
 export const metadata = { title: 'Property' }
@@ -56,7 +57,7 @@ export default async function PropertyDetailPage({
   // it runs alongside the 360 instead of after it (BL-099).
   const canManage = ctx.role === 'admin' || ctx.role === 'board'
   const R = '/properties/[id]'
-  const [target, loaded, assocInfo, consentRes] = await Promise.all([
+  const [target, loaded, assocInfo, consentRes, letterHistory] = await Promise.all([
     timed(R, 'property.resolveUrl', () => resolvePropertyUrl(supabase, ctx.org.id, rawId, incoming)),
     // Not for a malformed id: resolvePropertyUrl 404s it, and the reads would only error.
     UUID.test(rawId)
@@ -66,6 +67,10 @@ export default async function PropertyDetailPage({
       getPrimaryAssociation().then(async (assoc) => ({ assoc, cap: assoc ? await getLeaseCap(assoc.id) : null })),
     ),
     M1_APPLIED && canManage ? timed(R, 'property.consent', () => loadEmailConsent(supabase, ctx.org.id)) : Promise.resolve(null),
+    // Letter history card: titles and dates only, board and admin only.
+    canManage && UUID.test(rawId)
+      ? timed(R, 'property.letterHistory', () => loadLetterHistory(supabase, { orgId: ctx.org.id, propertyId: rawId, limit: 20 }))
+      : Promise.resolve(null),
   ])
   if (target.kind === 'redirect') redirect(target.href)
   if (target.kind === 'not_found' || loaded.kind === 'not_found') notFound()
@@ -123,6 +128,7 @@ export default async function PropertyDetailPage({
       planStandings={planStandings}
       gaThreshold={gaThreshold}
       gaComplaints={gaComplaints}
+      letterHistory={letterHistory}
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}

@@ -40,6 +40,9 @@ import {
   type TimelineItem,
 } from '@homeowner-portal/ui'
 import { formatDay, formatStamp, usd } from '@/lib/money/format'
+import type { LoadResult } from '@/lib/load-or-fail'
+import type { LetterHistoryPage } from '@/lib/violations/letter-history'
+import { LETTER_HISTORY_SHOWN } from '@/lib/violations/letter-history-core'
 import { describePlanStanding, type PlanStandingView } from '@/lib/money/plan-standing'
 import { ARC_CATEGORY, ARC_STATUS, INBOX_THREAD_STATUS, TENURE, VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { cureBy, cureState, sortByUrgency } from '@/lib/violation-cure'
@@ -133,10 +136,12 @@ export interface PropertyDetailViewProps {
   gaThreshold?: GaThresholdRead | null
   /** BL-161: the Georgia Secretary of State complaint record (board/admin with a unit only); null or omitted hides it. */
   gaComplaints?: GaComplaintRead | null
+  /** Round 16: the home's letters, newest first (board/admin only); null or omitted hides the card. */
+  letterHistory?: LoadResult<LetterHistoryPage> | null
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -284,7 +289,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
               </Button>
             }
           >
-            <ComplianceSection violations={data.violations} arc={data.arc} now={now} violationsHref={scoped('/violations')} />
+            <ComplianceSection violations={data.violations} arc={data.arc} now={now} violationsHref={scoped('/violations')} letterHistory={canManage ? letterHistory : null} />
           </Section>
 
           <Section id="leases" title="Leases" active={section === 'leases'}>
@@ -936,11 +941,13 @@ function ComplianceSection({
   arc,
   now,
   violationsHref,
+  letterHistory,
 }: {
   violations: Property360['violations']
   arc: Property360['arc']
   now: Date
   violationsHref: string
+  letterHistory: LoadResult<LetterHistoryPage> | null
 }) {
   return (
     <div className="space-y-4">
@@ -949,6 +956,8 @@ function ComplianceSection({
       ) : (
         <ViolationsTable all={sortByUrgency(violations.data, now)} now={now} violationsHref={violationsHref} />
       )}
+
+      {letterHistory ? <LetterHistoryCard history={letterHistory} violationsHref={violationsHref} /> : null}
 
       <Card>
         <CardHeader>
@@ -990,6 +999,52 @@ function ComplianceSection({
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function LetterHistoryCard({ history, violationsHref }: { history: LoadResult<LetterHistoryPage>; violationsHref: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle as="h3">Letter history</CardTitle>
+        <p className="text-xs text-muted">Notices sent for this home, newest first. Open a violation to read the letter.</p>
+      </CardHeader>
+      <CardContent className="px-0 pb-2">
+        {!history.ok ? (
+          <div className="px-5">
+            <LoadFailed what="this home’s letters" />
+          </div>
+        ) : history.data.rows.length === 0 ? (
+          <p className="px-5 pb-2 text-sm text-muted">No letters sent for this home yet.</p>
+        ) : (
+          <>
+            <ul className="divide-y divide-border">
+              {history.data.rows.slice(0, LETTER_HISTORY_SHOWN).map((r) => (
+                <li key={r.key}>
+                  <Link
+                    href={r.href}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2.5 text-sm no-underline transition-colors hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-foreground">{r.stepLabel}</span>
+                      <span className="num block truncate text-xs text-muted">
+                        {r.title} · {formatStamp(r.date)}
+                      </span>
+                    </span>
+                    <StatusPill tone={r.approved ? 'success' : 'neutral'} label={r.approved ? 'Approved' : 'Not approved'} size="sm" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {history.data.hasMore || history.data.total > LETTER_HISTORY_SHOWN ? (
+              <p className="px-5 pt-3 text-sm">
+                <Link href={violationsHref}>See all on the violations list</Link>
+              </p>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
