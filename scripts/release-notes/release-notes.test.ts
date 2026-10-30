@@ -128,7 +128,7 @@ describe('render', () => {
     expect(subject).toBe('HomeownerHub release: One-click approvals & search (c56061f)')
     // BL-098 header: "H" tile, then "Homeowner" + blue "Hub".
     expect(html).toMatch(/font-weight:700;[^"]*">H<\/td>/)
-    expect(html).toContain('>Homeowner<span class="rn-link" style="color:#2563EB;">Hub</span></td>')
+    expect(html).toContain('>Homeowner<span class="rn-link" style="color:#4B27C9;">Hub</span></td>')
     expect(html).not.toContain('Ledger')
     expect(html).not.toContain('HOA Hub')
     expect(html).toContain('Saturday, October 17, 2026 at 3:55 PM EDT')

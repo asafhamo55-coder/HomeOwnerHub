@@ -72,8 +72,8 @@ const BRAND_GRADIENT =
 
 function BrandLockup({ className }: { className?: string }) {
   return (
-    <div className={cn('flex items-center gap-2.5 text-white', className)}>
-      <span className="flex size-9 items-center justify-center rounded-xl bg-white" aria-hidden>
+    <div className={cn('flex items-center gap-2.5 text-on-solid', className)}>
+      <span className="flex size-9 items-center justify-center rounded-xl bg-on-solid" aria-hidden>
         <BrandMark className="size-7" />
       </span>
       <span className="text-lg font-semibold tracking-[-0.01em]">HomeownerHub</span>
@@ -100,7 +100,7 @@ const BENEFITS = [
 function AuthBrandPanel() {
   return (
     <aside
-      className={cn('relative hidden overflow-hidden text-white lg:order-2 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16', BRAND_GRADIENT)}
+      className={cn('relative hidden overflow-hidden text-on-solid lg:order-2 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16', BRAND_GRADIENT)}
     >
       <div
         className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-[#22c7c0]/30 blur-3xl"
@@ -113,8 +113,8 @@ function AuthBrandPanel() {
         </p>
         <ul className="space-y-4">
           {BENEFITS.map(({ icon: Icon, text }) => (
-            <li key={text} className="flex items-start gap-3 text-base text-white/90">
-              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/15" aria-hidden>
+            <li key={text} className="flex items-start gap-3 text-base text-on-solid/90">
+              <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-on-solid/15" aria-hidden>
                 <Icon className="size-4" />
               </span>
               <span className="pt-1">{text}</span>
@@ -122,7 +122,7 @@ function AuthBrandPanel() {
           ))}
         </ul>
       </div>
-      <p className="relative text-sm text-white/80">Built for volunteer HOA boards.</p>
+      <p className="relative text-sm text-on-solid/80">Built for volunteer HOA boards.</p>
     </aside>
   )
 }

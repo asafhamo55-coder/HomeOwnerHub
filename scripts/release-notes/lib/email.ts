@@ -99,7 +99,7 @@ export function emailHead(title: string, extraCss = ''): string {
     .rn-muted { color:#94A3B8 !important; }
     .rn-action { background-color:#2B2110 !important; }
     .rn-action p, .rn-action li { color:#FEC84B !important; }
-    .rn-card a, .rn-link { color:#60A5FA !important; }
+    .rn-card a, .rn-link { color:#CBC2FF !important; }
     .rn-card code { background-color:#1E293B !important; color:#F1F5F9 !important; }
   }
   @media screen and (max-width: 620px) {
