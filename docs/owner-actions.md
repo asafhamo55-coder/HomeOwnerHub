@@ -295,20 +295,6 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
-### OA-26 · Remove the old signing secret (one last step, from Nov 6)
-
-**Urgency:** Whenever
-
-**Where it stands (2026-10-30):** done except one cleanup step. `PAY_SETTINGS_SECRET`, `SESSION_CAP_SECRET` and `PAY_SETTINGS_SECRET_PREVIOUS` are set on home-owner-hub-hoa Production and live (deploy 74e14079). Board settings, the "view as resident" cookie, sessions and compliance records no longer depend on the database key that is in the public git history. The only association with signed settings besides Zelle re-saved payment receipts and resident notifications; both stay on after a reload, and Zelle still shows as set up.
-
-**Why it matters:** `PAY_SETTINGS_SECRET_PREVIOUS` holds the service-role key so the old Zelle signature keeps verifying. Once Zelle has been re-saved under the new secret, the old one should go, so nothing accepts a signature made with the leaked key.
-
-**Steps (on or after 2026-11-06):**
-
-1. Ask Claude first. It gives you a read-only query that confirms Zelle has been re-saved under the new secret (or asks a board member to re-save it once).
-2. In Vercel, **home-owner-hub-hoa → Settings → Environment Variables**: delete `PAY_SETTINGS_SECRET_PREVIOUS` (Production).
-3. Tell Claude. It redeploys and checks that Zelle still shows to residents.
-
 ### OA-27 · Show "delivered" on texts (Vonage delivery receipts)
 
 **Urgency:** Whenever
@@ -325,6 +311,14 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-26 · Give board settings and sessions their own signing secrets
+
+**Done 2026-10-30:** `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET` are set on home-owner-hub-hoa Production. The one association with signed settings re-saved payment receipts, resident notifications and Zelle under the new secret (Zelle stamped 2026-10-30 07:06 UTC). `PAY_SETTINGS_SECRET_PREVIOUS` was then deleted, so nothing accepts a signature made with the service-role key any more.
+
+**Urgency:** Soon
+
+**Why it matters:** board settings, the "view as resident" cookie, sessions and compliance records were signed with the database key that is in the public git history, so anyone holding it could forge them.
 
 ### OA-36 · Three read-only checks for the tenant-isolation audit
 
