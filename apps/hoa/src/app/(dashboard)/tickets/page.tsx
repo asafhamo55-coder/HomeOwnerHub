@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FileText, Inbox, MessageSquare } from 'lucide-react'
+import { FileText, Inbox, MessageSquare, Search } from 'lucide-react'
 import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
 import { format } from 'date-fns'
 import {
@@ -8,6 +8,7 @@ import {
   EmptyState,
   FilterChips,
   ListToolbar,
+  SearchForm,
   LoadFailed,
   Page,
   Pager,
@@ -15,6 +16,8 @@ import {
   parsePageParam,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { formatTicketAge, ticketAgeDays } from '@/lib/tickets-board'
 import { listTicketsForBoard, type TicketBoardRow, type TicketStatus } from '@/lib/tickets'
 import { TICKET_CATEGORY, TICKET_PRIORITY, TICKET_STATUS } from '@/lib/status/community'
 
@@ -29,15 +32,17 @@ function parseStatus(raw: string | undefined): TicketStatus | undefined {
   return STATUSES.find((s) => s === raw)
 }
 
-function hrefFor({ status, page }: { status?: TicketStatus; page?: number }): string {
+function hrefFor({ status, page, q: term }: { status?: TicketStatus; page?: number; q?: string }): string {
   const q = new URLSearchParams()
   if (status) q.set('status', status)
+  if (term) q.set('q', term)
   if (page && page > 1) q.set('page', String(page))
   const qs = q.toString()
   return qs ? `/tickets?${qs}` : '/tickets'
 }
 
-const columns: DataTableColumn<TicketBoardRow>[] = [
+function buildColumns(timeZone: string): DataTableColumn<TicketBoardRow>[] {
+  return [
   {
     key: 'subject',
     header: 'Ticket',
@@ -82,27 +87,34 @@ const columns: DataTableColumn<TicketBoardRow>[] = [
     cell: (t) => <StatusBadge status={t.status} tones={TICKET_STATUS.tones} labels={TICKET_STATUS.labels} />,
   },
   {
-    key: 'created',
-    header: 'Opened',
+    key: 'age',
+    header: 'Age',
     className: 'whitespace-nowrap',
     cell: (t) => (
-      <time dateTime={t.created_at} className="num text-foreground-secondary">
-        {format(new Date(t.created_at), 'MMM d, yyyy')}
+      <time dateTime={t.created_at} className="block">
+        <span className="num text-foreground">
+          {formatTicketAge(ticketAgeDays(t.created_at, timeZone))}
+        </span>
+        <span className="num block text-xs text-muted">{format(new Date(t.created_at), 'MMM d, yyyy')}</span>
       </time>
     ),
   },
-]
+  ]
+}
 
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; status?: string }>
+  searchParams: Promise<{ page?: string; status?: string; q?: string }>
 }) {
   const sp = await searchParams
   const page = parsePageParam(sp.page)
   const status = parseStatus(sp.status)
-  const result = await listTicketsForBoard({ page, pageSize: PAGE_SIZE, status })
+  const q = (sp.q ?? '').trim().slice(0, 80)
+  const result = await listTicketsForBoard({ page, pageSize: PAGE_SIZE, status, q })
   const tickets = result.ok ? result.rows : []
+  const summary = result.ok ? result.summary : null
+  const columns = buildColumns(result.ok ? result.timeZone : 'America/New_York')
 
   const allCount = result.ok
     ? result.statusCounts.open + result.statusCounts.in_progress + result.statusCounts.closed
@@ -131,6 +143,29 @@ export default async function TicketsPage({
         <LoadFailed what="tickets" />
       ) : (
         <>
+          <SummaryStrip
+            ariaLabel="Ticket summary"
+            testId="tickets-summary"
+            tiles={[
+              {
+                label: 'Needs attention',
+                value: summary ? String(summary.needsAttention) : null,
+                hint: 'Open and in progress',
+                href: hrefFor({ status: 'open' }),
+                tone: summary && summary.needsAttention > 0 ? 'warning' : 'default',
+              },
+              {
+                label: 'Oldest open',
+                value: summary ? (summary.oldestOpenDays === null ? 'None' : formatTicketAge(summary.oldestOpenDays)) : null,
+                hint: 'Days since it was opened',
+              },
+              {
+                label: 'Unassigned',
+                value: summary ? String(summary.unassigned) : null,
+                hint: 'Open, no action item with an owner',
+              },
+            ]}
+          />
           <ListToolbar>
             <FilterChips
               label="Filter tickets by status"
@@ -145,9 +180,17 @@ export default async function TicketsPage({
                 })),
               ]}
             />
+            <SearchForm
+              action="/tickets"
+              defaultValue={q}
+              label="Search tickets"
+              placeholder="Search subject, resident or unit"
+              keep={{ status }}
+              linkAs={Link}
+            />
           </ListToolbar>
 
-          {result.total === 0 && !status ? (
+          {result.total === 0 && !status && !q ? (
             <EmptyState
               icon={<MessageSquare aria-hidden />}
               title="No tickets yet"
@@ -166,6 +209,19 @@ export default async function TicketsPage({
               rowKey={(t) => t.id}
               mobile="cards"
               empty={
+                q ? (
+                  <EmptyState
+                    variant="compact"
+                    icon={<Search aria-hidden />}
+                    title={`No tickets match “${q}”`}
+                    description="Try part of the subject, the resident's name or the unit number."
+                    action={
+                      <Button asChild variant="secondary" size="sm">
+                        <Link href={hrefFor({ status })}>Clear search</Link>
+                      </Button>
+                    }
+                  />
+                ) : (
                 <EmptyState
                   variant="compact"
                   icon={<Inbox aria-hidden />}
@@ -177,6 +233,7 @@ export default async function TicketsPage({
                     </Button>
                   }
                 />
+                )
               }
               footer={
                 result.total <= PAGE_SIZE && page === 1 ? undefined : (
@@ -185,7 +242,7 @@ export default async function TicketsPage({
                   pageSize={PAGE_SIZE}
                   total={result.total}
                   rowCount={tickets.length}
-                  hrefFor={(p) => hrefFor({ status, page: p })}
+                  hrefFor={(p) => hrefFor({ status, q, page: p })}
                   linkAs={Link}
                   noun="tickets"
                 />
