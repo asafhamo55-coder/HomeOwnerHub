@@ -21,6 +21,7 @@ import { HoaCommandPalette, HoaUserMenu } from '@/components/layout/HoaChrome'
 import { DashboardProviders } from '@/components/layout/DashboardProviders'
 import { ProductAnalytics } from '@/components/analytics/ProductAnalytics'
 import { NavigationProgress } from '@/components/layout/NavigationProgress'
+import { ShortcutsHelp } from '@/components/layout/ShortcutsHelp'
 import { PlatformAdminLink } from '@/components/layout/PlatformAdminLink'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { BillingStatusBanner } from '@/components/billing/BillingStatusBanner'
@@ -89,6 +90,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           same-origin link is clicked; bar sweeps left-to-right during
           server fetch. Pure client component, no server-side risk. */}
       <NavigationProgress />
+      <ShortcutsHelp />
       <AppShell>
         <AppShellSidebar collapsible>
           <HoaSidebar

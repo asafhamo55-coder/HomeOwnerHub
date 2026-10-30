@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   FileText,
   Gavel,
+  Keyboard,
   LogOut,
   Mail,
   MessageSquare,
@@ -33,6 +34,7 @@ import { fetchRecordSearch } from '@/lib/search/client'
 import type { RecordType } from '@/lib/search/types'
 import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
 import { askGuideCommand, helpArticleCommands, type PaletteHelpArticle } from '@/components/guide/palette-help'
+import { SHORTCUTS_OPEN_EVENT } from './ShortcutsHelp'
 import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_CREATE, HOA_NAV } from './nav'
 
 async function signOut() {
@@ -70,6 +72,10 @@ export function HoaUserMenu({
           <Users aria-hidden />
           <span className="flex-1">Members</span>
         </Link>
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => window.dispatchEvent(new Event(SHORTCUTS_OPEN_EVENT))}>
+        <Keyboard aria-hidden />
+        <span className="flex-1">Keyboard shortcuts</span>
       </DropdownMenuItem>
     </UserMenu>
   )
