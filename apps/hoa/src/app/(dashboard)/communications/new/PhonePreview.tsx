@@ -18,7 +18,7 @@ const TAB_LABEL: Record<Tab, string> = { email: 'Email', text: 'Text', portal: '
  *  is sandboxed (no scripts, no same-origin), so the message's own HTML
  *  can't touch the app. */
 function frameDoc(html: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;margin:14px;color:#1a1a1a;background:#fff;word-wrap:break-word}a{color:#1d4ed8}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>${html}</body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;margin:14px;color:#1a1a1a;background:#fff;word-wrap:break-word}a{color:#4B27C9}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>${html}</body></html>`
 }
 
 /**

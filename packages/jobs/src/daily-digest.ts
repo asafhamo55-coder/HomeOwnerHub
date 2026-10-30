@@ -1,6 +1,9 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { inngest } from './client'
+
+// HOA brand primary. Mirrors packages/ui/src/tokens.ts (this package does not depend on ui).
+const HOA_BRAND_PRIMARY = '#4B27C9'
 // Dependency-free (no imports of its own), shared with the inbox list so the
 // digest's "waiting" means exactly what the badge means. Same relative-path
 // pattern as mailbox-attachments.ts -> attachment-state.ts.
@@ -955,7 +958,7 @@ export function buildLateFeeBlock(args: { summary: LateFeeDigestSummary; policyU
   const line = lateFeeDigestLine(args.summary)
   const text = [line, `Review the late-fee policy: ${args.policyUrl}`].join('\n')
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid #2563eb;border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${HOA_BRAND_PRIMARY};border-radius:6px;padding:16px;margin:16px 0">
     <p style="margin:0 0 12px">${escapeHtml(line)}</p>
     <a href="${escapeHtml(args.policyUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Review the late-fee policy</a>
   </div>`
@@ -1035,7 +1038,7 @@ export function buildProTreasurerBlock(args: { entries: number; reviews: number;
   if (args.reviews > 0) lines.push(`${itemCount(args.reviews, 'period review note', 'period review notes')} from your CPA waiting for approval`)
   const text = [...lines, `Review in Approvals: ${args.approvalsUrl}`].join('\n')
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid #2563eb;border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid #e5e7eb;border-left:4px solid ${HOA_BRAND_PRIMARY};border-radius:6px;padding:16px;margin:16px 0">
     ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
     <a href="${escapeHtml(args.approvalsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open Approvals</a>
   </div>`
