@@ -2046,6 +2046,23 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 17 (2026-10-31, code-verified)
+
+None of these needs a migration or an owner action. Billing, pricing, the pilot copy and vendor emails are off limits.
+
+1. **BUG: a collection case can't be written off or reopened, and closing it loses its date and reason.** Wire the orphaned `setCollectionStatus` with a confirm, and stamp `closed_on` and `closed_reason` when the case_closed event runs. Status and audit only, no money moves. Effort 2.
+2. **BUG: vendor documents (COI, W-9) can be deleted but never opened.** Wire the orphaned `getVendorDocumentSignedUrl` to a View button. Effort 1.
+3. **Bulk "set tenure" on properties**, starting from the "Tenure unknown" filter. Wire the orphaned `bulkSetPropertyTenure`. Effort 2.
+4. **Resident announcements:** New markers, category chips, and collapsing long messages. Effort 2.
+5. **Board communications:** subject search and a summary strip. Effort 2.
+6. **BL-172 SEO batch 15:** a GA certified board resolution template and a board-powers guide, built from existing fixture quotes. Effort 2.
+7. **Weekly SEO audit, due Mon Nov 2.** Effort 1.
+
+**Dropped:**
+- No broken links found.
+- Resident report withdrawal and meeting cancel may need a migration.
+- Already shipped: the records, ledger, search and approvals patterns.
+
 ## Ranked open work — round 16 (2026-10-30, code-verified) — Done 2026-10-30 except item 8 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action. Billing and pricing belong to the other session.
