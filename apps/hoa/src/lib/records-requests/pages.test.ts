@@ -112,8 +112,10 @@ describe('flag off', () => {
   })
 
   it('the board Tickets page has no records link', async () => {
+    // The header actions now hold the Export CSV button too; what must be
+    // absent with the flag off is the records link, wherever it would render.
     const el = (await TicketsPage({ searchParams: Promise.resolve({}) })) as unknown as { props: { actions?: unknown } }
-    expect(el.props.actions).toBeUndefined()
+    expect(hrefs(el.props.actions)).not.toContain('/tickets/records')
     expect(hrefs(el)).not.toContain('/tickets/records')
   })
 })
