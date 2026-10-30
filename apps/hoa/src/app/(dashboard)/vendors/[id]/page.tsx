@@ -29,6 +29,9 @@ import {
 import { dateOnly, daysUntil, shortDate, tradesLabel, usd } from '@/components/vendors/format'
 import { coiExpiryLabel } from '@homeowner-portal/workflows/vendor-coi'
 import { loadCoiRequestDraft } from '@/lib/vendor-coi-request/actions'
+import { loadVendorBids } from '@/lib/vendor-glance'
+import { buildGlance } from '@/components/vendors/glance'
+import { VendorGlance } from '@/components/vendors/VendorGlance'
 import { ApproveVendorButton } from './ApproveVendorButton'
 import { ConflictDisclosurePanel } from '@/components/conflict-disclosure/ConflictDisclosurePanel'
 import { RequestCertificateButton } from './RequestCertificateButton'
@@ -61,6 +64,17 @@ export default async function VendorDetailPage({
   const draft = coiDraft.ok ? coiDraft.data : null
   const coiAlert = draft && (draft.state === 'expired' || draft.state === 'expiring') && draft.expiresOn ? draft : null
   const coiAlertLabel = coiAlert?.daysLeft != null ? coiExpiryLabel(coiAlert.daysLeft) : null
+  const bids = await loadVendorBids(vendor.id)
+  const glance = buildGlance({
+    legalName: vendor.legal_name,
+    createdAt: vendor.created_at,
+    coi: compliance
+      ? { status: compliance.coi_status, coi_expiration_date: compliance.coi_expiration_date }
+      : null,
+    lastReviewedAt: compliance?.last_reviewed_at ?? null,
+    documentDates: vendor.documents.map((d) => d.uploaded_at),
+    bids: bids ?? [],
+  })
   const missing = [
     !vendor.ein ? 'EIN' : null,
     !vendor.trades || vendor.trades.length === 0 ? 'trade' : null,
@@ -104,6 +118,7 @@ export default async function VendorDetailPage({
         </>
       }
     >
+      <VendorGlance glance={glance} bidsAvailable={bids !== null} />
       {canApprove ? <ConflictDisclosurePanel decisionKind="contract_approval" decisionId={vendor.id} /> : null}
       {/* A vendor fast-created from an email has no EIN and often no trade,
           because a signature block never states them. Say so here rather
