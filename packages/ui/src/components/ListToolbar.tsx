@@ -58,7 +58,7 @@ export function FilterChips({ items, label, linkAs: LinkAs = 'a', className }: F
               href={item.href}
               aria-current={item.active ? 'true' : undefined}
               className={cn(
-                'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium no-underline transition-colors duration-fast sm:h-7',
+                'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-sm font-medium no-underline transition-colors duration-fast sm:h-7 coarse:min-h-11',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 item.active
                   ? 'bg-surface text-foreground shadow-xs'

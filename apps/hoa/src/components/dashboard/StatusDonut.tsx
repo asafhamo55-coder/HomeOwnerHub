@@ -109,7 +109,7 @@ export function StatusDonut({
               />
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-semibold tabular-nums">{total}</span>
-                <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                <span className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   total
                 </span>
               </div>

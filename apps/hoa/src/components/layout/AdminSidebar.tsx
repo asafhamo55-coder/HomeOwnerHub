@@ -77,7 +77,7 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
         </div>
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-sm font-semibold text-foreground">Platform</p>
-          <p className="text-[11px] text-muted">HomeownerHub staff</p>
+          <p className="text-xs text-muted">HomeownerHub staff</p>
         </div>
       </SidebarBrand>
 
@@ -97,12 +97,12 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
         <div className="flex w-full items-center justify-between gap-2 px-1">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-foreground">{userEmail}</p>
-            <p className="text-[11px] text-muted">Platform admin</p>
+            <p className="text-xs text-muted">Platform admin</p>
           </div>
           <button
             type="button"
             onClick={handleSignOut}
-            className="rounded-md p-1.5 text-muted hover:bg-subtle hover:text-foreground"
+            className="inline-flex items-center justify-center rounded-md p-1.5 text-muted coarse:min-h-11 coarse:min-w-11 hover:bg-subtle hover:text-foreground"
             aria-label="Sign out"
             title="Sign out"
           >
