@@ -2045,6 +2045,33 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 9 (2026-10-30, code-verified)
+
+Every item below was checked against the code at 4d123290. None needs a migration. Owner (2026-10-30): "resume the work per the prioritized backlog", and also keep making UI/UX changes that are visible.
+
+0. **Visible brand and product refresh (owner: "still haven't seen major change").** In progress 2026-10-30.
+   - The app takes the website's violet brand and Be Vietnam Pro font, and gets a branded sign-in.
+   - The website gets a product tour section that shows real screens.
+1. **BL-172 SEO batch 7: Georgia overpayments and credits.** 3 or more guides or templates on credits on account, how a board applies a credit, and the SB 406 payment order. Each quotes the fixtures and has a demo CTA. Files: `apps/marketing/src/app/georgia/`, `templates/`. Effort 2.
+2. **Hand-rolled tables at 375px (UI/UX item 5, the code half).** Wrap these in a scroller or move them onto `DataTable`: `BudgetEditor.tsx`, `RosterImportSteps.tsx`, `rfps/[id]/comparison/page.tsx`, `FinancialPacketView.tsx`. Effort 2.
+3. **Weekly analytics: leave `ai.usage.*` and `ai.spend.notice.*` rows out of "active boards".** Files: `packages/jobs/src/weekly-analytics.ts` and its test. Effort 1.
+4. **Fire Prevention Week uses the real Sunday to Saturday week.** Add a week-of rule kind in `apps/hoa/src/lib/announcements/nudge.ts`. Test with calendar-day addition, because of DST. Effort 1.
+5. **WU-1: move Nav and Footer out of `<main>`.** Start with the shared templates, then point the skip link back at `#main-content`. Effort 2.
+6. **`readAll` trailing-probe round trip.** Treat a short page as final only when it is shorter than the server cap. Keep the guard for a cap below `PAGE_ROWS`. File: `apps/hoa/src/lib/supabase/read-all.ts`. Effort 2.
+7. **WU-3 and WU-8: arrow keys in the Products dropdown; check the demo email when the field loses focus.** WU-7 is a Safari pass by Asaf. Effort 2.
+
+**Dropped or blocked:**
+- `mw.session`: needs a `PERF_LOG=1` window first.
+- Deck screenshots: need Asaf's real screens.
+- BL-031: needs a real CINC export.
+- BL-160: waits on OA-32.
+- Need a migration: ballots, quiet hours, the English-only flag, `product_events`, the perf indexes.
+
+**Done in the 2026-10-30 UI/UX window:**
+- App items 1, 2, 3 and 6.
+- App item 4: the stale half (Undo and delete already used Button), with the property filter chips fixed instead.
+- WU-2, WU-4, WU-5 and WU-6.
+
 ## Website UI/UX round (ui-ux-pro-max audit, 2026-10-30)
 
 Fixed this round (skip-link target, demo form echo/errors/focus/autocomplete, demo hero clipped under fixed header, footer and util-bar touch targets). Open items from the code-only audit, all migration: no.
