@@ -227,7 +227,7 @@ export const CERTIFIED_MAIL_COLLECTIONS: Guide = {
       a: 'The foreclosure notice period goes from 30 to 60 days under SB 406, with the revised text quoted above.',
     },
   ],
-  related: ['attorney-fee-notice', 'foreclosure-threshold-2027', 'georgia-hoa-collections-notice', 'attorney-fee-notice-checklist', 'late-fee-limits'],
+  related: ['attorney-fee-notice', 'foreclosure-threshold-2027', 'georgia-hoa-collections-notice', 'attorney-fee-notice-checklist', 'late-fee-limits', 'texas-hoa-third-party-collections-notice', 'florida-hoa-notice-of-intent-to-lien', 'california-hoa-pre-lien-notice-and-collections'],
   hoaDoes: [
     {
       text: 'On a Georgia collections letter, record how it was mailed, the tracking number and the delivery date. Fee and foreclosure clocks then count from the delivery day.',

@@ -15,6 +15,7 @@ import { CA_RECORDS, FL_RECORDS, TX_MANAGEMENT_CERT } from './guides-k'
 import { GA_ESTOPPEL, TX_RESALE } from './guides-l'
 import { GA_BOARD_POWERS } from './guides-m'
 import { CA_IDR } from './guides-n'
+import { CA_COLLECTIONS, TX_COLLECTIONS } from './guides-o'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -37,7 +38,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -298,6 +299,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: '/templates/texas-hoa-payment-plan-agreement',
     title: 'Texas HOA payment plan agreement fields (printable)',
     blurb: 'The fields a written payment plan agreement can carry, with the Texas Property Code text on plan terms and payment order behind each.',
+    kind: 'tool',
+  },
+  {
+    slug: TX_COLLECTIONS.slug,
+    path: pathOf(TX_COLLECTIONS),
+    title: 'Texas HOA notice before collections: what Property Code 209.0064 requires',
+    blurb: TX_COLLECTIONS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: CA_COLLECTIONS.slug,
+    path: pathOf(CA_COLLECTIONS),
+    title: 'California HOA pre-lien notice and collections: what Civil Code 5650 to 5665 require',
+    blurb: CA_COLLECTIONS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'florida-hoa-notice-of-intent-to-lien',
+    path: '/templates/florida-hoa-notice-of-intent-to-lien',
+    title: 'Florida HOA notice of intent to record a claim of lien (printable)',
+    blurb: 'A checklist and a fill-in 45-day notice of intent to record a claim of lien, with the Florida text behind each field.',
     kind: 'tool',
   },
   {

@@ -11,6 +11,7 @@ import type { StatuteQuote } from './georgia-quotes'
 const FL = 'flsenate-ch720-2026.html'
 const TX = 'tx-prop-209-0062-2026.txt'
 const CA = 'ca-civ-davis-stirling-2026.txt'
+const TXC = 'tx-prop-209-2026.txt'
 const TX4 = 'tx-prop-209-004-2026.txt'
 const TX7 = 'tx-prop-207-2026.txt'
 
@@ -675,5 +676,172 @@ export const STATE_QUOTES = {
     cite: 'Cal. Civ. Code § 5920',
     fixture: CA,
     quote: "The annual policy statement prepared pursuant to Section 5310 shall include a description of the internal dispute resolution process provided pursuant to this article.",
+  },
+
+  // Collections notices (BL-172 batch 14): TX § 209.0064, FL § 720.3085, CA §§ 5650-5665
+  txCollAgent: {
+    cite: 'Tex. Prop. Code § 209.0064(a)',
+    fixture: TXC,
+    quote: "In this section, \"collection agent\" means a debt collector, as defined by Section 803 of the federal Fair Debt Collection Practices Act (15 U.S.C. Section 1692a).",
+  },
+  txCollNotice: {
+    cite: 'Tex. Prop. Code § 209.0064(b)',
+    fixture: TXC,
+    quote: "A property owners' association may not hold an owner liable for fees of a collection agent retained by the association unless the association first provides written notice to the owner by certified mail that:",
+  },
+  txCollAmounts: {
+    cite: 'Tex. Prop. Code § 209.0064(b)(1)',
+    fixture: TXC,
+    quote: "specifies each delinquent amount and the total amount of the payment required to make the account current;",
+  },
+  txCollOptions: {
+    cite: 'Tex. Prop. Code § 209.0064(b)(2)',
+    fixture: TXC,
+    quote: "if the association is subject to Section 209.0062 or the association's dedicatory instruments contain a requirement to offer a payment plan, describes the options the owner has to avoid having the account turned over to a collection agent, including information regarding availability of a payment plan through the association; and",
+  },
+  txCollCure: {
+    cite: 'Tex. Prop. Code § 209.0064(b)(3)',
+    fixture: TXC,
+    quote: "provides a period of at least 45 days for the owner to cure the delinquency before further collection action is taken.",
+  },
+  txCollContingent: {
+    cite: 'Tex. Prop. Code § 209.0064(c)(1)',
+    fixture: TXC,
+    quote: "the obligation for payment by the association to the association's collection agent for fees or costs associated with a collection action is in any way dependent or contingent on amounts recovered; or",
+  },
+  txCollAgreement: {
+    cite: 'Tex. Prop. Code § 209.0064(c)(2)',
+    fixture: TXC,
+    quote: "the payment agreement between the association and the association's collection agent does not require payment by the association of all fees to a collection agent for the action undertaken by the collection agent.",
+  },
+  txCollContact: {
+    cite: 'Tex. Prop. Code § 209.0064(d)',
+    fixture: TXC,
+    quote: "The agreement between the property owners' association and the association's collection agent may not prohibit the owner from contacting the association board or the association's managing agent regarding the owner's delinquency.",
+  },
+  txCollReceivables: {
+    cite: 'Tex. Prop. Code § 209.0064(e)',
+    fixture: TXC,
+    quote: "A property owners' association may not sell or otherwise transfer any interest in the association's accounts receivables for a purpose other than as collateral for a loan.",
+  },
+  flLienDemand: {
+    cite: 'Fla. Stat. § 720.3085(4)',
+    fixture: FL,
+    quote: "A homeowners’ association may not file a record of lien against a parcel for unpaid assessments unless a written notice or demand for past due assessments as well as any other amounts owed to the association pursuant to its governing documents has been made by the association.",
+  },
+  flLien45: {
+    cite: 'Fla. Stat. § 720.3085(4)(a)',
+    fixture: FL,
+    quote: "Provide the owner with 45 days following the date the notice is deposited in the mail to make payment for all amounts due, including, but not limited to, any attorney’s fees and actual costs associated with the preparation and delivery of the written demand.",
+  },
+  flLienFormIntent: {
+    cite: 'Fla. Stat. § 720.3085(4)(a)',
+    fixture: FL,
+    quote: "This letter shall serve as the association’s notice of intent to record a Claim of Lien against your property no sooner than 45 days after your receipt of this letter, unless you pay in full the amounts set forth below:",
+  },
+  flLienMail: {
+    cite: 'Fla. Stat. § 720.3085(4)(b)',
+    fixture: FL,
+    quote: "Be sent by registered or certified mail, return receipt requested, and by first-class United States mail to the parcel owner at his or her last address as reflected in the records of the association, if the address is within the United States, and to the parcel owner subject to the demand at the address of the parcel if the owner’s address as reflected in the records of the association is not the parcel address.",
+  },
+  flLienAbroad: {
+    cite: 'Fla. Stat. § 720.3085(4)(b)',
+    fixture: FL,
+    quote: "If the address reflected in the records is outside the United States, then sending the notice to that address and to the parcel address by first-class United States mail is sufficient.",
+  },
+  flLienLateNotice: {
+    cite: 'Fla. Stat. § 720.3085(3)(d)',
+    fixture: FL,
+    quote: "An association may not require payment of attorney fees related to a past due assessment without first delivering a written notice of late assessment to the parcel owner which specifies the amount owed the association and provides the parcel owner an opportunity to pay the amount owed without the assessment of attorney fees.",
+  },
+  flLienInterest: {
+    cite: 'Fla. Stat. § 720.3085(3)',
+    fixture: FL,
+    quote: "Assessments and installments on assessments that are not paid when due bear interest from the due date until paid at the rate provided in the declaration of covenants or the bylaws of the association, which rate may not exceed the rate allowed by law.",
+  },
+  flLienLateFee: {
+    cite: 'Fla. Stat. § 720.3085(3)(a)',
+    fixture: FL,
+    quote: "If the declaration or bylaws so provide, the association may also charge an administrative late fee not to exceed the greater of $25 or 5 percent of the amount of each installment that is paid past the due date.",
+  },
+  flLienApply: {
+    cite: 'Fla. Stat. § 720.3085(3)(b)',
+    fixture: FL,
+    quote: "Any payment received by an association and accepted shall be applied first to any interest accrued, then to any administrative late fee, then to any costs and reasonable attorney fees incurred in collection, and then to the delinquent assessment.",
+  },
+  flLienForeclose: {
+    cite: 'Fla. Stat. § 720.3085(5)',
+    fixture: FL,
+    quote: "The action to foreclose the lien may not be brought until 45 days after the parcel owner has been provided notice of the association’s intent to foreclose and collect the unpaid amount.",
+  },
+  flLienSecondNotice: {
+    cite: 'Fla. Stat. § 720.3085(5)',
+    fixture: FL,
+    quote: "The notice must be given in the manner provided in paragraph (4)(b), and the notice may not be provided until the passage of the 45 days required in paragraph (4)(a).",
+  },
+  flLienRecover: {
+    cite: 'Fla. Stat. § 720.3085(5)(a)',
+    fixture: FL,
+    quote: "The association may recover any interest, late charges, costs, and reasonable attorney’s fees incurred in a lien foreclosure action or in an action to recover a money judgment for the unpaid assessments.",
+  },
+  flLienExcept: {
+    cite: 'Fla. Stat. § 720.3085(5)(b)',
+    fixture: FL,
+    quote: "The time limitations in this subsection do not apply if the parcel is subject to a foreclosure action or forced sale of another party, or if an owner of the parcel is a debtor in a bankruptcy proceeding.",
+  },
+  caCollDelinquent: {
+    cite: 'Cal. Civ. Code § 5650(b)',
+    fixture: CA,
+    quote: "Regular and special assessments levied pursuant to the governing documents are delinquent 15 days after they become due, unless the declaration provides a longer time period, in which case the longer time period shall apply.",
+  },
+  caCollCosts: {
+    cite: 'Cal. Civ. Code § 5650(b)(1)',
+    fixture: CA,
+    quote: "Reasonable costs incurred in collecting the delinquent assessment, including reasonable attorney’s fees.",
+  },
+  caCollLate: {
+    cite: 'Cal. Civ. Code § 5650(b)(2)',
+    fixture: CA,
+    quote: "A late charge not exceeding 10 percent of the delinquent assessment or ten dollars ($10), whichever is greater, unless the declaration specifies a late charge in a smaller amount, in which case any late charge imposed shall not exceed the amount specified in the declaration.",
+  },
+  caCollInterest: {
+    cite: 'Cal. Civ. Code § 5650(b)(3)',
+    fixture: CA,
+    quote: "Interest on all sums imposed in accordance with this section, including the delinquent assessments, reasonable fees and costs of collection, and reasonable attorney’s fees, at an annual interest rate not to exceed 12 percent, commencing 30 days after the assessment becomes due, unless the declaration specifies the recovery of interest at a rate of a lesser amount, in which case the lesser rate of interest shall apply.",
+  },
+  caCollNotice: {
+    cite: 'Cal. Civ. Code § 5660',
+    fixture: CA,
+    quote: "At least 30 days prior to recording a lien upon the separate interest of the owner of record to collect a debt that is past due under Section 5650, the association shall notify the owner of record in writing by certified mail of the following:",
+  },
+  caCollDescription: {
+    cite: 'Cal. Civ. Code § 5660(a)',
+    fixture: CA,
+    quote: "A general description of the collection and lien enforcement procedures of the association and the method of calculation of the amount, a statement that the owner of the separate interest has the right to inspect the association records pursuant to Section 5205, and the following statement in 14-point boldface type, if printed, or in capital letters, if typed: “IMPORTANT NOTICE: IF YOUR SEPARATE INTEREST IS PLACED IN FORECLOSURE BECAUSE YOU ARE BEHIND IN YOUR ASSESSMENTS, IT MAY BE SOLD WITHOUT COURT ACTION.”",
+  },
+  caCollMeeting: {
+    cite: 'Cal. Civ. Code § 5660(d)',
+    fixture: CA,
+    quote: "The right to request a meeting with the board as provided in Section 5665.",
+  },
+  caCollAdr: {
+    cite: 'Cal. Civ. Code § 5660(f)',
+    fixture: CA,
+    quote: "The right to request alternative dispute resolution with a neutral third party pursuant to Article 3 (commencing with Section 5925) of Chapter 10 before the association may initiate foreclosure against the owner’s separate interest, except that binding arbitration shall not be available if the association intends to initiate a judicial foreclosure.",
+  },
+  caCollPlanStandards: {
+    cite: 'Cal. Civ. Code § 5665(a)',
+    fixture: CA,
+    quote: "The association shall provide the owners the standards for payment plans, if any exists.",
+  },
+  caCollPlanMeeting: {
+    cite: 'Cal. Civ. Code § 5665(b)',
+    fixture: CA,
+    quote: "The board shall meet with the owner in executive session within 45 days of the postmark of the request, if the request is mailed within 15 days of the date of the postmark of the notice, unless there is no regularly scheduled board meeting within that period, in which case the board may designate a committee of one or more directors to meet with the owner.",
+  },
+  caCollPlanLien: {
+    cite: 'Cal. Civ. Code § 5665(d)',
+    fixture: CA,
+    quote: "Payment plans shall not impede an association’s ability to record a lien on the owner’s separate interest to secure payment of delinquent assessments.",
   },
 } as const satisfies Record<string, StatuteQuote>
