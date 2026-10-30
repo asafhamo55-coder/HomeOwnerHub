@@ -27,7 +27,7 @@ export default function OpengraphImage() {
       >
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 44, fontWeight: 700 }}>
           <span>Homeowner</span>
-          <span style={{ color: '#2563eb' }}>Hub</span>
+          <span style={{ color: '#4B27C9' }}>Hub</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontSize: 68, fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
@@ -40,7 +40,7 @@ export default function OpengraphImage() {
             {`For self-managed HOA boards · Georgia first · ${SITE_DISPLAY_HOST}`}
           </div>
         </div>
-        <div style={{ display: 'flex', height: 12, width: '100%', background: '#2563eb', borderRadius: 6 }} />
+        <div style={{ display: 'flex', height: 12, width: '100%', background: '#4B27C9', borderRadius: 6 }} />
       </div>
     ),
     size,
