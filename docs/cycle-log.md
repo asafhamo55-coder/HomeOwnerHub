@@ -873,3 +873,23 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - SEO batch 9 (first FL, TX and CA guides)
 - **CI failure on f3f71723:** BulkApprove (client) imported bulk.ts, which pulls in server-only packages/workflows and node:crypto. It was fixed by splitting out bulk-shared.ts. Local gates did not include the hoa next build. They do now (memory: feedback_build_hoa_locally).
 - **Coordination with a peer session:** the peer pushed owner-actions docs straight to prod, which blocked my deploy, then pushed to quality-oracle, which cancelled CI twice. The agreement now: the peer commits to quality-oracle at most once an hour, right after my deploys, and announces any urgent env redeploy.
+
+## 2026-10-30 17:45 â†’ 20:20 IST: deploys 122b5fcc and ad6dd2df
+
+- **122b5fcc (live 17:13 UTC).** The violet rebrand, the product tour, dashboard polish, dues aging, bulk approve, resident receipts, the ARC timeline, the agenda builder, the settings hub, and SEO batches 7 to 9. Its release email went out.
+- **ad6dd2df (live 18:20 UTC).** All of round 12:
+  - vendor COI strip
+  - document search
+  - photo viewer
+  - tickets strip, search and age
+  - violations and ARC strips
+  - accounting budget panel
+  - ARC checklist
+  - FL, CA and TX state hubs
+  - homepage FAQ
+  - SEO batch 10
+- **Local gates caught two problems before CI:**
+  - The tickets strip used `.limit(2000)`, which the row-cap ratchet blocks. It now uses readAllResult.
+  - The tickets "Unassigned" tile counted something else. Tickets have no assignee column, so it is relabelled "No one on it".
+- **Decks.** Rebuilt in violet and Be Vietnam Pro. The product deck has 53 slides and the investor deck 25. The three overflowing slides were fixed and checked in Keynote. There are no new traction numbers (OA-15).
+- **Round 13 groomed.** The groomer reused stale round-8 items (credit on the resident pages and the /dues badge). They were caught by a code check and dropped.
