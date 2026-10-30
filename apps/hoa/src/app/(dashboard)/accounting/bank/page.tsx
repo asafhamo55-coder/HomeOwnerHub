@@ -27,7 +27,11 @@ import {
 } from '@/lib/accounting/queries'
 import { getCurrentUserRole } from '@/lib/auth'
 import { tryLoad } from '@/lib/load-or-fail'
-import { formatDay, formatStamp, plural, usd } from '@/lib/money/format'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { bankSummaryTiles, needsReconciliation } from '@/lib/accounting/bank-summary'
+import { loadLastReconciled } from '@/lib/accounting/last-reconciled'
+import { dayOf } from '@/lib/association-time'
+import { formatDay, formatStamp, plural, todayIso, usd } from '@/lib/money/format'
 import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
 import { AddManualAccountButton } from './AddManualAccountButton'
@@ -51,6 +55,18 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
     tryLoad('unmatched transactions', () => pageBankTransactions(ctx.associationId, { matched: 'unmatched' }, { from: 0, to: 0 })),
     tryLoad('funds', () => listFunds(ctx.associationId)),
   ])
+  // Last reconciliation per account, for the strip and the cards. Needs the
+  // account list first; a failure shows "Not available", never "never".
+  const recs = accounts.ok ? await tryLoad('last reconciliations', () => loadLastReconciled(accounts.data.map((a) => a.id))) : null
+  const lastReconciled = recs && recs.ok ? recs.data : null
+  const today = todayIso(ctx.timeZone)
+  const tiles = bankSummaryTiles({
+    accounts: accounts.ok ? accounts.data : null,
+    lastReconciled,
+    unmatched: unmatched.ok ? unmatched.data.total : null,
+    today,
+    timeZone: ctx.timeZone,
+  })
   const fundOptions = funds.ok ? funds.data.map((f) => ({ id: f.id, label: f.name })) : []
   // BL-064: an admin can open the books from the dialog when there are no funds.
   const canOpenBooks = (await getCurrentUserRole())?.role === 'admin'
@@ -73,6 +89,8 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
         ) : undefined
       }
     >
+      <SummaryStrip ariaLabel="Bank accounts at a glance" testId="bank-summary" tiles={tiles} />
+
       {unmatchedCount > 0 ? (
         <Alert
           variant="warning"
@@ -112,7 +130,16 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
       ) : (
         <section aria-label="Accounts" className="grid gap-4 sm:grid-cols-2">
           {accounts.data.map((a) => (
-            <AccountCard key={a.id} account={a} />
+            <AccountCard
+              key={a.id}
+              account={a}
+              rec={
+                lastReconciled
+                  ? { known: true, at: lastReconciled.get(a.id) ?? null, due: needsReconciliation(a, lastReconciled.get(a.id) ?? null, today, ctx.timeZone) }
+                  : { known: false }
+              }
+              timeZone={ctx.timeZone}
+            />
           ))}
         </section>
       )}
@@ -179,7 +206,9 @@ export default async function BankAccountsPage({ searchParams }: { searchParams:
   )
 }
 
-function AccountCard({ account: a }: { account: BankAccountWithFund }) {
+type RecState = { known: true; at: string | null; due: boolean } | { known: false }
+
+function AccountCard({ account: a, rec, timeZone }: { account: BankAccountWithFund; rec: RecState; timeZone: string }) {
   // BL-144: no Plaid item means the board keeps it from imported statements.
   const manual = !a.plaid_item_id
   return (
@@ -214,6 +243,13 @@ function AccountCard({ account: a }: { account: BankAccountWithFund }) {
               ? `Bank balance · synced ${formatStamp(a.last_synced_at)}`
               : 'Never synced'}
         </p>
+        <p className="mt-1 text-xs text-muted">
+          {!rec.known
+            ? 'Last reconciled: not available'
+            : rec.at
+              ? `Last reconciled ${formatDay(dayOf(rec.at, timeZone))}`
+              : 'Never reconciled'}
+        </p>
       </div>
       <div className="flex items-center gap-2 border-t border-border px-5 py-3">
         {manual && a.is_active ? (
@@ -224,9 +260,9 @@ function AccountCard({ account: a }: { account: BankAccountWithFund }) {
             </Link>
           </Button>
         ) : null}
-        <Button asChild variant="ghost" size="sm">
+        <Button asChild variant={a.is_active && rec.known && rec.due ? 'secondary' : 'ghost'} size="sm">
           <Link href={`/accounting/bank/${a.id}/reconcile`}>
-            Reconcile
+            Reconcile now
             <ArrowRight aria-hidden />
           </Link>
         </Button>
