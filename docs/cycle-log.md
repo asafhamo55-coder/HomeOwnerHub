@@ -852,3 +852,24 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - the release-note, backlog and owner-actions email tests pinned the old blue;
   - the product-tour test depended on run order (module-level JSX without a React import).
 - **Merge with another session:** that session pushed cf044048 and ade174a3 (the GA 590-13 proposed-rules card, and OA-32 done) straight to prod. They were merged into the integration branch before the next deploy.
+
+## 2026-10-30 16:45 → 17:45 IST: rounds 10 and 11
+
+- **Round 10 done:**
+  - dues aging buckets with remind-this-group
+  - bulk approve (violation letters and contact updates only)
+  - resident latest announcement and add-to-calendar
+  - side-by-side composer previews
+  - the product tour on /hoa and /pricing
+  - SEO batch 8 (4 GA governance pages)
+  - approvals summary strip
+  - dues pills, Owed column, sticky header
+- **Round 11 groomed, and items 1, 2, 3, 5, 6 and 7 built:**
+  - ARC timeline
+  - agenda builder (the GA owners'-report line is uncited, because § 44-3-230(a) is the notice rule)
+  - resident receipts
+  - settings setup hub
+  - two-column meeting page
+  - SEO batch 9 (first FL, TX and CA guides)
+- **CI failure on f3f71723:** BulkApprove (client) imported bulk.ts, which pulls in server-only packages/workflows and node:crypto. It was fixed by splitting out bulk-shared.ts. Local gates did not include the hoa next build. They do now (memory: feedback_build_hoa_locally).
+- **Coordination with a peer session:** the peer pushed owner-actions docs straight to prod, which blocked my deploy, then pushed to quality-oracle, which cancelled CI twice. The agreement now: the peer commits to quality-oracle at most once an hour, right after my deploys, and announces any urgent env redeploy.
