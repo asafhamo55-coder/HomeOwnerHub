@@ -2,13 +2,16 @@ import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { ArrowDownUp, ArrowRight, BarChart3, FileArchive, PieChart, TrendingUp } from 'lucide-react'
 import { Alert, Card, Page } from '@homeowner-portal/ui'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { computeBalanceSheet, computeIncomeStatement, getAccountingContext } from '@/lib/accounting/queries'
+import { reportsSummaryTiles } from '@/lib/accounting/reports-summary'
 import { AccountingTabs } from '../AccountingTabs'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { readPrimaryAssociation } from '@/lib/association-setup'
 import { tryLoad } from '@/lib/load-or-fail'
 import { dayOf } from '@/lib/association-time'
-import { formatDay } from '@/lib/money/format'
+import { formatDay, todayIso } from '@/lib/money/format'
 import { loadMonthlyReportStatus } from '@/lib/monthly-report/status'
 import { MonthlyReportCard, type MonthlyReportCardProps } from './MonthlyReportCard'
 
@@ -69,11 +72,33 @@ async function monthlyReportStatus(orgId: string): Promise<MonthlyReportCardProp
   }
 }
 
+/**
+ * The at-a-glance strip. Each figure comes from the report function behind
+ * its tile (income statement for the current period, balance sheet for cash),
+ * and each read fails on its own to "Not available", never to 0.
+ */
+async function summaryTiles() {
+  const ctxRes = await tryLoad('accounting context', getAccountingContext)
+  if (!ctxRes.ok) return reportsSummaryTiles({ income: null, balance: null, period: undefined })
+  const ctx = ctxRes.data
+  if (!ctx) return reportsSummaryTiles({ income: null, balance: null, period: null })
+  const aid = ctx.associationId
+  const period = ctx.currentPeriod
+  const [inc, bs] = await Promise.all([
+    period
+      ? timed('/accounting/reports', 'reports.incomeStatement', () => tryLoad('income statement', () => computeIncomeStatement(aid, period.id)))
+      : Promise.resolve(null),
+    timed('/accounting/reports', 'reports.balanceSheet', () => tryLoad('balance sheet', () => computeBalanceSheet(aid, todayIso(ctx.timeZone)))),
+  ])
+  return reportsSummaryTiles({ income: inc && inc.ok ? inc.data : null, balance: bs.ok ? bs.data : null, period })
+}
+
 export default async function AccountingReportsPage() {
   const { role, org } = await requireBoardOrAdmin()
-  const status = await monthlyReportStatus(org.id)
+  const [status, tiles] = await Promise.all([monthlyReportStatus(org.id), summaryTiles()])
   return (
     <Page title="Reports" description="Financial statements computed live from posted journal entries — always current, never cached." tabs={<AccountingTabs />}>
+      <SummaryStrip ariaLabel="Books at a glance" testId="reports-summary" tiles={tiles} />
       <div className="grid gap-4 sm:grid-cols-2">
         {REPORTS.map((r) => (
           <Link
