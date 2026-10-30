@@ -101,7 +101,7 @@ export async function OpenCasesPanel({ orgId, timeZone }: { orgId: string; timeZ
       )}
       {total > rows.length ? (
         <p className="border-t border-border px-5 py-3 text-xs text-muted">
-          Showing the {rows.length} quietest of {total} open cases.
+          Showing the {rows.length} longest-waiting of {total} open cases.
         </p>
       ) : null}
     </Card>
