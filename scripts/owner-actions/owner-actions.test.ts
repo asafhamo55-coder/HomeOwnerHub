@@ -148,7 +148,7 @@ describe('render', () => {
   it('branded HTML: wordmark, blue, pills, steps, done list; text part too', () => {
     const e = renderOwnerActionsEmail(parseOwnerActions(DOC), { branch: 'claude/quality-oracle' })
     expect(e.html).toContain('Homeowner<span')
-    expect(e.html).toContain('#2563EB')
+    expect(e.html).toContain('#4B27C9')
     expect(e.html).toContain('Owner actions')
     expect(e.html.indexOf('Apply migrations')).toBeLessThan(e.html.indexOf('Add indexes'))
     expect(e.html).toMatch(/>Urgent<\/span>/)
