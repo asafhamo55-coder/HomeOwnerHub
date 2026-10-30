@@ -162,14 +162,24 @@ export async function listArcRequestsForBoard(
   }
 }
 
-export async function countArcRequestsByStatus(): Promise<StatusCounts> {
+/**
+ * Status, association and submitted date of every live ARC application. One
+ * small read behind both the chip counts and the summary strip. Null when the
+ * read failed.
+ */
+export async function readArcStatusRows(): Promise<Array<{ status: string; association_id: string; submitted_at: string }> | null> {
   await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const res = await loadOrFail(
     'ARC status counts',
-    supabase.from('arc_requests' as never).select('status').is('deleted_at', null),
+    supabase.from('arc_requests' as never).select('status, association_id, submitted_at').is('deleted_at', null),
   )
-  return res.ok ? tally(res.data as unknown as Array<{ status: string }>) : null
+  return res.ok ? (res.data as unknown as Array<{ status: string; association_id: string; submitted_at: string }>) : null
+}
+
+export async function countArcRequestsByStatus(): Promise<StatusCounts> {
+  const rows = await readArcStatusRows()
+  return rows ? tally(rows) : null
 }
 
 export async function getArcRequestForBoard(
