@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileUp, Trash2 } from 'lucide-react'
+import { ExternalLink, FileUp, Trash2 } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -14,7 +14,9 @@ import {
   useConfirm,
   useToast,
 } from '@homeowner-portal/ui'
-import { deleteVendorDocument, type VendorDocument } from '@/lib/vendors'
+import { deleteVendorDocument, getVendorDocumentSignedUrl, type VendorDocument } from '@/lib/vendors'
+import { dateOnly } from '@/components/vendors/format'
+import { openVendorDocument } from './open-document'
 import { responseErrorMessage } from '@/lib/api/client'
 
 const DOC_TYPE_LABEL: Record<VendorDocument['doc_type'], string> = {
@@ -134,6 +136,20 @@ function DocumentRow({ doc }: { doc: VendorDocument }) {
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [isOpening, setIsOpening] = useState(false)
+
+  async function handleView() {
+    setIsOpening(true)
+    try {
+      await openVendorDocument(doc.storage_path, {
+        getUrl: getVendorDocumentSignedUrl,
+        open: (url) => window.open(url, '_blank', 'noopener'),
+        onError: (message) => toast({ tone: 'error', message }),
+      })
+    } finally {
+      setIsOpening(false)
+    }
+  }
 
   async function handleDelete() {
     const ok = await confirm({
@@ -169,9 +185,21 @@ function DocumentRow({ doc }: { doc: VendorDocument }) {
         </div>
         <p className="text-xs text-muted">
           {new Date(doc.uploaded_at).toLocaleString()}
+          {doc.expires_at ? <span className="ml-2">Expires {dateOnly(doc.expires_at)}</span> : null}
           {error ? <span className="ml-2 text-danger">{error}</span> : null}
         </p>
       </div>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={handleView}
+        loading={isOpening}
+        aria-label={`View ${DOC_TYPE_LABEL[doc.doc_type]} document`}
+        icon={<ExternalLink aria-hidden />}
+      >
+        View
+      </Button>
       <Button
         type="button"
         variant="destructive-ghost"
