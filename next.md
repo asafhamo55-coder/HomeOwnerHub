@@ -6,6 +6,10 @@ this file is the reference it points to.
 
 ---
 
+## 0a. RESUMED 2026-10-30 06:55 IST for a 5-hour UI/UX window (Asaf: "use ui-ux pro-max skill to improve both application and website, wake up the 24/7 process with release notes for the next 5 hours"; "pick up some ui-ux items from your backlog")
+- Cron `23 7-11 30 10 *` runs hourly cycles; a one-shot at 11:52 IST wraps up, deletes the cron and re-pauses the loop. After that, §0's pause applies again.
+- Every UI agent reads the ui-ux-pro-max skill at `~/.claude/plugins/marketplaces/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/SKILL.md`. The marketplace is added; the plugin itself is not installed.
+
 ## 0. PAUSED 2026-10-28 at Asaf's request (read this first; it supersedes the dated state in §4, §6 and §7)
 
 Asaf paused the 24/7 loop on 2026-10-28 around 08:00 ET. The hourly cron and its 7-day renewal were deleted. **Do not restart the loop until Asaf says so.** When he does, recreate the cron from §3.
