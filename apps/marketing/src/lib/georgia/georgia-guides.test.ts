@@ -200,9 +200,10 @@ describe('guides', () => {
 })
 
 describe('checklists', () => {
-  it('nine printable checklists and templates exist', () => {
+  it('ten printable checklists and templates exist', () => {
     expect(Object.keys(CHECKLISTS).sort()).toEqual([
       'annual-meeting-notice-checklist',
+      'apply-hoa-credit-to-owner-balance-checklist',
       'attorney-fee-notice-checklist',
       'georgia-annual-meeting-report-checklist',
       'georgia-hoa-collections-notice',
