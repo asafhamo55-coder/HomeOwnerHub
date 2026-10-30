@@ -15,7 +15,7 @@ export function Hero() {
   return (
     <section className="hero-wash relative overflow-hidden pb-20 pt-28 md:pb-28 md:pt-36">
       <div className="container-page">
-        <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-14 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)] lg:gap-14">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-10">
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-subtle px-3.5 py-1.5 text-[13px] font-semibold text-primary">
               <Sparkles className="h-3.5 w-3.5" aria-hidden />
