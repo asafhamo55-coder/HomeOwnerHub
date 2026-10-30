@@ -101,6 +101,20 @@ export default async function ResidentLedgerPage() {
         e.charge != null ? usd.format(e.charge) : <span className="text-success">−{usd.format(e.payment ?? 0)}</span>,
     },
     { key: 'balance', header: 'Balance', numeric: true, cell: (e) => balanceText(e.balance) },
+    {
+      key: 'receipt',
+      header: 'Receipt',
+      cell: (e) =>
+        e.kind === 'payment' ? (
+          <Link
+            href={`/resident/dues/receipt/${e.id}`}
+            aria-label={`Receipt for the ${formatDay(e.date)} payment`}
+            className="text-sm font-medium text-primary"
+          >
+            Receipt
+          </Link>
+        ) : null,
+    },
   ]
 
   return (
