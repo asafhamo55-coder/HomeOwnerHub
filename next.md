@@ -6,9 +6,12 @@ this file is the reference it points to.
 
 ---
 
-## 0a. RESUMED 2026-10-30 06:55 IST for a 5-hour UI/UX window (Asaf: "use ui-ux pro-max skill to improve both application and website, wake up the 24/7 process with release notes for the next 5 hours"; "pick up some ui-ux items from your backlog")
-- Cron `23 7-11 30 10 *` runs hourly cycles; a one-shot at 11:52 IST wraps up, deletes the cron and re-pauses the loop. After that, §0's pause applies again.
-- Every UI agent reads the ui-ux-pro-max skill at `~/.claude/plugins/marketplaces/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/SKILL.md`. The marketplace is added; the plugin itself is not installed.
+## 0a. LOOP RESUMED 2026-10-30 ~16:15 IST (Asaf: "please resume the work per the prioritized backlog"). This supersedes §0's pause.
+- After the 5-hour UI/UX window (deploys c8f0e731 and 5150dcc8), the full 24/7 loop is back on. The hourly cron `23 * * * *` uses the §3 prompt, adds "work the newest ranked round top-down; groom the next round if exhausted", and allows at most 2 building agents. A one-shot renewal runs on Nov 6.
+- Round 8 is done, so a round-9 grooming pass ran 2026-10-30 (see docs/backlog.md).
+- UI agents read the ui-ux-pro-max skill at `~/.claude/plugins/marketplaces/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max/SKILL.md`.
+- New owner rule: visible copy has no em dashes or stock AI phrasing.
+- **Test trap:** marketing components rendered in tests must use relative imports, because the root vitest `@` alias maps to apps/hoa/src.
 
 ## 0. PAUSED 2026-10-28 at Asaf's request (read this first; it supersedes the dated state in §4, §6 and §7)
 
