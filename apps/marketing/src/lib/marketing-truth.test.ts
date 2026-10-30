@@ -194,6 +194,21 @@ describe('State law coverage (BL-157)', () => {
     expect(home.match(/<StateLawBuiltIn/g)).toHaveLength(1)
   })
 
+  it('the product tour tabs are the shipped sections of the HOA app, and /hoa and /pricing reuse them', () => {
+    const tour = code('components/site/product-tour.tsx')
+    const ids = [...tour.matchAll(/^\s{4}id: '([a-z-]+)',/gm)].map((m) => m[1])
+    expect(ids).toEqual(['approvals', 'dues', 'violations', 'announcements', 'ask'])
+    // Each tab maps to a real apps/hoa area.
+    for (const route of ['/approvals', '/dues', '/violations', '/communications', '/ai/ask']) {
+      expect(hoaRouteExists(route), route).toBe(true)
+    }
+    expect(code('app/hoa/page.tsx')).toMatch(/<ProductTour/)
+    const pricing = code('app/pricing/page.tsx')
+    expect(pricing).toMatch(/<ApprovalsScreen/)
+    expect(pricing).toMatch(/\/#product-tour/)
+    expect(code('app/page.tsx')).toMatch(/<ProductTour/)
+  })
+
   it('/hoa shows state law as one section, after the product features', () => {
     const hoa = code('app/hoa/page.tsx')
     expect(hoa.match(/<StateLawBuiltIn/g)).toHaveLength(1)

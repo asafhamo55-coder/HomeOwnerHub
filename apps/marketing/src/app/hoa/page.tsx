@@ -7,6 +7,7 @@ import { HubPersona } from '@/components/hub/hub-persona'
 import { HubFeatures } from '@/components/hub/hub-features'
 import { HubCta } from '@/components/hub/hub-cta'
 import { HUBS } from '@/components/hub/hub-theme'
+import { ProductTour } from '@/components/site/product-tour'
 import { WorkspaceProductVisual } from '@/components/site/mockups'
 import { ViolationDrafterLive } from '@/components/hub/widgets/violation-drafter-live'
 import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
@@ -65,6 +66,19 @@ export default function HoaPage() {
           { value: 'Cited', label: 'Every document answer' },
           { value: 'Self-serve', label: 'Setup + roster import' },
         ]}
+      />
+
+      {/* The tour replaces a second copy of the workspace mockup lower down;
+          the hero keeps WorkspaceProductVisual, so the same picture is not
+          shown twice. */}
+      <ProductTour
+        eyebrow={`Inside ${HOA_PRODUCT_NAME}`}
+        heading={
+          <>
+            What a board does in a week, <span className="t-serif text-primary">on real screens.</span>
+          </>
+        }
+        subheading="Approve drafts, check dues, answer a rule question. Sample data from a made-up community."
       />
 
       <ViolationDrafterLive />

@@ -84,7 +84,23 @@ export const TOUR_TABS: TourTab[] = [
   },
 ]
 
-export function ProductTour({ tabs = TOUR_TABS }: { tabs?: TourTab[] }) {
+export type ProductTourProps = {
+  tabs?: TourTab[]
+  eyebrow?: string
+  heading?: ReactNode
+  subheading?: string
+}
+
+export function ProductTour({
+  tabs = TOUR_TABS,
+  eyebrow = 'See it work',
+  heading = (
+    <>
+      The screens your board will actually use, <span className="t-serif text-primary">start to finish.</span>
+    </>
+  ),
+  subheading = 'Pick a task. Each screen below shows sample data from a made-up community, the way the app lays it out.',
+}: ProductTourProps) {
   const uid = useId()
   const [active, setActive] = useState(0)
   const refs = useRef<Array<HTMLButtonElement | null>>([])
@@ -122,13 +138,12 @@ export function ProductTour({ tabs = TOUR_TABS }: { tabs?: TourTab[] }) {
     <section id="product-tour" aria-labelledby={`${uid}-h`} className="section scroll-mt-16 bg-subtle/60">
       <div className="container-page">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="eyebrow">See it work</p>
+          <p className="eyebrow">{eyebrow}</p>
           <h2 id={`${uid}-h`} className="t-h2 mt-4 text-foreground">
-            The screens your board will actually use,{' '}
-            <span className="t-serif text-primary">start to finish.</span>
+            {heading}
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-[17px] leading-relaxed text-foreground-secondary">
-            Pick a task. Each screen below shows sample data from a made-up community, the way the app lays it out.
+            {subheading}
           </p>
         </div>
 
