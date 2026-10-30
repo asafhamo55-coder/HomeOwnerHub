@@ -12,6 +12,7 @@ import { loadInsuranceDocumentOptions, loadInsurancePolicies, type LooseDb } fro
 import { fidelityAdequacy, renewalComparisons, type FidelityAdequacy } from '@/lib/insurance/analysis'
 import { isActive } from '@/lib/insurance/model'
 import { loadHeldFunds } from '@/lib/insurance/held-funds'
+import { ExportDownloadButton } from '@/components/export/ExportDownloadButton'
 import { CoverageCheckPanel } from './CoverageCheckPanel'
 import { FidelityPanel, RenewalPanel } from './RenewalPanel'
 import { PolicyList } from './PolicyList'
@@ -116,7 +117,16 @@ export default async function InsurancePage() {
   })
 
   return (
-    <Page title="Insurance" description={DESCRIPTION} linkAs={Link}>
+    <Page
+      title="Insurance"
+      description={DESCRIPTION}
+      linkAs={Link}
+      actions={
+        policies.length > 0 ? (
+          <ExportDownloadButton url="/insurance/export" label="Export CSV" fallbackName="insurance.csv" />
+        ) : undefined
+      }
+    >
       <PolicyList
         policies={policies}
         reminders={reminders}

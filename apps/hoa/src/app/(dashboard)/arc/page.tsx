@@ -21,7 +21,6 @@ import {
   readArcStatusRows,
   listArcRequestsForBoard,
   type ArcRequestBoardRow,
-  type ArcStatus,
 } from '@/lib/board-review'
 import { ARC_CATEGORY, ARC_STATUS } from '@/lib/status/community'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
@@ -29,7 +28,9 @@ import { guideHref } from '@/lib/guide'
 import { ArcClockChip } from '@/components/arc-review/ArcClockChip'
 import { getArcClockSettings } from '@/lib/arc-review/clock-actions'
 import { ARC_DEEMED_APPROVAL_NOTE, arcClock, pickArcClockSettings } from '@/lib/arc-review/clock'
+import { ARC_FILTERS, parseArcFilter, type ArcFilter } from '@/lib/arc-review/filters'
 import { ArcClockSettingsForm } from './ArcClockSettingsForm'
+import { ExportDownloadButton } from '@/components/export/ExportDownloadButton'
 import { SummaryStrip } from '@/components/SummaryStrip'
 import { countByStatus, countPastDecideBy, oldestArcWaitDays } from '@/lib/arc-review/summary'
 import { plural } from '@/lib/money/format'
@@ -39,15 +40,8 @@ export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 50
 
-/** Default view is the work queue: what still needs a board decision. */
-const FILTERS = {
-  pending: { label: 'Needs decision', statuses: ['submitted', 'in_review'] },
-  approved: { label: 'Approved', statuses: ['approved'] },
-  denied: { label: 'Denied', statuses: ['denied'] },
-  withdrawn: { label: 'Withdrawn', statuses: ['withdrawn'] },
-  all: { label: 'All', statuses: null },
-} as const satisfies Record<string, { label: string; statuses: readonly ArcStatus[] | null }>
-type Filter = keyof typeof FILTERS
+const FILTERS = ARC_FILTERS
+type Filter = ArcFilter
 
 export default async function ArcReviewListPage({
   searchParams,
@@ -55,7 +49,7 @@ export default async function ArcReviewListPage({
   searchParams: Promise<{ status?: string; page?: string }>
 }) {
   const sp = await searchParams
-  const filter: Filter = sp.status && sp.status in FILTERS ? (sp.status as Filter) : 'pending'
+  const filter: Filter = parseArcFilter(sp.status)
   const page = parsePageParam(sp.page)
   const { from, to } = pageRange(page, PAGE_SIZE)
   const statuses = FILTERS[filter].statuses
@@ -174,6 +168,15 @@ export default async function ArcReviewListPage({
           : 'Architectural review applications from residents.'
       }
       linkAs={Link}
+      actions={
+        all ? (
+          <ExportDownloadButton
+            url={filter === 'pending' ? '/arc/export' : `/arc/export?status=${filter}`}
+            label="Export CSV"
+            fallbackName="arc.csv"
+          />
+        ) : undefined
+      }
     >
       <SummaryStrip
         ariaLabel="ARC summary"

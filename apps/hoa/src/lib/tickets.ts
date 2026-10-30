@@ -8,7 +8,8 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { readAllResult } from '@/lib/supabase/read-all'
 import { notifyResidentAfterResponse } from '@/lib/resident-notify/notify'
-import { summarizeTickets, ticketSearchPattern, type TicketSummary } from '@/lib/tickets-board'
+import { summarizeTickets, type TicketSummary } from '@/lib/tickets-board'
+import { applyTicketFilters } from '@/lib/tickets-filter'
 import { orgTimeZone } from '@/lib/association-time-server'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
@@ -123,33 +124,9 @@ export async function listTicketsForBoard(opts: {
     )
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-  if (opts.status) query = query.eq('status', opts.status)
-
-  const pattern = ticketSearchPattern(opts.q)
-  if (pattern) {
-    // Residents and units live in related tables: find their ids first, then
-    // OR them with the subject match. Both lookups are capped.
-    const [people, units] = await Promise.all([
-      supabase
-        .from('profiles' as never)
-        .select('id')
-        .or(`full_name.ilike.${pattern},email.ilike.${pattern}`)
-        .limit(200),
-      supabase
-        .from('units' as never)
-        .select('id')
-        .ilike('unit_number' as never, pattern)
-        .limit(200),
-    ])
-    if (people.error || units.error) return { ok: false }
-    const idsOf = (rows: unknown) => ((rows ?? []) as { id: string }[]).map((r) => r.id)
-    const clauses = [`subject.ilike.${pattern}`]
-    const personIds = idsOf(people.data)
-    const unitIds = idsOf(units.data)
-    if (personIds.length) clauses.push(`submitted_by.in.(${personIds.join(',')})`)
-    if (unitIds.length) clauses.push(`unit_id.in.(${unitIds.join(',')})`)
-    query = query.or(clauses.join(','))
-  }
+  const filtered = await applyTicketFilters(supabase, query, { status: opts.status, q: opts.q })
+  if (!filtered.ok) return { ok: false }
+  query = filtered.query
 
   const countFor = (status: TicketStatus) =>
     loadOrFail(

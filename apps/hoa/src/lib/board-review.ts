@@ -122,6 +122,8 @@ export async function listArcRequestsForBoard(
     .is('deleted_at', null)
     // Oldest first is most urgent on the decision clock (BL-113).
     .order('submitted_at', { ascending: opts?.oldestFirst === true })
+    // Tiebreak so paged reads (the CSV export) never overlap or skip a row.
+    .order('id')
     .range(opts?.from ?? 0, opts?.to ?? 99)
   if (typeof opts?.status === 'string') query = query.eq('status', opts.status)
   else if (opts?.status) query = query.in('status', [...opts.status])

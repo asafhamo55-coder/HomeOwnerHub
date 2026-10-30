@@ -16,6 +16,7 @@ import {
   parsePageParam,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
+import { ExportDownloadButton } from '@/components/export/ExportDownloadButton'
 import { SummaryStrip } from '@/components/SummaryStrip'
 import { formatTicketAge, ticketAgeDays } from '@/lib/tickets-board'
 import { listTicketsForBoard, type TicketBoardRow, type TicketStatus } from '@/lib/tickets'
@@ -39,6 +40,15 @@ function hrefFor({ status, page, q: term }: { status?: TicketStatus; page?: numb
   if (page && page > 1) q.set('page', String(page))
   const qs = q.toString()
   return qs ? `/tickets?${qs}` : '/tickets'
+}
+
+/** The CSV for the view on screen: same status and search, no page. */
+function exportHref({ status, q: term }: { status?: TicketStatus; q?: string }): string {
+  const q = new URLSearchParams()
+  if (status) q.set('status', status)
+  if (term) q.set('q', term)
+  const qs = q.toString()
+  return qs ? `/tickets/export?${qs}` : '/tickets/export'
 }
 
 function buildColumns(timeZone: string): DataTableColumn<TicketBoardRow>[] {
@@ -129,14 +139,19 @@ export default async function TicketsPage({
           : 'Requests residents send from the portal.'
       }
       actions={
-        RECORDS_REQUESTS_LIVE ? (
-          <Button asChild variant="secondary">
-            <Link href="/tickets/records">
-              <FileText className="size-4" aria-hidden />
-              Records requests
-            </Link>
-          </Button>
-        ) : undefined
+        <>
+          {result.ok && result.total > 0 ? (
+            <ExportDownloadButton url={exportHref({ status, q })} label="Export CSV" fallbackName="tickets.csv" />
+          ) : null}
+          {RECORDS_REQUESTS_LIVE ? (
+            <Button asChild variant="secondary">
+              <Link href="/tickets/records">
+                <FileText className="size-4" aria-hidden />
+                Records requests
+              </Link>
+            </Button>
+          ) : null}
+        </>
       }
     >
       {!result.ok ? (
