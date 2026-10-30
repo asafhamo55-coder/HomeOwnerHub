@@ -61,18 +61,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 **Files:** `docs/specs/2026-10-19-domain-split.md`
 
-### OA-8 · Rename the Stripe product
-
-**Urgency:** Whenever
-
-**Why it matters:** customers see the old name "HOA Hub" on Stripe receipts
-and checkout instead of HomeownerHub.
-
-**Steps:**
-
-1. In the Stripe dashboard, open **Products** and rename "HOA Hub" to "HomeownerHub".
-2. Tell Claude in the same sitting, so it changes `PRODUCT_NAME` in `apps/hoa/src/app/api/admin/setup-stripe-pricing/route.ts` to match.
-
 ### OA-11 · Decide on text messages (Vonage and 10DLC)
 
 **Urgency:** Whenever
@@ -85,18 +73,6 @@ require a 10DLC registration before business texts are delivered.
 1. Tell Claude whether texting is wanted.
 2. If yes: create the Vonage account, start the 10DLC brand and campaign registration, and add the Vonage keys as Vercel production environment variables.
 3. In Vonage, set a HELP auto-reply on the number or campaign (for example "HomeownerHub alerts for your HOA. Reply STOP to stop. Help: support@homeownerledger.com"). Residents' consent wording promises HELP works.
-
-### OA-12 · Confirm the support inbox
-
-**Urgency:** Whenever
-
-**Why it matters:** the app tells customers to write to
-support@homeownerledger.com. If no one reads that inbox, their emails are lost.
-
-**Steps:**
-
-1. Send a test email to support@homeownerledger.com and check it arrives somewhere you read.
-2. Tell Claude yes or no.
 
 ### OA-13 · Rotate the Supabase service-role key
 
@@ -226,6 +202,34 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-8 · Rename the Stripe product
+
+**Done 2026-10-30:** Asaf renamed the product in Stripe (account `acct_1TURnh…`) to "HomeownerHub", and `PRODUCT_NAME` in setup-stripe-pricing now matches.
+
+**Urgency:** Whenever
+
+**Why it matters:** customers see the old name "HOA Hub" on Stripe receipts
+and checkout instead of HomeownerHub.
+
+**Steps:**
+
+1. In the Stripe dashboard, open **Products** and rename "HOA Hub" to "HomeownerHub".
+2. Tell Claude in the same sitting, so it changes `PRODUCT_NAME` in `apps/hoa/src/app/api/admin/setup-stripe-pricing/route.ts` to match.
+
+### OA-12 · Confirm the support inbox
+
+**Done 2026-10-30:** homeownerledger.com had no MX records, so mail to support@ went nowhere. Asaf set up ImprovMX forwarding (support@ → his Gmail), and MX `mx1/mx2.improvmx.com` (10/20) is live at Network Solutions. A test email arrived. Resend sending on `send.homeownerledger.com` is unchanged.
+
+**Urgency:** Whenever
+
+**Why it matters:** the app tells customers to write to
+support@homeownerledger.com. If no one reads that inbox, their emails are lost.
+
+**Steps:**
+
+1. Send a test email to support@homeownerledger.com and check it arrives somewhere you read.
+2. Tell Claude yes or no.
 
 ### OA-24 · Turn on privacy-safe usage analytics
 
