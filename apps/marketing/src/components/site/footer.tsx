@@ -57,8 +57,8 @@ export function Footer() {
             </p>
           </div>
 
-          <FooterCol title="Product" links={product} />
-          <FooterCol title="Company" links={company} />
+          <FooterCol title="Product" label="Product links" links={product} />
+          <FooterCol title="Company" label="Company links" links={company} />
         </div>
 
         <div className="mt-16 flex flex-col items-start justify-between gap-4 border-t border-border/70 pt-6 md:flex-row md:items-center">
@@ -83,12 +83,23 @@ export function Footer() {
   )
 }
 
-function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
+// The column titles are a <p>, not a heading: the footer follows every page's
+// own heading outline, so an <h2> here would read as a stray section of the
+// page. Each column is a labelled <nav> landmark instead.
+function FooterCol({
+  title,
+  label,
+  links,
+}: {
+  title: string
+  label: string
+  links: { label: string; href: string }[]
+}) {
   return (
-    <div>
-      <h2 className="eyebrow !text-foreground">
+    <nav aria-label={label}>
+      <p className="eyebrow !text-foreground">
         {title}
-      </h2>
+      </p>
       <ul className="mt-4 space-y-1">
         {links.map((l) => (
           <li key={l.href}>
@@ -107,6 +118,6 @@ function FooterCol({ title, links }: { title: string; links: { label: string; hr
           </li>
         ))}
       </ul>
-    </div>
+    </nav>
   )
 }

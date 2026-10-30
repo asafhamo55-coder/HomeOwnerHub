@@ -50,6 +50,9 @@ export function Nav() {
   const [productsOpen, setProductsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const productsRef = useRef<HTMLDivElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const wasOpen = useRef(false)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -80,6 +83,43 @@ export function Nav() {
     document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = prev
+    }
+  }, [open])
+
+  // Focus management for the mobile menu: move focus in on open, keep Tab
+  // inside the toggle plus the menu, and hand focus back to the toggle on any
+  // close (Escape, toggle, link click, CTA).
+  useEffect(() => {
+    if (open) {
+      wasOpen.current = true
+      menuRef.current?.querySelector<HTMLElement>('a[href], button')?.focus()
+      const onTab = (e: KeyboardEvent) => {
+        if (e.key !== 'Tab') return
+        const items = [
+          toggleRef.current,
+          ...Array.from(menuRef.current?.querySelectorAll<HTMLElement>('a[href], button') ?? []),
+        ].filter((el): el is HTMLElement => !!el)
+        if (items.length === 0) return
+        const first = items[0]
+        const last = items[items.length - 1]
+        const active = document.activeElement
+        if (!items.includes(active as HTMLElement)) {
+          e.preventDefault()
+          first.focus()
+        } else if (e.shiftKey && active === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+      window.addEventListener('keydown', onTab)
+      return () => window.removeEventListener('keydown', onTab)
+    }
+    if (wasOpen.current) {
+      wasOpen.current = false
+      toggleRef.current?.focus()
     }
   }, [open])
 
@@ -207,6 +247,7 @@ export function Nav() {
 
         <div className="flex items-center gap-1 md:hidden">
           <button
+            ref={toggleRef}
             type="button"
             className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-foreground hover:bg-subtle"
             onClick={() => setOpen((v) => !v)}
@@ -222,6 +263,7 @@ export function Nav() {
       {open && (
         <div
           id="mobile-menu"
+          ref={menuRef}
           className="h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border bg-surface md:hidden"
         >
           <nav aria-label="Mobile" className="container-page flex flex-col py-4">
