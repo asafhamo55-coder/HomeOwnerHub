@@ -2046,6 +2046,30 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 15 (2026-10-30, code-verified)
+
+None of these needs a migration or an owner action. Money items are read-only. OA-19 is decided, so item 2 is board-only.
+
+1. **Annual meeting checklist** on the meeting page: notice, quorum kit, proxies/election, annual report, minutes. Effort 2.
+2. **Daily digest: board-only vendor insurance line**, showing the expired and expiring counts with a link to /vendors. Effort 2.
+3. **Dues statement for one owner, from the board side.** A printable running ledger on the property page. Read-only, with a check of board RLS. Effort 2.
+4. **CSV exports for tickets, ARC and insurance.** Use `csvDocument` and paged reads. Effort 2.
+5. **Insurance page:** summary strip and status chips. Effort 1.
+6. **Keyboard shortcuts help across the board app**, opened with `?`. Effort 1.
+7. **BL-172 SEO batch 13:**
+   - TX payment plan template
+   - FL fine hearing notice template
+   - CA IDR guide (check the CA verification doc first)
+
+   Effort 2.
+8. **Website:** search on /guides and /templates, and library entries in the Cmd-K palette. Effort 2.
+
+**Dropped:**
+- Already built: hearing scheduler, resident statement, resident pay polish, journal filters, leases stats, document search.
+- Owner decision: vendor COI emails (OA-19, board-only).
+- Need a migration: polls, amenities, online pay, quiet hours.
+- Needs a Safari pass: mobile board nav.
+
 ## Ranked open work — round 14 (2026-10-30, code-verified) — Done 2026-10-30 (all 8)
 
 None of these needs a migration or an owner action. Money items are read-only.
