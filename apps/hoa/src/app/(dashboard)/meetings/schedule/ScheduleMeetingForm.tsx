@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { CalendarPlus } from 'lucide-react'
 import {
@@ -16,6 +16,8 @@ import {
 } from '@homeowner-portal/ui'
 import { scheduleMeeting, type MeetingType } from '@/lib/meetings'
 import { updateBudgetAdoption } from '@/lib/budget-adoption/actions'
+import type { AgendaActionItem } from '@/lib/meetings/agenda-template'
+import { InsertAgendaButton } from '../InsertAgendaButton'
 
 /** BL-138: scheduling the meeting that adopts this budget. */
 export interface AdoptionBudgetRef {
@@ -31,7 +33,18 @@ const TYPES: Array<{ value: MeetingType; label: string }> = [
   { value: 'emergency', label: 'Emergency meeting' },
 ]
 
-export function ScheduleMeetingForm({ budget = null }: { budget?: AdoptionBudgetRef | null } = {}) {
+export interface AgendaFormContext {
+  state: string | null
+  associationType: string | null
+  openActionItems: AgendaActionItem[]
+}
+
+export function ScheduleMeetingForm({
+  budget = null,
+  agendaContext = { state: null, associationType: null, openActionItems: [] },
+}: { budget?: AdoptionBudgetRef | null; agendaContext?: AgendaFormContext } = {}) {
+  const agendaRef = useRef<HTMLTextAreaElement>(null)
+  const [type, setType] = useState<MeetingType>('regular')
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -81,7 +94,7 @@ export function ScheduleMeetingForm({ budget = null }: { budget?: AdoptionBudget
               <Input name="meeting_date" type="date" required autoFocus />
             </Field>
             <Field label="Type" error={errors.meetingType}>
-              <Select name="meeting_type" defaultValue="regular">
+              <Select name="meeting_type" value={type} onValueChange={(v) => setType(v as MeetingType)}>
                 {TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
@@ -96,8 +109,11 @@ export function ScheduleMeetingForm({ budget = null }: { budget?: AdoptionBudget
             hint="Topics to discuss and documents to review. Becomes the meeting’s notes until minutes are recorded."
             error={errors.agenda}
           >
-            <Textarea name="agenda" rows={6} maxLength={4000} defaultValue={budget?.agenda} placeholder="1. Approve last meeting’s minutes&#10;2. Q3 financials&#10;3. Pool resurfacing bids" />
+            <Textarea ref={agendaRef} name="agenda" rows={6} maxLength={4000} defaultValue={budget?.agenda} placeholder="1. Approve last meeting’s minutes&#10;2. Q3 financials&#10;3. Pool resurfacing bids" />
           </Field>
+          <div className="flex justify-end">
+            <InsertAgendaButton fieldRef={agendaRef} meetingType={type} {...agendaContext} />
+          </div>
         </CardContent>
         <CardFooter className="justify-end">
           <Button type="button" variant="ghost" onClick={() => router.back()} disabled={isPending}>

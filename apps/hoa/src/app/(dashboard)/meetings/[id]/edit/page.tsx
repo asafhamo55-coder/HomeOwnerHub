@@ -4,6 +4,9 @@ import { format } from 'date-fns'
 import { LoadFailed, Page } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { todayIn } from '@/lib/association-time'
+import { currentTimeZone } from '@/lib/association-time-current'
+import { loadAgendaContext } from '@/lib/meetings/agenda-queries'
 import { EditMeetingForm } from './EditMeetingForm'
 
 export const metadata = { title: 'Edit meeting' }
@@ -46,6 +49,8 @@ export default async function EditMeetingPage({ params }: { params: Promise<{ id
     attendees: string[] | null
     ai_summary: string | null
   }
+  const upcoming = m.meeting_date >= todayIn(await currentTimeZone())
+  const agendaContext = upcoming ? await loadAgendaContext() : undefined
   const dateLabel = format(new Date(`${m.meeting_date}T00:00:00`), 'MMM d, yyyy')
 
   return (
@@ -62,6 +67,8 @@ export default async function EditMeetingPage({ params }: { params: Promise<{ id
     >
       <EditMeetingForm
         meetingId={m.id}
+        upcoming={upcoming}
+        agendaContext={agendaContext}
         defaultValues={{
           meetingDate: m.meeting_date,
           meetingType: (m.meeting_type as 'regular' | 'special' | 'annual' | 'emergency') ?? 'regular',
