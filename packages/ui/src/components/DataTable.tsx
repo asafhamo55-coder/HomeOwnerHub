@@ -32,6 +32,8 @@ export interface DataTableColumn<T> {
   hideOnMobile?: boolean
   /** In `mobile="cards"`: use this column as the card title (default: first column). */
   mobilePrimary?: boolean
+  /** In `mobile="cards"`: show this value large, beside the card title (an amount owed). */
+  mobileAside?: boolean
   /** Hide below `lg` in the table layout (secondary columns on tablets). */
   hideBelowLg?: boolean
 }
@@ -237,6 +239,7 @@ export function DataTable<T>({
     0,
     columns.findIndex((c) => c.mobilePrimary),
   )
+  const asideIndex = columns.findIndex((c, i) => c.mobileAside && i !== primaryIndex && !c.hideOnMobile)
   const cards =
     mobile === 'cards' ? (
       <ul className="divide-y divide-border md:hidden" aria-label={typeof caption === 'string' ? caption : undefined}>
@@ -245,10 +248,20 @@ export function DataTable<T>({
         ) : (
           rows.map((row) => (
             <li key={rowKey(row)} className={cn('space-y-2 px-4 py-3.5', rowClassName?.(row))}>
-              <div className="text-sm font-medium text-foreground">{columns[primaryIndex]?.cell(row)}</div>
+              {asideIndex >= 0 ? (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 text-sm font-medium text-foreground">{columns[primaryIndex]?.cell(row)}</div>
+                  <div className="num shrink-0 text-right text-base font-semibold text-foreground">
+                    <span className="sr-only">{columns[asideIndex].header}: </span>
+                    {columns[asideIndex].cell(row)}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm font-medium text-foreground">{columns[primaryIndex]?.cell(row)}</div>
+              )}
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                 {columns.map((col, i) =>
-                  i === primaryIndex || col.hideOnMobile ? null : (
+                  i === primaryIndex || i === asideIndex || col.hideOnMobile ? null : (
                     <React.Fragment key={col.key}>
                       <dt className="text-xs text-muted">{col.header}</dt>
                       <dd className={cn('min-w-0 text-right text-foreground', col.numeric && 'num')}>{col.cell(row)}</dd>

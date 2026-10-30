@@ -42,6 +42,9 @@ import {
 import { formatStamp, usd } from '@/lib/money/format'
 import { loadBillEditOptions } from '@/lib/bill-scan/load'
 import { vendorLabel } from '@/lib/bill-scan/proposal'
+import { SummaryStrip } from './SummaryStrip'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
+import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { BulkApproveProvider, BulkRowCheckbox, BulkSelectAll } from '@/components/approvals/BulkApprove'
 import { isBulkEligible, isBulkSource } from '@/lib/approvals-inbox/bulk'
@@ -132,9 +135,14 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
         </Suspense>
       }
       tabs={
-        <Suspense fallback={<ApprovalTabs filter={filter} inbox={null} />}>
-          <StreamedTabs orgId={org.id} orgName={org.name} filter={filter} />
-        </Suspense>
+        <div className="space-y-6">
+          <Suspense fallback={<SummaryStrip inbox={null} sections={[]} timeZone={DEFAULT_ASSOCIATION_TIME_ZONE} />}>
+            <StreamedSummary orgId={org.id} orgName={org.name} />
+          </Suspense>
+          <Suspense fallback={<ApprovalTabs filter={filter} inbox={null} />}>
+            <StreamedTabs orgId={org.id} orgName={org.name} filter={filter} />
+          </Suspense>
+        </div>
       }
     >
       <Suspense fallback={null}>
@@ -158,6 +166,13 @@ async function loadInbox(orgId: string, orgName: string, filter: ApprovalFilter)
 async function WaitingPill({ orgId, orgName }: { orgId: string; orgName: string }) {
   const inbox = await loadInbox(orgId, orgName, 'all')
   return inbox.total ? <StatusPill tone="ai" label={`${inbox.total} waiting`} /> : null
+}
+
+/** The three counts above the tabs: the same memoized reads as the tabs and sections, no new query besides the cached association. */
+async function StreamedSummary({ orgId, orgName }: { orgId: string; orgName: string }) {
+  const [sections, assoc] = await Promise.all([allSections(orgId, orgName), getPrimaryAssociationResult()])
+  const timeZone = (assoc.ok && assoc.data?.timeZone) || DEFAULT_ASSOCIATION_TIME_ZONE
+  return <SummaryStrip inbox={buildInbox(sections, 'all')} sections={sections} timeZone={timeZone} />
 }
 
 async function StreamedTabs({ orgId, orgName, filter }: { orgId: string; orgName: string; filter: ApprovalFilter }) {

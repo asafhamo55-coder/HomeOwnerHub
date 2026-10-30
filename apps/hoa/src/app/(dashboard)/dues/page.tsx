@@ -39,6 +39,7 @@ import { paymentDay } from '@/lib/resident-ledger'
 import { MaterializeButton } from './MaterializeButton'
 import { DeleteAssessmentButton } from './DeleteAssessmentButton'
 import { WhoOwesPanel } from './WhoOwesPanel'
+import { duesRowStatus } from '@/lib/dues/row-status'
 import { parseAgingParam } from '@/lib/dues/aging'
 import { asPropertyId, asUnitId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { propertyHref } from '@/lib/properties/href'
@@ -423,6 +424,17 @@ function MonthTable({
         return p > 0 ? usd(p) : <span className="text-muted">—</span>
       },
     },
+    {
+      key: 'owed',
+      header: 'Owed',
+      numeric: true,
+      // On a phone card this is the headline figure beside the address.
+      mobileAside: true,
+      cell: (r) => {
+        const owed = r.status === 'waived' ? 0 : Math.max(Number(r.amount) - paidOf(r), 0)
+        return owed > 0 ? <span className="font-semibold text-foreground">{usd(owed)}</span> : <span className="text-muted">—</span>
+      },
+    },
     { key: 'status', header: 'Status', cell: (r) => <DuesStatus row={r} today={today} /> },
     {
       key: 'actions',
@@ -474,20 +486,14 @@ function MonthTable({
           {partial ? ' · this page only; the rest of this month is on another page' : ''}
         </CardDescription>
       </CardHeader>
-      <DataTable framed={false} mobile="cards" caption={`${label} charges`} columns={columns} rows={rows} rowKey={(r) => r.id} />
+      <DataTable framed={false} mobile="cards" maxHeight="36rem" caption={`${label} charges`} columns={columns} rows={rows} rowKey={(r) => r.id} />
     </Card>
   )
 }
 
 function DuesStatus({ row, today }: { row: AssessmentRow; today: string }) {
-  if (row.status === 'paid') return <StatusPill tone="success" label="Paid" size="sm" />
-  if (row.status === 'waived') return <StatusPill tone="neutral" label="Waived" size="sm" />
-  const late = daysSince(row.due_date, today)
-  if (late > 0) {
-    return <StatusPill tone="danger" label={`${late} ${late === 1 ? 'day' : 'days'} late${row.status === 'partial' ? ' · partly paid' : ''}`} size="sm" />
-  }
-  if (row.status === 'partial') return <StatusPill tone="warning" label="Partly paid" size="sm" />
-  return <StatusPill tone="neutral" label="Due" size="sm" />
+  const st = duesRowStatus({ status: row.status, amount: Number(row.amount), paid: paidOf(row), dueDate: row.due_date }, today)
+  return <StatusPill tone={st.tone} label={st.label} size="sm" />
 }
 
 /** Placeholder while the who-owes panel streams in. */
