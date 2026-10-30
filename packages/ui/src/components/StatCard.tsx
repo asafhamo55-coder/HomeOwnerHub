@@ -62,8 +62,15 @@ export function Kpi({
     // breaking as a last resort (checked by `pnpm ui:overflow`).
     <div className="cq flex h-full min-w-0 flex-col gap-2 p-4 sm:p-5">
       <div className="flex min-w-0 items-start justify-between gap-2">
-        <p className="min-w-0 break-words text-sm font-medium text-muted">{label}</p>
-        {icon ? <span className="shrink-0 pt-0.5 text-muted [&_svg]:size-4" aria-hidden>{icon}</span> : null}
+        <p className="min-w-0 break-words pt-1.5 text-sm font-medium text-muted">{label}</p>
+        {icon ? (
+          <span
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-subtle text-primary [&_svg]:size-[18px]"
+            aria-hidden
+          >
+            {icon}
+          </span>
+        ) : null}
       </div>
       {state === 'loading' ? (
         <div aria-busy="true" className="space-y-2 pt-1">
@@ -95,6 +102,12 @@ export function Kpi({
               {hint ? <span className="min-w-0 break-words text-muted">{hint}</span> : null}
             </div>
           ) : null}
+          {href ? (
+            <ArrowRight
+              className="mt-auto size-4 self-end text-primary transition-transform duration-fast group-hover:translate-x-0.5"
+              aria-hidden
+            />
+          ) : null}
         </>
       )}
     </div>
@@ -106,7 +119,10 @@ export function Kpi({
         href={href}
         className={cn('group block min-w-0 rounded-xl no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background', className)}
       >
-        <Card variant="interactive" className="h-full">
+        <Card
+          variant="interactive"
+          className="h-full transition-[border-color,box-shadow,transform] motion-safe:group-hover:-translate-y-0.5"
+        >
           {body}
         </Card>
       </LinkAs>

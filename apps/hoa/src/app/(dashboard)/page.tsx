@@ -36,7 +36,7 @@ import { ComplianceHeatMap } from '@/components/dashboard/ComplianceHeatMap'
 import { DailyDigestCard } from '@/components/dashboard/DailyDigestCard'
 import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
-import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
+import { DashboardWelcome } from '@/components/dashboard/DashboardWelcome'
 import { SetupChecklistCard } from '@/components/dashboard/SetupChecklistCard'
 import { UnassignedHomesNotice } from '@/components/properties/UnassignedHomesNotice'
 import { BoardFirstWeek } from '@/components/guide/FirstWeekGate'
@@ -147,13 +147,7 @@ export default async function DashboardHome() {
   return (
     <Page
       width="wide"
-      header={
-        <header className="space-y-1">
-          {/* GreetingHeadline renders the page's one <h1>. */}
-          <GreetingHeadline name={userName} contextLabel={org.name} fallbackDate={serverDateLabel} />
-          <p className="text-sm text-muted">Here’s what needs your attention today.</p>
-        </header>
-      }
+      header={<DashboardWelcome name={userName} associationName={org.name} fallbackDate={serverDateLabel} />}
     >
       <Suspense fallback={dismissed ? null : <CardSkeleton body="h-24" />}>
         <SetupChecklistSection orgId={org.id} dismissed={dismissed} />
@@ -219,7 +213,7 @@ function DashboardSections({ orgId }: { orgId: string }) {
           Four counts, each a decision waiting on the board, each linking
           to where it is acted on. A failed source shows "—" and says so. */}
       <section aria-labelledby="attention-heading" className="space-y-3">
-        <h2 id="attention-heading" className="sr-only">
+        <h2 id="attention-heading" className="text-lg font-semibold text-foreground">
           Needs your attention
         </h2>
         <div className="grid grid-cols-2 gap-3 cq-sm:gap-4 cq-md:grid-cols-4">
@@ -240,6 +234,10 @@ function DashboardSections({ orgId }: { orgId: string }) {
 
       {/* ── Today ──────────────────────────────────────────────────────
           Work queue on the left, calendar + mail + leasing on the right. */}
+      <section aria-labelledby="today-heading" className="space-y-4">
+        <h2 id="today-heading" className="text-lg font-semibold text-foreground">
+          Today
+        </h2>
       <div className="grid gap-6 cq-lg:grid-cols-3">
         <div className="min-w-0 space-y-6 cq-lg:col-span-2">
           <Suspense fallback={<CardSkeleton body="h-28" />}>
@@ -270,6 +268,7 @@ function DashboardSections({ orgId }: { orgId: string }) {
           </Suspense>
         </div>
       </div>
+      </section>
 
       {/* ── Community health ───────────────────────────────────────────
           Reference numbers and trends: below the fold on purpose, so they

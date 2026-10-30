@@ -1,0 +1,34 @@
+import Link from 'next/link'
+import { ClipboardCheck } from 'lucide-react'
+import { Button } from '@homeowner-portal/ui'
+import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
+
+/**
+ * The board dashboard's welcome band: greeting, today's date and the
+ * association's name on a soft brand tint (the sign-in panel's violet,
+ * lightened to a token so it follows light and dark), with the one primary
+ * next action beside it. GreetingHeadline renders the page's single <h1>.
+ */
+export function DashboardWelcome({
+  name,
+  associationName,
+  fallbackDate,
+}: {
+  name: string | null
+  associationName: string
+  fallbackDate: string
+}) {
+  return (
+    <header className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary-subtle via-surface to-surface p-5 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <GreetingHeadline name={name} contextLabel={associationName} fallbackDate={fallbackDate} />
+          <p className="text-sm text-foreground-secondary">Here’s what needs your attention today.</p>
+        </div>
+        <Button asChild icon={<ClipboardCheck />} className="w-full shrink-0 sm:w-auto">
+          <Link href="#approvals">Review approvals</Link>
+        </Button>
+      </div>
+    </header>
+  )
+}
