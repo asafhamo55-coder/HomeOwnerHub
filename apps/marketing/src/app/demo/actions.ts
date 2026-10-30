@@ -20,13 +20,33 @@ const DemoRequestSchema = z.object({
 export type DemoRequestState =
   | { status: 'idle' }
   | { status: 'success' }
-  | { status: 'error'; message: string; fieldErrors?: Record<string, string> }
+  | {
+      status: 'error'
+      message: string
+      fieldErrors?: Record<string, string>
+      // Echo of what the visitor typed (the honeypot is never echoed), so a
+      // failed submit does not wipe the form (React resets uncontrolled forms
+      // after an action).
+      values?: Record<string, string>
+    }
+
+const ECHO_FIELDS = ['name', 'email', 'hoa', 'county', 'homes'] as const
+
+function echoValues(raw: Record<string, FormDataEntryValue>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const k of ECHO_FIELDS) {
+    const v = raw[k]
+    if (typeof v === 'string') out[k] = v.slice(0, 200)
+  }
+  return out
+}
 
 export async function submitDemoRequest(
   _prev: DemoRequestState,
   formData: FormData,
 ): Promise<DemoRequestState> {
   const raw = Object.fromEntries(formData.entries())
+  const values = echoValues(raw)
   const parsed = DemoRequestSchema.safeParse(raw)
 
   if (!parsed.success) {
@@ -39,6 +59,7 @@ export async function submitDemoRequest(
       status: 'error',
       message: 'Please double-check the form.',
       fieldErrors,
+      values,
     }
   }
 
@@ -77,6 +98,7 @@ Submitted at ${new Date().toISOString()}
       return {
         status: 'error',
         message: 'We couldn\'t send your request. Please email support@homeownerledger.com directly.',
+        values,
       }
     }
     // Dev mode: log to the server console so the submission is visible
@@ -108,6 +130,7 @@ Submitted at ${new Date().toISOString()}
       return {
         status: 'error',
         message: 'We couldn\'t send your request. Please email support@homeownerledger.com directly.',
+        values,
       }
     }
 
@@ -117,6 +140,7 @@ Submitted at ${new Date().toISOString()}
     return {
       status: 'error',
       message: 'Something went wrong. Please email support@homeownerledger.com directly.',
+      values,
     }
   }
 }

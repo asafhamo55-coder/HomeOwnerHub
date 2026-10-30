@@ -82,4 +82,16 @@ describe('submitDemoRequest', () => {
     expect(r.status).toBe('error')
     expect(send).not.toHaveBeenCalled()
   })
+
+  it('on a validation error, echoes what was typed (never the honeypot) so the form is not wiped', async () => {
+    const r = await submitDemoRequest(
+      { status: 'idle' },
+      form({ ...valid, email: 'not-an-email', county: 'Fulton', website: 'bot' }),
+    )
+    expect(r.status).toBe('error')
+    if (r.status !== 'error') return
+    expect(r.fieldErrors?.email).toBeTruthy()
+    expect(r.values).toMatchObject({ name: valid.name, email: 'not-an-email', hoa: valid.hoa, county: 'Fulton' })
+    expect(r.values).not.toHaveProperty('website')
+  })
 })

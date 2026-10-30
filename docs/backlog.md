@@ -2044,3 +2044,16 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 6. **BL-172 SEO batch 6 (Georgia first).** Three or more new Georgia guides or templates per day quoting the official fixtures (SB 406 payment order, owners' records rights, conflict disclosure, ballots-by-consent § 14-3-708), each with a demo or tool CTA, then FL, CA, TX. Files: `apps/marketing/src/app/georgia/`, `apps/marketing/src/app/templates/`.
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
+
+## Website UI/UX round (ui-ux-pro-max audit, 2026-10-30)
+
+Fixed this round (skip-link target, demo form echo/errors/focus/autocomplete, demo hero clipped under fixed header, footer and util-bar touch targets). Open items from the code-only audit, all migration: no.
+
+- **WU-1 Header and footer sit inside `<main>` on every page** (effort 2). Screen-reader landmarks list the nav and footer as main content. Fix: move `<Nav/>` and `<Footer/>` out of `<main>` in the ~26 page files and shared templates (`components/georgia/guide-page.tsx`, `checklist-page.tsx`), then point the skip link back at `#main-content`. Files: `apps/marketing/src/app/**/page.tsx`, `components/site/nav.tsx`.
+- **WU-2 Mobile menu has no focus management** (effort 1). Opening it does not move focus in or trap it, and Escape does not return focus to the toggle. Files: `components/site/nav.tsx`.
+- **WU-3 Desktop Products dropdown is hover-first** (effort 1). Latent while only one product is offered (BL-097); needs arrow-key support if more return. Files: `components/site/nav.tsx`.
+- **WU-4 Many `text-xs` / `text-[11px]` / `text-[13px]` captions** (effort 2). Below the 14px readable floor on mobile; audit and raise secondary copy to `text-sm`. Files: `app/**`, `components/site/*`.
+- **WU-5 Roadmap table at 375px** (effort 1). `<table className="w-full">` has no horizontal-scroll wrapper or stacked layout. Files: `app/roadmap/roadmap-table.tsx`.
+- **WU-6 Heading order check on pages using `eyebrow` as `<h2>`** (effort 1). Footer column titles are `<h2>` after page `<h2>`s; make them `<p>` or `<h2 class=sr-only>` consistently. Files: `components/site/footer.tsx`.
+- **WU-7 Pricing and /professionals not exercised in a browser** (effort 1). Needs a human pass at 375px for horizontal scroll and CLS (no raster images are used, so CLS risk is low). Files: `app/pricing/page.tsx`, `app/professionals/page.tsx`.
+- **WU-8 Demo form: inline field validation on blur** (effort 2). Today errors arrive only after submit (server-side). Optional client pre-check for email shape. Files: `app/demo/demo-form.tsx`.

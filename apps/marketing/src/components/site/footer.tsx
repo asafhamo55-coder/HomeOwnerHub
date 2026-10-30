@@ -65,12 +65,12 @@ export function Footer() {
           <p className="text-sm text-muted">
             © {new Date().getFullYear()} HomeownerHub
           </p>
-          <ul className="flex flex-wrap gap-x-5 gap-y-2">
+          <ul className="flex flex-wrap gap-x-5 gap-y-0">
             {tail.map((l) => (
               <li key={l.href}>
                 <Link
                   href={l.href}
-                  className="text-sm text-muted transition-colors hover:text-foreground"
+                  className="inline-flex min-h-11 items-center text-sm text-muted transition-colors hover:text-foreground"
                 >
                   {l.label}
                 </Link>
@@ -89,17 +89,17 @@ function FooterCol({ title, links }: { title: string; links: { label: string; hr
       <h2 className="eyebrow !text-foreground">
         {title}
       </h2>
-      <ul className="mt-5 space-y-3">
+      <ul className="mt-4 space-y-1">
         {links.map((l) => (
           <li key={l.href}>
             {l.href.startsWith('http') ? (
-              <a href={l.href} className="text-[15px] text-foreground-secondary transition-colors hover:text-foreground">
+              <a href={l.href} className="inline-flex min-h-11 items-center text-[15px] text-foreground-secondary transition-colors hover:text-foreground">
                 {l.label}
               </a>
             ) : (
               <Link
                 href={l.href}
-                className="text-[15px] text-foreground-secondary transition-colors hover:text-foreground"
+                className="inline-flex min-h-11 items-center text-[15px] text-foreground-secondary transition-colors hover:text-foreground"
               >
                 {l.label}
               </Link>
