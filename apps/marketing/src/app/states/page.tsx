@@ -6,7 +6,7 @@ import { Footer } from '@/components/site/footer'
 import { TrackedLink } from '@/components/site/tracked-link'
 import { pageMetadata } from '@/lib/site'
 import { PAGE_META } from '@/lib/page-meta'
-import { GEORGIA_SCOPE_NOTE, STATE_CARDS, STATE_COVERAGE, STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
+import { GEORGIA_SCOPE_NOTE, STATE_CARDS, STATE_COVERAGE, STATE_GUIDE_LINKS, STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
 export const metadata: Metadata = pageMetadata({ ...PAGE_META['/states']!, path: '/states' })
 
@@ -59,7 +59,18 @@ export default function StatesPage() {
                     Georgia SB 406 guides and free tools
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </Link>
-                ) : null}
+                ) : (
+                  <ul className="mt-6 space-y-2">
+                    {(STATE_GUIDE_LINKS[s.state] ?? []).map((g) => (
+                      <li key={g.href}>
+                        <Link href={g.href} className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline">
+                          {g.label}
+                          <ArrowRight className="h-4 w-4" aria-hidden />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </article>
             )
           })}

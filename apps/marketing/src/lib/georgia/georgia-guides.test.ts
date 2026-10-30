@@ -37,8 +37,24 @@ const repoRoot = path.resolve(here, '../../../../..')
 const fixtureDir = path.join(repoRoot, 'scripts/fixtures/state-law')
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim()
 const fixtures = new Map<string, string>()
+// HTML fixtures (the Florida Senate chapter) are reduced to text first: tags dropped, entities decoded.
+const htmlToText = (h: string) =>
+  h
+    .replace(/<(script|style)[\s\S]*?<\/\1>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_m, n: string) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, n: string) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
 const fixture = (name: string) => {
-  if (!fixtures.has(name)) fixtures.set(name, squash(readFileSync(path.join(fixtureDir, name), 'utf8')))
+  if (!fixtures.has(name)) {
+    const raw = readFileSync(path.join(fixtureDir, name), 'utf8')
+    fixtures.set(name, squash(/\.html?$/.test(name) ? htmlToText(raw) : raw))
+  }
   return fixtures.get(name)!
 }
 
