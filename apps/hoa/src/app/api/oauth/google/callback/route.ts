@@ -126,7 +126,7 @@ async function handle(request: Request, nonce: string | null): Promise<Response>
   //
   // BL-018: a RECONNECT of a mailbox whose import already completed does
   // not redo the 12-month walk — see lib/inbox/reconnect-backfill.ts. It is
-  // skipped (the 2-minute sync resumes from the history id) or narrowed to
+  // skipped (the 5-minute sync resumes from the history id) or narrowed to
   // the gap since the last sync. Pending, failed and wedged imports still
   // get the full backfill, so reconnecting remains their recovery path.
   const plan = await planBackfillFor(accountId)

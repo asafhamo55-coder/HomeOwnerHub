@@ -12,7 +12,7 @@ import type {
  * nothing here is interactive.
  *
  * The "Sending…" state is not a spinner and does not poll. A vendor request
- * becomes a real thread only when the ordinary 2-minute sync ingests the sent
+ * becomes a real thread only when the ordinary 5-minute sync ingests the sent
  * message, so there is a genuine window where the link cannot exist yet.
  * Saying so plainly beats a link that 404s or a spinner implying something is
  * stuck.

@@ -349,7 +349,7 @@ export async function runMailboxSend(
   }
 
   // A threadless draft has no thread to read: it is sent with no Gmail
-  // threadId, and the ordinary 2-minute sync ingests the sent message into a
+  // threadId, and the ordinary 5-minute sync ingests the sent message into a
   // real thread through the normal path — the same reasoning recorded at the
   // bottom of this file for sent replies. So there is nothing to look up,
   // and the mailbox comes off the draft row instead.
@@ -617,11 +617,11 @@ async function fail(db: Db, draftId: string, message: string): Promise<void> {
 
 /**
  * Decision — the sent reply is NOT written into `inbox_messages` here. Task
- * 1 put the HOA's own sent mail in sync scope, so the next 2-minute sync
+ * 1 put the HOA's own sent mail in sync scope, so the next 5-minute sync
  * ingests this reply through the ordinary path, with the ordinary dedupe.
  * Writing it directly as well would mean two code paths creating the same
  * message and a dedupe that has to be exactly right forever, to save at most
- * two minutes of latency. The thread shows the reply on the next sync; the
+ * five minutes of latency. The thread shows the reply on the next sync; the
  * draft row shows `status='sent'` immediately, so the board is never left
  * wondering whether it went.
  */

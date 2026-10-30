@@ -252,8 +252,8 @@ describe('runAttachmentFetch — per-tenant fairness', () => {
     const store = buildStore({ orgs })
     const servedPerRun: number[] = []
     for (let run = 0; run < 2; run++) {
-      // The cron fires every 5 minutes.
-      store.state.now = new Date(NOW.getTime() + run * 5 * 60_000)
+      // The cron fires every 15 minutes.
+      store.state.now = new Date(NOW.getTime() + run * 15 * 60_000)
       await runAttachmentFetch(store.db as never, logger, {
         now: () => store.state.now,
         clientFor: async () => okClient(),

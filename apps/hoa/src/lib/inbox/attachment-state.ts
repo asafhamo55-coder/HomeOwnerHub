@@ -20,12 +20,12 @@ export const MAX_FETCH_ATTEMPTS = 4
  * column and BL-017 ships without a migration, so the backoff is anchored
  * to when the attachment was queued: a fresh attachment is tried at once,
  * then no sooner than 5 minutes, 30 minutes and 2 hours after it arrived.
- * Combined with the 5-minute cron, a short Gmail blip costs one attempt,
+ * Combined with the 15-minute cron, a short Gmail blip costs one attempt,
  * not the whole budget.
  *
  * After a manual Retry the attempts reset to 0 and `created_at` is long
  * past, so the retried attempts run on consecutive cron ticks (still at
- * most MAX_FETCH_ATTEMPTS of them, 5 minutes apart). That is deliberate:
+ * most MAX_FETCH_ATTEMPTS of them, 15 minutes apart). That is deliberate:
  * a person asked for it now.
  */
 export const RETRY_DELAYS_MS = [0, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000] as const

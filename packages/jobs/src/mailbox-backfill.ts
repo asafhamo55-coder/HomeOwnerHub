@@ -5,7 +5,7 @@
  *
  * Separate from mailboxSyncJob because it is a fundamentally different
  * shape: thousands of messages instead of a handful, minutes instead of
- * seconds. Running it inside the 2-minute cron would starve every other
+ * seconds. Running it inside the 5-minute cron would starve every other
  * mailbox.
  *
  * Resumable by design. Each invocation drains one page of up to PAGE_SIZE

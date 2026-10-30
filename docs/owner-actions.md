@@ -53,26 +53,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 2. Add `ANALYTICS_REPORT_TO` for **Production** and set it to the address that should get the email (for example your own inbox).
 3. Redeploy the project (or wait for the next deploy) so the job sees it.
 
-### OA-36 · Three read-only checks for the tenant-isolation audit
-
-**Urgency:** Soon
-
-**Why it matters:** a security audit (BL-175) checked that one association can never see another's data. The code and migrations look sound for plain reads. A few things live only in your dashboards, and Claude can't see them. Nothing here changes anything.
-
-**Progress (2026-10-30):** step 1 passed: all 4 storage buckets are private and no tables are published to realtime. Steps 2 and 3 are still open.
-
-**Steps:**
-
-1. **Supabase SQL editor (production), read-only.** Paste this one query and send Claude the result (it shows only ids, names and true/false):
-   `SELECT 'bucket' AS kind, id AS name, public::text AS value FROM storage.buckets UNION ALL SELECT 'realtime', schemaname||'.'||tablename, 'published' FROM pg_publication_tables WHERE pubname='supabase_realtime';`
-   Expected: every bucket `false` (not public), and no realtime rows (or tell Claude which).
-2. **Supabase → Authentication → Providers → Email:** is **"Confirm email"** turned on? Tell Claude yes or no.
-3. **Vercel, project home-owner-hub-hoa → Settings → Environment Variables (Production):** tell Claude (names only, never values) whether these exist:
-   - `INNGEST_SIGNING_KEY`: should be set.
-   - `INNGEST_DEV`: should not exist.
-   - `DEV_AUTOLOGIN`: should not exist.
-   - `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`: should be set (see OA-26). Today the app's signed settings fall back to the database service key.
-
 ### OA-35 · Turn on website analytics and Google Search Console
 
 **Urgency:** Soon
@@ -129,18 +109,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 **Files:** `docs/specs/2026-10-19-domain-split.md`
 
-### OA-7 · Confirm the scheduled-messages job in Inngest
-
-**Urgency:** Soon
-
-**Why it matters:** messages a board schedules for later are only sent if
-this job is registered.
-
-**Steps:**
-
-1. Open the Inngest dashboard for production and sync the app.
-2. Check that a function named `communications-scheduled-dispatch` is listed. Tell Claude yes or no.
-
 ### OA-8 · Rename the Stripe product
 
 **Urgency:** Whenever
@@ -152,31 +120,6 @@ and checkout instead of HomeownerHub.
 
 1. In the Stripe dashboard, open **Products** and rename "HOA Hub" to "HomeownerHub".
 2. Tell Claude in the same sitting, so it changes `PRODUCT_NAME` in `apps/hoa/src/app/api/admin/setup-stripe-pricing/route.ts` to match.
-
-### OA-9 · Load Florida, California and Texas law into the app (and Georgia's verbatim text)
-
-**Urgency:** Soon
-
-**Why it matters:** production only has Georgia's HOA law loaded. Until Florida, California and Texas are loaded, the app says "<State> state law isn't loaded yet" instead of answering law questions for those states. It never answers from memory. Georgia's loaded rows are paraphrased summaries; running GA once replaces them with the statute's exact words (Property Owners' Association Act, 17 sections, plus the 2026 attorney's-fee rule).
-
-**Ready now:** the CA/TX loaders went live on 2026-10-20 at 12:31 ET (deploy 7b1c601b).
-
-**Where it stands (2026-10-30):** the check came back with GA only: 27 current rows, 0 retired, `last_checked_at` empty. FL, CA and TX have no rows at all. None of the four refreshes queued on 2026-10-21 ran, most likely because the Inngest app isn't synced (OA-7). Next: do OA-7 (sync Inngest and confirm the state-law refresh function is listed), redo step 2 for all four states, then run this read-only query again and send Claude the result:
-
-`SELECT state, count(*) FILTER (WHERE superseded_at IS NULL) AS current_sections, count(*) FILTER (WHERE superseded_at IS NOT NULL) AS retired, max(last_checked_at) FROM public.state_statutes WHERE state IN ('GA','FL','CA','TX') GROUP BY state;`
-
-Expected: GA 18 current (+2 retired), FL 36, CA 234, TX 61.
-
-**Steps:**
-
-1. Sign in to the production app as the platform admin.
-2. Open the browser's developer console on any app page and paste this line once each for `'FL'`, `'CA'`, `'TX'` and `'GA'` (change the two letters):
-   `fetch('/api/admin/refresh-state-law',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:'FL'})}).then(r=>r.json()).then(console.log)`
-   Each should print `queued`.
-3. A few minutes later, tell Claude. It checks the counts (expected: FL 36, CA 234, TX 61 sections; GA 18 written, 2 retired — the seed's "44-3-225(b)" and "44-3-236" rows, which are not sections of the Act). After the Inngest sync (OA-7), a weekly job keeps them current on its own.
-4. Georgia only: its text is a snapshot committed to the repo (Georgia's official code can't be fetched automatically), good until 2027-01-01, when the 2026 HOA law (SB 406) changes four sections. Before then, ask Claude to refresh it (data/statutes/README.md, "Georgia snapshot"). If it is not refreshed, the weekly job reports Georgia as failed and keeps the current text; it never deletes it.
-
-**Files:** `docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md` §11
 
 ### OA-11 · Decide on text messages (Vonage and 10DLC)
 
@@ -352,22 +295,6 @@ prices; review it before pitching.
 
 **Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
 
-### OA-26 · Give board settings and sessions their own signing secrets
-
-**Urgency:** Soon
-
-**Update 2026-10-26 (tenant-isolation audit, BL-175):** besides board settings, this secret also signs the "view as resident" impersonation cookie and several compliance records. Today they all fall back to the database key that is in the public git history, so anyone holding that key could forge them. Moving to dedicated secrets closes that. Add `SESSION_CAP_SECRET` too (step 2b); the only side effect is that everyone signs in once more.
-
-**Why it matters:** board settings saved in the app (Zelle details, reminders, receipts and similar) are signed so they can't be tampered with. Today that signature reuses an older database key. A dedicated secret is cleaner. **The catch:** after the switch, every saved board setting except Zelle reads as "off" until a board member saves it again. So do this when you can tell boards to re-save their settings, not before.
-
-**Steps:**
-
-1. Ask Claude first. It will confirm which settings each HOA has saved, so you know who to tell.
-2. In Vercel (both the hoa and jobs projects, Production), add `PAY_SETTINGS_SECRET` with a long random value. You can make one in Terminal with `openssl rand -base64 48`.
-2b. Also add `SESSION_CAP_SECRET` (another `openssl rand -base64 48`). Everyone will be asked to sign in once more.
-3. In the same place, add `PAY_SETTINGS_SECRET_PREVIOUS`, set to the value the app uses today (Claude will tell you which one).
-4. Redeploy, tell boards to re-save their settings, then remove `PAY_SETTINGS_SECRET_PREVIOUS` a week later.
-
 ### OA-27 · Show "delivered" on texts (Vonage delivery receipts)
 
 **Urgency:** Whenever
@@ -384,6 +311,90 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-26 · Give board settings and sessions their own signing secrets
+
+**Done 2026-10-30:** `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET` are set on home-owner-hub-hoa Production. The one association with signed settings re-saved payment receipts, resident notifications and Zelle under the new secret (Zelle stamped 2026-10-30 07:06 UTC). `PAY_SETTINGS_SECRET_PREVIOUS` was then deleted, so nothing accepts a signature made with the service-role key any more.
+
+**Urgency:** Soon
+
+**Why it matters:** board settings, the "view as resident" cookie, sessions and compliance records were signed with the database key that is in the public git history, so anyone holding it could forge them.
+
+### OA-36 · Three read-only checks for the tenant-isolation audit
+
+**Urgency:** Soon
+
+**Why it matters:** a security audit (BL-175) checked that one association can never see another's data. The code and migrations look sound for plain reads. A few things live only in your dashboards, and Claude can't see them. Nothing here changes anything.
+
+**Done 2026-10-30:** all 4 storage buckets are private and nothing is published to realtime. "Confirm email" is on. In Vercel Production, `INNGEST_SIGNING_KEY` is set, and `INNGEST_DEV` and `DEV_AUTOLOGIN` don't exist. `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET` are not set yet; they are tracked in OA-26, which stays open. Mailbox Sync shows the new `*/5` schedule.
+
+**Steps:**
+
+1. **Supabase SQL editor (production), read-only.** Paste this one query and send Claude the result (it shows only ids, names and true/false):
+   `SELECT 'bucket' AS kind, id AS name, public::text AS value FROM storage.buckets UNION ALL SELECT 'realtime', schemaname||'.'||tablename, 'published' FROM pg_publication_tables WHERE pubname='supabase_realtime';`
+   Expected: every bucket `false` (not public), and no realtime rows (or tell Claude which).
+2. **Supabase → Authentication → Providers → Email:** is **"Confirm email"** turned on? Tell Claude yes or no.
+3. **Vercel, project home-owner-hub-hoa → Settings → Environment Variables (Production):** tell Claude (names only, never values) whether these exist:
+   - `INNGEST_SIGNING_KEY`: should be set.
+   - `INNGEST_DEV`: should not exist.
+   - `DEV_AUTOLOGIN`: should not exist.
+   - `PAY_SETTINGS_SECRET` and `SESSION_CAP_SECRET`: should be set (see OA-26). Today the app's signed settings fall back to the database service key.
+
+### OA-39 · Retire 9 old Georgia law summaries the refresh doesn't manage
+
+**Done 2026-10-30:** Asaf ran the update; it returned exactly the 9 expected citations. GA now has 18 current rows, all from the Article 6 snapshot.
+
+**Urgency:** Soon
+
+**Why it matters:** Georgia's HOA Act (Article 6) is now loaded word for word (OA-9). Nine older Georgia rows from the May seed are still live: Nonprofit Corporation Code §§ 14-3-701, 14-3-720, 14-3-805, 14-3-830 and 14-3-851, and covenant §§ 44-5-60, 44-5-60.1, 44-5-61 and 44-5-62. They are paraphrased summaries with no source, and the weekly refresh never checks them, so the app can quote them as if they were the law. Retiring them hides them from law answers; nothing is deleted, and it can be undone.
+
+**Steps:**
+
+1. In the Supabase SQL editor (production), run:
+   `UPDATE public.state_statutes SET superseded_at = now() WHERE state = 'GA' AND superseded_at IS NULL AND source_name IS NULL AND (code_citation LIKE 'O.C.G.A. Section 14-3-%' OR code_citation LIKE 'O.C.G.A. Section 44-5-6%') RETURNING code_citation;`
+   Expected: exactly 9 rows, the citations above.
+2. Send Claude the result. Then the GA count should read 18 current, 11 retired.
+
+### OA-9 · Load Florida, California and Texas law into the app (and Georgia's verbatim text)
+
+**Done 2026-10-30:** after the Inngest sync (OA-7) the four refreshes ran. FL 36, CA 234 and TX 61 sections are loaded. GA Article 6 is now the statute's exact words: 18 current rows (17 sections plus SB 406 § 7), and the 2 bad seed rows are retired. 9 older GA summary rows from other chapters are still live; see OA-39.
+
+**Urgency:** Soon
+
+**Why it matters:** production only has Georgia's HOA law loaded. Until Florida, California and Texas are loaded, the app says "<State> state law isn't loaded yet" instead of answering law questions for those states. It never answers from memory. Georgia's loaded rows are paraphrased summaries; running GA once replaces them with the statute's exact words (Property Owners' Association Act, 17 sections, plus the 2026 attorney's-fee rule).
+
+**Ready now:** the CA/TX loaders went live on 2026-10-20 at 12:31 ET (deploy 7b1c601b).
+
+**Where it stands (2026-10-30):** the check came back with GA only: 27 current rows, 0 retired, `last_checked_at` empty. FL, CA and TX have no rows at all. None of the four refreshes queued on 2026-10-21 ran, most likely because the Inngest app isn't synced (OA-7). OA-7 is now done and all four states were queued again on 2026-10-30 at 7:12 ET. Once the four runs finish in Inngest, run this read-only query again and send Claude the result:
+
+`SELECT state, count(*) FILTER (WHERE superseded_at IS NULL) AS current_sections, count(*) FILTER (WHERE superseded_at IS NOT NULL) AS retired, max(last_checked_at) FROM public.state_statutes WHERE state IN ('GA','FL','CA','TX') GROUP BY state;`
+
+Expected: GA 18 current (+2 retired), FL 36, CA 234, TX 61.
+
+**Steps:**
+
+1. Sign in to the production app as the platform admin.
+2. Open the browser's developer console on any app page and paste this line once each for `'FL'`, `'CA'`, `'TX'` and `'GA'` (change the two letters):
+   `fetch('/api/admin/refresh-state-law',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:'FL'})}).then(r=>r.json()).then(console.log)`
+   Each should print `queued`.
+3. A few minutes later, tell Claude. It checks the counts (expected: FL 36, CA 234, TX 61 sections; GA 18 written, 2 retired — the seed's "44-3-225(b)" and "44-3-236" rows, which are not sections of the Act). After the Inngest sync (OA-7), a weekly job keeps them current on its own.
+4. Georgia only: its text is a snapshot committed to the repo (Georgia's official code can't be fetched automatically), good until 2027-01-01, when the 2026 HOA law (SB 406) changes four sections. Before then, ask Claude to refresh it (data/statutes/README.md, "Georgia snapshot"). If it is not refreshed, the weekly job reports Georgia as failed and keeps the current text; it never deletes it.
+
+**Files:** `docs/specs/2026-10-15-sub-project-F-law-to-bylaw.md` §11
+
+### OA-7 · Confirm the scheduled-messages job in Inngest
+
+**Done 2026-10-30:** Asaf synced the app in Inngest; `communications-scheduled-dispatch` ("Send scheduled messages") and `state-law-refresh` are both listed.
+
+**Urgency:** Soon
+
+**Why it matters:** messages a board schedules for later are only sent if
+this job is registered.
+
+**Steps:**
+
+1. Open the Inngest dashboard for production and sync the app.
+2. Check that a function named `communications-scheduled-dispatch` is listed. Tell Claude yes or no.
 
 ### OA-34 · Let demo requests from the website reach you
 

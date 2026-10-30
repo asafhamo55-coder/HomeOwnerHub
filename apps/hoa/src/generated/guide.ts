@@ -24851,7 +24851,7 @@ export const GUIDE_ARTICLES: readonly GuideArticle[] = [
             "c": [
               {
                 "t": "text",
-                "v": "HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 2 minutes. Mail that matches a home is filed under it. Mail it can't match waits under "
+                "v": "HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 5 minutes. Mail that matches a home is filed under it. Mail it can't match waits under "
               },
               {
                 "t": "strong",
@@ -48928,7 +48928,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
     "articleId": "inbox-connect-mailbox",
     "sectionId": "what-happens-next",
     "heading": "What happens next",
-    "text": "HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 2 minutes. Mail that matches a home is filed under it. Mail it can't match waits under Needs review in the Inbox.",
+    "text": "HomeownerHub imports your recent mail history while you keep working. After that, new mail arrives every 5 minutes. Mail that matches a home is filed under it. Mail it can't match waits under Needs review in the Inbox.",
     "roles": [
       "admin"
     ],
@@ -52922,6 +52922,32 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
+  {
+    "id": "2026-10-28-1500-paste-images-into-announcements#1",
+    "note": "2026-10-28-1500-paste-images-into-announcements",
+    "date": "2026-10-28",
+    "title": "Pictures in announcements",
+    "body": "When writing an announcement, paste a photo or screenshot into the message and residents see it inside the email, right where you put it.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-10-28-1340-paste-images-into-email#1",
+    "note": "2026-10-28-1340-paste-images-into-email",
+    "date": "2026-10-28",
+    "title": "Paste images into your emails",
+    "body": "In the inbox, paste a screenshot or photo into the message and it arrives inside the email body, right where you put it, not as a separate attachment.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
   {
     "id": "2026-10-17-2100-user-guide#1",
     "note": "2026-10-17-2100-user-guide",

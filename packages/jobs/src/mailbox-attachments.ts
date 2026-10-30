@@ -17,7 +17,7 @@ const BUCKET = 'hoa-documents'
 export const ATTACHMENT_BATCH_SIZE = 20
 const MAX_ATTEMPTS = MAX_FETCH_ATTEMPTS
 /** The cron period; the org rotation advances once per period. */
-const ROTATION_PERIOD_MS = 5 * 60_000
+const ROTATION_PERIOD_MS = 15 * 60_000
 
 type AdminDb = ReturnType<typeof createAdminClient>
 
@@ -80,7 +80,7 @@ export function pickFairBatch<T>(queues: T[][], batchSize: number): T[] {
  * Attachment fetcher.
  *
  * Separate from mailboxSyncJob on purpose: a 20 MB PDF must not stall the
- * 2-minute sync loop, and a failed download must retry on its own without
+ * 5-minute sync loop, and a failed download must retry on its own without
  * re-walking Gmail history. gmail_attachment_id is what makes that
  * independent retry possible.
  *
@@ -101,7 +101,7 @@ export function pickFairBatch<T>(queues: T[][], batchSize: number): T[] {
  */
 export const mailboxAttachmentsJob = inngest.createFunction(
   { id: 'mailbox-attachments', name: 'Mailbox Attachment Fetch' },
-  [{ cron: '*/5 * * * *' }, { event: 'mailbox/attachments.queued' }],
+  [{ cron: '*/15 * * * *' }, { event: 'mailbox/attachments.queued' }],
   async ({ logger }) => runAttachmentFetch(createAdminClient(), logger),
 )
 
