@@ -174,7 +174,7 @@ function ObligationRow({ o, evidenceOn, options }: { o: ComplianceObligation; ev
       {o.appliesTo ? <p className="text-xs text-muted">Applies to: {o.appliesTo}</p> : null}
 
       {o.quotes.length > 0 ? (
-        <details className="rounded-md border border-border bg-surface-subtle px-3 py-2">
+        <details className="rounded-md border border-border bg-subtle px-3 py-2">
           <summary className="cursor-pointer text-xs font-medium text-foreground-secondary">
             What the statute says ({o.quotes.length})
           </summary>
