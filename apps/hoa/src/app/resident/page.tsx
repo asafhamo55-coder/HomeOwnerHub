@@ -9,13 +9,9 @@ import {
   CheckCircle2,
   ClipboardList,
   CalendarPlus,
-  CreditCard,
-  FileText,
   Home,
   Send,
   MessageSquarePlus,
-  ShieldAlert,
-  Sparkles,
 } from 'lucide-react'
 import { Badge, Button, LoadFailed } from '@homeowner-portal/ui'
 import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dashboard'
@@ -33,7 +29,6 @@ import {
   Section,
   SectionLabel,
   TappableRow,
-  type Tone,
 } from '@/components/resident/screen'
 import { ResidentStatus } from '@/components/resident/status'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -48,6 +43,7 @@ import { BoardContactsCard } from '@/components/resident/BoardContactsCard'
 import { readBoardContacts, type BoardContact } from '@/lib/association-contacts'
 import { residentCalendarHref } from '@/lib/meetings/resident-calendar-link'
 import { LatestAnnouncementCard } from '@/components/resident/LatestAnnouncementCard'
+import { QuickActions } from '@/components/resident/QuickActions'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'My Home' }
@@ -204,32 +200,7 @@ export default async function ResidentDashboard() {
       ))}
 
       <Section label="Quick actions">
-        {/* Seven tiles: the odd one out spans the last row rather than sitting alone. */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(3n+1)]:col-span-3">
-          <ActionTile
-            icon={<MessageSquarePlus />}
-            label="New request"
-            hint="Maintenance, noise, billing"
-            href="/resident/tickets/new"
-          />
-          <ActionTile icon={<Sparkles />} tone="ai" label="Ask the Docs" hint="Your rules, answered" href="/resident/ask" />
-          <ActionTile icon={<FileText />} tone="slate" label="Documents" hint="CC&Rs, bylaws, rules" href="/resident/documents" />
-          <ActionTile
-            icon={<ClipboardList />}
-            tone="emerald"
-            label="Start an ARC"
-            hint="Exterior changes"
-            href="/resident/arc/new"
-          />
-          <ActionTile
-            icon={<ShieldAlert />}
-            tone="amber"
-            label="Report a concern"
-            hint="Tell the board"
-            href="/resident/report-violation"
-          />
-          <ActionTile icon={<CreditCard />} tone="slate" label="Dues" hint="Balance & charges" href="/resident/dues" />
-        </div>
+        <QuickActions newAnnouncements={data.recentAnnouncements} />
       </Section>
 
       {hasUnit ? (
@@ -508,42 +479,6 @@ function groupUnitsByCommunity(
 }
 
 // ── Quick action tile ───────────────────────────────────────────────────
-
-function ActionTile({
-  icon,
-  label,
-  hint,
-  href,
-  tone,
-  badge,
-}: {
-  icon: React.ReactNode
-  label: string
-  hint: string
-  href: string
-  tone?: Tone
-  badge?: string | null
-}) {
-  return (
-    <Link
-      href={href}
-      className="relative flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 no-underline transition-colors duration-fast hover:border-border-strong hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <IconTile icon={icon} tone={tone} />
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-foreground">{label}</span>
-        <span className="mt-0.5 block truncate text-xs text-muted">{hint}</span>
-      </span>
-      {badge ? (
-        <span className="absolute right-3 top-3">
-          <Badge variant="info" size="sm">
-            {badge}
-          </Badge>
-        </span>
-      ) : null}
-    </Link>
-  )
-}
 
 function humanize(value: string): string {
   return value.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
