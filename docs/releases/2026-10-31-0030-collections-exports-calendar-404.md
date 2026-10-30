@@ -15,6 +15,10 @@ The dues page lists every open collection case, with the ones that have waited l
 ### Compliance
 - "Add to my calendar (.ics)" downloads the next 12 months of state and federal deadlines and your insurance renewal dates as all-day events. Importing it again updates the events instead of adding duplicates. Policy numbers are not included.
 
+### Meetings and the daily email
+- On an annual meeting, the new "Annual meeting checklist" card lists the steps in order: notice, quorum kit, proxies and election, annual report, minutes. Each step links to its screen, and steps the app can't confirm show "Check".
+- The board's daily email now includes a vendor insurance line, such as "2 vendor certificates expired, 1 expiring within 30 days", with a link to Vendors. It goes to the board only. Vendors are never emailed.
+
 ### People and residents
 - The People page shows counts at the top: board members, owners with an account, owners not invited yet, and pending invites.
 - A resident's account page starts with their name, home and three chips that show whether email notices, texts and Spanish are turned on.
