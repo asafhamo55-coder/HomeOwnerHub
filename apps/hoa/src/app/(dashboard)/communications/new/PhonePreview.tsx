@@ -49,6 +49,7 @@ export function PhonePreview({
   showText,
   showPortal,
   disabled,
+  split = false,
 }: {
   /** The wizard's audience definition; the server validates the kind. */
   audience: { kind: string } | null
@@ -59,6 +60,9 @@ export function PhonePreview({
   showText: boolean
   showPortal: boolean
   disabled: boolean
+  /** Email and text side by side from md up (stacked on a phone), instead
+   *  of the text being a tab. The portal and Spanish views stay tabs. */
+  split?: boolean
 }) {
   const [result, setResult] = useState<PreviewForSampleResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -103,7 +107,7 @@ export function PhonePreview({
   }, [requestKey])
 
   const tabs: Tab[] = ['email']
-  if (showText) tabs.push('text')
+  if (showText && !split) tabs.push('text')
   if (showPortal) tabs.push('portal')
   if (result?.ok && result.spanish) tabs.push('es')
   const active: Tab = tabs.includes(tab) ? tab : 'email'
@@ -192,49 +196,74 @@ export function PhonePreview({
         ))}
       </div>
 
-      <div
-        id={panelId}
-        role="tabpanel"
-        aria-labelledby={tabId(active)}
-        className="mx-auto w-full max-w-[22rem] rounded-[2rem] border-[6px] border-foreground/80 bg-background p-2 shadow-sm"
-      >
-        <div className="min-h-[20rem] overflow-hidden rounded-[1.4rem] border border-border bg-surface">
-          {!audience ? (
-            <p className="p-4 text-sm text-muted">Pick an audience to see the preview.</p>
-          ) : loading && !result ? (
-            <p className="inline-flex items-center gap-1.5 p-4 text-sm text-muted" role="status">
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-              Building the preview…
-            </p>
-          ) : !result ? null : !result.ok ? (
-            <div className="p-3">
-              <Alert variant="warning">{result.error}</Alert>
-            </div>
-          ) : active === 'text' ? (
-            <div className="space-y-2 p-3">
-              <p className="text-center text-xs text-muted">Text message</p>
-              <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-subtle px-3 py-2 text-sm text-foreground">
-                {result.sms.body}
+      <div className={split && showText ? 'grid gap-4 md:grid-cols-2' : undefined}>
+        <div
+          id={panelId}
+          role="tabpanel"
+          aria-labelledby={tabId(active)}
+          className="mx-auto w-full max-w-[22rem] rounded-[2rem] border-[6px] border-foreground/80 bg-background p-2 shadow-sm"
+        >
+          <div className="min-h-[20rem] overflow-hidden rounded-[1.4rem] border border-border bg-surface">
+            {!audience ? (
+              <p className="p-4 text-sm text-muted">Pick an audience to see the preview.</p>
+            ) : loading && !result ? (
+              <p className="inline-flex items-center gap-1.5 p-4 text-sm text-muted" role="status">
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Building the preview…
               </p>
-              <p className="text-xs text-muted">
-                {result.sms.chars} of {result.sms.max} characters
-                {result.sms.shortened ? '. Shortened to fit one text; it ends with a link to the full message.' : '.'}
-                {result.sms.englishOnly ? ' Both languages don’t fit, so the text is English only.' : ''}
-              </p>
-            </div>
-          ) : (
-            <MessageScreen
-              label={active === 'portal' ? 'Resident portal' : active === 'es' ? 'Email · Español' : 'Email'}
-              subject={active === 'es' && result.spanish ? result.spanish.subject : result.email.subject}
-              html={active === 'es' && result.spanish ? result.spanish.html : active === 'portal' ? result.portal.html : result.email.html}
-            />
-          )}
+            ) : !result ? null : !result.ok ? (
+              <div className="p-3">
+                <Alert variant="warning">{result.error}</Alert>
+              </div>
+            ) : active === 'text' ? (
+              <TextScreen sms={result.sms} />
+            ) : (
+              <MessageScreen
+                label={active === 'portal' ? 'Resident portal' : active === 'es' ? 'Email · Español' : 'Email'}
+                subject={active === 'es' && result.spanish ? result.spanish.subject : result.email.subject}
+                html={active === 'es' && result.spanish ? result.spanish.html : active === 'portal' ? result.portal.html : result.email.html}
+              />
+            )}
+          </div>
         </div>
+        {split && showText ? (
+          <div
+            role="group"
+            aria-label="Text message preview"
+            className="mx-auto w-full max-w-[22rem] rounded-[2rem] border-[6px] border-foreground/80 bg-background p-2 shadow-sm"
+          >
+            <div className="min-h-[20rem] overflow-hidden rounded-[1.4rem] border border-border bg-surface">
+              {result?.ok ? <TextScreen sms={result.sms} /> : <p className="p-4 text-sm text-muted">The text shows here once the preview is ready.</p>}
+            </div>
+          </div>
+        ) : null}
       </div>
       <p className="text-center text-xs text-muted">
         Email has no length limit. A text is at most 279 characters; a longer message is shortened with a link.
       </p>
     </section>
+  )
+}
+
+/** How many texts a body goes out as. The send never splits: one text of at
+ *  most the SMS limit, shortened with a portal link when it is longer. */
+export function smsTextCount(body: string): number {
+  return body.length > 0 ? 1 : 0
+}
+
+function TextScreen({ sms }: { sms: Extract<PreviewForSampleResult, { ok: true }>['sms'] }) {
+  return (
+    <div className="space-y-2 p-3">
+      <p className="text-center text-xs text-muted">Text message</p>
+      <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-subtle px-3 py-2 text-sm text-foreground">
+        {sms.body}
+      </p>
+      <p className="text-xs text-muted">
+        {sms.chars} of {sms.max} characters. Goes out as {smsTextCount(sms.body)} text.
+        {sms.shortened ? ' Shortened to fit; it ends with a link to the full message.' : ''}
+        {sms.englishOnly ? ' Both languages don’t fit, so the text is English only.' : ''}
+      </p>
+    </div>
   )
 }
 

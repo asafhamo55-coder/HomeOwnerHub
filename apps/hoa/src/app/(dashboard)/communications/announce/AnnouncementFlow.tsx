@@ -48,15 +48,14 @@ import {
   MAX_ANNOUNCEMENT_IMAGE_BYTES,
   MAX_IMAGES_PER_MESSAGE,
   countMarkers,
-  dropUnresolvedMarkers,
   markersIn,
-  markersToImgHtml,
   stripImageMarkers,
   toIdMarkers,
 } from '@/lib/announcements/inline-images'
 import { uploadAnnouncementImage } from '@/lib/announcements/upload-image'
 import { insertMarkers, isInlineImageType, pastedImageName, removeMarker } from '@/lib/inbox/draft/inline-images'
 import { PhonePreview } from '../new/PhonePreview'
+import { buildEmailPreviewHtml, sendButtonLabel } from './review-helpers'
 
 const ICONS: Record<OccasionIcon, LucideIcon> = {
   ghost: Ghost,
@@ -398,8 +397,7 @@ export function AnnouncementFlow({
   // test email show the real hosted pictures. The browser's own origin is
   // used so the preview is not blocked by the page's image policy.
   const toPreviewHtml = (text: string) => {
-    const html = plainTextToHtml(dropUnresolvedMarkers(toIdMarkers(text, idByName)))
-    return imageOrgId ? markersToImgHtml(html, { origin: window.location.origin, orgId: imageOrgId }) : html
+    return buildEmailPreviewHtml(text, idByName, imageOrgId, window.location.origin)
   }
   const bodyHtml = useMemo(() => toPreviewHtml(body), [body, idByName, imageOrgId]) // eslint-disable-line react-hooks/exhaustive-deps
   const spanishHtml = useMemo(() => (spanishReady ? toPreviewHtml(esBody) : ''), [spanishReady, esBody, idByName, imageOrgId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -820,6 +818,7 @@ export function AnnouncementFlow({
             spanish={spanishReady ? { subject: esSubject, bodyHtml: spanishHtml } : null}
             showText={smsAvailable && includeText}
             showPortal
+            split
             disabled={sending}
           />
 
@@ -864,7 +863,7 @@ export function AnnouncementFlow({
 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" size="lg" onClick={send} loading={sending}>
-              {when === 'later' ? 'Schedule it' : `Send to ${recipientCount} ${recipientCount === 1 ? 'home' : 'homes'}`}
+              {sendButtonLabel(when, recipientCount)}
             </Button>
             <Button type="button" size="lg" variant="ghost" onClick={() => setStep('draft')} disabled={sending}>
               Back to the draft
