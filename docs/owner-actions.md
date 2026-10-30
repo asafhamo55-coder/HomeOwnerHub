@@ -41,6 +41,17 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-40 · Activate the Stripe account for live payments
+
+**Urgency:** Soon
+
+**Why it matters:** the app now uses Stripe account `acct_1TURnh…` with its live key (OA-14), but the account isn't activated, so no real card can be charged yet. Checkout will fail for a real HOA until it is.
+
+**Steps:**
+
+1. In the Stripe dashboard (Test mode off), click **Activate payments** (or **Settings → Business → Account details**) and complete business details, bank account for payouts and identity verification.
+2. Tell Claude. It runs one real checkout check and confirms the webhook delivers.
+
 ### OA-38 · Choose where the weekly numbers email goes
 
 **Urgency:** Whenever
@@ -150,6 +161,8 @@ diligence. Claude has the background.
 ### OA-14 · Turn on two more Stripe webhook events
 
 **Urgency:** Soon
+
+**Progress 2026-10-30:** production's `STRIPE_SECRET_KEY` turned out to belong to a different Stripe account (`acct_1H8a…`) than the one Asaf uses (`acct_1TURnh…`), and `STRIPE_WEBHOOK_SECRET` matched no endpoint in any mode. No org had a Stripe customer or subscription, so the app was switched to Asaf's account: a live endpoint "HomeownerHub HOA app (live)" now sends `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.payment_failed` to `https://www.homeownerledger.com/api/webhooks/stripe`. Its signing secret and the account's live key are in Vercel, and the stale `STRIPE_PRICE_STANDARD` (an old-account price) was removed. Left: run the pricing setup once (creates the plans in the new account) and send a test event. Real charges also need OA-40.
 
 **Why it matters:** the app now handles subscription changes (cancellations,
 door-count changes) and failed card payments, and shows boards a "payment
