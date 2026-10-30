@@ -822,3 +822,17 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - five indexes (needs a migration)
   - `mw.session` at about 450ms
   - a short `PERF_LOG=1` window for true p50
+
+## 2026-10-30 07:00 â†’ 13:40 IST: UI/UX window, deploy c8f0e731
+
+- **Deployed c8f0e731** (release note `2026-10-30-1110-plainer-website-copy-and-touch-targets`):
+  - website copy rewrite, about 68 em dashes and stock AI phrases removed (owner request)
+  - app touch targets (44px on coarse pointers), field error announcement, token fixes
+  - website skip link and demo-form fixes
+- **Merge note:** the copy agent's worktree was based on the prod line. Merging it pulled in conflicting owner-actions doc edits, so it was cherry-picked instead, and prod's newer `docs/owner-actions.md` was kept.
+- **Unit suite under load:** 4 non-marketing files timed out, and the failing set changes from run to run. All passed in isolation, and CI was green.
+- **UI shots workflow:** fails on every run (supabase start fails 3 times). It is pre-existing and not caused by this change; release emails go out without screenshots.
+- **Dispatched (13:40):**
+  - app UI/UX items 1 and 6: Choice rows at 44px, reduced motion
+  - website WU-2: mobile menu focus
+  - website WU-6: footer headings
