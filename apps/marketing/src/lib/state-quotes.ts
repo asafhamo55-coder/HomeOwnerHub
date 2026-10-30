@@ -569,4 +569,111 @@ export const STATE_QUOTES = {
     fixture: TX7,
     quote: "This chapter does not apply to a condominium council of owners governed by Chapter 81 or a condominium unit owners' association governed by Chapter 82.",
   },
+
+  // California: internal dispute resolution, Civ. Code §§ 5900-5920 (BL-172 batch 13)
+  caIdrScope: {
+    cite: 'Cal. Civ. Code § 5900(a)',
+    fixture: CA,
+    quote: "This article applies to a dispute between an association and a member involving their rights, duties, or liabilities under this act, under the Nonprofit Mutual Benefit Corporation Law (Part 3 (commencing with Section 7110) of Division 2 of Title 1 of the Corporations Code), or under the governing documents of the common interest development or association.",
+  },
+  caIdrSupplement: {
+    cite: 'Cal. Civ. Code § 5900(b)',
+    fixture: CA,
+    quote: "This article supplements, and does not replace, Article 3 (commencing with Section 5925), relating to alternative dispute resolution as a prerequisite to an enforcement action.",
+  },
+  caIdrFair: {
+    cite: 'Cal. Civ. Code § 5905(a)',
+    fixture: CA,
+    quote: "An association shall provide a fair, reasonable, and expeditious procedure for resolving a dispute within the scope of this article.",
+  },
+  caIdrMediation: {
+    cite: 'Cal. Civ. Code § 5905(b)',
+    fixture: CA,
+    quote: "In developing a procedure pursuant to this article, an association shall make maximum, reasonable use of available local dispute resolution programs involving a neutral third party, including low-cost mediation programs such as those listed on the Internet Web sites of the Department of Consumer Affairs and the United States Department of Housing and Urban Development.",
+  },
+  caIdrDefault: {
+    cite: 'Cal. Civ. Code § 5905(c)',
+    fixture: CA,
+    quote: "If an association does not provide a fair, reasonable, and expeditious procedure for resolving a dispute within the scope of this article, the procedure provided in Section 5915 applies and satisfies the requirement of subdivision (a).",
+  },
+  caIdrMinimum: {
+    cite: 'Cal. Civ. Code § 5910',
+    fixture: CA,
+    quote: "A fair, reasonable, and expeditious dispute resolution procedure shall, at a minimum, satisfy all of the following requirements:",
+  },
+  caIdrInvoke: {
+    cite: 'Cal. Civ. Code § 5910(a)',
+    fixture: CA,
+    quote: "The procedure may be invoked by either party to the dispute. A request invoking the procedure shall be in writing.",
+  },
+  caIdrDeadlines: {
+    cite: 'Cal. Civ. Code § 5910(b)',
+    fixture: CA,
+    quote: "The procedure shall provide for prompt deadlines. The procedure shall state the maximum time for the association to act on a request invoking the procedure.",
+  },
+  caIdrMemberInvokes: {
+    cite: 'Cal. Civ. Code § 5910(c)',
+    fixture: CA,
+    quote: "If the procedure is invoked by a member, the association shall participate in the procedure.",
+  },
+  caIdrAssocInvokes: {
+    cite: 'Cal. Civ. Code § 5910(d)',
+    fixture: CA,
+    quote: "If the procedure is invoked by the association, the member may elect not to participate in the procedure. If the member participates but the dispute is resolved other than by agreement of the member, the member shall have a right of appeal to the board.",
+  },
+  caIdrBinding: {
+    cite: 'Cal. Civ. Code § 5910(e)',
+    fixture: CA,
+    quote: "A written resolution, signed by both parties, of a dispute pursuant to the procedure that is not in conflict with the law or the governing documents binds the association and is judicially enforceable. A written agreement, signed by both parties, reached pursuant to the procedure that is not in conflict with the law or the governing documents binds the parties and is judicially enforceable.",
+  },
+  caIdrExplain: {
+    cite: 'Cal. Civ. Code § 5910(f)',
+    fixture: CA,
+    quote: "The procedure shall provide a means by which the member and the association may explain their positions. The member and association may be assisted by an attorney or another person in explaining their positions at their own cost.",
+  },
+  caIdrNoFee: {
+    cite: 'Cal. Civ. Code § 5910(g)',
+    fixture: CA,
+    quote: "A member of the association shall not be charged a fee to participate in the process.",
+  },
+  caMeetRequest: {
+    cite: 'Cal. Civ. Code § 5915(b)(1)',
+    fixture: CA,
+    quote: "The party may request the other party to meet and confer in an effort to resolve the dispute. The request shall be in writing.",
+  },
+  caMeetRefuse: {
+    cite: 'Cal. Civ. Code § 5915(b)(2)',
+    fixture: CA,
+    quote: "A member of an association may refuse a request to meet and confer. The association shall not refuse a request to meet and confer.",
+  },
+  caMeetDirector: {
+    cite: 'Cal. Civ. Code § 5915(b)(3)',
+    fixture: CA,
+    quote: "The board shall designate a director to meet and confer.",
+  },
+  caMeetConfer: {
+    cite: 'Cal. Civ. Code § 5915(b)(4)',
+    fixture: CA,
+    quote: "The parties shall meet promptly at a mutually convenient time and place, explain their positions to each other, and confer in good faith in an effort to resolve the dispute. The parties may be assisted by an attorney or another person at their own cost when conferring.",
+  },
+  caMeetWritten: {
+    cite: 'Cal. Civ. Code § 5915(b)(5)',
+    fixture: CA,
+    quote: "A resolution of the dispute agreed to by the parties shall be memorialized in writing and signed by the parties, including the board designee on behalf of the association.",
+  },
+  caMeetBinding: {
+    cite: 'Cal. Civ. Code § 5915(c)',
+    fixture: CA,
+    quote: "A written agreement reached under this section binds the parties and is judicially enforceable if it is signed by both parties and both of the following conditions are satisfied:",
+  },
+  caMeetNoFee: {
+    cite: 'Cal. Civ. Code § 5915(d)',
+    fixture: CA,
+    quote: "A member shall not be charged a fee to participate in the process.",
+  },
+  caIdrPolicy: {
+    cite: 'Cal. Civ. Code § 5920',
+    fixture: CA,
+    quote: "The annual policy statement prepared pursuant to Section 5310 shall include a description of the internal dispute resolution process provided pursuant to this article.",
+  },
 } as const satisfies Record<string, StatuteQuote>

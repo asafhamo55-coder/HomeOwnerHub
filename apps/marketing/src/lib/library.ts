@@ -82,3 +82,46 @@ export function templateGroups(): TemplateGroup[] {
   ]
   return groups.filter((g) => g.items.length > 0)
 }
+
+/** One section of a library index page: a heading and its cards. */
+export interface LibrarySection {
+  id: string
+  label: string
+  blurb?: string
+  items: LibraryItem[]
+}
+
+/** Words typed into the filter box, lowercased. Empty when there is nothing to match. */
+export function queryTerms(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).filter(Boolean)
+}
+
+/** Items whose title and description contain every typed word, in any order. No query keeps all. */
+export function filterItems<T extends { title: string; description: string }>(items: readonly T[], query: string): T[] {
+  const terms = queryTerms(query)
+  if (terms.length === 0) return [...items]
+  return items.filter((i) => {
+    const hay = `${i.title} ${i.description}`.toLowerCase()
+    return terms.every((t) => hay.includes(t))
+  })
+}
+
+/** Sections narrowed to the matching items. While a query is active, sections left empty are dropped. */
+export function filterSections(sections: readonly LibrarySection[], query: string): LibrarySection[] {
+  const active = queryTerms(query).length > 0
+  const out = sections.map((s) => ({ ...s, items: filterItems(s.items, query) }))
+  return active ? out.filter((s) => s.items.length > 0) : out
+}
+
+export interface LibraryEntry extends LibraryItem {
+  kind: 'guide' | 'template'
+  group: string
+}
+
+/** Every guide and template, for the Cmd-K palette. Built from the same registry as the index pages, so a new page shows up in both. */
+export function libraryEntries(): LibraryEntry[] {
+  return [
+    ...guideGroups().flatMap((g) => g.items.map((i) => ({ ...i, kind: 'guide' as const, group: g.label }))),
+    ...templateGroups().flatMap((g) => g.items.map((i) => ({ ...i, kind: 'template' as const, group: g.label }))),
+  ]
+}

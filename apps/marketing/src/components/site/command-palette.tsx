@@ -1,17 +1,21 @@
 'use client'
 
+import * as React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, ArrowRight, FileText, Building2, Home, Scale, BookOpen, ShieldCheck, AlertCircle, Sparkles } from 'lucide-react'
-import { WORKFLOWS } from '@/lib/workflows'
-import { cn } from '@/lib/cn'
-import { HOA_PRODUCT_NAME, isOfferedHref } from '@/lib/hubs'
+import { WORKFLOWS } from '../../lib/workflows'
+import { cn } from '../../lib/cn'
+import { HOA_PRODUCT_NAME, isOfferedHref } from '../../lib/hubs'
+import { libraryEntries } from '../../lib/library'
 
 interface PaletteItem {
   label: string
   href: string
-  category: 'Page' | 'Workflow' | 'Product' | 'Resource'
+  category: 'Page' | 'Workflow' | 'Product' | 'Resource' | 'Guide' | 'Template'
   hint?: string
+  /** Extra text the search matches but the row does not show. */
+  search?: string
   Icon: typeof Search
 }
 
@@ -46,7 +50,31 @@ const WORKFLOW_ITEMS: PaletteItem[] = WORKFLOWS.map((w) => ({
   Icon: Sparkles,
 }))
 
-const ALL: PaletteItem[] = [...PAGES, ...WORKFLOW_ITEMS]
+// Every guide and template, read from the same registry as /guides and /templates.
+export const LIBRARY_ITEMS: PaletteItem[] = libraryEntries().map((e) => ({
+  label: e.title,
+  href: e.path,
+  category: e.kind === 'guide' ? ('Guide' as const) : ('Template' as const),
+  hint: e.group,
+  search: e.description,
+  Icon: e.kind === 'guide' ? BookOpen : FileText,
+}))
+
+const ALL: PaletteItem[] = [...PAGES, ...LIBRARY_ITEMS, ...WORKFLOW_ITEMS]
+
+/** Items matching every typed word in the label, hint, category or hidden search text. */
+export function searchPalette(items: readonly PaletteItem[], query: string): PaletteItem[] {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
+  if (terms.length === 0) return items.slice(0, 12)
+  return items
+    .filter((i) => {
+      const hay = `${i.label} ${i.hint ?? ''} ${i.category} ${i.search ?? ''}`.toLowerCase()
+      return terms.every((t) => hay.includes(t))
+    })
+    .slice(0, 30)
+}
+
+export const PALETTE_ITEMS: readonly PaletteItem[] = ALL
 
 export function CommandPalette({
   open,
@@ -60,16 +88,7 @@ export function CommandPalette({
   const [activeIdx, setActiveIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const results = useMemo(() => {
-    if (!query.trim()) return ALL.slice(0, 12)
-    const q = query.toLowerCase()
-    return ALL.filter(
-      (i) =>
-        i.label.toLowerCase().includes(q) ||
-        (i.hint?.toLowerCase().includes(q) ?? false) ||
-        i.category.toLowerCase().includes(q),
-    ).slice(0, 24)
-  }, [query])
+  const results = useMemo(() => searchPalette(ALL, query), [query])
 
   useEffect(() => {
     if (open) {
@@ -82,6 +101,10 @@ export function CommandPalette({
   useEffect(() => {
     setActiveIdx(0)
   }, [query])
+
+  useEffect(() => {
+    if (open) document.getElementById(`palette-opt-${activeIdx}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [open, activeIdx])
 
   useEffect(() => {
     if (!open) return
@@ -118,17 +141,26 @@ export function CommandPalette({
         aria-hidden
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search the site"
         className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-border/70 px-4">
-          <Search className="h-4 w-4 shrink-0 text-muted" />
+          <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
+            aria-label="Search pages, guides and templates"
+            aria-expanded="true"
+            aria-controls="palette-results"
+            aria-activedescendant={results[activeIdx] ? `palette-opt-${activeIdx}` : undefined}
+            aria-autocomplete="list"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search workflows, pages, docs…"
+            placeholder="Search pages, guides, templates…"
             className="w-full bg-transparent py-4 text-sm text-foreground placeholder:text-muted focus:outline-none"
           />
           <kbd className="hidden rounded border border-border bg-subtle px-1.5 py-0.5 font-mono text-[10px] text-muted sm:inline-block">
@@ -142,12 +174,16 @@ export function CommandPalette({
               No matches for "{query}"
             </div>
           )}
-          <ul>
+          <ul id="palette-results" role="listbox" aria-label="Results">
             {results.map((r, i) => {
               const isActive = i === activeIdx
               return (
-                <li key={`${r.href}-${r.label}`}>
+                <li key={`${r.href}-${r.label}`} role="presentation">
                   <button
+                    id={`palette-opt-${i}`}
+                    role="option"
+                    aria-selected={isActive}
+                    tabIndex={-1}
                     onMouseEnter={() => setActiveIdx(i)}
                     onClick={() => {
                       router.push(r.href)
@@ -159,6 +195,7 @@ export function CommandPalette({
                     )}
                   >
                     <r.Icon
+                      aria-hidden
                       className={cn(
                         'h-4 w-4 shrink-0',
                         isActive ? 'text-background/80' : 'text-muted',
@@ -194,7 +231,7 @@ export function CommandPalette({
 
         <div className="flex items-center justify-between border-t border-border/70 bg-subtle/40 px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-muted">
           <span>↑↓ navigate · ↵ open · esc close</span>
-          <span>{results.length} results</span>
+          <span role="status" aria-live="polite">{results.length} {results.length === 1 ? 'result' : 'results'}</span>
         </div>
       </div>
     </div>
