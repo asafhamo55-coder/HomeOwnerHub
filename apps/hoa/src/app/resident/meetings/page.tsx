@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CalendarClock, CalendarDays, FileText } from 'lucide-react'
+import { CalendarClock, CalendarDays, CalendarPlus, FileText } from 'lucide-react'
 import { Badge, Button, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -8,6 +8,7 @@ import { calendarDaysBetween, todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { fetchResidentMeetings, type MeetingsClient } from '@/lib/resident-meetings/query'
 import { formatMeetingDate, type PastMeeting, type UpcomingMeeting } from '@/lib/resident-meetings/select'
+import { residentCalendarHref } from '@/lib/meetings/resident-calendar-link'
 import { IconTile, Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
 
 export const metadata = { title: 'Meetings and notices' }
@@ -87,7 +88,7 @@ export default async function ResidentMeetingsPage() {
         ) : (
           <div className="space-y-3">
             {upcoming.map((m) => (
-              <UpcomingCard key={m.id} meeting={m} today={today} />
+              <UpcomingCard key={m.id} meeting={m} today={today} calendarHref={residentCalendarHref(org.id, m.id)} />
             ))}
           </div>
         )}
@@ -133,7 +134,7 @@ function whenLabel(date: string, today: string): string | null {
   return null
 }
 
-function UpcomingCard({ meeting, today }: { meeting: UpcomingMeeting; today: string }) {
+function UpcomingCard({ meeting, today, calendarHref }: { meeting: UpcomingMeeting; today: string; calendarHref: string | null }) {
   const soon = whenLabel(meeting.date, today)
   return (
     <Panel className="space-y-3">
@@ -158,6 +159,14 @@ function UpcomingCard({ meeting, today }: { meeting: UpcomingMeeting; today: str
       ) : (
         <p className="text-sm text-muted">No agenda posted yet.</p>
       )}
+      {calendarHref ? (
+        <Button asChild variant="secondary" size="sm">
+          <a href={calendarHref} download>
+            <CalendarPlus aria-hidden />
+            Add to calendar
+          </a>
+        </Button>
+      ) : null}
     </Panel>
   )
 }

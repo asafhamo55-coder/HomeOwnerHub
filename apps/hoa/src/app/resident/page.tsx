@@ -8,11 +8,11 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  CalendarPlus,
   CreditCard,
   FileText,
   Home,
   Send,
-  Megaphone,
   MessageSquarePlus,
   ShieldAlert,
   Sparkles,
@@ -46,6 +46,8 @@ import { loadMySmsPreference, loadMyTextPhones } from '@/lib/sms-consent'
 import { TextsPromptCard } from '@/components/resident/TextsPromptCard'
 import { BoardContactsCard } from '@/components/resident/BoardContactsCard'
 import { readBoardContacts, type BoardContact } from '@/lib/association-contacts'
+import { residentCalendarHref } from '@/lib/meetings/resident-calendar-link'
+import { LatestAnnouncementCard } from '@/components/resident/LatestAnnouncementCard'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 
 export const metadata = { title: 'My Home' }
@@ -176,6 +178,14 @@ export default async function ResidentDashboard() {
 
       {hasUnit && offerTexts ? <TextsPromptCard /> : null}
 
+      {data.orgId ? (
+        <Section
+          label={data.recentAnnouncements > 0 ? `Latest announcement · ${data.recentAnnouncements} new` : 'Latest announcement'}
+        >
+          <LatestAnnouncementCard announcement={data.latestAnnouncement} failed={data.failed.announcement} />
+        </Section>
+      ) : null}
+
       {nextMeeting ? (
         <Section label="Next meeting">
           <NextMeetingCard next={nextMeeting} />
@@ -204,14 +214,6 @@ export default async function ResidentDashboard() {
           />
           <ActionTile icon={<Sparkles />} tone="ai" label="Ask the Docs" hint="Your rules, answered" href="/resident/ask" />
           <ActionTile icon={<FileText />} tone="slate" label="Documents" hint="CC&Rs, bylaws, rules" href="/resident/documents" />
-          <ActionTile
-            icon={<Megaphone />}
-            tone="info"
-            label="Announcements"
-            hint="From your board"
-            href="/resident/announcements"
-            badge={data.recentAnnouncements > 0 ? `${data.recentAnnouncements} new` : null}
-          />
           <ActionTile
             icon={<ClipboardList />}
             tone="emerald"
@@ -295,7 +297,7 @@ async function loadBoardContacts(units: ResidentUnit[]): Promise<ContactGroup[]>
 // /resident/meetings. Hidden when the read failed or the feature isn't
 // available yet: it is a pointer, and the meetings page says why.
 
-type NextMeeting = { meeting: UpcomingMeeting } | { meeting: null }
+type NextMeeting = { meeting: UpcomingMeeting; calendarHref: string | null } | { meeting: null }
 
 async function loadNextMeeting(orgId: string, timeZone: string): Promise<NextMeeting | null> {
   try {
@@ -306,7 +308,10 @@ async function loadNextMeeting(orgId: string, timeZone: string): Promise<NextMee
       timeZone,
     })
     if (!res.available) return null
-    return { meeting: res.upcoming[0] ?? null }
+    const meeting = res.upcoming[0]
+    if (!meeting) return { meeting: null }
+    // Signed on the server for a meeting the resident's own RLS read returned.
+    return { meeting, calendarHref: residentCalendarHref(orgId, meeting.id) }
   } catch (e) {
     console.error('[resident-home] next meeting read failed', {
       code: e instanceof Error && 'code' in e ? (e as { code?: string }).code ?? null : null,
@@ -328,13 +333,23 @@ function NextMeetingCard({ next }: { next: NextMeeting }) {
     )
   }
   return (
-    <TappableRow
-      href="/resident/meetings"
-      icon={<CalendarDays />}
-      tone="info"
-      title={next.meeting.typeLabel}
-      subtitle={`${formatMeetingDate(next.meeting.date)} · ${next.meeting.agenda ? 'Agenda posted' : 'No agenda yet'}`}
-    />
+    <div className="space-y-2">
+      <TappableRow
+        href="/resident/meetings"
+        icon={<CalendarDays />}
+        tone="info"
+        title={next.meeting.typeLabel}
+        subtitle={`${formatMeetingDate(next.meeting.date)} · ${next.meeting.agenda ? 'Agenda posted' : 'No agenda yet'}`}
+      />
+      {next.calendarHref ? (
+        <Button asChild variant="secondary" size="sm">
+          <a href={next.calendarHref} download>
+            <CalendarPlus aria-hidden />
+            Add to calendar
+          </a>
+        </Button>
+      ) : null}
+    </div>
   )
 }
 
