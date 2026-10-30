@@ -2,15 +2,40 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FileText, Pencil } from 'lucide-react'
-import { Button } from '@homeowner-portal/ui'
+import { CheckCircle2, FileText, Pencil } from 'lucide-react'
+import { Button, ConfirmDialog, useToast } from '@homeowner-portal/ui'
 import { ConfirmDeleteButton } from '@/components/ConfirmDeleteButton'
-import { deleteMeeting } from '@/lib/meetings'
+import { approveMeetingMinutesById, deleteMeeting } from '@/lib/meetings'
 
-export function MeetingActions({ meetingId }: { meetingId: string }) {
+export function MeetingActions({ meetingId, canApprove = false }: { meetingId: string; canApprove?: boolean }) {
   const router = useRouter()
+  const toast = useToast()
+
+  async function approve() {
+    const r = await approveMeetingMinutesById(meetingId)
+    if (!r.ok) {
+      toast({ tone: 'error', title: 'Couldn’t approve', message: r.error })
+      throw new Error(r.error)
+    }
+    toast({ tone: 'success', message: 'Minutes approved. Owners can read them in the portal.' })
+    router.refresh()
+  }
+
   return (
     <>
+      {canApprove ? (
+        <ConfirmDialog
+          title="Approve these minutes?"
+          description="Owners will be able to read them in the portal."
+          confirmLabel="Approve minutes"
+          trigger={
+            <Button variant="primary" icon={<CheckCircle2 aria-hidden />}>
+              Approve minutes
+            </Button>
+          }
+          onConfirm={approve}
+        />
+      ) : null}
       <Button asChild variant="secondary">
         <Link href={`/meetings/${meetingId}/edit`}>
           <Pencil className="size-4" aria-hidden />

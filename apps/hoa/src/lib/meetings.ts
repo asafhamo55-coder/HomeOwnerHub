@@ -9,6 +9,7 @@ import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accountin
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
+import { approveExistingMinutes } from '@/lib/meetings/approve-minutes'
 
 // Schema-aligned slugs (hoa_meeting_minutes_meeting_type_check).
 export type MeetingType = 'regular' | 'special' | 'annual' | 'emergency'
@@ -95,6 +96,31 @@ export async function approveMeetingMinutes(input: {
   revalidatePath('/meetings')
   revalidateTag(DASHBOARD_TAG_ALL)
   return { ok: true, meetingId: row.id as string }
+}
+
+/**
+ * Approve the minutes of a meeting that was scheduled first and had its
+ * minutes recorded later. Board or admin only, scoped to the current org,
+ * safe to call twice.
+ */
+export async function approveMeetingMinutesById(meetingId: string): Promise<MeetingActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!z.string().uuid().safeParse(meetingId).success) return { ok: false, error: 'Invalid meeting.' }
+  const supabase = await getSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, error: 'Not signed in.' }
+
+  const r = await approveExistingMinutes(supabase, { orgId: gate.orgId, meetingId, userId: user.id, role: gate.role })
+  if (!r.ok) return { ok: false, error: r.error }
+  revalidatePath(`/meetings/${meetingId}`)
+  revalidatePath('/meetings')
+  revalidatePath('/resident/meetings')
+  revalidatePath('/')
+  revalidateTag(DASHBOARD_TAG_ALL)
+  return { ok: true }
 }
 
 /** First zod message per top-level field, for per-field form errors. */
