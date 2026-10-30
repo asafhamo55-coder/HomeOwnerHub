@@ -129,18 +129,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 **Files:** `docs/specs/2026-10-19-domain-split.md`
 
-### OA-7 · Confirm the scheduled-messages job in Inngest
-
-**Urgency:** Soon
-
-**Why it matters:** messages a board schedules for later are only sent if
-this job is registered.
-
-**Steps:**
-
-1. Open the Inngest dashboard for production and sync the app.
-2. Check that a function named `communications-scheduled-dispatch` is listed. Tell Claude yes or no.
-
 ### OA-8 · Rename the Stripe product
 
 **Urgency:** Whenever
@@ -161,7 +149,7 @@ and checkout instead of HomeownerHub.
 
 **Ready now:** the CA/TX loaders went live on 2026-10-20 at 12:31 ET (deploy 7b1c601b).
 
-**Where it stands (2026-10-30):** the check came back with GA only: 27 current rows, 0 retired, `last_checked_at` empty. FL, CA and TX have no rows at all. None of the four refreshes queued on 2026-10-21 ran, most likely because the Inngest app isn't synced (OA-7). Next: do OA-7 (sync Inngest and confirm the state-law refresh function is listed), redo step 2 for all four states, then run this read-only query again and send Claude the result:
+**Where it stands (2026-10-30):** the check came back with GA only: 27 current rows, 0 retired, `last_checked_at` empty. FL, CA and TX have no rows at all. None of the four refreshes queued on 2026-10-21 ran, most likely because the Inngest app isn't synced (OA-7). OA-7 is now done and all four states were queued again on 2026-10-30 at 7:12 ET. Once the four runs finish in Inngest, run this read-only query again and send Claude the result:
 
 `SELECT state, count(*) FILTER (WHERE superseded_at IS NULL) AS current_sections, count(*) FILTER (WHERE superseded_at IS NOT NULL) AS retired, max(last_checked_at) FROM public.state_statutes WHERE state IN ('GA','FL','CA','TX') GROUP BY state;`
 
@@ -384,6 +372,20 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-7 · Confirm the scheduled-messages job in Inngest
+
+**Done 2026-10-30:** Asaf synced the app in Inngest; `communications-scheduled-dispatch` ("Send scheduled messages") and `state-law-refresh` are both listed.
+
+**Urgency:** Soon
+
+**Why it matters:** messages a board schedules for later are only sent if
+this job is registered.
+
+**Steps:**
+
+1. Open the Inngest dashboard for production and sync the app.
+2. Check that a function named `communications-scheduled-dispatch` is listed. Tell Claude yes or no.
 
 ### OA-34 · Let demo requests from the website reach you
 
