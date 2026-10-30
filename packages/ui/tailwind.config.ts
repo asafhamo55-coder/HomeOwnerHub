@@ -73,6 +73,13 @@ function designSystemPlugin(hub: HubKey) {
           transitionDuration: '0.01ms !important',
           scrollBehavior: 'auto !important',
         },
+        // Loaders are information, not decoration: a frozen spinner reads as
+        // a hung page. Keep rotation, but slow and gentle. Higher specificity
+        // than the `*` rule above, both !important, so this one wins.
+        '.animate-spin': {
+          animationDuration: '2.5s !important',
+          animationIterationCount: 'infinite !important',
+        },
       },
     })
 

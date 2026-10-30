@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Button, Field, Input } from '@homeowner-portal/ui'
+import { Button, Checkbox, Field, Input, Radio, Switch } from '@homeowner-portal/ui'
 
 ;(globalThis as { React?: typeof React }).React = React
 
@@ -59,5 +59,33 @@ describe('colour classes resolve to real tokens', () => {
     expect(read('apps/hoa/src/components/layout/OrgSwitcher.tsx')).toMatch(
       /aria-label=\{`Switch HOA, current: \$\{currentOrgName\}`\}/,
     )
+  })
+})
+
+describe('choice rows (checkbox / radio / switch)', () => {
+  it('lift the whole row to 44px on touch and stretch the label hit area', () => {
+    for (const el of [
+      <Checkbox label="Send copy" />,
+      <Radio label="Email" name="x" />,
+      <Switch label="Alerts" />,
+    ]) {
+      const m = html(el)
+      expect(m).toMatch(/coarse:min-h-11/)
+      expect(m).toMatch(/coarse:after:absolute coarse:after:inset-0/)
+    }
+  })
+
+  it('leave a bare control (no label) untouched', () => {
+    expect(html(<Checkbox aria-label="Select row" />)).not.toMatch(/coarse:/)
+  })
+})
+
+describe('reduced motion', () => {
+  it('the preset ships one global guard that freezes motion but keeps spinners turning', () => {
+    const src = read('packages/ui/tailwind.config.ts')
+    expect(src).toMatch(/@media \(prefers-reduced-motion: reduce\)/)
+    expect(src).toMatch(/animationDuration: '0\.01ms !important'/)
+    expect(src).toMatch(/transitionDuration: '0\.01ms !important'/)
+    expect(src).toMatch(/'\.animate-spin': \{[^}]*animationIterationCount: 'infinite !important'/)
   })
 })

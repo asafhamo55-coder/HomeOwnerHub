@@ -46,12 +46,24 @@ function ChoiceRow({
 }) {
   if (!label) return <>{children}</>
   return (
-    <div className={cn('flex items-start gap-3', disabled && 'opacity-60', className)}>
+    // On touch the whole row is the target: min 44px tall, and the label's
+    // ::after stretches over the row so the gap between box and label (and
+    // the padding around both) toggles the control. Desktop is unchanged.
+    <div
+      className={cn(
+        'relative flex items-start gap-3 coarse:min-h-11 coarse:py-[11px]',
+        disabled && 'opacity-60',
+        className,
+      )}
+    >
       <div className="flex h-[1.375rem] items-center">{children}</div>
       <div className="min-w-0 space-y-0.5">
         <label
           htmlFor={controlId}
-          className={cn('block text-sm font-medium text-foreground', disabled ? 'cursor-not-allowed' : 'cursor-pointer')}
+          className={cn(
+            'block text-sm font-medium text-foreground coarse:after:absolute coarse:after:inset-0 coarse:after:content-[""]',
+            disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+          )}
         >
           {label}
         </label>
