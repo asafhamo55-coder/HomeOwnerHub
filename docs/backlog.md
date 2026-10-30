@@ -2046,7 +2046,25 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
-## Ranked open work — round 13 (2026-10-30, code-verified)
+## Ranked open work — round 14 (2026-10-30, code-verified)
+
+None of these needs a migration or an owner action. Money items are read-only.
+
+1. **Open collection cases overview, linked from /dues.** Shows each case's unit, rung, days open, last event and firm. Read-only. M1 to M7 are all true, so check the M7 flag in code, not the groomer's note. Effort 2.
+2. **Dues and who-owes CSV export.** Respects the aging filter. Use `csvDocument` and page the reads. Read-only. Effort 2.
+3. **Compliance deadlines and policy renewals as an .ics download** from /compliance. Effort 2.
+4. **People page summary strip:** board, owners with an account, owners not invited, pending invites. Effort 1.
+5. **Resident account status header:** chips for name, unit, email notices, texts and language. Effort 1.
+6. **Friendly app-wide 404** for the public and onboarding routes. Effort 1.
+7. **BL-172 SEO batch 12:** GA board powers (§ 44-3-231), a proxy and written-ballot form, and a payment plan agreement template. Quote fixtures only. Effort 2.
+8. **Branded 404 for the marketing site**, with noindex. Effort 1.
+
+**Dropped:**
+- Already exist: insurance renewals, violation escalation signals, election kit, global search, print styles, properties pages.
+- Move-in checklist needs a table.
+- Polls, amenities, reserves, COI emails and the M7-only mail clock need a migration or an owner action.
+
+## Ranked open work — round 13 (2026-10-30, code-verified) — Done 2026-10-30 except item 6 (weekly SEO audit, due Nov 2)
 
 None of these needs a migration or an owner action.
 
