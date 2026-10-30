@@ -65,18 +65,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 2. Go to https://search.google.com/search-console, add the property `https://www.homeownerledger.online`, and choose **HTML tag**. Send Claude the tag's `content` value (it isn't secret); Claude adds it to the site.
 3. After Claude deploys, click **Verify**, then **Sitemaps → add `sitemap.xml`**.
 
-### OA-33 · Re-enter the Stripe test webhook secret
-
-**Urgency:** Soon
-
-**Why it matters:** the Stripe test suite now runs (checkout and subscription tests pass), but its 31 webhook tests skip. The `STRIPE_TEST_WEBHOOK_SECRET` GitHub secret holds a value that doesn't start with `whsec_`. Every webhook signing secret does, so a different value was probably pasted.
-
-**Steps:**
-
-1. In the Stripe dashboard (**Test mode**), open **Developers → Webhooks**, click the test endpoint, and reveal its **Signing secret**. It starts with `whsec_`.
-2. In a terminal in the repo, run `gh secret set STRIPE_TEST_WEBHOOK_SECRET` and paste it when asked. Never paste it into a file.
-3. Tell Claude. Claude reruns the suite and checks the webhook cases run.
-
 ### OA-5 · Move the app to homeownerledger.online (paused, later phase)
 
 **Urgency:** Whenever
@@ -285,6 +273,20 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-33 · Re-enter the Stripe test webhook secret
+
+**Done 2026-10-30:** the webhook tests sign their own payloads, so the secret only needs a `whsec_` prefix; a random one was set with `gh secret set`. `STRIPE_TEST_SECRET_KEY` was replaced with the test key of the account the app now uses (`acct_1TURnh…`, OA-14). The suite now runs fully (run 41085548383): 62 passed, and 2 out-of-order webhook cases failed on their first ever run. Claude is fixing those in code.
+
+**Urgency:** Soon
+
+**Why it matters:** the Stripe test suite now runs (checkout and subscription tests pass), but its 31 webhook tests skip. The `STRIPE_TEST_WEBHOOK_SECRET` GitHub secret holds a value that doesn't start with `whsec_`. Every webhook signing secret does, so a different value was probably pasted.
+
+**Steps:**
+
+1. In the Stripe dashboard (**Test mode**), open **Developers → Webhooks**, click the test endpoint, and reveal its **Signing secret**. It starts with `whsec_`.
+2. In a terminal in the repo, run `gh secret set STRIPE_TEST_WEBHOOK_SECRET` and paste it when asked. Never paste it into a file.
+3. Tell Claude. Claude reruns the suite and checks the webhook cases run.
 
 ### OA-25 · Turn off quantity editing in the Stripe customer portal
 

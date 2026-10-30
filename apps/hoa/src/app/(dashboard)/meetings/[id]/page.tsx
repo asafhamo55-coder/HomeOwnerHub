@@ -125,8 +125,49 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
       linkAs={Link}
       actions={<MeetingActions meetingId={meeting.id} />}
     >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 lg:col-span-2" data-testid="meeting-main">
+          {/* Header facts */}
+          <Card>
+            <CardHeader>
+              <CardTitle as="h2">Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <KeyValueList className="sm:grid-cols-2 lg:grid-cols-3">
+                <KeyValue label="Date" value={format(dateObj, 'EEEE, MMMM d, yyyy')} />
+                <KeyValue label="Type" value={typeLabel} />
+                <KeyValue
+                  label="Approval"
+                  value={
+                    meeting.approved_at || meeting.status === 'approved' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CheckCircle2 className="size-4 text-success" aria-hidden />
+                        Approved
+                        {meeting.approved_at ? ` ${format(new Date(meeting.approved_at), 'MMM d, yyyy')}` : ''}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-foreground-secondary">
+                        <Clock className="size-4 text-muted" aria-hidden />
+                        {isUpcoming ? 'Not held yet' : 'Awaiting approval'}
+                      </span>
+                    )
+                  }
+                />
+                {/* BL-050 (M1): when the notice was posted (FL §720.303(2)). */}
+                {M1_APPLIED ? (
+                  <KeyValue
+                    label="Notice posted"
+                    value={<NoticePostedControl meetingId={meeting.id} postedAt={meeting.notice_posted_at ?? null} />}
+                  />
+                ) : null}
+                {meeting.created_at ? (
+                  <KeyValue label="Created" value={format(new Date(meeting.created_at), 'MMM d, yyyy')} />
+                ) : null}
+              </KeyValueList>
+            </CardContent>
+          </Card>
+
+
           {/* Minutes / agenda */}
           <Card>
             <CardHeader>
@@ -211,85 +252,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
             </Card>
           ) : null}
 
-          {/* Raw transcript — audit trail, collapsed */}
-          {meeting.raw_transcript ? (
-            <details className="group rounded-xl border border-border bg-surface">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-                <span className="flex flex-col gap-0.5">
-                  <span className="text-base font-semibold text-foreground">Raw transcript</span>
-                  <span className="num text-xs text-muted">
-                    Kept for the audit trail · {meeting.raw_transcript.length.toLocaleString()} characters
-                  </span>
-                </span>
-                <span className="text-sm font-medium text-primary">
-                  <span className="group-open:hidden">Show</span>
-                  <span className="hidden group-open:inline">Hide</span>
-                </span>
-              </summary>
-              <div className="border-t border-border px-5 py-4">
-                <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground-secondary">
-                  {meeting.raw_transcript}
-                </pre>
-              </div>
-            </details>
-          ) : null}
-        </div>
-
-        {/* Side rail: facts + attendees */}
-        <aside className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle as="h2">Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <KeyValueList className="sm:grid-cols-2 lg:grid-cols-1">
-                <KeyValue label="Date" value={format(dateObj, 'EEEE, MMMM d, yyyy')} />
-                <KeyValue label="Type" value={typeLabel} />
-                <KeyValue
-                  label="Approval"
-                  value={
-                    meeting.approved_at || meeting.status === 'approved' ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <CheckCircle2 className="size-4 text-success" aria-hidden />
-                        Approved
-                        {meeting.approved_at ? ` ${format(new Date(meeting.approved_at), 'MMM d, yyyy')}` : ''}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-foreground-secondary">
-                        <Clock className="size-4 text-muted" aria-hidden />
-                        {isUpcoming ? 'Not held yet' : 'Awaiting approval'}
-                      </span>
-                    )
-                  }
-                />
-                {/* BL-050 (M1): when the notice was posted (FL §720.303(2)). */}
-                {M1_APPLIED ? (
-                  <KeyValue
-                    label="Notice posted"
-                    value={<NoticePostedControl meetingId={meeting.id} postedAt={meeting.notice_posted_at ?? null} />}
-                  />
-                ) : null}
-                {meeting.created_at ? (
-                  <KeyValue label="Created" value={format(new Date(meeting.created_at), 'MMM d, yyyy')} />
-                ) : null}
-              </KeyValueList>
-            </CardContent>
-          </Card>
-
-          {/* BL-118: send the meeting notice to owners. */}
-          <MeetingNoticeSection
-            meeting={{ id: meeting.id, meetingDate: meeting.meeting_date, meetingType: meeting.meeting_type, status: meeting.status }}
-          />
-
-          {/* BL-122: annual / members' meeting quorum kit. */}
-          <QuorumKitCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
-
-          {/* BL-141: board election planner, paper-first. */}
-          <ElectionCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
-
-          {/* BL-153: the owner annual report (GA § 44-3-230(a)). */}
-          <AnnualReportCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
-
+          {/* Attendees */}
           <Card>
             <CardHeader>
               <CardTitle as="h2" className="flex items-center justify-between gap-2">
@@ -316,6 +279,48 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
               )}
             </CardContent>
           </Card>
+
+          {/* Raw transcript — audit trail, collapsed */}
+          {meeting.raw_transcript ? (
+            <details className="group rounded-xl border border-border bg-surface">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-base font-semibold text-foreground">Raw transcript</span>
+                  <span className="num text-xs text-muted">
+                    Kept for the audit trail · {meeting.raw_transcript.length.toLocaleString()} characters
+                  </span>
+                </span>
+                <span className="text-sm font-medium text-primary">
+                  <span className="group-open:hidden">Show</span>
+                  <span className="hidden group-open:inline">Hide</span>
+                </span>
+              </summary>
+              <div className="border-t border-border px-5 py-4">
+                <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground-secondary">
+                  {meeting.raw_transcript}
+                </pre>
+              </div>
+            </details>
+          ) : null}
+        </div>
+
+        {/* Meeting kit rail: the notice, quorum, election and report tools. */}
+        <aside aria-label="Meeting kit" data-testid="meeting-kit" className="space-y-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Meeting kit</h2>
+          {/* BL-118: send the meeting notice to owners. */}
+          <MeetingNoticeSection
+            meeting={{ id: meeting.id, meetingDate: meeting.meeting_date, meetingType: meeting.meeting_type, status: meeting.status }}
+          />
+
+          {/* BL-122: annual / members' meeting quorum kit. */}
+          <QuorumKitCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
+
+          {/* BL-141: board election planner, paper-first. */}
+          <ElectionCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
+
+          {/* BL-153: the owner annual report (GA § 44-3-230(a)). */}
+          <AnnualReportCard meetingId={meeting.id} meetingType={meeting.meeting_type} />
+
         </aside>
       </div>
     </Page>
