@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { readAllResult } from '@/lib/supabase/read-all'
 import { notifyResidentAfterResponse } from '@/lib/resident-notify/notify'
 import { summarizeTickets, ticketSearchPattern, type TicketSummary } from '@/lib/tickets-board'
 import { orgTimeZone } from '@/lib/association-time-server'
@@ -167,23 +168,31 @@ export async function listTicketsForBoard(opts: {
     countFor('closed'),
     loadOrFail(
       'open tickets',
-      supabase
-        .from('tickets' as never)
-        .select('id, created_at')
-        .eq('organization_id', org.id)
-        .is('deleted_at', null)
-        .in('status', ['open', 'in_progress'])
-        .limit(2000),
+      // Paged: a single read stops at the server's row cap (BL-047) and
+      // would undercount the strip without saying so.
+      readAllResult<{ id: string; created_at: string }>((from, to) =>
+        supabase
+          .from('tickets' as never)
+          .select('id, created_at')
+          .eq('organization_id', org.id)
+          .is('deleted_at', null)
+          .in('status', ['open', 'in_progress'])
+          .order('id')
+          .range(from, to) as never,
+      ),
     ),
     loadOrFail(
       'assigned ticket action items',
-      supabase
-        .from('meeting_action_items' as never)
-        .select('ticket_id')
-        .eq('org_id', org.id)
-        .not('ticket_id' as never, 'is', null)
-        .not('assignee_name' as never, 'is', null)
-        .limit(5000),
+      readAllResult<{ ticket_id: string }>((from, to) =>
+        supabase
+          .from('meeting_action_items' as never)
+          .select('ticket_id')
+          .eq('org_id', org.id)
+          .not('ticket_id' as never, 'is', null)
+          .not('assignee_name' as never, 'is', null)
+          .order('id')
+          .range(from, to) as never,
+      ),
     ),
     orgTimeZone(supabase, org.id),
   ])
