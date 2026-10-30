@@ -277,15 +277,23 @@ export function DraftReviewCard({ className }: { className?: string }) {
 export function WorkspaceProductVisual() {
   return (
     <div
-      className="relative mx-auto w-full max-w-[600px]"
+      className="relative mx-auto w-full max-w-[600px] lg:mx-0 lg:-mr-24 lg:max-w-none xl:-mr-32"
       role="img"
       aria-label="Sample screens from HomeownerHub: the Approvals queue holding AI drafts for the board, a violation letter awaiting approval, and a cited answer from a CC&R."
     >
-      <div aria-hidden>
+      <div
+        className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem] bg-gradient-to-br from-primary/25 via-accent/10 to-transparent blur-3xl"
+        aria-hidden
+      />
+      <div aria-hidden className="relative lg:origin-left lg:[transform:perspective(1800px)_rotateY(-7deg)_rotateX(2deg)]">
         <WorkspaceApprovalsPanel />
-        <div className="relative -mt-8 grid gap-3 px-3 sm:grid-cols-2 sm:gap-4 sm:px-6">
+        <div className="relative -mt-8 grid gap-3 px-3 sm:grid-cols-2 sm:gap-4 sm:px-6 lg:-mt-10">
           <AskAnswerCard />
           <DraftReviewCard className="hidden sm:block" />
+        </div>
+        <div className="absolute -top-4 right-3 hidden items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-2 text-xs font-semibold text-foreground shadow-[0_18px_40px_-16px_rgb(22_12_90/0.5)] sm:inline-flex lg:-top-5 lg:right-10">
+          <Check className="h-3.5 w-3.5 text-success" aria-hidden />
+          Approved by the board
         </div>
       </div>
       <p className="mt-6 text-center text-xs text-muted">

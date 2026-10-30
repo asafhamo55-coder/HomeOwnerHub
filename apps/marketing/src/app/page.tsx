@@ -3,6 +3,7 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { Hero } from '@/components/site/hero'
 import { Pillars } from '@/components/site/pillars'
+import { ProductTour } from '@/components/site/product-tour'
 import { HowItWorks } from '@/components/site/how-it-works'
 import { StateLawBuiltIn } from '@/components/site/state-law-built-in'
 import { TrustSecurity } from '@/components/site/trust-security'
@@ -31,6 +32,7 @@ export default function HomePage() {
       <Nav />
       <Hero />
       <Pillars />
+      <ProductTour />
       <HowItWorks />
       <StateLawBuiltIn />
       <TrustSecurity />
