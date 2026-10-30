@@ -197,9 +197,16 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
   FL: [
     { href: '/guides/florida-hoa-fine-hearing-committee', label: 'Florida fine hearings and the committee' },
     { href: '/guides/florida-hoa-estoppel-certificate-rules', label: 'Florida estoppel certificates' },
+    { href: '/guides/florida-hoa-official-records-inspection', label: 'Florida official records inspection' },
   ],
-  CA: [{ href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' }],
-  TX: [{ href: '/guides/texas-hoa-payment-plans-and-payment-priority', label: 'Texas payment plans and payment priority' }],
+  CA: [
+    { href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' },
+    { href: '/guides/california-hoa-records-inspection-rules', label: 'California records inspection' },
+  ],
+  TX: [
+    { href: '/guides/texas-hoa-payment-plans-and-payment-priority', label: 'Texas payment plans and payment priority' },
+    { href: '/guides/texas-hoa-management-certificate', label: 'Texas management certificate' },
+  ],
 }
 
 /** Routes behind STATE_COVERAGE items outside Georgia, for the truth test. */
