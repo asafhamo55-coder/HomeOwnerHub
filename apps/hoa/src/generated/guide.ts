@@ -52923,6 +52923,19 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    "id": "2026-10-30-1800-proposed-georgia-rules#1",
+    "note": "2026-10-30-1800-proposed-georgia-rules",
+    "date": "2026-10-30",
+    "title": "See Georgia's proposed owners' association rules",
+    "body": "The Compliance page now shows the Secretary of State's proposed Chapter 590-13 rules for Georgia associations, labelled as proposed and not in force, with the comment deadline and hearing dates.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
     "id": "2026-10-28-1500-paste-images-into-announcements#1",
     "note": "2026-10-28-1500-paste-images-into-announcements",
     "date": "2026-10-28",
