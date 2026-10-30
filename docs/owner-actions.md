@@ -158,24 +158,6 @@ diligence. Claude has the background.
 2. Put the new key in Vercel (production environment) and GitHub secrets where the old one was. Never in a file.
 3. Tell Claude, so it can check the app still works.
 
-### OA-14 · Turn on two more Stripe webhook events
-
-**Urgency:** Soon
-
-**Progress 2026-10-30:** production's `STRIPE_SECRET_KEY` turned out to belong to a different Stripe account (`acct_1H8a…`) than the one Asaf uses (`acct_1TURnh…`), and `STRIPE_WEBHOOK_SECRET` matched no endpoint in any mode. No org had a Stripe customer or subscription, so the app was switched to Asaf's account: a live endpoint "HomeownerHub HOA app (live)" now sends `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.payment_failed` to `https://www.homeownerledger.com/api/webhooks/stripe`. Its signing secret and the account's live key are in Vercel, and the stale `STRIPE_PRICE_STANDARD` (an old-account price) was removed. The first pricing-setup run got Stripe 401: the Vercel value was the key's id (`mk_…`), not the secret (`sk_live_…`); Asaf replaced it. Left: run the pricing setup once (creates the plans in the new account) and send a test event. Real charges also need OA-40.
-
-**Why it matters:** the app now handles subscription changes (cancellations,
-door-count changes) and failed card payments, and shows boards a "payment
-past due" banner. Stripe only sends these events if the webhook asks for them.
-
-**Steps:**
-
-1. In the Stripe dashboard (live mode), open **Developers → Webhooks** and click the app's endpoint.
-2. Click **Edit destination / Select events** and add `customer.subscription.updated` and `invoice.payment_failed`. Keep the events already selected.
-3. Save, and tell Claude it's done.
-
-**Files:** `docs/specs/2026-10-19-stripe-sandbox.md`
-
 ### OA-15 · Fill in the investor deck's traction numbers
 
 **Urgency:** Whenever
@@ -312,6 +294,24 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-14 · Turn on two more Stripe webhook events
+
+**Urgency:** Soon
+
+**Done 2026-10-30:** production's `STRIPE_SECRET_KEY` turned out to belong to a different Stripe account (`acct_1H8a…`) than the one Asaf uses (`acct_1TURnh…`), and `STRIPE_WEBHOOK_SECRET` matched no endpoint in any mode. No org had a Stripe customer or subscription, so the app was switched to Asaf's account: a live endpoint "HomeownerHub HOA app (live)" now sends `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.payment_failed` to `https://www.homeownerledger.com/api/webhooks/stripe`. Its signing secret and the account's live key are in Vercel, and the stale `STRIPE_PRICE_STANDARD` (an old-account price) was removed. The first pricing-setup run got Stripe 401: the Vercel value was the key's id (`mk_…`), not the secret (`sk_live_…`); Asaf replaced it. The pricing setup then ran (200): product "HOA Hub" with monthly $4.99 and annual $53.88 per-door prices, found by lookup key, so no `STRIPE_PRICE_*` variables are needed. The end-to-end webhook delivery is checked on the first real checkout (OA-40).
+
+**Why it matters:** the app now handles subscription changes (cancellations,
+door-count changes) and failed card payments, and shows boards a "payment
+past due" banner. Stripe only sends these events if the webhook asks for them.
+
+**Steps:**
+
+1. In the Stripe dashboard (live mode), open **Developers → Webhooks** and click the app's endpoint.
+2. Click **Edit destination / Select events** and add `customer.subscription.updated` and `invoice.payment_failed`. Keep the events already selected.
+3. Save, and tell Claude it's done.
+
+**Files:** `docs/specs/2026-10-19-stripe-sandbox.md`
 
 ### OA-32 · Download Georgia's proposed HOA rules (and optionally comment by Nov 2)
 
