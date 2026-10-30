@@ -14,7 +14,7 @@ import {
   type HubKey,
   type ThemeMode,
 } from './tokens'
-import { HUB_ACCENT_CLASS } from './components/BrandLogo'
+import { HUB_ACCENT_CLASS, MARK_TILE_CLASS } from './components/BrandLogo'
 
 // WCAG 2.2 AA for every text/background pair the design system promises
 // (docs/specs/2026-10-15-design-system-v2.md). Measured on the HSL
@@ -58,15 +58,15 @@ describe.each(HUBS)('%s hub', (hub) => {
   })
 })
 
-it('HOA brand is blue-600 — code, logo and docs agree (BL-095)', () => {
-  expect(palette('hoa', 'light').primary).toBe('#2563EB')
-  expect(palette('hoa', 'dark').primary).toBe('#60A5FA')
+it('HOA brand is the website violet — code, logo and docs agree', () => {
+  expect(palette('hoa', 'light').primary).toBe('#4B27C9')
+  expect(palette('hoa', 'dark').primary).toBe('#CBC2FF')
   expect(LOGO.light.tile).toBe(palette('hoa', 'light').primary)
 })
 
 // BL-095 key pairs, stated as explicit ratios so a palette change that
 // only just squeaks past AA is visible in review, not just "green".
-describe('HOA blue palette — key pairs', () => {
+describe('HOA violet palette — key pairs', () => {
   const hex = (mode: ThemeMode, role: ColorRole) => hexToRgb(palette('hoa', mode)[role])
   it.each([
     ['light', 'primary-fg', 'primary', 5.1],
@@ -93,10 +93,13 @@ describe('HomeownerHub logo colours (BL-098)', () => {
   it('"Hub" is the HOA primary in each mode', () => {
     expect(LOGO.light.accent).toBe(palette('hoa', 'light').primary)
     expect(LOGO.dark.accent).toBe(palette('hoa', 'dark').primary)
-    expect(LOGO.dark.accent).toBe('#60A5FA')
+    expect(LOGO.dark.accent).toBe('#CBC2FF')
   })
   it('the wordmark\'s literal "Hub" classes match LOGO.accent', () => {
     expect(HUB_ACCENT_CLASS).toBe(`text-[${LOGO.light.accent}] dark:text-[${LOGO.dark.accent}]`)
+  })
+  it('the mark\'s literal tile classes match LOGO.tile', () => {
+    expect(MARK_TILE_CLASS).toBe(`fill-[${LOGO.light.tile}] dark:fill-[${LOGO.dark.tile}]`)
   })
   it.each(MODES_LOGO)('%s: "Hub" text is AA on the canvas', (mode) => {
     const p = palette('hoa', mode)

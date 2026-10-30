@@ -3,6 +3,7 @@
 import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { palette } from '@homeowner-portal/ui/tokens'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -11,6 +12,9 @@ import { ApiRouteError } from '@/lib/api/errors'
 import { logRouteFailure } from '@/lib/api/log'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { checkOrgOwned } from '@/lib/org-owned'
+
+// Email buttons use the app's brand colour from the design tokens.
+const BRAND_PRIMARY = palette('hoa', 'light').primary
 
 export type InvitationStatus = 'pending' | 'submitted' | 'expired' | 'revoked'
 
@@ -283,7 +287,7 @@ function renderInvitationHtml(args: {
   <p>${greeting}</p>
   <p>${escapeHtml(args.orgName)} uses HomeownerHub to manage their vendors. To complete your profile, please follow the link below and fill in your business details and compliance documents (COI, W-9, contractor license if applicable).</p>
   <p style="margin: 24px 0;">
-    <a href="${args.link}" style="display:inline-block; background:#2563eb; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600;">Start onboarding</a>
+    <a href="${args.link}" style="display:inline-block; background:${BRAND_PRIMARY}; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600;">Start onboarding</a>
   </p>
   <p style="font-size: 12px; color: #666;">Or copy this link: <br><a href="${args.link}">${escapeHtml(args.link)}</a></p>
   <p style="font-size: 12px; color: #666;">This link is unique to you and expires in 7 days. If you weren't expecting this email you can safely ignore it.</p>

@@ -9,6 +9,7 @@ import {
   CardTitle,
   EmptyState,
 } from '@homeowner-portal/ui'
+import { palette } from '@homeowner-portal/ui/tokens'
 import type { ActivityBucket } from '@/lib/dashboard/charts'
 
 const SERIES: Array<{
@@ -17,7 +18,7 @@ const SERIES: Array<{
   fill: string
 }> = [
   { key: 'violations', label: 'Violations', fill: '#ef4444' },
-  { key: 'arc', label: 'ARC submissions', fill: '#2563eb' },
+  { key: 'arc', label: 'ARC submissions', fill: palette('hoa', 'light').primary },
   { key: 'invitations', label: 'Vendor invites', fill: '#10b981' },
 ]
 

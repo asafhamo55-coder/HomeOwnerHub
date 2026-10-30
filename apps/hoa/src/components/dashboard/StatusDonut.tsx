@@ -3,18 +3,23 @@
 import { useMemo } from 'react'
 import { LazyECharts as ReactECharts } from '@/components/charts/LazyECharts'
 import { Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
+import { palette } from '@homeowner-portal/ui/tokens'
 import type { DonutSegment } from '@/lib/dashboard/charts'
+
+// ECharts paints to canvas and cannot read CSS variables, so the brand tone
+// comes from the same token source the CSS is generated from.
+const BRAND = palette('hoa', 'light').primary
 
 // Six distinct, accessible tones. Hues are spaced ~60° apart on the
 // colour wheel so adjacent slices on the donut never read as the same
 // colour even for users with mild colour-vision deficiency.
 const TONE_FILL: Record<DonutSegment['tone'], string> = {
-  primary: '#2563eb',     // blue-600     — open / needs board
+  primary: BRAND,         // brand violet — open / needs board
   warning: '#f59e0b',     // amber-500    — notice / cure window
   success: '#10b981',     // emerald-500  — cured / positive
   muted: '#64748b',       // slate-500    — resolved / archival
   destructive: '#ef4444', // red-500      — fined / non-compliant
-  severe: '#7c3aed',      // violet-600   — escalated / legal
+  severe: '#db2777',      // pink-600     — escalated / legal (apart from the violet brand)
 }
 
 interface StatusDonutProps {

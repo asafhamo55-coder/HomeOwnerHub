@@ -3,6 +3,7 @@
 import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { palette } from '@homeowner-portal/ui/tokens'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
@@ -11,6 +12,9 @@ import { logRouteFailure } from '@/lib/api/log'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { checkOrgOwned } from '@/lib/org-owned'
 import { insuranceRequirementLines, resolveVendorInsuranceSettings } from '@homeowner-portal/workflows/vendor-insurance'
+
+// Email buttons use the app's brand colour from the design tokens.
+const BRAND_PRIMARY = palette('hoa', 'light').primary
 
 // rfp_invitations rows ship in migration 0007. One row per (rfp_id,
 // vendor_id) — unique constraint. Token format identical to
@@ -570,7 +574,7 @@ function renderInviteHtml(args: InviteTemplateArgs): string {
   <p>Hi ${escapeHtml(args.vendorName)},</p>
   <p>You're invited to submit a bid on the RFP linked below. Please review the scope and line items, and submit your bid before the deadline.</p>
   <p style="margin: 24px 0;">
-    <a href="${args.link}" style="display:inline-block; background:#2563eb; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600;">View RFP & submit bid</a>
+    <a href="${args.link}" style="display:inline-block; background:${BRAND_PRIMARY}; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600;">View RFP & submit bid</a>
   </p>
   <p style="font-size: 14px;"><strong>Submission deadline:</strong> ${escapeHtml(deadlineFmt)}</p>
   ${insuranceHtml(args.insuranceLines)}

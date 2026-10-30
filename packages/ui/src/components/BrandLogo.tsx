@@ -10,21 +10,21 @@ export { MARK, WORDMARK }
  * network request and scales crisply.
  *
  * Mark: an H whose crossbar is a roof; the space under the roof is the
- * house, with a light-blue door. The door is required, not decorative —
+ * house, with a light-violet door. The door is required, not decorative —
  * without it the shape can read as an "A" between two posts.
  *
  * Wordmark: "HomeownerHub" in monoline strokes (no font needed).
  * "Homeowner" is `currentColor` (defaults to `text-foreground`, so it
- * follows the theme); "Hub" is the brand blue — LOGO.light.accent on light,
+ * follows the theme); "Hub" is the brand violet — LOGO.light.accent on light,
  * LOGO.dark.accent on dark.
  *
  * The geometry (../brand-geometry.ts) is the single source for the static
  * files in apps/{hoa,marketing}/public/brand/ too: `pnpm brand:assets`
  * (scripts/build-brand-assets.ts) builds every SVG/PNG/ICO from it.
  *
- * The mark is a fixed brand asset: its tile stays blue-600 in dark mode
- * (the dark `primary` is a lighter blue that white would not read on), so
- * it uses LOGO from tokens.ts rather than the themed `primary` class.
+ * The mark is a fixed brand asset: its tile is violet in both modes (one
+ * step lighter on dark so it stands off the canvas); white would not read
+ * on the dark `primary`, so it uses LOGO from tokens.ts, not `primary`.
  */
 
 /**
@@ -32,7 +32,10 @@ export { MARK, WORDMARK }
  * classes written out in source; tokens.test.ts checks they equal
  * LOGO.light.accent / LOGO.dark.accent.
  */
-export const HUB_ACCENT_CLASS = 'text-[#2563EB] dark:text-[#60A5FA]'
+export const HUB_ACCENT_CLASS = 'text-[#4B27C9] dark:text-[#CBC2FF]'
+
+/** Tile fill per theme; literal for Tailwind, checked against LOGO in tokens.test.ts. */
+export const MARK_TILE_CLASS = 'fill-[#4B27C9] dark:fill-[#6340E0]'
 
 export function BrandMark({ className, title }: { className?: string; title?: string }) {
   return (
@@ -42,7 +45,13 @@ export function BrandMark({ className, title }: { className?: string; title?: st
       xmlns="http://www.w3.org/2000/svg"
       {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
     >
-      <rect width="32" height="32" rx={MARK.tileRadius} fill={LOGO.light.tile} />
+      <rect
+        width="32"
+        height="32"
+        rx={MARK.tileRadius}
+        fill={LOGO.light.tile}
+        className={MARK_TILE_CLASS}
+      />
       <g fill="none" stroke={LOGO.light.glyph} strokeLinecap="round" strokeLinejoin="round">
         <path d={MARK.stems.d} strokeWidth={MARK.stems.strokeWidth} />
         <path d={MARK.roof.d} strokeWidth={MARK.roof.strokeWidth} />
@@ -52,7 +61,7 @@ export function BrandMark({ className, title }: { className?: string; title?: st
   )
 }
 
-/** "HomeownerHub", drawn as monoline strokes: "Homeowner" in currentColor, "Hub" in brand blue. */
+/** "HomeownerHub", drawn as monoline strokes: "Homeowner" in currentColor, "Hub" in brand violet. */
 export function BrandWordmark({ className, title = 'HomeownerHub' }: { className?: string; title?: string }) {
   const glyph = (g: (typeof WORDMARK.glyphs)[number]) => (
     <path key={g.x} transform={`translate(${g.x} 0)`} d={g.d} />

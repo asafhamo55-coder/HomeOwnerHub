@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
+import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { THEME_INIT_SCRIPT } from '@homeowner-portal/ui'
 import { palette } from '@homeowner-portal/ui/tokens'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 
-const inter = Inter({
+// Same face and weights as the marketing site, so the app and the website
+// read as one product.
+const beVietnam = Be_Vietnam_Pro({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-be-vietnam',
   display: 'swap',
 })
 
@@ -64,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${beVietnam.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
       <head>

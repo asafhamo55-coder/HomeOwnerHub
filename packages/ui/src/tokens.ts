@@ -12,9 +12,11 @@
  * pair below against WCAG 2.2 AA, so a value here cannot drift below
  * contrast without a red test.
  *
- * Brand direction: blue (BL-095, docs/decisions/2026-10-19-brand-logo-
- * palette.md). The HOA app, the marketing site and the HomeownerHub logo
- * share blue-600 (#2563EB) with light-blue tints and cool slate neutrals.
+ * Brand direction: violet (2026-10-30, matches the redesigned marketing site,
+ * whose globals.css carries the same HSL values). The HOA app, the marketing
+ * site and the HomeownerHub logo share violet #4B27C9 with light-violet
+ * tints and cool slate neutrals. (Blue-600 #2563EB until 2026-10-30, see
+ * docs/decisions/2026-10-19-brand-logo-palette.md.)
  * PM Hub (deeper blue) and Eviction Hub (violet) keep a hub tint — only
  * `primary*` changes per hub; neutrals, status colours, type and spacing
  * are identical everywhere. (Until 2026-10-19 the brand was indigo-600
@@ -144,18 +146,18 @@ const neutral: Record<ThemeMode, NeutralPalette> = {
 export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
   hoa: {
     light: {
-      primary: '#2563EB', // blue-600 — the HomeownerHub logo tile
-      'primary-hover': '#1D4ED8',
+      primary: '#4B27C9', // website violet (apps/marketing globals.css)
+      'primary-hover': '#3A1BA6',
       'primary-fg': '#FFFFFF',
-      'primary-subtle': '#EBF3FF', // light-blue tint
-      ring: '#3B82F6',
+      'primary-subtle': '#F0ECFF', // light-violet tint
+      ring: '#4B27C9',
     },
     dark: {
-      primary: '#60A5FA',
-      'primary-hover': '#93C5FD',
-      'primary-fg': '#0A0F1A',
-      'primary-subtle': '#132A4F',
-      ring: '#60A5FA',
+      primary: '#CBC2FF',
+      'primary-hover': '#E1DBFF',
+      'primary-fg': '#16141F',
+      'primary-subtle': '#3A2786',
+      ring: '#B7A9FF',
     },
   },
   pm: {
@@ -202,11 +204,10 @@ export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
  * (WCAG 1.4.11, ≥3:1) and the wordmark text (≥4.5:1).
  */
 export const LOGO = {
-  light: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#0F172A', accent: '#2563EB' },
-  // Same tile on dark (it still clears 3:1 against the dark canvas). The
-  // wordmark text flips, and "Hub" lifts to the dark primary: #2563EB text
-  // on the dark canvas is only ~3.7:1.
-  dark: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#F1F5F9', accent: '#60A5FA' },
+  light: { tile: '#4B27C9', glyph: '#FFFFFF', line: '#DDD6FE', text: '#0F172A', accent: '#4B27C9' },
+  // The dark tile lifts one step so it keeps 3:1 against the dark canvas
+  // (#4B27C9 alone is ~2.2:1); "Hub" lifts to the dark primary.
+  dark: { tile: '#6340E0', glyph: '#FFFFFF', line: '#DDD6FE', text: '#F1F5F9', accent: '#CBC2FF' },
 } as const
 
 export function palette(hub: HubKey, mode: ThemeMode): Palette {
