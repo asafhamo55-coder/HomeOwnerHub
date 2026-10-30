@@ -3,7 +3,7 @@ import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import type { CollectionEventType, CollectionStatus } from './statuses'
 import type { MailMethod, MailRecord } from './mail-tracking'
 import { readAll, chunk } from '@/lib/supabase/read-all'
-import { asPropertyId, asUnitId } from '@/lib/properties/resolve'
+import { asPropertyId, asUnitId, propertyIdsForUnits } from '@/lib/properties/resolve'
 import { latestMailDelivery, sortOpenCases, withDays, type OpenCaseInput, type OpenCaseRow } from './open-cases'
 
 /**
@@ -264,12 +264,16 @@ export async function listOpenCases(
   }
 
   const units = new Map<string, { label: string; propertyId: string | null }>()
-  for (const ids of chunk([...new Set(cases.map((c) => String(c.unit_id)))])) {
+  const caseUnitIds = [...new Set(cases.map((c) => String(c.unit_id)))]
+  // Unit → property goes through the resolver (bridge ratchet), never a
+  // direct read of units.legacy_hoa_property_id.
+  const propertyByUnit = await propertyIdsForUnits(supabase as never, orgId, caseUnitIds)
+  for (const ids of chunk(caseUnitIds)) {
     const rows = await readAll<Record<string, unknown>>(
       (from, to) =>
         supabase
           .from('units')
-          .select('id, unit_number, address_line1, legacy_hoa_property_id')
+          .select('id, unit_number, address_line1')
           .eq('organization_id', orgId)
           .in('id', ids)
           .order('id', { ascending: true })
@@ -280,7 +284,7 @@ export async function listOpenCases(
       const number = (u.unit_number as string | null)?.trim()
       units.set(String(u.id), {
         label: number || (u.address_line1 as string | null) || 'Unnamed unit',
-        propertyId: (u.legacy_hoa_property_id as string | null) ?? null,
+        propertyId: propertyByUnit.get(String(u.id) as never) ?? null,
       })
     }
   }

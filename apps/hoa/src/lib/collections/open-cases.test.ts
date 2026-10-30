@@ -96,6 +96,8 @@ function mockClient(tables: Record<string, Record<string, unknown>[]>) {
       q.order = chain
       q.eq = (k: string, v: unknown) => (call.eq.push([k, v]), q)
       q.range = (from: number) => Promise.resolve({ data: from === 0 ? (tables[table] ?? []) : [], error: null })
+      // propertyIdsForUnits awaits the query without .range().
+      q.then = (resolve: (v: unknown) => unknown) => resolve({ data: tables[table] ?? [], error: null })
       return q
     },
   }
