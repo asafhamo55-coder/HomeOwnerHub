@@ -9,8 +9,9 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/terms']!, path: 
 
 export default function TermsPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <PageHero eyebrow="Terms of service" title="Plain-English terms." />
 
       <section className="pb-24">
@@ -103,7 +104,8 @@ export default function TermsPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

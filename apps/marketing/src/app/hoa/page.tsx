@@ -42,8 +42,9 @@ const NOT_YET = [
 
 export default function HoaPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <HubHero
         theme={theme}
@@ -225,7 +226,8 @@ export default function HoaPage() {
         footnote="Six-month free pilot for HOAs · No data migration · Built in Atlanta · Not legal advice"
       />
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

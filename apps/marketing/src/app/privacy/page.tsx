@@ -9,8 +9,9 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/privacy']!, path
 
 export default function PrivacyPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <PageHero
         eyebrow="Privacy policy"
         title="What we collect, why, and how we protect it."
@@ -117,7 +118,8 @@ export default function PrivacyPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

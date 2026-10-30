@@ -15,8 +15,9 @@ export function GuidePage({ guide }: { guide: Guide }) {
   const general = !path.startsWith('/georgia/')
   const trail = general ? [{ name: 'Home', href: '/' }] : [{ name: 'Home', href: '/' }, { name: 'Georgia', href: '/georgia' }]
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <JsonLd
         data={[
           articleLd({ headline: guide.title, description: guide.description, path, datePublished: guide.datePublished, dateModified: guide.dateModified }),
@@ -138,7 +139,8 @@ export function GuidePage({ guide }: { guide: Guide }) {
       </article>
 
       <GeorgiaCta position={`guide_${guide.slug}`} general={general} />
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

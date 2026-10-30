@@ -31,8 +31,9 @@ export default function RoadmapPage() {
   const planned = WORKFLOWS.filter((w) => w.status === 'planned').length
 
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <section className="relative overflow-hidden pt-32 pb-12">
         <div className="absolute inset-0 -z-10 bg-radial-spot" />
@@ -138,8 +139,9 @@ export default function RoadmapPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }
 

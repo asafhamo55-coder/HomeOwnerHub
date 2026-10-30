@@ -10,8 +10,9 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/dpa']!, path: '/
 
 export default function DpaPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <PageHero
         eyebrow="Data Processing Agreement"
         title="Available on request."
@@ -43,7 +44,8 @@ export default function DpaPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

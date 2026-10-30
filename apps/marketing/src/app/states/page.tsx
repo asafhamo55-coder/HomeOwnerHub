@@ -17,8 +17,9 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/states']!, path:
 
 export default function StatesPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <section className="hero-wash relative overflow-hidden pb-16 pt-32 md:pb-20 md:pt-40">
         <div className="container-page">
@@ -75,7 +76,8 @@ export default function StatesPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

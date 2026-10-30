@@ -41,8 +41,9 @@ const movement = [
 
 export default function HonestyBarsPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <PageHero
         eyebrow="The AI honesty framework"
@@ -104,7 +105,8 @@ export default function HonestyBarsPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

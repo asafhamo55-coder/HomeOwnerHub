@@ -16,8 +16,9 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/professionals']!
 
 export default function ProfessionalsPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <JsonLd
         data={[
           {
@@ -168,7 +169,8 @@ export default function ProfessionalsPage() {
           </div>
         </div>
       </section>
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

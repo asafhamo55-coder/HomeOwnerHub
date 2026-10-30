@@ -1,13 +1,22 @@
 'use client'
 
-import { useActionState, useEffect, useRef } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { pageLabel, trackEvent } from '@/lib/analytics'
+import { pageLabel, trackEvent } from '../../lib/analytics'
 import { CheckCircle2, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 import { submitDemoRequest, type DemoRequestState } from './actions'
-import { cn } from '@/lib/cn'
+import { cn } from '../../lib/cn'
 
 const initial: DemoRequestState = { status: 'idle' }
+
+// Shape check only (text, one at sign, a dotted domain). The server stays the authority and
+// uses the same message, so a field never flips wording on submit.
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+export const EMAIL_SHAPE_MESSAGE = 'That email doesn\'t look right.'
+function checkEmail(v: string): string | undefined {
+  const t = v.trim()
+  return t && !EMAIL_SHAPE.test(t) ? EMAIL_SHAPE_MESSAGE : undefined
+}
 
 export function DemoForm() {
   const [state, formAction, pending] = useActionState(submitDemoRequest, initial)
@@ -62,7 +71,7 @@ export function DemoForm() {
       </div>
 
       <Field label="Your name" name="name" type="text" autoComplete="name" required value={values.name} error={errors.name} />
-      <Field label="Email" name="email" type="email" autoComplete="email" required value={values.email} error={errors.email} />
+      <Field label="Email" name="email" type="email" autoComplete="email" required value={values.email} error={errors.email} validate={checkEmail} />
       <Field
         label="HOA or community name"
         name="hoa"
@@ -132,6 +141,7 @@ function Field({
   inputMode,
   autoComplete,
   value,
+  validate,
 }: {
   label: string
   name: string
@@ -142,7 +152,11 @@ function Field({
   placeholder?: string
   required?: boolean
   error?: string
+  validate?: (value: string) => string | undefined
 }) {
+  // Client-side check on blur; cleared as soon as the value is fixed.
+  const [localError, setLocalError] = useState<string>()
+  const shown = localError ?? error
   return (
     <div>
       <label className="text-sm font-semibold text-foreground" htmlFor={name}>
@@ -162,18 +176,26 @@ function Field({
         required={required}
         autoComplete={autoComplete}
         defaultValue={value}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${name}-error` : undefined}
+        onBlur={validate ? (e) => setLocalError(validate(e.currentTarget.value)) : undefined}
+        onChange={
+          validate
+            ? (e) => {
+                if (localError && !validate(e.currentTarget.value)) setLocalError(undefined)
+              }
+            : undefined
+        }
+        aria-invalid={Boolean(shown)}
+        aria-describedby={shown ? `${name}-error` : undefined}
         className={cn(
           'mt-1.5 min-h-12 w-full rounded-xl border bg-surface px-3.5 py-2.5 text-base text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
-          error
+          shown
             ? 'border-danger/40 focus:border-danger focus:ring-danger/15'
             : 'border-input focus:border-primary focus:ring-primary/20',
         )}
       />
-      {error && (
+      {shown && (
         <p id={`${name}-error`} className="mt-1 text-sm text-danger">
-          {error}
+          {shown}
         </p>
       )}
     </div>

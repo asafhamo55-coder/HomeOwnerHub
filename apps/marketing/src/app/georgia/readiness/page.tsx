@@ -23,8 +23,9 @@ const FAQS = [
 
 export default function ReadinessPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <JsonLd
         data={[
           faqLd(FAQS),
@@ -75,7 +76,8 @@ export default function ReadinessPage() {
       </div>
 
       <GeorgiaCta position="readiness_page" />
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

@@ -25,8 +25,9 @@ const services = [
 
 export default function StatusPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <PageHero
         eyebrow="System status"
@@ -71,7 +72,8 @@ export default function StatusPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

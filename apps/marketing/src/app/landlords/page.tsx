@@ -25,8 +25,9 @@ export default function LandlordsPage() {
   if (!OTHER_HUBS_ENABLED) redirect('/hoa')
 
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <HubHero
         theme={theme}
@@ -131,7 +132,8 @@ export default function LandlordsPage() {
         footnote="Free tier · No credit card · 2 minutes to first dollar collected"
       />
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }

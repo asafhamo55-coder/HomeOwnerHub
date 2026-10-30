@@ -42,8 +42,9 @@ const beliefs = [
 
 export default function AboutPage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
 
       <section className="hero-wash relative overflow-hidden pb-20 pt-32 md:pb-24 md:pt-40">
         <div className="container-page">
@@ -147,8 +148,9 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }
 

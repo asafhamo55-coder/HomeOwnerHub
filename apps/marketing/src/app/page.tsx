@@ -28,8 +28,9 @@ export const metadata: Metadata = {
 // marketing-truth.test.ts pins this order.
 export default function HomePage() {
   return (
-    <main id="main-content">
+    <>
       <Nav />
+    <main id="main-content">
       <Hero />
       <Pillars />
       <ProductTour />
@@ -38,7 +39,8 @@ export default function HomePage() {
       <TrustSecurity />
       <PricingTeaser />
       <CtaCloser />
-      <Footer />
-    </main>
+      </main>
+    <Footer />
+    </>
   )
 }
