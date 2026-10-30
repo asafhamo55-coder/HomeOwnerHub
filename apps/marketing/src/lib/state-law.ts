@@ -146,7 +146,7 @@ export const STATE_COVERAGE: readonly StateCoverage[] = [
  * One card per state for the "State law built in" section (home, /hoa) and
  * the /states page. Product first (2026-10-27 positioning): states are a
  * benefit, so each gets one line. Georgia's card links to the SB 406 hub;
- * the others have no hub yet, so they link to their /states section. Every
+ * the others link to their /states/[state] hub. Every
  * line only restates STATE_COVERAGE items.
  */
 export interface StateCard {
@@ -169,21 +169,21 @@ export const STATE_CARDS: readonly StateCard[] = [
     state: 'FL',
     name: 'Florida',
     benefit: 'Estoppel certificates, collections letters, the budget notice, fine hearings and the late-fee cap.',
-    href: '/states#florida',
+    href: '/states/florida',
     cta: 'See Florida',
   },
   {
     state: 'CA',
     name: 'California',
     benefit: 'Estoppel packet, collections letters, the budget notice window, fine hearings and the election print kit.',
-    href: '/states#california',
+    href: '/states/california',
     cta: 'See California',
   },
   {
     state: 'TX',
     name: 'Texas',
     benefit: 'The resale certificate and collections letters.',
-    href: '/states#texas',
+    href: '/states/texas',
     cta: 'See Texas',
   },
 ]
@@ -191,7 +191,7 @@ export const STATE_CARDS: readonly StateCard[] = [
 /**
  * Guides about each non-Georgia state's law (BL-172 batch 9), listed on that
  * state's /states card. Slugs are guides in lib/georgia (state-quotes.ts holds
- * the verbatim statute text). Another change will add /states/[state] hubs.
+ * the verbatim statute text).
  */
 export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string; label: string }[]>> = {
   FL: [
@@ -201,6 +201,112 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
   CA: [{ href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' }],
   TX: [{ href: '/guides/texas-hoa-payment-plans-and-payment-priority', label: 'Texas payment plans and payment priority' }],
 }
+
+/**
+ * Content for the /states/[state] hubs (Florida, California, Texas). Georgia
+ * keeps its own /georgia hub. Truth rule: `features` has exactly one entry per
+ * STATE_COVERAGE item for that state, in the same words (marketing-truth.test.ts
+ * checks this), so a hub can never claim more than the app ships. `statutes`
+ * are act names and chapters only. No em dashes, no outcomes promised.
+ */
+export type TourScreenKey = 'approvals' | 'dues' | 'violations'
+
+export interface StateHub {
+  state: string
+  slug: string
+  name: string
+  /** Act names and chapters the app cites. */
+  statutes: readonly string[]
+  /** One sentence under the headline. */
+  lead: string
+  features: readonly { item: string; body: string }[]
+  /** Tour screens shown on the hub, with a caption each. */
+  tour: readonly { screen: TourScreenKey; title: string; caption: string }[]
+  /** Honest limits for this state, shown under the features. */
+  caveats: readonly string[]
+  meta: { title: string; description: string }
+}
+
+export const STATE_HUBS: readonly StateHub[] = [
+  {
+    state: 'FL',
+    slug: 'florida',
+    name: 'Florida',
+    statutes: ['Florida Homeowners’ Association Act, Fla. Stat. chapter 720'],
+    lead: 'For Florida associations, the drafts and deadlines follow chapter 720 and cite the section.',
+    features: [
+      { item: 'Estoppel certificates', body: 'Prepare an estoppel certificate for a home from your records. The board reviews it before it goes out.' },
+      { item: 'Collections letters', body: 'Draft a collections letter for a late account, with the Florida section cited. A board member approves every letter.' },
+      { item: 'Budget notice and adoption checklist', body: 'Draft the budget notice and follow a checklist through adoption of the budget.' },
+      { item: 'Fine hearings', body: 'Work through the notice and hearing steps before a fine, including the committee review.' },
+      { item: 'Director certification', body: 'Keep each director’s certification on record in the member settings.' },
+      { item: 'Late-fee cap', body: 'A late-fee policy is checked against the Florida cap before it can be saved.' },
+    ],
+    tour: [
+      { screen: 'violations', title: 'Violations and fine hearings', caption: 'Each case keeps its notice, hearing and decision in one place.' },
+      { screen: 'dues', title: 'Dues and credits', caption: 'Who has paid, who has a credit, and letters drafted from the ledger.' },
+    ],
+    caveats: ['State-law answers for Florida are built and being loaded next. Until then, drafts cite the section but the Ask feature does not yet quote Florida’s statute.'],
+    meta: {
+      title: 'Florida HOA law tools for boards',
+      description: 'How the HomeownerHub workspace follows Florida HOA law (chapter 720) for boards: estoppel certificates, collections letters, budget notice and fine hearings.',
+    },
+  },
+  {
+    state: 'CA',
+    slug: 'california',
+    name: 'California',
+    statutes: ['Davis-Stirling Common Interest Development Act, Civil Code sections 4000 to 6150'],
+    lead: 'For California associations, the drafts and deadlines follow the Davis-Stirling Act and cite the section.',
+    features: [
+      { item: 'Estoppel packet', body: 'Prepare the estoppel packet for a home from your records. The board reviews it before it goes out.' },
+      { item: 'Collections letters', body: 'Draft a collections letter for a late account, with the California section cited. A board member approves every letter.' },
+      { item: 'Budget notice window', body: 'See the budget notice window and draft the notice, so the dates are not left to memory.' },
+      { item: 'Fine hearings', body: 'Work through the notice and hearing steps before a fine or suspension. Fine and suspension letters are refused until the notice and hearing steps are done.' },
+      { item: 'Election print kit', body: 'Print the election materials from the meeting page.' },
+      { item: 'Late-fee cap', body: 'A late-fee policy is checked against the California cap before it can be saved.' },
+    ],
+    tour: [
+      { screen: 'violations', title: 'Violations and fine hearings', caption: 'Each case keeps its notice, hearing and decision in one place.' },
+      { screen: 'approvals', title: 'Approvals', caption: 'Every AI draft waits here until a board member approves it.' },
+    ],
+    caveats: [
+      'California letters cite the section but do not quote the statute text, because no California statute text is loaded for the app to check a quote against yet.',
+      'A fine over the amount on your published penalty schedule is the board’s decision to confirm; the app warns about it and does not set it for you.',
+      'State-law answers for California are built and being loaded next.',
+    ],
+    meta: {
+      title: 'California HOA law tools for boards',
+      description: 'How the HomeownerHub workspace follows the Davis-Stirling Act for California boards: estoppel packet, collections letters, budget notice and fine hearings.',
+    },
+  },
+  {
+    state: 'TX',
+    slug: 'texas',
+    name: 'Texas',
+    statutes: ['Texas Property Code chapter 207 (resale certificate)', 'Texas Property Code chapter 209 (Residential Property Owners Protection Act)'],
+    lead: 'For Texas associations, two documents follow the Property Code today: the resale certificate and collections letters.',
+    features: [
+      { item: 'Resale certificate', body: 'Prepare the resale certificate for a home from your records. The board reviews it before it goes out.' },
+      { item: 'Collections letters', body: 'Draft a collections letter for a late account, with the Texas section cited. A board member approves every letter.' },
+    ],
+    tour: [
+      { screen: 'dues', title: 'Dues and credits', caption: 'Who has paid, who has a credit, and letters drafted from the ledger.' },
+      { screen: 'approvals', title: 'Approvals', caption: 'Every AI draft waits here until a board member approves it.' },
+    ],
+    caveats: [
+      'Texas coverage is the narrowest of the four states. Fines, budgets and elections work as they do in any state, without Texas-specific rules.',
+      'State-law answers for Texas are built and being loaded next.',
+    ],
+    meta: {
+      title: 'Texas HOA law tools for boards',
+      description: 'How the HomeownerHub workspace follows the Texas Property Code for boards: the resale certificate and collections letters, with the section cited on each draft.',
+    },
+  },
+]
+
+export const STATE_HUB_SLUGS: readonly string[] = STATE_HUBS.map((h) => h.slug)
+export const STATE_HUB_PATHS: readonly string[] = STATE_HUBS.map((h) => `/states/${h.slug}`)
 
 /** Routes behind STATE_COVERAGE items outside Georgia, for the truth test. */
 export const OTHER_STATE_ROUTES: readonly string[] = [

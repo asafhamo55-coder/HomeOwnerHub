@@ -15,6 +15,7 @@
 import type { Metadata } from 'next'
 import { GENERAL_PATHS, GEORGIA_PATHS } from './georgia'
 import { PROFESSIONALS_PATH } from './professionals'
+import { STATE_HUB_PATHS } from './state-law'
 
 export const DEFAULT_SITE_ORIGIN = 'https://www.homeownerledger.online'
 export const SITE_NAME = 'HomeownerHub'
@@ -64,6 +65,7 @@ export const SITEMAP_PATHS: readonly string[] = [
   '/compare',
   '/demo',
   '/states',
+  ...STATE_HUB_PATHS,
   ...GEORGIA_PATHS,
   ...GENERAL_PATHS,
   PROFESSIONALS_PATH,

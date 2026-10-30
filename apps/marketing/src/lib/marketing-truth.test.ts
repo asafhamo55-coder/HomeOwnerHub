@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import { SHIPPED_FEATURES } from './features'
-import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE, OTHER_STATE_ROUTES, STATE_CARDS, STATE_COVERAGE } from './state-law'
+import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE, OTHER_STATE_ROUTES, STATE_CARDS, STATE_COVERAGE, STATE_GUIDE_LINKS, STATE_HUBS, STATE_HUB_PATHS } from './state-law'
 import { SHIPPED_HOA_WORKFLOWS, WORKFLOWS, BAR_TARGETS } from './workflows'
 import { DEFAULT_SITE_ORIGIN, SITEMAP_PATHS, SITE_ORIGIN, isIndexable, pageMetadata, siteOrigin } from './site'
 import { DEFAULT_APP_ORIGIN, appOrigin } from './app-origin'
@@ -60,10 +60,13 @@ function sourceFiles(dir = marketingSrc): string[] {
 function marketingPages(): { rel: string; route: string }[] {
   return sourceFiles(appDir)
     .filter((f) => f.endsWith('page.tsx'))
-    .map((rel) => {
+    .flatMap((rel) => {
       // sourceFiles() paths are relative to src/, so they start with "app/".
       const dir = path.dirname(path.relative('app', rel))
-      return { rel, route: dir === '.' ? '/' : `/${dir.split(path.sep).join('/')}` }
+      const route = dir === '.' ? '/' : `/${dir.split(path.sep).join('/')}`
+      // app/states/[state] is one file serving the three state hubs.
+      if (route === '/states/[state]') return STATE_HUB_PATHS.map((r) => ({ rel, route: r }))
+      return [{ rel, route }]
     })
 }
 
@@ -232,6 +235,45 @@ describe('State law coverage (BL-157)', () => {
     }
     // Texas is the thin one: its card may only name what STATE_COVERAGE lists.
     expect(STATE_CARDS.find((c) => c.state === 'TX')!.benefit.toLowerCase()).toMatch(/resale certificate/)
+  })
+
+  it('the FL, CA and TX cards link to their hubs, which only offer what STATE_COVERAGE lists', () => {
+    expect(STATE_HUBS.map((h) => h.state)).toEqual(['FL', 'CA', 'TX'])
+    expect(STATE_HUB_PATHS).toEqual(['/states/florida', '/states/california', '/states/texas'])
+    for (const h of STATE_HUBS) {
+      const cov = STATE_COVERAGE.find((x) => x.state === h.state)!
+      const card = STATE_CARDS.find((c) => c.state === h.state)!
+      expect(card.href).toBe(`/states/${h.slug}`)
+      expect(h.name).toBe(cov.name)
+      // Exactly the shipped items, in order: nothing added, nothing missing.
+      expect(h.features.map((f) => f.item), h.state).toEqual([...cov.items])
+      expect(h.tour.length).toBeGreaterThanOrEqual(1)
+      expect(h.tour.length).toBeLessThanOrEqual(2)
+      expect(h.statutes.length).toBeGreaterThan(0)
+      expect(STATE_GUIDE_LINKS[h.state]!.length).toBeGreaterThan(0)
+    }
+    const page = code('app/states/[state]/page.tsx')
+    expect(page).toMatch(/STATE_GUIDE_LINKS\[hub\.state\]/)
+    expect(page).toMatch(/generateStaticParams/)
+    expect(page).toMatch(/notFound\(\)/)
+    expect(page).toMatch(/dynamicParams = false/)
+    expect(page).toMatch(/import \* as React from 'react'/)
+    // The /states page links each non-Georgia card to its hub.
+    expect(code('app/states/page.tsx')).toMatch(/href=\{card\.href\}/)
+  })
+
+  it('hub copy has no em dash, no social proof, and stays in its own state', () => {
+    for (const h of STATE_HUBS) {
+      const copy = JSON.stringify([h.lead, h.statutes, h.features, h.tour, h.caveats, h.meta])
+      expect(copy, h.state).not.toMatch(/—|–/)
+      expect(copy, h.state).not.toMatch(/trusted by|customers?|testimonial|case study|Madison Park|guarantee|compliant/i)
+      for (const other of STATE_HUBS.filter((o) => o.state !== h.state)) expect(copy, h.state).not.toContain(other.name)
+      expect(copy, h.state).not.toContain('Georgia')
+    }
+    // California caveats (docs/research/2026-10-ca-rules-verification.md).
+    const ca = STATE_HUBS.find((h) => h.state === 'CA')!
+    expect(ca.caveats.join(' ')).toMatch(/do not quote the statute/)
+    expect(ca.caveats.join(' ')).toMatch(/penalty schedule/)
   })
 
   it('nav and footer say "State laws" and link /states; the Georgia hub stays linked from the footer', () => {
@@ -413,7 +455,8 @@ describe('metadata: one site origin, canonical URLs, OG on every page', () => {
   it.each(rendered.map((p) => [p.route, p.rel]))('%s has a canonical URL equal to its own path', (route, rel) => {
     const src = read(rel)
     expect(src, `${rel} must build metadata with pageMetadata()`).toMatch(/pageMetadata\(/)
-    expect(src).toContain(`path: '${route}'`)
+    if (STATE_HUB_PATHS.includes(route)) expect(src).toContain('const path = `/states/${state}`')
+    else expect(src).toContain(`path: '${route}'`)
   })
 
   it('the sitemap lists every rendered page, and nothing else', () => {

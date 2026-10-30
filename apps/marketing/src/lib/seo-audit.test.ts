@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest'
 import { ALL_GUIDES, CHECKLISTS, GEORGIA_HUB_PATH, SITE_LINKS, pathOf } from './georgia'
 import { PAGE_META, TITLE_SUFFIX } from './page-meta'
 import { OG_IMAGE_PATH, SITEMAP_PATHS, pageMetadata } from './site'
+import { STATE_CARDS, STATE_HUB_PATHS } from './state-law'
 
 const marketingSrc = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -40,7 +41,9 @@ function metaFor(p: string): Row | undefined {
   return undefined
 }
 
-const pageFile = (p: string) => path.join(marketingSrc, 'app', p === '/' ? '' : p, 'page.tsx')
+// /states/<slug> hubs are one dynamic page: app/states/[state]/page.tsx.
+const pageFile = (p: string) =>
+  path.join(marketingSrc, 'app', STATE_HUB_PATHS.includes(p) ? 'states/[state]' : p === '/' ? '' : p, 'page.tsx')
 const read = (f: string) => readFileSync(f, 'utf8')
 const rows = SITEMAP_PATHS.map((p) => metaFor(p)).filter((r): r is Row => !!r)
 
@@ -72,7 +75,9 @@ describe('SEO audit: metadata', () => {
 
   it('hand-written pages take their metadata from PAGE_META, so the audit sees what ships', () => {
     for (const p of Object.keys(PAGE_META)) {
-      expect(read(pageFile(p)), p).toContain(`PAGE_META['${p}']`)
+      // The state hubs read PAGE_META by their own path, built from the param.
+      if (STATE_HUB_PATHS.includes(p)) expect(read(pageFile(p)), p).toContain('PAGE_META[path]')
+      else expect(read(pageFile(p)), p).toContain(`PAGE_META['${p}']`)
     }
   })
 
@@ -120,7 +125,13 @@ describe('SEO audit: structure', () => {
   it('no orphan pages: every sitemap page is linked from the footer, the nav or the Georgia hub lists', () => {
     const navs = read(path.join(marketingSrc, 'components/site/footer.tsx')) + read(path.join(marketingSrc, 'components/site/nav.tsx'))
     const orphans = SITEMAP_PATHS.filter(
-      (p) => p !== '/' && !navs.includes(`'${p}'`) && !navs.includes(`"${p}"`) && !SITE_LINKS.some((l) => l.path === p),
+      (p) =>
+        p !== '/' &&
+        !navs.includes(`'${p}'`) &&
+        !navs.includes(`"${p}"`) &&
+        !SITE_LINKS.some((l) => l.path === p) &&
+        // State hubs are linked from their card on /states (checked in marketing-truth.test.ts).
+        !STATE_CARDS.some((c) => c.href === p),
     )
     expect(orphans).toEqual([])
   })

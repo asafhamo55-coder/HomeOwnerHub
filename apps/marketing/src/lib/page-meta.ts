@@ -12,6 +12,7 @@
 import { HOA_PRICE_COPY } from './hoa-pricing'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from './hubs'
 import { PROFESSIONALS_META } from './professionals'
+import { STATE_HUBS } from './state-law'
 import { SITE_NAME } from './site'
 
 export interface PageMetaEntry {
@@ -61,6 +62,7 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     description:
       'The HomeownerHub workspace follows state HOA law for Georgia, Florida, California and Texas: notices, certificates, deadlines and caps, with the statute cited.',
   },
+  ...Object.fromEntries(STATE_HUBS.map((h) => [`/states/${h.slug}`, h.meta])),
   '/georgia': {
     title: 'Georgia HOA law guides (SB 406) for boards',
     description:

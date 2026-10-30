@@ -13,7 +13,7 @@ export const metadata: Metadata = pageMetadata({ ...PAGE_META['/states']!, path:
 // Lists the states the workspace follows today, Georgia first. Every item
 // comes from STATE_COVERAGE (lib/state-law.ts), checked by
 // marketing-truth.test.ts against apps/hoa routes. The /georgia hub holds
-// the Georgia guides and tools; the other states have no hub yet.
+// the Georgia guides and tools; FL, CA and TX each have a hub at /states/[state].
 
 export default function StatesPage() {
   return (
@@ -61,6 +61,12 @@ export default function StatesPage() {
                   </Link>
                 ) : (
                   <ul className="mt-6 space-y-2">
+                    <li>
+                      <Link href={card.href} className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline">
+                        {s.name} hub: what the workspace does
+                        <ArrowRight className="h-4 w-4" aria-hidden />
+                      </Link>
+                    </li>
                     {(STATE_GUIDE_LINKS[s.state] ?? []).map((g) => (
                       <li key={g.href}>
                         <Link href={g.href} className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline">
