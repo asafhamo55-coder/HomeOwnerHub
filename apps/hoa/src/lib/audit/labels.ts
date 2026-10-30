@@ -125,6 +125,7 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   'officer.title_set': { label: 'Set a board member’s officer title', area: 'access' },
   'dual_control.set': { label: 'Changed the two-signature amount', area: 'accounting' },
   'approval.signoff': { label: 'Signed off a money approval', area: 'accounting' },
+  'meeting.minutes_approved': { label: 'Approved meeting minutes', area: 'records' },
   'resident_portal.enter': { label: 'Viewed the portal as a resident', area: 'access' },
   'resident_portal.exit': { label: 'Left the resident view', area: 'access' },
   'resident_portal.refused': { label: 'Resident view was refused', area: 'access' },
