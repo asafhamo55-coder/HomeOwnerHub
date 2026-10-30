@@ -7,11 +7,17 @@ import {
   type AgingBucket,
   type AgingSummaryRow,
 } from '@/lib/dues/aging'
+import { ExportDownloadButton } from '@/components/export/ExportDownloadButton'
 import { SendRemindersDialog } from './SendRemindersDialog'
 
 /** Link for a bucket chip; "All" drops the param so /dues stays the clean URL. */
 export function agingHref(bucket: AgingBucket | null): string {
   return bucket ? `/dues?aging=${encodeURIComponent(bucket)}` : '/dues'
+}
+
+/** The CSV for the current filter; "All" drops the param. */
+export function exportHref(bucket: AgingBucket | null): string {
+  return bucket ? `/dues/export?aging=${encodeURIComponent(bucket)}` : '/dues/export'
 }
 
 /**
@@ -49,12 +55,21 @@ export function AgingFilter({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-4">
       <FilterChips items={items} label="Filter by how late" linkAs={Link} />
-      {selected && selectedEmails.length > 0 ? (
-        <SendRemindersDialog
-          emails={selectedEmails}
-          label={`Remind this group (${selectedEmails.length})`}
-        />
-      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {allCount > 0 ? (
+          <ExportDownloadButton
+            url={exportHref(selected)}
+            label="Export CSV"
+            fallbackName="who-owes.csv"
+          />
+        ) : null}
+        {selected && selectedEmails.length > 0 ? (
+          <SendRemindersDialog
+            emails={selectedEmails}
+            label={`Remind this group (${selectedEmails.length})`}
+          />
+        ) : null}
+      </div>
     </div>
   )
 }
