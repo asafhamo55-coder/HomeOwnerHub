@@ -52,7 +52,7 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   '/features': {
     title: 'What HomeownerHub does for HOA boards',
     description:
-      'Five jobs boards do every month: rule questions, violation letters, dues and accounting, announcements and architecture requests.',
+      'Five jobs boards do every month, step by step: rule questions, violation letters, dues and accounting, announcements and architecture requests.',
   },
   '/features/dues-and-accounting': {
     title: 'Dues and accounting software for HOA boards',
@@ -87,7 +87,7 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   '/compare/payhoa': {
     title: 'HomeownerHub vs PayHOA: a fair comparison',
     description:
-      'Feature parity, prices as of Oct 31, 2026, and how to switch. Where HomeownerHub leads, and where PayHOA is ahead today.',
+      'Feature parity, prices as of Oct 31, 2026, and how to switch your HOA board. Where HomeownerHub leads today, and where PayHOA is still ahead of us.',
   },
   '/demo': {
     title: 'Book a demo: 20 minutes for your board',
