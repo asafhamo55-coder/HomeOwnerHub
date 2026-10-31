@@ -753,6 +753,8 @@ export interface BudgetVsActualRow {
   /** Variance, sign-corrected so positive is "favorable" — income over
    *  budget or expense under budget. */
   variance: number
+  /** True for an account with posted activity but no line in this budget. */
+  unbudgeted?: boolean
 }
 
 export interface BudgetVsActual {
@@ -778,8 +780,9 @@ export interface BudgetVsActual {
  * Compares an approved (or draft) budget against actuals from
  * ledger_entries for the same period. Posted JEs only, year-end closing
  * entries left out (BL-077). Returns one
- * row per budget line item; accounts that have actuals but no budget
- * line are NOT shown (the manager budgets explicitly).
+ * row per budget line item, plus an `unbudgeted` row (budgeted 0) for every
+ * income or expense account with activity but no budget line, so spending
+ * nobody planned for still counts in the totals.
  *
  * `through` ('YYYY-MM-DD', inclusive) stops the actuals at that day — the
  * board packet passes the end of its month (BL-051), so an entry posted
@@ -830,7 +833,7 @@ export async function computeBudgetVsActual(
     .filter((x): x is string => !!x)
 
   const actualsByAccount = new Map<string, number>()
-  if (accountIds.length > 0) {
+  {
     // Paged to the end: a year of entries passes the 1000-row cap.
     const jes = await readAll<{ id: string; source: string }>(
       (from, to) => {
@@ -851,14 +854,11 @@ export async function computeBudgetVsActual(
     // not the zero the close leaves behind (BL-077).
     const jeIds = withoutClosingEntries(jes).map((r) => r.id)
     if (jeIds.length > 0) {
-      const budgeted = new Set(accountIds)
-      const lines = (
-        await readLedgerLines<{ debit_amount: number; credit_amount: number; account_id: string }>(
-          supabase,
-          'debit_amount, credit_amount, account_id',
-          jeIds,
-        )
-      ).filter((l) => budgeted.has(l.account_id))
+      const lines = await readLedgerLines<{ debit_amount: number; credit_amount: number; account_id: string }>(
+        supabase,
+        'debit_amount, credit_amount, account_id',
+        jeIds,
+      )
       for (const l of lines) {
         const prior = actualsByAccount.get(l.account_id) ?? 0
         actualsByAccount.set(
@@ -904,6 +904,45 @@ export async function computeBudgetVsActual(
     } else {
       budgetedExpense += budgeted
       actualExpense += actual
+    }
+  }
+
+  // Activity on accounts the budget doesn't list. Only income and expense
+  // accounts qualify (balance-sheet lines are not spending); the names come
+  // from the chart of accounts, org-scoped and paged.
+  const budgetedIds = new Set(accountIds)
+  const strayIds = [...actualsByAccount.entries()]
+    .filter(([accountId, net]) => !budgetedIds.has(accountId) && Math.abs(net) > 0.004)
+    .map(([accountId]) => accountId)
+  for (const part of chunk(strayIds)) {
+    const accts = await readAll<{ id: string; account_number: string; account_name: string; account_type: string }>(
+      (from, to) =>
+        supabase
+          .from('chart_of_accounts')
+          .select('id, account_number, account_name, account_type')
+          .eq('association_id', associationId)
+          .in('id', part)
+          .order('id', { ascending: true })
+          .range(from, to),
+      queryFailed,
+    )
+    for (const a of accts) {
+      if (a.account_type !== 'income' && a.account_type !== 'expense') continue
+      const type = a.account_type
+      const rawNet = actualsByAccount.get(a.id) ?? 0
+      const actual = type === 'income' ? -rawNet : rawNet
+      rows.push({
+        accountId: a.id,
+        accountNumber: a.account_number,
+        accountName: a.account_name,
+        accountType: type,
+        budgeted: 0,
+        actual,
+        variance: type === 'income' ? actual : -actual,
+        unbudgeted: true,
+      })
+      if (type === 'income') actualIncome += actual
+      else actualExpense += actual
     }
   }
 

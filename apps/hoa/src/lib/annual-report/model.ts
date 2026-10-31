@@ -280,7 +280,7 @@ export function ownerBudgets(budgets: readonly PacketBudget[]): OwnerBudgetFund[
     fund: ownerAccountLabel(budget.fund?.name ?? 'Fund'),
     period: budget.fiscalPeriod ? periodLabel(budget.fiscalPeriod) : null,
     adopted: budget.status === 'approved',
-    rows: report.rows.map((r) => ({ label: ownerAccountLabel(r.accountName), kind: r.accountType, budgeted: r.budgeted, actual: r.actual })),
+    rows: report.rows.map((r) => ({ label: ownerAccountLabel(r.accountName) + (r.unbudgeted ? ' (not budgeted)' : ''), kind: r.accountType, budgeted: r.budgeted, actual: r.actual })),
     budgetedIncome: report.totals.budgetedIncome,
     actualIncome: report.totals.actualIncome,
     budgetedExpense: report.totals.budgetedExpense,

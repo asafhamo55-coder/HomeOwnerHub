@@ -19,7 +19,12 @@ const variance = (n: number) => <span className={signTone(n)}>{usdSigned(n, { wh
 const rowsOf = (rows: BudgetVsActualRow[]) =>
   rows.map((r) => ({
     key: r.accountId,
-    label: <AccountLabel number={r.accountNumber} name={r.accountName} />,
+    label: (
+      <>
+        <AccountLabel number={r.accountNumber} name={r.accountName} />
+        {r.unbudgeted ? <span className="ml-2 text-xs text-muted-foreground">Not in the budget</span> : null}
+      </>
+    ),
     values: { b: usd(r.budgeted, { whole: true }), a: usd(r.actual, { whole: true }), v: variance(r.variance) },
   }))
 
@@ -105,9 +110,14 @@ export default async function BudgetVsActualPage({ searchParams }: PageProps) {
             <Kpi
               label="Variance"
               value={variance(res.data.totals.varianceNet)}
-              hint={res.data.totals.varianceNet >= 0 ? 'Ahead of plan' : 'Behind plan'}
+              hint={`${res.data.totals.varianceNet >= 0 ? 'Ahead of' : 'Behind'} the full-year budget${res.data.actualsThrough ? '' : ', year to date'}`}
             />
           </section>
+          {res.data.rows.some((r) => r.unbudgeted) ? (
+            <p className="text-sm text-muted-foreground">
+              Accounts marked “Not in the budget” have posted activity but no budget line. They are counted in the actuals and totals.
+            </p>
+          ) : null}
           <StatementTable
             caption="Budget vs. actual"
             columns={[
