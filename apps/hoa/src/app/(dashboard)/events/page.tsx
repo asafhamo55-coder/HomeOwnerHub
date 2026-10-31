@@ -18,6 +18,8 @@ import {
   relativeDays,
   CHANNEL_LABEL,
 } from './event-dates'
+import { DeadlineChips } from './DeadlineChips'
+import { loadAssociationState } from './association-state'
 import { todayIn } from '@/lib/association-time'
 import { currentScopeZones } from '@/lib/association-time-current'
 
@@ -49,6 +51,7 @@ export default async function EventsListPage() {
 
   // Each event reads its own association's day (an org-wide event, the
   // primary association's), exactly as the recurring-events cron does.
+  const state = await loadAssociationState()
   const zoneOf = await currentScopeZones()
   const now = new Date()
   const dayOfEvent: EventDay = (e) => {
@@ -66,12 +69,15 @@ export default async function EventsListPage() {
       actions={newButton}
     >
       {events.length === 0 ? (
+        <div className="space-y-6">
         <EmptyState
           icon={<CalendarHeart aria-hidden />}
           title="No events yet"
           description="Add the dates your board can’t miss and we’ll send a reminder ahead of each one, every year."
           action={newButton}
         />
+        <DeadlineChips state={state} />
+        </div>
       ) : (
         <>
           <section aria-labelledby="upcoming-events" className="space-y-3">
@@ -86,6 +92,7 @@ export default async function EventsListPage() {
               mobile="cards"
               linkAs={Link}
               empty={
+                <div className="space-y-4">
                 <EmptyState
                   variant="compact"
                   icon={<CalendarHeart aria-hidden />}
@@ -97,6 +104,8 @@ export default async function EventsListPage() {
                     </Button>
                   }
                 />
+                <DeadlineChips state={state} />
+                </div>
               }
             />
           </section>
