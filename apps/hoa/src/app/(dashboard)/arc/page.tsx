@@ -1,6 +1,6 @@
 import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
-import { CalendarX, ClipboardList, Hourglass, SearchX, Timer } from 'lucide-react'
+import { CalendarClock, CalendarX, ClipboardList, Hourglass, SearchX, Timer } from 'lucide-react'
 import {
   Badge,
   Button,
@@ -19,6 +19,7 @@ import {
 import {
   readArcStatusRows,
   listArcRequestsForBoard,
+  countArcOverdueCompletion,
   type ArcRequestBoardRow,
 } from '@/lib/board-review'
 import { ARC_CATEGORY, ARC_STATUS } from '@/lib/status/community'
@@ -34,6 +35,9 @@ import { SummaryStrip } from '@/components/SummaryStrip'
 import { countByStatus, countPastDecideBy, oldestArcWaitDays } from '@/lib/arc-review/summary'
 import { plural } from '@/lib/money/format'
 import { formatShortDate } from '@/lib/format-datetime'
+import { formatDay } from '@/lib/money/format'
+import { currentTimeZone } from '@/lib/association-time-current'
+import { ARC_OVERDUE_VIEW, overdueCutoff, parseArcView } from '@/lib/arc-review/overdue'
 
 export const metadata = { title: 'ARC review' }
 export const dynamic = 'force-dynamic'
@@ -46,21 +50,32 @@ type Filter = ArcFilter
 export default async function ArcReviewListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string }>
+  searchParams: Promise<{ status?: string; page?: string; view?: string }>
 }) {
   const sp = await searchParams
   const filter: Filter = parseArcFilter(sp.status)
+  const view = parseArcView(sp.view)
   const page = parsePageParam(sp.page)
   const { from, to } = pageRange(page, PAGE_SIZE)
-  const statuses = FILTERS[filter].statuses
+  // The overdue view is approved requests only, whatever the status chip says.
+  const statuses = view ? (['approved'] as const) : FILTERS[filter].statuses
 
-  const [list, statusRows, clockLoad] = await Promise.all([
+  const timeZone = await currentTimeZone()
+  const today = overdueCutoff(timeZone)
+  const [list, statusRows, clockLoad, overdueCompletion] = await Promise.all([
     timed('/arc', 'arc.list', () =>
       // The work queue opens oldest first: the most urgent on the decision clock (BL-113).
-      listArcRequestsForBoard({ status: statuses ?? undefined, from, to, oldestFirst: filter === 'pending' }),
+      listArcRequestsForBoard({
+        status: statuses ?? undefined,
+        from,
+        to,
+        oldestFirst: !view && filter === 'pending',
+        completionBefore: view ? today : undefined,
+      }),
     ),
     timed('/arc', 'arc.statusCounts', () => readArcStatusRows()),
     timed('/arc', 'arc.clockSettings', () => getArcClockSettings()),
+    timed('/arc', 'arc.overdueCompletion', () => countArcOverdueCompletion(today)),
   ])
   const clockSettings = clockLoad.ok
     ? clockLoad.associations.map((a) => ({ associationId: a.association.id, settings: a.settings }))
@@ -90,6 +105,11 @@ export default async function ArcReviewListPage({
   const oldestWait = statusRows ? oldestArcWaitDays(statusRows, new Date(now)) : null
   const pastDecideBy = statusRows && clockLoad.ok ? countPastDecideBy(statusRows, clockSettings, new Date(now)) : null
 
+  const overdueHref = (p = 1) => {
+    const q = new URLSearchParams({ view: ARC_OVERDUE_VIEW })
+    if (p > 1) q.set('page', String(p))
+    return `/arc?${q.toString()}`
+  }
   const href = (f: Filter, p = 1) => {
     const q = new URLSearchParams()
     if (f !== 'pending') q.set('status', f)
@@ -143,6 +163,19 @@ export default async function ArcReviewListPage({
         </time>
       ),
     },
+    ...(view
+      ? [
+          {
+            key: 'completion',
+            header: 'Proposed completion',
+            cell: (r: ArcRequestBoardRow) => (
+              <time dateTime={r.proposed_completion ?? undefined} className="whitespace-nowrap text-foreground-secondary">
+                {formatDay(r.proposed_completion)}
+              </time>
+            ),
+          } satisfies DataTableColumn<ArcRequestBoardRow>,
+        ]
+      : []),
     {
       key: 'decided',
       header: 'Decided',
@@ -204,6 +237,14 @@ export default async function ArcReviewListPage({
             tone: pastDecideBy ? 'danger' : 'default',
             href: href('pending'),
           },
+          {
+            label: 'Approved, past completion date',
+            icon: <CalendarClock />,
+            value: overdueCompletion === null ? null : String(overdueCompletion),
+            hint: overdueCompletion === 0 ? 'No approved work is past its date' : 'Open the list to see which',
+            tone: overdueCompletion ? 'warning' : 'default',
+            href: overdueHref(),
+          },
         ]}
       />
 
@@ -211,12 +252,15 @@ export default async function ArcReviewListPage({
         <FilterChips
           label="Filter by status"
           linkAs={Link}
-          items={(Object.keys(FILTERS) as Filter[]).map((key) => ({
-            label: FILTERS[key].label,
-            href: href(key),
-            active: key === filter,
-            count: countFor(key),
-          }))}
+          items={[
+            ...(Object.keys(FILTERS) as Filter[]).map((key) => ({
+              label: FILTERS[key].label,
+              href: href(key),
+              active: !view && key === filter,
+              count: countFor(key),
+            })),
+            { label: 'Past completion date', href: overdueHref(), active: view !== null, count: overdueCompletion },
+          ]}
         />
       </ListToolbar>
 
@@ -265,7 +309,19 @@ export default async function ArcReviewListPage({
           rowKey={(r) => r.id}
           mobile="cards"
           empty={
-            all === 0 ? (
+            view ? (
+              <EmptyState
+                variant="compact"
+                icon={<CalendarClock aria-hidden />}
+                title="No approved work past its completion date"
+                description="Approved applications show here once the proposed completion date has passed."
+                action={
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href={href('approved')}>Show approved applications</Link>
+                  </Button>
+                }
+              />
+            ) : all === 0 ? (
               <EmptyState
                 variant="compact"
                 icon={<ClipboardList aria-hidden />}
@@ -303,7 +359,7 @@ export default async function ArcReviewListPage({
                 pageSize={PAGE_SIZE}
                 total={list.total}
                 rowCount={list.rows.length}
-                hrefFor={(p) => href(filter, p)}
+                hrefFor={(p) => (view ? overdueHref(p) : href(filter, p))}
                 linkAs={Link}
                 noun="applications"
               />

@@ -30,6 +30,7 @@ import {
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { PropertyPicker } from './PropertyPicker'
+import { EarlierAtHome } from './EarlierAtHome'
 import { responseErrorMessage } from '@/lib/api/client'
 import { createApprovedViolation } from '@/lib/violations'
 import { VIOLATION_SEVERITY } from '@/lib/status/community'
@@ -477,6 +478,7 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
             <PropertyPicker options={properties} value={propertyId} onChange={setPropertyId} />
           </Field>
         )}
+        {propertyId ? <EarlierAtHome propertyId={propertyId} /> : null}
 
         <div className="space-y-1.5">
           <Label htmlFor="photo" required>
@@ -762,6 +764,8 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
             ))}
           </div>
         ) : null}
+
+        {propertyId ? <EarlierAtHome propertyId={propertyId} category={analysis.violationType} /> : null}
 
         <Card>
           <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
