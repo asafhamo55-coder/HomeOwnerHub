@@ -6,6 +6,7 @@ import { vendorOnboarder } from '@homeowner-portal/workflows'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
+import { loadOrFail } from '@/lib/load-or-fail'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { removeStorageObjects } from '@/lib/storage-remove'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
@@ -184,50 +185,82 @@ export async function listVendorsResult(): Promise<
   }
 }
 
-export async function getVendor(id: string): Promise<VendorDetail | null> {
+/**
+ * Three outcomes, never conflated: a real miss (`not_found`), a failed read
+ * of the vendor itself (`error`), and a vendor that loaded while its
+ * documents or insurance record did not (`ok` with `documentsFailed` or
+ * `complianceFailed`; the failed part is empty/null and must not be shown
+ * as "no documents" or "not reviewed").
+ */
+export type VendorLoad =
+  | { ok: true; vendor: VendorDetail; documentsFailed: boolean; complianceFailed: boolean }
+  | { ok: false; reason: 'not_found' | 'error' }
+
+export async function getVendor(id: string): Promise<VendorLoad> {
   const supabase = await getSupabaseServerClient()
-  const assoc = await getPrimaryAssociation()
+  const assocRes = await getPrimaryAssociationResult()
 
-  const { data: vendor } = await supabase
-    .from('vendors' as never)
-    .select(
-      'id, legal_name, dba, ein, address, service_area_zips, status, trades, primary_email, primary_phone, notes, created_at',
-    )
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
-
-  if (!vendor) return null
-  const base = vendor as unknown as VendorRow & {
+  const vendorRes = await loadOrFail(
+    'vendor',
+    supabase
+      .from('vendors' as never)
+      .select(
+        'id, legal_name, dba, ein, address, service_area_zips, status, trades, primary_email, primary_phone, notes, created_at',
+      )
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  )
+  if (!vendorRes.ok) return { ok: false, reason: 'error' }
+  if (!vendorRes.data) return { ok: false, reason: 'not_found' }
+  const base = vendorRes.data as unknown as VendorRow & {
     ein: string | null
     address: VendorAddress | null
     service_area_zips: string[] | null
     notes: string | null
   }
 
-  const { data: docRows } = await supabase
-    .from('vendor_documents' as never)
-    .select('id, doc_type, storage_path, uploaded_at, expires_at')
-    .eq('vendor_id', id)
-    .order('uploaded_at', { ascending: false })
-  const documents = (docRows ?? []) as unknown as VendorDocument[]
+  const docRes = await loadOrFail(
+    'vendor documents',
+    supabase
+      .from('vendor_documents' as never)
+      .select('id, doc_type, storage_path, uploaded_at, expires_at')
+      .eq('vendor_id', id)
+      .order('uploaded_at', { ascending: false }),
+  )
+  const documents = docRes.ok ? ((docRes.data ?? []) as unknown as VendorDocument[]) : []
 
   let compliance: VendorDetail['compliance'] = null
-  if (assoc) {
-    const { data: complianceRow } = await supabase
-      .from('vendor_compliance' as never)
-      .select(
-        'coi_status, coi_carrier, coi_policy_number, coi_effective_date, coi_expiration_date, coi_general_liability_per_occurrence, coi_general_liability_aggregate, coi_workers_comp, coi_additional_insured_present, w9_on_file, license_number, license_expiration, deficiencies, last_reviewed_at',
-      )
-      .eq('vendor_id', id)
-      .eq('association_id', assoc.id)
-      .maybeSingle()
-
-    compliance =
-      (complianceRow as unknown as VendorDetail['compliance']) ?? null
+  let complianceFailed = false
+  // A failed association read means we cannot tell which compliance row is
+  // ours, so it is a failed insurance read, not "no insurance record".
+  if (!assocRes.ok) {
+    complianceFailed = true
+  } else if (assocRes.data) {
+    const compRes = await loadOrFail(
+      'vendor compliance',
+      supabase
+        .from('vendor_compliance' as never)
+        .select(
+          'coi_status, coi_carrier, coi_policy_number, coi_effective_date, coi_expiration_date, coi_general_liability_per_occurrence, coi_general_liability_aggregate, coi_workers_comp, coi_additional_insured_present, w9_on_file, license_number, license_expiration, deficiencies, last_reviewed_at',
+        )
+        .eq('vendor_id', id)
+        .eq('association_id', assocRes.data.id)
+        .maybeSingle(),
+    )
+    if (compRes.ok) {
+      compliance = (compRes.data as unknown as VendorDetail['compliance']) ?? null
+    } else {
+      complianceFailed = true
+    }
   }
 
-  return { ...base, documents, compliance }
+  return {
+    ok: true,
+    vendor: { ...base, documents, compliance },
+    documentsFailed: !docRes.ok,
+    complianceFailed,
+  }
 }
 
 // ─── Writes ──────────────────────────────────────────────────────────

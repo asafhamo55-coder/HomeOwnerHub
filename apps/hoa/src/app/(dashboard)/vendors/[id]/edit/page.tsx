@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Page } from '@homeowner-portal/ui'
+import { LoadFailed, Page } from '@homeowner-portal/ui'
 import { getVendor } from '@/lib/vendors'
 import { EditVendorForm } from './EditVendorForm'
 
@@ -12,8 +12,12 @@ export default async function EditVendorPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const vendor = await getVendor(id)
-  if (!vendor) notFound()
+  const loaded = await getVendor(id)
+  if (!loaded.ok) {
+    if (loaded.reason === 'error') return <LoadFailed what="this vendor" retryHref={`/vendors/${id}/edit`} />
+    notFound()
+  }
+  const { vendor } = loaded
 
   return (
     <Page
