@@ -41,6 +41,22 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-43 · Turn on the website help chat (Vercel, marketing project)
+
+**Urgency:** Soon
+
+**Why it matters:** the website has a built-in help chat that answers questions from our own pages, guides and help articles, and hands off to support@homeownerledger.com. It's built and deployed but switched off until these settings exist.
+
+**Steps:**
+
+1. Open Vercel → project **homeownerhub-marketing** → Settings → Environment Variables (Production).
+2. Add `NEXT_PUBLIC_SUPPORT_CHAT` = `1`.
+3. Add `AI_API_KEY`, using the same AI key the app uses. It may already be shared at the team level, like AI_MODEL; if so, link it to this project.
+4. Check that `RESEND_API_KEY` is set on this project. The "Talk to a person" form needs it.
+5. Optional: set `CHAT_DAILY_CAP` (default 400 questions a day) and `SUPPORT_INBOX_EMAIL` (default support@homeownerledger.com).
+6. Redeploy the marketing project. The chat flag is read at build time.
+7. Tell Claude. It will try a few questions on the live site and report how well it answers.
+
 ### OA-42 · Online dues payments: five decisions, then Stripe Connect
 
 **Urgency:** Soon
