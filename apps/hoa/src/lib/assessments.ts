@@ -17,6 +17,9 @@ import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lo
 import { completePlansAfterPayment } from '@/lib/accounting/plan-completion'
 import { queuePaymentReceiptAfterResponse } from '@/lib/resident-notify/receipt-notify'
 import { recordDuesRateOverride } from '@/lib/dues-rates/billing'
+import { loadDuesRates } from '@/lib/dues-rates/queries'
+import { billingPrefill } from '@/lib/dues-rates/model'
+import { materializeDueDate, planMaterialize } from '@/lib/materialize-plan'
 
 type AssessmentInsert = Database['public']['Tables']['assessments']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
@@ -117,8 +120,10 @@ export async function materializeCurrentPeriodAssessments(input: {
     return { ok: false, error: 'Add properties before generating dues.' }
   }
 
-  const alreadyHave = new Set((existing ?? []).map((r) => r.unit_id))
-  const toMaterialize = units.filter((u) => !alreadyHave.has(u.id))
+  const { toBill: toMaterialize } = planMaterialize(
+    units,
+    (existing ?? []).map((r) => r.unit_id),
+  )
   if (toMaterialize.length === 0) {
     return {
       ok: false,
@@ -128,7 +133,7 @@ export async function materializeCurrentPeriodAssessments(input: {
 
   // Pick a due date — first day of the period's month grouping doesn't
   // generalize; default to the 15th of the period's start month.
-  const dueDate = `${period.start_date.slice(0, 7)}-15`
+  const dueDate = materializeDueDate(period.start_date)
 
   // One assessment + one JE per unit. Sequential — the entry_number
   // generator queries max+1 each time and would race itself otherwise.
@@ -216,6 +221,127 @@ export async function materializeCurrentPeriodAssessments(input: {
   revalidatePath('/accounting')
   revalidatePath('/accounting/ledger')
   return { ok: true, created }
+}
+
+// ─── preview ─────────────────────────────────────────────────────────
+
+export type MaterializePreview =
+  | {
+      ok: true
+      /** Homes this run would bill (what materialize would create). */
+      toBill: number
+      /** Homes skipped because they already have regular dues this period. */
+      alreadyBilled: number
+      /** Per-home amount in cents from the dues rate in effect, or null. */
+      rateCents: number | null
+      totalCents: number | null
+      dueDate: string
+    }
+  | { ok: false; error: string; code?: undefined }
+  | BooksNotOpenFailure
+
+/**
+ * Read-only: what materializeCurrentPeriodAssessments would do right now.
+ * Same unit list, same already-billed read, same due-date helper. Writes
+ * nothing (properties still lacking a unit are counted, not given one).
+ */
+export async function previewMaterialize(): Promise<MaterializePreview> {
+  const gate = await requireBoardOrAdminForAction()
+  if (!gate.ok) return gate
+  const assoc = await getPrimaryAssociation()
+  if (!assoc) return { ok: false, error: 'No HOA association configured.' }
+  const supabase = await getSupabaseServerClient()
+
+  const { data: assocRow } = await supabase
+    .from('associations')
+    .select('organization_id')
+    .eq('id', assoc.id)
+    .single()
+  if (!assocRow) return { ok: false, error: 'Association not found.' }
+  const orgId = assocRow.organization_id
+
+  const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
+  if (!period) return booksNotOpen(gate.role)
+
+  let units: Array<{ id: string; unit_number: string | null }>
+  try {
+    units = await listBillableUnits(supabase, orgId, assoc.id)
+  } catch {
+    return { ok: false, error: 'Couldn’t load the properties to bill.' }
+  }
+  const { data: existing, error: existingErr } = await supabase
+    .from('assessments')
+    .select('unit_id')
+    .eq('association_id', assoc.id)
+    .eq('fiscal_period_id', period.id)
+    .eq('assessment_type', 'regular')
+  if (existingErr) return { ok: false, error: 'Couldn’t read this month’s dues.' }
+
+  const plan = planMaterialize(
+    units,
+    (existing ?? []).map((r) => r.unit_id),
+  )
+  let toBill = plan.toBill.length
+
+  // Materialize gives unit-less properties a unit first when the org has one
+  // association. Count them so the preview matches.
+  const { count: assocCount } = await supabase
+    .from('associations')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+  if (assocCount === 1) {
+    const missing = await countPropertiesWithoutUnit(supabase, orgId)
+    if (missing === null) return { ok: false, error: 'Couldn’t check which properties are ready for dues.' }
+    toBill += missing
+  }
+
+  const rates = await loadDuesRates(supabase as never, assoc.id)
+  const prefill = rates ? billingPrefill(rates, todayIn(assoc.timeZone), 'monthly') : null
+  const rateCents = prefill ? prefill.cents : null
+
+  return {
+    ok: true,
+    toBill,
+    alreadyBilled: plan.alreadyBilled,
+    rateCents,
+    totalCents: rateCents === null ? null : rateCents * toBill,
+    dueDate: materializeDueDate(period.start_date),
+  }
+}
+
+/** Live properties with no unit row yet, or null when a read fails. */
+async function countPropertiesWithoutUnit(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  orgId: string,
+): Promise<number | null> {
+  const PAGE = 1000
+  const props: string[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('hoa_properties')
+      .select('id')
+      .eq('org_id', orgId)
+      .is('deleted_at', null)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) return null
+    props.push(...(data ?? []).map((r) => r.id))
+    if (!data || data.length < PAGE) break
+  }
+  const linked = new Set<string>()
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('units')
+      .select('legacy_hoa_property_id')
+      .eq('organization_id', orgId)
+      .not('legacy_hoa_property_id', 'is', null)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) return null
+    for (const r of data ?? []) if (r.legacy_hoa_property_id) linked.add(r.legacy_hoa_property_id)
+    if (!data || data.length < PAGE) break
+  }
+  return props.filter((id) => !linked.has(id)).length
 }
 
 // ─── add due (manual create) ─────────────────────────────────────────
