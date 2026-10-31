@@ -2046,6 +2046,23 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 21 (2026-10-31, code-verified)
+
+None of these needs a migration or an owner action. Nothing here moves money or sends anything.
+
+1. **BUG: the vendor page hides an expired COI when a read fails.** `getVendor` ignores errors on its documents and compliance reads, and a failed main read shows as a 404. Effort 2.
+2. **BUG: communications detail shows a 404 when a read fails, and the template picker silently drops the HOA's own templates.** Effort 2.
+3. **BUG: RFP invitations show "No invitations yet" or "none are eligible" when a read fails.** Effort 2.
+4. **Accessibility: label the line-item inputs on the public bid form, and number the Remove buttons.** Effort 1.
+5. **RFP invite panel: say why the list is empty** (no vendors, all invited, or no email on file). Effort 1.
+6. **BL-172 SEO 19a: FL assessment lien and foreclosure timeline (§ 720.3085).** Effort 2.
+7. **BL-172 SEO 19b: FL fine cap and daily fine checklist (§ 720.305(2)).** Confirm the quotes support the $1,000 aggregate cap first. Effort 2.
+8. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped:** checked and sound.
+- Read-failure handling on ARC, violations, meetings and properties, accounting, and AI ask.
+- Accessibility: icon-only buttons, dialog titles and field labels.
+
 ## Ranked open work — round 20 (2026-10-31, code-verified) — Done 2026-10-31 except item 7 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action, and nothing here moves money or sends anything.
