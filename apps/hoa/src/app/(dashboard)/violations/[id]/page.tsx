@@ -51,6 +51,9 @@ import { currentTimeZone } from '@/lib/association-time-current'
 import { dayOf, todayIn } from '@/lib/association-time'
 import { cureBeforeHearingOffer } from '@/lib/violation-hearings/cure'
 import { HearingCard } from './HearingCard'
+import { EarlierViolationsCard } from './EarlierViolationsCard'
+import { loadEarlierViolations } from '@/lib/violations/earlier'
+import { withPropertyParam } from '@/lib/property-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -175,7 +178,7 @@ export default async function ViolationDetailPage({
   // and the state law check on the fine. A failed read hides both (the
   // server action re-checks and refuses on a failed read).
   const rulesP = org ? loadOrgStateRules(supabase, org.id).catch(() => null) : Promise.resolve(null)
-  const [commitmentCard, unit, followUpResult, responses, lawRules, hearingLoad, timeZone] = await Promise.all([
+  const [commitmentCard, unit, followUpResult, responses, lawRules, hearingLoad, timeZone, earlier] = await Promise.all([
     org
       ? timed(R, 'violation.cureCommitment', async (): Promise<CommitmentCard | null> => {
           const rules = await rulesP
@@ -225,6 +228,10 @@ export default async function ViolationDetailPage({
       ? timed(R, 'violation.hearing', () => loadBoardHearing(supabase as never, org.id, v.id))
       : Promise.resolve<BoardHearingLoad>({ kind: 'off' }),
     currentTimeZone(),
+    // The other violations at this home (org-scoped). Null when the violation has no home.
+    v.property_id
+      ? timed(R, 'violation.earlier', () => loadEarlierViolations(supabase, { orgId: org.id, propertyId: v.property_id!, excludeId: v.id }))
+      : Promise.resolve(null),
   ])
   // BL-140: a Florida panel is checked against the board roster (service
   // role, scoped to the current org; the dashboard layout admits board and
@@ -388,6 +395,13 @@ export default async function ViolationDetailPage({
               </KeyValueList>
             </CardContent>
           </Card>
+
+          <EarlierViolationsCard
+            result={earlier}
+            category={v.violation_type}
+            allHref={withPropertyParam('/violations', v.property_id)}
+            retryHref={`/violations/${v.id}`}
+          />
 
           <Card id="letter-first">
             <CardHeader>

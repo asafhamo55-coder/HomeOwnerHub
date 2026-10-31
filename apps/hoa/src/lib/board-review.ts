@@ -95,6 +95,8 @@ export interface ArcRequestBoardRow {
   status: ArcStatus
   submitted_at: string
   board_response_at: string | null
+  /** A DATE (YYYY-MM-DD) or null. */
+  proposed_completion: string | null
 }
 
 export interface ArcRequestBoardDetail extends ArcRequestBoardRow {
@@ -108,7 +110,7 @@ export interface ArcRequestBoardDetail extends ArcRequestBoardRow {
 }
 
 export async function listArcRequestsForBoard(
-  opts?: BoardListOptions<ArcStatus> & { oldestFirst?: boolean },
+  opts?: BoardListOptions<ArcStatus> & { oldestFirst?: boolean; completionBefore?: string },
 ): Promise<BoardList<ArcRequestBoardRow>> {
   await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
@@ -116,7 +118,7 @@ export async function listArcRequestsForBoard(
   let query = supabase
     .from('arc_requests' as never)
     .select(
-      'id, association_id, unit_id, submitted_by, category, summary, status, submitted_at, board_response_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
+      'id, association_id, unit_id, submitted_by, category, summary, status, submitted_at, board_response_at, proposed_completion, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
       { count: 'exact' },
     )
     .is('deleted_at', null)
@@ -127,6 +129,8 @@ export async function listArcRequestsForBoard(
     .range(opts?.from ?? 0, opts?.to ?? 99)
   if (typeof opts?.status === 'string') query = query.eq('status', opts.status)
   else if (opts?.status) query = query.in('status', [...opts.status])
+  // A DATE compared with a YYYY-MM-DD day: no zone enters the comparison.
+  if (opts?.completionBefore) query = query.lt('proposed_completion', opts.completionBefore)
   const res = await loadOrFail('ARC applications', query)
   if (!res.ok) return { ok: false }
 
@@ -140,6 +144,7 @@ export async function listArcRequestsForBoard(
     status: ArcStatus
     submitted_at: string
     board_response_at: string | null
+    proposed_completion: string | null
     unit: { unit_number: string | null } | null
     submitter: { full_name: string | null; email: string | null } | null
   }>
@@ -160,8 +165,29 @@ export async function listArcRequestsForBoard(
       status: r.status,
       submitted_at: r.submitted_at,
       board_response_at: r.board_response_at,
+      proposed_completion: r.proposed_completion ?? null,
     })),
   }
+}
+
+/**
+ * Approved requests whose proposed completion day is before `today` (the
+ * association's date, YYYY-MM-DD). Null when the read failed, so the tile
+ * says "Not available" rather than 0.
+ */
+export async function countArcOverdueCompletion(today: string): Promise<number | null> {
+  await requireBoardOrAdmin()
+  const supabase = await getSupabaseServerClient()
+  const res = await loadOrFail(
+    'ARC overdue completions',
+    supabase
+      .from('arc_requests' as never)
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .lt('proposed_completion', today)
+      .is('deleted_at', null),
+  )
+  return res.ok ? (res.count ?? 0) : null
 }
 
 /**
