@@ -23,6 +23,12 @@ on:
       - claude/phase1-homeownerhub-setup-MILNu
     paths:
       - 'apps/hoa/**'
+      # ui:shots builds and checks pm, eviction and marketing too: a
+      # marketing-only change (3ef7891's homepage) broke every mkt-* shot
+      # without triggering a run.
+      - 'apps/pm/**'
+      - 'apps/eviction/**'
+      - 'apps/marketing/**'
       - 'packages/ui/**'
       - 'scripts/ui-shots*'
       - 'scripts/ui-shots-seed/**'
