@@ -5,6 +5,7 @@
 
 import Link from 'next/link'
 import { BrandMark } from '@homeowner-portal/ui'
+import { RetryButton } from './RetryButton'
 
 export const metadata = { title: 'Offline' }
 
@@ -59,25 +60,7 @@ export default function OfflinePage() {
             flexWrap: 'wrap',
           }}
         >
-          {/*
-            Plain anchor so it bypasses Next's prefetch + client router
-            (both pointless offline). location.reload would also work
-            but we want a Link that the user can right-click → open.
-          */}
-          <a
-            href="/"
-            style={{
-              background: 'hsl(var(--primary))',
-              color: 'hsl(var(--primary-fg))',
-              padding: '10px 18px',
-              borderRadius: 8,
-              fontWeight: 600,
-              fontSize: 14,
-              textDecoration: 'none',
-            }}
-          >
-            Try again
-          </a>
+          <RetryButton />
           <Link
             href="/"
             style={{

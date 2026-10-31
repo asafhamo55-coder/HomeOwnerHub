@@ -1,5 +1,6 @@
 import { redirect as nextRedirect } from 'next/navigation'
 import { safeNextPath } from '@/lib/safe-next-path'
+import { parseLinkError } from './link-error'
 import { LoginView } from './LoginView'
 
 export const metadata = { title: 'Sign in' }
@@ -7,9 +8,9 @@ export const metadata = { title: 'Sign in' }
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; reason?: string }>
+  searchParams: Promise<{ redirect?: string; reason?: string; error?: string }>
 }) {
-  const { redirect: rawRedirect, reason } = await searchParams
+  const { redirect: rawRedirect, reason, error } = await searchParams
   // Open-redirect guard: only same-site paths survive (javascript:, //evil.com
   // and https://evil.com all collapse to '/').
   const redirect = rawRedirect === undefined ? undefined : safeNextPath(rawRedirect)
@@ -24,5 +25,5 @@ export default async function LoginPage({
     nextRedirect(target)
   }
 
-  return <LoginView redirect={redirect} reason={reason} />
+  return <LoginView redirect={redirect} reason={reason} linkError={parseLinkError(error)} />
 }
