@@ -12,17 +12,20 @@ import {
   LoadFailed,
   Page,
   Pager,
+  SearchForm,
   StatusBadge,
   parsePageParam,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
 import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
-import { countDrafts, listCommunications, type CommunicationSummary } from '@/lib/communications/queries'
+import { getCommunicationsStrip, listCommunications, type CommunicationSummary } from '@/lib/communications/queries'
 import { draftHref, draftTitle } from '@/lib/communications/drafts'
 import { DeleteDraftButton } from './DeleteDraftButton'
 import { pickDisplaySubject } from '@/lib/communications/display'
 import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS, communicationStatusBadge } from '@/lib/status/community'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { communicationsHref, normalizeSearchTerm, RECENT_DAYS } from '@/lib/communications/search'
 import { CategoryFilter } from './CategoryFilter'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
@@ -70,7 +73,7 @@ const STATUS_CHIP_LABEL: Record<(typeof STATUS_FILTERS)[number], string> = {
 }
 
 interface PageProps {
-  searchParams: Promise<{ category?: string; status?: string; page?: string }>
+  searchParams: Promise<{ category?: string; status?: string; page?: string; q?: string; window?: string; delivery?: string }>
 }
 
 // Was a silent `.limit(100)` inside listCommunications.
@@ -104,6 +107,9 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
   const category = sp.category && sp.category in COMMUNICATION_CATEGORY ? sp.category : undefined
   const status = sp.status && sp.status in COMMUNICATION_STATUS.labels ? sp.status : undefined
   const page = parsePageParam(sp.page)
+  const q = normalizeSearchTerm(sp.q)
+  const recentOnly = sp.window === '30d'
+  const failedOnly = sp.delivery === 'failed'
   const showingDrafts = status === 'draft'
   // Inbox reply drafts waiting for the board (BL-102 A11 step 4). Read only
   // for roles that can read the inbox, with the inbox's org scope; they feed
@@ -112,34 +118,32 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
     showInboxTab && roleCtx
       ? getSupabaseServerClient().then((db) => listWaitingReplyDrafts(db, roleCtx.org.id))
       : Promise.resolve(null)
-  const [result, draftCount, replyDrafts] = await Promise.all([
+  const [result, strip, replyDrafts] = await Promise.all([
     timed('/communications', 'communications.list', () =>
       listCommunications(assoc.id, {
         category,
         status,
         // Drafts never count in the list's delivery figures (BL-102 A9).
         excludeDrafts: true,
+        q,
+        recentOnly,
+        failedOnly,
         page,
         pageSize: PAGE_SIZE,
       }),
     ),
-    countDrafts(assoc.id),
+    getCommunicationsStrip(assoc.id),
     replyDraftsRead,
   ])
+  const draftCount = strip.drafts
   const replyDraftRows: ReplyDraftItem[] = replyDrafts?.ok ? replyDrafts.rows : []
   const allDraftsCount = combinedDraftCount(draftCount, replyDrafts?.ok ? replyDrafts.rows.length : null)
   const comms = result.ok ? result.rows : []
   const total = result.ok ? result.total : 0
-  const filtered = Boolean(category || status)
+  const filtered = Boolean(category || status || q || recentOnly || failedOnly)
 
-  const hrefFor = (next: { status?: string; page?: number }): string => {
-    const q = new URLSearchParams()
-    if (category) q.set('category', category)
-    if (next.status) q.set('status', next.status)
-    if (next.page && next.page > 1) q.set('page', String(next.page))
-    const qs = q.toString()
-    return qs ? `/communications?${qs}` : '/communications'
-  }
+  const hrefFor = (next: { status?: string; page?: number }): string =>
+    communicationsHref({ category, status: next.status, q, window: recentOnly ? '30d' : undefined, delivery: failedOnly ? 'failed' : undefined, page: next.page })
 
   // Delivery figures are summed over the rows on THIS page. When that is not
   // every matching message, the tiles say so instead of passing a page's
@@ -321,6 +325,35 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
               ) : null}
             </>
           ) : (
+          <>
+          <SummaryStrip
+            ariaLabel="Messages at a glance"
+            testId="communications-strip"
+            tiles={[
+              {
+                label: `Sent, last ${RECENT_DAYS} days`,
+                icon: <Send />,
+                value: strip.sentRecently === null ? null : String(strip.sentRecently),
+                hint: 'messages sent to residents',
+                href: communicationsHref({ window: '30d' }),
+              },
+              {
+                label: 'Drafts',
+                icon: <Mail />,
+                value: strip.drafts === null ? null : String(strip.drafts),
+                hint: 'started, not sent',
+                href: communicationsHref({ status: 'draft' }),
+              },
+              {
+                label: 'With failed deliveries',
+                icon: <AlertTriangle />,
+                value: strip.failedDeliveries === null ? null : String(strip.failedDeliveries),
+                hint: 'messages with a bounced or failed recipient',
+                href: communicationsHref({ delivery: 'failed' }),
+                tone: strip.failedDeliveries ? 'danger' : 'default',
+              },
+            ]}
+          />
           <section aria-label="Delivery summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi
               label="Messages"
@@ -351,6 +384,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
               }
             />
           </section>
+          </>
           )}
 
           <ListToolbar>
@@ -368,7 +402,21 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
                 ]}
               />
             )}
-            <CategoryFilter category={category} status={status} />
+            <CategoryFilter
+              category={category}
+              status={status}
+              q={q}
+              window={recentOnly ? '30d' : undefined}
+              delivery={failedOnly ? 'failed' : undefined}
+            />
+            <SearchForm
+              action="/communications"
+              defaultValue={q}
+              label="Search messages"
+              placeholder="Search by subject"
+              keep={{ category, status, window: recentOnly ? '30d' : undefined, delivery: failedOnly ? 'failed' : undefined }}
+              linkAs={Link}
+            />
           </ListToolbar>
 
           <DataTable
@@ -387,20 +435,26 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
                     ? replyDraftRows.length > 0
                       ? 'No messages to many homes in progress'
                       : 'No drafts'
-                    : 'No messages match these filters'
+                    : q
+                      ? `No messages match “${q}”`
+                      : 'No messages match these filters'
                 }
                 description={
                   showingDrafts
                     ? 'A message to many homes saves here as a draft until you send it.'
-                    : 'Try another status or category.'
+                    : q
+                      ? 'Try part of the subject. Search looks at the subject line only.'
+                      : 'Try another status or category.'
                 }
                 action={
                   // Only when a filter narrowed the list: an empty Drafts tab
                   // offered "Clear filters" with none set (and the link left
                   // the tab). Clearing on Drafts keeps you on Drafts.
-                  (showingDrafts ? category : category || status) ? (
+                  (showingDrafts ? category || q : category || status || q || recentOnly || failedOnly) ? (
                     <Button asChild variant="secondary" size="sm">
-                      <Link href={showingDrafts ? '/communications?status=draft' : '/communications'}>Clear filters</Link>
+                      <Link href={showingDrafts ? '/communications?status=draft' : '/communications'}>
+                        {q && !category && !status && !recentOnly && !failedOnly ? 'Clear search' : 'Clear filters'}
+                      </Link>
                     </Button>
                   ) : undefined
                 }

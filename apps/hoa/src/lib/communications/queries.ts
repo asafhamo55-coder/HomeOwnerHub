@@ -2,6 +2,7 @@ import type { Database } from '@homeowner-portal/db/types'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/send-status'
+import { FAILED_STATUSES, recentCutoff, subjectSearchPattern } from './search'
 
 type Row<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row']
@@ -49,6 +50,12 @@ export interface ListCommunicationsFilters {
    * delivery figures). Drafts are listed only under the Drafts filter.
    */
   excludeDrafts?: boolean
+  /** Case-insensitive subject search. Escaped here; pass the raw term. */
+  q?: string
+  /** Only messages sent in the last 30 days. */
+  recentOnly?: boolean
+  /** Only messages with at least one failed or bounced recipient. */
+  failedOnly?: boolean
   /** 1-based page. */
   page?: number
   pageSize?: number
@@ -79,7 +86,10 @@ export async function listCommunications(
     .from('communications')
     .select(
       'id, category, subject, status, channels, audience_summary, scheduled_for, sent_at, created_at, ' +
-        'recipients:communication_recipients(delivery_status, rendered_subject, error_message)',
+        'recipients:communication_recipients(delivery_status, rendered_subject, error_message)' +
+        // A second, aliased embed used only to filter: the first keeps every
+        // recipient so the delivery counts stay whole.
+        (filters.failedOnly ? ', failed_only:communication_recipients!inner(delivery_status)' : ''),
       { count: 'exact' },
     )
     .eq('association_id', associationId)
@@ -89,6 +99,10 @@ export async function listCommunications(
   if (filters.category) q = q.eq('category', filters.category)
   if (filters.status) q = q.eq('status', filters.status)
   else if (filters.excludeDrafts) q = q.neq('status', 'draft')
+  const pattern = subjectSearchPattern(filters.q)
+  if (pattern) q = q.ilike('subject', pattern)
+  if (filters.recentOnly) q = q.eq('status', 'sent').gte('sent_at', recentCutoff())
+  if (filters.failedOnly) q = q.in('failed_only.delivery_status', [...FAILED_STATUSES])
 
   const result = await loadOrFail('communications', q.range(from, from + pageSize - 1))
   if (!result.ok) return { ok: false }
@@ -325,4 +339,45 @@ export async function countDrafts(associationId: string): Promise<number | null>
     .eq('status', 'draft')
     .is('deleted_at', null)
   return error ? null : (count ?? 0)
+}
+
+export interface CommunicationsStrip {
+  /** Sent in the last 30 days. Null when it could not be read. */
+  sentRecently: number | null
+  drafts: number | null
+  /** Messages with at least one failed or bounced recipient. */
+  failedDeliveries: number | null
+}
+
+/**
+ * Counts for the summary strip. Three head-only count queries, all scoped to
+ * the association and to rows not deleted: no rows are read, so the 1000-row
+ * cap cannot truncate a figure. A failed count is null, never 0.
+ */
+export async function getCommunicationsStrip(associationId: string): Promise<CommunicationsStrip> {
+  const supabase = await getSupabaseServerClient()
+  const base = () =>
+    supabase
+      .from('communications')
+      .select('id', { count: 'exact', head: true })
+      .eq('association_id', associationId)
+      .is('deleted_at', null)
+  const embed = () =>
+    supabase
+      .from('communications')
+      .select('id, failed_only:communication_recipients!inner(delivery_status)', { count: 'exact', head: true })
+      .eq('association_id', associationId)
+      .is('deleted_at', null)
+      .neq('status', 'draft')
+      .in('failed_only.delivery_status', [...FAILED_STATUSES])
+  const [sent, drafts, failed] = await Promise.all([
+    base().eq('status', 'sent').gte('sent_at', recentCutoff()),
+    base().eq('status', 'draft'),
+    embed(),
+  ])
+  return {
+    sentRecently: sent.error ? null : (sent.count ?? 0),
+    drafts: drafts.error ? null : (drafts.count ?? 0),
+    failedDeliveries: failed.error ? null : (failed.count ?? 0),
+  }
 }
