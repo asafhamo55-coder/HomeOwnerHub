@@ -125,3 +125,27 @@ export function libraryEntries(): LibraryEntry[] {
     ...templateGroups().flatMap((g) => g.items.map((i) => ({ ...i, kind: 'template' as const, group: g.label }))),
   ]
 }
+
+export interface LibraryTopic {
+  id: string
+  label: string
+  /** Matches against title and description, case-insensitive. */
+  match: RegExp
+}
+
+/** Topic chips on the guides index. Each is a keyword match over the existing registry, so a new guide is picked up with no extra data. */
+export const GUIDE_TOPICS: readonly LibraryTopic[] = [
+  { id: 'money', label: 'Assessments and liens', match: /assessment|lien|foreclos|collection|payment|overpayment|late fee|borrow/i },
+  { id: 'meetings', label: 'Meetings and elections', match: /meeting|election|ballot|quorum|proxy|proxies|minutes|vote/i },
+  { id: 'violations', label: 'Fines and violations', match: /fine|violation|hearing|penalt|flag/i },
+  { id: 'records', label: 'Records and resale', match: /records|estoppel|resale|certificate|inspection/i },
+  { id: 'board', label: 'Board duties and powers', match: /board|treasurer|serve|powers|covenant|amend|architectural|dispute|mediation/i },
+]
+
+/** Sections narrowed to one state group (or all) and one topic (or all). Empty sections are dropped when either is set. */
+export function narrowSections(sections: readonly LibrarySection[], groupId: string | null, topic: LibraryTopic | null): LibrarySection[] {
+  return sections
+    .filter((s) => !groupId || s.id === groupId)
+    .map((s) => ({ ...s, items: topic ? s.items.filter((i) => topic.match.test(`${i.title} ${i.description}`)) : s.items }))
+    .filter((s) => (groupId || topic ? s.items.length > 0 : true))
+}

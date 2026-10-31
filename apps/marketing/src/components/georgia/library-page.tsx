@@ -21,6 +21,7 @@ export function LibraryPage({
   sections,
   linkLabel,
   position,
+  featured,
 }: {
   name: string
   path: string
@@ -30,6 +31,7 @@ export function LibraryPage({
   sections: LibrarySection[]
   linkLabel: string
   position: string
+  featured?: LibrarySection['items']
 }) {
   const all = sections.flatMap((s) => s.items)
   return (
@@ -89,7 +91,7 @@ export function LibraryPage({
           </div>
         </header>
 
-        <LibraryFilter sections={sections} linkLabel={linkLabel} kind={path === '/guides' ? 'guide' : 'template'} noun={path === '/guides' ? 'guides' : 'templates'} />
+        <LibraryFilter sections={sections} linkLabel={linkLabel} kind={path === '/guides' ? 'guide' : 'template'} noun={path === '/guides' ? 'guides' : 'templates'} featured={featured} />
 
         <section className="section border-t border-border">
           <div className="container-page">

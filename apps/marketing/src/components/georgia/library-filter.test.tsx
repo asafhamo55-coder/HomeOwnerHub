@@ -73,7 +73,7 @@ describe('library filter', () => {
     expect(hrefs.length).toBeLessThan(total)
     expect(h.querySelector('[role="status"]')?.textContent).toBe(`${hrefs.length} of ${total} guides match`)
     // A section with no match is dropped.
-    expect(h.textContent).not.toContain('Texas')
+    expect([...h.querySelectorAll('h2')].map((e) => e.textContent).join(' ')).not.toContain('Texas')
   })
 
   it('shows an empty state with a way back when nothing matches', () => {
