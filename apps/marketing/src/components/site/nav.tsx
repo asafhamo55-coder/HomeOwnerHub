@@ -2,7 +2,11 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { Menu, X, ChevronDown, Search, ArrowRight } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import {
+  Menu, X, ChevronDown, Search, ArrowRight, Wallet, Scale, Megaphone, FileText, ShieldAlert,
+  Ruler, Sparkles, Route, Landmark, type LucideIcon,
+} from 'lucide-react'
 import { CommandPalette } from './command-palette'
 import { cn } from '../../lib/cn'
 import { Logo, SIGN_IN_URL, SIGN_UP_URL } from './brand'
@@ -10,36 +14,46 @@ import { TrackedLink } from './tracked-link'
 
 // Grouped Features menu. Every href is a page that exists in this app
 // (nav.test.tsx checks the list against app/**/page.tsx).
-export const FEATURE_GROUPS: { title: string; items: { href: string; label: string; blurb: string }[] }[] = [
+export const FEATURE_GROUPS: { title: string; items: { href: string; label: string; blurb: string; icon: LucideIcon }[] }[] = [
   {
     title: 'Money',
     items: [
-      { href: '/features/dues-and-accounting', label: 'Dues and accounting', blurb: 'Balances, late fees, bills and books.' },
-      { href: '/georgia/late-fee-limits', label: 'Late fee limits', blurb: 'What Georgia lets you charge.' },
+      { href: '/features/dues-and-accounting', label: 'Dues and accounting', blurb: 'Balances, late fees, bills and books.', icon: Wallet },
+      { href: '/georgia/late-fee-limits', label: 'Late fee limits', blurb: 'What Georgia lets you charge.', icon: Scale },
     ],
   },
   {
     title: 'Communication',
     items: [
-      { href: '/features/announcements', label: 'Announcements', blurb: 'Email, text and Spanish in one go.' },
-      { href: '/templates', label: 'Templates', blurb: 'Notices and letters to start from.' },
+      { href: '/features/announcements', label: 'Announcements', blurb: 'Email, text and Spanish in one go.', icon: Megaphone },
+      { href: '/templates', label: 'Templates', blurb: 'Notices and letters to start from.', icon: FileText },
     ],
   },
   {
     title: 'Rules and requests',
     items: [
-      { href: '/features/violations', label: 'Violations', blurb: 'Notice steps, from photo to letter.' },
-      { href: '/features/architecture-requests', label: 'Architecture requests', blurb: 'Review a project against your rules.' },
+      { href: '/features/violations', label: 'Violations', blurb: 'Notice steps, from photo to letter.', icon: ShieldAlert },
+      { href: '/features/architecture-requests', label: 'Architecture requests', blurb: 'Review a project against your rules.', icon: Ruler },
     ],
   },
   {
     title: 'AI and law',
     items: [
-      { href: '/features/ask-your-documents', label: 'Ask your documents', blurb: 'Cited answers from your CC&R.' },
-      { href: '/roadmap', label: 'AI workflows', blurb: 'What the AI does today and what is next.' },
-      { href: '/states', label: 'State laws', blurb: 'Georgia, Florida, California and Texas.' },
+      { href: '/features/ask-your-documents', label: 'Ask your documents', blurb: 'Cited answers from your CC&R.', icon: Sparkles },
+      { href: '/roadmap', label: 'AI workflows', blurb: 'What the AI does today and what is next.', icon: Route },
+      { href: '/states', label: 'State laws', blurb: 'Georgia, Florida, California and Texas.', icon: Landmark },
     ],
   },
+]
+
+const isActive = (pathname: string | null, href: string) =>
+  !!pathname && (pathname === href || pathname.startsWith(href + '/'))
+
+const MORE_LINKS = [
+  { href: '/security', label: 'Security' },
+  { href: '/docs', label: 'Docs' },
+  { href: '/roadmap', label: 'Roadmap' },
+  { href: '/status', label: 'Status' },
 ]
 
 const links = [
@@ -60,6 +74,18 @@ export function Nav() {
   const wasOpen = useRef(false)
   const featuresTriggerRef = useRef<HTMLButtonElement>(null)
   const focusFirst = useRef(false)
+  const pathname = usePathname()
+
+  // Outside pointer press closes the Features menu (touch laptops have no
+  // mouseleave to rely on).
+  useEffect(() => {
+    if (!featuresOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (!featuresRef.current?.contains(e.target as Node)) setFeaturesOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [featuresOpen])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -172,28 +198,16 @@ export function Nav() {
   }
 
   const solid = scrolled || open
+  const navLink =
+    'relative flex min-h-11 items-center rounded-xl px-3.5 text-base font-medium text-foreground transition-colors hover:bg-subtle hover:text-primary'
 
   return (
     <header
       className={cn(
         'fixed inset-x-0 top-0 z-50 border-b bg-surface/95 backdrop-blur-lg print:hidden transition-[border-color,box-shadow] duration-200',
-        solid ? 'border-border shadow-[0_10px_30px_-22px_hsl(var(--foreground)/0.3)]' : 'border-transparent',
+        solid ? 'border-border shadow-[0_10px_30px_-18px_hsl(var(--foreground)/0.35)]' : 'border-transparent',
       )}
     >
-      <div className="util-bar" data-hidden={scrolled ? 'true' : 'false'}>
-        <div className="container-page flex h-full items-center justify-end gap-5 text-[13px] text-foreground-secondary">
-          {[
-            { href: '/security', label: 'Security' },
-            { href: '/docs', label: 'Docs' },
-            { href: '/roadmap', label: 'Roadmap' },
-            { href: '/status', label: 'Status' },
-          ].map((l) => (
-            <Link key={l.href} href={l.href} className="inline-flex min-h-8 items-center transition-colors hover:text-foreground hover:underline">
-              {l.label}
-            </Link>
-          ))}
-        </div>
-      </div>
       <div className="container-page flex h-16 items-center justify-between gap-4 md:h-[72px]">
         <Link href="/" className="flex items-center gap-2.5 rounded-lg" aria-label="HomeownerHub home">
           <Logo />
@@ -216,7 +230,7 @@ export function Nav() {
               aria-expanded={featuresOpen}
               aria-controls="nav-features"
               onClick={() => setFeaturesOpen((v) => !v)}
-              className="flex min-h-11 items-center gap-1 rounded-xl px-3.5 text-base font-medium text-foreground transition-colors hover:bg-subtle"
+              className={cn(navLink, 'gap-1', featuresOpen && 'bg-subtle text-primary')}
             >
               Features
               <ChevronDown
@@ -228,27 +242,61 @@ export function Nav() {
               id="nav-features"
               onKeyDown={onItemKey}
               className={cn(
-                'absolute left-0 top-full w-[560px] pt-2 transition-[opacity,transform] duration-200',
-                featuresOpen ? 'visible translate-y-0 opacity-100' : 'invisible -translate-y-1 opacity-0',
+                'mega absolute left-1/2 top-full w-[920px] max-w-[calc(100vw-2rem)] -translate-x-[38%] pt-3',
+                featuresOpen ? 'mega-open' : 'mega-closed',
               )}
             >
-              <div className="grid grid-cols-2 gap-x-2 gap-y-3 rounded-2xl border border-border bg-elevated p-3 shadow-lg">
-                {FEATURE_GROUPS.map((g) => (
-                  <div key={g.title}>
-                    <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-muted">{g.title}</p>
-                    {g.items.map((it) => (
-                      <Link
-                        key={it.label}
-                        href={it.href}
-                        onClick={() => setFeaturesOpen(false)}
-                        className="flex flex-col rounded-xl px-3 py-2 transition-colors hover:bg-subtle"
-                      >
-                        <span className="text-[15px] font-semibold text-foreground">{it.label}</span>
-                        <span className="text-sm leading-snug text-muted">{it.blurb}</span>
-                      </Link>
-                    ))}
+              <div className="grid grid-cols-[1fr_1fr_17rem] gap-2 rounded-3xl border border-border bg-elevated p-3 shadow-[0_30px_70px_-30px_hsl(var(--primary)/0.45)]">
+                <div className="col-span-2 grid grid-cols-2 gap-x-2 gap-y-2 p-2">
+                  {FEATURE_GROUPS.map((g) => (
+                    <div key={g.title}>
+                      <p className="px-3 pb-1 pt-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{g.title}</p>
+                      {g.items.map((it) => (
+                        <Link
+                          key={it.label}
+                          href={it.href}
+                          onClick={() => setFeaturesOpen(false)}
+                          aria-current={isActive(pathname, it.href) ? 'page' : undefined}
+                          className="group flex items-start gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-primary-subtle aria-[current=page]:bg-primary-subtle"
+                        >
+                          <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary transition-colors group-hover:bg-primary group-hover:text-primary-fg">
+                            <it.icon className="h-5 w-5" aria-hidden />
+                          </span>
+                          <span className="flex flex-col">
+                            <span className="text-base font-semibold leading-snug text-foreground">{it.label}</span>
+                            <span className="text-sm leading-snug text-muted">{it.blurb}</span>
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <div className="tile-grad flex flex-col justify-between rounded-2xl p-6 text-[#fff]">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#e6defc]">Built in</p>
+                    <p className="mt-3 text-xl font-semibold leading-snug">Georgia law, cited in every answer</p>
+                    <p className="mt-2 text-sm leading-relaxed text-[#e6defc]">
+                      Read what SB 406 and the Georgia POA Act mean for your board, in plain English.
+                    </p>
                   </div>
-                ))}
+                  <div className="mt-6 flex flex-col gap-2">
+                    <Link
+                      href="/georgia"
+                      onClick={() => setFeaturesOpen(false)}
+                      className="inline-flex min-h-11 items-center justify-between rounded-xl bg-[#fff] px-4 text-[15px] font-semibold text-[#3b1ab5] transition-colors hover:bg-[#e9e3ff]"
+                    >
+                      See Georgia guides
+                      <ArrowRight className="h-4 w-4" aria-hidden />
+                    </Link>
+                    <Link
+                      href="/demo"
+                      onClick={() => setFeaturesOpen(false)}
+                      className="inline-flex min-h-11 items-center px-1 text-[15px] font-medium text-[#fff] underline-offset-4 hover:underline"
+                    >
+                      Book a demo
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -257,7 +305,8 @@ export function Nav() {
             <Link
               key={l.href}
               href={l.href}
-              className="flex min-h-11 items-center rounded-xl px-3.5 text-base font-medium text-foreground transition-colors hover:bg-subtle"
+              aria-current={isActive(pathname, l.href) ? 'page' : undefined}
+              className={cn(navLink, 'aria-[current=page]:text-primary aria-[current=page]:after:absolute aria-[current=page]:after:inset-x-3.5 aria-[current=page]:after:bottom-1 aria-[current=page]:after:h-0.5 aria-[current=page]:after:rounded aria-[current=page]:after:bg-primary')}
             >
               {l.label}
             </Link>
@@ -271,12 +320,9 @@ export function Nav() {
             aria-label="Search the site"
             className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted transition-colors hover:bg-subtle hover:text-foreground"
           >
-            <Search className="h-4 w-4" aria-hidden />
+            <Search className="h-5 w-5" aria-hidden />
           </button>
-          <a
-            href={SIGN_IN_URL}
-            className="inline-flex min-h-11 items-center rounded-xl px-3.5 text-base font-medium text-foreground transition-colors hover:bg-subtle"
-          >
+          <a href={SIGN_IN_URL} className={navLink}>
             Sign in
           </a>
           <TrackedLink href={SIGN_UP_URL} event="pilot_cta_click" position="header" className="btn btn-primary">
@@ -288,13 +334,14 @@ export function Nav() {
           <button
             ref={toggleRef}
             type="button"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-foreground hover:bg-subtle"
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-border-strong px-3.5 text-base font-semibold text-foreground hover:bg-subtle"
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? 'Close menu' : 'Open menu'}
             aria-expanded={open}
             aria-controls="mobile-menu"
           >
-            {open ? <X className="h-6 w-6" aria-hidden /> : <Menu className="h-6 w-6" aria-hidden />}
+            {open ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
+            <span aria-hidden>{open ? 'Close' : 'Menu'}</span>
           </button>
         </div>
       </div>
@@ -303,46 +350,68 @@ export function Nav() {
         <div
           id="mobile-menu"
           ref={menuRef}
-          className="h-[calc(100dvh-4rem)] overflow-y-auto border-t border-border bg-surface md:hidden"
+          className="mobile-sheet absolute inset-x-0 top-full h-[calc(100dvh-4rem)] flex flex-col border-t border-border bg-surface md:hidden"
         >
-          <nav aria-label="Mobile" className="container-page flex flex-col py-4">
-            {FEATURE_GROUPS.map((g) => (
-              <div key={g.title} className="mb-2">
-                <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-muted">{g.title}</p>
-                {g.items.map((it) => (
+          <nav aria-label="Mobile" className="flex min-h-0 flex-1 flex-col">
+            <div className="container-page flex-1 overflow-y-auto pb-6 pt-2">
+              {FEATURE_GROUPS.map((g) => (
+                <div key={g.title} className="border-b border-border py-3">
+                  <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{g.title}</p>
+                  {g.items.map((it) => (
+                    <Link
+                      key={it.label}
+                      href={it.href}
+                      onClick={() => setOpen(false)}
+                      aria-current={isActive(pathname, it.href) ? 'page' : undefined}
+                      className="flex min-h-[52px] items-center gap-3 rounded-xl px-1 text-[17px] font-semibold text-foreground active:bg-subtle aria-[current=page]:text-primary"
+                    >
+                      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-subtle text-primary">
+                        <it.icon className="h-5 w-5" aria-hidden />
+                      </span>
+                      {it.label}
+                    </Link>
+                  ))}
+                </div>
+              ))}
+              <div className="border-b border-border py-3">
+                {links.map((l) => (
                   <Link
-                    key={it.label}
-                    href={it.href}
+                    key={l.href}
+                    href={l.href}
                     onClick={() => setOpen(false)}
-                    className="flex flex-col rounded-xl px-3 py-2.5 hover:bg-subtle"
+                    aria-current={isActive(pathname, l.href) ? 'page' : undefined}
+                    className="flex min-h-[52px] items-center justify-between rounded-xl px-1 text-[17px] font-semibold text-foreground active:bg-subtle aria-[current=page]:text-primary"
                   >
-                    <span className="text-lg font-semibold text-foreground">{it.label}</span>
-                    <span className="text-sm text-muted">{it.blurb}</span>
+                    {l.label}
+                    <ArrowRight className="h-5 w-5 text-muted" aria-hidden />
                   </Link>
                 ))}
               </div>
-            ))}
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={() => setOpen(false)}
-                className="flex items-center justify-between rounded-xl px-3 py-4 text-xl font-semibold tracking-[-0.01em] text-foreground hover:bg-subtle"
-              >
-                {l.label}
-                <ArrowRight className="h-5 w-5 text-muted" aria-hidden />
-              </Link>
-            ))}
-            <div className="mt-6 grid gap-3">
-              <TrackedLink href={SIGN_UP_URL} event="pilot_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-primary btn-lg">
-                Start free trial
-              </TrackedLink>
-              <TrackedLink href="/demo" event="demo_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-secondary btn-lg">
+              <div className="flex flex-wrap gap-x-5 pt-3">
+                {MORE_LINKS.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    onClick={() => setOpen(false)}
+                    className="inline-flex min-h-12 items-center text-base text-foreground-secondary"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="border-t border-border bg-surface px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-12px_30px_-20px_hsl(var(--foreground)/0.35)]">
+              <div className="mx-auto grid max-w-md grid-cols-[1fr_1.4fr] gap-3">
+                <a href={SIGN_IN_URL} className="btn btn-secondary btn-lg">
+                  Sign in
+                </a>
+                <TrackedLink href={SIGN_UP_URL} event="pilot_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-primary btn-lg">
+                  Start free trial
+                </TrackedLink>
+              </div>
+              <TrackedLink href="/demo" event="demo_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="mx-auto mt-1 flex min-h-12 max-w-md items-center justify-center text-base font-semibold text-primary underline-offset-4 hover:underline">
                 Book a demo
               </TrackedLink>
-              <a href={SIGN_IN_URL} className="btn btn-ghost btn-lg">
-                Sign in
-              </a>
             </div>
           </nav>
         </div>

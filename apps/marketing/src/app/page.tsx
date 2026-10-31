@@ -3,6 +3,7 @@ import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { Hero } from '@/components/site/hero'
 import { FeatureExplorer } from '@/components/site/feature-explorer'
+import { ByHand } from '@/components/site/by-hand'
 import { UpAndRunning } from '@/components/site/up-and-running'
 import { StateLawBuiltIn } from '@/components/site/state-law-built-in'
 import { TrustSecurity } from '@/components/site/trust-security'
@@ -34,6 +35,7 @@ export default function HomePage() {
     <main id="main-content">
       <Hero />
       <FeatureExplorer />
+      <ByHand />
       <UpAndRunning />
       <StateLawBuiltIn />
       <TrustSecurity />

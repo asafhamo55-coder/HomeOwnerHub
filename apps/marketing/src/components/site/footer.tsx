@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Logo, SIGN_IN_URL } from './brand'
+import { Logo, SIGN_IN_URL, SIGN_UP_URL } from './brand'
+import { TrackedLink } from './tracked-link'
 import { HOA_PRODUCT_NAME, isOfferedHref } from '@/lib/hubs'
 
 // Three-column editorial footer. Confidence over density: no padding
@@ -9,6 +10,13 @@ const allProduct = [
   { label: HOA_PRODUCT_NAME, href: '/hoa' },
   { label: 'PM Hub', href: '/landlords' },
   { label: 'Eviction Hub', href: '/eviction' },
+  { label: 'Pricing', href: '/pricing' },
+  { label: 'Compare', href: '/compare' },
+  { label: 'For attorneys and CPAs', href: '/professionals' },
+  { label: 'Sign in', href: SIGN_IN_URL },
+]
+
+const allLearn = [
   { label: 'State laws', href: '/states' },
   { label: 'Georgia SB 406 guides', href: '/georgia' },
   { label: 'SB 406 readiness check', href: '/georgia/readiness' },
@@ -16,14 +24,11 @@ const allProduct = [
   { label: 'Free HOA templates', href: '/templates' },
   { label: 'HOA board agenda template', href: '/templates/hoa-board-meeting-agenda' },
   { label: 'HOA treasurer duties', href: '/guides/hoa-treasurer-duties' },
-  { label: 'For attorneys and CPAs', href: '/professionals' },
-  { label: 'Pricing', href: '/pricing' },
-  { label: 'Compare', href: '/compare' },
-  { label: 'Sign in', href: SIGN_IN_URL },
 ]
 
 // BL-097: PM and Eviction are not offered right now.
 const product = allProduct.filter((l) => isOfferedHref(l.href))
+const learn = allLearn.filter((l) => isOfferedHref(l.href))
 
 const company = [
   { label: 'About', href: '/about' },
@@ -46,25 +51,29 @@ export function Footer() {
   return (
     <footer className="section-night on-dark mt-2 text-foreground print:hidden">
       <div className="container-page py-16 md:py-20">
-        <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr]">
-          <div>
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1.2fr_1fr]">
+          <div className="sm:col-span-2 lg:col-span-1">
             <Logo />
             <p className="mt-7 max-w-md text-[28px] font-semibold leading-[1.1] tracking-[-0.03em] text-foreground md:text-[34px]">
               AI runs the paperwork.{' '}
               <span className="t-serif text-primary">The board runs the HOA.</span>
             </p>
-            <p className="mt-6 max-w-sm text-[15px] leading-relaxed text-muted">
+            <p className="mt-6 max-w-sm text-[16px] leading-relaxed text-muted">
               Every AI workflow is labeled by quality bar, and its answers cite the source. We tell you what’s
               production, what’s beta, and what’s demo.
             </p>
+            <TrackedLink href={SIGN_UP_URL} event="pilot_cta_click" position="footer" className="btn btn-primary mt-7">
+              Start free trial
+            </TrackedLink>
           </div>
 
           <FooterCol title="Product" label="Product links" links={product} />
+          <FooterCol title="Learn" label="Learn links" links={learn} />
           <FooterCol title="Company" label="Company links" links={company} />
         </div>
 
         <div className="mt-16 flex flex-col items-start justify-between gap-4 border-t border-border/70 pt-6 md:flex-row md:items-center">
-          <p className="text-sm text-muted">
+          <p className="text-[15px] text-muted">
             © {new Date().getFullYear()} HomeownerHub
           </p>
           <ul className="flex flex-wrap gap-x-5 gap-y-0">
@@ -72,7 +81,7 @@ export function Footer() {
               <li key={l.href}>
                 <Link
                   href={l.href}
-                  className="inline-flex min-h-11 items-center text-sm text-muted transition-colors hover:text-foreground"
+                  className="inline-flex min-h-11 items-center text-[15px] text-muted transition-colors hover:text-foreground"
                 >
                   {l.label}
                 </Link>
@@ -106,13 +115,13 @@ function FooterCol({
         {links.map((l) => (
           <li key={l.href}>
             {l.href.startsWith('http') ? (
-              <a href={l.href} className="inline-flex min-h-11 items-center text-[15px] text-foreground-secondary transition-colors hover:text-foreground">
+              <a href={l.href} className="inline-flex min-h-11 items-center text-base text-foreground-secondary transition-colors hover:text-foreground">
                 {l.label}
               </a>
             ) : (
               <Link
                 href={l.href}
-                className="inline-flex min-h-11 items-center text-[15px] text-foreground-secondary transition-colors hover:text-foreground"
+                className="inline-flex min-h-11 items-center text-base text-foreground-secondary transition-colors hover:text-foreground"
               >
                 {l.label}
               </Link>

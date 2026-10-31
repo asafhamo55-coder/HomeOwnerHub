@@ -142,7 +142,7 @@ describe('round 4: shipped features are on the site, each with proof', () => {
   })
 
   it('/pricing lists the round-4 features', () => {
-    const src = read('app/pricing/page.tsx')
+    const src = read('app/pricing/page.tsx') + read('components/site/plan-compare.tsx')
     for (const s of ['Create from email', 'Resident assistant', 'Collections letters', 'phone preview']) {
       expect(src.toLowerCase(), s).toContain(s.toLowerCase())
     }
@@ -191,7 +191,7 @@ describe('State law coverage (BL-157)', () => {
   // law is ONE section, Georgia's SB 406 hub one card among four.
   it('the home page leads with the product and has one state-law section, in the agreed order', () => {
     const home = code('app/page.tsx')
-    const order = ['<Hero', '<FeatureExplorer', '<UpAndRunning', '<StateLawBuiltIn', '<TrustSecurity', '<PricingTeaser', '<HomeFaq', '<CtaCloser']
+    const order = ['<Hero', '<FeatureExplorer', '<ByHand', '<UpAndRunning', '<StateLawBuiltIn', '<TrustSecurity', '<PricingTeaser', '<HomeFaq', '<CtaCloser']
     const at = order.map((t) => home.indexOf(t))
     expect(at.every((i) => i >= 0), order.join(' ')).toBe(true)
     expect([...at].sort((x, y) => x - y)).toEqual(at)

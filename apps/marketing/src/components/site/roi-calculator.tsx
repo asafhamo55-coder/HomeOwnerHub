@@ -1,133 +1,90 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Calculator, ArrowRight, TrendingUp } from 'lucide-react'
+import { useId, useMemo, useState } from 'react'
+import { Calculator, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { cn } from '@/lib/cn'
-import { HOA_PRODUCT_NAME } from '@/lib/hubs'
-import { ROI_MIN_DOORS, annualBillUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
+import { annualBillUsd, monthlyBillUsd } from '@/lib/hoa-pricing'
 
-// Prices come from lib/hoa-pricing.ts, which a unit test pins to what
-// Stripe checkout charges (BL-042). The "annual" figure is the annual plan
-// (Complete, once the BL-104 band pricing is live).
-function selectTier(doors: number): { name: string; monthly: number; annual: number } {
-  const name = doors < ROI_MIN_DOORS ? `${HOA_PRODUCT_NAME} (minimum)` : HOA_PRODUCT_NAME
-  return { name, monthly: monthlyBillUsd(doors), annual: annualBillUsd(doors) }
-}
+// The plan price comes from lib/hoa-pricing.ts, pinned to checkout (BL-042).
+// Everything else is the board's own estimate, entered with the sliders and
+// labelled as such on the page. Nothing here is a measured result.
 
 function fmtUsd(n: number): string {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 }
 
 export function RoiCalculator() {
-  const [doors, setDoors] = useState(180)
-  const [feePerDoorPerMo, setFeePerDoorPerMo] = useState(10)
-  const [hoursPerWeek, setHoursPerWeek] = useState(8)
+  const [doors, setDoors] = useState(150)
+  const [replacedPerDoor, setReplacedPerDoor] = useState(3)
+  const [hoursPerWeek, setHoursPerWeek] = useState(6)
+  const [valuePerHour, setValuePerHour] = useState(25)
+  const [pctSaved, setPctSaved] = useState(30)
 
-  const { tier, hhAnnual, currentAnnualMgmt, volunteerHoursAnnualValue, totalSavings, paybackWeeks } = useMemo(() => {
-    const tier = selectTier(doors)
-    const hhAnnual = tier.annual
-    const currentAnnualMgmt = doors * feePerDoorPerMo * 12
-    const volunteerHoursAnnualValue = hoursPerWeek * 52 * 50 // $50/hr — financial-analyst opportunity cost
-    const totalSavings = currentAnnualMgmt + volunteerHoursAnnualValue - hhAnnual
-    const weeklyHhCost = hhAnnual / 52
-    const weeklyCurrent = currentAnnualMgmt / 52 + (hoursPerWeek * 50)
-    const paybackWeeks = weeklyCurrent > 0 ? Math.max(1, Math.ceil(hhAnnual / weeklyCurrent)) : 999
-    return { tier, hhAnnual, currentAnnualMgmt, volunteerHoursAnnualValue, totalSavings, paybackWeeks }
-  }, [doors, feePerDoorPerMo, hoursPerWeek])
+  const r = useMemo(() => {
+    const plan = annualBillUsd(doors)
+    const planMonthly = monthlyBillUsd(doors)
+    const replaced = doors * replacedPerDoor * 12
+    const hoursValue = hoursPerWeek * 52 * valuePerHour * (pctSaved / 100)
+    const net = replaced + hoursValue - plan
+    return { plan, planMonthly, replaced, hoursValue, net, hoursBack: Math.round(hoursPerWeek * 52 * (pctSaved / 100)) }
+  }, [doors, replacedPerDoor, hoursPerWeek, valuePerHour, pctSaved])
 
   return (
-    <section className="border-t border-border/60 py-24 md:py-32" id="roi">
+    <section className="section-warm section scroll-mt-20" id="roi" aria-labelledby="roi-h">
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <div className="mx-auto flex max-w-fit items-center gap-2 rounded-full border border-border/70 bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground-secondary ring-soft">
-            <Calculator className="h-3.5 w-3.5 text-primary" />
-            ROI calculator
-          </div>
-          <h2 className="mt-5 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+          <p className="eyebrow">
+            <Calculator className="h-4 w-4" aria-hidden />
+            Estimate calculator
+          </p>
+          <h2 id="roi-h" className="t-h2 mt-4 text-foreground">
             Numbers to take to the board.
           </h2>
-          <p className="mt-4 text-base text-muted">
-            Three sliders. Your annual savings, the right plan, and payback in
-            weeks.
+          <p className="t-lead mt-4">
+            Set each slider to your own situation. Only the plan price is fixed. The rest is your estimate.
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 rounded-3xl border border-border/70 bg-surface p-6 md:grid-cols-[1.1fr,1fr] md:p-10 ring-card">
-          <div className="space-y-7">
-            <Slider
-              label="Doors in your community"
-              min={20}
-              max={1000}
-              step={10}
-              value={doors}
-              onChange={setDoors}
-              display={`${doors}`}
-              hint={`Tier: ${tier.name} · ${fmtUsd(tier.monthly)}/mo`}
-            />
-            <Slider
-              label="What you'd pay a management company"
-              min={0}
-              max={25}
-              step={1}
-              value={feePerDoorPerMo}
-              onChange={setFeePerDoorPerMo}
-              display={`${fmtUsd(feePerDoorPerMo)}/door/mo`}
-              hint={`= ${fmtUsd(doors * feePerDoorPerMo)} / month`}
-            />
-            <Slider
-              label="Volunteer hours your board spends weekly"
-              min={0}
-              max={30}
-              step={1}
-              value={hoursPerWeek}
-              onChange={setHoursPerWeek}
-              display={`${hoursPerWeek} hrs / wk`}
-              hint="Valued at $50/hr, a typical opportunity cost"
-            />
+        <div className="mx-auto mt-12 grid max-w-5xl gap-6 rounded-3xl border border-border bg-surface p-6 ring-card md:grid-cols-[1.15fr,1fr] md:p-10">
+          <div className="space-y-8">
+            <Slider label="Homes in your community" min={10} max={500} step={5} value={doors} onChange={setDoors} display={`${doors}`} hint={`Complete plan: ${fmtUsd(r.planMonthly)} a month, ${fmtUsd(r.plan)} paid yearly.`} />
+            <Slider label="Cost today that Complete would replace" min={0} max={15} step={1} value={replacedPerDoor} onChange={setReplacedPerDoor} display={`${fmtUsd(replacedPerDoor)} per home a month`} hint={`Bookkeeping, mailing or software. About ${fmtUsd(doors * replacedPerDoor)} a month. Set to $0 if none.`} />
+            <Slider label="Board volunteer hours on admin" min={0} max={30} step={1} value={hoursPerWeek} onChange={setHoursPerWeek} display={`${hoursPerWeek} hours a week`} />
+            <Slider label="Share of those hours it could save" min={0} max={80} step={5} value={pctSaved} onChange={setPctSaved} display={`${pctSaved}%`} hint="Our assumption, not a measured result. Lower it if you are unsure." />
+            <Slider label="What an hour of your time is worth" min={0} max={100} step={5} value={valuePerHour} onChange={setValuePerHour} display={`${fmtUsd(valuePerHour)} an hour`} hint="Your estimate. Volunteers are unpaid, so $0 is a fair answer too." />
           </div>
 
-          <div className="flex flex-col justify-between gap-6 rounded-2xl bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/40 p-6 ring-1 ring-primary/15">
+          <div className="flex flex-col justify-between gap-6 rounded-2xl bg-primary-subtle p-6">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                Annual savings with HomeownerHub
+              <p className="text-sm font-semibold uppercase tracking-wider text-primary">Estimated yearly difference</p>
+              <p className="mt-2 text-5xl font-semibold tracking-tight text-foreground tabular-nums" aria-live="polite">
+                {r.net >= 0 ? fmtUsd(r.net) : `${fmtUsd(-r.net)} more`}
               </p>
-              <p className="mt-2 text-5xl font-semibold tracking-tight text-foreground md:text-6xl">
-                {fmtUsd(Math.max(0, totalSavings))}
-              </p>
-              <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-success">
-                <TrendingUp className="h-3.5 w-3.5" />
-                Payback in {paybackWeeks} week{paybackWeeks === 1 ? '' : 's'}
+              <p className="mt-2 text-base text-foreground-secondary">
+                {r.net >= 0
+                  ? `About ${r.hoursBack} volunteer hours a year back as well.`
+                  : 'On these inputs the plan costs more than it saves in money. Adjust the sliders to match your board.'}
               </p>
             </div>
-
-            <dl className="grid gap-2 text-sm">
-              <Line label="Management cost (annual)" value={fmtUsd(currentAnnualMgmt)} />
-              <Line label="Volunteer hours (annual @ $50/hr)" value={fmtUsd(volunteerHoursAnnualValue)} />
-              <Line label="HomeownerHub (annual plan)" value={`− ${fmtUsd(hhAnnual)}`} />
-              <div className="mt-1 flex items-baseline justify-between border-t border-border/70 pt-2">
-                <dt className="text-xs font-semibold uppercase tracking-wider text-foreground-secondary">
-                  Net savings
-                </dt>
-                <dd className="text-base font-semibold text-foreground">
-                  {fmtUsd(Math.max(0, totalSavings))}
-                </dd>
+            <dl className="space-y-2 text-base">
+              <Line label="Costs it replaces" value={fmtUsd(r.replaced)} />
+              <Line label="Time saved, valued" value={fmtUsd(r.hoursValue)} />
+              <Line label="Complete, paid yearly" value={`- ${fmtUsd(r.plan)}`} />
+              <div className="flex items-baseline justify-between border-t border-border-strong pt-3 font-semibold text-foreground">
+                <dt>Estimated difference</dt>
+                <dd className="tabular-nums">{r.net >= 0 ? fmtUsd(r.net) : `- ${fmtUsd(-r.net)}`}</dd>
               </div>
             </dl>
-
-            <Link
-              href="/demo"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover"
-            >
+            <Link href="/demo" className="btn btn-primary">
               Take this to the board
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </div>
         </div>
 
-        <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted">
-          Estimates only. Management-company fees vary by region and scope.
-          HomeownerHub pricing is fixed and published on this page.
+        <p className="mx-auto mt-8 max-w-3xl text-center text-base text-muted">
+          This is an estimate built from the numbers you enter, not a promise or a measured result. Essentials costs
+          less than Complete, so a smaller plan may suit you. Your costs and hours will differ.
         </p>
       </div>
     </section>
@@ -135,56 +92,39 @@ export function RoiCalculator() {
 }
 
 function Slider({
-  label,
-  min,
-  max,
-  step,
-  value,
-  onChange,
-  display,
-  hint,
+  label, min, max, step, value, onChange, display, hint,
 }: {
-  label: string
-  min: number
-  max: number
-  step: number
-  value: number
-  onChange: (v: number) => void
-  display: string
-  hint?: string
+  label: string; min: number; max: number; step: number; value: number
+  onChange: (v: number) => void; display: string; hint?: string
 }) {
+  const id = useId()
   return (
     <div>
-      <div className="flex items-baseline justify-between">
-        <label className="text-sm font-semibold text-foreground">{label}</label>
-        <span className="font-mono text-sm font-semibold text-primary">{display}</span>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+        <label htmlFor={id} className="text-base font-semibold text-foreground">{label}</label>
+        <span className="text-base font-semibold text-primary tabular-nums">{display}</span>
       </div>
       <input
+        id={id}
         type="range"
         min={min}
         max={max}
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className={cn(
-          'mt-3 h-2 w-full appearance-none rounded-full bg-subtle outline-none',
-          '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5',
-          '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary',
-          '[&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer',
-          '[&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full',
-          '[&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer',
-        )}
+        aria-valuetext={display}
+        className="mt-2 h-11 w-full cursor-pointer accent-[#4b27c9]"
       />
-      {hint && <p className="mt-2 text-sm text-muted">{hint}</p>}
+      {hint && <p className="text-base text-muted">{hint}</p>}
     </div>
   )
 }
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between">
-      <dt className="text-sm text-foreground-secondary">{label}</dt>
-      <dd className="font-mono text-xs font-medium text-foreground">{value}</dd>
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="text-foreground-secondary">{label}</dt>
+      <dd className="font-medium tabular-nums text-foreground">{value}</dd>
     </div>
   )
 }
