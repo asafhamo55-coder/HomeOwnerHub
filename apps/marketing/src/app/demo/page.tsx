@@ -1,16 +1,15 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import {
-  Calendar,
-  FileText,
-  Users,
-  ShieldCheck,
   ArrowRight,
   Check,
   X,
 } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
-import { HOA_PRICE_COPY } from '@/lib/hoa-pricing'
+import { TrackedLink } from '@/components/site/tracked-link'
+import { SIGN_UP_URL } from '@/components/site/brand'
+import { HOA_PRICE_COPY, TRIAL_DAYS } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
 import { PAGE_META } from '@/lib/page-meta'
 import { STATE_COVERAGE_SENTENCE } from '@/lib/state-law'
@@ -18,27 +17,19 @@ import { DemoForm } from './demo-form'
 
 export const metadata: Metadata = pageMetadata({ ...PAGE_META['/demo']!, path: '/demo' })
 
-const agenda = [
+const steps = [
   {
-    Icon: FileText,
-    title: 'You send us your CC&R',
-    // The form has three text fields and no upload: the PDF comes by email.
-    body: 'Fill in the form and reply to our email with the PDF. We load it before the call so the demo runs on your data, not ours.',
+    title: 'We reply within 1 business day',
+    body: 'We email you to find a time that suits your board. In person in metro Atlanta, by video everywhere else.',
   },
   {
-    Icon: Users,
-    title: 'We show up at your next board meeting',
-    body: 'In person in metro Atlanta; by video everywhere else.',
+    title: 'You send your CC&R and bylaws',
+    // The form has no upload: the PDFs come by reply email.
+    body: 'Reply to our email with the PDFs. We load them before the call so the demo runs on your rules, not ours.',
   },
   {
-    Icon: Calendar,
-    title: 'Board votes at the next meeting',
-    body: 'No high-pressure close. Every plan starts with a 30-day free trial, no card needed. Your board decides on its own timeline.',
-  },
-  {
-    Icon: ShieldCheck,
-    title: 'No data migration',
-    body: 'We don\'t need integrations or a service rep. Start with your documents. When you\'re ready, the board imports its own roster from a spreadsheet and opens the books in Accounting.',
+    title: 'We show it on your documents',
+    body: 'Twenty minutes. Your board decides afterwards, on its own timeline. Nothing is charged and nothing converts by itself.',
   },
 ]
 
@@ -49,64 +40,75 @@ export default function DemoPage() {
     <main id="main-content">
 
       <section className="hero-wash relative overflow-hidden pb-20 pt-28 md:pt-36">
-        
         <div className="container-page">
-          <div className="grid items-start gap-12 md:grid-cols-[1.05fr,1fr]">
+          <div className="grid items-start gap-12 lg:grid-cols-[1.05fr,1fr] lg:gap-16">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3.5 py-1.5 text-xs font-medium text-foreground-secondary ring-soft">
-                <Calendar className="h-3.5 w-3.5 text-accent-fg" aria-hidden />
-                20 minutes. Your CC&R. Your decision.
-              </div>
-              <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
-                Send your CC&R today.{' '}
-                Demo the board on Tuesday.
+              <p className="eyebrow">Book a demo</p>
+              <h1 className="mt-5 text-[clamp(2.25rem,1.4rem+2.5vw,3.5rem)] font-medium leading-[1.06] tracking-[-0.03em] text-foreground">
+                See your own rules answered in 20 minutes.
               </h1>
               <p className="t-lead mt-5 max-w-xl">
-                We pre-load your CC&R and bylaws before the call, so the board
-                asks about its own rules and watches the AI cite the answer.
+                Send us your CC&R and bylaws. We load them before the call, so
+                the board asks about its own rules and watches the AI cite the answer.
               </p>
 
-              <div className="mt-10 space-y-5">
-                {agenda.map((a) => (
-                  <div key={a.title} className="flex gap-4">
-                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                      <a.Icon className="h-5 w-5" aria-hidden />
+              <h2 className="mt-10 text-xl font-semibold tracking-tight text-foreground">What happens next</h2>
+              <ol className="mt-5 space-y-5">
+                {steps.map((s, i) => (
+                  <li key={s.title} className="flex gap-4">
+                    <span
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-[#fff]"
+                      aria-hidden
+                    >
+                      {i + 1}
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{a.title}</p>
-                      <p className="mt-1 text-sm leading-relaxed text-foreground-secondary">{a.body}</p>
+                      <p className="text-lg font-semibold text-foreground">{s.title}</p>
+                      <p className="mt-1 text-base leading-relaxed text-foreground-secondary">{s.body}</p>
                     </div>
-                  </div>
+                  </li>
                 ))}
+              </ol>
+
+              <div className="card mt-10 p-6">
+                <p className="text-lg font-semibold text-foreground">Rather look around yourself?</p>
+                <p className="mt-2 text-base leading-relaxed text-foreground-secondary">
+                  Start the {TRIAL_DAYS}-day free trial, no card needed. Inside the app, the
+                  &ldquo;Try it with a sample community&rdquo; button fills a workspace with marked sample data so
+                  you can click through before you enter anything real.
+                </p>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <TrackedLink href={SIGN_UP_URL} event="pilot_cta_click" position="demo_page" className="btn btn-primary btn-lg group !bg-primary !text-[#fff] hover:!bg-primary-hover w-full sm:w-auto">
+                    Start free trial
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  </TrackedLink>
+                  <Link href="/features" className="btn btn-secondary btn-lg w-full !text-foreground sm:w-auto">
+                    See what it does
+                  </Link>
+                </div>
               </div>
             </div>
 
-            <div className="card p-7 shadow-[0_30px_60px_-36px_hsl(var(--foreground)/0.35)] md:p-9">
-              <h2 className="text-xl font-semibold tracking-tight text-foreground">
-                Tell us about your community
+            <div className="card p-7 shadow-[0_30px_60px_-36px_hsl(var(--foreground)/0.35)] md:p-9 lg:sticky lg:top-24">
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+                Request your demo
               </h2>
-              <p className="mt-2 text-sm text-muted">
-                Name, email and your HOA. County and number of homes are optional. We reply within 1 business day.
+              <p className="mt-2 text-base text-foreground-secondary">
+                Three required fields. County and number of homes are optional.
               </p>
 
               <DemoForm />
 
               {/* 2026-10-19 owner-delegated defaults: no customer quote is
                   verified, so none is shown here. */}
-              <div className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm font-medium text-muted">
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-1 w-1 rounded-full bg-success-solid" />
-                  Citations on every legal answer
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-1 w-1 rounded-full bg-success-solid" />
-                  Board approves every AI draft
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-1 w-1 rounded-full bg-success-solid" />
-                  Your data is yours
-                </span>
-              </div>
+              <ul className="mt-8 space-y-2 text-base text-foreground-secondary">
+                {['Citations on every legal answer', 'Board approves every AI draft', 'Your data is yours'].map((t) => (
+                  <li key={t} className="flex items-center gap-2">
+                    <Check className="h-4 w-4 shrink-0 text-success" aria-hidden />
+                    {t}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -121,7 +123,7 @@ export default function DemoPage() {
             <Stat label="Every AI draft" value="Approvals" sub="Letters, bills and minutes wait for the board" />
             <Stat label="Setup + roster import" value="Self-serve" sub="CSV or Excel, CINC exports included" />
           </div>
-          <p className="mt-10 text-center text-sm text-muted">
+          <p className="mt-10 text-center text-base text-muted">
             HomeownerHub works for an HOA in any state. {STATE_COVERAGE_SENTENCE}{' '}
             Tell us where you are.
           </p>
@@ -157,7 +159,7 @@ export default function DemoPage() {
                   'Answer residents’ questions in the portal, citing your documents',
                   'Prepare estoppel certificates, collections letters and the owner budget notice',
                 ].map((b) => (
-                  <li key={b} className="flex gap-2.5 text-sm leading-relaxed text-foreground">
+                  <li key={b} className="flex gap-2.5 text-base leading-relaxed text-foreground">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                     <span>{b}</span>
                   </li>
@@ -176,7 +178,7 @@ export default function DemoPage() {
                   'Charge for an integration you never use.',
                   'Charge you during the trial. No card is needed to start.',
                 ].map((b) => (
-                  <li key={b} className="flex gap-2.5 text-sm leading-relaxed text-foreground-secondary">
+                  <li key={b} className="flex gap-2.5 text-base leading-relaxed text-foreground-secondary">
                     <X className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
                     <span>{b}</span>
                   </li>
@@ -203,11 +205,11 @@ export default function DemoPage() {
               {FAQS.map(({ q, a }) => (
                 <div key={q} className="px-6 py-6 md:px-8">
                   <dt className="text-[17px] font-semibold text-foreground">{q}</dt>
-                  <dd className="mt-2 text-[15px] leading-relaxed text-foreground-secondary">{a}</dd>
+                  <dd className="mt-2 text-base leading-relaxed text-foreground-secondary">{a}</dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-8 text-center text-sm text-muted">
+            <p className="mt-8 text-center text-base text-muted">
               Have a different question? Send it in the form above. We answer
               every demo request within one business day.
             </p>
@@ -224,13 +226,13 @@ export default function DemoPage() {
             <h3 className="mt-3 text-2xl font-semibold tracking-tight text-foreground">
               Read the public roadmap.
             </h3>
-            <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">
+            <p className="mt-3 text-base leading-relaxed text-foreground-secondary">
               Every workflow&apos;s status and quality bar (A / B / C) is published,
               so you can see what is live and what is not before you commit anything.
             </p>
             <a
               href="/roadmap"
-              className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-primary"
+              className="mt-6 inline-flex items-center gap-1.5 text-base font-semibold text-foreground hover:text-primary"
             >
               See the roadmap
               <ArrowRight className="h-4 w-4" />
@@ -276,8 +278,8 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
   return (
     <div className="card p-6">
       <p className="text-3xl font-semibold tracking-tight text-foreground">{value}</p>
-      <p className="mt-1 text-sm font-medium text-foreground-secondary">{label}</p>
-      <p className="mt-1 text-sm text-muted">{sub}</p>
+      <p className="mt-1 text-base font-medium text-foreground-secondary">{label}</p>
+      <p className="mt-1 text-base text-muted">{sub}</p>
     </div>
   )
 }

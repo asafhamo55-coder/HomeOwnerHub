@@ -42,13 +42,13 @@ export function DemoForm() {
       <div className="mt-8 rounded-xl border border-success/25 bg-success-subtle/40 p-6" role="status">
         <CheckCircle2 className="h-9 w-9 text-success" aria-hidden />
         <h3 className="mt-3 text-lg font-semibold text-foreground">Got it. We&apos;ll reply within 1 business day.</h3>
-        <p className="mt-3 text-sm font-semibold text-foreground">What happens next</p>
-        <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-foreground-secondary">
+        <p className="mt-3 text-base font-semibold text-foreground">What happens next</p>
+        <ol className="mt-2 list-decimal space-y-2 pl-5 text-base leading-relaxed text-foreground-secondary">
           <li>We email you to find a time that suits your board.</li>
           <li>Reply with your CC&amp;R and bylaws as PDFs. We load them before the call so the demo runs on your rules.</li>
           <li>We show you the product on your documents. Your board decides afterwards. No pressure, no auto-conversion.</li>
         </ol>
-        <p className="mt-4 text-sm text-foreground-secondary">
+        <p className="mt-4 text-base text-foreground-secondary">
           While you wait, the{' '}
           <a href="/georgia/readiness" className="font-semibold text-primary underline-offset-2 hover:underline">
             free SB 406 readiness check
@@ -63,7 +63,7 @@ export function DemoForm() {
   const values = state.status === 'error' ? state.values ?? {} : {}
 
   return (
-    <form ref={formRef} action={formAction} className="mt-6 space-y-4">
+    <form ref={formRef} action={formAction} className="mt-6 space-y-5">
       {/* Honeypot — hidden from humans, irresistible to bots. */}
       <div className="hidden" aria-hidden="true">
         <label htmlFor="website">Website (leave blank)</label>
@@ -99,7 +99,7 @@ export function DemoForm() {
           role="alert"
           tabIndex={-1}
           data-form-error
-          className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger-subtle/60 p-3 text-sm text-danger"
+          className="flex items-start gap-2 rounded-xl border border-danger/25 bg-danger-subtle/60 p-3 text-base text-danger"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>{state.message}</span>
@@ -110,7 +110,7 @@ export function DemoForm() {
         type="submit"
         disabled={pending}
         aria-busy={pending}
-        className="btn btn-primary btn-lg w-full disabled:opacity-70"
+        className="btn btn-primary btn-lg w-full !bg-primary !text-[#fff] hover:!bg-primary-hover disabled:opacity-70"
       >
         {pending ? (
           <>
@@ -124,7 +124,7 @@ export function DemoForm() {
           </>
         )}
       </button>
-      <p className="text-center text-sm text-muted">
+      <p className="text-center text-base text-foreground-secondary">
         We reply within 1 business day. No spam, ever.
       </p>
     </form>
@@ -159,7 +159,7 @@ function Field({
   const shown = localError ?? error
   return (
     <div>
-      <label className="text-sm font-semibold text-foreground" htmlFor={name}>
+      <label className="text-base font-semibold text-foreground" htmlFor={name}>
         {label}
         {required && (
           <span className="ml-1 text-danger" aria-hidden>
@@ -187,14 +187,14 @@ function Field({
         aria-invalid={Boolean(shown)}
         aria-describedby={shown ? `${name}-error` : undefined}
         className={cn(
-          'mt-1.5 min-h-12 w-full rounded-xl border bg-surface px-3.5 py-2.5 text-base text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
+          'mt-2 min-h-14 w-full rounded-xl border bg-surface px-4 py-3 text-lg text-foreground placeholder:text-muted focus:outline-none focus:ring-2',
           shown
             ? 'border-danger/40 focus:border-danger focus:ring-danger/15'
             : 'border-input focus:border-primary focus:ring-primary/20',
         )}
       />
       {shown && (
-        <p id={`${name}-error`} className="mt-1 text-sm text-danger">
+        <p id={`${name}-error`} className="mt-1 text-base text-danger">
           {shown}
         </p>
       )}

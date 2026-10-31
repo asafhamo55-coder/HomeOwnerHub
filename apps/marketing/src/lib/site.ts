@@ -62,6 +62,7 @@ export const SITEMAP_PATHS: readonly string[] = [
   '/',
   '/hoa',
   '/pricing',
+  '/features',
   '/features/dues-and-accounting',
   '/features/violations',
   '/features/announcements',

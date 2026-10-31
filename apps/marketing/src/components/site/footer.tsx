@@ -10,6 +10,7 @@ const allProduct = [
   { label: HOA_PRODUCT_NAME, href: '/hoa' },
   { label: 'PM Hub', href: '/landlords' },
   { label: 'Eviction Hub', href: '/eviction' },
+  { label: 'All features', href: '/features' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Compare', href: '/compare' },
   { label: 'For attorneys and CPAs', href: '/professionals' },
