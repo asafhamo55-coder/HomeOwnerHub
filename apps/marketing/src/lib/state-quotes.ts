@@ -14,6 +14,7 @@ const CA = 'ca-civ-davis-stirling-2026.txt'
 const TXC = 'tx-prop-209-2026.txt'
 const TX4 = 'tx-prop-209-004-2026.txt'
 const TX7 = 'tx-prop-207-2026.txt'
+const TX2 = 'tcss-pr202-2026-excerpt.htm'
 
 export const STATE_QUOTES = {
   // Florida: estoppel certificates, Fla. Stat. § 720.30851
@@ -843,5 +844,41 @@ export const STATE_QUOTES = {
     cite: 'Cal. Civ. Code § 5665(d)',
     fixture: CA,
     quote: "Payment plans shall not impede an association’s ability to record a lien on the owner’s separate interest to secure payment of delinquent assessments.",
+  },
+  // Texas: flag display, Tex. Prop. Code § 202.012 (BL-172 batch 15)
+  txFlagBan: {
+    cite: 'Tex. Prop. Code § 202.012(a)',
+    fixture: TX2,
+    quote: "A property owners' association may not, except as provided in this section, adopt or enforce a dedicatory instrument provision that prohibits, restricts, or has the effect of prohibiting or restricting an owner from the display of: (1) the flag of the United States of America; (2) the flag of the State of Texas; or (3) an official or replica flag of any branch of the United States armed forces.",
+  },
+  txFlagMaintain: {
+    cite: 'Tex. Prop. Code § 202.012(b)(1)(E)',
+    fixture: TX2,
+    quote: "a displayed flag and the flagpole on which it is flown be maintained in good condition and that any deteriorated flag or deteriorated or structurally unsafe flagpole be repaired, replaced, or removed;",
+  },
+  txFlagPole: {
+    cite: 'Tex. Prop. Code § 202.012(b)(2)',
+    fixture: TX2,
+    quote: "that regulate the size, number, and location of flagpoles on which flags are displayed, except that the regulation may not prevent the installation or erection of at least one flagpole per property that: (A) is not more than 20 feet in height and, subject to applicable zoning ordinances, easements, and setbacks of record, is located in the front yard of the property; or (B) is attached to any portion of a residential structure owned by the property owner and not maintained by the property owners' association;",
+  },
+  txFlagSizeLight: {
+    cite: 'Tex. Prop. Code § 202.012(b)(3) and (4)',
+    fixture: TX2,
+    quote: "that govern the size of a displayed flag; (4) that regulate the size, location, and intensity of any lights used to illuminate a displayed flag;",
+  },
+  txFlagCommon: {
+    cite: 'Tex. Prop. Code § 202.012(b)(6)',
+    fixture: TX2,
+    quote: "that prohibit a property owner from locating a displayed flag or flagpole on property that is: (A) owned or maintained by the property owners' association; or (B) owned in common by the members of the association.",
+  },
+  txFlagElect: {
+    cite: 'Tex. Prop. Code § 202.012(c)',
+    fixture: TX2,
+    quote: "A property owner who has a front yard and who otherwise complies with any permitted property owners' association regulations may elect to install a flagpole in accordance with either Subsection (b)(2)(A) or Subsection (b)(2)(B).",
+  },
+  txFlagDef: {
+    cite: 'Tex. Prop. Code § 202.001(5)',
+    fixture: TX2,
+    quote: "\"Front yard\" means a yard within a lot having a front building setback line with a setback of not less than 15 feet extending the full width of the lot between the front lot line and the front building setback line.",
   },
 } as const satisfies Record<string, StatuteQuote>

@@ -10,6 +10,7 @@ import { BUDGET_WORKSHEET } from './checklists-h'
 import { PAYMENT_PLAN_AGREEMENT, PROXY_BALLOT_FORM } from './checklists-i'
 import { FL_FINE_HEARING_NOTICE, TX_PAYMENT_PLAN_AGREEMENT } from './checklists-j'
 import { FL_LIEN_NOTICE } from './checklists-k'
+import { GA_BOARD_RESOLUTION } from './checklists-l'
 
 export interface Checklist {
   slug: string
@@ -122,4 +123,5 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [TX_PAYMENT_PLAN_AGREEMENT.slug]: TX_PAYMENT_PLAN_AGREEMENT,
   [FL_FINE_HEARING_NOTICE.slug]: FL_FINE_HEARING_NOTICE,
   [FL_LIEN_NOTICE.slug]: FL_LIEN_NOTICE,
+  [GA_BOARD_RESOLUTION.slug]: GA_BOARD_RESOLUTION,
 }

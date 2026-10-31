@@ -139,7 +139,7 @@ export const GA_BOARD_POWERS: Guide = {
       a: 'No. This page covers the Property Owners’ Association Act. Condominium associations are under a different article of the Code.',
     },
   ],
-  related: ['georgia-hoa-amend-covenants-two-thirds', 'hoa-board-meeting-minutes', 'georgia-hoa-assessment-lien-rules', 'hoa-board-conflict-of-interest-disclosure-checklist'],
+  related: ['georgia-hoa-board-borrowing-and-lawsuits', 'georgia-hoa-board-resolution-template', 'georgia-hoa-amend-covenants-two-thirds', 'hoa-board-meeting-minutes', 'georgia-hoa-assessment-lien-rules', 'hoa-board-conflict-of-interest-disclosure-checklist'],
   hoaDoes: [
     {
       text: 'New meeting turns a pasted transcript into draft minutes. The board edits and approves them, and you can write the minutes yourself on the same screen if the AI is offline.',
