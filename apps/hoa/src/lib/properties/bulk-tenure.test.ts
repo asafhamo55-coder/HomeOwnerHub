@@ -18,7 +18,7 @@ vi.mock('@/lib/accounting/guard', () => ({ BOARD_ONLY_DENIED: 'denied', requireB
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 import { revalidatePath } from 'next/cache'
-import { bulkSetPropertyTenure } from './index'
+import { bulkSetPropertyTenure, setPropertyTenure } from './index'
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 
@@ -80,5 +80,28 @@ describe('bulkSetPropertyTenure', () => {
     const ids = Array.from({ length: 200 }, (_, i) => uuid(i + 1))
     const r = await bulkSetPropertyTenure({ propertyIds: ids, tenure: 'leased' })
     expect(r).toMatchObject({ ok: true, data: { updated: 2, failed: 198 } })
+  })
+
+  it('Leased resolves the same waiting-list entries the single path does', async () => {
+    const wl = () => [
+      { id: 'w1', property_id: uuid(1), status: 'waiting' },
+      { id: 'w2', property_id: uuid(2), status: 'waiting' },
+    ]
+    const props = () => [
+      { id: uuid(1), org_id: 'org-1', tenure: 'owner_occupied' },
+      { id: uuid(2), org_id: 'org-1', tenure: 'owner_occupied' },
+    ]
+    const single = memorySupabase({ hoa_properties: props(), lease_waiting_list: wl() })
+    h.client = single.client
+    await setPropertyTenure({ propertyId: uuid(1), tenure: 'leased' })
+    await setPropertyTenure({ propertyId: uuid(2), tenure: 'leased' })
+
+    const bulk = memorySupabase({ hoa_properties: props(), lease_waiting_list: wl() })
+    h.client = bulk.client
+    await bulkSetPropertyTenure({ propertyIds: [uuid(1), uuid(2)], tenure: 'leased' })
+
+    const status = (m: typeof bulk) => m.rows('lease_waiting_list').map((r) => [r.id, r.status])
+    expect(status(bulk)).toEqual([['w1', 'approved'], ['w2', 'approved']])
+    expect(status(bulk)).toEqual(status(single))
   })
 })
