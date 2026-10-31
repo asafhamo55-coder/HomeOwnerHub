@@ -68,8 +68,8 @@ export default function TermsPage() {
             <h2>4. Pricing and billing</h2>
             <p>
               Plans are billed monthly or annually as described on the pricing
-              page. Pilots are free for six months; we never auto-convert
-              without your explicit confirmation.
+              page. New plans start with a 30-day free trial. We never start
+              charging without your explicit confirmation.
             </p>
 
             <h2>5. Your data</h2>

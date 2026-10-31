@@ -57,7 +57,7 @@ export default function HoaPage() {
           </>
         }
         subtitle="Dues, violations, announcements, inbox replies, minutes, bills, the month-end report and cited answers from your governing documents, in one self-service workspace. AI drafts from your records, the board approves, and state law is built in."
-        primaryCta={{ label: 'Start free pilot', href: '/demo' }}
+        primaryCta={{ label: 'Start free trial', href: '/demo' }}
         secondaryCta={{ label: 'See state law support', href: '#state-law' }}
         visual={<WorkspaceProductVisual />}
         bareVisual
@@ -237,7 +237,7 @@ export default function HoaPage() {
         description="Ten minutes is all we need. We pre-load your CC&R, show you Covenant Brain answering your actual rules, and let the board decide."
         primary={{ label: 'Book a demo', href: '/demo' }}
         secondary={{ label: 'See pricing', href: '/pricing' }}
-        footnote="Six-month free pilot for HOAs · No data migration · Built in Atlanta · Not legal advice"
+        footnote="30-day free trial, no card needed · No data migration · Built in Atlanta · Not legal advice"
       />
 
       </main>

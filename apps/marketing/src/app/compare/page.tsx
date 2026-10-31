@@ -57,7 +57,7 @@ const sections: { title: string; rows: Row[] }[] = [
       cost,
       { label: 'Setup', hh: 'Self-serve: create the HOA, import the roster, open the books', mgmt: 'Onboarded by the firm', vantaca: 'Implementation project', diy: 'Always ongoing' },
       { label: 'Setup fee', hh: '$0', mgmt: 'Varies', vantaca: 'Not public', diy: '$0' },
-      { label: 'Free pilot or trial', hh: '6 months', mgmt: 'Varies', vantaca: false, diy: 'n/a' },
+      { label: 'Free trial', hh: '30 days', mgmt: 'Varies', vantaca: false, diy: 'n/a' },
       { label: 'Contract term', hh: HOA_PRICE_COPY.contractShort, mgmt: 'Varies', vantaca: 'Not public', diy: 'None' },
     ],
   },
@@ -262,7 +262,7 @@ export default function ComparePage() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </TrackedLink>
             <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
-              Start free pilot
+              Start free trial
             </TrackedLink>
           </div>
         </div>
