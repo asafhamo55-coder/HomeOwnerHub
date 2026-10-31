@@ -216,13 +216,15 @@ describe('guides', () => {
 })
 
 describe('checklists', () => {
-  it('twenty-one printable checklists and templates exist', () => {
+  it('twenty-three printable checklists and templates exist', () => {
     expect(Object.keys(CHECKLISTS).sort()).toEqual([
       'annual-meeting-notice-checklist',
       'apply-hoa-credit-to-owner-balance-checklist',
       'attorney-fee-notice-checklist',
       'california-hoa-hearing-resolution-letter',
       'florida-hoa-director-certification-checklist',
+      'florida-hoa-estoppel-certificate-request-checklist',
+      'florida-hoa-fine-cap-and-daily-fine-checklist',
       'florida-hoa-fine-hearing-notice',
       'florida-hoa-notice-of-intent-to-lien',
       'florida-hoa-records-request-response-checklist',

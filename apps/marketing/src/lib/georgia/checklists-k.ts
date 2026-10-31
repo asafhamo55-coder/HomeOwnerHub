@@ -87,7 +87,7 @@ export const FL_LIEN_NOTICE: Checklist = {
       a: 'The statute says the notice must be in substantially the form it prints. This page follows that form but is not legal advice. Have your attorney review the final notice.',
     },
   ],
-  related: ['florida-hoa-estoppel-certificate-rules', 'florida-hoa-fine-hearing-notice', 'texas-hoa-third-party-collections-notice', 'california-hoa-pre-lien-notice-and-collections', 'georgia-hoa-collections-notice'],
+  related: ['florida-hoa-assessment-lien-and-foreclosure-timeline', 'florida-hoa-estoppel-certificate-rules', 'florida-hoa-fine-hearing-notice', 'texas-hoa-third-party-collections-notice', 'california-hoa-pre-lien-notice-and-collections', 'georgia-hoa-collections-notice'],
   datePublished: '2026-10-31',
   dateModified: '2026-10-31',
   howTo: true,

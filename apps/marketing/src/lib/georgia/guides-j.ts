@@ -111,7 +111,7 @@ export const FL_FINE_HEARING: Guide = {
       a: 'This page covers Chapter 720 only. Condominiums are governed by a different chapter, so ask your attorney.',
     },
   ],
-  related: ['fines-and-violation-hearings', 'violation-notice-checklist', 'ai-hoa-violation-letters-board-approval', 'florida-hoa-estoppel-certificate-rules', 'florida-hoa-fine-hearing-notice'],
+  related: ['fines-and-violation-hearings', 'violation-notice-checklist', 'ai-hoa-violation-letters-board-approval', 'florida-hoa-estoppel-certificate-rules', 'florida-hoa-fine-hearing-notice', 'florida-hoa-fine-cap-and-daily-fine-checklist'],
   hoaDoes: [
     {
       text: 'In Florida, a violation can only move to Fined once the hearing record shows the notice sent in time, the hearing held, and the outcome recorded. The panel needs at least three people who are not on the board.',
@@ -225,7 +225,7 @@ export const FL_ESTOPPEL: Guide = {
       a: 'The Georgia text we hold has a statement of amounts due with a five-business-day deadline. It is a different rule with a different consequence.',
     },
   ],
-  related: ['florida-hoa-fine-hearing-committee', 'georgia-hoa-assessment-lien-rules', 'hoa-treasurer-duties', 'overpayments-credits', 'florida-hoa-notice-of-intent-to-lien'],
+  related: ['florida-hoa-fine-hearing-committee', 'georgia-hoa-assessment-lien-rules', 'hoa-treasurer-duties', 'overpayments-credits', 'florida-hoa-notice-of-intent-to-lien', 'florida-hoa-estoppel-certificate-request-checklist'],
   hoaDoes: [
     {
       text: 'On a property, the board can prepare an estoppel certificate filled in from the home’s account: the balance, the regular assessment and paid-through date, special assessments, and any payment plan.',
