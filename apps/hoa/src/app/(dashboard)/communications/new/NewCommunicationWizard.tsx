@@ -15,6 +15,7 @@ import {
   Select,
   WizardStepper,
   cn,
+  useConfirm,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { sendCommunication } from '@/lib/communications/send'
@@ -65,6 +66,7 @@ import { HO6_NOTICE_FROM, readHo6NoticeDraft } from '@/lib/insurance/ho6-notice'
 import { ANNUAL_REPORT_FROM, readAnnualReportDraft } from '@/lib/annual-report/message'
 import { HEARING_NOTICE_FROM, readHearingNoticeDraft } from '@/lib/violation-hearings/notice-handoff'
 import { ComposeBox } from './ComposeBox'
+import { sendConfirmCopy } from './send-confirm'
 import { QuestionStep } from './QuestionStep'
 import { SectionToggles } from './SectionToggles'
 import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
@@ -905,6 +907,8 @@ export function NewCommunicationWizard({
   const latestJson = useRef(draftJson)
   latestJson.current = draftJson
   const sendingRef = useRef(false)
+  const confirmingRef = useRef(false)
+  const confirm = useConfirm()
   const goneRef = useRef(false)
   const inFlight = useRef<Promise<void> | null>(null)
   const queuedJson = useRef<string | null>(null)
@@ -983,7 +987,7 @@ export function NewCommunicationWizard({
     }
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     // Enter inside an earlier step means "continue", never "send".
     if (step < lastStep) {
@@ -1048,6 +1052,28 @@ export function NewCommunicationWizard({
       setError('Pick a valid date and time to send it, or clear the field to send now.')
       return
     }
+
+    // One tap must not message the whole community. Ask first, with the real
+    // count and channels; cancel leaves everything as it was.
+    if (confirmingRef.current) return
+    confirmingRef.current = true
+    const copy = sendConfirmCopy({
+      audienceLabel,
+      count: audienceCount,
+      noun:
+        audience === 'board'
+          ? { one: 'board member', many: 'board members' }
+          : audience === 'manual_emails'
+            ? { one: 'contact', many: 'contacts' }
+            : audience === 'specific_property'
+              ? { one: 'person', many: 'people' }
+              : undefined,
+      channelsWords: channelsSentence(channels.filter((c) => c !== 'sms' || smsConfigured)).toLowerCase(),
+      scheduledAt,
+    })
+    const go = await confirm({ title: copy.title, description: copy.description, confirmLabel: copy.confirmLabel })
+    confirmingRef.current = false
+    if (!go) return
 
     // No autosave from here on: a save racing the send could revive the draft.
     sendingRef.current = true

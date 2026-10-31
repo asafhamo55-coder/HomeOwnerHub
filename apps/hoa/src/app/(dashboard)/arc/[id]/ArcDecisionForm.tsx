@@ -3,12 +3,31 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, ThumbsUp, X } from 'lucide-react'
-import { Alert, Button, Field, Textarea, useToast } from '@homeowner-portal/ui'
+import { Alert, Button, Field, Textarea, useConfirm, useToast } from '@homeowner-portal/ui'
 import { respondToArcRequest, type ArcStatus } from '@/lib/board-review'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { trackEvent } from '@/lib/analytics/track'
 
 type Decision = 'in_review' | 'approved' | 'denied'
+
+/** What the board member is told before a decision reaches the resident. */
+export const DECISION_CONFIRM: Record<Decision, { title: string; description: string; confirmLabel: string }> = {
+  approved: {
+    title: 'Approve this request?',
+    description: 'The homeowner will be told right away and will see your note.',
+    confirmLabel: 'Approve',
+  },
+  denied: {
+    title: 'Deny this request?',
+    description: 'The homeowner will be told right away and will see your note, so say why.',
+    confirmLabel: 'Deny',
+  },
+  in_review: {
+    title: 'Mark this request as in review?',
+    description: 'The homeowner will be told it is being looked at and will see your note.',
+    confirmLabel: 'Mark in review',
+  },
+}
 
 const DECISION_DONE: Record<Decision, string> = {
   in_review: 'Marked in review.',
@@ -27,10 +46,15 @@ export function ArcDecisionForm({
 }) {
   const router = useRouter()
   const toast = useToast()
+  const confirm = useConfirm()
   const [isPending, startTransition] = useTransition()
   const [pendingDecision, setPendingDecision] = useState<Decision | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [response, setResponse] = useState(currentResponse ?? '')
+
+  async function ask(decision: Decision) {
+    if (await confirm(DECISION_CONFIRM[decision])) submit(decision)
+  }
 
   function submit(decision: Decision) {
     setError(null)
@@ -73,7 +97,7 @@ export function ArcDecisionForm({
 
       <div className="flex flex-col gap-2">
         <Button
-          onClick={() => submit('approved')}
+          onClick={() => void ask('approved')}
           loading={pendingDecision === 'approved'}
           disabled={isPending}
           icon={<ThumbsUp aria-hidden />}
@@ -83,7 +107,7 @@ export function ArcDecisionForm({
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="secondary"
-            onClick={() => submit('denied')}
+            onClick={() => void ask('denied')}
             loading={pendingDecision === 'denied'}
             disabled={isPending}
             icon={<X aria-hidden />}
@@ -92,7 +116,7 @@ export function ArcDecisionForm({
           </Button>
           <Button
             variant="ghost"
-            onClick={() => submit('in_review')}
+            onClick={() => void ask('in_review')}
             loading={pendingDecision === 'in_review'}
             disabled={isPending || currentStatus === 'in_review'}
             icon={<Eye aria-hidden />}
