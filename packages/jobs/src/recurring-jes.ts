@@ -2,6 +2,7 @@ import { createAdminClient, postJournalEntry } from '@homeowner-portal/db'
 import { inngest } from './client'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn, type AssociationZoneSource } from './association-time'
 import { readCurrentOpenPeriod } from './fiscal-periods'
+import { reportJobFailures } from './failure-reporting'
 
 /**
  * Daily at 1am ET: scan recurring_journal_entries where next_run_date
@@ -118,6 +119,7 @@ export async function runRecurringJes(
   // One instant for the whole run; each rule reads its association's day
   // from it (BL-065).
   now: Date = new Date(),
+  report: typeof reportJobFailures = reportJobFailures,
 ): Promise<RecurringJesResult> {
   const rules = (await step.run('load-rules', async () => {
     const { data, error } = await db
@@ -156,6 +158,7 @@ export async function runRecurringJes(
   let posted = 0
   let skipped = 0
   let failed = 0
+  const failedRuleIds: string[] = []
 
   for (const rule of rules) {
     const today = rule.today
@@ -277,6 +280,12 @@ export async function runRecurringJes(
     posted += result.posted
     skipped += result.skipped
     failed += result.failed
+    if (result.failed > 0) failedRuleIds.push(rule.id)
+  }
+
+  // Report-only: counts and rule ids, never thrown, nothing re-run.
+  if (failedRuleIds.length > 0) {
+    report('recurring-jes', { rules: rules.length, posted, skipped, failed }, failedRuleIds)
   }
 
   return { rules: rules.length, posted, skipped, failed }

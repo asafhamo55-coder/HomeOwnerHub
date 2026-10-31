@@ -16,6 +16,36 @@ import { InngestMiddleware } from 'inngest'
 
 export type CaptureFn = (error: unknown, context: Sentry.ExclusiveEventHintOrCaptureContext) => unknown
 
+export type MessageCaptureFn = (message: string, context: Sentry.ExclusiveEventHintOrCaptureContext) => unknown
+
+/**
+ * Report-only signal for a job that finished "successfully" but skipped or
+ * failed part of its work (the nightly money jobs swallow per-association
+ * and per-rule failures so one tenant cannot block the rest). One call per
+ * run, after the loop. Never throws and never changes the job's outcome, so
+ * Inngest does not retry and nothing is re-posted.
+ *
+ * `counts` and `ids` only: ids are opaque uuids, and no address, name,
+ * amount or message body may be passed.
+ */
+export function reportJobFailures(
+  jobId: string,
+  counts: Record<string, number>,
+  ids: string[],
+  capture: MessageCaptureFn = Sentry.captureMessage,
+): void {
+  try {
+    capture(`${jobId}: ${ids.length} item(s) failed`, {
+      level: 'error',
+      tags: { source: 'inngest', 'inngest.function': jobId, 'inngest.report_only': 'true' },
+      extra: { counts, ids: ids.slice(0, 50), idCount: ids.length },
+      fingerprint: ['inngest', jobId, 'partial-failure'],
+    })
+  } catch {
+    // Reporting must never fail a money job.
+  }
+}
+
 // Inngest's default when a function sets no `retries`: 3 retries, 4 attempts.
 const DEFAULT_MAX_ATTEMPTS = 4
 
