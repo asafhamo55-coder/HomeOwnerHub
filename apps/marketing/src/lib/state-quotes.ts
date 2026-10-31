@@ -1248,4 +1248,105 @@ export const STATE_QUOTES = {
     fixture: TX3,
     quote: "A property owners' association may adopt rules to allow voting by secret ballot by association members. The association must take measures to reasonably ensure that: (1) a member cannot cast more votes than the member is eligible to cast in an election or vote; (2) the association counts each vote cast by a member that the member is eligible to cast; and (3) in any election for the board, each candidate may name one person to observe the counting of the ballots, provided that this does not entitle any observer to see the name of the person who cast any ballot, and that any disruptive observer may be removed.",
   },
+  // Florida: architectural control, presuit mediation, flags and ramps (BL-172 batch 23)
+  flArcAuthority: {
+    cite: 'Fla. Stat. § 720.3035(1)(a)',
+    fixture: FL,
+    quote: "The authority of an association or any architectural, construction improvement, or other such similar committee of an association to review and approve plans and specifications for the location, size, type, or appearance of any structure or other improvement on a parcel, or to enforce standards for the external appearance of any structure or improvement located on a parcel, shall be permitted only to the extent that the authority is specifically stated or reasonably inferred as to such location, size, type, or appearance in the declaration of covenants or other published guidelines and standards authorized by the declaration of covenants.",
+  },
+  flArcInterior: {
+    cite: 'Fla. Stat. § 720.3035(1)(b)1.',
+    fixture: FL,
+    quote: "Limits or places requirements on the interior of a structure that is not visible from the parcel’s frontage or an adjacent parcel, an adjacent common area, or a community golf course.",
+  },
+  flArcDenial: {
+    cite: 'Fla. Stat. § 720.3035(4)(a)',
+    fixture: FL,
+    quote: "If the association or any architectural, construction improvement, or other such similar committee of the association denies a parcel owner’s request or application for the construction of a structure or other improvement on a parcel, the association or committee must provide written notice to the parcel owner stating with specificity the rule or covenant on which the association or committee relied when denying the request or application and the specific aspect or part of the proposed improvement that does not conform to such rule or covenant.",
+  },
+  flArcHurricane: {
+    cite: 'Fla. Stat. § 720.3035(6)(b)',
+    fixture: FL,
+    quote: "Notwithstanding any other provision in the governing documents of the association, the board or any architectural, construction improvement, or other such similar committee may not deny an application for the installation, enhancement, or replacement of hurricane protection by a parcel owner which conforms to the specifications adopted by the board or committee.",
+  },
+  flMedRequired: {
+    cite: 'Fla. Stat. § 720.311(2)(a)',
+    fixture: FL,
+    quote: "Disputes between an association and a parcel owner regarding use of or changes to the parcel or the common areas and other covenant enforcement disputes, disputes regarding amendments to the association documents, disputes regarding meetings of the board and committees appointed by the board, membership meetings not including election meetings, and access to the official records of the association shall be the subject of a demand for presuit mediation served by an aggrieved party before the dispute is filed in court.",
+  },
+  flMedExcluded: {
+    cite: 'Fla. Stat. § 720.311(2)(a)',
+    fixture: FL,
+    quote: "Disputes subject to presuit mediation under this section shall not include the collection of any assessment, fine, or other financial obligation, including attorney’s fees and costs, claimed to be due or any action to enforce a prior mediation settlement agreement between the parties.",
+  },
+  flMedElection: {
+    cite: 'Fla. Stat. § 720.311(1)',
+    fixture: FL,
+    quote: "Election disputes and recall disputes are not eligible for presuit mediation; these disputes must be arbitrated by the department or filed in a court of competent jurisdiction.",
+  },
+  flMedService: {
+    cite: 'Fla. Stat. § 720.311(2)(b)',
+    fixture: FL,
+    quote: "Service of the statutory demand to participate in presuit mediation shall be effected by sending a letter in substantial conformity with the above form by certified mail, return receipt requested, with an additional copy being sent by regular first-class mail, to the address of the responding party as it last appears on the books and records of the association. The responding party has 20 days from the date of the mailing of the statutory demand to serve a response to the aggrieved party in writing.",
+  },
+  flMedCosts: {
+    cite: 'Fla. Stat. § 720.311(2)(b)',
+    fixture: FL,
+    quote: "The parties shall share the costs of presuit mediation equally, including the fee charged by the mediator, if any, unless the parties agree otherwise, and the mediator may require advance payment of its reasonable fees and costs.",
+  },
+  flMedImpasse: {
+    cite: 'Fla. Stat. § 720.311(2)(b)',
+    fixture: FL,
+    quote: "The failure of any party to respond to a demand or response, to agree upon a mediator, to make payment of fees and costs within the time established by the mediator, or to appear for a scheduled mediation session without the approval of the mediator, shall constitute the failure or refusal to participate in the mediation process and shall operate as an impasse in the presuit mediation by such party, entitling the other party to proceed in court and to seek an award of the costs and fees associated with the mediation.",
+  },
+  flMedNoFees: {
+    cite: 'Fla. Stat. § 720.311(2)(b)',
+    fixture: FL,
+    quote: "Additionally, notwithstanding the provisions of any other law or document, persons who fail or refuse to participate in the entire mediation process may not recover attorney’s fees and costs in subsequent litigation relating to the dispute.",
+  },
+  flMedNinety: {
+    cite: 'Fla. Stat. § 720.311(2)(b)',
+    fixture: FL,
+    quote: "If any presuit mediation session cannot be scheduled and conducted within 90 days after the offer to participate in mediation was filed, an impasse shall be deemed to have occurred unless both parties agree to extend this deadline.",
+  },
+  flFlagsTwo: {
+    cite: 'Fla. Stat. § 720.304(2)(a)',
+    fixture: FL,
+    quote: "If any covenant, restriction, bylaw, rule, or requirement of an association prohibits a homeowner from displaying flags permitted under this paragraph, the homeowner may still display in a respectful manner up to two of the following portable, removable flags",
+  },
+  flFlagsPole: {
+    cite: 'Fla. Stat. § 720.304(2)(b)',
+    fixture: FL,
+    quote: "Regardless of any covenants, restrictions, bylaws, rules, or requirements of the association, a homeowner may erect a freestanding flagpole no more than 20 feet high on any portion of the homeowner’s real property as long as the flagpole does not obstruct sightlines at intersections and is not erected within or upon an easement.",
+  },
+  flFlagsLaws: {
+    cite: 'Fla. Stat. § 720.304(2)(b)',
+    fixture: FL,
+    quote: "The flagpole and display are subject to all building codes, zoning setbacks, and other applicable governmental regulations, including, but not limited to, noise and lighting ordinances in the county or municipality in which the flagpole is erected and all setback and locational criteria contained in the governing documents.",
+  },
+  flFlagsApplies: {
+    cite: 'Fla. Stat. § 720.304(2)(c)',
+    fixture: FL,
+    quote: "This subsection applies to all community development districts and homeowners’ associations, regardless of whether such homeowners’ associations are authorized to impose assessments that may become a lien on the parcel.",
+  },
+  flFlagsCourt: {
+    cite: 'Fla. Stat. § 720.304(3)',
+    fixture: FL,
+    quote: "Any owner prevented from exercising rights guaranteed by subsection (1) or subsection (2) may bring an action in the appropriate court of the county in which the alleged infringement occurred, and, upon favorable adjudication, the court shall enjoin the enforcement of any provision contained in any homeowners’ association document or rule that operates to deprive the owner of such rights.",
+  },
+  flRampPlans: {
+    cite: 'Fla. Stat. § 720.304(5)(a)2.',
+    fixture: FL,
+    quote: "Plans for the ramp must be submitted in advance to the homeowners’ association. The association may make reasonable requests to modify the design to achieve architectural consistency with surrounding structures and surfaces.",
+  },
+  flRampAffidavit: {
+    cite: 'Fla. Stat. § 720.304(5)(b)',
+    fixture: FL,
+    quote: "The parcel owner must submit to the association an affidavit from a physician attesting to the medical necessity or disability of the resident or occupant of the parcel requiring the access ramp.",
+  },
+  flSecuritySign: {
+    cite: 'Fla. Stat. § 720.304(6)',
+    fixture: FL,
+    quote: "Any parcel owner may display a sign of reasonable size provided by a contractor for security services within 10 feet of any entrance to the home.",
+  },
 } as const satisfies Record<string, StatuteQuote>

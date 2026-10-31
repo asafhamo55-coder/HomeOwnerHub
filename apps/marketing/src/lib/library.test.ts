@@ -273,6 +273,29 @@ describe('batch 21 pages are in the library', () => {
   })
 })
 
+describe('batch 23 pages are in the library', () => {
+  const pages = [
+    '/guides/florida-hoa-architectural-review-720-3035',
+    '/guides/florida-hoa-presuit-mediation-720-311',
+    '/guides/florida-hoa-flags-ramps-and-signs-720-304',
+  ]
+
+  it('are in the palette feed, the sitemap and the Florida hub list, with a page file each', () => {
+    const hrefs = STATE_GUIDE_LINKS.FL!.map((l) => l.href)
+    for (const page of pages) {
+      expect(libraryEntries().map((e) => e.path)).toContain(page)
+      expect(SITEMAP_PATHS).toContain(page)
+      expect(hrefs).toContain(page)
+      expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+
+  it('are grouped under Florida', () => {
+    const fl = guideGroups().find((g) => g.id === 'florida')!
+    for (const page of pages) expect(fl.items.map((i) => i.path)).toContain(page)
+  })
+})
+
 describe('batch 22 pages are in the library', () => {
   const pages = ['/guides/georgia-hoa-does-poa-act-apply-44-3-222', '/guides/georgia-hoa-who-can-serve-on-the-board-44-3-229']
 
