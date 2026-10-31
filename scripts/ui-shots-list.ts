@@ -65,7 +65,7 @@ export const SHOTS: Shot[] = [
   { name: 'gallery-toast', path: '/ui-gallery?overlay=toast', themes: LIGHT },
   { name: 'dashboard', path: '/', auth: true },
   // BL-071: the version line in the mobile nav drawer, and its "What's new" target.
-  { name: 'dashboard-nav-drawer', path: '/', auth: true, viewport: true, click: 'button[aria-label="Open navigation"]', clickWaitFor: 'button[aria-label="Close navigation"]', widths: [375] },
+  { name: 'dashboard-nav-drawer', path: '/', auth: true, viewport: true, click: 'button[aria-label="Open menu"]', clickWaitFor: 'button[aria-label="Close menu"]', widths: [375] },
   { name: 'whats-new', path: '/whats-new', auth: true },
   // /login itself always redirects under DEV_AUTOLOGIN; /forgot-password
   // wears the same AuthShell (and its footer version line).
