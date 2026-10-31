@@ -12,8 +12,12 @@
 const FORMULA_START = /^[=+\-@\t\r]/
 const NEEDS_QUOTES = /[",\n\r]/
 
+// A plain negative decimal such as "-300.00" is a number, not a formula.
+// Money is written as fixed-2 text, so it must stay a number in the sheet.
+const PLAIN_NEGATIVE_NUMBER = /^-\d+(\.\d+)?$/
+
 function guardText(s: string): string {
-  return FORMULA_START.test(s) ? `'${s}` : s
+  return FORMULA_START.test(s) && !PLAIN_NEGATIVE_NUMBER.test(s) ? `'${s}` : s
 }
 
 function quote(s: string): string {
