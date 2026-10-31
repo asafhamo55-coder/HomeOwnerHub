@@ -61,10 +61,16 @@ Single source: `docs/owner-actions.md` (emailed). At 2026-10-27 18:30 EDT nothin
 - Soon: OA-32 (GA 590-13 PDFs, comments due Nov 2), OA-35 (analytics and Search Console), OA-26 (signing secrets), OA-36, OA-7, OA-14, OA-25, OA-33, OA-9.
 - After the deploy: set the Treasurer in Settings → Professionals.
 
-## In flight at this update (2026-10-30 19:00 UTC)
+## In flight at this update (2026-10-31 04:45 UTC)
 
-- **Prod:** ad6dd2df. 528a1572 deploys at 19:21 UTC; CI is green. All migrations through 0072 are applied.
-- **Backlog:** rounds 9 to 12 are done. In round 13, items 1 to 4 and 7 are built; item 5 (SEO batch 11) is building; item 6 (the weekly SEO audit) is due Mon Nov 2.
+- **Prod:** bfe3b7fd (rounds 19 and 20). Two deploys are scheduled:
+  - bc0a464a (round 21) at 04:59 UTC.
+  - 59bb3992 (round 22) at 06:00 UTC, once CI is green.
+- **Backlog:** rounds 9 to 22 are done. Each round's only open item is the weekly SEO audit, due Mon Nov 2. Groom round 23 next.
+- **Patterns:**
+  - Rounds 17 to 22 were correctness sweeps: orphaned actions, read failures shown as empty or 404, UTC timestamps, money formatting, unpaged listUsers, silent job failures.
+  - Remaining owner decisions: the collection ledger write-off (docs/decisions/2026-10-31-collection-write-off-is-status-only.md) and setup-stripe-pricing.
+  - Paraphrased statute claims on SEO pages are checked against scripts/fixtures before merge.
 - **Gates now include `pnpm turbo run build --filter=hoa`.** A client component that imported server-only code passed typecheck and vitest but broke the CI build on 2026-10-30.
 - **Peer session homeownerhub-42.** It handles Stripe and owner-actions. It commits to claude/quality-oracle at most once an hour, right after one of our deploys, and announces any urgent env redeploy first. Send it a message when a deploy lands.
 - **Visible changes on 2026-10-30:**
