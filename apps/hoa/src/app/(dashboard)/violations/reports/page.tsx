@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { Megaphone, SearchX } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Badge,
   Button,
@@ -25,6 +24,7 @@ import {
 } from '@/lib/board-review'
 import { VIOLATION_REPORT_CATEGORY, VIOLATION_REPORT_STATUS } from '@/lib/status/community'
 import { violationTabs } from '../tabs'
+import { formatMonthDayTime, formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Resident violation reports' }
 export const dynamic = 'force-dynamic'
@@ -87,7 +87,7 @@ export default async function ViolationReportsListPage({
           </Link>
           {r.occurred_at ? (
             <p className="mt-0.5 text-xs text-muted">
-              Occurred {format(new Date(r.occurred_at), 'MMM d, h:mm a')}
+              Occurred {formatMonthDayTime(r.occurred_at)}
             </p>
           ) : null}
         </div>
@@ -110,7 +110,7 @@ export default async function ViolationReportsListPage({
       header: 'Submitted',
       cell: (r) => (
         <time dateTime={r.submitted_at} className="whitespace-nowrap text-foreground-secondary">
-          {format(new Date(r.submitted_at), 'MMM d, yyyy')}
+          {formatShortDate(r.submitted_at)}
         </time>
       ),
     },

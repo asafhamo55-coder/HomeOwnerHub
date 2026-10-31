@@ -1,12 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ExternalLink, Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
+import { formatDay } from '@/lib/money/format'
 import { Badge, Button, Card, CardContent, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getStatute } from '@/lib/state-law'
 import { tryLoad } from '@/lib/load-or-fail'
 import { lawCategoryLabel } from '@/lib/status/knowledge'
 import { LegalDisclaimer } from '@/components/knowledge/LegalDisclaimer'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Statute' }
 
@@ -50,9 +51,9 @@ export default async function StatuteDetailPage({ params }: { params: Promise<{ 
       description={
         <span className="num">
           {statute.effective_date
-            ? `Effective ${format(new Date(`${statute.effective_date.slice(0, 10)}T00:00:00Z`), 'PP')} · `
+            ? `Effective ${formatDay(statute.effective_date.slice(0, 10))} · `
             : ''}
-          Loaded {format(new Date(statute.fetched_at), 'PP')}
+          Loaded {formatShortDate(statute.fetched_at)}
         </span>
       }
       actions={

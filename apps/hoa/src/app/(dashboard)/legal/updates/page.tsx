@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { ExternalLink, Megaphone, Pencil, Plus, Scale } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Alert,
   Badge,
@@ -20,6 +19,7 @@ import { CategoryBadge, EffectivePill } from '@/components/knowledge/LawUpdateIt
 import { LegalTabs } from '@/components/knowledge/LegalTabs'
 import { ArchiveButton } from './ArchiveButton'
 import { DeleteUpdateButton } from './DeleteUpdateButton'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Law updates' }
 
@@ -65,7 +65,7 @@ const baseColumns: DataTableColumn<LawUpdateAdminRow>[] = [
     key: 'posted',
     header: 'Posted',
     hideBelowLg: true,
-    cell: (u) => <span className="num whitespace-nowrap text-muted">{format(new Date(u.posted_at), 'PP')}</span>,
+    cell: (u) => <span className="num whitespace-nowrap text-muted">{formatShortDate(u.posted_at)}</span>,
   },
   {
     key: 'status',

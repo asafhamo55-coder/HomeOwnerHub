@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { MessageSquarePlus, Plus } from 'lucide-react'
-import { format } from 'date-fns'
 import { Button, LoadFailed } from '@homeowner-portal/ui'
 import { loadMyTickets } from '@/lib/resident-tickets'
 import { RowGroup, ScreenEmpty, ScreenHeader, TappableRow } from '@/components/resident/screen'
 import { ResidentStatus, TICKET_CATEGORY_LABEL } from '@/components/resident/status'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Support requests' }
 export const dynamic = 'force-dynamic'
@@ -53,7 +53,7 @@ export default async function MyTicketsPage() {
               icon={<MessageSquarePlus />}
               tone={t.status === 'closed' ? 'slate' : 'primary'}
               title={t.subject}
-              subtitle={`${TICKET_CATEGORY_LABEL[t.category] ?? t.category} · opened ${format(new Date(t.created_at), 'PP')}`}
+              subtitle={`${TICKET_CATEGORY_LABEL[t.category] ?? t.category} · opened ${formatShortDate(t.created_at)}`}
               status={<ResidentStatus kind="ticket" status={t.status} />}
             />
           ))}

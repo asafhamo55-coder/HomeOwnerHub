@@ -7,7 +7,6 @@ import {
   parseCategoryParam,
 } from '@/lib/resident-announcements-list'
 import { AnnouncementBody } from '@/components/resident/AnnouncementBody'
-import { format } from 'date-fns'
 import {
   Badge,
   LoadFailed,
@@ -28,6 +27,7 @@ import {
   type RecipientRow,
 } from '@/lib/communications/resident-scope'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Announcements' }
 export const dynamic = 'force-dynamic'
@@ -274,7 +274,7 @@ export default async function ResidentAnnouncementsPage({
                   </Badge>
                 </div>
               </div>
-              <p className="mt-0.5 text-xs text-muted">{format(new Date(sentAt), 'PPp')}</p>
+              <p className="mt-0.5 text-xs text-muted">{formatDateTime(sentAt)}</p>
               <AnnouncementBody body={body} />
             </li>
           ))}

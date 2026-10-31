@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { format, formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import {
   Badge,
   Card,
@@ -17,6 +17,7 @@ import {
 import { getTenantDetail } from '@/lib/platform-admin'
 import { TenantStatusPill, planLabel } from '../../_components/tenant-status'
 import { TenantActions } from './TenantActions'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Tenant' }
 
@@ -119,7 +120,7 @@ export default async function TenantDetailPage({
           </CardHeader>
           <CardContent>
             <KeyValueList>
-              <KeyValue label="Created" value={t.org.created_at ? format(new Date(t.org.created_at), 'PP') : null} />
+              <KeyValue label="Created" value={t.org.created_at ? formatShortDate(t.org.created_at) : null} />
               <KeyValue label="Declared doors" value={t.org.doors_count != null ? t.org.doors_count.toLocaleString() : null} />
               <KeyValue label="Plan" value={planLabel(t.org.plan)} />
               <KeyValue label="Hub" value={t.org.hub_type.toUpperCase()} />

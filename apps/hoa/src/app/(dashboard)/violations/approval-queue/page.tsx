@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AlertTriangle, ListChecks, Plus, Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Alert,
   Badge,
@@ -34,6 +33,7 @@ import { StateRulesPanel } from '@/components/violations/StateRulesPanel'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { orgPhotoPaths } from '@/lib/violation-photo-paths'
 import { FOLLOW_UP_AWAITING_SAVE_PATH, followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Violation Approval Queue' }
 export const dynamic = 'force-dynamic'
@@ -217,7 +217,7 @@ function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) 
             {violationLabel}
           </CardTitle>
           <p className="text-xs text-muted">
-            Drafted <time dateTime={run.created_at}>{format(new Date(run.created_at), 'PPp')}</time> · Draft{' '}
+            Drafted <time dateTime={run.created_at}>{formatDateTime(run.created_at)}</time> · Draft{' '}
             {run.id.slice(0, 8)} · v{run.workflow_version}
           </p>
           {followUp ? (

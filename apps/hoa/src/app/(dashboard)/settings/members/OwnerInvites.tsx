@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
 import { MailPlus, RotateCw, XCircle } from 'lucide-react'
 import { Button, useConfirm, useToast } from '@homeowner-portal/ui'
 import {
@@ -13,6 +12,7 @@ import {
   type OwnerInviteOutcome,
 } from '@/lib/owner-invites-actions'
 import type { PendingInvitation } from '@/lib/owner-invites'
+import { formatShortDate } from '@/lib/format-datetime'
 
 // BL-128: "Invite all owners without an account" (preview → confirm →
 // one batch), and the pending-invitation list with Resend and Revoke.
@@ -179,7 +179,7 @@ function PendingRow({ inv, canManage }: { inv: PendingInvitation; canManage: boo
         <p className="truncate text-xs text-muted">
           {inv.name && inv.email ? `${inv.email} · ` : ''}
           {inv.role === 'resident' ? 'Resident' : inv.role === 'board' ? 'Board' : 'Admin'}
-          {inv.invitedAt ? ` · invited ${format(new Date(inv.invitedAt), 'PP')}` : ''}
+          {inv.invitedAt ? ` · invited ${formatShortDate(inv.invitedAt)}` : ''}
         </p>
         {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
       </div>

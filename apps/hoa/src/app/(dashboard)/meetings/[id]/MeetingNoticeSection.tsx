@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { Megaphone } from 'lucide-react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { NoticeLawAlert } from '@/components/meetings/NoticeLawAlert'
 import { loadMeetingNoticeStatus, type NoticeMeeting } from '@/lib/meetings/notice-queries'
+import { formatShortDate } from '@/lib/format-datetime'
 
 /**
  * BL-118: "Send meeting notice" on a scheduled meeting. One self-contained
@@ -31,7 +31,7 @@ export async function MeetingNoticeSection({ meeting }: { meeting: NoticeMeeting
           <p className="text-sm text-foreground">
             {latest.status === 'scheduled' ? 'Notice scheduled for ' : 'Notice sent on '}
             <Link href={`/communications/${latest.communicationId}`} className="font-medium text-primary underline-offset-2 hover:underline">
-              {format(new Date(latest.at), 'MMM d, yyyy')}
+              {formatShortDate(latest.at)}
             </Link>
           </p>
         ) : (

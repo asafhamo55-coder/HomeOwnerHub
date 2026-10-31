@@ -1,7 +1,7 @@
+import { formatDay } from '@/lib/money/format'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FileSpreadsheet, FileText, MessageSquare, Users } from 'lucide-react'
-import { format } from 'date-fns'
 import { Button, EmptyState, LoadFailed, Page, StatusPill, type StatusTone } from '@homeowner-portal/ui'
 import { loadRecordsRequests, type RecordsRequestRow } from '@/lib/records-requests/queries'
 import {
@@ -32,7 +32,7 @@ const TONE: Record<RecordsChip, StatusTone> = {
 }
 
 function day(d: string): string {
-  return format(new Date(`${d}T12:00:00Z`), 'MMM d, yyyy')
+  return formatDay(d)
 }
 
 /**

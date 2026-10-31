@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { formatDateTime } from '@/lib/format-datetime'
 import { ClipboardList } from 'lucide-react'
 import { DataTable, EmptyState, Page, StatusPill, type StatusTone } from '@homeowner-portal/ui'
 import { listPlatformAuditLog } from '@/lib/platform-admin'
@@ -94,7 +94,7 @@ export default async function AuditLogPage() {
             className: 'whitespace-nowrap',
             cell: (r) => (
               <time dateTime={r.created_at} className="text-foreground-secondary">
-                {format(new Date(r.created_at), 'PP · p')}
+                {formatDateTime(r.created_at)}
               </time>
             ),
           },

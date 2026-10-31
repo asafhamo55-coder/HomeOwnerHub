@@ -36,6 +36,7 @@ import { canApproveMinutes } from '@/lib/meetings/approve-minutes'
 import { minutesBlocks } from './minutes-blocks'
 import { MeetingNoticeSection } from './MeetingNoticeSection'
 import { AnnualChecklistCard } from './AnnualChecklistCard'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,7 +147,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
                       <span className="inline-flex items-center gap-1.5">
                         <CheckCircle2 className="size-4 text-success" aria-hidden />
                         Approved
-                        {meeting.approved_at ? ` ${format(new Date(meeting.approved_at), 'MMM d, yyyy')}` : ''}
+                        {meeting.approved_at ? ` ${formatShortDate(meeting.approved_at)}` : ''}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 text-foreground-secondary">
@@ -168,7 +169,7 @@ export default async function MeetingDetailPage(props: { params: Promise<{ id: s
                   />
                 ) : null}
                 {meeting.created_at ? (
-                  <KeyValue label="Created" value={format(new Date(meeting.created_at), 'MMM d, yyyy')} />
+                  <KeyValue label="Created" value={formatShortDate(meeting.created_at)} />
                 ) : null}
               </KeyValueList>
             </CardContent>

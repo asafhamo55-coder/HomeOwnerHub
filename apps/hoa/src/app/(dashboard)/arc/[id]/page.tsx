@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
 import { formatDay } from '@/lib/money/format'
 import {
   Badge,
@@ -32,6 +31,7 @@ import { arcClock, pickArcClockSettings } from '@/lib/arc-review/clock'
 import { ArcDecisionForm } from './ArcDecisionForm'
 import { ArcBoardReplyForm } from './ArcBoardReplyForm'
 import { ArcActions } from './ArcActions'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'ARC application' }
 // Force a fresh render after a board decision — without this the client
@@ -102,7 +102,7 @@ export default async function ArcReviewDetailPage({
         <>
           {submitter}
           {arc.unit_number ? ` · Unit ${arc.unit_number}` : ''} · submitted{' '}
-          <time dateTime={arc.submitted_at}>{format(new Date(arc.submitted_at), 'PP')}</time>
+          <time dateTime={arc.submitted_at}>{formatShortDate(arc.submitted_at)}</time>
         </>
       }
       actions={<ArcActions arcId={arc.id} />}
@@ -181,7 +181,7 @@ export default async function ArcReviewDetailPage({
                 {decided && arc.board_response_at ? (
                   <CardDescription>
                     {ARC_STATUS.labels[arc.status]} on{' '}
-                    <time dateTime={arc.board_response_at}>{format(new Date(arc.board_response_at), 'PP')}</time>
+                    <time dateTime={arc.board_response_at}>{formatShortDate(arc.board_response_at)}</time>
                   </CardDescription>
                 ) : (
                   <CardDescription>The resident sees the decision and your response in their portal.</CardDescription>

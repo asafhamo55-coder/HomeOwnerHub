@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
 import { Badge, KeyValue, KeyValueList, LoadFailed } from '@homeowner-portal/ui'
 import { getMyViolationReport } from '@/lib/resident-submissions'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
@@ -10,6 +9,7 @@ import { Conversation, ThreadClosed } from '@/components/resident/Conversation'
 import { ReplyComposer } from '@/components/resident/ReplyComposer'
 import { loadMyHomeViolation } from '@/lib/violation-response-load'
 import { HomeViolationView } from './HomeViolationView'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Violation' }
 export const dynamic = 'force-dynamic'
@@ -75,10 +75,10 @@ export default async function ResidentViolationDetailPage({
           <p className="whitespace-pre-wrap text-sm text-foreground [overflow-wrap:anywhere]">{report.description}</p>
           <KeyValueList className="border-t border-border pt-4">
             <KeyValue label="Location" value={report.about_address} />
-            <KeyValue label="Reported" value={format(new Date(report.submitted_at), 'PPp')} />
+            <KeyValue label="Reported" value={formatDateTime(report.submitted_at)} />
             <KeyValue
               label="When it happened"
-              value={report.occurred_at ? format(new Date(report.occurred_at), 'PPp') : null}
+              value={report.occurred_at ? formatDateTime(report.occurred_at) : null}
             />
           </KeyValueList>
         </Panel>

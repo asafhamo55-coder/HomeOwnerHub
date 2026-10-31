@@ -1,7 +1,6 @@
 import { timed } from '@/lib/perf/timing'
 import Link from 'next/link'
 import { CalendarX, ClipboardList, Hourglass, SearchX, Timer } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Badge,
   Button,
@@ -34,6 +33,7 @@ import { ExportDownloadButton } from '@/components/export/ExportDownloadButton'
 import { SummaryStrip } from '@/components/SummaryStrip'
 import { countByStatus, countPastDecideBy, oldestArcWaitDays } from '@/lib/arc-review/summary'
 import { plural } from '@/lib/money/format'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'ARC review' }
 export const dynamic = 'force-dynamic'
@@ -139,7 +139,7 @@ export default async function ArcReviewListPage({
       header: 'Submitted',
       cell: (r) => (
         <time dateTime={r.submitted_at} className="whitespace-nowrap text-foreground-secondary">
-          {format(new Date(r.submitted_at), 'MMM d, yyyy')}
+          {formatShortDate(r.submitted_at)}
         </time>
       ),
     },
@@ -151,7 +151,7 @@ export default async function ArcReviewListPage({
       cell: (r) =>
         r.board_response_at ? (
           <time dateTime={r.board_response_at} className="whitespace-nowrap text-foreground-secondary">
-            {format(new Date(r.board_response_at), 'MMM d, yyyy')}
+            {formatShortDate(r.board_response_at)}
           </time>
         ) : (
           <span className="text-muted">—</span>

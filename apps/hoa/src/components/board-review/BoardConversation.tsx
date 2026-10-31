@@ -1,7 +1,7 @@
-import { format } from 'date-fns'
 import { Lock, ShieldCheck, User } from 'lucide-react'
 import { Timeline, type TimelineItem } from '@homeowner-portal/ui'
 import type { BoardMessageRow } from '@/lib/board-review'
+import { formatMonthDayTime } from '@/lib/format-datetime'
 
 /**
  * The resident ↔ board thread on an ARC application or a resident report,
@@ -32,7 +32,7 @@ export function BoardConversation({
           Internal note — not visible to the {residentLabel.toLowerCase()}
         </span>
       ) : undefined,
-      time: <time dateTime={m.created_at}>{format(new Date(m.created_at), 'MMM d, h:mm a')}</time>,
+      time: <time dateTime={m.created_at}>{formatMonthDayTime(m.created_at)}</time>,
       icon: fromResident ? <User /> : m.internal ? <Lock /> : <ShieldCheck />,
       tone: fromResident ? 'neutral' : m.internal ? 'warning' : 'brand',
       highlight: m.internal,

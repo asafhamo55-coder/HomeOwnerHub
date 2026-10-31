@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FileText } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Button,
   Card,
@@ -30,6 +29,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { documentEmailSource } from '@/lib/inbox/provenance'
 import { docDetailColumns, ownerVisibilityControl } from '@/lib/resident-documents/owner-control'
 import { OwnerVisibilitySwitch } from '@/components/documents/OwnerVisibilitySwitch'
+import { formatShortDate } from '@/lib/format-datetime'
 
 interface DocDetailRow {
   id: string
@@ -125,7 +125,7 @@ export default async function DocumentDetailPage({
       description={
         <>
           {DOCUMENT_TYPE_LABELS[doc.type] ?? doc.type}
-          {doc.created_at ? ` · uploaded ${format(new Date(doc.created_at), 'PP')}` : ''}
+          {doc.created_at ? ` · uploaded ${formatShortDate(doc.created_at)}` : ''}
           {emailSource ? (
             <>
               {' · '}

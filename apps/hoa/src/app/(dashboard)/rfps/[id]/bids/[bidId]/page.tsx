@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FileText } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Button,
   Card,
@@ -21,6 +20,7 @@ import { BID_STATUS_LABELS, BID_STATUS_TONES } from '@/lib/status/vendors'
 import { dateOnly, usd } from '@/components/vendors/format'
 import { AwardBidButton } from './AwardBidButton'
 import { ConflictDisclosurePanel } from '@/components/conflict-disclosure/ConflictDisclosurePanel'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Bid' }
 
@@ -68,7 +68,7 @@ export default async function BidDetailPage({
       title={bid.vendor_legal_name}
       meta={<StatusBadge status={bid.status} tones={BID_STATUS_TONES} labels={BID_STATUS_LABELS} />}
       description={
-        bid.submitted_at ? `Submitted ${format(new Date(bid.submitted_at), 'PPp')}` : 'Not submitted yet'
+        bid.submitted_at ? `Submitted ${formatDateTime(bid.submitted_at)}` : 'Not submitted yet'
       }
       breadcrumbs={[
         { label: 'RFPs', href: '/rfps' },

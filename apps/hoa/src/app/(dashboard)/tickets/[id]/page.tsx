@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { ClipboardList, Lock, MessageSquare, Paperclip, User } from 'lucide-react'
 import {
   Card,
@@ -23,6 +22,7 @@ import { TicketActionItems } from './TicketActionItems'
 import { TicketActions } from './TicketActions'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
+import { formatDateTime, formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Ticket' }
 // Fresh render after a status/priority change so the board sees it apply
@@ -36,7 +36,7 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 function when(iso: string) {
-  return <time dateTime={iso}>{format(new Date(iso), 'MMM d, yyyy · h:mm a')}</time>
+  return <time dateTime={iso}>{formatDateTime(iso)}</time>
 }
 
 export default async function BoardTicketDetailPage({
@@ -103,7 +103,7 @@ export default async function BoardTicketDetailPage({
         <>
           {submitter}
           {ticket.unit_number ? ` · Unit ${ticket.unit_number}` : ''} · opened{' '}
-          {format(new Date(ticket.created_at), 'MMM d, yyyy')}
+          {formatShortDate(ticket.created_at)}
         </>
       }
       actions={<TicketActions ticketId={ticket.id} subject={ticket.subject} />}
@@ -157,7 +157,7 @@ export default async function BoardTicketDetailPage({
                 <KeyValue label="Submitted by" value={submitter} />
                 <KeyValue
                   label="Closed"
-                  value={ticket.closed_at ? format(new Date(ticket.closed_at), 'MMM d, yyyy') : null}
+                  value={ticket.closed_at ? formatShortDate(ticket.closed_at) : null}
                 />
               </KeyValueList>
               <div className="border-t border-border pt-5">

@@ -1,3 +1,4 @@
+import { formatDay } from '@/lib/money/format'
 import Link from 'next/link'
 import { Gavel } from 'lucide-react'
 import {
@@ -15,7 +16,6 @@ import {
   parsePageParam,
   type DataTableColumn,
 } from '@homeowner-portal/ui'
-import { format } from 'date-fns'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { orgTimeZone } from '@/lib/association-time-server'
@@ -123,7 +123,7 @@ export default async function MotionLogPage({ searchParams }: PageProps) {
       cell: (m) => (
         <Link href={`/meetings/${m.meetingId}`} className="group block no-underline">
           <span className="block font-medium text-primary group-hover:underline">
-            {format(new Date(`${m.meetingDate}T00:00:00`), 'MMM d, yyyy')}
+            {formatDay(m.meetingDate)}
           </span>
           <span className="block text-xs text-muted">
             {meetingTypeLabel(m.meetingType)} · {minutesStatusLabel(m.minutesStatus)} minutes

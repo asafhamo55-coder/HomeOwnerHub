@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { Megaphone } from 'lucide-react'
 import { Button, LoadFailed } from '@homeowner-portal/ui'
 import type { LatestAnnouncement } from '@/lib/resident-latest-announcement'
 import { IconTile, Panel, TappableRow } from '@/components/resident/screen'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export function LatestAnnouncementCard({
   announcement,
@@ -30,7 +30,7 @@ export function LatestAnnouncementCard({
         <IconTile icon={<Megaphone />} tone="info" />
         <div className="min-w-0 flex-1 space-y-0.5">
           <p className="text-sm font-semibold text-foreground [overflow-wrap:anywhere]">{announcement.subject}</p>
-          <p className="num text-xs text-muted">{format(new Date(announcement.sentAt), 'PP')}</p>
+          <p className="num text-xs text-muted">{formatShortDate(announcement.sentAt)}</p>
           {announcement.preview ? (
             <p className="pt-1 text-sm text-foreground-secondary [overflow-wrap:anywhere]">{announcement.preview}</p>
           ) : null}

@@ -21,6 +21,7 @@ import {
 } from '@homeowner-portal/ui'
 import { clearZelleSettings, saveZelleSettings } from '@/lib/pay-settings'
 import { ZellePayInstructions } from '@/components/resident/ZellePayInstructions'
+import { formatShortDate } from '@/lib/format-datetime'
 
 interface Values {
   recipient: string
@@ -107,7 +108,7 @@ export function ZelleSettingsForm({
               ) : (
                 <StatusPill tone="neutral" label="Off — residents see “not set up yet”" />
               )}
-              {configured && updatedAt ? <span>Last saved {format(new Date(updatedAt), 'PP')}</span> : null}
+              {configured && updatedAt ? <span>Last saved {formatShortDate(updatedAt)}</span> : null}
             </div>
             <Field
               label="Zelle email or mobile number"

@@ -1,6 +1,6 @@
-import { format } from 'date-fns'
 import { Lock } from 'lucide-react'
 import { cn } from '@homeowner-portal/ui'
+import { formatMonthDayTime } from '@/lib/format-datetime'
 
 // Message thread for a resident's ticket / ARC application / concern.
 // Chat-style: the resident's own messages on the right in the brand tint,
@@ -46,7 +46,7 @@ export function Conversation({
             <p className="px-1 text-xs text-muted">
               <span className="font-medium text-foreground-secondary">{who}</span>
               {' · '}
-              <time dateTime={m.created_at}>{format(new Date(m.created_at), 'MMM d, h:mm a')}</time>
+              <time dateTime={m.created_at}>{formatMonthDayTime(m.created_at)}</time>
             </p>
           </li>
         )

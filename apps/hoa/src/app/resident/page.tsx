@@ -45,6 +45,7 @@ import { residentCalendarHref } from '@/lib/meetings/resident-calendar-link'
 import { LatestAnnouncementCard } from '@/components/resident/LatestAnnouncementCard'
 import { QuickActions } from '@/components/resident/QuickActions'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'My Home' }
 
@@ -389,7 +390,7 @@ function ViolationRow({ violation }: { violation: OpenViolationRow }) {
       title={humanize(violation.violation_type)}
       subtitle={
         violation.notice_sent_at
-          ? `Notice sent ${format(new Date(violation.notice_sent_at), 'PP')}`
+          ? `Notice sent ${formatShortDate(violation.notice_sent_at)}`
           : violation.description
       }
       status={<ResidentStatus kind="violation" status={violation.status} />}
@@ -403,7 +404,7 @@ function TicketRowItem({ ticket }: { ticket: TicketRow }) {
       href={`/resident/tickets/${ticket.id}`}
       icon={<MessageSquarePlus />}
       title={ticket.subject}
-      subtitle={`Request · opened ${format(new Date(ticket.created_at), 'PP')}`}
+      subtitle={`Request · opened ${formatShortDate(ticket.created_at)}`}
       status={<ResidentStatus kind="ticket" status={ticket.status} />}
     />
   )
@@ -416,7 +417,7 @@ function ArcRowItem({ arc }: { arc: ArcRequestRow }) {
       icon={<ClipboardList />}
       tone="emerald"
       title={arc.summary}
-      subtitle={`ARC · submitted ${format(new Date(arc.submitted_at), 'PP')}`}
+      subtitle={`ARC · submitted ${formatShortDate(arc.submitted_at)}`}
       status={<ResidentStatus kind="arc" status={arc.status} />}
     />
   )

@@ -1,5 +1,43 @@
 import { describe, it, expect } from 'vitest'
-import { formatMessageTimestamp, formatShortDate, HOA_TIME_ZONE } from './format-datetime'
+import {
+  formatDateTime,
+  formatMessageTimestamp,
+  formatMonthDay,
+  formatMonthDayTime,
+  formatShortDate,
+  HOA_TIME_ZONE,
+} from './format-datetime'
+import { formatDay } from './money/format'
+
+describe('round 19: timestamps vs date-only values', () => {
+  // 23:30 Eastern on Oct 5 (EDT, UTC-4) is 03:30 UTC on Oct 6.
+  const lateEvening = '2026-10-06T03:30:00Z'
+
+  it('renders a 23:30 Eastern timestamp on the Eastern day, not the UTC day', () => {
+    expect(formatShortDate(lateEvening)).toBe('Oct 5, 2026')
+    expect(formatMonthDay(lateEvening)).toBe('Oct 5')
+    expect(formatDateTime(lateEvening)).toBe('Oct 5, 2026, 11:30 PM')
+    expect(formatMonthDayTime(lateEvening)).toBe('Oct 5, 11:30 PM')
+  })
+
+  it('shows 10:05 AM Eastern as 10:05 AM, not 2:05 PM', () => {
+    expect(formatDateTime('2026-10-05T14:05:00Z')).toBe('Oct 5, 2026, 10:05 AM')
+  })
+
+  it('honours an explicit association time zone', () => {
+    expect(formatDateTime(lateEvening, 'America/Los_Angeles')).toBe('Oct 5, 2026, 8:30 PM')
+  })
+
+  it('returns an empty string for missing or invalid input', () => {
+    expect(formatDateTime(null)).toBe('')
+    expect(formatMonthDay('nonsense')).toBe('')
+  })
+
+  it('does not shift a date-only value', () => {
+    expect(formatDay('2026-10-05')).toBe('Oct 5, 2026')
+    expect(formatDay('2026-01-01')).toBe('Jan 1, 2026')
+  })
+})
 
 describe('formatMessageTimestamp', () => {
   // The bug this file fixes: these screens are server components rendering on

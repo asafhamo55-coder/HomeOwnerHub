@@ -1,7 +1,6 @@
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { Download, Home, KeyRound, ListOrdered, Percent } from 'lucide-react'
 import {
   Alert,
@@ -37,6 +36,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadPropertyScope } from '@/lib/property-scope'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 import { plural } from '@/lib/money/format'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Leases' }
 export const dynamic = 'force-dynamic'
@@ -165,7 +165,7 @@ export default async function LeasesPage({
           <CardTitle as="h2">Cap policy</CardTitle>
           <CardDescription>
             {capSet ? `Up to ${cap!.capPct}% of units may be leased at once.` : 'No rental cap is set.'}
-            {cap?.setAt ? ` Set ${format(new Date(cap.setAt), 'PP')}${cap.setBy ? ' by a board member' : ''}.` : ''}
+            {cap?.setAt ? ` Set ${formatShortDate(cap.setAt)}${cap.setBy ? ' by a board member' : ''}.` : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -299,7 +299,7 @@ const waitingColumns: DataTableColumn<WaitingListEntry & { position: number }>[]
   {
     key: 'requested',
     header: 'Requested',
-    cell: (e) => <span className="num whitespace-nowrap">{format(new Date(e.requested_at), 'MMM d, yyyy')}</span>,
+    cell: (e) => <span className="num whitespace-nowrap">{formatShortDate(e.requested_at)}</span>,
   },
   {
     key: 'actions',
@@ -319,7 +319,7 @@ const decisionColumns: DataTableColumn<WaitingListEntry>[] = [
   {
     key: 'requested',
     header: 'Requested',
-    cell: (e) => <span className="num whitespace-nowrap">{format(new Date(e.requested_at), 'MMM d, yyyy')}</span>,
+    cell: (e) => <span className="num whitespace-nowrap">{formatShortDate(e.requested_at)}</span>,
   },
   {
     key: 'status',

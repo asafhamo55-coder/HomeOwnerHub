@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { Plus, ShieldAlert } from 'lucide-react'
-import { format } from 'date-fns'
 import { Button, LoadFailed } from '@homeowner-portal/ui'
 import { loadMyViolationReports } from '@/lib/resident-submissions'
 import { RowGroup, ScreenEmpty, ScreenHeader, TappableRow } from '@/components/resident/screen'
 import { REPORT_CATEGORY_LABEL, ResidentStatus } from '@/components/resident/status'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Reported concerns' }
 export const dynamic = 'force-dynamic'
@@ -54,7 +54,7 @@ export default async function MyViolationReportsPage() {
               icon={<ShieldAlert />}
               tone="amber"
               title={`${REPORT_CATEGORY_LABEL[r.category] ?? r.category}${r.about_address ? ` · ${r.about_address}` : ''}`}
-              subtitle={`Reported ${format(new Date(r.submitted_at), 'PP')}`}
+              subtitle={`Reported ${formatShortDate(r.submitted_at)}`}
               status={<ResidentStatus kind="report" status={r.status} />}
             />
           ))}
