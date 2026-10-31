@@ -38,6 +38,8 @@ import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { DashboardWelcome } from '@/components/dashboard/DashboardWelcome'
 import { SetupChecklistCard } from '@/components/dashboard/SetupChecklistCard'
+import { SampleCommunityPanel } from '@/components/dashboard/SampleCommunityPanel'
+import { loadSampleState } from '@/lib/sample-community/core'
 import { UnassignedHomesNotice } from '@/components/properties/UnassignedHomesNotice'
 import { BoardFirstWeek } from '@/components/guide/FirstWeekGate'
 import { MyTasksCard } from '@/components/dashboard/MyTasksCard'
@@ -153,6 +155,9 @@ export default async function DashboardHome() {
       <Suspense fallback={dismissed ? null : <CardSkeleton body="h-24" />}>
         <SetupChecklistSection orgId={org.id} dismissed={dismissed} />
       </Suspense>
+      <Suspense fallback={null}>
+        <SampleCommunitySection orgId={org.id} />
+      </Suspense>
       {/* BL-125: homes with no association are never billed. Hidden when there are none. */}
       <Suspense fallback={null}>
         <UnassignedHomesNotice orgId={org.id} />
@@ -162,6 +167,17 @@ export default async function DashboardHome() {
       <DashboardSections orgId={org.id} />
     </Page>
   )
+}
+
+/**
+ * A8/A4: the sample-community banner while sample data exists, or the "Try
+ * it with a sample community" offer while the org has no homes at all.
+ * Hidden for good once real homes exist. A failed read shows nothing.
+ */
+async function SampleCommunitySection({ orgId }: { orgId: string }) {
+  const supabase = await getSupabaseServerClient()
+  const state = await timed('/', 'dashboard.sampleCommunity', () => loadSampleState(supabase, orgId))
+  return <SampleCommunityPanel state={state} variant="compact" />
 }
 
 async function SetupChecklistSection({ orgId, dismissed }: { orgId: string; dismissed: boolean }) {
