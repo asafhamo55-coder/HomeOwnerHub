@@ -15,6 +15,7 @@ import { announcementReplyHref } from '@/lib/messages/tabs'
 import { MessagesTabs } from './MessagesTabs'
 import { NewMessageMenu } from './NewMessageMenu'
 import { InboxSourceChips } from './InboxSourceChips'
+import { usd } from '@/lib/money/format'
 
 const CHANNEL_LABEL: Record<string, string> = { email: 'Email', sms: 'Text', portal: 'Portal' }
 
@@ -241,7 +242,7 @@ function HomePanel({ unitId, home, failed }: { unitId: string | null; home: Prop
           {home.duesBalance > 0 ? (
             <StatusPill
               tone="danger"
-              label={`$${home.duesBalance.toFixed(2)} owed${home.duesOverdueCount > 0 ? ` · ${home.duesOverdueCount} overdue` : ''}`}
+              label={`${usd(home.duesBalance)} owed${home.duesOverdueCount > 0 ? ` · ${home.duesOverdueCount} overdue` : ''}`}
             />
           ) : (
             <StatusPill tone="success" label="Current" />

@@ -26,6 +26,7 @@ import { PublishRfpButton } from './PublishRfpButton'
 import { CancelRfpButton } from './CancelRfpButton'
 import { InviteVendorsPanel } from './InviteVendorsPanel'
 import { formatDateTime } from '@/lib/format-datetime'
+import { usd } from '@/lib/money/format'
 
 export const metadata = { title: 'RFP' }
 
@@ -194,7 +195,7 @@ function humanizeKey(k: string): string {
 
 function formatInsuranceValue(v: unknown): string {
   if (v == null) return '—'
-  if (typeof v === 'number') return `$${v.toLocaleString()}`
+  if (typeof v === 'number') return usd(v, { whole: Number.isInteger(v) })
   if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   if (Array.isArray(v)) return v.join(', ')
   return String(v)

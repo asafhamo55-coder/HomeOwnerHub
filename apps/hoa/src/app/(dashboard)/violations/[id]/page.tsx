@@ -4,7 +4,7 @@ import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { notFound } from 'next/navigation'
 import { formatShortDate } from '@/lib/format-datetime'
-import { formatDay } from '@/lib/money/format'
+import { formatDay, usd } from '@/lib/money/format'
 import { CalendarClock, CheckCircle2, Clock, FileCheck2, Flag, Gavel, Mail, XCircle } from 'lucide-react'
 import {
   Card,
@@ -313,7 +313,7 @@ export default async function ViolationDetailPage({
   if (hr?.status === 'held' && hr.hearingOn)
     history.push({ id: 'hearing-held', title: 'Hearing held', meta: hr.outcome ? HEARING_OUTCOME_LABEL[hr.outcome] : undefined, time: timeEl(hr.hearingOn), icon: <Gavel />, tone: 'brand' })
   if (v.fine_start_date)
-    history.push({ id: 'fines', title: 'Fines started', meta: v.fine_amount != null ? `$${v.fine_amount}/day` : undefined, time: timeEl(v.fine_start_date), icon: <Gavel />, tone: 'danger' })
+    history.push({ id: 'fines', title: 'Fines started', meta: v.fine_amount != null ? `${usd(v.fine_amount)} a day` : undefined, time: timeEl(v.fine_start_date), icon: <Gavel />, tone: 'danger' })
   if (v.resolved_at)
     history.push({
       id: 'closed',

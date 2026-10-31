@@ -13,7 +13,7 @@ import { RequestHearingForm } from './RequestHearingForm'
 import type { ResidentHearingLoad } from '@/lib/violation-hearings/queries'
 import { HEARING_OUTCOME_LABEL, type ResidentHearingView } from '@/lib/violation-hearings/rules'
 import { formatShortDate } from '@/lib/format-datetime'
-import { formatDay } from '@/lib/money/format'
+import { formatDay, usd } from '@/lib/money/format'
 
 // BL-129: a violation on the resident's own home — the notice, the cure-by
 // date, the board's photos, the history, and the resident's response.
@@ -69,7 +69,7 @@ export function HomeViolationView({
     history.push({
       id: 'fines',
       title: 'Fines started',
-      meta: v.dailyFine != null ? `$${v.dailyFine} a day` : undefined,
+      meta: v.dailyFine != null ? `${usd(v.dailyFine)} a day` : undefined,
       time: timeEl(v.finesStartedOn),
       icon: <Gavel />,
       tone: 'danger',

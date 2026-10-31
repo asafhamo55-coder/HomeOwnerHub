@@ -21,7 +21,7 @@ import {
   Switch,
   useToast,
 } from '@homeowner-portal/ui'
-import { formatStamp } from '@/lib/money/format'
+import { formatStamp, usd } from '@/lib/money/format'
 import { saveLateFeePolicy } from '@/lib/late-fees/actions'
 import { NO_LOADED_RULE_NOTE, type LateFeeLaw } from '@/lib/late-fees/law'
 import type { LateFeePolicy } from '@/lib/late-fees/policy'
@@ -50,7 +50,7 @@ export function toValues(p: LateFeePolicy): Values {
   }
 }
 
-const money = (cents: number) => `$${(cents / 100).toFixed(2)}`
+const money = (cents: number) => usd(cents / 100)
 
 export function LateFeePolicyForm({
   initial,

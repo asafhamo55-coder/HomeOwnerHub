@@ -13,10 +13,11 @@ import {
 import { HEALTH_SORT_KEYS, TenantHealthTable, type HealthSortKey } from '@/components/admin/TenantHealthTable'
 import { BarList } from '../_components/BarList'
 import { planLabel } from '../_components/tenant-status'
+import { usd as fmtUsd } from '@/lib/money/format'
 
 export const metadata = { title: 'Platform analytics' }
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString()}`
+const usd = (n: number) => fmtUsd(n, { whole: true })
 
 export default async function AnalyticsPage({
   searchParams,
