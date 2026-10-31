@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, Check, X, Minus, Sparkles } from 'lucide-react'
+import { HeroCtas } from '@/components/site/hero-ctas'
 import { Nav } from '@/components/site/nav'
 import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
@@ -248,7 +249,7 @@ export default function ComparePage() {
         </div>
       </section>
 
-      <section className="section bg-surface">
+      <section className="section section-ink">
         <div className="container-page text-center">
           <p className="eyebrow">
             Next step
@@ -256,14 +257,8 @@ export default function ComparePage() {
           <h2 className="t-h2 mx-auto mt-4 max-w-2xl text-foreground">
             Ten minutes. Your CC&R. Your board.
           </h2>
-<div className="flex flex-col items-center justify-center gap-3 sm:flex-row mt-9">
-            <TrackedLink href="/demo" event="demo_cta_click" position="closing" className="btn btn-primary btn-lg group">
-              Book a demo
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </TrackedLink>
-            <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
-              Start free trial
-            </TrackedLink>
+<div className="flex flex-col items-center">
+            <HeroCtas position="closing" checks={false} secondaryLabel="Book a demo" />
           </div>
         </div>
       </section>

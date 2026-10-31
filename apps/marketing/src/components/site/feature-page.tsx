@@ -30,7 +30,7 @@ function Visual({ screen, label, tall, shift = 0 }: { screen: FeatureScreen; lab
       <div
         role="img"
         aria-label={`${label}: sample screen with made-up data`}
-        className={cn('overflow-hidden rounded-2xl border border-border bg-subtle shadow-[0_30px_60px_-30px_rgb(42_18_136/0.35)]', tall ? 'h-[320px] sm:h-[420px]' : 'h-[300px]')}
+        className={cn('overflow-hidden rounded-2xl border border-border bg-subtle shadow-[0_30px_60px_-30px_rgb(42_18_136/0.35)]', tall ? 'h-[320px] sm:h-[420px]' : 'h-[240px]')}
       >
         <div aria-hidden style={{ marginTop: -shift }} className="w-[640px] max-w-none origin-top-left scale-[0.55] sm:scale-[0.8] lg:scale-[0.7] xl:scale-[0.8]">
           <Screen />
@@ -87,9 +87,9 @@ export function FeaturePage({ slug }: { slug: string }) {
             </h2>
             <div className="mt-14 space-y-16 md:space-y-24">
               {page.benefits.map((b, i) => (
-                <div key={b.title} className="grid items-center gap-8 md:grid-cols-2 md:gap-14">
-                  <div className={cn(i % 2 === 1 && 'md:order-2')}>
-                    <Visual screen={page.screen} label={b.title} shift={(i % 3) * 70} />
+                <div key={b.title} className="grid grid-cols-[minmax(0,1fr)] items-center gap-8 md:grid-cols-2 md:gap-14">
+                  <div className={cn('min-w-0', i % 2 === 1 && 'md:order-2')}>
+                    <Visual screen={page.screen} label={b.title} />
                   </div>
                   <div>
                     <h3 className="t-h3 text-foreground">{b.title}</h3>
