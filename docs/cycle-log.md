@@ -931,3 +931,30 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
 - **Ratchets caught before CI:**
   - the navigation loading-state ratchet (the law update edit page);
   - the records flag test, which assumed the actions slot was empty.
+
+## 2026-10-31 04:45 → 09:30 IST (02:45 → 06:30 UTC): rounds 20 to 24
+
+- **Deploys:**
+  - a19e6c9b (round 18), live 02:58
+  - bfe3b7fd (rounds 19 and 20), live 03:58
+  - bc0a464a (round 21), live 05:07
+  - 59bb3992 (round 22), live ~06:10
+  - c72b8f1b (round 23), scheduled 07:01
+  - 0280a782 (round 24), scheduled 08:02
+- **Correctness sweeps:**
+  - Read failures are no longer shown as empty, "none" or 404: board tickets, attachments, vendors, communications, RFP invitations, lease cap, platform admin.
+  - Money display goes through `usd()`, with a ratchet.
+  - Unpaged `listUsers` is fixed at 5 sites. The platform-admin invite now refuses on a lookup failure instead of re-inviting.
+  - Jobs report failures (ticket alerts, late fees, recurring journal entries, dues reminders, the board report, scheduled sends).
+  - A double push on a replayed new-ticket event is fixed.
+- **First week (round 24):**
+  - message for expired links
+  - a dues run preview (the materialize refactor was reviewed: same due date, same units)
+  - next steps after roster import
+  - announcement reachability
+  - **Likely invite bug:** admin `inviteUserByEmail` links carry the session in the URL hash, which the server callback can't read. A hash-session fallback was added on /login. Asaf should verify with a real invite.
+- **SEO:** batches 18 to 22 (FL elections, member meetings, lien timeline, fine caps, estoppel; TX violation notices and ballots; GA POA Act scope and board eligibility). Every paraphrased statute claim was checked against the fixtures before merge.
+- **Ratchets caught before CI:**
+  - an undefined colour class in the hash handler
+  - a direct `legacy_hoa_property_id` read in the dues preview
+  - a navigation loading state
