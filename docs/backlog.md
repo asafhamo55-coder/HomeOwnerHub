@@ -2046,6 +2046,23 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 25 (2026-10-31, code-verified): the resident's path
+
+None of these needs a migration or an owner action, and nothing here moves money.
+
+1. **Board isn't told when a resident replies, files an ARC request or reports a concern.** Show a "Resident replied" chip on /tickets. Write a notification row to the board's in-app bell only. No email, SMS or push. Effort 2.
+2. **"Report a concern" cites a made-up "Policy §12.03" to every HOA.** Remove it in 3 places and add a test that bans it. Effort 1.
+3. **Resident documents page: link to the existing meeting minutes.** Today it tells residents to ask the board. Effort 1.
+4. **BUG: resident actions show raw database errors (7 sites).** Replace them with friendly text and add a ratchet. Effort 1.
+5. **Ticket form: tell residents they can add photos after sending.** Effort 1.
+6. **BL-172 SEO batch 23: Florida architectural review limits (§ 720.3035).** This is the first ARC guide. Effort 2.
+7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped:**
+- Meeting time and place: needs a migration.
+- "I sent my Zelle": needs a table.
+- The pay page and the ARC, hearing and reply composers are sound.
+
 ## Ranked open work — round 24 (2026-10-31, code-verified): a new board's first week — Done 2026-10-31 except item 8 (SEO audit due Nov 2); added: invite-link hash-session fallback (verify with a real invite)
 
 None of these needs a migration or an owner action. Item 2 changes money display only. Item 4 is a read-only count, and the send path is unchanged.
