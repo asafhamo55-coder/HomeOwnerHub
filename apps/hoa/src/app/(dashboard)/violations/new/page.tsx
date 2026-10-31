@@ -45,14 +45,17 @@ export default async function NewViolationPage({
       // Archived homes can't take a new violation.
       .is('deleted_at', null)
       .order('address', { ascending: true }),
-    supabase
-      .from('hoa_documents')
-      .select('id', { count: 'exact', head: true })
-      .eq('org_id', org.id)
-      .eq('type', 'ccr')
-      .not('parsed_text', 'is', null)
-      // M-3: the same documents W3 may cite (analyze-violation).
-      .or(AI_ELIGIBLE_DOCUMENT_FILTER),
+    loadOrFail(
+      'the CC&R check',
+      supabase
+        .from('hoa_documents')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', org.id)
+        .eq('type', 'ccr')
+        .not('parsed_text', 'is', null)
+        // M-3: the same documents W3 may cite (analyze-violation).
+        .or(AI_ELIGIBLE_DOCUMENT_FILTER),
+    ),
     draftId ? loadDraft(draftId) : Promise.resolve(null),
     // BL-019: the association's state picks the enforcement rules the
     // letter must follow. Primary association = first by name, the same
@@ -80,7 +83,7 @@ export default async function NewViolationPage({
   const properties = (propsRes.data ?? []) as PropertyOption[]
   const wanted = parsePropertyParam(propertyParam) ?? fromThread?.propertyId ?? null
   const initialPropertyId = wanted && properties.some((p) => p.id === wanted) ? wanted : null
-  const hasParsedCCR = (ccrRes.count ?? 0) > 0
+  const ccrStatus = !ccrRes.ok ? 'unknown' : (ccrRes.count ?? 0) > 0 ? 'ok' : 'missing'
 
   // Only resume drafts of the right kind. If a foreign draft id is in the
   // URL, we ignore it rather than crashing.
@@ -134,7 +137,7 @@ export default async function NewViolationPage({
           <CardContent className="pt-5">
             <Wizard
               properties={properties}
-              hasParsedCCR={hasParsedCCR}
+              ccrStatus={ccrStatus}
               initialDraft={usableDraft}
               initialPropertyId={initialPropertyId}
               fromThread={usableDraft ? null : fromThread ? { threadId: fromThread.threadId, notes: fromThread.notes } : null}

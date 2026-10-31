@@ -29,6 +29,7 @@ import {
   type WizardStep as StepperStep,
 } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
+import { CcrNotice } from './CcrNotice'
 import { PropertyPicker } from './PropertyPicker'
 import { EarlierAtHome } from './EarlierAtHome'
 import { responseErrorMessage } from '@/lib/api/client'
@@ -71,7 +72,7 @@ type WizardStepId = 'capture' | 'analyzing' | 'review' | 'done'
 
 interface WizardProps {
   properties: WizardProperty[]
-  hasParsedCCR: boolean
+  ccrStatus: 'ok' | 'missing' | 'unknown'
   /** When set, the wizard hydrates its state from this draft and resumes. */
   initialDraft?: WizardDraft | null
   /** From `?property=` (the property page's "New violation here"). Only
@@ -112,7 +113,7 @@ interface DraftPayload {
   fromThreadId?: string | null
 }
 
-export function Wizard({ properties, hasParsedCCR, initialDraft, initialPropertyId = null, fromThread = null }: WizardProps) {
+export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId = null, fromThread = null }: WizardProps) {
   const router = useRouter()
   const confirm = useConfirm()
   const toast = useToast()
@@ -461,6 +462,8 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
       <div className="space-y-5">
         {stepperHeader}
 
+        <CcrNotice status={ccrStatus} />
+
         {properties.length === 0 ? (
           <Alert
             variant="warning"
@@ -685,17 +688,6 @@ export function Wizard({ properties, hasParsedCCR, initialDraft, initialProperty
             />
           </FieldWithSuggestion>
         </div>
-
-        {!hasParsedCCR ? (
-          <Alert variant="warning" title="No parsed CC&Rs">
-            You haven&apos;t pasted CC&amp;R text yet. The AI can still draft a letter, but it
-            won&apos;t know which section to cite. Add your CC&amp;Rs under{' '}
-            <a className="font-medium underline underline-offset-2" href="/documents">
-              Documents
-            </a>
-            {' '}for better drafts.
-          </Alert>
-        ) : null}
 
         {analyzeError ? (
           <Alert variant="error" title="Analysis failed">
