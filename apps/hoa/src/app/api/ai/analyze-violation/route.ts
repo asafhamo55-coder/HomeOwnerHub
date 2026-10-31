@@ -166,7 +166,7 @@ export const POST = withRoute(ROUTE, async (request: Request) => {
       'Photo analysis is offline. Edit the description below to describe what you observed.',
     )
     if (!result.description) {
-      result.description = 'Violation observed at property — describe in detail before sending.'
+      result.description = 'Violation observed at the property. Describe it in detail before sending.'
     }
   }
 
@@ -209,7 +209,7 @@ export const POST = withRoute(ROUTE, async (request: Request) => {
   } catch (err) {
     logRouteFailure(`${ROUTE}.letter`, err, { orgId })
     warnings.push('Letter drafting is offline. Use the editor below to write the notice manually.')
-    result.letterDraft = `[AI letter drafting is unavailable.]\n\nViolation observed: ${result.description}\nProperty: ${address}\nCC&R section: ${result.ccrSection ?? '—'}\nCure period: ${body.curePeriodDays} days\n\nWrite the formal notice in the editor below before approving.`
+    result.letterDraft = `[AI letter drafting is unavailable.]\n\nViolation observed: ${result.description}\nProperty: ${address}\nCC&R section: ${result.ccrSection ?? 'not found'}\nCure period: ${body.curePeriodDays} days\n\nWrite the formal notice in the editor below before approving.`
   }
 
   // Append the statutory notice paragraph (+ quotes that pass the W32
@@ -234,7 +234,7 @@ export const POST = withRoute(ROUTE, async (request: Request) => {
         body.fineAmountCents > rules.fineCapCents
       ) {
         warnings.push(
-          `California caps a fine at $100 per violation unless the board makes a written health or safety finding at an open meeting. Lower the ${dollars(body.fineAmountCents)} fine or record that finding first — verify against the statute.`,
+          `California caps a fine at $100 per violation unless the board makes a written health or safety finding at an open meeting. Lower the ${dollars(body.fineAmountCents)} fine or record that finding first. Check the statute before sending.`,
         )
       }
     } catch (err) {
