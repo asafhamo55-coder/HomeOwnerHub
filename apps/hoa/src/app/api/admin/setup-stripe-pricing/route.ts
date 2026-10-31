@@ -40,6 +40,8 @@ import { logRouteFailure } from '@/lib/api/log'
 // route runs its own auth before anything else (RC-3).
 
 const PRODUCT_NAME = 'HomeownerHub'
+// Shown under the product name on Stripe Checkout.
+const PRODUCT_DESCRIPTION = 'HOA management software, Essentials or Complete plan'
 const MONTHLY_LOOKUP_KEY = 'hoa_per_door_monthly'
 const ANNUAL_LOOKUP_KEY = 'hoa_per_door_annual'
 
@@ -54,11 +56,14 @@ async function findOrCreateProduct(stripe: Stripe): Promise<Stripe.Product> {
   // Stripe has no "find by name", so walk every active product (auto-paged,
   // not just the first 100 — RC-9) and match locally.
   for await (const p of stripe.products.list({ active: true, limit: 100 })) {
-    if (p.name === PRODUCT_NAME) return p
+    if (p.name !== PRODUCT_NAME) continue
+    // Accounts set up before the two plans carry the old per-door wording.
+    if (p.description === PRODUCT_DESCRIPTION) return p
+    return stripe.products.update(p.id, { description: PRODUCT_DESCRIPTION })
   }
   return stripe.products.create({
     name: PRODUCT_NAME,
-    description: 'Per-door HOA management subscription',
+    description: PRODUCT_DESCRIPTION,
     metadata: { managed_by: 'hoa_hub_setup' },
   })
 }
@@ -173,12 +178,7 @@ export const POST = withRoute('admin.setup-stripe-pricing', async (request: Requ
       id: price.id,
       lookupKey: price.lookup_key,
     })),
-    nextSteps: [
-      `Add to Vercel env (Production + Preview + Development):`,
-      `  STRIPE_PRICE_PER_DOOR_MONTHLY=${monthlyPrice.id}`,
-      `  STRIPE_PRICE_PER_DOOR_ANNUAL=${annualPrice.id}`,
-      `Then redeploy so the env vars take effect.`,
-      `(Or — switch app code to read by lookup_key '${MONTHLY_LOOKUP_KEY}' / '${ANNUAL_LOOKUP_KEY}' and skip env vars entirely.)`,
-    ],
+    // Checkout resolves every Price by lookup key, so no env vars are needed.
+    nextSteps: ['Nothing to add to Vercel. Checkout finds these Prices by lookup key.'],
   })
 })

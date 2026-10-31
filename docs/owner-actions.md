@@ -117,23 +117,6 @@ prices; review it before pitching.
 1. Open `~/HomeownerHub-decks/HomeownerHub-Investor-Deck.pptx` on your Mac (it is not in the repo).
 2. Send Claude the real traction numbers, or tell Claude to remove the traction slide. Claude rebuilds the deck.
 
-### OA-16 · Prepare Stripe for the new Essentials / Complete pricing
-
-**Progress 2026-10-30:** Asaf decided to switch to Essentials / Complete now. Prod had 0 Stripe subscriptions, and all 5 orgs were on `free`; Asaf set them to `pilot` (UPDATE returned 5 ids) so they keep today's limits. `PRICING_V2` is flipped in code (claude/pricing-v2-cutover). Left after the deploy: POST /api/admin/setup-stripe-pricing once to create the four band prices, then check checkout. The manual price steps 2–3 are replaced by that route.
-
-**Urgency:** Whenever
-
-**Why it matters:** the new pricing (decision `docs/decisions/2026-10-20-pricing.md`) is built but switched off. Checkout still charges $4.99 per door. Before Claude can switch it on, Stripe needs the new prices, and we need to know who is on the old ones so they keep their price until renewal.
-
-**Steps:**
-
-1. In the Stripe dashboard (live mode), open **Billing → Subscriptions** and filter by the prices with lookup keys `hoa_per_door_monthly` and `hoa_per_door_annual`. Tell Claude how many there are and, for each, the HOA name, monthly or annual, and when its current term ends. Send no card or bank details.
-2. Switch to **Test mode**. Create the four tiered prices exactly as listed in `docs/specs/2026-10-20-pricing-v2-rollout.md` (lookup keys `hoa_essentials_monthly`, `hoa_essentials_annual`, `hoa_complete_monthly`, `hoa_complete_annual`). Keep the old per-door prices active.
-3. In test mode, open **Settings → Billing → Customer portal**: turn quantity editing off, then tell Claude whether the portal lets a customer switch between two tiered prices.
-4. Tell Claude when these are done. Claude tests checkout in test mode, then tells you when to create the same prices in live mode.
-
-**Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
-
 ### OA-23 · Let residents text STOP and START (Vonage setup)
 
 **Urgency:** Whenever
@@ -166,6 +149,25 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-16 · Prepare Stripe for the new Essentials / Complete pricing
+
+**Progress 2026-10-30:** Asaf decided to switch to Essentials / Complete now. Prod had 0 Stripe subscriptions, and all 5 orgs were on `free`; Asaf set them to `pilot` (UPDATE returned 5 ids) so they keep today's limits. `PRICING_V2` is flipped in code (claude/pricing-v2-cutover). Left after the deploy: POST /api/admin/setup-stripe-pricing once to create the four band prices, then check checkout. The manual price steps 2–3 are replaced by that route.
+
+**Urgency:** Whenever
+
+**Why it matters:** the new pricing (decision `docs/decisions/2026-10-20-pricing.md`) is built but switched off. Checkout still charges $4.99 per door. Before Claude can switch it on, Stripe needs the new prices, and we need to know who is on the old ones so they keep their price until renewal.
+
+**Steps:**
+
+1. In the Stripe dashboard (live mode), open **Billing → Subscriptions** and filter by the prices with lookup keys `hoa_per_door_monthly` and `hoa_per_door_annual`. Tell Claude how many there are and, for each, the HOA name, monthly or annual, and when its current term ends. Send no card or bank details.
+2. Switch to **Test mode**. Create the four tiered prices exactly as listed in `docs/specs/2026-10-20-pricing-v2-rollout.md` (lookup keys `hoa_essentials_monthly`, `hoa_essentials_annual`, `hoa_complete_monthly`, `hoa_complete_annual`). Keep the old per-door prices active.
+3. In test mode, open **Settings → Billing → Customer portal**: turn quantity editing off, then tell Claude whether the portal lets a customer switch between two tiered prices.
+4. Tell Claude when these are done. Claude tests checkout in test mode, then tells you when to create the same prices in live mode.
+
+**Files:** `docs/specs/2026-10-20-pricing-v2-rollout.md`
+
+**Done 2026-10-31:** Asaf ran the pricing setup (200). The four band prices exist on the live account (`acct_1TURnh…`) under lookup keys `hoa_essentials_monthly`, `hoa_essentials_annual`, `hoa_complete_monthly` and `hoa_complete_annual`; the old per-door prices stay active. Checkout for Essentials annual at 51 homes showed $790 a year after 30 days free, $0 due today. The website's six-month pilot copy now says 30-day trial (5c28120f). The setup route now refreshes the old per-door product description on its next run.
 
 ### OA-14 · Turn on two more Stripe webhook events
 

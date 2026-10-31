@@ -4,10 +4,11 @@ const h = vi.hoisted(() => ({
   user: { id: 'user-1' } as { id: string } | null,
   platformAdmin: false,
   configured: true,
-  products: [] as Array<{ id: string; name: string }>,
+  products: [] as Array<{ id: string; name: string; description?: string }>,
   existingPrices: {} as Record<string, { id: string; unit_amount: number; lookup_key: string }>,
   failWith: null as Error | null,
   productCreates: 0,
+  productUpdates: 0,
   priceCreates: 0,
 }))
 
@@ -36,6 +37,13 @@ function fakeStripe() {
         maybeFail()
         h.productCreates++
         return { id: 'prod_new', name: p.name }
+      },
+      update: async (id: string, patch: { description: string }) => {
+        maybeFail()
+        h.productUpdates++
+        const p = h.products.find((x) => x.id === id)!
+        p.description = patch.description
+        return p
       },
     },
     prices: {
@@ -87,6 +95,7 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
     h.existingPrices = {}
     h.failWith = null
     h.productCreates = 0
+    h.productUpdates = 0
     h.priceCreates = 0
     vi.stubEnv('STRIPE_PRICING_SETUP_SECRET', SECRET)
     vi.stubEnv('CRON_SECRET', 'cron-s3cret')
@@ -222,5 +231,14 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
     h.priceCreates = 0
     expect((await POST(req(`Bearer ${SECRET}`))).status).toBe(200)
     expect(h.productCreates + h.priceCreates).toBe(0)
+  })
+
+  it('replaces the old per-door product description once', async () => {
+    h.products = [{ id: 'prod_hoa', name: 'HomeownerHub', description: 'Per-door HOA management subscription' }]
+    expect((await POST(req(`Bearer ${SECRET}`))).status).toBe(200)
+    expect(h.productUpdates).toBe(1)
+    expect(h.products[0]!.description).not.toMatch(/per-door/i)
+    expect((await POST(req(`Bearer ${SECRET}`))).status).toBe(200)
+    expect(h.productUpdates).toBe(1)
   })
 })
