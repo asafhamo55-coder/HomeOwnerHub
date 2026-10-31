@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Send, X } from 'lucide-react'
 import { Alert, Button, Field, Fieldset, Input, Select, Textarea, useToast } from '@homeowner-portal/ui'
 import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
-import { createLawUpdate, type StatuteRow } from '@/lib/state-law'
+import { createLawUpdate, updateLawUpdate, type StatuteRow } from '@/lib/state-law'
 
 const CATEGORIES: Array<{ value: string; label: string }> = [
   { value: '', label: 'No topic' },
@@ -20,19 +20,35 @@ const CATEGORIES: Array<{ value: string; label: string }> = [
   { value: 'amendments', label: 'Amendments & governance' },
 ]
 
+/** Values an existing update brings into the form when it is edited. */
+export interface LawUpdateFormInitial {
+  id: string
+  headline: string
+  summary: string
+  action_items: string[] | null
+  category: string | null
+  effective_date: string | null
+  source_url: string | null
+  related_statute_id: string | null
+}
+
 export function NewUpdateForm({
   statutes,
   statutesFailed = false,
+  initial,
 }: {
   statutes: StatuteRow[]
   statutesFailed?: boolean
+  /** Edit mode: the form is prefilled and saves through updateLawUpdate. */
+  initial?: LawUpdateFormInitial
 }) {
+  const editing = !!initial
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [actionItems, setActionItems] = useState<string[]>([''])
+  const [actionItems, setActionItems] = useState<string[]>(initial?.action_items?.length ? initial.action_items : [''])
   const summaryRef = useRef<HTMLTextAreaElement>(null)
 
   function addActionItem() {
@@ -58,7 +74,7 @@ export function NewUpdateForm({
     const cleanedActionItems = actionItems.map((a) => a.trim()).filter((a) => a.length > 0)
 
     startTransition(async () => {
-      const result = await createLawUpdate({
+      const payload = {
         headline,
         summary,
         actionItems: cleanedActionItems,
@@ -66,7 +82,8 @@ export function NewUpdateForm({
         effectiveDate,
         sourceUrl,
         relatedStatuteId,
-      })
+      }
+      const result = initial ? await updateLawUpdate(initial.id, payload) : await createLawUpdate(payload)
       if (!result.ok) {
         if (result.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
           setFieldErrors(result.fieldErrors)
@@ -75,8 +92,8 @@ export function NewUpdateForm({
         }
         return
       }
-      toast({ tone: 'success', message: 'Update posted.' })
-      router.push('/legal')
+      toast({ tone: 'success', message: editing ? 'Update saved.' : 'Update posted.' })
+      router.push(editing ? '/legal/updates' : '/legal')
     })
   }
 
@@ -87,6 +104,7 @@ export function NewUpdateForm({
       <Field label="Headline" required hint="Short and scannable — what changed?" error={fe.headline}>
         <Input
           name="headline"
+          defaultValue={initial?.headline}
           required
           maxLength={200}
           placeholder="FL SB 4-D — structural inspections required by Dec 31"
@@ -110,6 +128,7 @@ export function NewUpdateForm({
         <Textarea
           ref={summaryRef}
           name="summary"
+          defaultValue={initial?.summary}
           rows={6}
           required
           minLength={20}
@@ -152,7 +171,7 @@ export function NewUpdateForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Topic" optional error={fe.category}>
-          <Select name="category" defaultValue="" disabled={isPending}>
+          <Select name="category" defaultValue={initial?.category ?? ''} disabled={isPending}>
             {CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -161,7 +180,7 @@ export function NewUpdateForm({
           </Select>
         </Field>
         <Field label="Effective date" optional error={fe.effective_date}>
-          <Input name="effective_date" type="date" disabled={isPending} />
+          <Input name="effective_date" type="date" defaultValue={initial?.effective_date ?? undefined} disabled={isPending} />
         </Field>
       </div>
 
@@ -173,6 +192,7 @@ export function NewUpdateForm({
       >
         <Input
           name="source_url"
+          defaultValue={initial?.source_url ?? undefined}
           type="url"
           inputMode="url"
           placeholder="https://www.flsenate.gov/Session/Bill/2022/4D"
@@ -185,12 +205,12 @@ export function NewUpdateForm({
         optional
         hint={
           statutesFailed
-            ? 'Couldn’t load the statute list, so this can’t be linked right now. You can still post the update.'
+            ? 'Couldn’t load the statute list, so this can’t be linked right now. You can still ' + (editing ? 'save' : 'post') + ' the update.'
             : 'Link the update to the section it changes, if there is one.'
         }
         error={fe.related_statute_id}
       >
-        <Select name="related_statute_id" defaultValue="" disabled={isPending || statutesFailed}>
+        <Select name="related_statute_id" defaultValue={initial?.related_statute_id ?? ''} disabled={isPending || statutesFailed}>
           <option value="">None</option>
           {statutes.map((s) => (
             <option key={s.id} value={s.id}>
@@ -201,7 +221,7 @@ export function NewUpdateForm({
       </Field>
 
       {error ? (
-        <Alert variant="error" title="Couldn’t post the update">
+        <Alert variant="error" title={editing ? 'Couldn’t save the update' : 'Couldn’t post the update'}>
           {error}
         </Alert>
       ) : null}
@@ -211,7 +231,7 @@ export function NewUpdateForm({
           <Link href="/legal/updates">Cancel</Link>
         </Button>
         <Button type="submit" loading={isPending} icon={<Send aria-hidden />}>
-          Post update
+          {editing ? 'Save changes' : 'Post update'}
         </Button>
       </div>
     </form>

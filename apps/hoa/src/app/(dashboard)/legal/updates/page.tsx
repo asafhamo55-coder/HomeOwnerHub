@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ExternalLink, Megaphone, Plus, Scale } from 'lucide-react'
+import { ExternalLink, Megaphone, Pencil, Plus, Scale } from 'lucide-react'
 import { format } from 'date-fns'
 import {
   Alert,
@@ -82,6 +82,13 @@ const editColumn: DataTableColumn<LawUpdateAdminRow> = {
   header: <span className="sr-only">Actions</span>,
   cell: (u) => (
     <div className="flex items-center justify-end gap-1">
+      <Button asChild variant="ghost" size="sm">
+        <Link href={`/legal/updates/${u.id}/edit`}>
+          <Pencil aria-hidden />
+          Edit
+          <span className="sr-only">: {u.headline}</span>
+        </Link>
+      </Button>
       <ArchiveButton updateId={u.id} archived={!!u.archived_at} headline={u.headline} />
       <DeleteUpdateButton updateId={u.id} headline={u.headline} />
     </div>
