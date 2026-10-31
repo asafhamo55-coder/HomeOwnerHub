@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, CalendarClock, ClipboardCheck } from 'lucide-react'
+import { ArrowRight, CalendarClock, ClipboardCheck, FileText, Gavel, Scale, ShieldCheck, Users } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { JsonLd } from '@/components/site/json-ld'
@@ -13,6 +13,66 @@ import { PAGE_META } from '@/lib/page-meta'
 import { breadcrumbLd } from '@/lib/jsonld'
 
 export const metadata: Metadata = pageMetadata({ ...PAGE_META['/georgia']!, path: '/georgia' })
+
+const FEATURE_ICONS = [ShieldCheck, Gavel, Users, FileText, Scale, CalendarClock]
+
+const CHANGES = [
+  {
+    stat: '$100',
+    title: 'Register with the Secretary of State, or opt out in writing',
+    body: 'An unregistered association may not collect fines or fees, file liens or start foreclosure. Renewal is every December 31.',
+    href: '/georgia/registration-2027',
+  },
+  {
+    stat: '60 days',
+    title: 'New foreclosure rules',
+    body: 'Notice grows from 30 to 60 days and the lien lasts six years. The threshold becomes the lesser of $4,000 or 12 months of assessments, never under $2,000.',
+    href: '/georgia/foreclosure-threshold-2027',
+  },
+  {
+    stat: '12 rights',
+    title: 'Owners’ rights in writing',
+    body: 'Owners can demand three years of accounting records and the insurance certificate. Boards need a repeatable way to answer.',
+    href: '/georgia/owners-rights-2027',
+  },
+  {
+    stat: '180 days',
+    title: 'A complaint process at the state',
+    body: 'An owner can file a complaint with the Secretary of State, and filing pauses collection of the fines or fees involved.',
+    href: '/georgia/complaint-process',
+  },
+]
+
+const TIMELINE = [
+  {
+    date: 'July 1, 2026',
+    title: 'Attorney’s-fee notice rule applies',
+    body: 'Before fees can be collected, send written notice by certified mail or statutory overnight delivery. The owner then has 30 days from receipt.',
+    href: '/georgia/attorney-fee-notice',
+    cta: 'Read the guide.',
+  },
+  {
+    date: 'January 1, 2027',
+    title: 'Most of SB 406 takes effect',
+    body: 'Registration, the new foreclosure rules, owners’ rights and the complaint process all start.',
+    href: '/georgia/registration-2027',
+    cta: 'Start with registration.',
+  },
+  {
+    date: 'Within 30 days of a change',
+    title: 'File an amended statement',
+    body: 'New officers, or a new name or address, mean an amended registration statement.',
+    href: '/georgia/registration-2027',
+    cta: 'See what to file.',
+  },
+  {
+    date: 'Every December 31',
+    title: 'Renew your registration',
+    body: 'Registration expires each year on this date. Put it on the board calendar now.',
+    href: "/georgia/registration-2027",
+    cta: "Renewal rules.",
+  },
+]
 
 const tools = GEORGIA_LINKS.filter((l) => l.kind === 'tool')
 
@@ -47,54 +107,105 @@ export default function GeorgiaHubPage() {
             <Breadcrumbs trail={[{ name: 'Home', href: '/' }, { name: 'Georgia' }]} />
             <p className="eyebrow mt-6">Georgia · SB 406</p>
             <h1 className="t-display mt-4 text-foreground">
-              Get your HOA ready for SB 406{' '}
-              <span className="t-serif text-primary">before January 1.</span>
+              Georgia HOA law, <span className="t-serif text-primary">built into your daily work.</span>
             </h1>
             <p className="t-lead mt-6 max-w-2xl">
-              Plain-language guides for volunteer boards, with the statute’s own words quoted so you can check them. Free
-              checklists you can print. No sign-up.
+              Most of SB 406 starts January 1, 2027. HomeownerHub puts the registration kit, the notice rules and the
+              deadlines in the same workspace where your board already runs dues, meetings and letters. Free guides and
+              printable checklists too, with the statute quoted so you can check it.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/georgia/readiness" className="btn btn-primary btn-lg group">
-                Take the 3-minute readiness check
+              <TrackedLink href="/demo" event="pilot_cta_click" position="georgia_hub_hero" className="btn btn-primary btn-lg group">
+                Start free trial
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-              </Link>
-              <TrackedLink href="/demo" event="demo_cta_click" position="georgia_hub_hero" className="btn btn-secondary btn-lg">
-                Book a demo
               </TrackedLink>
+              <Link href="/georgia/readiness" className="btn btn-secondary btn-lg">
+                Take the 3-minute readiness check
+              </Link>
             </div>
+            <p className="mt-5 text-base text-foreground-secondary">30-day free trial · No card needed · Not legal advice</p>
           </div>
         </div>
       </header>
 
       <section className="section border-t border-border">
         <div className="container-page">
-          <div className="mx-auto max-w-4xl">
-            <h2 className="t-h2 text-foreground">Two dates to know</h2>
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
-              <div className="card p-6">
-                <CalendarClock className="h-5 w-5 text-primary" aria-hidden />
-                <p className="mt-3 text-lg font-semibold text-foreground">July 1, 2026</p>
-                <p className="mt-2 text-[15px] leading-relaxed text-foreground-secondary">
-                  The attorney’s-fee notice rule applies to actions filed on or after this date.{' '}
-                  <Link href="/georgia/attorney-fee-notice" className="font-semibold text-primary hover:underline">
-                    Read the guide
+          <div className="mx-auto max-w-5xl">
+            <p className="eyebrow">What changes</p>
+            <h2 className="t-h2 mt-3 text-foreground">What changes on January 1, 2027</h2>
+            <p className="t-lead mt-4 max-w-2xl">
+              SB 406 is the Georgia Property Owners’ Bill of Rights Act. Four changes reach nearly every volunteer board.
+            </p>
+            <ul className="mt-10 grid gap-5 md:grid-cols-2">
+              {CHANGES.map((c) => (
+                <li key={c.title}>
+                  <Link href={c.href} className="card group flex h-full flex-col p-7 transition-shadow hover:shadow-md">
+                    <span className="text-3xl font-bold tracking-tight text-primary">{c.stat}</span>
+                    <span className="mt-3 text-xl font-semibold leading-snug text-foreground group-hover:text-primary">{c.title}</span>
+                    <span className="mt-3 text-lg leading-relaxed text-foreground-secondary">{c.body}</span>
+                    <span className="mt-5 inline-flex min-h-11 items-center gap-1 text-base font-semibold text-primary">
+                      Read the guide <ArrowRight className="h-4 w-4" aria-hidden />
+                    </span>
                   </Link>
-                  .
-                </p>
-              </div>
-              <div className="card p-6">
-                <CalendarClock className="h-5 w-5 text-primary" aria-hidden />
-                <p className="mt-3 text-lg font-semibold text-foreground">January 1, 2027</p>
-                <p className="mt-2 text-[15px] leading-relaxed text-foreground-secondary">
-                  Registration, the new foreclosure rules, owners’ rights and the complaint process take effect.{' '}
-                  <Link href="/georgia/registration-2027" className="font-semibold text-primary hover:underline">
-                    Start with registration
-                  </Link>
-                  .
-                </p>
-              </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="section border-t border-border bg-surface">
+        <div className="container-page">
+          <div className="mx-auto max-w-5xl">
+            <p className="eyebrow">What HomeownerHub does for you</p>
+            <h2 className="t-h2 mt-3 text-foreground">Live in the app today</h2>
+            <p className="t-lead mt-4 max-w-2xl">The board approves every draft. Nothing is sent or filed on its own.</p>
+            <ul className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {GEORGIA_FEATURES.map((f, i) => {
+                const Icon = FEATURE_ICONS[i % FEATURE_ICONS.length]!
+                return (
+                  <li key={f.title} className="card flex flex-col p-7">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-subtle text-primary">
+                      <Icon className="h-6 w-6" aria-hidden />
+                    </span>
+                    <p className="mt-5 text-xl font-semibold leading-snug text-foreground">{f.title}</p>
+                    <p className="mt-3 text-lg leading-relaxed text-foreground-secondary">{f.body}</p>
+                    <p className="mt-auto pt-4 font-mono text-xs uppercase tracking-wider text-muted">{f.citation}</p>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="mt-10">
+              <NotLegalAdvice />
+              <p className="mt-4 text-base leading-relaxed text-muted">{GEORGIA_SCOPE_NOTE}</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section border-t border-border">
+        <div className="container-page">
+          <div className="mx-auto max-w-4xl">
+            <p className="eyebrow">Deadlines</p>
+            <h2 className="t-h2 mt-3 text-foreground">The dates your board works to</h2>
+            <ol className="relative mt-10 border-l-2 border-border pl-8">
+              {TIMELINE.map((t) => (
+                <li key={t.date} className="relative pb-10 last:pb-0">
+                  <span className="absolute -left-[2.6rem] top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary ring-4 ring-[hsl(var(--background))]" aria-hidden />
+                  <p className="text-sm font-semibold uppercase tracking-wider text-primary">{t.date}</p>
+                  <p className="mt-1 text-xl font-semibold text-foreground">{t.title}</p>
+                  <p className="mt-2 max-w-2xl text-lg leading-relaxed text-foreground-secondary">
+                    {t.body}{' '}
+                    <Link href={t.href} className="font-semibold text-primary hover:underline">
+                      {t.cta}
+                    </Link>
+                  </p>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-8 text-base text-muted">
+              The Compliance page in the app tracks these for your association and shows an overdue banner.
+            </p>
           </div>
         </div>
       </section>
@@ -102,7 +213,7 @@ export default function GeorgiaHubPage() {
       <section className="section border-t border-border bg-surface">
         <div className="container-page">
           <div className="mx-auto max-w-4xl">
-            <h2 className="t-h2 text-foreground">The guides</h2>
+            <h2 className="t-h2 text-foreground">The Georgia guides</h2>
             <ul className="mt-8 grid gap-4 md:grid-cols-2">
               {GUIDE_LIST.map((g) => (
                 <li key={g.slug}>
@@ -171,30 +282,6 @@ export default function GeorgiaHubPage() {
                 </Link>
               </li>
             </ul>
-          </div>
-        </div>
-      </section>
-
-      <section className="section border-t border-border">
-        <div className="container-page">
-          <div className="mx-auto max-w-4xl">
-            <h2 className="t-h2 text-foreground">What HomeownerHub does for Georgia boards</h2>
-            <p className="t-lead mt-4 max-w-2xl">
-              Each item below is live in the app today. The board approves every draft.
-            </p>
-            <ul className="mt-8 grid gap-4 md:grid-cols-2">
-              {GEORGIA_FEATURES.map((f) => (
-                <li key={f.title} className="card p-6">
-                  <p className="text-[16px] font-semibold text-foreground">{f.title}</p>
-                  <p className="mt-2 text-[15px] leading-relaxed text-foreground-secondary">{f.body}</p>
-                  <p className="mt-3 font-mono text-[11px] uppercase tracking-wider text-muted">{f.citation}</p>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-8">
-              <NotLegalAdvice />
-              <p className="mt-4 text-sm leading-relaxed text-muted">{GEORGIA_SCOPE_NOTE}</p>
-            </div>
           </div>
         </div>
       </section>
