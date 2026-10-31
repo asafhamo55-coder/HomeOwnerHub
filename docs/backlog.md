@@ -2046,6 +2046,59 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## PayHOA parity program (owner directive 2026-10-31): replaces all other ranked work
+
+Asaf, 2026-10-31: "https://www.payhoa.com is where we need to target… all the backlog should shift to replicate their features and the website." The analysis is in docs/decisions/2026-10-31-payhoa-gap-analysis.md.
+
+Rules:
+- Match PayHOA's features and the quality bar of its website. Never copy their text, images, logos or brand.
+- Never fake reviews, ratings, customer logos or testimonials.
+- Items that need a migration ship behind an `M*_APPLIED` flag. The SQL is pbcopied to Asaf.
+
+### Track A: sales blockers (do first)
+1. **A1 · Marketing site redesign, phase 1.**
+   - Violet hero slab with a cropped product shot, and a 3-line headline with both CTAs above the fold.
+   - Trust checklist (30-day trial, no card, we load your roster, cancel anytime).
+   - 18px body text and a violet 12px-radius primary button.
+   - Fix "Start free trial", which goes to /demo today.
+   - Grouped Features menu.
+   - Feature tab explorer, "Up and running in days", an interactive pricing slider with real prices, and the FAQ "Questions boards ask before switching".
+   - No migration. Effort 3.
+2. **A2 · Online dues payments, card and ACH (BL-035).** Stripe Connect per HOA, a convenience-fee pass-through option, receipts posting to the owner ledger, and a resident "Pay now" button.
+   - Needs a migration, plus OA-40 (Stripe activation) and Connect onboarding.
+   - Design doc first, then build behind a flag. Effort 5.
+3. **A3 · Autopay (BL-036).** Owner opt-in with a maximum amount. Depends on A2. Effort 3.
+4. **A4 · Self-explore demo.** A trial org can load a sample community (homes, dues, violations, tickets) with one click and remove it again. No migration if it reuses existing tables. Effort 2.
+5. **A5 · Pricing stance.** PayHOA uses one plan with every feature, priced by units, from $49. Decide whether to merge Essentials and Complete. This is an owner decision; see the doc. Effort 1.
+
+### Track B: feature parity
+6. **B1 · Surveys and polls,** answered in the resident portal with results for the board. Migration. Effort 2.
+7. **B2 · Online voting and elections (BL-156),** with ballots, proxies and quorum online, built on the existing paper election kit and its Georgia and Florida rules. Migration. Effort 4.
+8. **B3 · Amenity reservations (BL-034).** Migration. Effort 3.
+9. **B4 · Community public website per HOA (BL-038),** using a simple builder from existing documents and announcements. Migration. Effort 3.
+10. **B5 · Community message board,** private to residents. Migration. Effort 2.
+11. **B6 · Print-and-mail letters (BL-032),** using Lob or similar for violation and collection letters. Needs owner keys. Effort 3.
+12. **B7 · Vendor bill pay and check mailing (BL-039).** Depends on A2 and B6. Effort 4.
+13. **B8 · SMS live.** It's built and needs Vonage (OA-11). Voice calls come after. Owner action.
+14. **B9 · 1099 forms** from the existing candidate list; e-filing comes later. Effort 2.
+
+### Track C: ease of use (PayHOA's top review praise; carried over from round 28 items 11-15)
+15. **C1 · "Do this next" dashboard card** that collapses the KPI wall for new orgs, plus one welcome card for invited members. Effort 2.
+16. **C2 · Plain words in the violation form.** Effort 1.
+17. **C3 · "Show only the basics" menu** with plainer nav names. Effort 2.
+18. **C4 · 14px text-xs floor** and line-clamp instead of truncate. Effort 2.
+19. **C5 · Drop the single-key "g" shortcuts.** Effort 1.
+
+### Where we already lead (protect and market these)
+- Georgia and state law built into the product.
+- AI grounded in each HOA's own documents.
+- Full accounting with period close and a CPA packet.
+- Collections ladder.
+- Violation hearings.
+- Architecture review and work-request tickets with deadlines.
+- Shared inbox.
+- CPA and attorney portals.
+
 ## Ranked open work — round 28 (2026-10-31, code-verified): easy for older volunteers (owner priority)
 
 Asaf, 2026-10-31: "people that are running HOA in many cases are not young… they should be able to get a link, register and start using the system easily." The persona is a 70-year-old volunteer on a phone with large text turned on. None of these needs a migration.
