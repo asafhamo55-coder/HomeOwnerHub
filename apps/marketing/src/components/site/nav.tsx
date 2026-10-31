@@ -350,7 +350,7 @@ export function Nav() {
         <div
           id="mobile-menu"
           ref={menuRef}
-          className="mobile-sheet fixed inset-x-0 bottom-0 top-16 flex flex-col border-t border-border bg-surface md:hidden"
+          className="mobile-sheet absolute inset-x-0 top-full h-[calc(100dvh-4rem)] flex flex-col border-t border-border bg-surface md:hidden"
         >
           <nav aria-label="Mobile" className="flex min-h-0 flex-1 flex-col">
             <div className="container-page flex-1 overflow-y-auto pb-6 pt-2">
