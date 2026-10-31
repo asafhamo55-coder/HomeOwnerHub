@@ -12,6 +12,7 @@ import { FL_FINE_HEARING_NOTICE, TX_PAYMENT_PLAN_AGREEMENT } from './checklists-
 import { FL_LIEN_NOTICE } from './checklists-k'
 import { GA_BOARD_RESOLUTION } from './checklists-l'
 import { CA_HEARING_RESOLUTION, FL_RECORDS_RESPONSE } from './checklists-m'
+import { FL_DIRECTOR_CERTIFICATION } from './checklists-n'
 
 export interface Checklist {
   slug: string
@@ -127,4 +128,5 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [GA_BOARD_RESOLUTION.slug]: GA_BOARD_RESOLUTION,
   [CA_HEARING_RESOLUTION.slug]: CA_HEARING_RESOLUTION,
   [FL_RECORDS_RESPONSE.slug]: FL_RECORDS_RESPONSE,
+[FL_DIRECTOR_CERTIFICATION.slug]: FL_DIRECTOR_CERTIFICATION,
 }

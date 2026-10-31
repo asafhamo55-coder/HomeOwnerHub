@@ -17,6 +17,7 @@ import { GA_BOARD_POWERS } from './guides-m'
 import { CA_IDR } from './guides-n'
 import { CA_COLLECTIONS, TX_COLLECTIONS } from './guides-o'
 import { GA_BORROW_SUE, TX_FLAGS } from './guides-p'
+import { FL_BOARD_MEETINGS } from './guides-q'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -39,7 +40,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -342,6 +343,20 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: '/templates/california-hoa-hearing-resolution-letter',
     title: 'California HOA hearing resolution and decision letter (printable)',
     blurb: 'A checklist and a fill-in written decision for after a fine hearing: cure, agreement, the 14-day notice and dispute resolution, with the California text behind each field.',
+    kind: 'tool',
+  },
+  {
+    slug: FL_BOARD_MEETINGS.slug,
+    path: pathOf(FL_BOARD_MEETINGS),
+    title: 'Florida HOA board meetings: the 48-hour notice, the agenda and owner comment',
+    blurb: FL_BOARD_MEETINGS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'florida-hoa-director-certification-checklist',
+    path: '/templates/florida-hoa-director-certification-checklist',
+    title: 'Florida HOA director certification checklist (printable)',
+    blurb: 'A checklist and a fill-in reminder for collecting and keeping each director’s education certificate, with the Florida text behind each step.',
     kind: 'tool',
   },
   {

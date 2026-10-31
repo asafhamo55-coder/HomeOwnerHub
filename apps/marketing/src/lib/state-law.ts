@@ -201,6 +201,8 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
     { href: '/templates/florida-hoa-fine-hearing-notice', label: 'Florida fine hearing notice template' },
     { href: '/templates/florida-hoa-notice-of-intent-to-lien', label: 'Florida 45-day notice of intent to lien' },
     { href: '/templates/florida-hoa-records-request-response-checklist', label: 'Florida records request response checklist' },
+    { href: '/guides/florida-hoa-board-meeting-notice-rules', label: 'Florida board meeting notice rules' },
+    { href: '/templates/florida-hoa-director-certification-checklist', label: 'Florida director certification checklist' },
   ],
   CA: [
     { href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' },
