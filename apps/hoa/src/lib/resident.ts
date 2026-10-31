@@ -11,6 +11,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor, type ResidentActor } from '@/lib/impersonation'
+import { loadOrFail } from '@/lib/load-or-fail'
+import { ResidentUnitsLoadError } from '@/lib/resident-units-error'
 import { exactIlike } from '@/lib/impersonation-target'
 import { chargesFromForOwnership } from '@/lib/resident-sale-window'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
@@ -83,9 +85,10 @@ async function attachAssociationNames(
     .select(`id, name, ${ASSOCIATION_ZONE_COLUMNS}, governing_law_state`)
     .in('id', associationIds)
   if (orgId) q = q.eq('organization_id' as never, orgId)
-  const { data } = await q
+  const res = await loadOrFail('resident associations', q)
+  if (!res.ok) throw new ResidentUnitsLoadError('associations')
 
-  const rows = (data ?? []) as unknown as Array<{
+  const rows = (res.data ?? []) as unknown as Array<{
     id: string
     name: string | null
     state?: string | null
@@ -144,10 +147,9 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
       .eq('owner_user_id', actor.id)
       .is('valid_to', null)
     if (orgId) q = q.eq('organization_id', orgId)
-    const { data } = await q.order('valid_from', { ascending: false })
-    rows.push(
-      ...((data ?? []) as unknown as typeof rows),
-    )
+    const res = await loadOrFail('resident ownerships', q.order('valid_from', { ascending: false }))
+    if (!res.ok) throw new ResidentUnitsLoadError('ownerships')
+    rows.push(...((res.data ?? []) as unknown as typeof rows))
   }
 
   if (rows.length > 0) {
@@ -177,7 +179,12 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
     .ilike('email' as never, exactIlike(actor.email))
     .is('moved_out_at' as never, null)
   if (orgId) prQuery = prQuery.eq('organization_id' as never, orgId)
-  const { data: prData } = await prQuery.order('moved_in_at' as never, { ascending: false })
+  const prRes = await loadOrFail(
+    'resident property links',
+    prQuery.order('moved_in_at' as never, { ascending: false }),
+  )
+  if (!prRes.ok) throw new ResidentUnitsLoadError('property_residents')
+  const prData = prRes.data
 
   const prRows = (prData ?? []) as unknown as Array<{
     property_id: string
@@ -202,7 +209,9 @@ async function getOwnedUnits(actor: ResidentActor): Promise<ResidentUnit[]> {
     .select('id, legacy_hoa_property_id, association_id')
     .in('legacy_hoa_property_id' as never, propertyIds)
   if (orgId) unitQuery = unitQuery.eq('organization_id' as never, orgId)
-  const { data: unitLinks } = await unitQuery
+  const unitRes = await loadOrFail('resident unit links', unitQuery)
+  if (!unitRes.ok) throw new ResidentUnitsLoadError('units')
+  const unitLinks = unitRes.data
 
   const unitByPropId = new Map(
     ((unitLinks ?? []) as unknown as Array<{

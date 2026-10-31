@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { formatDay } from '@/lib/money/format'
 import { CheckCircle2, Circle, Clock, Gavel, Send, Undo2, XCircle } from 'lucide-react'
-import { Badge, KeyValue, KeyValueList, Timeline, type TimelineItem } from '@homeowner-portal/ui'
+import { Badge, KeyValue, KeyValueList, LoadFailed, Timeline, type TimelineItem } from '@homeowner-portal/ui'
 import { arcTimelineSteps, type ArcStepKind } from '@/lib/resident-arc-timeline'
 import { getMyArcRequest, type ArcStatus } from '@/lib/resident-submissions'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
@@ -37,8 +37,12 @@ export default async function ResidentArcDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const arc = await getMyArcRequest(id)
-  if (!arc) notFound()
+  const loaded = await getMyArcRequest(id)
+  if (!loaded.ok) {
+    if (loaded.reason === 'error') return <LoadFailed what="this request" retryHref={`/resident/arc/${id}`} />
+    notFound()
+  }
+  const { request: arc, messagesFailed } = loaded
   const attachments = await listSubmissionAttachments('arc', id)
 
   const pending = PENDING.includes(arc.status)
@@ -100,10 +104,14 @@ export default async function ResidentArcDetailPage({
 
       <Section label="Conversation">
         <Panel className="space-y-4">
-          <Conversation
-            messages={arc.messages}
-            emptyText="No messages yet. Ask a question below and the board will reply here."
-          />
+          {messagesFailed ? (
+            <LoadFailed what="replies" retryHref={`/resident/arc/${id}`} />
+          ) : (
+            <Conversation
+              messages={arc.messages}
+              emptyText="No messages yet. Ask a question below and the board will reply here."
+            />
+          )}
           {pending ? (
             <div className="border-t border-border pt-4">
               <ReplyComposer kind="arc" id={arc.id} placeholder="Ask a question or add details for the board…" />

@@ -228,9 +228,14 @@ export interface ArcRequestDetail extends ArcRequestRow {
   messages: SubmissionMessageRow[]
 }
 
-export async function getMyArcRequest(id: string): Promise<ArcRequestDetail | null> {
+export type MyArcRequestLoad =
+  | { ok: true; request: ArcRequestDetail; messagesFailed: boolean }
+  | { ok: false; reason: 'not_found' | 'error' }
+
+/** not_found = a real miss; error = the request read failed; messagesFailed = replies read failed. */
+export async function getMyArcRequest(id: string): Promise<MyArcRequestLoad> {
   const actor = await getResidentActor()
-  if (!actor.id) return null
+  if (!actor.id) return { ok: false, reason: 'not_found' }
 
   let rq = actor.client
     .from('arc_requests' as never)
@@ -241,22 +246,27 @@ export async function getMyArcRequest(id: string): Promise<ArcRequestDetail | nu
     .eq('submitted_by', actor.id)
     .is('deleted_at', null)
   if (actor.orgId) rq = rq.eq('organization_id' as never, actor.orgId)
-  const { data: request } = await rq.maybeSingle()
-  if (!request) return null
+  const parent = await loadOrFail('resident ARC request', rq.maybeSingle())
+  if (!parent.ok) return { ok: false, reason: 'error' }
+  const request = parent.data
+  if (!request) return { ok: false, reason: 'not_found' }
 
   // `internal: false` reproduces the resident's exact visibility — they
   // never see internal board notes. Explicit here because the impersonated
   // path uses a service-role client that would otherwise bypass that RLS.
-  const { data: msgs } = await actor.client
-    .from('arc_request_messages' as never)
-    .select('id, author_role, body, created_at')
-    .eq('arc_request_id', id)
-    .eq('internal' as never, false)
-    .order('created_at', { ascending: true })
+  const msgRes = await loadOrFail(
+    'resident ARC messages',
+    actor.client
+      .from('arc_request_messages' as never)
+      .select('id, author_role, body, created_at')
+      .eq('arc_request_id', id)
+      .eq('internal' as never, false)
+      .order('created_at', { ascending: true }),
+  )
 
   const r = request as unknown as ArcRequestDetail
-  r.messages = (msgs ?? []) as unknown as SubmissionMessageRow[]
-  return r
+  r.messages = (msgRes.ok ? msgRes.data ?? [] : []) as unknown as SubmissionMessageRow[]
+  return { ok: true, request: r, messagesFailed: !msgRes.ok }
 }
 
 export async function addArcMessage(
@@ -467,11 +477,14 @@ export interface ViolationReportDetail extends ViolationReportRow {
   messages: SubmissionMessageRow[]
 }
 
-export async function getMyViolationReport(
-  id: string,
-): Promise<ViolationReportDetail | null> {
+export type MyViolationReportLoad =
+  | { ok: true; report: ViolationReportDetail; messagesFailed: boolean }
+  | { ok: false; reason: 'not_found' | 'error' }
+
+/** not_found = a real miss; error = the report read failed; messagesFailed = replies read failed. */
+export async function getMyViolationReport(id: string): Promise<MyViolationReportLoad> {
   const actor = await getResidentActor()
-  if (!actor.id) return null
+  if (!actor.id) return { ok: false, reason: 'not_found' }
 
   let rq = actor.client
     .from('resident_violation_reports' as never)
@@ -479,21 +492,26 @@ export async function getMyViolationReport(
     .eq('id', id)
     .eq('reported_by', actor.id)
   if (actor.orgId) rq = rq.eq('organization_id' as never, actor.orgId)
-  const { data: report } = await rq.maybeSingle()
-  if (!report) return null
+  const parent = await loadOrFail('resident violation report', rq.maybeSingle())
+  if (!parent.ok) return { ok: false, reason: 'error' }
+  const report = parent.data
+  if (!report) return { ok: false, reason: 'not_found' }
 
   // `internal: false` — the reporter never sees the board's internal note,
   // only messages the board explicitly sends back to them.
-  const { data: msgs } = await actor.client
-    .from('resident_violation_report_messages' as never)
-    .select('id, author_role, body, created_at')
-    .eq('report_id', id)
-    .eq('internal' as never, false)
-    .order('created_at', { ascending: true })
+  const msgRes = await loadOrFail(
+    'resident violation report messages',
+    actor.client
+      .from('resident_violation_report_messages' as never)
+      .select('id, author_role, body, created_at')
+      .eq('report_id', id)
+      .eq('internal' as never, false)
+      .order('created_at', { ascending: true }),
+  )
 
   const r = report as unknown as ViolationReportDetail
-  r.messages = (msgs ?? []) as unknown as SubmissionMessageRow[]
-  return r
+  r.messages = (msgRes.ok ? msgRes.data ?? [] : []) as unknown as SubmissionMessageRow[]
+  return { ok: true, report: r, messagesFailed: !msgRes.ok }
 }
 
 export async function addViolationReportMessage(

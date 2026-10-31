@@ -113,9 +113,18 @@ export async function listMyTickets(): Promise<TicketRow[]> {
   return res.data
 }
 
-export async function getMyTicket(id: string): Promise<TicketDetail | null> {
+export type MyTicketLoad =
+  | { ok: true; ticket: TicketDetail; messagesFailed: boolean }
+  | { ok: false; reason: 'not_found' | 'error' }
+
+/**
+ * Three outcomes, never conflated: a real miss (`not_found`), a failed read
+ * of the request itself (`error`), and a request that loaded while its
+ * replies did not (`ok` with `messagesFailed`, messages empty).
+ */
+export async function getMyTicket(id: string): Promise<MyTicketLoad> {
   const actor = await getResidentActor()
-  if (!actor.id) return null
+  if (!actor.id) return { ok: false, reason: 'not_found' }
 
   let tq = actor.client
     .from('tickets' as never)
@@ -124,21 +133,26 @@ export async function getMyTicket(id: string): Promise<TicketDetail | null> {
     .eq('submitted_by', actor.id)
     .is('deleted_at', null)
   if (actor.orgId) tq = tq.eq('organization_id' as never, actor.orgId)
-  const { data: ticket } = await tq.maybeSingle()
-  if (!ticket) return null
+  const parent = await loadOrFail('resident ticket', tq.maybeSingle())
+  if (!parent.ok) return { ok: false, reason: 'error' }
+  const ticket = parent.data
+  if (!ticket) return { ok: false, reason: 'not_found' }
 
   // `internal: false` reproduces the resident's exact visibility: residents
   // never see internal staff notes. Explicit here because the impersonated
   // path uses a service-role client that would otherwise bypass that RLS.
-  const { data: msgs } = await actor.client
-    .from('ticket_messages' as never)
-    .select('id, author_role, body, created_at, author:profiles!ticket_messages_author_id_fkey(full_name)')
-    .eq('ticket_id', id)
-    .eq('internal' as never, false)
-    .order('created_at', { ascending: true })
+  const msgRes = await loadOrFail(
+    'resident ticket messages',
+    actor.client
+      .from('ticket_messages' as never)
+      .select('id, author_role, body, created_at, author:profiles!ticket_messages_author_id_fkey(full_name)')
+      .eq('ticket_id', id)
+      .eq('internal' as never, false)
+      .order('created_at', { ascending: true }),
+  )
 
   const t = ticket as unknown as TicketDetail
-  t.messages = ((msgs ?? []) as unknown as Array<{
+  t.messages = ((msgRes.ok ? msgRes.data ?? [] : []) as unknown as Array<{
     id: string
     author_role: 'resident' | 'board' | 'admin'
     body: string
@@ -151,7 +165,7 @@ export async function getMyTicket(id: string): Promise<TicketDetail | null> {
     body: m.body,
     created_at: m.created_at,
   }))
-  return t
+  return { ok: true, ticket: t, messagesFailed: !msgRes.ok }
 }
 
 export async function createTicket(
