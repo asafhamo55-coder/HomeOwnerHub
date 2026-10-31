@@ -68,7 +68,7 @@ export function HashSessionHandler() {
 
   if (!busy) return null
   return (
-    <p role="status" className="mb-5 text-sm text-muted-foreground">
+    <p role="status" className="mb-5 text-sm text-muted">
       Signing you in…
     </p>
   )

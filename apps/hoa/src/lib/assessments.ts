@@ -14,6 +14,7 @@ import { todayIn } from '@/lib/association-time'
 import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 import { ensureUnitsForProperties, listBillableUnits } from '@/lib/properties/lot'
+import { unitPropertyIndex } from '@/lib/properties/resolve'
 import { completePlansAfterPayment } from '@/lib/accounting/plan-completion'
 import { queuePaymentReceiptAfterResponse } from '@/lib/resident-notify/receipt-notify'
 import { recordDuesRateOverride } from '@/lib/dues-rates/billing'
@@ -328,18 +329,14 @@ async function countPropertiesWithoutUnit(
     props.push(...(data ?? []).map((r) => r.id))
     if (!data || data.length < PAGE) break
   }
-  const linked = new Set<string>()
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from('units')
-      .select('legacy_hoa_property_id')
-      .eq('organization_id', orgId)
-      .not('legacy_hoa_property_id', 'is', null)
-      .order('id', { ascending: true })
-      .range(from, from + PAGE - 1)
-    if (error) return null
-    for (const r of data ?? []) if (r.legacy_hoa_property_id) linked.add(r.legacy_hoa_property_id)
-    if (!data || data.length < PAGE) break
+  // Unit → property through the resolver (bridge ratchet); it throws on a
+  // failed page, which the preview reports as "couldn't preview".
+  let linked: Set<string>
+  try {
+    const index = await unitPropertyIndex(supabase as never, orgId)
+    linked = new Set<string>(index.values())
+  } catch {
+    return null
   }
   return props.filter((id) => !linked.has(id)).length
 }
