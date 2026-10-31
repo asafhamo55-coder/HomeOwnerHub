@@ -7,6 +7,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { fieldErrorsOf } from '@/lib/field-errors'
+import { accountingActionFailed } from '@/lib/accounting-action-error'
 
 type BudgetInsert = Database['public']['Tables']['budgets']['Insert']
 type LineItemInsert = Database['public']['Tables']['budget_line_items']['Insert']
@@ -71,7 +72,7 @@ export async function createBudget(input: {
     if (error?.code === '23505') {
       return { ok: false, error: 'A budget for that period and fund already exists.' }
     }
-    return { ok: false, error: `budget insert: ${error?.message}` }
+    return accountingActionFailed('createBudget', error)
   }
 
   revalidatePath('/')  // dashboard rollup
@@ -107,7 +108,7 @@ export async function deleteBudget(
     .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', budgetId)
     .is('deleted_at', null)
-  if (error) return { ok: false, error: error.message }
+  if (error) return accountingActionFailed('deleteBudget', error)
 
   revalidatePath('/accounting/budget')
   return { ok: true }
@@ -170,11 +171,16 @@ export async function saveBudgetLineItems(input: {
     return { ok: false, error: `budget is ${budget.status}; cannot edit` }
   }
 
-  await supabase
+  // Insert the new lines first and only then remove the old ones, so a
+  // failed save never leaves the budget empty.
+  const { data: oldLines, error: readErr } = await supabase
     .from('budget_line_items')
-    .delete()
+    .select('id')
     .eq('budget_id', parsed.data.budgetId)
+  if (readErr) return accountingActionFailed('saveBudgetLineItems.read', readErr)
+  const oldIds = (oldLines ?? []).map((r) => r.id as string)
 
+  let newIds: string[] = []
   if (parsed.data.lineItems.length > 0) {
     const inserts: LineItemInsert[] = parsed.data.lineItems.map((l) => ({
       budget_id: parsed.data.budgetId,
@@ -182,10 +188,30 @@ export async function saveBudgetLineItems(input: {
       amount: l.amount,
       notes: l.notes ?? null,
     }))
-    const { error: insErr } = await supabase
+    const { data: inserted, error: insErr } = await supabase
       .from('budget_line_items')
       .insert(inserts)
-    if (insErr) return { ok: false, error: `line items: ${insErr.message}` }
+      .select('id')
+    if (insErr) return accountingActionFailed('saveBudgetLineItems.insert', insErr)
+    newIds = (inserted ?? []).map((r) => r.id as string)
+  }
+
+  if (oldIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from('budget_line_items')
+      .delete()
+      .in('id', oldIds)
+    if (delErr) {
+      // Roll back the rows just added so the budget isn't doubled.
+      if (newIds.length > 0) {
+        await supabase.from('budget_line_items').delete().in('id', newIds)
+      }
+      return accountingActionFailed(
+        'saveBudgetLineItems.delete',
+        delErr,
+        'Couldn’t save the budget lines. Your earlier lines are unchanged. Try again.',
+      )
+    }
   }
 
   revalidatePath(`/accounting/budget/${parsed.data.budgetId}`)
@@ -234,7 +260,7 @@ export async function approveBudget(input: {
     .from('budgets')
     .update({ status: 'approved', approved_at: new Date().toISOString() })
     .eq('id', parsed.data.budgetId)
-  if (error) return { ok: false, error: error.message }
+  if (error) return accountingActionFailed('approveBudget', error)
 
   revalidatePath(`/accounting/budget/${parsed.data.budgetId}`)
   revalidatePath('/accounting/budget')

@@ -6,6 +6,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { fieldErrorsOf } from '@/lib/field-errors'
+import { accountingActionFailed } from '@/lib/accounting-action-error'
 import { chunk, readAll } from '@/lib/supabase/read-all'
 import { queryFailed } from '@/lib/accounting/queries'
 
@@ -123,13 +124,16 @@ export async function reconcileBankAccount(input: {
   // (bank_account_id, statement_date) — re-reconcile by overwriting.
   const { data: existing } = await supabase
     .from('bank_reconciliations')
-    .select('id')
+    .select('id, approved_at')
     .eq('bank_account_id', value.bankAccountId)
     .eq('statement_date', value.statementDate)
     .maybeSingle()
 
   let reconciliationId: string
   if (existing) {
+    if (existing.approved_at) {
+      return { ok: false, error: 'That statement date is already approved. Use a different date.' }
+    }
     const { error } = await supabase
       .from('bank_reconciliations')
       .update({
@@ -138,7 +142,7 @@ export async function reconcileBankAccount(input: {
         reconciled_at: new Date().toISOString(),
       })
       .eq('id', existing.id)
-    if (error) return { ok: false, error: error.message }
+    if (error) return accountingActionFailed('reconcileBankAccount.update', error)
     reconciliationId = existing.id
   } else {
     const { data, error } = await supabase
@@ -153,7 +157,7 @@ export async function reconcileBankAccount(input: {
       })
       .select('id')
       .single()
-    if (error || !data) return { ok: false, error: `insert: ${error?.message}` }
+    if (error || !data) return accountingActionFailed('reconcileBankAccount.insert', error)
     reconciliationId = data.id
   }
 
@@ -247,7 +251,7 @@ export async function approveReconciliation(input: {
       approved_by: approvedBy,
     })
     .eq('id', parsed.data.reconciliationId)
-  if (error) return { ok: false, error: error.message }
+  if (error) return accountingActionFailed('approveReconciliation', error)
 
   revalidatePath('/accounting/bank')
   return { ok: true }

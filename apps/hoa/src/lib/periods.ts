@@ -8,6 +8,7 @@ import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { readAll } from '@/lib/supabase/read-all'
 import { queryFailed, readLedgerLines } from '@/lib/accounting/queries'
+import { accountingActionFailed } from '@/lib/accounting-action-error'
 
 export type ClosePeriodResult =
   | { ok: true; closingJeIds: string[]; netIncome: number }
@@ -71,7 +72,7 @@ export async function closePeriod(input: {
     .update({ status: 'closing' })
     .eq('id', period.id)
     .eq('status', 'open') // optimistic concurrency
-  if (tErr) return { ok: false, error: `tombstone: ${tErr.message}` }
+  if (tErr) return accountingActionFailed('closePeriod.lock', tErr)
 
   type LineShape = {
     debit_amount: number
