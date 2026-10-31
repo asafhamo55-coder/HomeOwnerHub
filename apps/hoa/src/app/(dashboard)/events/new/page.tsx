@@ -2,10 +2,16 @@ import Link from 'next/link'
 import { Page } from '@homeowner-portal/ui'
 import { listEventNotifyProperties } from '@/lib/events'
 import { EventForm } from '../EventForm'
+import { titleFromParam } from '../deadline-chips'
 
 export const metadata = { title: 'New event' }
 
-export default async function NewEventPage() {
+export default async function NewEventPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ title?: string | string[] }>
+}) {
+  const defaultTitle = titleFromParam((await searchParams).title)
   const properties = await listEventNotifyProperties()
   return (
     <Page
@@ -15,7 +21,7 @@ export default async function NewEventPage() {
       breadcrumbs={[{ label: 'Events', href: '/events' }, { label: 'New' }]}
       linkAs={Link}
     >
-      <EventForm properties={properties} />
+      <EventForm properties={properties} defaultTitle={defaultTitle} />
     </Page>
   )
 }

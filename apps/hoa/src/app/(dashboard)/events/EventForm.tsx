@@ -30,10 +30,13 @@ type Errors = Record<string, string>
 export function EventForm({
   event,
   properties,
+  defaultTitle,
 }: {
   /** Omitted → create. */
   event?: RecurringEvent
   properties: { id: string; label: string }[]
+  /** Create only: a prefilled title, e.g. from a deadline chip. */
+  defaultTitle?: string
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -102,7 +105,7 @@ export function EventForm({
           <Field label="Title" required error={errors.title}>
             <Input
               name="title"
-              defaultValue={event?.title}
+              defaultValue={event?.title ?? defaultTitle}
               required
               maxLength={200}
               placeholder="Annual board meeting"
