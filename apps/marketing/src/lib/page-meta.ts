@@ -47,6 +47,11 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
       ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
       : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary}`,
   },
+  '/features': {
+    title: 'What HomeownerHub does for HOA boards',
+    description:
+      'Five jobs boards do every month: rule questions, violation letters, dues and accounting, announcements and architecture requests.',
+  },
   '/features/dues-and-accounting': {
     title: 'Dues and accounting for HOA boards',
     description:

@@ -19,7 +19,7 @@ export function Hero() {
               one and approves it before anything goes out.
             </p>
 
-            <HeroCtas position="hero" secondaryHref="#features" secondaryLabel="See it work" />
+            <HeroCtas position="hero" secondaryHref="/features" secondaryLabel="See it work" />
           </div>
 
           {/* STOPGAP: HTML mockup of the app, cropped by the slab. Replace
