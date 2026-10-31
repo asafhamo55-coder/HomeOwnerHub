@@ -2050,12 +2050,12 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 None of these needs a migration or an owner action, and nothing here moves money.
 
-1. **Board isn't told when a resident replies, files an ARC request or reports a concern.** Show a "Resident replied" chip on /tickets. Write a notification row to the board's in-app bell only. No email, SMS or push. Effort 2.
-2. **"Report a concern" cites a made-up "Policy §12.03" to every HOA.** Remove it in 3 places and add a test that bans it. Effort 1.
-3. **Resident documents page: link to the existing meeting minutes.** Today it tells residents to ask the board. Effort 1.
-4. **BUG: resident actions show raw database errors (7 sites).** Replace them with friendly text and add a ratchet. Effort 1.
-5. **Ticket form: tell residents they can add photos after sending.** Effort 1.
-6. **BL-172 SEO batch 23: Florida architectural review limits (§ 720.3035).** This is the first ARC guide. Effort 2.
+1. ✅ DONE (66b677ac, deploys 09:02 UTC) **Board isn't told when a resident replies, files an ARC request or reports a concern.** Show a "Resident replied" chip on /tickets. Write a notification row to the board's in-app bell only. No email, SMS or push. Effort 2.
+2. ✅ DONE (4b80d0cd, deploys 09:02 UTC) **"Report a concern" cites a made-up "Policy §12.03" to every HOA.** Remove it in 3 places and add a test that bans it. Effort 1.
+3. ✅ DONE (4b80d0cd, deploys 09:02 UTC) **Resident documents page: link to the existing meeting minutes.** Today it tells residents to ask the board. Effort 1.
+4. ✅ DONE (4b80d0cd, deploys 09:02 UTC) **BUG: resident actions show raw database errors (7 sites).** Replace them with friendly text and add a ratchet. Effort 1.
+5. ✅ DONE (4b80d0cd, deploys 09:02 UTC) **Ticket form: tell residents they can add photos after sending.** Effort 1.
+6. ✅ DONE (e8b6c79f, deploys 09:02 UTC) **BL-172 SEO batch 23: Florida architectural review limits (§ 720.3035).** This is the first ARC guide. Effort 2.
 7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
 
 **Dropped:**
