@@ -1073,16 +1073,22 @@ export async function summarizeUnpaidInvoices(
 }
 
 /** Journal entries still in draft (not yet on the books). */
-export async function countDraftJournalEntries(associationId: string): Promise<number> {
+export async function countDraftJournalEntries(
+  associationId: string,
+  /** Optional entry_date window ('YYYY-MM-DD', inclusive), e.g. one fiscal period. */
+  range?: { from: string; to: string },
+): Promise<number> {
   const supabase = await getSupabaseServerClient()
-  const { count, error } = await supabase
+  let q = supabase
     .from('journal_entries')
     .select('id', { count: 'exact', head: true })
     .eq('association_id', associationId)
     .eq('status', 'draft')
     // A recurring entry's edited template (BL-081) is a draft by design,
-    // never meant to post — not a draft waiting for someone.
+    // never meant to post, so not a draft waiting for someone.
     .not('entry_number', 'like', `${TEMPLATE_ENTRY_PREFIX}%`)
+  if (range) q = q.gte('entry_date', range.from).lte('entry_date', range.to)
+  const { count, error } = await q
   if (error) throw queryFailed(error)
   return count ?? 0
 }

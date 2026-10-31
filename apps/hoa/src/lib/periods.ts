@@ -9,6 +9,9 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { readAll } from '@/lib/supabase/read-all'
 import { queryFailed, readLedgerLines } from '@/lib/accounting/queries'
 import { accountingActionFailed } from '@/lib/accounting-action-error'
+import { todayIn } from '@/lib/association-time'
+import { formatDay } from '@/lib/money/format'
+import { periodHasEnded } from '@/app/(dashboard)/accounting/periods/close-checks-shared'
 
 export type ClosePeriodResult =
   | { ok: true; closingJeIds: string[]; netIncome: number }
@@ -64,6 +67,15 @@ export async function closePeriod(input: {
   if (!period) return { ok: false, error: 'Period not found.' }
   if (period.status !== 'open') {
     return { ok: false, error: `Period is ${period.status}; only open periods can be closed.` }
+  }
+
+  // The books can't be locked while the period is still running: later
+  // entries would land in a closed period. Today is the association's day.
+  if (!periodHasEnded(period.end_date, todayIn(assoc.timeZone))) {
+    return {
+      ok: false,
+      error: `This period hasn't ended yet. You can close it after ${formatDay(period.end_date)}.`,
+    }
   }
 
   // 2. Tombstone it so a concurrent close attempt bails.
