@@ -67,3 +67,13 @@ describe('FirstWeekGate (server render)', () => {
     expect(renderToStaticMarkup(<ResidentFirstWeek scope="org-1" />)).toBe('')
   })
 })
+
+describe('FirstWeekCard welcome variant', () => {
+  it('titles the card with the HOA name and shows only the first 3 board steps', () => {
+    const html = renderToStaticMarkup(<FirstWeekCard variant="board" welcomeFor="Oak Hollow HOA" onDismiss={() => {}} />)
+    expect(html).toContain('Welcome to Oak Hollow HOA. Here’s what to do first')
+    expect(html.match(/<li/g)).toHaveLength(3)
+    for (const s of BOARD_FIRST_WEEK_STEPS.slice(0, 3)) expect(html).toContain(s.title)
+    expect(html).not.toContain(BOARD_FIRST_WEEK_STEPS[3]!.title)
+  })
+})
