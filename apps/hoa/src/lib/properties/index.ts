@@ -431,7 +431,7 @@ export interface BulkSetTenureInput {
 // re-run getCurrentUserRoleInOrg() for every row (one round-trip each).
 export async function bulkSetPropertyTenure(
   input: BulkSetTenureInput,
-): Promise<ActionResult<{ updated: number; failed: number }>> {
+): Promise<ActionResult<{ updated: number; failed: number; failedIds: string[] }>> {
   const parsed = BulkSetTenureSchema.safeParse({
     property_ids: input.propertyIds,
     tenure: input.tenure,
@@ -457,11 +457,13 @@ export async function bulkSetPropertyTenure(
   // De-dupe IDs in case the client posted the same id twice.
   const ids = Array.from(new Set(parsed.data.property_ids))
 
-  // Single round-trip to read prior tenures. RLS scopes this to the
-  // user's org automatically; ids outside the org just won't return.
+  // Single round-trip to read prior tenures. Scoped to the caller's org
+  // explicitly, not only by RLS: an id from another org never returns, so
+  // it counts as failed and is never written.
   const { data: existingRows, error: readErr } = await supabase
     .from('hoa_properties')
     .select('id, tenure')
+    .eq('org_id', org.id)
     .in('id', ids)
   if (readErr) return { ok: false, error: readErr.message }
 
@@ -477,12 +479,14 @@ export async function bulkSetPropertyTenure(
   const target = parsed.data.tenure
   let updated = 0
   let failed = 0
+  const failedIds: string[] = []
 
   for (const propertyId of ids) {
     const prev = existing.get(propertyId)
     if (prev === undefined) {
-      // Property either doesn't exist or RLS hid it. Count as failure.
+      // Property either doesn't exist or belongs to another org. Count as failure.
       failed += 1
+      failedIds.push(propertyId)
       continue
     }
     if (prev === target) {
@@ -500,9 +504,11 @@ export async function bulkSetPropertyTenure(
         tenure_updated_by: user.id,
       } as never)
       .eq('id', propertyId)
+      .eq('org_id', org.id)
     if (updErr) {
       console.error('[properties.bulkSetPropertyTenure] update failed', propertyId, updErr.message)
       failed += 1
+      failedIds.push(propertyId)
       continue
     }
 
@@ -541,5 +547,5 @@ export async function bulkSetPropertyTenure(
 
   revalidatePath('/properties')
   revalidatePath('/leases')
-  return { ok: true, data: { updated, failed } }
+  return { ok: true, data: { updated, failed, failedIds } }
 }
