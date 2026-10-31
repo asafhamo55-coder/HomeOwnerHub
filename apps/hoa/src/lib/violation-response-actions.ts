@@ -53,7 +53,14 @@ export async function respondToMyViolation(violationId: string, body: string): P
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
 
-  const units = await getResidentUnits()
+  // getResidentUnits throws when its read fails (never "no home"); a form
+  // gets a retry message instead of an unhandled error.
+  let units: Awaited<ReturnType<typeof getResidentUnits>>
+  try {
+    units = await getResidentUnits()
+  } catch {
+    return { ok: false, error: 'We couldn’t load your home just now. Please try again.' }
+  }
   if (units.length === 0) return { ok: false, error: 'We couldn’t find that notice on your home.' }
 
   const result = await postViolationResponse(

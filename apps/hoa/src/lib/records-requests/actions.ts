@@ -80,7 +80,15 @@ export async function createRecordsRequest(
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No HOA selected.' }
 
-  const unit = (await getResidentUnits()).find((u) => u.unit_id === parsed.data.unitId)
+  // getResidentUnits throws when its read fails (never "no home"); a form
+  // gets a retry message instead of an unhandled error.
+  let units: Awaited<ReturnType<typeof getResidentUnits>>
+  try {
+    units = await getResidentUnits()
+  } catch {
+    return { ok: false, error: 'We couldn’t load your home just now. Please try again.' }
+  }
+  const unit = units.find((u) => u.unit_id === parsed.data.unitId)
   if (!unit) return { ok: false, error: 'You can only send a request for a home you own.' }
 
   // The statutory clock starts on the association's day of receipt. A
