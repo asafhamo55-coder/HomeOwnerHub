@@ -107,7 +107,7 @@ export default async function StateHubPage({ params }: { params: Promise<{ state
               <ul className="mt-8 grid gap-5 md:grid-cols-2">
                 {hub.tour.map((t) => (
                   <li key={t.title} className="min-w-0">
-                    <Link href="/#product-tour" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    <Link href="/#features" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                       <div aria-hidden className="pointer-events-none h-[190px] w-full overflow-hidden rounded-xl border border-border/70 bg-subtle/60">
                         <div className="w-[640px] origin-top-left scale-50">{SCREENS[t.screen]()}</div>
                       </div>

@@ -26,7 +26,7 @@
   .card,
   .app-window,
   .theme-light {
-    --background: 0 0% 100%;
+    --background: 250 60% 98.4%;
     --surface: 0 0% 100%;
     --elevated: 0 0% 100%;
     --subtle: 250 33.3% 96.5%;
@@ -95,6 +95,8 @@
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans);
+    font-size: 1.125rem;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -150,7 +152,7 @@
   }
 
   .t-display {
-    font-size: clamp(2.5rem, 1.7rem + 3.4vw, 4rem);
+    font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem);
     line-height: 1.05;
     letter-spacing: -0.035em;
     font-weight: 500;
@@ -170,8 +172,8 @@
     font-weight: 600;
   }
   .t-lead {
-    font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);
-    font-weight: 300;
+    font-size: clamp(1.125rem, 1.05rem + 0.3vw, 1.25rem);
+    font-weight: 400;
     line-height: 1.6;
     color: hsl(var(--foreground-secondary));
     text-wrap: pretty;
@@ -185,7 +187,7 @@
   }
 
   .section {
-    padding-block: clamp(4.5rem, 3rem + 6vw, 8rem);
+    padding-block: clamp(4.5rem, 3.4rem + 3vw, 6.5rem);
   }
 
   /* Inset rounded gradient panel: hero and closing bands. */
@@ -280,7 +282,7 @@
     background: linear-gradient(135deg, var(--panel-a), var(--panel-b));
   }
   .feature p {
-    font-weight: 300;
+    font-weight: 400;
   }
 
   .btn {
@@ -288,10 +290,10 @@
     align-items: center;
     justify-content: center;
     gap: 0.6rem;
-    min-height: 2.75rem;
-    padding: 0.65rem 1.4rem;
-    border-radius: 999px;
-    font-size: 0.9375rem;
+    min-height: 3rem;
+    padding: 0.7rem 1.5rem;
+    border-radius: 12px;
+    font-size: 1rem;
     font-weight: 500;
     line-height: 1.25rem;
     border: 1.5px solid transparent;
@@ -304,11 +306,12 @@
   }
   /* Near-black pill; on dark panels it flips to a white pill. */
   .btn-primary {
-    background: var(--ink);
+    background: hsl(var(--primary));
     color: #fff;
+    box-shadow: 0 8px 20px -8px hsl(var(--primary) / 0.55);
   }
   .btn-primary:hover {
-    background: hsl(var(--primary));
+    background: hsl(var(--primary-hover));
     transform: translateY(-1px);
   }
   .btn-secondary {
@@ -331,7 +334,8 @@
   .on-dark .btn-primary,
   .btn-on-ink {
     background: #fff;
-    color: var(--ink);
+    color: #3b1ab5;
+    box-shadow: 0 10px 24px -10px rgb(10 5 60 / 0.6);
   }
   .hero-wash .btn-primary:hover,
   .section-ink .btn-primary:hover,
@@ -368,11 +372,11 @@
     background: hsl(var(--surface));
     color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border));
-    border-radius: 2rem;
-    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04);
+    border-radius: 1.25rem;
+    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.04), 0 18px 40px -24px hsl(var(--primary) / 0.28);
   }
   .card p {
-    font-weight: 300;
+    font-weight: 400;
   }
   .card-hover {
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;

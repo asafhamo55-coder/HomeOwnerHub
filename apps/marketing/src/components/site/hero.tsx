@@ -1,69 +1,77 @@
+import { ArrowRight, Check } from 'lucide-react'
 import { TrackedLink } from './tracked-link'
-import { ArrowRight, Sparkles } from 'lucide-react'
-import { SHIPPED_HOA_WORKFLOWS } from '@/lib/workflows'
-import { WorkspaceProductVisual } from './mockups'
+import { SIGN_UP_URL } from './brand'
+import { AskAnswerCard, WorkspaceApprovalsPanel } from './mockups'
+import { TRIAL_DAYS } from '../../lib/hoa-pricing'
 
-// Home hero. Server component: the headline and CTAs paint with the HTML
-// (no client JS before LCP). The visual is a built-from-HTML product mockup
-// of real app screens, not a photo.
+// Home hero: a violet slab with the headline, two CTAs, a 2x2 checklist and
+// a cropped app window. Server component, so the copy paints with the HTML.
 //
-// Product first (docs/decisions/2026-10-27-website-product-first-positioning.md):
-// the headline is the workspace; state law lives in one section lower down.
-// Truth: the stat counts the live workflow list.
+// Every checklist line is backed by code or docs (decision doc
+// 2026-10-31-website-payhoa-quality-bar.md): the 30-day trial is TRIAL_DAYS,
+// "no credit card" is checkout-v2's payment_method_collection 'if_required',
+// roster import is /properties/import, month to month is the v2 pricing copy.
+// The "we do the loading for you" line was dropped: nothing in the repo says we do it.
+
+const CHECKS = [
+  `${TRIAL_DAYS}-day free trial`,
+  'No credit card to start',
+  'Import your roster yourself',
+  'Cancel anytime',
+]
 
 export function Hero() {
   return (
-    <section className="hero-wash relative overflow-hidden pb-20 pt-28 md:pb-28 md:pt-36">
+    <section className="hero-wash relative overflow-hidden">
       <div className="container-page">
-        <div className="grid grid-cols-[minmax(0,1fr)] items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-10">
-          <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-subtle px-3.5 py-1.5 text-[13px] font-semibold text-primary">
-              <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              Self-service · AI drafts, the board approves
-            </p>
-
-            <h1 className="mt-6 text-[clamp(2.5rem,1.4rem+2.9vw,3.875rem)] font-medium leading-[1.04] tracking-[-0.035em] text-foreground">
-              The AI workspace for self-managed HOA boards.
-              <span className="t-serif mt-1 block text-primary">The board still decides.</span>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-6">
+          <div className="pt-12 lg:py-16">
+            <h1 className="t-display text-foreground">
+              Run your HOA board <span className="t-serif text-primary">with less paperwork.</span>
             </h1>
-
             <p className="t-lead mt-6 max-w-xl">
-              Dues, violations, announcements, accounting and your governing documents in one self-service place. AI
-              drafts the letters, notices, minutes and replies from your records. Nothing is sent, filed or entered
-              until a board member approves it.
+              An AI workspace that drafts letters, notices and answers from your own documents. Your board reads each
+              one and approves it before anything goes out.
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <TrackedLink href="/demo" event="demo_cta_click" position="hero" className="btn btn-primary btn-lg group">
-                Book a demo
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <TrackedLink href={SIGN_UP_URL} event="pilot_cta_click" position="hero" className="btn btn-primary btn-lg group w-full sm:w-auto">
+                Start free trial
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </TrackedLink>
-              <TrackedLink href="/demo" event="pilot_cta_click" position="hero" className="btn btn-secondary btn-lg">
-                Start free trial
+              <TrackedLink href="#features" event="demo_cta_click" position="hero" className="btn btn-secondary btn-lg w-full sm:w-auto">
+                See it work
               </TrackedLink>
             </div>
 
-            <p className="mt-5 text-sm text-muted">30-day free trial · No card needed · No data migration</p>
-
-            <dl className="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-border pt-6">
-              <Stat value={String(SHIPPED_HOA_WORKFLOWS.length)} label="AI workflows live" />
-              <Stat value="Cited" label="Every document answer" />
-              <Stat value="Self-serve" label="Setup and roster import" />
-            </dl>
+            <ul className="mt-6 grid max-w-md grid-cols-1 gap-x-6 gap-y-2 text-base text-foreground-secondary sm:grid-cols-2">
+              {CHECKS.map((c) => (
+                <li key={c} className="flex items-center gap-2">
+                  <Check className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+                  {c}
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <WorkspaceProductVisual />
+          {/* STOPGAP: HTML mockup of the app, cropped by the slab. Replace
+              with real screenshots (see the decision doc's TODO). */}
+          <div
+            className="relative lg:self-end"
+            role="img"
+            aria-label="Sample screens from HomeownerHub: the Approvals queue with AI drafts waiting for the board, and a cited answer from a CC&R. Sample data."
+          >
+            <div className="h-[300px] overflow-hidden sm:h-[380px] lg:-mr-28 lg:mt-14 lg:h-[460px]" aria-hidden>
+              <div className="w-[560px] max-w-none sm:w-[640px] lg:w-[720px]">
+                <WorkspaceApprovalsPanel className="!rounded-b-none" />
+                <div className="mt-3 px-6">
+                  <AskAnswerCard />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
-  )
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <dt className="text-2xl font-semibold tracking-tight text-foreground sm:text-[28px]">{value}</dt>
-      <dd className="mt-1 text-sm leading-snug text-muted">{label}</dd>
-    </div>
   )
 }

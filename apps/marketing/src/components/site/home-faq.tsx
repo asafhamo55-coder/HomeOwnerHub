@@ -10,9 +10,9 @@ export function HomeFaq() {
       <JsonLd data={faqLd(HOME_FAQS)} />
       <div className="container-page">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="eyebrow">FAQ</p>
+          <p className="eyebrow">Before you switch</p>
           <h2 id="home-faq-heading" className="t-h2 mt-4 text-foreground">
-            Questions boards ask first.
+            Questions boards ask <span className="text-primary">before switching.</span>
           </h2>
         </div>
         <FaqList items={HOME_FAQS} />

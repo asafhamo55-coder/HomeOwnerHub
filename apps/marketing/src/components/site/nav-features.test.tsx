@@ -19,7 +19,7 @@ vi.mock('./command-palette', () => ({ CommandPalette: () => null }))
 vi.mock('./tracked-link', () => ({
   TrackedLink: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
 }))
-// Force the multi-product menu on so the Products dropdown renders.
+// Force the multi-product menu on so the Features menu renders.
 vi.mock('../../lib/hubs', () => ({
   HOA_PRODUCT_NAME: 'HOA Hub',
   isOfferedHref: () => true,
@@ -35,7 +35,7 @@ function mount() {
   document.body.appendChild(host)
   root = createRoot(host)
   act(() => root!.render(<Nav />))
-  return document.querySelector<HTMLButtonElement>('button[aria-controls="nav-products"]')!
+  return document.querySelector<HTMLButtonElement>('button[aria-controls="nav-features"]')!
 }
 
 function key(el: Element | null, k: string) {
@@ -46,7 +46,7 @@ function key(el: Element | null, k: string) {
   return ev
 }
 
-const items = () => Array.from(document.querySelectorAll<HTMLElement>('#nav-products a[href]'))
+const items = () => Array.from(document.querySelectorAll<HTMLElement>('#nav-features a[href]'))
 
 afterEach(() => {
   act(() => root?.unmount())
@@ -55,7 +55,7 @@ afterEach(() => {
   host = null
 })
 
-describe('desktop Products dropdown keyboard support', () => {
+describe('desktop Features menu keyboard support', () => {
   it.each(['ArrowDown', 'Enter', ' '])('%s opens it and focuses the first item', (k) => {
     const trigger = mount()
     trigger.focus()
