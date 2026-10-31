@@ -13,6 +13,9 @@ import { TASK_BUCKETS, applyTaskFilters, groupTasks, parseTaskFilters } from '@/
 import { OPEN_TASK_LIMIT, loadBoardTasks, loadTaskMeetings, meetingLabel } from '@/lib/tasks/queries'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
+import { SummaryStrip } from '@/components/SummaryStrip'
+import { isDoneRecently, parseTaskView, summarizeTasks } from '@/lib/tasks/strip'
+import { AlertTriangle, CalendarClock, CheckCircle2, UserX } from 'lucide-react'
 import { TaskFilterBar } from './TaskFilterBar'
 import { TaskList } from './TaskList'
 
@@ -28,7 +31,7 @@ export const dynamic = 'force-dynamic'
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ assignee?: string; meeting?: string }>
+  searchParams: Promise<{ assignee?: string; meeting?: string; view?: string }>
 }) {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) notFound()
@@ -41,6 +44,7 @@ export default async function TasksPage({
   ])
   const today = todayIn(timeZone)
   const filters = parseTaskFilters(sp)
+  const view = parseTaskView(sp.view)
 
   const [loaded, assignees] = await Promise.all([
     timed('/tasks', 'tasks.list', () => loadBoardTasks(supabase, gate.orgId)),
@@ -93,11 +97,55 @@ export default async function TasksPage({
   }
 
   const visible = applyTaskFilters(loaded.tasks, filters, user?.id ?? null)
+  const summary = summarizeTasks(loaded.tasks, today, timeZone)
   const groups = groupTasks(visible, today)
-  const filtered = filters.assignee !== 'all' || filters.meeting !== 'all'
+  // A tile's view narrows to one bucket; "done_recent" also drops older Done rows.
+  if (view === 'done_recent') groups.done = groups.done.filter((t) => isDoneRecently(t, today, timeZone))
+  const shownBuckets = TASK_BUCKETS.filter(({ id }) =>
+    view === 'all' ? true : view === 'done_recent' ? id === 'done' : id === view,
+  )
+  const shownCount = shownBuckets.reduce((n, { id }) => n + groups[id].length, 0)
+  const filtered = filters.assignee !== 'all' || filters.meeting !== 'all' || view !== 'all'
 
   return (
     <Page {...header}>
+      <SummaryStrip
+        ariaLabel="Tasks summary"
+        testId="tasks-summary"
+        tiles={[
+          {
+            label: 'Overdue',
+            icon: <AlertTriangle />,
+            value: String(summary.overdue),
+            hint: summary.overdue === 0 ? 'Nothing is late' : 'Open and past due',
+            href: '/tasks?view=overdue',
+            tone: summary.overdue > 0 ? 'danger' : 'default',
+          },
+          {
+            label: 'Due in 7 days',
+            icon: <CalendarClock />,
+            value: String(summary.dueSoon),
+            hint: 'Today and the next six days',
+            href: '/tasks?view=this_week',
+          },
+          {
+            label: 'Unassigned',
+            icon: <UserX />,
+            value: String(summary.unassigned),
+            hint: summary.unassigned === 0 ? 'Every open task has an owner' : 'Open with no owner',
+            href: '/tasks?assignee=unassigned',
+            tone: summary.unassigned > 0 ? 'warning' : 'default',
+          },
+          {
+            label: 'Done in 30 days',
+            icon: <CheckCircle2 />,
+            value: String(summary.doneRecently),
+            hint: 'Finished in the last 30 days',
+            href: '/tasks?view=done_recent',
+          },
+        ]}
+      />
+
       <TaskFilterBar
         assignee={filters.assignee}
         meeting={filters.meeting}
@@ -118,12 +166,12 @@ export default async function TasksPage({
         </p>
       ) : null}
 
-      {visible.length === 0 ? (
+      {shownCount === 0 ? (
         <EmptyState
           variant="compact"
           icon={<ListTodo aria-hidden />}
           title="No tasks match these filters"
-          description="Try another board member or meeting."
+          description="Try another board member, meeting or summary tile."
           action={
             <Button asChild variant="secondary">
               <Link href="/tasks">Show all tasks</Link>
@@ -131,7 +179,7 @@ export default async function TasksPage({
           }
         />
       ) : (
-        TASK_BUCKETS.map(({ id, label }) => {
+        shownBuckets.map(({ id, label }) => {
           const rows = groups[id]
           if (rows.length === 0) return null
           return (
