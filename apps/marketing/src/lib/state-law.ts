@@ -202,9 +202,12 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
     { href: '/templates/florida-hoa-notice-of-intent-to-lien', label: 'Florida 45-day notice of intent to lien' },
     { href: '/templates/florida-hoa-records-request-response-checklist', label: 'Florida records request response checklist' },
     { href: '/guides/florida-hoa-board-meeting-notice-rules', label: 'Florida board meeting notice rules' },
+    { href: '/guides/florida-hoa-elections-and-quorum', label: 'Florida elections and quorum' },
+    { href: '/guides/florida-hoa-member-meetings-proxies-and-recording', label: 'Florida member meetings, proxies and recording' },
     { href: '/templates/florida-hoa-director-certification-checklist', label: 'Florida director certification checklist' },
   ],
   CA: [
+    { href: '/guides/california-hoa-election-rules', label: 'California election rules' },
     { href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' },
     { href: '/guides/california-hoa-records-inspection-rules', label: 'California records inspection' },
     { href: '/guides/california-hoa-internal-dispute-resolution', label: 'California internal dispute resolution' },

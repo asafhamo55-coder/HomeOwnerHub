@@ -89,7 +89,7 @@ export const FL_DIRECTOR_CERTIFICATION: Checklist = {
       a: 'No. The statute asks for the certificate, not for a form from the association. This template is our suggestion and is not legal advice.',
     },
   ],
-  related: ['florida-hoa-board-meeting-notice-rules', 'florida-hoa-official-records-inspection', 'florida-hoa-records-request-response-checklist', 'hoa-board-meeting-minutes'],
+  related: ['florida-hoa-board-meeting-notice-rules', 'florida-hoa-elections-and-quorum', 'florida-hoa-official-records-inspection', 'florida-hoa-records-request-response-checklist', 'hoa-board-meeting-minutes'],
   datePublished: '2026-10-31',
   dateModified: '2026-10-31',
   howTo: true,
