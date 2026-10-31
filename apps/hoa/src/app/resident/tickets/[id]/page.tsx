@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { Badge, KeyValue, KeyValueList } from '@homeowner-portal/ui'
+import { Badge, KeyValue, KeyValueList, LoadFailed } from '@homeowner-portal/ui'
 import { getMyTicket } from '@/lib/resident-tickets'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
 import { SubmissionAttachments } from '@/components/attachments/SubmissionAttachments'
@@ -18,8 +18,12 @@ export default async function ResidentTicketDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const ticket = await getMyTicket(id)
-  if (!ticket) notFound()
+  const loaded = await getMyTicket(id)
+  if (!loaded.ok) {
+    if (loaded.reason === 'error') return <LoadFailed what="this request" retryHref={`/resident/tickets/${id}`} />
+    notFound()
+  }
+  const { ticket, messagesFailed } = loaded
   const attachments = await listSubmissionAttachments('ticket', id)
 
   return (
@@ -49,10 +53,14 @@ export default async function ResidentTicketDetailPage({
 
       <Section label="Conversation">
         <Panel className="space-y-4">
-          <Conversation
-            messages={ticket.messages}
-            emptyText="No messages yet. The board will reply here."
-          />
+          {messagesFailed ? (
+            <LoadFailed what="replies" retryHref={`/resident/tickets/${id}`} />
+          ) : (
+            <Conversation
+              messages={ticket.messages}
+              emptyText="No messages yet. The board will reply here."
+            />
+          )}
           {ticket.status !== 'closed' ? (
             <div className="border-t border-border pt-4">
               <ReplyComposer kind="ticket" id={ticket.id} placeholder="Write a reply…" />

@@ -27,8 +27,11 @@ export default async function ResidentViolationDetailPage({
   // One route, two records: a concern this resident reported (keyed by
   // report id), or — BL-129 — a violation on their own home (keyed by
   // violation id). Ids are UUIDs, so they never collide.
-  const report = await getMyViolationReport(id)
-  if (!report) {
+  const loadedReport = await getMyViolationReport(id)
+  if (!loadedReport.ok && loadedReport.reason === 'error') {
+    return <LoadFailed what="this notice" retryHref={`/resident/violations/${id}`} />
+  }
+  if (!loadedReport.ok) {
     const home = await loadMyHomeViolation(id)
     if (!home.ok) {
       if (home.reason === 'error') return <LoadFailed what="this notice" retryHref={`/resident/violations/${id}`} />
@@ -46,6 +49,7 @@ export default async function ResidentViolationDetailPage({
       />
     )
   }
+  const { report, messagesFailed } = loadedReport
   const attachments = await listSubmissionAttachments('concern', id)
 
   const closed = CLOSED.has(report.status)
@@ -82,10 +86,14 @@ export default async function ResidentViolationDetailPage({
 
       <Section label="Conversation">
         <Panel className="space-y-4">
-          <Conversation
-            messages={report.messages}
-            emptyText="No messages yet. The board will follow up here if they need more information."
-          />
+          {messagesFailed ? (
+            <LoadFailed what="replies" retryHref={`/resident/violations/${id}`} />
+          ) : (
+            <Conversation
+              messages={report.messages}
+              emptyText="No messages yet. The board will follow up here if they need more information."
+            />
+          )}
           {closed ? (
             <ThreadClosed>
               This concern was {residentStatusLabel('report', report.status).toLowerCase()}. If the issue
