@@ -200,12 +200,14 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
     { href: '/guides/florida-hoa-official-records-inspection', label: 'Florida official records inspection' },
     { href: '/templates/florida-hoa-fine-hearing-notice', label: 'Florida fine hearing notice template' },
     { href: '/templates/florida-hoa-notice-of-intent-to-lien', label: 'Florida 45-day notice of intent to lien' },
+    { href: '/templates/florida-hoa-records-request-response-checklist', label: 'Florida records request response checklist' },
   ],
   CA: [
     { href: '/guides/california-hoa-fine-hearing-and-penalty-rules', label: 'California fines and the discipline hearing' },
     { href: '/guides/california-hoa-records-inspection-rules', label: 'California records inspection' },
     { href: '/guides/california-hoa-internal-dispute-resolution', label: 'California internal dispute resolution' },
     { href: '/guides/california-hoa-pre-lien-notice-and-collections', label: 'California pre-lien notice and collections' },
+    { href: '/templates/california-hoa-hearing-resolution-letter', label: 'California hearing decision letter template' },
   ],
   TX: [
     { href: '/guides/texas-hoa-payment-plans-and-payment-priority', label: 'Texas payment plans and payment priority' },
