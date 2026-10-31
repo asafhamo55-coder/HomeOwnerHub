@@ -130,3 +130,17 @@ export async function markAnnouncementsViewed(
     // pre-migration no-op
   }
 }
+
+/**
+ * Read the previous visit time, then stamp this one. The order is the
+ * point: stamping first would make every item on the visit that is
+ * supposed to show them look already read.
+ */
+export async function readThenMarkViewed(
+  supabase: { from: (table: string) => any },
+  userId: string | null,
+): Promise<string | null> {
+  const lastViewedAt = await getAnnouncementsLastViewedAt(supabase, userId)
+  await markAnnouncementsViewed(supabase, userId)
+  return lastViewedAt
+}
