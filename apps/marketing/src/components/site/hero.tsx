@@ -16,7 +16,7 @@ import { TRIAL_DAYS } from '../../lib/hoa-pricing'
 const CHECKS = [
   `${TRIAL_DAYS}-day free trial`,
   'No credit card to start',
-  'Import your roster yourself',
+  'Import your owner list from a spreadsheet',
   'Cancel anytime',
 ]
 
