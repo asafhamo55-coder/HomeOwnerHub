@@ -20,6 +20,9 @@ import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Platform overview' }
 
+/** A count that failed to load reads "Not available", never 0. */
+const n = (v: number | null) => (v === null ? 'Not available' : v.toLocaleString())
+
 export default async function AdminOverviewPage() {
   const [stats, tenants] = await Promise.all([getPlatformStats(), listTenants()])
   const recent = tenants.slice(0, 5)
@@ -28,7 +31,7 @@ export default async function AdminOverviewPage() {
     <Page
       width="wide"
       title="Platform overview"
-      description={`Cross-tenant snapshot of HomeownerHub · ${stats.total_tenants.toLocaleString()} tenants · ${stats.total_members.toLocaleString()} accounts · ${stats.total_units.toLocaleString()} units`}
+      description={`Cross-tenant snapshot of HomeownerHub · ${stats.total_tenants.toLocaleString()} tenants · ${n(stats.total_members)} accounts · ${n(stats.total_units)} units`}
       actions={
         <Button asChild>
           <Link href="/admin/tenants/new" className="no-underline">
@@ -46,12 +49,20 @@ export default async function AdminOverviewPage() {
           href="/admin/tenants"
           linkAs={Link}
         />
-        <Kpi label="Accounts" value={stats.total_members.toLocaleString()} hint="Across all tenants" />
-        <Kpi label="Units under management" value={stats.total_units.toLocaleString()} />
+        <Kpi label="Accounts" value={n(stats.total_members)} hint={stats.total_members === null ? 'Count failed to load' : 'Across all tenants'} />
+        <Kpi
+          label="Units under management"
+          value={n(stats.total_units)}
+          {...(stats.total_units === null ? { hint: 'Count failed to load' } : {})}
+        />
         <Kpi
           label="AI runs (30 days)"
-          value={stats.ai_runs_30d.toLocaleString()}
-          hint={`${stats.workflows_30d.length} active workflow${stats.workflows_30d.length === 1 ? '' : 's'}`}
+          value={n(stats.ai_runs_30d)}
+          hint={
+            stats.ai_runs_30d === null
+              ? 'Count failed to load'
+              : `${stats.workflows_30d.length} active workflow${stats.workflows_30d.length === 1 ? '' : 's'}`
+          }
           href="/admin/analytics"
           linkAs={Link}
         />

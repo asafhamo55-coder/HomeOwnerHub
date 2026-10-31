@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Card, Page } from '@homeowner-portal/ui'
+import { Card, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getTenantDetail } from '@/lib/platform-admin'
 import { EditTenantForm } from './EditTenantForm'
 
@@ -12,8 +12,16 @@ export default async function EditTenantPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const t = await getTenantDetail(id)
-  if (!t) notFound()
+  const res = await getTenantDetail(id)
+  if (!res.ok) {
+    if (res.reason === 'not_found') notFound()
+    return (
+      <Page width="narrow" title="Edit tenant">
+        <LoadFailed what="this tenant" retryHref={`/admin/tenants/${id}/edit`} />
+      </Page>
+    )
+  }
+  const t = res.data
 
   return (
     <Page

@@ -72,13 +72,15 @@ export default async function LeasesPage({
     (await searchParams).property,
   )
 
-  const [stats, cap, allWaiting, candidates] = await Promise.all([
+  const [stats, capRes, allWaiting, candidates] = await Promise.all([
     loadLeaseStats(assoc.id),
     getLeaseCap(assoc.id),
     loadWaitingList(assoc.id),
     listWaitingListCandidates(assoc.id),
   ])
 
+  const capFailed = !capRes.ok
+  const cap = capRes.ok ? capRes.cap : null
   const waiting = allWaiting === null ? null : scope ? allWaiting.filter((w) => w.property_id === scope.id) : allWaiting
   // Queue position is association-wide even when one home is shown.
   const positions = new Map((allWaiting ?? []).filter((w) => w.status === 'waiting').map((w, i) => [w.id, i + 1]))
@@ -125,7 +127,7 @@ export default async function LeasesPage({
                 label="Rental cap"
                 icon={<Percent />}
                 value={capSet ? `${cap!.capPct}%` : '—'}
-                hint={capSet ? 'of units may be leased' : 'No cap set'}
+                hint={capFailed ? 'Couldn’t load the rental cap' : capSet ? 'of units may be leased' : 'No cap set'}
               />
               <Kpi
                 label="Headroom"
@@ -164,12 +166,24 @@ export default async function LeasesPage({
         <CardHeader>
           <CardTitle as="h2">Cap policy</CardTitle>
           <CardDescription>
-            {capSet ? `Up to ${cap!.capPct}% of units may be leased at once.` : 'No rental cap is set.'}
+            {capFailed
+              ? 'The current cap could not be read.'
+              : capSet
+                ? `Up to ${cap!.capPct}% of units may be leased at once.`
+                : 'No rental cap is set.'}
             {cap?.setAt ? ` Set ${formatShortDate(cap.setAt)}${cap.setBy ? ' by a board member' : ''}.` : ''}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={capFailed ? 'space-y-3' : undefined}>
+          {capFailed ? (
+            <LoadFailed
+              what="the rental cap"
+              retryHref="/leases"
+              hint="Editing is turned off until it loads, so a saved cap can’t overwrite one you haven’t seen."
+            />
+          ) : null}
           <LeaseCapEditor
+            disabled={capFailed}
             associationId={assoc.id}
             currentCapPct={cap?.capPct ?? null}
             aiSuggestedPct={cap?.aiSuggestedPct ?? null}

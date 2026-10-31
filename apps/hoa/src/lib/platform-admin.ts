@@ -120,10 +120,11 @@ export interface PlatformStats {
   total_tenants: number
   active_tenants: number
   suspended_tenants: number
-  total_members: number
-  total_units: number
-  total_vendors: number
-  ai_runs_30d: number
+  /** `null` means the count query failed, not that there are none. */
+  total_members: number | null
+  total_units: number | null
+  total_vendors: number | null
+  ai_runs_30d: number | null
   tenants_by_plan: Array<{ plan: string; count: number }>
   tenants_over_time: Array<{ month: string; count: number }>
   workflows_30d: Array<{ workflow_id: string; runs: number }>
@@ -272,11 +273,16 @@ async function countByOrg(
   return counts
 }
 
-export async function getTenantDetail(orgId: string): Promise<TenantStatistics | null> {
+/** `error` is a failed read; `not_found` is a real miss. Only the latter may 404. */
+export type TenantDetailLoad =
+  | { ok: true; data: TenantStatistics }
+  | { ok: false; reason: 'error' | 'not_found' }
+
+export async function getTenantDetail(orgId: string): Promise<TenantDetailLoad> {
   await requirePlatformAdmin()
   const db = createAdminClient()
 
-  const { data: org } = await db
+  const { data: org, error: orgErr } = await db
     .from('orgs' as never)
     .select('*')
     .eq('id', orgId)
@@ -292,7 +298,11 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
       archived_at?: string | null
     }>()
 
-  if (!org) return null
+  if (orgErr) {
+    console.error('[platform-admin] tenant read failed', orgErr.code)
+    return { ok: false, reason: 'error' }
+  }
+  if (!org) return { ok: false, reason: 'not_found' }
 
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -388,19 +398,22 @@ export async function getTenantDetail(orgId: string): Promise<TenantStatistics |
   }
 
   return {
-    org: { ...org, archived_at: org.archived_at ?? null },
-    members: memberCounts,
-    units: units ?? 0,
-    associations: associations ?? 0,
-    vendors: vendorCounts,
-    rfps: rfpCounts,
-    bids: bidCounts,
-    violations: violationCounts,
-    dues: { outstanding_usd: duesOutstanding, properties_behind: duesPropertiesBehind.size },
-    ai_runs_30d: aiRuns ?? 0,
-    arc_pending: arcPending ?? 0,
-    documents: documents ?? 0,
-    recent_activity: [],
+    ok: true,
+    data: {
+      org: { ...org, archived_at: org.archived_at ?? null },
+      members: memberCounts,
+      units: units ?? 0,
+      associations: associations ?? 0,
+      vendors: vendorCounts,
+      rfps: rfpCounts,
+      bids: bidCounts,
+      violations: violationCounts,
+      dues: { outstanding_usd: duesOutstanding, properties_behind: duesPropertiesBehind.size },
+      ai_runs_30d: aiRuns ?? 0,
+      arc_pending: arcPending ?? 0,
+      documents: documents ?? 0,
+      recent_activity: [],
+    },
   }
 }
 
@@ -415,10 +428,10 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   // Row reads paged to the end (BL-053).
   const [
     orgs,
-    { count: totalMembers },
-    { count: totalUnits },
-    { count: totalVendors },
-    { count: aiRuns },
+    membersRes,
+    unitsRes,
+    vendorsRes,
+    aiRunsRes,
     aiRunsRows,
   ] = await Promise.all([
     readAllRows<{ id: string; plan: string; created_at: string | null; suspended_at: string | null }>(() =>
@@ -435,6 +448,19 @@ export async function getPlatformStats(): Promise<PlatformStats> {
       db.from('ai_runs' as never).select('workflow_id').gte('created_at', thirtyDaysAgoIso),
     ),
   ])
+
+  // A failed count is unknown, never 0.
+  const countOf = (r: { count: number | null; error: { code?: string } | null }, what: string): number | null => {
+    if (r.error) {
+      console.error(`[platform-admin] ${what} count failed`, r.error.code)
+      return null
+    }
+    return r.count ?? 0
+  }
+  const totalMembers = countOf(membersRes, 'members')
+  const totalUnits = countOf(unitsRes, 'units')
+  const totalVendors = countOf(vendorsRes, 'vendors')
+  const aiRuns = countOf(aiRunsRes, 'ai runs')
 
   const orgsTyped = orgs
 
@@ -476,10 +502,10 @@ export async function getPlatformStats(): Promise<PlatformStats> {
     total_tenants: orgsTyped.length,
     active_tenants: activeTenants,
     suspended_tenants: suspendedTenants,
-    total_members: totalMembers ?? 0,
-    total_units: totalUnits ?? 0,
-    total_vendors: totalVendors ?? 0,
-    ai_runs_30d: aiRuns ?? 0,
+    total_members: totalMembers,
+    total_units: totalUnits,
+    total_vendors: totalVendors,
+    ai_runs_30d: aiRuns,
     tenants_by_plan: Array.from(planCounts.entries()).map(([plan, count]) => ({ plan, count })),
     tenants_over_time: months,
     workflows_30d: workflows30d,
@@ -866,11 +892,13 @@ export async function getTenantPreview(
   }
 }
 
-export async function listPlatformAuditLog(limit = 100): Promise<AuditRow[]> {
+export type AuditLogLoad = { ok: true; rows: AuditRow[] } | { ok: false }
+
+export async function listPlatformAuditLog(limit = 100): Promise<AuditLogLoad> {
   await requirePlatformAdmin()
   const db = createAdminClient()
 
-  const { data } = await db
+  const { data, error } = await db
     .from('platform_admin_audit' as never)
     .select(
       'id, actor_user_id, action, target_org_id, payload, created_at, actor:profiles!platform_admin_audit_actor_user_id_fkey(email), org:orgs(name)',
@@ -878,7 +906,12 @@ export async function listPlatformAuditLog(limit = 100): Promise<AuditRow[]> {
     .order('created_at', { ascending: false })
     .limit(limit)
 
-  return ((data ?? []) as unknown as Array<{
+  if (error) {
+    console.error('[platform-admin] audit log read failed', error.code)
+    return { ok: false }
+  }
+
+  const rows = ((data ?? []) as unknown as Array<{
     id: string
     actor_user_id: string
     action: string
@@ -897,6 +930,7 @@ export async function listPlatformAuditLog(limit = 100): Promise<AuditRow[]> {
     payload: r.payload,
     created_at: r.created_at,
   }))
+  return { ok: true, rows }
 }
 
 // ─── Writes ─────────────────────────────────────────────────────────

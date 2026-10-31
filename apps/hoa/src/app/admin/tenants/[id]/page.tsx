@@ -12,6 +12,7 @@ import {
   KeyValue,
   KeyValueList,
   Kpi,
+  LoadFailed,
   Page,
 } from '@homeowner-portal/ui'
 import { getTenantDetail } from '@/lib/platform-admin'
@@ -30,8 +31,21 @@ export default async function TenantDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const t = await getTenantDetail(id)
-  if (!t) notFound()
+  const res = await getTenantDetail(id)
+  if (!res.ok) {
+    if (res.reason === 'not_found') notFound()
+    return (
+      <Page
+        width="wide"
+        linkAs={Link}
+        breadcrumbs={[{ label: 'Tenants', href: '/admin/tenants' }, { label: 'Tenant' }]}
+        title="Tenant"
+      >
+        <LoadFailed what="this tenant" retryHref={`/admin/tenants/${id}`} />
+      </Page>
+    )
+  }
+  const t = res.data
 
   return (
     <Page
