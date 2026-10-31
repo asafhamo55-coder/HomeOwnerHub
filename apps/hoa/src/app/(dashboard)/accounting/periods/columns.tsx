@@ -5,12 +5,20 @@ import { PERIOD_STATUS } from '@/lib/money/status'
 import { MoneyStatus } from '../_components/shared'
 import { BoardPacketButton } from './BoardPacketButton'
 import { ClosePeriodButton } from './ClosePeriodButton'
+import { periodHasEnded, type CloseChecks } from './close-checks-shared'
+
+// No checks were loaded for this period: say so rather than show all clear.
+const UNCHECKED: CloseChecks = { drafts: { ok: false }, proposals: { ok: false }, unreconciled: { ok: false } }
 
 /**
  * `today` is the association's day: a period that starts after it (next
  * year, opened early — BL-076) says when it starts and can't be closed yet.
  */
-export function periodColumns(today: string, currentId: string | null): DataTableColumn<FiscalPeriod>[] {
+export function periodColumns(
+  today: string,
+  currentId: string | null,
+  checksFor: (periodId: string) => CloseChecks | null = () => null,
+): DataTableColumn<FiscalPeriod>[] {
   return [
     {
       key: 'period',
@@ -44,7 +52,18 @@ export function periodColumns(today: string, currentId: string | null): DataTabl
       cell: (p) => (
         <div className="flex flex-wrap items-center justify-end gap-2">
           <BoardPacketButton periodId={p.id} />
-          {p.status === 'open' && p.start_date <= today ? <ClosePeriodButton periodId={p.id} label={periodLabel(p)} /> : null}
+          {p.status === 'open' && p.start_date <= today ? (
+            periodHasEnded(p.end_date, today) ? (
+              <ClosePeriodButton
+                periodId={p.id}
+                label={periodLabel(p)}
+                endDate={p.end_date}
+                checks={checksFor(p.id) ?? UNCHECKED}
+              />
+            ) : (
+              <span className="text-xs text-muted">Can close after {formatDay(p.end_date)}</span>
+            )
+          ) : null}
         </div>
       ),
     },
