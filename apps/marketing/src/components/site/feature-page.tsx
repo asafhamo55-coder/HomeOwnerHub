@@ -4,7 +4,8 @@ import { Nav } from './nav'
 import { Footer } from './footer'
 import { HeroCtas } from './hero-ctas'
 import { CtaCloser } from './cta-closer'
-import { ApprovalsScreen, AnnouncementsScreen, AskScreen, DuesScreen, ViolationsScreen } from './tour-screens'
+import { ProcessPlayer } from './process-player'
+import { PROCESSES, type ProcessId } from '../../lib/process-demos'
 import { FEATURE_PAGES, featurePath, type FeatureScreen } from '../../lib/feature-pages'
 import { cn } from '../../lib/cn'
 
@@ -13,32 +14,20 @@ import { cn } from '../../lib/cn'
 // benefit rows that alternate image and text, a related-features strip and
 // the closing CTA. Content lives in lib/feature-pages.ts.
 
-const SCREENS: Record<FeatureScreen, () => React.JSX.Element> = {
-  approvals: ApprovalsScreen,
-  dues: DuesScreen,
-  violations: ViolationsScreen,
-  announcements: AnnouncementsScreen,
-  ask: AskScreen,
+const PROCESS_FOR: Record<FeatureScreen, ProcessId> = {
+  approvals: 'arc',
+  dues: 'dues',
+  violations: 'violations',
+  announcements: 'announcements',
+  ask: 'ask',
 }
 
-// STOPGAP: the in-repo HTML mockup stands in for a real screenshot (see the
-// TODO in docs/decisions/2026-10-31-website-payhoa-quality-bar.md).
-function Visual({ screen, label, tall, shift = 0 }: { screen: FeatureScreen; label: string; tall?: boolean; shift?: number }) {
-  const Screen = SCREENS[screen]
-  return (
-    <figure className="m-0">
-      <div
-        role="img"
-        aria-label={`${label}: sample screen with made-up data`}
-        className={cn('overflow-hidden rounded-2xl border border-border bg-subtle shadow-[0_30px_60px_-30px_rgb(42_18_136/0.35)]', tall ? 'h-[320px] sm:h-[420px]' : 'h-[240px]')}
-      >
-        <div aria-hidden style={{ marginTop: -shift }} className="w-[640px] max-w-none origin-top-left scale-[0.55] sm:scale-[0.8] lg:scale-[0.7] xl:scale-[0.8]">
-          <Screen />
-        </div>
-      </div>
-      <figcaption className="mt-2 text-sm text-muted">Sample screen, made-up data.</figcaption>
-    </figure>
-  )
+// Benefit rows replay two neighbouring scenes of the page's process, so each
+// row shows a different part of the workflow.
+function rowRange(process: ProcessId, i: number): [number, number] {
+  const n = PROCESSES[process].scenes.length
+  const start = i % (n - 1)
+  return [start, start + 1]
 }
 
 export function FeaturePage({ slug }: { slug: string }) {
@@ -75,7 +64,7 @@ export function FeaturePage({ slug }: { slug: string }) {
                 <p className="t-lead mt-6 max-w-xl">{page.subhead}</p>
                 <HeroCtas position="feature_hero" />
               </div>
-              <Visual screen={page.screen} label={page.label} tall />
+              <ProcessPlayer process={PROCESS_FOR[page.screen]} />
             </div>
           </div>
         </section>
@@ -89,7 +78,7 @@ export function FeaturePage({ slug }: { slug: string }) {
               {page.benefits.map((b, i) => (
                 <div key={b.title} className="grid grid-cols-[minmax(0,1fr)] items-center gap-8 md:grid-cols-2 md:gap-14">
                   <div className={cn('min-w-0', i % 2 === 1 && 'md:order-2')}>
-                    <Visual screen={page.screen} label={b.title} />
+                    <ProcessPlayer process={PROCESS_FOR[page.screen]} range={rowRange(PROCESS_FOR[page.screen], i)} compact />
                   </div>
                   <div>
                     <h3 className="t-h3 text-foreground">{b.title}</h3>

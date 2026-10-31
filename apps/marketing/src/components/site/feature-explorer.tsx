@@ -3,17 +3,17 @@ import * as React from 'react'
 
 import Link from 'next/link'
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ArrowRight, Check, FileText, Home, Megaphone, MessageCircleQuestion, ShieldAlert, Wallet } from 'lucide-react'
+import { ArrowRight, Check, Home, Megaphone, MessageCircleQuestion, ShieldAlert, Wallet } from 'lucide-react'
 import { cn } from '../../lib/cn'
-import { AnnouncementsScreen, AskScreen, DuesScreen, ViolationsScreen } from './tour-screens'
+import { ProcessPlayer } from './process-player'
 
 // Home feature explorer: an accessible tablist (roving tabindex, arrow
 // keys, Home and End), no auto-rotate, every panel in the HTML. Every bullet
 // restates a shipped feature from lib/features.ts or lib/workflows.ts, each
 // of which names the apps/hoa route that proves it. Card and ACH online
 // payments are NOT shipped, so nothing here mentions paying online.
-// The screens are the in-repo HTML mockups (sample data): a stopgap until
-// real screenshots exist.
+// The screens are interactive process players (components/site/process-player.tsx):
+// code-built recreations of the real app screens, sample data.
 
 export type ExplorerTab = {
   id: string
@@ -26,40 +26,6 @@ export type ExplorerTab = {
   linkLabel: string
   href: string
   screen: ReactNode
-}
-
-function ArcScreen() {
-  return (
-    <div className="app-window">
-      <div className="flex items-center justify-between border-b border-border bg-subtle/70 px-4 py-2.5">
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-foreground">
-          <Home className="h-3.5 w-3.5 text-primary" aria-hidden />
-          Request: new fence, 12 Maple Ct
-        </span>
-        <span className="rounded-full bg-warning-subtle px-2 py-0.5 text-[10px] font-semibold text-warning">
-          Awaiting board decision
-        </span>
-      </div>
-      <div className="space-y-3 p-4 text-xs text-foreground-secondary">
-        <p className="font-semibold text-foreground">Review against your guidelines</p>
-        <ul className="space-y-1.5">
-          <li className="flex items-center gap-2">
-            <Check className="h-3.5 w-3.5 text-success" aria-hidden />
-            Height is within the limit in the guidelines
-          </li>
-          <li className="flex items-center gap-2">
-            <Check className="h-3.5 w-3.5 text-success" aria-hidden />
-            Photos show the planned location
-          </li>
-          <li className="flex items-center gap-2">
-            <FileText className="h-3.5 w-3.5 text-primary" aria-hidden />
-            Decision letter drafted, ready to edit
-          </li>
-        </ul>
-        <p className="text-[11px] text-muted">Sample data. The board decides.</p>
-      </div>
-    </div>
-  )
 }
 
 export const EXPLORER_TABS: ExplorerTab[] = [
@@ -78,7 +44,7 @@ export const EXPLORER_TABS: ExplorerTab[] = [
     ],
     linkLabel: 'See what the workspace does',
     href: '/hoa',
-    screen: <DuesScreen />,
+    screen: <ProcessPlayer process="dues" compact />,
   },
   {
     id: 'violations',
@@ -95,7 +61,7 @@ export const EXPLORER_TABS: ExplorerTab[] = [
     ],
     linkLabel: 'See what the workspace does',
     href: '/hoa',
-    screen: <ViolationsScreen />,
+    screen: <ProcessPlayer process="violations" compact />,
   },
   {
     id: 'announcements',
@@ -112,7 +78,7 @@ export const EXPLORER_TABS: ExplorerTab[] = [
     ],
     linkLabel: 'See what the workspace does',
     href: '/hoa',
-    screen: <AnnouncementsScreen />,
+    screen: <ProcessPlayer process="announcements" compact />,
   },
   {
     id: 'documents',
@@ -129,7 +95,7 @@ export const EXPLORER_TABS: ExplorerTab[] = [
     ],
     linkLabel: 'See Georgia first',
     href: '/georgia',
-    screen: <AskScreen />,
+    screen: <ProcessPlayer process="ask" compact />,
   },
   {
     id: 'arc',
@@ -146,7 +112,7 @@ export const EXPLORER_TABS: ExplorerTab[] = [
     ],
     linkLabel: 'See what the workspace does',
     href: '/hoa',
-    screen: <ArcScreen />,
+    screen: <ProcessPlayer process="arc" compact />,
   },
 ]
 
@@ -270,7 +236,7 @@ export function FeatureExplorer() {
             </div>
           ))}
         </div>
-        <p className="mt-6 text-center text-sm text-muted">Sample community and sample data. Real screenshots are coming.</p>
+        <p className="mt-6 text-center text-sm text-muted">Sample community, made-up data.</p>
       </div>
     </section>
   )
