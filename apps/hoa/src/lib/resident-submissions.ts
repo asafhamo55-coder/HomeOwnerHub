@@ -8,6 +8,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
 import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
 import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
+import { residentActionFailed } from '@/lib/resident-action-error'
 import { closeArcReviewsOnWithdraw, startBoardArcReview } from '@/lib/arc-review/server'
 import { bindPrecheckRun } from '@/lib/arc-review/precheck-binding'
 import { createAdminClient } from '@homeowner-portal/db'
@@ -203,7 +204,7 @@ export async function createArcRequest(
     .single<{ id: string }>()
 
   if (error || !row) {
-    return { ok: false, error: error?.message ?? 'Could not submit application.' }
+    return residentActionFailed('createArcRequest', error)
   }
 
   // BL-027: draft the board's AI review after the response is sent — the
@@ -298,7 +299,7 @@ export async function addArcMessage(
       internal: false,
     } as never)
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return residentActionFailed('addArcMessage', error)
 
   revalidatePath(`/resident/arc/${arcId}`)
   revalidatePath(`/arc/${arcId}`)
@@ -328,7 +329,7 @@ export async function withdrawMyArcRequest(arcId: string): Promise<ActionResult>
     .select('id, organization_id')
     .maybeSingle<{ id: string; organization_id: string }>()
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return residentActionFailed('withdrawMyArcRequest', error)
   if (!row) {
     return { ok: false, error: 'This application can no longer be withdrawn.' }
   }
@@ -464,7 +465,7 @@ export async function createViolationReport(
     .single<{ id: string }>()
 
   if (error || !row) {
-    return { ok: false, error: error?.message ?? 'Could not submit report.' }
+    return residentActionFailed('createViolationReport', error)
   }
 
   revalidatePath('/resident')
@@ -543,7 +544,7 @@ export async function addViolationReportMessage(
       internal: false,
     } as never)
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return residentActionFailed('addViolationReportMessage', error)
 
   revalidatePath(`/resident/violations/${reportId}`)
   revalidatePath(`/violations/reports/${reportId}`)

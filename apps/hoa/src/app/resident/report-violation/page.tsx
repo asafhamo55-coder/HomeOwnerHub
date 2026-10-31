@@ -20,8 +20,7 @@ export default async function ReportViolationPage({
       />
 
       <Alert variant="info" title="Your identity stays confidential">
-        The board sees that a report was submitted, and per Policy §12.03 your identity is kept
-        confidential where practicable. Reports aren&apos;t anonymous, so we do record who sent it.
+        We keep your identity confidential where we can. The board sees who reported.
       </Alert>
 
       <Panel className="p-5">

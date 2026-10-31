@@ -141,10 +141,12 @@ export default async function ResidentDocumentsPage({
 
       <Panel className="space-y-3">
         <p className="text-sm text-foreground-secondary">
-          Looking for minutes, the budget or another record? Ask the board — or ask a question about your rules and
-          get an answer that cites the section.
+          Meeting minutes are on the meetings page. For the budget or another record, ask the board, or ask a question about your rules and get an answer that cites the section.
         </p>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/resident/meetings">Meeting minutes</Link>
+          </Button>
           <Button asChild variant="secondary" size="sm">
             <Link href={ASK_FOR_DOCUMENT}>Ask the board</Link>
           </Button>

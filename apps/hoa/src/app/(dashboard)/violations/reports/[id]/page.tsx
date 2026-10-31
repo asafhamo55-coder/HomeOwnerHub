@@ -129,7 +129,7 @@ export default async function ViolationReportDetailPage({
                 <strong className="font-semibold text-foreground">
                   {report.reporter_name ?? report.reporter_email ?? 'an unknown user'}
                 </strong>
-                . Per Policy §12.03, never disclose the reporter to the subject of the report or other residents.
+                . Residents were told their identity is kept confidential where possible, so don&apos;t share the reporter&apos;s name with the subject of the report or other residents.
             </p>
           </Alert>
 
