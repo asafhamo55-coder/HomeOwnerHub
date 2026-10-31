@@ -3,8 +3,8 @@
 // Checks, from the page registry and page sources (the root vitest config
 // maps "@" to apps/hoa, so pages can't be imported):
 //   - every sitemap URL has metadata, and its page actually calls pageMetadata
-//   - rendered <title> (page title + the layout's suffix) is 30-60 characters
-//   - meta description is 70-160 characters
+//   - rendered <title> (page title + the layout's suffix) is 50-60 characters
+//   - meta description is 140-160 characters
 //   - titles and descriptions are unique across the site
 //   - exactly one <h1> per page, counted in the page and the components it imports
 //   - every page's Open Graph block carries the share image
@@ -14,8 +14,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { ALL_GUIDES, CHECKLISTS, GEORGIA_HUB_PATH, SITE_LINKS, pathOf } from './georgia'
+import { organizationLd, softwareApplicationLd, websiteLd } from './jsonld'
 import { PAGE_META, TITLE_SUFFIX } from './page-meta'
-import { OG_IMAGE_PATH, SITEMAP_PATHS, pageMetadata } from './site'
+import { OG_IMAGE_ROUTE, SITEMAP_PATHS, pageMetadata } from './site'
 import { STATE_CARDS, STATE_HUB_PATHS } from './state-law'
 
 const marketingSrc = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -26,9 +27,9 @@ interface Row {
   description: string
 }
 
-const TITLE_MIN = 30
+const TITLE_MIN = 50
 const TITLE_MAX = 60
-const DESC_MIN = 70
+const DESC_MIN = 140
 const DESC_MAX = 160
 
 function metaFor(p: string): Row | undefined {
@@ -146,7 +147,7 @@ describe('SEO audit: structure', () => {
   it('pageMetadata carries the share image on Open Graph and Twitter, and a canonical path', () => {
     const m = pageMetadata({ title: 'Some page title', description: 'd', path: '/x' })
     expect(m.alternates?.canonical).toBe('/x')
-    expect(JSON.stringify(m.openGraph)).toContain(OG_IMAGE_PATH)
-    expect(JSON.stringify(m.twitter)).toContain(OG_IMAGE_PATH)
+    expect(JSON.stringify(m.openGraph)).toContain(`${OG_IMAGE_ROUTE}?title=Some%20page%20title`)
+    expect(JSON.stringify(m.twitter)).toContain(`${OG_IMAGE_ROUTE}?title=Some%20page%20title`)
   })
 })

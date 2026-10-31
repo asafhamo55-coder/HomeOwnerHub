@@ -19,7 +19,7 @@ export const FL_FINE_HEARING: Guide = {
   path: '/guides/florida-hoa-fine-hearing-committee',
   state: 'FL',
   title: 'Florida HOA fine hearings: the 14-day notice and the committee',
-  metaTitle: 'Florida HOA fine hearing rules',
+  metaTitle: 'Florida HOA fine hearing committee rules',
   description:
     'A Florida HOA board cannot fine an owner without a committee hearing. The 14-day notice, the panel, the vote and the deadlines, in the statute’s words.',
   eyebrow: 'Florida · Fines',

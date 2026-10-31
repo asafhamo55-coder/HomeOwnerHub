@@ -141,7 +141,7 @@ export const TX_RESALE: Guide = {
   path: '/guides/texas-hoa-resale-certificate-chapter-207',
   state: 'TX',
   title: 'Texas HOA resale certificate: contents, deadline and fee cap',
-  metaTitle: 'Texas HOA resale certificate rules',
+  metaTitle: 'Texas HOA resale certificate rules and fees',
   description:
     'A Texas HOA must deliver a resale certificate within 10 business days of a written request. Contents, the $375 fee cap and the late-fee rule, quoted.',
   eyebrow: 'Texas · Home sales',

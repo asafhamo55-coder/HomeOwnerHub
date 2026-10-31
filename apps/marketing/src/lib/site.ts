@@ -93,6 +93,13 @@ export const SITEMAP_PATHS: readonly string[] = [
 
 /** The default OG image: app/opengraph-image.tsx, 1200x630. */
 export const OG_IMAGE_PATH = '/opengraph-image'
+/** Per-page OG image: app/og/route.tsx renders the page title on the brand card. */
+export const OG_IMAGE_ROUTE = '/og'
+
+/** Share image URL (path) for a page title. */
+export function ogImageFor(title: string): string {
+  return `${OG_IMAGE_ROUTE}?title=${encodeURIComponent(title)}`
+}
 export const OG_IMAGE_ALT = 'HomeownerHub: AI for self-managed HOA boards'
 
 export interface PageMeta {
@@ -124,13 +131,13 @@ export function pageMetadata({ title, description, path }: PageMeta): Metadata {
       siteName: SITE_NAME,
       type: 'website',
       locale: 'en_US',
-      images: [{ url: OG_IMAGE_PATH, width: 1200, height: 630, alt: OG_IMAGE_ALT }],
+      images: [{ url: ogImageFor(title), width: 1200, height: 630, alt: `${title} · ${SITE_NAME}` }],
     },
     twitter: {
       card: 'summary_large_image',
       title: ogTitle,
       description,
-      images: [OG_IMAGE_PATH],
+      images: [ogImageFor(title)],
     },
   }
 }

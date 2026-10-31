@@ -17,7 +17,7 @@ export const FL_DIRECTOR_CERTIFICATION: Checklist = {
   title: 'Florida HOA director certification checklist',
   metaTitle: 'Florida HOA director certification checklist',
   description:
-    'A free, printable checklist for a Florida HOA board to collect and keep each director’s education certificate (Fla. Stat. 720.3033).',
+    'A free, printable checklist for a Florida HOA board to collect and keep each director’s education certificate, so the file is complete (Fla. Stat. 720.3033).',
   eyebrow: 'Free checklist · Print it',
   intro: [
     'Use this each time a Florida homeowners’ association seats a new director, and once a year as a tidy-up. It lists what the board secretary collects and keeps for each director under Fla. Stat. § 720.3033(1). Our guide to Florida board meetings covers the notice rules for the meeting where a vacancy is filled, and our records guide covers what owners can inspect.',
