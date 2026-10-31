@@ -10,6 +10,8 @@ import { loadScopeOptions } from '@/lib/inbox/connect'
 import { connectErrorMessage } from '@/lib/inbox/connect-errors'
 import { MailboxConnectCard } from '../../(dashboard)/settings/mailbox/MailboxConnectCard'
 import { SetupChecklist } from './SetupChecklist'
+import { SampleCommunityPanel } from '@/components/dashboard/SampleCommunityPanel'
+import { loadSampleState } from '@/lib/sample-community/core'
 
 export const metadata = { title: 'Finish setting up' }
 export const dynamic = 'force-dynamic'
@@ -29,9 +31,10 @@ export default async function SetupPage({
   const supabase = await getSupabaseServerClient()
   // THE setup checklist (BL-127) — the same model as the dashboard card.
   // Each step's read fails on its own ("Couldn't check"), never the page.
-  const [checklist, status] = await Promise.all([
+  const [checklist, status, sampleState] = await Promise.all([
     loadSetupChecklist(supabase, org.id),
     getMailboxStatus(supabase, org.id),
+    loadSampleState(supabase, org.id),
   ])
 
   // Both calls below can fail independently of the connection status
@@ -97,6 +100,8 @@ export default async function SetupPage({
       ) : null}
 
       <SetupChecklist checklist={checklist} highlightKey="mailbox" hrefOverride={{ mailbox: '#connect-mailbox' }} />
+
+      <SampleCommunityPanel state={sampleState} variant="compact" />
 
       <div id="connect-mailbox" className="scroll-mt-4">
         <MailboxConnectCard status={status} preview={preview} scopeOptions={scopeOptions} returnTo="/onboarding/setup" />
