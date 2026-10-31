@@ -2046,7 +2046,7 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
-## Ranked open work — round 24 (2026-10-31, code-verified): a new board's first week
+## Ranked open work — round 24 (2026-10-31, code-verified): a new board's first week — Done 2026-10-31 except item 8 (SEO audit due Nov 2); added: invite-link hash-session fallback (verify with a real invite)
 
 None of these needs a migration or an owner action. Item 2 changes money display only. Item 4 is a read-only count, and the send path is unchanged.
 
