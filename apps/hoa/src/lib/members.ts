@@ -15,6 +15,7 @@ import { createdByThisCall } from '@/lib/owner-invites'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
+import { findAuthUserByEmail, authEmailsByIds } from '@/lib/auth/admin-users'
 import { fetchOrgSandbox, guardRecipients } from '@homeowner-portal/observability/outbound-guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
@@ -126,17 +127,14 @@ export async function listMembers(): Promise<MemberRow[]> {
     // Hardened: any failure here MUST NOT take down the members page.
     // Worst case the UI falls back to user_id-only display.
     try {
-      const { data: authList, error: authErr } = await admin.auth.admin.listUsers()
-      if (authErr) {
-        console.warn('[members] auth.admin.listUsers failed:', authErr.message)
+      const found = await authEmailsByIds(admin, missingProfileIds)
+      if (!found.ok) {
+        console.warn('[members] auth email backfill failed:', found.error)
       } else {
-        const users = authList?.users ?? []
-        for (const u of users) {
-          if (u.id && u.email) authBackfill.set(u.id, u.email)
-        }
+        for (const [id, email] of found.emails) authBackfill.set(id, email)
       }
     } catch (err) {
-      console.warn('[members] auth.admin.listUsers threw:', err)
+      console.warn('[members] auth email backfill threw:', err)
     }
   }
 
@@ -290,13 +288,12 @@ export async function inviteMember(
     .inviteUserByEmail(parsed.data.email, inviteOptions)
   if (inviteErr) {
     // If the user already exists, fall back to a direct lookup.
-    const { data: list } = await admin.auth.admin.listUsers()
-    const existing = list?.users.find(
-      (u) => u.email?.toLowerCase() === parsed.data.email.toLowerCase(),
-    )
-    if (!existing) {
+    const lookup = await findAuthUserByEmail(admin, parsed.data.email)
+    // Not found and lookup failure both keep the original invite error.
+    if (!lookup.ok || !lookup.found) {
       return { ok: false, error: inviteErr.message }
     }
+    const existing = lookup.user
     // SEC-N4: a confirmed account is attached only when it is already a
     // member of this HOA (a role change or a home link the board can see
     // anyway). Anyone else's account is not pulled into this HOA, and the

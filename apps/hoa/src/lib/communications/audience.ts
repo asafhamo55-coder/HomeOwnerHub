@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { createAdminClient } from '@homeowner-portal/db'
+import { authEmailsByIds } from '@/lib/auth/admin-users'
 import { todayIn } from '@/lib/association-time'
 import { associationTimeZoneById } from '@/lib/association-time-server'
 import { unitIdsOfDeletedProperties } from '@/lib/properties/lot'
@@ -648,9 +649,9 @@ export async function fetchBoardMembers(
   const authEmail = new Map<string, string>()
   if (needsEmail.length > 0) {
     try {
-      const { data: list } = await admin.auth.admin.listUsers()
-      for (const u of list?.users ?? []) {
-        if (u.id && u.email) authEmail.set(u.id, u.email)
+      const found = await authEmailsByIds(admin, needsEmail)
+      if (found.ok) {
+        for (const [id, email] of found.emails) authEmail.set(id, email)
       }
     } catch {
       // Non-fatal — a member with no resolvable email just resolves to

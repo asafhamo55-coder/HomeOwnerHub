@@ -18,6 +18,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getSignedInUser } from '@/lib/orgs'
 import { sendEmail, appUrl } from '@/lib/email'
 import { isUsStateCode } from '@/lib/us-states'
+import { findAuthUserByEmail } from '@/lib/auth/admin-users'
 import { associationSlug } from '@/lib/association-setup'
 import { chunk, readAll } from '@/lib/supabase/read-all'
 import { loadDraftQuality, type DraftQuality } from '@/lib/inbox/draft/metrics-store'
@@ -1009,10 +1010,8 @@ export async function createTenant(
       .inviteUserByEmail(parsed.data.invite_admin_email)
     if (inviteErr) {
       // Fall back to lookup if the user already exists.
-      const { data: list } = await db.auth.admin.listUsers()
-      const existing = list?.users.find(
-        (u) => u.email?.toLowerCase() === parsed.data.invite_admin_email!.toLowerCase(),
-      )
+      const lookup = await findAuthUserByEmail(db, parsed.data.invite_admin_email)
+      const existing = lookup.ok && lookup.found ? lookup.user : null
       if (existing) {
         await db
           .from('org_members')
@@ -1236,8 +1235,12 @@ export async function inviteOrPromotePlatformAdmin(
   let userId: string | null = null
   let alreadyExisted = false
 
-  const { data: list } = await db.auth.admin.listUsers()
-  const existing = list?.users.find((u) => u.email?.toLowerCase() === cleanEmail)
+  const lookup = await findAuthUserByEmail(db, cleanEmail)
+  // A failed lookup is not "no account": do not fall through to an invite.
+  if (!lookup.ok) {
+    return { ok: false, error: 'Could not check for an existing account. Try again.' }
+  }
+  const existing = lookup.found ? lookup.user : null
   if (existing) {
     userId = existing.id
     alreadyExisted = true

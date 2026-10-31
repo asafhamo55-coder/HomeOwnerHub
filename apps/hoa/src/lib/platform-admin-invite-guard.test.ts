@@ -34,7 +34,7 @@ vi.mock('@homeowner-portal/observability/outbound-guard', async (orig) => ({
 
 function chain(table: string) {
   const b: Record<string, unknown> = {}
-  for (const op of ['select', 'eq', 'is', 'update', 'delete', 'upsert', 'insert']) {
+  for (const op of ['select', 'eq', 'is', 'ilike', 'limit', 'update', 'delete', 'upsert', 'insert']) {
     b[op] = (...a: unknown[]) => (h.writes.push([table, op, ...a]), b)
   }
   const result = table === 'orgs' ? { data: { id: 'org-new' }, error: null } : { data: null, error: null }
