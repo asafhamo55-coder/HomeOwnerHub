@@ -43,7 +43,7 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ### OA-42 · Online dues payments: five decisions, then Stripe Connect
 
-**Urgency:** Soon. This is the main PayHOA gap.
+**Urgency:** Soon
 
 **Why it matters:** residents can't pay dues online by card or bank transfer yet, and that is PayHOA's core feature. The full design is in docs/decisions/2026-10-31-online-dues-payments-design.md. Each HOA connects its own Stripe account, so money goes straight to the HOA's bank and never through ours.
 
