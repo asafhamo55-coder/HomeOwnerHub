@@ -225,7 +225,7 @@ export function BudgetEditor({
                             onChange={(e) => update(l.key, { amount: e.target.value })}
                             className="text-right"
                           />
-                          {rowErrors[l.key] ? <p className="mt-1 text-left text-xs text-danger">{rowErrors[l.key]}</p> : null}
+                          {rowErrors[l.key] ? <p role="alert" className="mt-1 text-left text-xs text-danger">{rowErrors[l.key]}</p> : null}
                         </div>
                       ) : (
                         <span className="num text-foreground">{usd(Number(l.amount) || 0, { whole: true })}</span>

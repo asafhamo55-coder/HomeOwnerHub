@@ -91,7 +91,7 @@ export function AnnualReportView({ report, boardMessage }: { report: AnnualRepor
           {(b) => (
             <>
               <Figures items={[['Total assets', b.totalAssets], ['Total liabilities', b.totalLiabilities], ['Total equity', b.totalEquity]]} />
-              {!b.balanced ? <p className="text-sm text-danger">Assets don’t equal liabilities plus equity in the books. The board is looking into it.</p> : null}
+              {!b.balanced ? <p role="alert" className="text-sm text-danger">Assets don’t equal liabilities plus equity in the books. The board is looking into it.</p> : null}
               <MoneyTable
                 caption="Balance sheet by account"
                 groups={[

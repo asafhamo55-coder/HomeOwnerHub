@@ -228,7 +228,7 @@ export default async function VendorDetailPage({
           </CardHeader>
           <CardContent>
             {complianceFailed ? (
-              <p className="text-sm text-danger">
+              <p role="alert" className="text-sm text-danger">
                 Couldn’t load insurance status. Reload to try again.
               </p>
             ) : compliance ? (

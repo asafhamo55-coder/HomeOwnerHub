@@ -115,7 +115,7 @@ export function MemberRow({
             />
           </div>
         ) : null}
-        {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+        {error ? <p role="alert" className="mt-1 text-xs text-danger">{error}</p> : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">

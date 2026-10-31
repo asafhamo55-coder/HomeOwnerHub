@@ -117,7 +117,7 @@ export function CincAgingImport({ onUse }: { onUse: (use: CincAgingUse) => void 
         </label>
       </Button>
       {busy ? <p className="text-xs text-muted">Reading the report…</p> : null}
-      {error ? <p className="text-xs font-medium text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs font-medium text-danger">{error}</p> : null}
 
       {headers && mapping && file ? (
         <div className="grid gap-3 sm:grid-cols-4">

@@ -314,7 +314,7 @@ export function BudgetDraftEditor(props: BudgetDraftEditorProps) {
                     }}
                     className="text-right"
                   />
-                  {rowErrors[l.accountId] ? <p className="mt-1 text-xs text-danger">{rowErrors[l.accountId]}</p> : null}
+                  {rowErrors[l.accountId] ? <p role="alert" className="mt-1 text-xs text-danger">{rowErrors[l.accountId]}</p> : null}
                   {overridden ? (
                     <Button
                       variant="ghost"

@@ -500,7 +500,7 @@ function RecipientDetail({ r, displaySubject }: { r: Recipient; displaySubject: 
           Subject: {r.rendered_subject}
         </p>
       ) : null}
-      {r.error_message ? <p className="max-w-[20rem] text-danger">{r.error_message}</p> : null}
+      {r.error_message ? <p role="alert" className="max-w-[20rem] text-danger">{r.error_message}</p> : null}
       <p className="text-foreground-secondary">
         <LastActivity rows={[r]} />
       </p>
