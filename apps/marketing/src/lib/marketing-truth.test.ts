@@ -507,7 +507,9 @@ describe('numbers: every figure on the site is sourced, or it is gone', () => {
   })
 
   it('the hero signs up through the app (not /demo), has no typed counts and no "we load your roster" claim', () => {
-    const hero = read('components/site/hero.tsx')
+    // The CTA pair is the shared HeroCtas (home hero and feature pages).
+    expect(read('components/site/hero.tsx')).toMatch(/<HeroCtas/)
+    const hero = read('components/site/hero-ctas.tsx')
     expect(hero).toMatch(/href=\{SIGN_UP_URL\} event="pilot_cta_click"/)
     expect(hero).not.toMatch(/We load your roster|reviews|stars|customers/i)
   })

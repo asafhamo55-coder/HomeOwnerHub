@@ -1,168 +1,126 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, Check, Clock, Sparkles } from 'lucide-react'
+import { ArrowRight, Check, Clock } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
-import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
 import { FaqList } from '@/components/site/faq'
+import { PricingSlab } from '@/components/site/pricing-slab'
+import { HeroCtas } from '@/components/site/hero-ctas'
 import { ApprovalsScreen, AskScreen, DuesScreen } from '@/components/site/tour-screens'
 import { RoiCalculator } from '@/components/site/roi-calculator'
-import { cn } from '@/lib/cn'
-import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from '@/lib/hubs'
-import { HOA_PLANS, HOA_PRICE_COPY, HOA_PRICING, PRICING_V2 } from '@/lib/hoa-pricing'
+import { HOA_PLANS, HOA_PRICE_COPY, PRICING_V2, TRIAL_DAYS } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
 import { PAGE_META } from '@/lib/page-meta'
 import { STATE_COVERAGE_SENTENCE, STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
 export const metadata: Metadata = pageMetadata({ ...PAGE_META['/pricing']!, path: '/pricing' })
 
-// HOA per-door plan. One product; cadence (monthly vs annual) drives the
-// price. Once PRICING_V2 is on (BL-104) the two cards are Essentials and
-// Complete in size bands instead. Every number comes from lib/hoa-pricing.ts, which a unit test pins
-// to what Stripe checkout charges, and which the homepage teaser also
-// renders (BL-042).
+// Two plans, Essentials and Complete, in size bands. Every number comes from
+// lib/hoa-pricing.ts, which a unit test pins to what Stripe checkout charges.
 //
-// Truth rule (BL-002, BL-042): every bullet below maps to a shipped route in
-// apps/hoa. Anything not built yet goes in `roadmap`, which renders under a
-// "Roadmap" label — and only if it is on docs/backlog.md. Monthly and
-// annual are the SAME product; the annual card must not imply extra
-// features.
-// `complete: true` = only on Complete once the BL-104 band pricing is live
-// (Accounting, Mailbox, Vendors & RFPs: docs/decisions/2026-10-20-pricing.md §1).
-const HOA_FEATURE_LIST: Array<{ text: string; complete?: true }> = [
-  { text: 'AI Daily Digest + Compliance Heat Map' }, // (dashboard)/page.tsx
-  { text: 'Ask your governing documents and get cited answers' }, // /ai/ask, W1
-  { text: 'Violation letters drafted from photos, approved or rejected in one click' }, // /violations/new, /approvals, W3
-  { text: 'Meeting minutes drafted from your transcript; board packet as of month end' }, // /meetings, /meetings/[id]/packet
-  { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073, /accounting/reports/monthly-report
-  { text: 'Shared Gmail inbox with AI reply drafts, saved replies and Create from email', complete: true }, // /inbox, /inbox/[id], W32
-  { text: 'Accounting: general ledger, bank feeds, reconciliation', complete: true }, // /accounting
-  { text: 'State law built in (GA, FL, CA, TX), including Georgia’s SB 406 registration kit, quorum and proxy rules, and the annual report for owners' }, // /compliance/ga-registration, /meetings/[id]/quorum/proxies, /meetings/[id]/annual-report
-  { text: 'State-law Compliance page, election planner and annual meeting kit' }, // /compliance, /meetings/[id]/election, /meetings/[id]/quorum
-  { text: 'Collections letters (GA, FL, CA, TX), estoppel and resale certificates and the owner budget notice', complete: true }, // /properties/[id]/collections-letter, /properties/[id]/estoppel, /accounting/budget/[id]/notice
-  { text: 'Late-fee policy the board sets, held to the state cap', complete: true }, // /settings/late-fees
-  { text: 'AI bill scan into the approvals queue', complete: true }, // /accounting/invoices/new, W36
-  { text: 'Vendor onboarding, RFPs and AI bid comparison', complete: true }, // /vendors, /rfps, W21–W23
-  { text: 'AI ARC review: resident pre-check, cited board review, decision letters' }, // /arc, /resident/arc/new, BL-024/027/079
-  { text: 'Spanish version of announcements, reviewed by the board before sending' }, // /communications/new, BL-025
-  { text: 'Announcements drafted from a sentence, phone preview, street audiences, scheduled sends and templates' }, // /communications/new, /api/ai/compose-communication
-  { text: 'Message results by home, with a reminder to those who haven’t opened' }, // /communications/[id]
-  { text: 'Resident portal: dues balance, ARC, requests, documents' }, // /resident
-  { text: 'Resident assistant that answers from the resident’s account and your documents, cited' }, // /resident/ask, /api/ai/resident-assistant
-  { text: 'Roster import from CSV or Excel, CINC exports included' }, // /properties/import
-  { text: '⌘K record search, built-in user guide and Ask the guide' }, // /api/search, /help, /api/help/ask
-  { text: 'Download all your data any time, as spreadsheets' }, // /settings/data, BL-011
+// Truth rule (BL-002, BL-042): every item below maps to a shipped route in
+// apps/hoa. Anything not built yet goes under "Coming soon", and only if it
+// is on docs/backlog.md. `complete: true` = only on Complete
+// (docs/decisions/2026-10-20-pricing.md section 1).
+type Item = { text: string; complete?: true }
+const INCLUDED: Array<{ area: string; items: Item[] }> = [
+  {
+    area: 'Ask and understand',
+    items: [
+      { text: 'AI Daily Digest + Compliance Heat Map' }, // (dashboard)/page.tsx
+      { text: 'Ask your governing documents and get cited answers' }, // /ai/ask, W1
+      { text: '⌘K record search, built-in user guide and Ask the guide' }, // /api/search, /help, /api/help/ask
+    ],
+  },
+  {
+    area: 'Rules and requests',
+    items: [
+      { text: 'Violation letters drafted from photos, approved or rejected in one click' }, // /violations/new, /approvals, W3
+      { text: 'AI ARC review: resident pre-check, cited board review, decision letters' }, // /arc, /resident/arc/new
+    ],
+  },
+  {
+    area: 'Meetings',
+    items: [
+      { text: 'Meeting minutes drafted from your transcript; board packet as of month end' }, // /meetings, /meetings/[id]/packet
+      { text: 'State-law Compliance page, election planner and annual meeting kit' }, // /compliance, /meetings/[id]/election
+    ],
+  },
+  {
+    area: 'Communication',
+    items: [
+      { text: 'Announcements drafted from a sentence, phone preview, street audiences, scheduled sends and templates' }, // /communications/new
+      { text: 'Spanish version of announcements, reviewed by the board before sending' }, // BL-025
+      { text: 'Message results by home, with a reminder to those who haven’t opened' }, // /communications/[id]
+      { text: 'Shared Gmail inbox with AI reply drafts, saved replies and Create from email', complete: true }, // /inbox, W32
+    ],
+  },
+  {
+    area: 'Money',
+    items: [
+      { text: 'Accounting: general ledger, bank feeds, reconciliation', complete: true }, // /accounting
+      { text: 'AI bill scan into the approvals queue', complete: true }, // /accounting/invoices/new, W36
+      { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073
+      { text: 'Late-fee policy the board sets, held to the state cap', complete: true }, // /settings/late-fees
+      { text: 'Collections letters (GA, FL, CA, TX), estoppel and resale certificates and the owner budget notice', complete: true }, // /properties/[id]/collections-letter
+    ],
+  },
+  {
+    area: 'Vendors',
+    items: [{ text: 'Vendor onboarding, RFPs and AI bid comparison', complete: true }], // /vendors, /rfps
+  },
+  {
+    area: 'State law',
+    items: [
+      { text: 'State law built in (GA, FL, CA, TX), including Georgia’s SB 406 registration kit, quorum and proxy rules, and the annual report for owners' }, // /compliance/ga-registration
+    ],
+  },
+  {
+    area: 'Residents',
+    items: [
+      { text: 'Resident portal: dues balance, ARC, requests, documents' }, // /resident
+      { text: 'Resident assistant that answers from the resident’s account and your documents, cited' }, // /resident/ask
+    ],
+  },
+  {
+    area: 'Setup and data',
+    items: [
+      { text: 'Roster import from CSV or Excel, CINC exports included' }, // /properties/import
+      { text: 'Download all your data any time, as spreadsheets' }, // /settings/data, BL-011
+    ],
+  },
 ]
-const HOA_FEATURES = HOA_FEATURE_LIST.map((f) => f.text)
-const ESSENTIALS_FEATURES = HOA_FEATURE_LIST.filter((f) => !f.complete).map((f) => f.text)
-const COMPLETE_FEATURES = ['Everything in Essentials, plus:', ...HOA_FEATURE_LIST.filter((f) => f.complete).map((f) => f.text)]
 
-// Each item is a backlog entry (docs/backlog.md). Not available today.
-// Spanish (BL-025) and AI ARC review (BL-024/027/079) shipped: they are in
-// HOA_FEATURES above (BL-090).
-const HOA_ROADMAP = [
-  'Reserve fund projections', // BL-037 (the reserve snapshot shipped)
+// Backlog items (docs/backlog.md). Not available today.
+const COMING_SOON = [
+  'Online card and bank payments: coming soon',
+  'Reserve fund projections', // BL-037
   'Electronic ballots and written consent', // BL-156
 ]
 
-const ANNUAL_BULLETS = [
-  'Everything in HOA Monthly, same product',
-  `${HOA_PRICING.ANNUAL_DISCOUNT_PCT}% off for paying a year up front`,
+// Plain fees. Only what is true today: checkout charges the plan price and
+// nothing else (packages/billing). Card and ACH dues are not processed yet,
+// so no payment fee is stated.
+const FEES: Array<{ item: string; cost: string; note: string }> = [
+  { item: 'Free trial', cost: 'Free', note: `${TRIAL_DAYS} days, no credit card to start.` },
+  { item: 'Setup', cost: 'Free', note: 'No setup fee. The board imports its own roster from a spreadsheet.' },
+  { item: 'Roster import', cost: 'Free', note: 'CSV or Excel, with a preview of every row before anything is saved.' },
+  { item: 'Your data', cost: 'Free', note: 'Download everything as spreadsheets from Settings, any time.' },
+  { item: 'Feature add-ons', cost: 'None', note: 'Two plans. No per-feature charges on top.' },
+  { item: 'Paying for a year', cost: '2 months free', note: 'Yearly is 10 months billed for 12.' },
+  { item: 'Cancelling', cost: 'Free', note: 'Month to month. Cancel in Settings, Billing.' },
+  { item: 'Online card and bank payments', cost: 'Coming soon', note: 'Not available yet, so there is no fee to list.' },
 ]
 
-const BULLETS_FOR: Record<(typeof HOA_PLANS)[number]['id'], { bullets: string[]; roadmap?: string[] }> = {
-  monthly: { bullets: HOA_FEATURES, roadmap: HOA_ROADMAP },
-  annual: { bullets: ANNUAL_BULLETS },
-  essentials: { bullets: ESSENTIALS_FEATURES },
-  complete: { bullets: COMPLETE_FEATURES, roadmap: HOA_ROADMAP },
-}
-
-const hoaTiers = HOA_PLANS.map((p) => ({ ...p, ...BULLETS_FOR[p.id] }))
-
-const pmTiers = [
-  {
-    name: 'PM Free',
-    price: '$0',
-    period: '/mo',
-    sub: '1 property',
-    bullets: ['Rent tracking (manual)', 'Lease Q&A (Bar C)', 'Tenant portal', 'Email notifications'],
-    cta: 'Start free',
-  },
-  {
-    name: 'PM Investor',
-    price: '$19',
-    period: '/mo',
-    sub: '2–10 units',
-    bullets: [
-      'Zero-touch rent collection (ACH + card)',
-      'Delinquency Coach (day 5–30)',
-      'Auto late fees per state',
-    ],
-    cta: 'Start trial',
-    featured: true,
-  },
-  {
-    name: 'PM Pro',
-    price: '$49',
-    period: '/mo',
-    sub: '11–50 units',
-    bullets: [
-      'Everything in Investor',
-      'Predictive Maintenance',
-      'Budget Anomaly Detection',
-      'Vendor management',
-      'Bookkeeping export',
-    ],
-    cta: 'Book a demo',
-  },
-]
-
-const evictionTiers = [
-  {
-    name: 'Eviction Notice',
-    price: '$99',
-    period: '/case',
-    sub: 'Day 5–30 work',
-    bullets: [
-      'County-specific notices (Bar B)',
-      'Attorney review queue',
-      'Certified mail dispatch',
-      'Audit trail',
-    ],
-    cta: 'Join waitlist',
-  },
-  {
-    name: 'Eviction Filing',
-    price: '$199',
-    period: '/case',
-    sub: 'Full demo filing package',
-    bullets: [
-      'Everything in Notice',
-      'Court-filing templates (Bar A · demo)',
-      'Timeline tracker through hearing',
-      'Attorney handoff package',
-    ],
-    cta: 'Join waitlist',
-    featured: true,
-  },
-]
-
-const allFaqs = [
+const faqs = [
   {
     q: 'How does the free trial work?',
-    a: `Every HOA gets 30 days free to actually use the product. No card is needed to start and there is no data migration. Before the trial ends, the board decides whether to continue. A board that continues moves to ${PRICING_V2 ? 'one of the plans above' : 'the per-door plan above'}.`,
+    a: `Every HOA gets ${TRIAL_DAYS} days free to actually use the product. No card is needed to start and there is no data migration. Before the trial ends, the board decides whether to continue. A board that continues moves to ${PRICING_V2 ? 'one of the plans above' : 'the per-door plan above'}.`,
   },
-  {
-    q: 'Is there a contract?',
-    a: HOA_PRICE_COPY.contract,
-  },
+  { q: 'Is there a contract?', a: HOA_PRICE_COPY.contract },
   {
     q: 'Can we bring our homeowner roster?',
     a: 'Yes, and the board does it itself. Properties → Import takes a CSV or Excel file (CINC exports are recognised), shows what will happen to every row before anything is saved, and lets you skip or update homes already on file. Balances in the file are shown for reference but never posted.',
-  },
-  {
-    q: 'What does "Bar A / B / C" mean on the pricing list?',
-    a: 'Bar C is production-ready. Bar B is functional but requires a human review gate before output is sent. Bar A is demo-only: useful for education, but never used in live workflows without explicit attorney or board sign-off. Every workflow ships at its labeled bar, so you can see the risk up front.',
   },
   {
     q: 'Do we keep our data?',
@@ -173,191 +131,134 @@ const allFaqs = [
     a: `Dues, violations, documents, accounting, announcements and the inbox work for an HOA in any state. ${STATE_COVERAGE_SENTENCE} State-law answers: ${STATE_LAW_ANSWERS_NOTE} If you want yours next, get on a demo and tell us.`,
   },
   {
-    // Eviction Hub only — dropped below while it is not offered (BL-097).
-    q: 'Is eviction legal in v1?',
-    a: 'Court-filing templates are Bar A: demo only, watermarked, and not for filing. A Georgia attorney reviews every output and files the real thing. We open Bar B per county only after attorney sign-off.',
+    q: 'Can residents pay dues online?',
+    a: 'Not yet. Online card and bank payments are coming soon. Today the portal shows each owner their balance and statement, and the board records payments in the ledger.',
   },
 ]
-
-const faqs = OTHER_HUBS_ENABLED ? allFaqs : allFaqs.filter((f) => !/eviction/i.test(f.q))
 
 export default function PricingPage() {
   return (
     <>
       <Nav />
-    <main id="main-content">
+      <main id="main-content">
+        <PricingSlab
+          headline={PRICING_V2 ? 'HOAs pay one flat price for their size.' : 'HOAs pay per door.'}
+        />
 
-      <section className="hero-wash relative overflow-hidden pb-16 pt-32 md:pb-20 md:pt-40">
-        <div className="container-page text-center">
-          <p className="eyebrow">Pricing</p>
-          <h1 className="t-display mx-auto mt-5 max-w-3xl text-foreground">
-            {HOA_PRICE_COPY.headline}
-          </h1>
-          <p className="t-lead mx-auto mt-6 max-w-xl">
-            {PRICING_V2 ? 'HOAs pay one flat price for their size.' : 'HOAs pay per door.'}
-            {OTHER_HUBS_ENABLED ? ' Landlords start free. Evictions are per-case.' : ''}{' '}
-            Every workflow is labeled by its quality bar.
-          </p>
-        </div>
-      </section>
-
-      <PricingBlock
-        eyebrow={HOA_PRODUCT_NAME}
-        title="Built for volunteer boards"
-        accent="emerald"
-        tiers={hoaTiers}
-      />
-
-      <WhatYouGet />
-
-      <RoiCalculator />
-
-
-      {/* BL-097: PM and Eviction pricing hidden while those hubs are not offered. */}
-      {OTHER_HUBS_ENABLED && (
-      <>
-      <PricingBlock
-        eyebrow="PM Hub"
-        title="Free for one. Cheap for a few. Honest for many."
-        accent="ember"
-        tiers={pmTiers}
-      />
-
-      <PricingBlock
-        eyebrow="Eviction Hub"
-        title="Per-case. Attorney-reviewed."
-        accent="violet"
-        tiers={evictionTiers}
-      />
-      </>
-      )}
-
-      <section className="section scroll-mt-16" id="faq">
-        <div className="container-page">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="eyebrow">FAQ</p>
-            <h2 className="t-h2 mt-4 text-foreground">Common questions.</h2>
-          </div>
-
-          <FaqList items={faqs} />
-
-          <div className="mt-16 text-center">
-<div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <TrackedLink href="/demo" event="demo_cta_click" position="closing" className="btn btn-primary btn-lg group">
-              Book a demo
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </TrackedLink>
-            <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
-              Start free trial
-            </TrackedLink>
-          </div>
-          </div>
-        </div>
-      </section>
-
-      </main>
-    <Footer />
-    </>
-  )
-}
-
-function PricingBlock({
-  eyebrow,
-  title,
-  accent,
-  tiers,
-}: {
-  eyebrow: string
-  title: string
-  accent: 'emerald' | 'ember' | 'violet'
-  tiers: {
-    name: string
-    price: string
-    period: string
-    sub: string
-    bullets: string[]
-    /** Not built yet; rendered under a "Roadmap" label, never with a check. */
-    roadmap?: string[]
-    cta: string
-    featured?: boolean
-  }[]
-}) {
-  const accentMap = {
-    emerald: { text: 'text-success', ring: 'border-success/25', bg: 'from-success-subtle/70' },
-    ember: { text: 'text-accent-fg', ring: 'border-accent/25', bg: 'from-accent-subtle/70' },
-    violet: { text: 'text-eviction', ring: 'border-eviction/25', bg: 'from-eviction-subtle/70' },
-  }[accent]
-
-  return (
-    <section className="section border-t border-border bg-surface">
-      <div className="container-page">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className={cn('eyebrow', accentMap.text)}>{eyebrow}</p>
-          <h2 className="t-h2 mt-4 text-foreground">{title}</h2>
-        </div>
-
-        <div
-          className={cn(
-            'mx-auto mt-14 grid items-start gap-5',
-            tiers.length === 2 ? 'max-w-4xl md:grid-cols-2' : tiers.length === 1 ? 'max-w-md' : 'md:grid-cols-3',
-          )}
-        >
-          {tiers.map((t) => (
-            <div
-              key={t.name}
-              className={cn(
-                'relative flex flex-col rounded-[1.25rem] border p-7 md:p-8',
-                t.featured
-                  ? cn('bg-gradient-to-br to-surface shadow-[0_28px_60px_-34px_hsl(var(--primary)/0.5)]', accentMap.ring, accentMap.bg)
-                  : 'border-border bg-surface',
-              )}
-            >
-              {t.featured && (
-                <span className="absolute -top-3 left-7 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-fg">
-                  Popular
-                </span>
-              )}
-              <p className="text-base font-semibold text-foreground">{t.name}</p>
-              <p className="mt-1 text-sm text-muted">{t.sub}</p>
-              <div className="mt-6 flex items-baseline gap-1.5">
-                <span className="text-5xl font-semibold tracking-[-0.03em] text-foreground">{t.price}</span>
-                <span className="text-sm text-muted">{t.period}</span>
-              </div>
-              <ul className="mt-7 flex-1 space-y-3">
-                {t.bullets.map((b) => (
-                  <li key={b} className="flex gap-2.5 text-[15px] text-foreground-secondary">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
-                    {b}
-                  </li>
-                ))}
-              </ul>
-              {t.roadmap && t.roadmap.length > 0 ? (
-                <div className="mt-6 border-t border-border/70 pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted">
-                    Roadmap · not available yet
-                  </p>
-                  <ul className="mt-2.5 space-y-2">
-                    {t.roadmap.map((r) => (
-                      <li key={r} className="flex gap-2 text-sm text-muted">
-                        <Clock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                        {r}
+        <section className="section scroll-mt-20" id="included" aria-labelledby="included-h">
+          <div className="container-page">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="eyebrow">What’s included</p>
+              <h2 id="included-h" className="t-h2 mt-4 text-foreground">
+                Everything your board can use today.
+              </h2>
+              <p className="t-lead mt-4">
+                Essentials has the core. Complete adds the books and the mailbox. Items marked Complete are only on that plan.
+              </p>
+            </div>
+            <div className="mt-14 grid gap-5 md:grid-cols-2">
+              {INCLUDED.map((g) => (
+                <div key={g.area} className="card p-7">
+                  <h3 className="t-h3 text-foreground">{g.area}</h3>
+                  <ul className="mt-4 space-y-3">
+                    {g.items.map((it) => (
+                      <li key={it.text} className="flex gap-2.5 text-base text-foreground-secondary">
+                        <Check className="mt-1 h-4 w-4 shrink-0 text-success" aria-hidden />
+                        <span>
+                          {it.text}
+                          {it.complete && (
+                            <span className="ml-2 inline-block rounded-full bg-primary-subtle px-2 py-0.5 text-sm font-semibold text-primary">
+                              Complete
+                            </span>
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 </div>
-              ) : null}
-              <Link
-                href="/demo"
-                className={cn('btn mt-8', t.featured ? 'btn-primary' : 'btn-secondary')}
-              >
-                {t.cta}
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </Link>
+              ))}
+              <div className="card p-7">
+                <h3 className="t-h3 text-foreground">Coming soon</h3>
+                <p className="mt-2 text-base text-muted">Not available yet.</p>
+                <ul className="mt-4 space-y-3">
+                  {COMING_SOON.map((r) => (
+                    <li key={r} className="flex gap-2.5 text-base text-muted">
+                      <Clock className="mt-1 h-4 w-4 shrink-0" aria-hidden />
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
-    </section>
+            <p className="mt-8 text-center text-base text-muted">
+              Plans start from {HOA_PLANS.map((p) => `${p.name} ${p.price}${p.period}`).join(' and ')}.
+            </p>
+          </div>
+        </section>
+
+        <section className="section-warm section" aria-labelledby="fees-h">
+          <div className="container-page">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="eyebrow">Fees</p>
+              <h2 id="fees-h" className="t-h2 mt-4 text-foreground">
+                What is free and what costs extra.
+              </h2>
+              <p className="t-lead mt-4">The plan price is the whole bill today.</p>
+            </div>
+            <div className="card mx-auto mt-12 max-w-3xl overflow-x-auto">
+              <table className="w-full min-w-[34rem] text-left text-base">
+                <caption className="sr-only">Fees and what is free</caption>
+                <thead>
+                  <tr className="border-b border-border text-sm text-muted">
+                    <th scope="col" className="px-6 py-4 font-semibold">Item</th>
+                    <th scope="col" className="px-6 py-4 font-semibold">Cost</th>
+                    <th scope="col" className="px-6 py-4 font-semibold">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {FEES.map((f) => (
+                    <tr key={f.item}>
+                      <th scope="row" className="px-6 py-4 font-semibold text-foreground">{f.item}</th>
+                      <td className="px-6 py-4 font-semibold text-foreground">{f.cost}</td>
+                      <td className="px-6 py-4 text-foreground-secondary">{f.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <WhatYouGet />
+
+        <RoiCalculator />
+
+        <section className="section scroll-mt-16" id="faq">
+          <div className="container-page">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="eyebrow">FAQ</p>
+              <h2 className="t-h2 mt-4 text-foreground">Common questions.</h2>
+            </div>
+            <FaqList items={faqs} />
+          </div>
+        </section>
+
+        <section className="section-ink section" aria-labelledby="pricing-cta-h">
+          <div className="container-page">
+            <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+              <h2 id="pricing-cta-h" className="t-h2 text-foreground">
+                Try it with your own <span className="t-serif text-primary">documents.</span>
+              </h2>
+              <p className="t-lead mt-4">Start the trial, then ask a real question. Your board decides what goes out.</p>
+              <div className="flex flex-col items-center">
+                <HeroCtas position="closing" secondaryHref="/demo" secondaryLabel="Book a demo" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
   )
 }
 
@@ -373,26 +274,27 @@ const WHAT_YOU_GET = [
 
 function WhatYouGet() {
   return (
-    <section aria-labelledby="what-you-get-h" className="pb-14 md:pb-20">
+    <section aria-labelledby="what-you-get-h" className="section">
       <div className="container-page">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <h2 id="what-you-get-h" className="text-xl font-semibold tracking-tight text-foreground">
+          <h2 id="what-you-get-h" className="t-h3 text-foreground">
             What you get
           </h2>
-          <Link href="/#features" className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-primary hover:underline">
+          <Link href="/#features" className="inline-flex min-h-[44px] items-center gap-1 text-base font-semibold text-primary hover:underline">
             See the full tour
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </div>
-        <ul className="mt-4 grid gap-5 md:grid-cols-3">
+        <p className="mt-2 text-base text-muted">Sample screens with made-up data.</p>
+        <ul className="mt-6 grid gap-5 md:grid-cols-3">
           {WHAT_YOU_GET.map((w) => (
             <li key={w.title} className="min-w-0">
               <Link href="/#features" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 <div aria-hidden className="pointer-events-none h-[190px] w-full overflow-hidden rounded-xl border border-border/70 bg-subtle/60">
                   <div className="w-[640px] origin-top-left scale-50">{w.screen}</div>
                 </div>
-                <p className="mt-3 text-sm font-semibold text-foreground group-hover:text-primary">{w.title}</p>
-                <p className="mt-1 text-sm leading-relaxed text-foreground-secondary">{w.caption}</p>
+                <p className="mt-3 text-base font-semibold text-foreground group-hover:text-primary">{w.title}</p>
+                <p className="mt-1 text-base leading-relaxed text-foreground-secondary">{w.caption}</p>
               </Link>
             </li>
           ))}
