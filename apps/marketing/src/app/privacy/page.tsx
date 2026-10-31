@@ -18,10 +18,10 @@ export default function PrivacyPage() {
         subtitle="Plain-English summary at the top. Full policy below."
       />
 
-      <section className="pb-24">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
-          <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-foreground-secondary">
-            <p className="text-sm text-muted">Last updated: October 20, 2026</p>
+          <article className="prose prose-ink prose-lg mx-auto max-w-3xl text-lg leading-relaxed text-foreground-secondary">
+            <p className="text-base text-foreground-secondary">Last updated: October 20, 2026</p>
 
             <h2>The short version</h2>
             <ul>

@@ -19,13 +19,13 @@ export default function DpaPage() {
         subtitle="For associations that need a formal DPA, our standard agreement is available on request."
       />
 
-      <section className="pb-24">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
-          <div className="mx-auto max-w-2xl rounded-2xl border border-border/70 bg-surface p-8 text-center ring-card">
-            <h2 className="text-xl font-semibold tracking-tight text-foreground">
+          <div className="card mx-auto max-w-2xl p-8 text-center md:p-10">
+            <h2 className="t-h3 text-foreground">
               Request our standard DPA
             </h2>
-            <p className="mt-3 text-sm text-foreground-secondary">
+            <p className="mt-3 text-[17px] leading-relaxed text-foreground-secondary">
               Email{' '}
               <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:support@homeownerledger.com">
                 support@homeownerledger.com
@@ -36,7 +36,7 @@ export default function DpaPage() {
             </p>
             <Link
               href="/security"
-              className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-foreground hover:text-primary"
+              className="mt-6 inline-flex min-h-[44px] items-center gap-1.5 text-[17px] font-semibold text-foreground hover:text-primary"
             >
               Read our security posture →
             </Link>

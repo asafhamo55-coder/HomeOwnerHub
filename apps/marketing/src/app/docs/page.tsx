@@ -52,19 +52,19 @@ export default function DocsPage() {
         subtitle="We're keeping docs honest by only publishing for what's live. Each workflow's guide lands the same week it moves into the product."
       />
 
-      <section className="py-12">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
           <div className="grid gap-5 md:grid-cols-2">
             {sections.map((s) => (
-              <div key={s.title} className="rounded-2xl border border-border/70 bg-surface p-7 ring-card">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-subtle text-primary">
-                  <s.Icon className="h-5 w-5" />
+              <div key={s.title} className="card p-7 md:p-8">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-fg">
+                  <s.Icon className="h-6 w-6" aria-hidden />
                 </div>
-                <h2 className="mt-5 text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="mt-6 text-xl font-semibold tracking-tight text-foreground">
                   {s.title}
                 </h2>
-                <p className="mt-2 text-sm leading-relaxed text-foreground-secondary">{s.body}</p>
-                <p className="mt-4 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                <p className="mt-3 text-[17px] leading-relaxed text-foreground-secondary">{s.body}</p>
+                <p className="mt-5 text-sm font-semibold uppercase tracking-wider text-foreground-secondary">
                   {s.when}
                 </p>
               </div>
@@ -73,19 +73,19 @@ export default function DocsPage() {
         </div>
       </section>
 
-      <section className="py-20">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
-          <div className="mx-auto max-w-2xl rounded-2xl border border-border/70 bg-surface p-8 text-center ring-card">
+          <div className="card mx-auto max-w-2xl p-8 text-center">
             <Book className="mx-auto h-9 w-9 text-primary" />
-            <h2 className="mt-4 text-xl font-semibold tracking-tight text-foreground">
+            <h2 className="mt-4 t-h3 text-foreground">
               Want a specific doc faster?
             </h2>
-            <p className="mt-3 text-sm text-foreground-secondary">
+            <p className="mt-3 text-[17px] text-foreground-secondary">
               Email us with the workflow or topic and we'll prioritize it.
             </p>
             <Link
               href="mailto:support@homeownerledger.com?subject=Doc%20request"
-              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover"
+              className="mt-6 btn btn-primary"
             >
               support@homeownerledger.com
               <ArrowRight className="h-4 w-4" />

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ShieldCheck, AlertCircle, BookOpen, ArrowRight } from 'lucide-react'
+import { PageHero } from '@/components/site/page-hero'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { WORKFLOWS, BAR_TARGETS, type Bar } from '@/lib/workflows'
@@ -25,6 +26,38 @@ const barColor: Record<Bar, string> = {
   '—': 'bg-subtle text-muted ring-border',
 }
 
+const LANES = [
+  {
+    name: 'Now',
+    title: 'Easier for first-time volunteers',
+    items: [
+      { label: 'Simpler sign-in and invites', note: 'Plain-language messages when a link has expired, and a choice of password or email link.' },
+      { label: 'Confirm before you send', note: 'Announcements and architectural decisions will say who gets told before anything goes out.' },
+      { label: 'Larger text and clearer screens', note: 'Bigger type and plainer names on the board screens.' },
+    ],
+  },
+  {
+    name: 'Next',
+    title: 'Closing the gaps with other HOA tools',
+    items: [
+      { label: 'Online payments', note: 'Residents pay dues by card or bank transfer. Not live yet.' },
+      { label: 'Text messages with consent', note: 'Urgent notices to residents who do not read email.' },
+      { label: 'Autopay', note: 'Residents enroll once and dues are charged on the due date.' },
+      { label: 'Mailed letters', note: 'Violation and collection letters sent by post, with proof of mailing.' },
+    ],
+  },
+  {
+    name: 'Later',
+    title: 'Bigger pieces, no date yet',
+    items: [
+      { label: 'Reserve planning', note: 'Reserve fund projections beyond today’s snapshot.' },
+      { label: 'Community website', note: 'A public page for each association.' },
+      { label: 'Amenity booking and vendor payments', note: 'Reservations, and paying vendors by bank transfer.' },
+      { label: 'Native mobile app', note: 'An app for phones, beyond the mobile website.' },
+    ],
+  },
+]
+
 export default function RoadmapPage() {
   const shipped = WORKFLOWS.filter((w) => w.status === 'shipped').length
   const building = WORKFLOWS.filter((w) => w.status === 'building').length
@@ -35,33 +68,46 @@ export default function RoadmapPage() {
       <Nav />
     <main id="main-content">
 
-      <section className="relative overflow-hidden pt-32 pb-12">
-        <div className="absolute inset-0 -z-10 bg-radial-spot" />
-        <div className="container-page text-center">
-          <p className="eyebrow text-primary">
-            Public roadmap
-          </p>
-          <h1 className="mx-auto mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight text-foreground md:text-[56px] md:leading-[1.05]">
-            Every workflow. Every bar. In public.
-          </h1>
-          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            We publish what each workflow can and can't do today. Quality bar
-            labels are published here and across this site.
-          </p>
+      <PageHero
+        eyebrow="Public roadmap"
+        title="What we are building, in the open."
+        subtitle="Now, Next and Later, plus every workflow with its quality bar. No dates we cannot keep."
+      />
 
+      <section className="section pt-0 md:pt-0">
+        <div className="container-page">
+          <div className="grid gap-5 lg:grid-cols-3">
+            {LANES.map((lane) => (
+              <div key={lane.name} className="card p-7 md:p-8">
+                <p className="eyebrow">{lane.name}</p>
+                <h2 className="t-h3 mt-3 text-foreground">{lane.title}</h2>
+                <ul className="mt-5 space-y-4">
+                  {lane.items.map((i) => (
+                    <li key={i.label} className="text-[17px] leading-relaxed text-foreground-secondary">
+                      <span className="font-semibold text-foreground">{i.label}.</span> {i.note}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="mx-auto mt-8 max-w-3xl text-center text-base leading-relaxed text-foreground-secondary">
+            Online card and bank payments for residents are not live today. They are the first item under Next and
+            depend on setting up the payment account. Order can change when a board tells us something matters more.
+          </p>
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
-            <Stat label="Shipped" value={shipped} sub="Production or beta" tone="emerald" />
+            <Stat label="Shipped" value={shipped} sub="Workflows in production or beta" tone="emerald" />
             <Stat label="Building" value={building} sub="In active development" tone="amber" />
             <Stat label="Planned" value={planned} sub="Scoped, not started" tone="slate" />
           </div>
         </div>
       </section>
 
-      <section className="py-12">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
-          <div className="rounded-2xl border border-border/70 bg-surface p-6 ring-card md:p-8">
-            <h2 className="text-base font-semibold text-foreground">What the bars mean</h2>
-            <p className="mt-2 text-sm text-foreground-secondary">
+          <div className="card p-6 md:p-8">
+            <h2 className="t-h3 text-foreground">What the bars mean</h2>
+            <p className="mt-2 text-[17px] text-foreground-secondary">
               Every workflow ships at a labeled quality bar, published on this
               site.
             </p>
@@ -76,25 +122,25 @@ export default function RoadmapPage() {
                     <div className="flex items-center gap-2">
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1',
+                          'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sm font-semibold ring-1',
                           barColor[b],
                         )}
                       >
                         <Icon className="h-3 w-3" />
                         Bar {b}
                       </span>
-                      <span className="text-sm font-semibold text-foreground">
+                      <span className="text-base font-semibold text-foreground">
                         {BAR_TARGETS[b].name}
                       </span>
                     </div>
-                    <p className="mt-3 text-sm leading-relaxed text-foreground-secondary">
+                    <p className="mt-3 text-[17px] leading-relaxed text-foreground-secondary">
                       {BAR_TARGETS[b].threshold}
                     </p>
                   </div>
                 )
               })}
             </div>
-            <p className="mt-6 text-sm text-muted">
+            <p className="mt-6 text-base text-foreground-secondary">
               Movement between bars (A → B → C) needs a human review gate and
               passing tests, and every move is published here.{' '}
               <Link href="/honesty-bars" className="font-semibold text-foreground underline-offset-4 hover:underline">
@@ -105,14 +151,14 @@ export default function RoadmapPage() {
         </div>
       </section>
 
-      <section className="pb-24">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
           <div className="mb-10 md:flex md:items-end md:justify-between md:gap-12">
             <div className="max-w-xl">
               <h2 className="text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
                 All {WORKFLOWS.length} workflows
               </h2>
-              <p className="mt-3 text-base leading-relaxed text-muted">
+              <p className="mt-3 text-lg leading-relaxed text-foreground-secondary">
                 Filter by hub, bar, or status. This list changes in the same
                 release as the workflow it describes.
               </p>
@@ -121,16 +167,16 @@ export default function RoadmapPage() {
 
           <RoadmapTable />
 
-          <div className="mt-16 rounded-2xl border border-border/70 bg-gradient-to-br from-primary-subtle via-surface to-accent-subtle/40 p-8 text-center ring-card">
+          <div className="mt-16 card p-8 text-center">
             <h3 className="text-xl font-semibold tracking-tight text-foreground">
               Want input on what we build next?
             </h3>
-            <p className="mx-auto mt-2 max-w-lg text-sm text-foreground-secondary">
+            <p className="mx-auto mt-2 max-w-lg text-[17px] text-foreground-secondary">
               Tell us what your board needs next. We read every request.
             </p>
             <Link
               href="/demo"
-              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-fg shadow-sm transition-all hover:bg-primary-hover"
+              className="btn btn-primary mt-6"
             >
               Book a demo
               <ArrowRight className="h-4 w-4" />
@@ -164,8 +210,8 @@ function Stat({
   return (
     <div className={cn('rounded-2xl border bg-surface p-6 text-left', colors)}>
       <p className="text-4xl font-semibold tracking-tight text-foreground">{value}</p>
-      <p className="mt-2 text-sm font-semibold text-foreground-secondary">{label}</p>
-      <p className="mt-1 text-sm text-muted">{sub}</p>
+      <p className="mt-2 text-base font-semibold text-foreground-secondary">{label}</p>
+      <p className="mt-1 text-base text-foreground-secondary">{sub}</p>
     </div>
   )
 }

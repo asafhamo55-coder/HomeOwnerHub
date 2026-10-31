@@ -59,25 +59,25 @@ export default function BlogPage() {
         subtitle="When we publish, every post will be jurisdiction-specific and tied to a real workflow we ship. We're starting in Atlanta-metro and writing as we go."
       />
 
-      <section className="py-12">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
-          <div className="mx-auto max-w-2xl rounded-2xl border border-border/70 bg-surface p-8 ring-card">
+          <div className="card mx-auto max-w-2xl p-8">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary-subtle text-primary">
+              <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-fg">
                 <Mail className="h-5 w-5" />
               </span>
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                <h2 className="text-xl font-semibold tracking-tight text-foreground">
                   Want the first post when it lands?
                 </h2>
-                <p className="text-sm text-muted">
+                <p className="text-[17px] text-foreground-secondary">
                   Email us and we'll add you to the launch list.
                 </p>
               </div>
             </div>
             <Link
               href="mailto:support@homeownerledger.com?subject=Add%20me%20to%20the%20blog%20launch%20list"
-              className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-fg hover:bg-primary-hover"
+              className="mt-6 btn btn-primary"
             >
               support@homeownerledger.com
               <ArrowRight className="h-4 w-4" />
@@ -86,13 +86,13 @@ export default function BlogPage() {
         </div>
       </section>
 
-      <section className="pb-24">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
             <p className="eyebrow text-primary">
               On the editorial roadmap
             </p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            <h2 className="t-h2 mt-3 text-foreground">
               Posts we plan to write.
             </h2>
 
@@ -100,15 +100,15 @@ export default function BlogPage() {
               {planned.map((p) => (
                 <div
                   key={p.title}
-                  className="rounded-2xl border border-border/70 bg-surface p-6 transition-colors hover:border-border-strong ring-card"
+                  className="card card-hover p-6 md:p-7"
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-primary">
                     {p.category}
                   </p>
-                  <h3 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
+                  <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
                     {p.title}
                   </h3>
-                  <p className="mt-2 text-sm text-foreground-secondary">{p.note}</p>
+                  <p className="mt-2 text-[17px] text-foreground-secondary">{p.note}</p>
                 </div>
               ))}
             </div>

@@ -14,10 +14,10 @@ export default function TermsPage() {
     <main id="main-content">
       <PageHero eyebrow="Terms of service" title="Plain-English terms." />
 
-      <section className="pb-24">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
-          <article className="prose prose-ink mx-auto max-w-3xl text-base leading-relaxed text-foreground-secondary">
-            <p className="text-sm text-muted">Last updated: October 20, 2026</p>
+          <article className="prose prose-ink prose-lg mx-auto max-w-3xl text-lg leading-relaxed text-foreground-secondary">
+            <p className="text-base text-foreground-secondary">Last updated: October 20, 2026</p>
 
             <aside className="not-prose mt-4 rounded-xl border border-border/70 bg-surface p-4 text-sm">
               <p className="font-semibold text-foreground">What changed on October 20, 2026</p>

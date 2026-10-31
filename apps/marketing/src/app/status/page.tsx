@@ -35,33 +35,33 @@ export default function StatusPage() {
         subtitle="We don't run a public live status monitor yet, so this page doesn't pretend to be one."
       />
 
-      <section className="py-12">
+      <section className="section pt-0 md:pt-0">
         <div className="container-page">
           <div className="mx-auto max-w-3xl">
-            <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-subtle/40 p-5 ring-card">
-              <Activity className="h-7 w-7 shrink-0 text-muted" />
+            <div className="flex items-center gap-3 card p-6">
+              <Activity className="h-7 w-7 shrink-0 text-foreground-secondary" />
               <div>
-                <p className="text-base font-semibold text-foreground">No live status feed yet</p>
-                <p className="text-sm text-muted">
+                <p className="text-lg font-semibold text-foreground">No live status feed yet</p>
+                <p className="text-[17px] text-foreground-secondary">
                   If something looks wrong in the app, email us and we’ll tell you what we know.
                 </p>
               </div>
             </div>
 
-            <h2 className="mt-12 text-base font-semibold tracking-tight text-foreground">
+            <h2 className="mt-12 t-h3 text-foreground">
               What we look after
             </h2>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border/70 bg-surface ring-card">
+            <div className="mt-4 card overflow-hidden">
               <ul className="divide-y divide-border/70">
                 {services.map((name) => (
-                  <li key={name} className="px-5 py-4 text-sm font-medium text-foreground">
+                  <li key={name} className="px-6 py-4 text-[17px] font-medium text-foreground">
                     {name}
                   </li>
                 ))}
               </ul>
             </div>
 
-            <p className="mt-10 text-center text-sm text-muted">
+            <p className="mt-10 text-center text-[17px] text-foreground-secondary">
               To report a production incident, email{' '}
               <a className="font-semibold text-foreground underline-offset-4 hover:underline" href="mailto:support@homeownerledger.com">
                 support@homeownerledger.com
