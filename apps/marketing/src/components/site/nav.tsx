@@ -1,16 +1,20 @@
 'use client'
 
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import {
   Menu, X, ChevronDown, Search, ArrowRight, Wallet, Scale, Megaphone, FileText, ShieldAlert,
   Ruler, Sparkles, Route, Landmark, type LucideIcon,
 } from 'lucide-react'
-import { CommandPalette } from './command-palette'
 import { cn } from '../../lib/cn'
 import { Logo, SIGN_IN_URL, SIGN_UP_URL } from './brand'
 import { TrackedLink } from './tracked-link'
+
+// The palette indexes the whole guide library (~500 kB raw). Load it only the
+// first time someone opens it, so it stays out of every page's first load.
+const CommandPalette = dynamic(() => import('./command-palette').then((m) => m.CommandPalette), { ssr: false })
 
 // Grouped Features menu. Every href is a page that exists in this app
 // (nav.test.tsx checks the list against app/**/page.tsx).
@@ -68,6 +72,10 @@ export function Nav() {
   const [open, setOpen] = useState(false)
   const [featuresOpen, setFeaturesOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [paletteLoaded, setPaletteLoaded] = useState(false)
+  useEffect(() => {
+    if (paletteOpen) setPaletteLoaded(true)
+  }, [paletteOpen])
   const featuresRef = useRef<HTMLDivElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -417,7 +425,7 @@ export function Nav() {
         </div>
       )}
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {paletteLoaded && <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
     </header>
   )
 }
