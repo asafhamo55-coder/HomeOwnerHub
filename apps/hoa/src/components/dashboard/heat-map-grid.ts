@@ -102,3 +102,51 @@ export function buildHeatMapMonths(today: string, cells: DayCell[], months = 3):
     end: last?.days[last.days.length - 1]?.day ?? todayDay,
   }
 }
+
+/** One line of a day's detail: what is due, how many, and where to act. */
+export interface DayItem {
+  text: string
+  level: DayLevel
+  href: '/dues' | '/violations'
+}
+
+// The notes getComplianceHeatMap writes, one per row, in the order shown.
+const NOTE_ITEMS: ReadonlyArray<{
+  note: string
+  level: DayLevel
+  href: DayItem['href']
+  text: (n: number) => string
+}> = [
+  { note: 'dues overdue', level: 'red', href: '/dues', text: (n) => `${plural(n, 'dues charge')} past due and unpaid` },
+  { note: 'cure deadline elapsed', level: 'red', href: '/violations', text: (n) => `${plural(n, 'violation')} past the cure deadline and still open` },
+  { note: 'dues due within 3 days', level: 'yellow', href: '/dues', text: (n) => `${plural(n, 'dues charge')} due within 3 days, not paid yet` },
+  { note: 'cure deadline within 3 days', level: 'yellow', href: '/violations', text: (n) => `${plural(n, 'violation')} with a cure deadline within 3 days` },
+  { note: 'dues due', level: 'green', href: '/dues', text: (n) => `${plural(n, 'dues charge')} due, not late yet` },
+  { note: 'dues paid', level: 'green', href: '/dues', text: (n) => `${plural(n, 'dues charge')} already paid` },
+  { note: 'cure deadline', level: 'green', href: '/violations', text: (n) => `${plural(n, 'violation')} with a cure deadline on this day, still in the cure period` },
+  { note: 'cure deadline (resolved)', level: 'green', href: '/violations', text: (n) => `${plural(n, 'violation')} with a cure deadline on this day, already resolved` },
+]
+
+function plural(n: number, noun: string): string {
+  return `${n} ${noun}${n === 1 ? '' : 's'}`
+}
+
+/**
+ * A day's raw notes (one per dues charge or violation) as counted lines,
+ * worst first, so a green day says what is on track instead of repeating
+ * "dues due" once per home. Unknown notes are kept as they are.
+ */
+export function summarizeDay(notes: readonly string[]): DayItem[] {
+  const counts = new Map<string, number>()
+  for (const n of notes) counts.set(n, (counts.get(n) ?? 0) + 1)
+  const items: DayItem[] = []
+  for (const k of NOTE_ITEMS) {
+    const n = counts.get(k.note)
+    if (n) items.push({ text: k.text(n), level: k.level, href: k.href })
+    counts.delete(k.note)
+  }
+  for (const [note, n] of counts) {
+    items.push({ text: n === 1 ? note : `${note} (${n})`, level: 'grey', href: note.includes('dues') ? '/dues' : '/violations' })
+  }
+  return items
+}

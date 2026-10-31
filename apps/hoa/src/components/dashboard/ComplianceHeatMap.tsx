@@ -1,7 +1,7 @@
-import { AlertCircle, Check, Clock } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, cn } from '@homeowner-portal/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { FailedNote } from './BreakdownList'
-import { buildHeatMapMonths, formatCalendarDay, type DayLevel, type DayCell, type HeatMapDay, type HeatMapMonth } from './heat-map-grid'
+import { HeatMapCalendar, HeatMapLegend } from './HeatMapCalendar'
+import { buildHeatMapMonths, formatCalendarDay, type DayCell } from './heat-map-grid'
 
 export type { DayCell, DayLevel } from './heat-map-grid'
 
@@ -29,7 +29,8 @@ interface ComplianceHeatMapProps {
 
 /**
  * 3-month rolling calendar. Each cell is coloured by the worst event on
- * that day AND carries a glyph, and the words live in its accessible name:
+ * that day AND carries a glyph, and the words live in its accessible name.
+ * A coloured day opens its detail below the grid (HeatMapCalendar):
  *   red    = cure deadline elapsed / dues overdue        (alert glyph)
  *   yellow = cure deadline within 3 days / due soon      (clock glyph)
  *   green  = events on this day, all clean               (check glyph)
@@ -65,118 +66,9 @@ export function ComplianceHeatMap({ cells, failed = false, months = 3, today }: 
         {failed ? (
           <FailedNote what="the compliance calendar" />
         ) : (
-          <div className="grid gap-6 cq-md:grid-cols-3">
-            {grid.months.map((m) => (
-              <MonthGrid key={m.key} month={m} />
-            ))}
-          </div>
+          <HeatMapCalendar months={grid.months} today={today} />
         )}
       </CardContent>
     </Card>
-  )
-}
-
-function MonthGrid({ month }: { month: HeatMapMonth }) {
-  // Pad the leading days so the 1st lines up under its weekday (Sun..Sat).
-  const padded = Array.from({ length: month.leadingBlanks })
-    .map(() => null as HeatMapDay | null)
-    .concat(month.days)
-
-  return (
-    <div>
-      <p className="mb-2 text-sm font-medium text-foreground">{month.label}</p>
-      <div className="grid grid-cols-7 gap-1">
-        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-          <div key={`hdr-${i}`} className="text-center text-2xs font-semibold uppercase text-muted" aria-hidden>
-            {d}
-          </div>
-        ))}
-        {padded.map((cell, idx) => {
-          if (!cell) return <div key={`pad-${idx}`} className="h-8" aria-hidden />
-          const isToday = cell.isToday
-          const meta = LEVEL_META[cell.level]
-          const Icon = meta.icon
-          const dateLabel = formatCalendarDay(cell.day, 'medium')
-          // Spoken and tooltip text carry the status in words: colour alone
-          // is invisible to screen readers and to colour-blind users, and a
-          // `title` never surfaces on touch devices.
-          const description =
-            cell.notes.length === 0
-              ? `${dateLabel}: ${meta.label}`
-              : `${dateLabel}: ${meta.label} — ${cell.notes.join('; ')}`
-          return (
-            <div
-              key={cell.day}
-              role="img"
-              aria-label={isToday ? `Today, ${description}` : description}
-              title={description}
-              className={cn(
-                'num relative flex h-8 items-center justify-center rounded-md text-xs font-medium',
-                meta.cellClass,
-                isToday && 'ring-2 ring-ring ring-offset-1 ring-offset-surface',
-              )}
-            >
-              {cell.dayOfMonth}
-              {Icon ? (
-                <Icon className="absolute right-0.5 top-0.5 size-2.5" strokeWidth={3} aria-hidden />
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// One table for colour, glyph and words, so the legend and the cells can
-// never disagree. Red, amber and green carry a glyph as well as a colour
-// (audit finding 10).
-const LEVEL_META: Record<
-  DayLevel,
-  { label: string; cellClass: string; swatchClass: string; icon: typeof AlertCircle | null }
-> = {
-  red: {
-    label: 'overdue',
-    cellClass: 'bg-danger-subtle text-danger border border-danger/30',
-    swatchClass: 'bg-danger-subtle text-danger border border-danger/30',
-    icon: AlertCircle,
-  },
-  yellow: {
-    label: 'due within 3 days',
-    cellClass: 'bg-warning-subtle text-warning border border-warning/30',
-    swatchClass: 'bg-warning-subtle text-warning border border-warning/30',
-    icon: Clock,
-  },
-  green: {
-    label: 'on track',
-    cellClass: 'bg-success-subtle text-success border border-success/25',
-    swatchClass: 'bg-success-subtle text-success border border-success/25',
-    icon: Check,
-  },
-  grey: {
-    label: 'nothing due',
-    cellClass: 'bg-subtle text-muted',
-    swatchClass: 'bg-subtle text-muted border border-border',
-    icon: null,
-  },
-}
-
-function HeatMapLegend() {
-  const order: DayLevel[] = ['red', 'yellow', 'green', 'grey']
-  return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted" aria-label="Legend">
-      {order.map((level) => {
-        const meta = LEVEL_META[level]
-        const Icon = meta.icon
-        return (
-          <li key={level} className="inline-flex items-center gap-1.5">
-            <span className={cn('inline-flex size-4 items-center justify-center rounded', meta.swatchClass)} aria-hidden>
-              {Icon ? <Icon className="size-2.5" strokeWidth={3} /> : null}
-            </span>
-            <span className="first-letter:uppercase">{meta.label}</span>
-          </li>
-        )
-      })}
-    </ul>
   )
 }

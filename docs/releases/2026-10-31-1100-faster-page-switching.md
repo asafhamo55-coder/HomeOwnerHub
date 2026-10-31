@@ -4,7 +4,7 @@ whats_new:
   - title: Faster switching between pages
     body: Pages you open from the menu now start loading while your pointer rests on the link, or as soon as your finger touches it on a phone. Most pages open with their data already in place instead of a grey outline first.
     roles: [admin, board, resident]
-    label: improved
+    label: improvement
 ---
 
 ## Summary
