@@ -840,3 +840,27 @@ export async function countAudiences(
     open_violations: violatingUnits.length,
   }
 }
+
+/**
+ * Whether a resolved recipient has an address a message could go to: an
+ * email or a phone number on file. The same two checks deliverableChannels
+ * applies to the email and text channels at send time.
+ */
+export function hasReachableContact(r: Pick<ResolvedRecipient, 'email' | 'phone'>): boolean {
+  return !!r.email || !!r.phone
+}
+
+/**
+ * Read-only: how many of an audience's homes have an email or phone on
+ * file. It resolves the audience with resolveAudience itself, so the rules
+ * (deleted lots, owner before tenant, exclusions) are the send's rules, not
+ * a copy of them. Consent and preferences are still decided at send time.
+ */
+export async function countReachableHomes(
+  db: Db,
+  associationId: string,
+  def: AudienceDefinition = { kind: 'everyone' },
+): Promise<{ reachable: number; total: number }> {
+  const { recipients } = await resolveAudience(db, associationId, def)
+  return { reachable: recipients.filter(hasReachableContact).length, total: recipients.length }
+}
