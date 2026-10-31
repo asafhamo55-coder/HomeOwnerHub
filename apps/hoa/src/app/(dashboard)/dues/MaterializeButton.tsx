@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState, useTransition } from 'react'
 import { CalendarPlus } from 'lucide-react'
-import { Button, Dialog, DialogContent, DialogTrigger, Field, Input, useToast } from '@homeowner-portal/ui'
+import { Button, Checkbox, Dialog, DialogContent, DialogTrigger, Field, Input, useToast } from '@homeowner-portal/ui'
 import { materializeCurrentPeriodAssessments, previewMaterialize } from '@/lib/assessments'
 import {
   NO_RATE_HINT,
@@ -148,10 +148,13 @@ export function MaterializeButton({
             {preview === 'failed' && !booksGap ? (
               <div role="alert">
                 <p className="font-medium">{PREVIEW_FAILED}</p>
-                <label className="mt-2 flex items-start gap-2">
-                  <input type="checkbox" checked={blindOk} onChange={(e) => setBlindOk(e.target.checked)} disabled={pending} />
-                  <span>Generate anyway without a preview</span>
-                </label>
+                <Checkbox
+                  wrapperClassName="mt-2"
+                  label="Generate anyway without a preview"
+                  checked={blindOk}
+                  onChange={(e) => setBlindOk(e.target.checked)}
+                  disabled={pending}
+                />
               </div>
             ) : null}
           </div>

@@ -75,8 +75,22 @@ describe('choice rows (checkbox / radio / switch)', () => {
     }
   })
 
-  it('leave a bare control (no label) untouched', () => {
-    expect(html(<Checkbox aria-label="Select row" />)).not.toMatch(/coarse:/)
+  it('give a bare control (no label) a 44px touch hit area without changing its size', () => {
+    const m = html(<Checkbox aria-label="Select row" />)
+    expect(m).toMatch(/<label class="inline-flex coarse:-m-\[13px\] coarse:p-\[13px\]"/)
+    expect(m).toMatch(/size-\[18px\]/)
+    expect(html(<Switch aria-label="Alerts" />)).toMatch(/coarse:-m-\[10px\] coarse:p-\[10px\]/)
+  })
+
+  it('task and action-item inputs lift to 44px on touch', () => {
+    for (const f of [
+      'apps/hoa/src/app/(dashboard)/tasks/TaskList.tsx',
+      'apps/hoa/src/app/(dashboard)/meetings/[id]/ActionItemsSection.tsx',
+    ]) {
+      const src = read(f)
+      expect(src, f).toMatch(/h-8 coarse:h-11/)
+      expect(src, f).toMatch(/<label className=[^>]*coarse:min-h-11/)
+    }
   })
 })
 

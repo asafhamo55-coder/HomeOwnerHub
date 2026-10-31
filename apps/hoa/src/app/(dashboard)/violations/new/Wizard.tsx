@@ -410,7 +410,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
         currentIndex={stepIndex(step)}
         vertical={false}
       />
-      <div className="flex items-center justify-between text-xs text-muted">
+      <div className="flex items-center justify-between text-xs text-muted" aria-live="polite">
         <span>
           {draftSaving ? (
             <span className="flex items-center gap-1">
@@ -535,7 +535,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
                         type="button"
                         onClick={() => removePhotoAt(i)}
                         aria-label={`Remove photo ${i + 1}`}
-                        className="absolute right-1 top-1 rounded bg-foreground/70 p-1 text-background hover:bg-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="absolute right-1 top-1 inline-flex items-center justify-center rounded bg-foreground/70 p-1 text-background coarse:size-11 hover:bg-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -722,7 +722,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
     return (
       <div className="space-y-6">
         {stepperHeader}
-        <div className="py-8 text-center">
+        <div role="status" className="py-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-subtle text-primary">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
