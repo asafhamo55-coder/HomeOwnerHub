@@ -2046,6 +2046,24 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 19 (2026-10-31, code-verified)
+
+None of these needs a migration or an owner action. Nothing here moves money or sends anything.
+
+1. **BUG: a failed home lookup tells a resident "No home linked yet".** `lib/resident.ts` (getOwnedUnits, attachAssociationNames) ignores read errors. Effort 2.
+2. **BUG: resident request detail pages hide board replies, or show a 404, when a read fails.** Affects getMyTicket, getMyArcRequest and getMyViolationReport. Effort 2.
+3. **BUG: timestamps on resident and board pages show in server UTC, not Eastern.** date-fns `format(new Date())` appears in 51 files. Fix the resident files first, then the board lists, and add a ratchet. Effort 2.
+4. **Resident insurance:** show "In force through <date>". Effort 1.
+5. **BL-172 SEO 17a:** FL board meeting notice rules (§ 720.303(2)). Effort 2.
+6. **BL-172 SEO 17b:** FL director certification checklist (§ 720.3033). Effort 2.
+7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped (checked, nothing to fix):**
+- Server actions already revalidate.
+- No real 1,000-row caps.
+- Remaining `data ?? []` sites already show LoadFailed.
+- UTC "today" guards are deliberate.
+
 ## Ranked open work — round 18 (2026-10-31, code-verified) — Done 2026-10-31 except item 7 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action. Nothing here moves money or sends anything.
