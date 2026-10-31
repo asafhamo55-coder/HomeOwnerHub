@@ -2,6 +2,7 @@ import { FileCheck2, Lock, ShieldCheck, Users } from 'lucide-react'
 import { cn, BrandLogo, BrandMark } from '@homeowner-portal/ui'
 import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from './auth-errors-shared'
 
 /**
  * The signed-out (and pre-org) frame: a calm canvas, the product mark, one
@@ -44,13 +45,19 @@ export function AuthShell({
             </div>
           )}
           {children}
-          <div className="text-center text-xs text-muted">
+          <div className="text-center text-sm text-muted">
             {footer ?? (
               <p className="inline-flex items-center gap-1.5">
                 <Lock className="size-3.5" aria-hidden />
                 Encrypted connection · sessions end after 24 hours
               </p>
             )}
+            <p className="mt-2">
+              Need help?{' '}
+              <a href={SUPPORT_MAILTO} className="font-medium text-primary underline-offset-2 hover:underline">
+                Email {SUPPORT_EMAIL}
+              </a>
+            </p>
             {/* BL-071: which build is running, on every signed-out screen. */}
             <AppVersion version={appVersion()} className="mt-2" />
           </div>

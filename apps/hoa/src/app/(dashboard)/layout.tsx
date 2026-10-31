@@ -31,6 +31,7 @@ import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
 import { countPendingApprovals } from '@/lib/approvals-inbox/load'
 import { approvalsBadge } from '@/lib/approvals-inbox/model'
 import { appVersion } from '@/lib/app-version'
+import { ChoosePasswordPrompt } from '@/components/auth/ChoosePasswordPrompt'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
 import { articlesFor, drawerData, articleHref } from '@/lib/guide'
 import { latestBoardWhatsNewId } from '@/lib/guide/whats-new'
@@ -141,6 +142,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Suspense fallback={null}>
               <AiSpendBanner orgId={org.id} className="mb-5" />
             </Suspense>
+            <ChoosePasswordPrompt />
             {children}
           </AppShellContent>
         </AppShellMain>

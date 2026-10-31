@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { safeNextPath } from '@/lib/safe-next-path'
+import { rememberSignInMethod } from './sign-in-memory-shared'
 
 /**
  * Fallback for Supabase links that deliver the session in the URL hash
@@ -25,7 +26,17 @@ export function HashSessionHandler() {
     const accessToken = params.get('access_token')
     const refreshToken = params.get('refresh_token')
     if (params.get('error') || params.get('error_description')) {
+      // An expired or already-used link. Say so on /login (the alert also
+      // switches to the "Email me a link" tab) instead of showing a bare form.
+      // The error text itself is never rendered.
+      const query = new URLSearchParams(window.location.search)
+      const carry = new URLSearchParams({ error: 'link_expired' })
+      for (const key of ['next', 'redirect']) {
+        const v = query.get(key)
+        if (v) carry.set(key, v)
+      }
       clearHash()
+      router.replace(`/login?${carry.toString()}`)
       return
     }
     if (!accessToken || !refreshToken) return
@@ -54,6 +65,9 @@ export function HashSessionHandler() {
       clearHash()
       if (cancelled) return
       if (ok) {
+        // Invites and magic links both arrive here: remember "by link" so the
+        // login defaults to that tab and the first screen can offer a password.
+        if (!isRecovery) rememberSignInMethod('link')
         router.replace(isRecovery ? '/reset-password' : next)
         router.refresh()
       } else {

@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Mail, MailCheck } from 'lucide-react'
 import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { emailProblem } from '@/components/auth/auth-fields'
+import { AUTH_FIELD_CLASS, emailProblem } from '@/components/auth/auth-fields'
+import { friendlyAuthError } from '@/components/auth/auth-errors-shared'
 
 // Sends a password-reset link. The link routes through /auth/callback (which
 // exchanges the code for a recovery session) and on to /reset-password.
@@ -37,7 +38,7 @@ export function ForgotPasswordForm() {
 
     if (error) {
       setStatus('error')
-      setErrorMessage(error.message)
+      setErrorMessage(friendlyAuthError(error))
       return
     }
     // Always show success even on unknown emails so we don't reveal which
@@ -52,13 +53,17 @@ export function ForgotPasswordForm() {
           <MailCheck className="size-6" aria-hidden />
         </span>
         <div className="space-y-1">
-          <p className="text-base font-semibold text-foreground">Check your email</p>
-          <p className="text-sm text-muted">
+          <p className="text-lg font-semibold text-foreground">Check your email</p>
+          <p className="text-base text-muted">
             If an account exists for{' '}
             <span className="font-medium text-foreground">{email.trim()}</span>, we sent a link to reset
-            your password. Open it on this device.
+            your password.
           </p>
         </div>
+        <p className="rounded-lg bg-subtle p-3 text-left text-base text-foreground">
+          <strong className="font-semibold">Open the email on this same phone or computer.</strong> The
+          link only works on the device where you asked for it.
+        </p>
       </div>
     )
   }
@@ -67,7 +72,7 @@ export function ForgotPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <Field label="Email address" error={emailError}>
+      <Field label="Email address" error={emailError} className={AUTH_FIELD_CLASS}>
         <Input
           name="email"
           type="email"

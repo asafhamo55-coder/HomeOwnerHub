@@ -9,7 +9,9 @@ vi.mock('@/components/auth/HashSessionHandler', () => ({ HashSessionHandler: () 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
 }))
-vi.mock('./LoginMethods', () => ({ LoginMethods: () => null }))
+vi.mock('./LoginMethods', () => ({
+  LoginMethods: ({ linkError }: { linkError?: string }) => <i data-link-error={linkError ?? ''} />,
+}))
 vi.mock('@/components/auth/AuthShell', () => ({ AuthHeader: () => null }))
 
 const { parseLinkError } = await import('./link-error')
@@ -22,24 +24,20 @@ async function render(error?: string) {
 }
 
 describe('login ?error=', () => {
-  it.each(['missing_code', 'exchange_failed'])('shows the expired-link message for %s', async (code) => {
+  it.each(['missing_code', 'exchange_failed', 'link_expired'])('hands %s to the login methods', async (code) => {
     const html = await render(code)
-    expect(html).toContain('That link has expired or was already used')
-    expect(html).toContain('href="/forgot-password"')
-    expect(html).toContain('Send a new reset link')
-    expect(html).toContain('href="/signup"')
-    expect(html).toContain('Create account')
+    expect(html).toContain(`data-link-error="${code}"`)
   })
 
   it('shows nothing for an unknown code and never echoes it', async () => {
     const html = await render('<script>alert(1)</script>')
-    expect(html).not.toContain('expired')
+    expect(html).toContain('data-link-error=""')
     expect(html).not.toContain('script')
     expect(parseLinkError('nope')).toBeUndefined()
     expect(parseLinkError(undefined)).toBeUndefined()
   })
 
   it('LoginView renders no alert without a link error', () => {
-    expect(renderToStaticMarkup(<LoginView />)).not.toContain('expired')
+    expect(renderToStaticMarkup(<LoginView />)).toContain('data-link-error=""')
   })
 })

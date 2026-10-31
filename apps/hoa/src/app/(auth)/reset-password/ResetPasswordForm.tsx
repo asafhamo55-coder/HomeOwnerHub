@@ -6,52 +6,55 @@ import { useState } from 'react'
 import { CheckCircle2, Lock } from 'lucide-react'
 import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { MIN_PASSWORD, PasswordRules } from '@/components/auth/auth-fields'
+import { AUTH_FIELD_CLASS, MIN_PASSWORD, PasswordRules, PasswordToggle } from '@/components/auth/auth-fields'
+import { friendlyAuthError } from '@/components/auth/auth-errors-shared'
+import { PASSWORD_SET_FLAG, dismissPasswordPrompt } from '@/components/auth/sign-in-memory-shared'
 
-// Sets a new password on the recovery session established by /auth/callback.
-// updateUser requires an active session, so the user must arrive here via the
-// reset link (not by typing the URL).
-export function ResetPasswordForm() {
+// Sets a password on the session established by /auth/callback (reset link) or
+// by an invite / sign-in link (welcome). updateUser requires an active
+// session, so the user must arrive here from a link (not by typing the URL).
+//
+// There is no "confirm password" box: the Show password button lets the person
+// check what they typed, which is easier than retyping on a phone.
+export function ResetPasswordForm({ welcome = false }: { welcome?: boolean } = {}) {
   const router = useRouter()
   const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [expired, setExpired] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
-  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
     const pProblem =
       password.length < MIN_PASSWORD ? `Password must be at least ${MIN_PASSWORD} characters.` : null
-    const cProblem = !pProblem && password !== confirm ? 'Passwords do not match.' : null
     setPasswordError(pProblem)
-    setConfirmError(cProblem)
-    if (pProblem || cProblem) return
+    if (pProblem) return
 
     setStatus('saving')
     setErrorMessage(null)
     setExpired(false)
 
     const supabase = getSupabaseBrowserClient()
-    const { error } = await supabase.auth.updateUser({ password })
+    const { error } = await supabase.auth.updateUser({ password, data: { [PASSWORD_SET_FLAG]: true } })
 
     if (error) {
       setStatus('error')
-      // The recovery session can be missing/expired if the link was reused or
-      // opened on a different device — surface that clearly.
-      const sessionProblem = error.message.includes('session')
+      // The session can be missing/expired if the link was reused or opened on
+      // a different device. Say that plainly.
+      const sessionProblem = /session/i.test(error.message)
       setExpired(sessionProblem)
       setErrorMessage(
         sessionProblem
-          ? 'Your reset link has expired or was already used. Request a new one.'
-          : error.message,
+          ? 'Your link has expired or was already used. Ask for a new one, then open it on this same phone or computer.'
+          : friendlyAuthError(error),
       )
       return
     }
 
+    dismissPasswordPrompt()
     setStatus('saved')
     setTimeout(() => {
       router.replace('/')
@@ -65,8 +68,8 @@ export function ResetPasswordForm() {
         <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-success-subtle text-success">
           <CheckCircle2 className="size-6" aria-hidden />
         </span>
-        <p className="text-base font-semibold text-foreground">Password updated</p>
-        <p className="text-sm text-muted">You’re all set. Taking you to your dashboard…</p>
+        <p className="text-lg font-semibold text-foreground">{welcome ? 'Password saved' : 'Password updated'}</p>
+        <p className="text-base text-muted">You’re all set. Taking you to your dashboard…</p>
       </div>
     )
   }
@@ -76,10 +79,10 @@ export function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div className="space-y-2">
-        <Field label="New password" error={passwordError}>
+        <Field label={welcome ? 'Password' : 'New password'} error={passwordError} className={AUTH_FIELD_CLASS}>
           <Input
             name="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             required
             minLength={MIN_PASSWORD}
             autoComplete="new-password"
@@ -90,29 +93,13 @@ export function ResetPasswordForm() {
               if (passwordError && e.target.value.length >= MIN_PASSWORD) setPasswordError(null)
             }}
             prefix={<Lock aria-hidden />}
+            suffix={<PasswordToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
             disabled={busy}
           />
         </Field>
       </div>
 
-      <Field label="Confirm new password" error={confirmError}>
-        <Input
-          name="confirm"
-          type="password"
-          required
-          minLength={MIN_PASSWORD}
-          autoComplete="new-password"
-          value={confirm}
-          onChange={(e) => {
-            setConfirm(e.target.value)
-            if (confirmError && e.target.value === password) setConfirmError(null)
-          }}
-          prefix={<Lock aria-hidden />}
-          disabled={busy}
-        />
-      </Field>
-
-      <PasswordRules password={password} confirm={confirm} />
+      <PasswordRules password={password} />
 
       {status === 'error' && errorMessage ? (
         <Alert variant="error" title="Couldn’t update your password">
@@ -120,8 +107,8 @@ export function ResetPasswordForm() {
           {expired ? (
             <>
               {' '}
-              <Link href="/forgot-password" className="font-medium underline">
-                Send a new link
+              <Link href={welcome ? '/login' : '/forgot-password'} className="font-medium underline">
+                {welcome ? 'Go to sign in' : 'Send a new link'}
               </Link>
             </>
           ) : null}
@@ -129,7 +116,7 @@ export function ResetPasswordForm() {
       ) : null}
 
       <Button type="submit" size="lg" className="w-full" loading={busy}>
-        {busy ? 'Saving…' : 'Update password'}
+        {busy ? 'Saving…' : welcome ? 'Save my password' : 'Update password'}
       </Button>
     </form>
   )
