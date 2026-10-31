@@ -189,7 +189,7 @@ export const CONDO_VS_HOA: Guide = {
       a: 'It depends on how it was created. Read the declaration and ask your attorney.',
     },
   ],
-  related: ['registration-2027', 'late-fee-limits', 'foreclosure-threshold-2027', 'readiness'],
+  related: ['registration-2027', 'late-fee-limits', 'foreclosure-threshold-2027', 'readiness', 'georgia-hoa-does-poa-act-apply-44-3-222'],
   hoaDoes: [
     {
       text: 'For an association set up as a condominium, the Compliance page follows the Georgia Condominium Act: 21 days’ notice of the annual meeting, the records rules, insurance minimums, and the statement of amounts due within five business days.',

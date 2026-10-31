@@ -713,6 +713,61 @@ export const QUOTES = {
     fixture: "ga-ocga-14-3-2026.txt",
     quote: "Provide an opportunity to vote for, or withhold a vote for, each candidate for election as a director, if any; and",
   },
+  poaApplyCreate: {
+    cite: "O.C.G.A. § 44-3-222 (text in force in 2026)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "A property owners’ development shall come into existence upon either the recordation of the declaration pursuant to this article or the amendment of a recorded declaration in accordance with Code Section 44-3-235.",
+  },
+  poaApplyElection: {
+    cite: "O.C.G.A. § 44-3-222 (text in force in 2026)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any declaration or amendment intending to bring or avail a development of the benefits and provisions of this article shall state an affirmative election to be so governed.",
+  },
+  poaApplyExecuted: {
+    cite: "O.C.G.A. § 44-3-222 (text in force in 2026)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any such amendment to an existing declaration shall be executed in accordance with the terms of the recorded declaration being amended thereby.",
+  },
+  poaApplySubmitted: {
+    cite: "O.C.G.A. § 44-3-235(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "This article shall apply to all property which is submitted to this article.",
+  },
+  poaApplyOlder: {
+    cite: "O.C.G.A. § 44-3-235(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "This article shall also apply to any association of owners subject to a recorded declaration of covenants upon property, which covenants are administered by an owners’ association in which membership is mandatory for all owners of lots in the development, which declaration is amended in accordance with Code Section 44-3-222 in order to submit the property owners’ association to this article; provided, however, that any amendment must conform the instrument creating the property owners’ association to this article, and the property owners’ development shall thereafter be deemed to be submitted to this article.",
+  },
+  poaApplyBenefits: {
+    cite: "O.C.G.A. § 44-3-235(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "This article shall not be construed to affect the validity of any instrument recorded before or after July 1, 1994, but benefits derived from or based upon this article may only be claimed by developments submitted to this article.",
+  },
+  poaApplyCovenants: {
+    cite: "O.C.G.A. § 44-3-234",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The limitations provided in subsection (b) and paragraphs (1), (2), and (4) of subsection (d) of Code Section 44-5-60 shall not apply to any covenants contained in any instrument created pursuant to or submitted pursuant to this article.",
+  },
+  poaApplySb406: {
+    cite: "O.C.G.A. § 44-3-222 as amended by SB 406 (effective January 1, 2027)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "A property owners’ development shall come into existence upon the recordation of the declaration pursuant to this article, or the amendment of a recorded declaration in accordance with paragraph (2) of subsection (a) of Code Section 44-3-235, or the recordation of an instrument pursuant to paragraph (3) of subsection (a) of Code Section 44-3-235.",
+  },
+  poaLotOwnerDef: {
+    cite: "O.C.G.A. § 44-3-221(10)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Lot owner” means one or more persons who are record title owners of a lot.",
+  },
+  poaLotOwnerBoard: {
+    cite: "O.C.G.A. § 44-3-229",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "If the instrument provides that any member of the board of directors or any officer of the association must be a lot owner, then, notwithstanding Code Section 44-3-221, the term “lot owner” in such context shall, unless the instrument otherwise provides, be deemed to include, without limitation, any shareholder, director, officer, partner in, or trustee of any person who is, either alone or in conjunction with any other person or persons, a lot owner.",
+  },
+  poaLotOwnerCease: {
+    cite: "O.C.G.A. § 44-3-229",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any individual who would not be eligible to serve as a member of the board of directors or officer were he or she not a shareholder, director, officer, partner in, or trustee of such a person shall be deemed to have disqualified himself or herself from continuing in office if he or she ceases to have any such affiliation with that person.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES
