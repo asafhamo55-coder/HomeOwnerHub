@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { Analytics } from '@vercel/analytics/next'
 import { JsonLd } from '@/components/site/json-ld'
+import { SupportChat } from '@/components/site/support-chat/support-chat'
 import { MotionProvider } from '@/components/site/motion-provider'
 import { organizationLd, softwareApplicationLd, websiteLd } from '@/lib/jsonld'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
@@ -77,6 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         <JsonLd data={[organizationLd(), websiteLd(), softwareApplicationLd()]} />
         <MotionProvider>{children}</MotionProvider>
+        <SupportChat />
         <Analytics />
       </body>
     </html>

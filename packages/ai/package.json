@@ -9,7 +9,8 @@
     "./agents/*": "./src/agents/*.ts",
     "./tasks/*": "./src/tasks/*.ts",
     "./pii": "./src/pii.ts",
-    "./guard": "./src/guard.ts"
+    "./guard": "./src/guard.ts",
+    "./model": "./src/model.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -292,6 +292,9 @@ importers:
 
   apps/marketing:
     dependencies:
+      '@homeowner-portal/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@homeowner-portal/observability':
         specifier: workspace:*
         version: link:../../packages/observability

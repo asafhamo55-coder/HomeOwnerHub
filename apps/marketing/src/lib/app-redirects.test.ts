@@ -112,8 +112,20 @@ describe('APP_PATH_SEGMENTS', () => {
   })
 
   it('never shadows one of the marketing site’s own routes', () => {
-    const clash = marketing.filter((s) => APP_PATH_SEGMENTS.includes(s as never))
+    // 'api' is shared on purpose: this site serves only /api/chat, which
+    // appRedirectTarget exempts (tested below); every other /api path is the app's.
+    const clash = marketing.filter((s) => s !== 'api' && APP_PATH_SEGMENTS.includes(s as never))
     expect(clash).toEqual([])
+  })
+})
+
+describe('the Help chat route', () => {
+  const at = (pathname: string) =>
+    appRedirectTarget({ pathname, search: '', host: 'www.homeownerledger.online', cookieNames: [] }, APP)
+
+  it('/api/chat stays on this site; other /api paths still go to the app', () => {
+    expect(at('/api/chat')).toBeNull()
+    expect(at('/api/health')).toBe(`${APP}/api/health`)
   })
 })
 

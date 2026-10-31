@@ -68,6 +68,10 @@ export const APP_PATH_SEGMENTS = [
 
 const SEGMENTS: ReadonlySet<string> = new Set(APP_PATH_SEGMENTS)
 
+// The one /api route this site serves itself (the Help chat, app/api/chat).
+// Every other /api path is still the app's and goes there.
+const MARKETING_API_PATHS: ReadonlySet<string> = new Set(['/api/chat'])
+
 // Supabase SSR session cookie, possibly chunked (sb-<ref>-auth-token.0, .1).
 // Host-only, so on this site's host it can only have been set by the app
 // while the app served that host.
@@ -96,6 +100,8 @@ export interface RedirectRequest {
 export function appRedirectTarget(req: RedirectRequest, appOrigin: string): string | null {
   const app = new URL(appOrigin)
   if (req.host.toLowerCase() === app.host.toLowerCase()) return null
+
+  if (MARKETING_API_PATHS.has(req.pathname)) return null
 
   const segment = req.pathname.split('/')[1] ?? ''
   const isAppPath = SEGMENTS.has(segment)

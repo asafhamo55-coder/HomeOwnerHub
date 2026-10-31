@@ -2,7 +2,7 @@ import type { NextConfig } from 'next'
 import { withSentryConfig } from '@sentry/nextjs/config'
 
 const config: NextConfig = {
-  transpilePackages: ['@homeowner-portal/ui', '@homeowner-portal/observability'],
+  transpilePackages: ['@homeowner-portal/ui', '@homeowner-portal/observability', '@homeowner-portal/ai'],
   poweredByHeader: false,
   async headers() {
     return [
