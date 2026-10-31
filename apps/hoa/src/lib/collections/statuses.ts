@@ -50,6 +50,22 @@ export function isTerminal(status: CollectionStatus): boolean {
   return (TERMINAL_STATUSES as readonly string[]).includes(status)
 }
 
+/**
+ * The close-out columns for a case moving to `status`. Moving into a
+ * terminal state stamps the association's today and the reason; any other
+ * status clears both, so a reopened case does not read as still closed.
+ * Both write paths (setCollectionStatus, and recordCollectionEvent with
+ * advanceStatus) use this so they cannot drift apart.
+ */
+export function closeColumnsFor(
+  status: CollectionStatus,
+  today: string,
+  reason: string | null | undefined,
+): { closed_on: string | null; closed_reason: string | null } {
+  if (!isTerminal(status)) return { closed_on: null, closed_reason: null }
+  return { closed_on: today, closed_reason: reason?.trim() || null }
+}
+
 /** Board-facing label. Never show a raw snake_case status to a manager. */
 export function collectionStatusLabel(status: CollectionStatus): string {
   switch (status) {

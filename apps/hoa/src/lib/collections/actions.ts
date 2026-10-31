@@ -10,6 +10,9 @@ import { orgTimeZone } from '@/lib/association-time-server'
 import {
   COLLECTION_EVENT_TYPES,
   COLLECTION_STATUSES,
+  closeColumnsFor,
+  collectionStatusLabel,
+  isTerminal,
   statusImpliedBy,
   type CollectionStatus,
 } from './statuses'
@@ -231,9 +234,16 @@ export async function recordCollectionEvent(
   if (v.advanceStatus) {
     const implied = statusImpliedBy(v.eventType)
     if (implied) {
+      // Closing by event stamps the close date and reason too, so the case
+      // never reads "closed" with no date (round 17).
+      const today = todayIn(await orgTimeZone(supabase, org.id))
       const { error: statusErr } = await supabase
         .from('collection_cases')
-        .update({ status: implied })
+        .update({
+          status: implied,
+          ...closeColumnsFor(implied, today, v.note || 'Closed from the case activity'),
+        })
+        .eq('organization_id', org.id)
         .eq('id', v.caseId)
 
       if (statusErr) {
@@ -281,20 +291,29 @@ async function lienCheckFor(
 const StatusSchema = z.object({
   caseId: z.string().uuid(),
   status: StatusEnum,
+  /** Required when closing a case or reopening a closed one. Shown as the close reason. */
   closedReason: z.string().trim().max(500).optional(),
 })
 
 /**
- * Set a case's stage directly.
+ * Set a case's stage directly (board/admin only).
  *
  * Collections does not always run forward — an account can be pulled back
  * from the attorney after a payment plan — so there is no transition
- * validation, matching how the board actually works. The change is recorded
- * as a `status_changed` event so the trail explains the jump.
+ * validation between open stages, matching how the board actually works.
+ * Closing (resolved, written off) and reopening need a reason. The change is
+ * recorded as a `case_closed` or `status_changed` event carrying the reason
+ * and the user who made it, so the trail explains the jump.
+ *
+ * Status and audit only. This never posts a charge, writes off a ledger
+ * balance, or sends anything: "written off" here is the board's record that
+ * it stopped pursuing the case.
  */
 export async function setCollectionStatus(
   input: z.infer<typeof StatusSchema>,
 ): Promise<CollectionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
   const parsed = StatusSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
   const v = parsed.data
@@ -307,32 +326,69 @@ export async function setCollectionStatus(
     data: { user },
   } = await supabase.auth.getUser()
 
+  const { data: current, error: readErr } = await supabase
+    .from('collection_cases')
+    .select('id, status')
+    .eq('organization_id', org.id)
+    .eq('id', v.caseId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (readErr) return { ok: false, error: 'Couldn’t read that case. Try again.' }
+  if (!current) return { ok: false, error: 'That collections case wasn’t found.' }
+
+  const from = current.status as CollectionStatus
+  if (from === v.status) {
+    return { ok: false, error: `This case is already ${collectionStatusLabel(from).toLowerCase()}.` }
+  }
+
+  const closing = isTerminal(v.status)
+  const reopening = isTerminal(from) && !closing
+  const reason = v.closedReason?.trim() ?? ''
+  if ((closing || reopening) && reason.length < 3) {
+    return { ok: false, error: 'Add a short reason. It is kept on the case.' }
+  }
+
   // The association's day (BL-043): a case closed at 9pm Eastern closes that day.
   const today = todayIn(await orgTimeZone(supabase, org.id))
-  const terminal = v.status === 'resolved' || v.status === 'written_off'
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('collection_cases')
-    .update({
-      status: v.status,
-      // Only stamp closure when moving INTO a terminal state; reopening
-      // clears it so a reopened case does not read as still closed.
-      closed_on: terminal ? today : null,
-      closed_reason: terminal ? (v.closedReason || null) : null,
-    })
+    .update({ status: v.status, ...closeColumnsFor(v.status, today, reason) })
+    .eq('organization_id', org.id)
     .eq('id', v.caseId)
+    .select('id')
 
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    // collection_cases_one_open_per_unit_idx: reopening while the unit has another open case.
+    if (error.code === '23505') {
+      return { ok: false, error: 'This property already has an open collections case, so this one can’t be reopened.' }
+    }
+    return { ok: false, error: error.message }
+  }
+  if (!updated || updated.length === 0) return { ok: false, error: 'That collections case wasn’t found.' }
 
-  await supabase.from('collection_events').insert({
+  const note = reopening
+    ? `Reopened from ${collectionStatusLabel(from)}: ${reason}`
+    : closing
+      ? reason
+      : reason || `Moved from ${collectionStatusLabel(from)}`
+  const { error: eventErr } = await supabase.from('collection_events').insert({
     organization_id: org.id,
     collection_case_id: v.caseId,
-    event_type: terminal ? 'case_closed' : 'status_changed',
+    event_type: closing ? 'case_closed' : 'status_changed',
     occurred_on: today,
-    note: v.closedReason || null,
+    note,
     recorded_by: user?.id ?? null,
   })
+  if (eventErr) {
+    console.error('[collections] status event insert failed', { caseId: v.caseId, code: eventErr.code ?? null })
+    return {
+      ok: false,
+      error: 'The status changed, but the entry in the activity log could not be saved. Add a note so the trail explains it.',
+    }
+  }
 
   revalidatePath('/properties')
+  revalidatePath('/dues')
   return { ok: true }
 }
