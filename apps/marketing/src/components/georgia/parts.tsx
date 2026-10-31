@@ -99,10 +99,10 @@ export function GeorgiaCta({ position = 'georgia_end', general = false }: { posi
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </TrackedLink>
             <TrackedLink href="/demo" event="pilot_cta_click" position={position} className="btn btn-lg btn-ghost-ink">
-              Start free pilot
+              Start free trial
             </TrackedLink>
           </div>
-          <p className="mt-6 text-sm text-muted">Six-month free pilot · No auto-conversion · Not legal advice</p>
+          <p className="mt-6 text-sm text-muted">30-day free trial · No card needed · Not legal advice</p>
         </div>
       </div>
     </section>

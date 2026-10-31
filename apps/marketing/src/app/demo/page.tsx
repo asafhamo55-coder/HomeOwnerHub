@@ -33,7 +33,7 @@ const agenda = [
   {
     Icon: Calendar,
     title: 'Board votes at the next meeting',
-    body: 'No high-pressure close. Six months free pilot, no auto-conversion. Your board decides on their own timeline.',
+    body: 'No high-pressure close. Every plan starts with a 30-day free trial, no card needed. Your board decides on its own timeline.',
   },
   {
     Icon: ShieldCheck,
@@ -174,7 +174,7 @@ export default function DemoPage() {
                   'Replace your attorney. The AI cites; counsel decides.',
                   'Resell your data. It stays in your tenant, RLS-isolated.',
                   'Charge for an integration you never use.',
-                  'Auto-convert your pilot. You opt in, every time.',
+                  'Charge you during the trial. No card is needed to start.',
                 ].map((b) => (
                   <li key={b} className="flex gap-2.5 text-sm leading-relaxed text-foreground-secondary">
                     <X className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
@@ -263,8 +263,8 @@ const FAQS: { q: string; a: string }[] = [
     a: 'Your association is isolated in Postgres with row-level security, so no other association can read your rows. We do not train on your data. Documents stay in your tenant. Board members can download every record from Settings → Your data at any time, and we delete on request.',
   },
   {
-    q: 'What does it cost after the six-month pilot?',
-    a: `${HOA_PRICE_COPY.model} ${HOA_PRICE_COPY.summary} It is published on /pricing so the board sees the full picture before the demo. Nothing converts automatically. You opt in.`,
+    q: 'What does it cost after the free trial?',
+    a: `${HOA_PRICE_COPY.model} ${HOA_PRICE_COPY.summary} It is published on /pricing so the board sees the full picture before the demo. Nothing is charged until the board picks a plan.`,
   },
   {
     q: 'How long until our community is live?',

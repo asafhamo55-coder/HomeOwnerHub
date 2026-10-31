@@ -10,7 +10,7 @@ import type { FaqItem } from './jsonld'
 export const HOME_FAQS: readonly FaqItem[] = [
   {
     q: 'What does it cost?',
-    a: `${HOA_PRICE_COPY.summary} The first six months are a free pilot, and nothing converts automatically. You opt in.`,
+    a: `${HOA_PRICE_COPY.summary} No card is needed to start the trial.`,
   },
   {
     q: 'Is it only for Georgia?',
@@ -30,7 +30,7 @@ export const HOME_FAQS: readonly FaqItem[] = [
   },
   {
     q: 'How do we cancel?',
-    a: `${HOA_PRICE_COPY.contract} No data migration and no auto-conversion: after the pilot, the board decides.`,
+    a: `${HOA_PRICE_COPY.contract} No data migration is needed.`,
   },
   {
     q: 'Do we need a management company?',

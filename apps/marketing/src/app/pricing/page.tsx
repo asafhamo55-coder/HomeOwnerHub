@@ -149,8 +149,8 @@ const evictionTiers = [
 
 const allFaqs = [
   {
-    q: 'What\'s the six-month free pilot for HOAs?',
-    a: `Every HOA gets six months free to actually use the product. No data migration, no auto-conversion. After six months, we walk through usage, share metrics, and let the board decide. A board that continues moves to ${PRICING_V2 ? 'one of the plans above' : 'the per-door plan above'}.`,
+    q: 'How does the free trial work?',
+    a: `Every HOA gets 30 days free to actually use the product. No card is needed to start and there is no data migration. Before the trial ends, the board decides whether to continue. A board that continues moves to ${PRICING_V2 ? 'one of the plans above' : 'the per-door plan above'}.`,
   },
   {
     q: 'Is there a contract?',
@@ -248,7 +248,7 @@ export default function PricingPage() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </TrackedLink>
             <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
-              Start free pilot
+              Start free trial
             </TrackedLink>
           </div>
           </div>

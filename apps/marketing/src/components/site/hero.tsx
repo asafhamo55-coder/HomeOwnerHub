@@ -39,11 +39,11 @@ export function Hero() {
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </TrackedLink>
               <TrackedLink href="/demo" event="pilot_cta_click" position="hero" className="btn btn-secondary btn-lg">
-                Start free pilot
+                Start free trial
               </TrackedLink>
             </div>
 
-            <p className="mt-5 text-sm text-muted">Six-month free pilot · No auto-conversion · No data migration</p>
+            <p className="mt-5 text-sm text-muted">30-day free trial · No card needed · No data migration</p>
 
             <dl className="mt-10 grid max-w-lg grid-cols-3 gap-4 border-t border-border pt-6">
               <Stat value={String(SHIPPED_HOA_WORKFLOWS.length)} label="AI workflows live" />

@@ -38,7 +38,7 @@ export function PricingTeaser() {
           <p className="eyebrow">Pricing built for volunteers</p>
           <h2 className="t-h2 mt-4 text-foreground">{TEASER_HEADLINE}</h2>
           <p className="t-lead mt-5">
-            HOAs pay {HOA_PRICE_COPY.summary} Every pilot gets six months free.
+            HOAs pay {HOA_PRICE_COPY.summary}
           </p>
         </div>
 

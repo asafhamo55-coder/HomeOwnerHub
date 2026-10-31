@@ -19,10 +19,10 @@ export function CtaCloser() {
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </TrackedLink>
             <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-lg btn-ghost-ink">
-              Start free pilot
+              Start free trial
             </TrackedLink>
           </div>
-          <p className="mt-8 text-sm text-muted">Six-month free pilot · No data migration · Built in Atlanta</p>
+          <p className="mt-8 text-sm text-muted">30-day free trial · No data migration · Built in Atlanta</p>
         </div>
       </div>
     </section>

@@ -288,7 +288,7 @@ export function Nav() {
             Book a demo
           </TrackedLink>
           <TrackedLink href="/demo" event="pilot_cta_click" position="header" className="btn btn-primary !min-h-10 !px-4">
-            Start free pilot
+            Start free trial
           </TrackedLink>
         </div>
 
@@ -347,7 +347,7 @@ export function Nav() {
                 Book a demo
               </TrackedLink>
               <TrackedLink href="/demo" event="pilot_cta_click" position="mobile_menu" onClick={() => setOpen(false)} className="btn btn-secondary btn-lg">
-                Start free pilot
+                Start free trial
               </TrackedLink>
               <a href={SIGN_IN_URL} className="btn btn-ghost btn-lg">
                 Sign in
