@@ -14,27 +14,28 @@ export const FEATURE_GROUPS: { title: string; items: { href: string; label: stri
   {
     title: 'Money',
     items: [
-      { href: '/hoa', label: 'Dues and accounting', blurb: 'Balances, late fees, bills and books.' },
+      { href: '/features/dues-and-accounting', label: 'Dues and accounting', blurb: 'Balances, late fees, bills and books.' },
       { href: '/georgia/late-fee-limits', label: 'Late fee limits', blurb: 'What Georgia lets you charge.' },
     ],
   },
   {
     title: 'Communication',
     items: [
-      { href: '/hoa#features', label: 'Announcements', blurb: 'Email, text and Spanish in one go.' },
+      { href: '/features/announcements', label: 'Announcements', blurb: 'Email, text and Spanish in one go.' },
       { href: '/templates', label: 'Templates', blurb: 'Notices and letters to start from.' },
     ],
   },
   {
     title: 'Rules and requests',
     items: [
-      { href: '/georgia/violation-notice-checklist', label: 'Violations', blurb: 'Notice steps, from photo to letter.' },
-      { href: '/hoa', label: 'Architecture requests', blurb: 'Review a project against your rules.' },
+      { href: '/features/violations', label: 'Violations', blurb: 'Notice steps, from photo to letter.' },
+      { href: '/features/architecture-requests', label: 'Architecture requests', blurb: 'Review a project against your rules.' },
     ],
   },
   {
     title: 'AI and law',
     items: [
+      { href: '/features/ask-your-documents', label: 'Ask your documents', blurb: 'Cited answers from your CC&R.' },
       { href: '/roadmap', label: 'AI workflows', blurb: 'What the AI does today and what is next.' },
       { href: '/states', label: 'State laws', blurb: 'Georgia, Florida, California and Texas.' },
     ],

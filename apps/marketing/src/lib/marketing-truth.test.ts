@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { OTHER_HUBS_ENABLED } from '@homeowner-portal/ui/hubs'
 import { SHIPPED_FEATURES } from './features'
+import { FEATURE_PAGES } from './feature-pages'
 import { GEORGIA_FEATURES, GEORGIA_SCOPE_NOTE, OTHER_STATE_ROUTES, STATE_CARDS, STATE_COVERAGE, STATE_GUIDE_LINKS, STATE_HUBS, STATE_HUB_PATHS } from './state-law'
 import { SHIPPED_HOA_WORKFLOWS, WORKFLOWS, BAR_TARGETS } from './workflows'
 import { DEFAULT_SITE_ORIGIN, SITEMAP_PATHS, SITE_ORIGIN, isIndexable, pageMetadata, siteOrigin } from './site'
@@ -507,7 +508,9 @@ describe('numbers: every figure on the site is sourced, or it is gone', () => {
   })
 
   it('the hero signs up through the app (not /demo), has no typed counts and no "we load your roster" claim', () => {
-    const hero = read('components/site/hero.tsx')
+    // The CTA pair is the shared HeroCtas (home hero and feature pages).
+    expect(read('components/site/hero.tsx')).toMatch(/<HeroCtas/)
+    const hero = read('components/site/hero-ctas.tsx')
     expect(hero).toMatch(/href=\{SIGN_UP_URL\} event="pilot_cta_click"/)
     expect(hero).not.toMatch(/We load your roster|reviews|stars|customers/i)
   })
@@ -651,5 +654,18 @@ describe('Georgia growth pages (BL-171)', () => {
       expect(read(rel), rel).toMatch(/Book a demo/)
     }
     expect(read('app/hoa/page.tsx')).toMatch(/'Book a demo'/)
+  })
+})
+
+describe('feature pages (/features/*)', () => {
+  it('every page cites apps/hoa routes that exist, links related pages that exist, and has no em dashes', () => {
+    const slugs = new Set(FEATURE_PAGES.map((p) => p.slug))
+    for (const p of FEATURE_PAGES) {
+      for (const r of p.routes) expect(hoaRouteExists(r), `${p.slug}: ${r}`).toBe(true)
+      for (const r of p.related) expect(slugs.has(r), `${p.slug} -> ${r}`).toBe(true)
+      expect(JSON.stringify(p), p.slug).not.toContain('\u2014')
+      expect(p.benefits.length).toBeGreaterThanOrEqual(3)
+      expect(existsSync(path.join(marketingSrc, 'app/features', p.slug, 'page.tsx')), p.slug).toBe(true)
+    }
   })
 })

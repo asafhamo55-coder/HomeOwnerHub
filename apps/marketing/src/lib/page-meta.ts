@@ -47,6 +47,31 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
       ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
       : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary}`,
   },
+  '/features/dues-and-accounting': {
+    title: 'Dues and accounting for HOA boards',
+    description:
+      'Balances, late fees held to the state cap, scanned vendor bills and a month-end board report, in one ledger for volunteer HOA boards.',
+  },
+  '/features/violations': {
+    title: 'HOA violation letters from a photo',
+    description:
+      'Photo and caption in, a drafted violation letter with the rule cited out. It waits in Approvals until a board member decides.',
+  },
+  '/features/announcements': {
+    title: 'HOA announcements drafted from a sentence',
+    description:
+      'Write one sentence and get a drafted announcement with audience and timing, a Spanish version the board reviews, and results by home.',
+  },
+  '/features/architecture-requests': {
+    title: 'HOA architecture request review',
+    description:
+      'Residents pre-check a project against your guidelines. The board gets a cited review, photo findings and editable decision letters.',
+  },
+  '/features/ask-your-documents': {
+    title: 'Ask your HOA documents, with citations',
+    description:
+      'Ask a rule question in plain English and get an answer that cites your CC&R section or the state statute, and says so when it is not covered.',
+  },
   '/compare': {
     title: 'HomeownerHub vs managers, Vantaca and DIY',
     description:

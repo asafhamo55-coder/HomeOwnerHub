@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight, MapPin, Compass, Shield, Sparkles } from 'lucide-react'
+import { HeroCtas } from '@/components/site/hero-ctas'
 import { Nav } from '@/components/site/nav'
 import { TrackedLink } from '@/components/site/tracked-link'
 import { Footer } from '@/components/site/footer'
@@ -130,20 +131,14 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="section">
+      <section className="section section-ink">
         <div className="container-page text-center">
           <h2 className="t-h2 mx-auto max-w-2xl text-foreground">Want to see how this actually works?</h2>
           <p className="t-lead mx-auto mt-5 max-w-xl">
             Ten minutes is all we need. We&apos;ll run the demo on your community&apos;s actual covenants.
           </p>
-<div className="flex flex-col items-center justify-center gap-3 sm:flex-row mt-9">
-            <TrackedLink href="/demo" event="demo_cta_click" position="closing" className="btn btn-primary btn-lg group">
-              Book a demo
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </TrackedLink>
-            <TrackedLink href="/demo" event="pilot_cta_click" position="closing" className="btn btn-secondary btn-lg">
-              Start free trial
-            </TrackedLink>
+<div className="flex flex-col items-center">
+            <HeroCtas position="closing" checks={false} secondaryLabel="Book a demo" />
           </div>
         </div>
       </section>
