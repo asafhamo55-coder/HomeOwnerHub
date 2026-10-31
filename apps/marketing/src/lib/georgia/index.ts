@@ -338,6 +338,20 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     kind: 'guide',
   },
   {
+    slug: 'california-hoa-hearing-resolution-letter',
+    path: '/templates/california-hoa-hearing-resolution-letter',
+    title: 'California HOA hearing resolution and decision letter (printable)',
+    blurb: 'A checklist and a fill-in written decision for after a fine hearing: cure, agreement, the 14-day notice and dispute resolution, with the California text behind each field.',
+    kind: 'tool',
+  },
+  {
+    slug: 'florida-hoa-records-request-response-checklist',
+    path: '/templates/florida-hoa-records-request-response-checklist',
+    title: 'Florida HOA records request response checklist (printable)',
+    blurb: 'A working checklist and a fill-in reply for a board that has a written official records request, with the Florida text behind each step.',
+    kind: 'tool',
+  },
+  {
     slug: 'florida-hoa-notice-of-intent-to-lien',
     path: '/templates/florida-hoa-notice-of-intent-to-lien',
     title: 'Florida HOA notice of intent to record a claim of lien (printable)',

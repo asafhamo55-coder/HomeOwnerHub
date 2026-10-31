@@ -466,7 +466,7 @@ export const CA_FINE_HEARING: Guide = {
       a: 'The statute says the discipline is not effective against the member unless the board fulfills the requirements of § 5855.',
     },
   ],
-  related: ['fines-and-violation-hearings', 'florida-hoa-fine-hearing-committee', 'california-hoa-internal-dispute-resolution', 'violation-notice-checklist', 'ai-hoa-violation-letters-board-approval', 'california-hoa-pre-lien-notice-and-collections'],
+  related: ['fines-and-violation-hearings', 'florida-hoa-fine-hearing-committee', 'california-hoa-internal-dispute-resolution', 'violation-notice-checklist', 'ai-hoa-violation-letters-board-approval', 'california-hoa-pre-lien-notice-and-collections', 'california-hoa-hearing-resolution-letter'],
   hoaDoes: [
     {
       text: 'In California, a violation can only move to Fined once the hearing record shows the notice sent in time, the hearing held, and the outcome recorded. "Attorney advised" is the only override, and it is recorded.',

@@ -120,7 +120,7 @@ export const FL_RECORDS: Guide = {
       a: 'This page covers Chapter 720 only. Condominiums are governed by a different chapter, so ask your attorney.',
     },
   ],
-  related: ['records-inspection-requests', 'florida-hoa-fine-hearing-committee', 'florida-hoa-estoppel-certificate-rules', 'hoa-board-meeting-minutes'],
+  related: ['records-inspection-requests', 'florida-hoa-fine-hearing-committee', 'florida-hoa-estoppel-certificate-rules', 'hoa-board-meeting-minutes', 'florida-hoa-records-request-response-checklist'],
   hoaDoes: [],
   hoaDoesNot:
     'HomeownerHub’s records request tracking is built around Georgia’s five-business-day rule. It does not apply Florida’s 10-business-day deadline, the inspection-day floor or the damages, so keep your own request log and calendar for Florida records requests.',

@@ -28,9 +28,9 @@ export const SPECIAL_ASSESSMENTS: Guide = {
     {
       heading: 'What counts as a special assessment',
       body: [
-        'Georgia’s new owners’ association chapter, effective January 1, 2027, sorts assessments into regular, special and specific. Regular assessments fund the operating budget, including reserve contributions. A special assessment covers a real cost that was never in that budget, like a storm repair or a legal bill.',
+        'From January 1, 2027, Georgia’s new owners’ association chapter sorts assessments into regular, special and specific. Regular assessments fund the operating budget, including reserve contributions. A special assessment covers a real cost that was never in that budget, like a storm repair or a legal bill.',
       ],
-      quotes: ['specialDef'],
+      quotes: ['assessmentDef', 'specialDef'],
     },
     {
       heading: 'Where the power to levy one comes from',
@@ -66,15 +66,15 @@ export const SPECIAL_ASSESSMENTS: Guide = {
     {
       heading: 'Condominiums have their own limit',
       body: [
-        'A condominium is under the Georgia Condominium Act instead. For condominium instruments recorded on or after July 1, 2015, it says the instrument may not authorize the board to impose the following. Older instruments and the exceptions need your attorney’s reading.',
+        'A condominium is under the Georgia Condominium Act instead. For condominium instruments recorded on or after July 1, 2015, it says the instrument may not authorize the board to impose the following. Ask your attorney about older instruments.',
       ],
-      quotes: ['condoSpecial'],
+      quotes: ['condoSpecialIntro', 'condoSpecial'],
     },
     {
       heading: 'A fair process, as best practice',
       body: [
-        'None of this is in the statute, but a board that follows it is easier to defend. Write down the cost, why it is not in the budget, and your bids. Put the decision on a noticed agenda and record the vote in the minutes. Then tell owners in writing the amount per lot, the due date, how to pay, and whether you allow installments.',
-        'Keep the special assessment as its own ledger line, apart from regular dues and fines. That makes the 2027 payment order easy to follow.',
+        'None of this is in the statute, but a board that follows it is easier to defend. Write down the cost, the bids and why it is outside the budget. Put the decision on a noticed agenda and record the vote in the minutes. Then tell owners in writing the amount per lot, the due date, how to pay, and whether you allow installments.',
+        'Keep it as its own ledger line, apart from regular dues and fines.',
       ],
     },
     {
