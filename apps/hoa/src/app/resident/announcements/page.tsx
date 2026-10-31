@@ -1,5 +1,12 @@
 import { Megaphone } from 'lucide-react'
-import { markAnnouncementsViewed } from '@/lib/resident-announcements'
+import { readThenMarkViewed } from '@/lib/resident-announcements'
+import {
+  announcementsHref,
+  categoriesWithItems,
+  isNewAnnouncement,
+  parseCategoryParam,
+} from '@/lib/resident-announcements-list'
+import { AnnouncementBody } from '@/components/resident/AnnouncementBody'
 import { format } from 'date-fns'
 import {
   Badge,
@@ -98,9 +105,10 @@ function stripHtml(html: string): string {
 export default async function ResidentAnnouncementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>
+  searchParams: Promise<{ page?: string; category?: string }>
 }) {
-  const page = parsePageParam((await searchParams).page)
+  const sp = await searchParams
+  const page = parsePageParam(sp.page)
   const org = await getCurrentOrg()
   if (!org) return <NoOrgSelected href="/resident" />
 
@@ -139,10 +147,39 @@ export default async function ResidentAnnouncementsPage({
   // this visit's announcements listed, and only the NEXT one is counted new.
   // Not stamped when the read failed (returned above): the reader saw
   // nothing, so nothing should stop counting as new.
-  await markAnnouncementsViewed(supabase as never, actor.id)
+  // The previous visit time is read first so this visit still shows what
+  // was new; the stamp only affects the next one.
+  const lastViewedAt = await readThenMarkViewed(supabase as never, actor.id)
 
   const byComm = pickRowPerCommunication(recipientRows)
-  const allCommIds = [...byComm.keys()]
+  const reachableIds = [...byComm.keys()]
+
+  // Category of every announcement this reader can reach, so chips only
+  // list categories with items and the filter applies before paging.
+  // Same org, sent and not-deleted conditions as the main read; ids come
+  // only from the reader's own recipient rows.
+  const categoryById = new Map<string, string>()
+  for (let i = 0; i < reachableIds.length; i += 200) {
+    const chunk = reachableIds.slice(i, i + 200)
+    const cats = await loadOrFail(
+      'resident announcement categories',
+      supabase
+        .from('communications' as never)
+        .select('id, category')
+        .eq('organization_id', org.id)
+        .eq('status', 'sent')
+        .is('deleted_at', null)
+        .in('id', chunk),
+    )
+    if (!cats.ok) return <AnnouncementsFailed />
+    for (const r of (cats.data ?? []) as unknown as { id: string; category: string }[]) {
+      categoryById.set(r.id, r.category)
+    }
+  }
+  const sentIds = reachableIds.filter((id) => categoryById.has(id))
+  const chips = categoriesWithItems(sentIds.map((id) => ({ category: categoryById.get(id)! })))
+  const category = parseCategoryParam(sp.category, chips)
+  const allCommIds = category ? sentIds.filter((id) => categoryById.get(id) === category) : sentIds
   const { from, to } = pageRange(page, PAGE_SIZE)
   const commIds = allCommIds.slice(from, to + 1)
 
@@ -194,7 +231,29 @@ export default async function ResidentAnnouncementsPage({
     <div className="space-y-6">
       <ScreenHeader title="Announcements" subtitle="Recent updates from your board." />
 
-      {ordered.length === 0 && allCommIds.length === 0 ? (
+      {chips.length > 1 ? (
+        <nav aria-label="Filter by category" className="flex flex-wrap gap-2">
+          {[{ category: null as string | null, count: sentIds.length }, ...chips].map((c) => {
+            const active = c.category === category
+            return (
+              <Link
+                key={c.category ?? 'all'}
+                href={announcementsHref(c.category, 1)}
+                aria-current={active ? 'page' : undefined}
+                className={`inline-flex min-h-[44px] items-center rounded-full border px-4 text-sm font-medium ${
+                  active
+                    ? 'border-primary bg-primary text-primary-fg'
+                    : 'border-border bg-surface text-foreground-secondary hover:text-foreground'
+                }`}
+              >
+                {c.category ? (CATEGORY_LABEL[c.category] ?? c.category) : 'All'} ({c.count})
+              </Link>
+            )
+          })}
+        </nav>
+      ) : null}
+
+      {ordered.length === 0 && allCommIds.length === 0 && !category ? (
         <ScreenEmpty
           icon={<Megaphone />}
           title="No announcements yet"
@@ -206,12 +265,17 @@ export default async function ResidentAnnouncementsPage({
             <li key={c.id} id={c.id} className="scroll-mt-20 rounded-xl border border-border bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h2 className="text-sm font-semibold text-foreground">{subject}</h2>
-                <Badge variant="outline" size="sm">
-                  {CATEGORY_LABEL[c.category] ?? c.category}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {isNewAnnouncement(sentAt, lastViewedAt) ? (
+                    <Badge variant="solid" size="sm">New</Badge>
+                  ) : null}
+                  <Badge variant="outline" size="sm">
+                    {CATEGORY_LABEL[c.category] ?? c.category}
+                  </Badge>
+                </div>
               </div>
               <p className="mt-0.5 text-xs text-muted">{format(new Date(sentAt), 'PPp')}</p>
-              <p className="mt-3 whitespace-pre-wrap text-sm text-foreground-secondary">{body}</p>
+              <AnnouncementBody body={body} />
             </li>
           ))}
         </ul>
@@ -222,7 +286,7 @@ export default async function ResidentAnnouncementsPage({
         pageSize={PAGE_SIZE}
         total={allCommIds.length}
         rowCount={commIds.length}
-        hrefFor={(p) => (p > 1 ? `/resident/announcements?page=${p}` : '/resident/announcements')}
+        hrefFor={(p) => announcementsHref(category, p)}
         linkAs={Link}
         noun="announcements"
       />
