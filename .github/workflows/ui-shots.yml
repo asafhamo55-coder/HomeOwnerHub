@@ -56,7 +56,9 @@ jobs:
   shots:
     name: Screenshots + overflow + guide shots
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # A full run (every step reached) took 44m50s on 2026-10-31 (build 8m, ui:shots 19m,
+    # ui:overflow 9m), so 45 left no headroom for a slow runner.
+    timeout-minutes: 60
     outputs:
       stale: ${{ steps.stale.outputs.names }}
       guide: ${{ steps.guide.outcome }}

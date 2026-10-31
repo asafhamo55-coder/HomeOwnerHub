@@ -99,7 +99,14 @@ export function InviteAllOwners({ total, held }: { total: number | null; held: n
             : `${plural(total, 'owner')} with an email on file ${total === 1 ? 'has' : 'have'} no portal account yet.`}
         {held > 0 && total ? ` ${held} can’t be emailed in test mode.` : ''}
       </p>
-      <Button type="button" onClick={run} loading={isPending} disabled={!total} icon={<MailPlus aria-hidden />}>
+      <Button
+        type="button"
+        onClick={run}
+        loading={isPending}
+        disabled={!total}
+        icon={<MailPlus aria-hidden />}
+        className="h-auto min-h-9 w-full whitespace-normal py-2 sm:w-auto"
+      >
         Invite all owners without an account
       </Button>
       {result ? <p className="text-sm text-foreground">{result}</p> : null}

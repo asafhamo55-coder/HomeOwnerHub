@@ -583,7 +583,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <Label htmlFor="notes" optional>
               Additional notes
             </Label>

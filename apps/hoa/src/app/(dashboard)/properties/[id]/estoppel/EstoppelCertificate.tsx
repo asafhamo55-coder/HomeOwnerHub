@@ -622,7 +622,10 @@ export function CertificateDocument({ cert, input, values, printClass }: { cert:
         <dl>
           <Line field={field('signer')} values={values} />
         </dl>
-        <p className="pt-6 text-foreground-secondary">Signature: ______________________________</p>
+        <p className="flex items-end gap-2 pt-6 text-foreground-secondary">
+          Signature:
+          <span aria-hidden className="mb-1 max-w-72 flex-1 border-b border-current" />
+        </p>
         {j === 'generic' ? (
           <p className="text-xs text-muted">This certificate states what the association’s records show on the date of issuance. It makes no claim about any state statute.</p>
         ) : null}
