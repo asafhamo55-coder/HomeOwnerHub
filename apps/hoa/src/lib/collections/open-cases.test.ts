@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { todayIn } from '@/lib/association-time'
 import { latestMailDelivery, sortOpenCases, withDays, type OpenCaseInput } from './open-cases'
 import { listOpenCases } from './queries'
+import { TERMINAL_STATUSES } from './statuses'
 
 const base: OpenCaseInput = {
   caseId: 'c1',
@@ -82,16 +83,16 @@ describe('latestMailDelivery', () => {
 
 /** Records every filter applied to each table so the test can assert org scoping. */
 function mockClient(tables: Record<string, Record<string, unknown>[]>) {
-  const calls: Array<{ table: string; eq: Array<[string, unknown]> }> = []
+  const calls: Array<{ table: string; eq: Array<[string, unknown]>; not: unknown[][] }> = []
   const client = {
     from(table: string) {
-      const call = { table, eq: [] as Array<[string, unknown]> }
+      const call = { table, eq: [] as Array<[string, unknown]>, not: [] as unknown[][] }
       calls.push(call)
       const q: Record<string, unknown> = {}
       const chain = () => q
       q.select = chain
       q.is = chain
-      q.not = chain
+      q.not = (...a: unknown[]) => (call.not.push(a), q)
       q.in = chain
       q.order = chain
       q.eq = (k: string, v: unknown) => (call.eq.push([k, v]), q)
@@ -125,6 +126,17 @@ describe('listOpenCases', () => {
     expect(out.rows.map((r) => r.caseId)).toEqual(['c1', 'c2'])
     expect(out.rows[0]).toMatchObject({ linkId: 'p1', unitLabel: '12', attorneyFirm: 'Firm A' })
     expect(out.rows[1]).toMatchObject({ linkId: 'u2', unitLabel: '5 Oak St', lastEventOn: '2026-05-20', daysSinceLastEvent: 12 })
+  })
+
+  it('asks only for open cases: resolved and written-off are filtered out', async () => {
+    const { client, calls } = mockClient({})
+    await listOpenCases(client, 'org-1', '2026-06-01')
+    const cases = calls.find((c) => c.table === 'collection_cases')
+    expect(cases?.not).toContainEqual(['status', 'in', '("resolved","written_off")'])
+  })
+
+  it('the open-case filter names exactly the terminal statuses', () => {
+    expect([...TERMINAL_STATUSES].sort()).toEqual(['resolved', 'written_off'])
   })
 
   it('returns an empty page without reading events or units', async () => {

@@ -10,6 +10,7 @@ import {
 import { describeMail } from '@/lib/collections/mail-tracking'
 import { RecordCollectionEvent } from './RecordCollectionEvent'
 import { OpenCollectionCase } from './OpenCollectionCase'
+import { ChangeCaseStatus } from './ChangeCaseStatus'
 import { Suspense } from 'react'
 import { GaThresholdPanel, type GaThresholdRead } from './GaThresholdPanel'
 import { GaComplaintPanel, type GaComplaintRead } from './GaComplaintPanel'
@@ -38,6 +39,7 @@ export function CollectionsSection({
   events,
   closedCases,
   today,
+  canChangeStatus = false,
   letterHref = null,
   gaThreshold = null,
   gaComplaints = null,
@@ -48,6 +50,8 @@ export function CollectionsSection({
   closedCases: CollectionCase[]
   /** The association's today, 'YYYY-MM-DD', from the server (BL-065). */
   today: string
+  /** Board/admin: show the change-status control (the action gates again). */
+  canChangeStatus?: boolean
   /** BL-089: the collections letter page; null hides the button (not board/admin). */
   letterHref?: string | null
   /**
@@ -91,7 +95,7 @@ export function CollectionsSection({
         />
         <OpenCollectionCase unitId={unitId} today={today} />
         {complaints}
-        {closedCases.length > 0 ? <ClosedCases cases={closedCases} /> : null}
+        {closedCases.length > 0 ? <ClosedCases cases={closedCases} canReopen={canChangeStatus} /> : null}
       </div>
     )
   }
@@ -200,12 +204,14 @@ export function CollectionsSection({
         deleted. Correct a mistake by adding a note.
       </p>
 
-      {closedCases.length > 0 ? <ClosedCases cases={closedCases} /> : null}
+      {canChangeStatus ? <ChangeCaseStatus caseId={openCase.id} mode="close" /> : null}
+
+      {closedCases.length > 0 ? <ClosedCases cases={closedCases} canReopen={false} /> : null}
     </div>
   )
 }
 
-function ClosedCases({ cases }: { cases: CollectionCase[] }) {
+function ClosedCases({ cases, canReopen }: { cases: CollectionCase[]; canReopen: boolean }) {
   return (
     <Card>
       <CardHeader>
@@ -216,13 +222,14 @@ function ClosedCases({ cases }: { cases: CollectionCase[] }) {
           {cases.map((c) => (
             <li key={c.id} className="flex items-center justify-between gap-2 px-4 py-2 text-sm">
               <span className="text-muted">
-                {c.openedOn} → {c.closedOn ?? '—'}
+                {c.openedOn} → {c.closedOn ?? 'Not recorded'}
               </span>
               <span className="flex items-center gap-2">
                 {c.closedReason ? (
                   <span className="text-xs text-muted">{c.closedReason}</span>
                 ) : null}
                 <Badge variant="neutral">{collectionStatusLabel(c.status)}</Badge>
+                {canReopen ? <ChangeCaseStatus caseId={c.id} mode="reopen" /> : null}
               </span>
             </li>
           ))}
