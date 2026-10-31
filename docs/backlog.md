@@ -2050,13 +2050,13 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 None of these needs a migration or an owner action, and nothing here moves money.
 
-1. **BUG: saving budget lines deletes the old lines first.** If the insert then fails, the budget is left empty (budgets.ts:177-188). Insert the new lines first, then delete the old ones. Effort 2.
-2. **BUG: Budget vs actual leaves out spending on accounts with no budget line** (queries.ts:774-835). Show these as "Not in the budget" rows and include them in the totals. Effort 2.
-3. **Closing a period runs no checks first.** It accepts a period that hasn't ended and ignores draft entries and pending proposals (periods.ts:59-65). Refuse when the end date isn't past, and warn on drafts. Effort 2.
-4. **BUG: reconciling an approved statement again overwrites it but keeps the approval** (bank-reconciliation.ts:123-143). Refuse instead. Effort 1.
-5. **Unapproved reconciliations count as "reconciled" on the bank page** (last-reconciled.ts:18-21). Count approved ones only. Effort 1.
-6. **BUG: board accounting actions show raw database errors (12 sites).** Replace them with friendly text and add a ratchet. Effort 1.
-7. **Budget vs actual CSV export.** Optional. Effort 2.
+1. ✅ DONE (730731bb, live 10:14) **BUG: saving budget lines deletes the old lines first.** If the insert then fails, the budget is left empty (budgets.ts:177-188). Insert the new lines first, then delete the old ones. Effort 2.
+2. ✅ DONE (730731bb, live 10:14) **BUG: Budget vs actual leaves out spending on accounts with no budget line** (queries.ts:774-835). Show these as "Not in the budget" rows and include them in the totals. Effort 2.
+3. ✅ DONE (deploys ~12:00) **Closing a period runs no checks first.** It accepts a period that hasn't ended and ignores draft entries and pending proposals (periods.ts:59-65). Refuse when the end date isn't past, and warn on drafts. Effort 2.
+4. ✅ DONE (730731bb, live 10:14) **BUG: reconciling an approved statement again overwrites it but keeps the approval** (bank-reconciliation.ts:123-143). Refuse instead. Effort 1.
+5. ✅ DONE (730731bb, live 10:14) **Unapproved reconciliations count as "reconciled" on the bank page** (last-reconciled.ts:18-21). Count approved ones only. Effort 1.
+6. ✅ DONE (730731bb, live 10:14) **BUG: board accounting actions show raw database errors (12 sites).** Replace them with friendly text and add a ratchet. Effort 1.
+7. ✅ DONE (deploys ~12:00) **Budget vs actual CSV export.** Optional. Effort 2.
 
 **Dropped:**
 - Row caps and paging: sound.
