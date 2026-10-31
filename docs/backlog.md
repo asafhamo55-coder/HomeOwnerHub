@@ -2046,6 +2046,26 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 20 (2026-10-31, code-verified)
+
+None of these needs a migration or an owner action, and nothing here moves money or sends anything.
+
+1. **BUG: the board ticket page hides the conversation, or shows a 404, when a read fails.** `getTicketForBoard` ignores errors. This is the board side of the round 19 resident fix. Effort 2.
+2. **BUG: attachments silently disappear when their read fails.** `listSubmissionAttachments` ignores errors, and a failed signed URL becomes a dead link. Affects 8 call sites. Effort 2.
+3. **Money display:** route the stray `$${...}` templates through `usd()`.
+   - Missing thousands commas on dues balances.
+   - "$12.5 a day" on fines.
+   - Dropped cents on proposed fines.
+   - Add a ratchet so it can't come back.
+
+   Effort 1.
+4. **/events empty state:** "Common deadlines" starter chips. Effort 2.
+5. **BL-172 SEO 18a:** Florida elections and quorum (§ 720.306). Effort 2.
+6. **BL-172 SEO 18b:** California election rules (§§ 5100 to 5115). Effort 2.
+7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped:** checked and sound. Money math, resident admin-client scoping, duplicate-submit guards, and bell and badge reads.
+
 ## Ranked open work — round 19 (2026-10-31, code-verified) — Done 2026-10-31 except item 7 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action. Nothing here moves money or sends anything.
