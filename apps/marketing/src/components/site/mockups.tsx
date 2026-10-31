@@ -129,11 +129,10 @@ export function CollectionsLetterCard({ className }: { className?: string }) {
       </div>
       <div className="p-4">
         <p className="text-[13px] font-semibold text-foreground">Notice before attorney’s fees</p>
-        <div className="mt-2.5 space-y-1.5" aria-hidden>
-          <div className="h-1.5 w-full rounded-full bg-border" />
-          <div className="h-1.5 w-11/12 rounded-full bg-border" />
-          <div className="h-1.5 w-4/5 rounded-full bg-border" />
-        </div>
+        <p className="mt-2 text-xs leading-relaxed text-foreground-secondary">
+          Your account for 14 Oak Lane is past due. Please pay the balance or call the board within 30 days,
+          so we can settle it before it goes to our attorney.
+        </p>
         <ul className="mt-3.5 space-y-1.5 text-xs text-foreground-secondary">
           <li className="flex items-center gap-2">
             <Check className="h-3.5 w-3.5 text-success" aria-hidden />
@@ -245,11 +244,10 @@ export function DraftReviewCard({ className }: { className?: string }) {
         </span>
       </div>
       <div className="p-4">
-        <div className="space-y-1.5" aria-hidden>
-          <div className="h-1.5 w-full rounded-full bg-border" />
-          <div className="h-1.5 w-11/12 rounded-full bg-border" />
-          <div className="h-1.5 w-4/5 rounded-full bg-border" />
-        </div>
+        <p className="text-xs leading-relaxed text-foreground-secondary">
+          On October 28 we saw trash cans left at the curb at 22 Maple Court. Section 6.2 asks that they be
+          stored out of view. Please move them by November 14.
+        </p>
         <ul className="mt-3.5 space-y-1.5 text-xs text-foreground-secondary">
           <li className="flex items-center gap-2">
             <Check className="h-3.5 w-3.5 text-success" aria-hidden />

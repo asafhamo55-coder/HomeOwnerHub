@@ -326,11 +326,15 @@ export function AskScreen() {
         </p>
       </div>
       <p className="mt-3 rounded-xl bg-subtle px-3 py-2 text-xs text-foreground sm:text-[13px]">
-        What is the guest parking limit?
+        How long can a guest park on the street?
       </p>
-      <div className="mt-3 rounded-xl border border-warning/30 bg-warning-subtle/50 p-3">
+      <div className="mt-3 rounded-xl border border-border bg-surface p-3">
         <p className="text-xs leading-relaxed text-foreground sm:text-[13px]">
-          Your documents don’t cover this. Check with the board or add the rules document.
+          Up to 72 hours. After that the vehicle needs a guest pass from the board.
+        </p>
+        <p className="mt-2.5 inline-flex items-center gap-1.5 rounded-md bg-primary-subtle px-2 py-1 text-[11px] font-semibold text-primary">
+          <BookOpen className="h-3 w-3" aria-hidden />
+          Sample rules · Parking, rule 4
         </p>
       </div>
     </Frame>
