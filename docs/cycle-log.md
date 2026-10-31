@@ -958,3 +958,17 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - an undefined colour class in the hash handler
   - a direct `legacy_hoa_property_id` read in the dues preview
   - a navigation loading state
+
+## 2026-10-31, rounds 25–26
+
+- **Round 25 (the resident's path):** live as 66b903d2 at 09:19 UTC. It added:
+  - board bell notifications for resident replies, ARC requests and concerns (in-app only);
+  - the "Resident replied" chip and filter on tickets;
+  - friendly resident errors, with a ratchet so raw errors can't come back;
+  - removal of the made-up "Policy §12.03";
+  - a minutes link on the resident documents page and a photo hint on the ticket form;
+  - SEO batch 23: three Florida guides, for 50 guides in total.
+- **Round 26 (the treasurer's month-end):** items 1, 2 and 4–6, deployed as 730731bb at 10:08 UTC. Budget save can no longer wipe the lines, approved reconciliations are locked, accounting errors are friendly, Budget vs actual includes unbudgeted spending, and only approved reconciliations count as reconciled.
+- **In flight:** item 3 (period close checks) and item 7 (Budget vs actual CSV).
+- **CI catch:** `text-muted-foreground` slipped past the agent's local gate. Run the colour-token ratchet explicitly.
+- **Decks:** refreshed at 08:00 with 50 guides; the product deck has 3 new tour slides.
