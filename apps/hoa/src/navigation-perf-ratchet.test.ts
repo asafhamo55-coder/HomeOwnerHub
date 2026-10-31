@@ -55,3 +55,23 @@ describe('the sidebar does not fully prefetch every page', () => {
     expect(props.filter((line) => /(^|\s)prefetch(\s*=\s*\{\s*true\s*\})?(\s|\/?>|$)/.test(line))).toEqual([])
   })
 })
+
+describe('menus load the hovered page in full', () => {
+  // The loading.tsx skeleton still flashed on every click while the page
+  // rendered. NavLink upgrades only the hovered or touched link to a full
+  // prefetch, so the page is usually ready by the time the click lands.
+  it('NavLink asks Next for a full prefetch on hover', () => {
+    expect(readFileSync(src('components/layout/NavLink.tsx'), 'utf8')).toMatch(/<AppLink \{\.\.\.props\} unstable_dynamicOnHover \/>/)
+  })
+
+  it.each([
+    'components/layout/HoaSidebar.tsx',
+    'components/layout/ProSidebar.tsx',
+    'components/layout/AdminSidebar.tsx',
+    'components/resident/ResidentTabBar.tsx',
+  ])('%s links through NavLink', (file) => {
+    const text = readFileSync(src(file), 'utf8')
+    expect(text).toContain("import { NavLink as Link } from '@/components/layout/NavLink'")
+    expect(text).not.toMatch(/from 'next\/link'/)
+  })
+})

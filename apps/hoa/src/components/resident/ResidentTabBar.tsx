@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { NavLink as Link } from '@/components/layout/NavLink'
 import { usePathname } from 'next/navigation'
 import { CircleUser, CreditCard, Home, LayoutGrid, Sparkles } from 'lucide-react'
 import { cn } from '@homeowner-portal/ui'

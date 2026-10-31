@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildHeatMapMonths, formatCalendarDay } from './heat-map-grid'
+import { buildHeatMapMonths, formatCalendarDay, summarizeDay } from './heat-map-grid'
 
 // BL-065: the grid is built from calendar dates only. Nothing here reads the
 // machine's clock or zone, so it answers the same under TZ=UTC and
@@ -46,5 +46,31 @@ describe('formatCalendarDay', () => {
     expect(formatCalendarDay('2026-10-01', 'medium')).toBe('Oct 1, 2026')
     expect(formatCalendarDay('2026-12-31', 'month')).toBe('Dec')
     expect(formatCalendarDay('2027-02-28', 'monthYear')).toBe('Feb 2027')
+  })
+})
+
+describe('summarizeDay', () => {
+  it('counts one note per row into a line each, worst first', () => {
+    const items = summarizeDay(['dues paid', 'dues due', 'dues due', 'cure deadline elapsed', 'dues due'])
+    expect(items).toEqual([
+      { text: '1 violation past the cure deadline and still open', level: 'red', href: '/violations' },
+      { text: '3 dues charges due, not late yet', level: 'green', href: '/dues' },
+      { text: '1 dues charge already paid', level: 'green', href: '/dues' },
+    ])
+  })
+
+  it('says what is on track for a green cure-deadline day', () => {
+    expect(summarizeDay(['cure deadline', 'cure deadline (resolved)']).map((i) => i.text)).toEqual([
+      '1 violation with a cure deadline on this day, still in the cure period',
+      '1 violation with a cure deadline on this day, already resolved',
+    ])
+  })
+
+  it('keeps a note it does not know', () => {
+    expect(summarizeDay(['something new'])).toEqual([{ text: 'something new', level: 'grey', href: '/violations' }])
+  })
+
+  it('is empty for a day with nothing on it', () => {
+    expect(summarizeDay([])).toEqual([])
   })
 })
