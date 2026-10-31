@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { ALL_GUIDES, CHECKLISTS, pathOf } from './georgia'
+import { ALL_GUIDES, CHECKLISTS, GENERAL_PATHS, GUIDES, pathOf } from './georgia'
 import { GUIDES_PATH, TEMPLATES_PATH, filterItems, filterSections, groupOf, guideGroups, libraryEntries, templateGroups } from './library'
 import { SITEMAP_PATHS } from './site'
 import { STATE_GUIDE_LINKS } from './state-law'
@@ -270,5 +270,22 @@ describe('batch 21 pages are in the library', () => {
     expect(SITEMAP_PATHS).toContain(page)
     expect(STATE_GUIDE_LINKS.TX!.map((l) => l.href)).toContain(page)
     expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+  })
+})
+
+describe('batch 22 pages are in the library', () => {
+  const pages = ['/guides/georgia-hoa-does-poa-act-apply-44-3-222', '/guides/georgia-hoa-who-can-serve-on-the-board-44-3-229']
+
+  it('are in the palette feed, the sitemap and the Georgia guides, with a page file', () => {
+    for (const page of pages) {
+      expect(libraryEntries().map((e) => e.path)).toContain(page)
+      expect(SITEMAP_PATHS).toContain(page)
+      expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+
+  it('the Georgia hub list and the condo guide link to the Act page', () => {
+    expect(GENERAL_PATHS).toContain(pages[0])
+    expect(GUIDES['condo-vs-hoa-law']!.related).toContain('georgia-hoa-does-poa-act-apply-44-3-222')
   })
 })

@@ -22,6 +22,7 @@ import { FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS } from './guides-r'
 import { FL_LIEN_TIMELINE } from './guides-s'
 import { TX_VIOLATION_NOTICE } from './guides-t'
 import { TX_BALLOTS } from './guides-u'
+import { GA_POA_APPLY, GA_LOT_OWNER_BOARD } from './guides-v'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -44,7 +45,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE, TX_VIOLATION_NOTICE, TX_BALLOTS]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE, TX_VIOLATION_NOTICE, TX_BALLOTS, GA_POA_APPLY, GA_LOT_OWNER_BOARD]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -396,6 +397,20 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: pathOf(TX_BALLOTS),
     title: 'Texas HOA written ballots: what § 209.0058 says about signed and secret ballots',
     blurb: TX_BALLOTS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_POA_APPLY.slug,
+    path: pathOf(GA_POA_APPLY),
+    title: 'Does Georgia’s Property Owners’ Association Act apply to your HOA? §§ 44-3-222, 234, 235',
+    blurb: GA_POA_APPLY.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_LOT_OWNER_BOARD.slug,
+    path: pathOf(GA_LOT_OWNER_BOARD),
+    title: 'Who can serve on a Georgia HOA board when directors must be lot owners (§ 44-3-229)',
+    blurb: GA_LOT_OWNER_BOARD.summary[0]!,
     kind: 'guide',
   },
   {
