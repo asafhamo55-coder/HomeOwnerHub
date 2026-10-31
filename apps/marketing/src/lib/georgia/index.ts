@@ -19,6 +19,7 @@ import { CA_COLLECTIONS, TX_COLLECTIONS } from './guides-o'
 import { GA_BORROW_SUE, TX_FLAGS } from './guides-p'
 import { FL_BOARD_MEETINGS } from './guides-q'
 import { FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS } from './guides-r'
+import { FL_LIEN_TIMELINE } from './guides-s'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -41,7 +42,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -373,6 +374,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'Florida HOA member meetings: special meetings, speaking time, proxies and recording',
     blurb: FL_MEMBER_MEETINGS.summary[0]!,
     kind: 'guide',
+  },
+  {
+    slug: FL_LIEN_TIMELINE.slug,
+    path: pathOf(FL_LIEN_TIMELINE),
+    title: 'Florida HOA assessment lien and foreclosure timeline: the 45-day notices in order',
+    blurb: FL_LIEN_TIMELINE.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'florida-hoa-fine-cap-and-daily-fine-checklist',
+    path: '/templates/florida-hoa-fine-cap-and-daily-fine-checklist',
+    title: 'Florida HOA fine cap and daily fine checklist (printable)',
+    blurb: 'A checklist and a fill-in worksheet for a board setting a fine: the per-violation figure, the daily fine for a continuing violation and the hearing, with the Florida text behind each step.',
+    kind: 'tool',
+  },
+  {
+    slug: 'florida-hoa-estoppel-certificate-request-checklist',
+    path: '/templates/florida-hoa-estoppel-certificate-request-checklist',
+    title: 'Florida HOA estoppel certificate request checklist (printable)',
+    blurb: 'A working checklist and a fill-in log for answering an estoppel certificate request: the 10 business days, delivery, the effective period and the fee limits, with the Florida text behind each step.',
+    kind: 'tool',
   },
   {
     slug: 'florida-hoa-director-certification-checklist',

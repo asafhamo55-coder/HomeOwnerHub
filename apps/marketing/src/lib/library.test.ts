@@ -201,6 +201,25 @@ describe('batch 16 pages are in the library', () => {
   })
 })
 
+describe('batch 19 pages are in the library', () => {
+  const pages = ['/guides/florida-hoa-assessment-lien-and-foreclosure-timeline', '/templates/florida-hoa-fine-cap-and-daily-fine-checklist', '/templates/florida-hoa-estoppel-certificate-request-checklist']
+
+  it('lists them in the palette feed, and the templates on /templates', () => {
+    const feed = libraryEntries().map((e) => e.path)
+    const templates = templateGroups().flatMap((g) => g.items.map((i) => i.path))
+    for (const p of pages) expect(feed, p).toContain(p)
+    expect(templates).toContain(pages[1])
+    expect(templates).toContain(pages[2])
+  })
+
+  it('puts them in the sitemap, with a page file each', () => {
+    for (const p of pages) {
+      expect(SITEMAP_PATHS, p).toContain(p)
+      expect(read(`app${p}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+})
+
 describe('batch 17 pages are in the library', () => {
   const pages = ['/guides/florida-hoa-board-meeting-notice-rules', '/templates/florida-hoa-director-certification-checklist']
 
