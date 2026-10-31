@@ -2046,6 +2046,23 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 18 (2026-10-31, code-verified)
+
+None of these needs a migration or an owner action. Nothing here moves money or sends anything.
+
+1. **BUG: the professionals portal (/pro) has no loading or error screens.** Add `(pro)/loading.tsx` and `(pro)/error.tsx`. Effort 1.
+2. **Law updates can't be edited.** Wire the orphaned `updateLawUpdate` to an Edit action, for platform admins only. Effort 2.
+3. **RFPs list:** summary strip, a bids-received column, and a "due in N days" chip. Effort 2.
+4. **Tasks:** summary strip (overdue, due in 7 days, unassigned, done in the last 30 days) and an "Unassigned" filter. Effort 1.
+5. **BL-172 SEO 16a:** CA hearing resolution letter template (§§ 5850, 5855). Effort 2.
+6. **BL-172 SEO 16b:** FL records request response checklist (§ 720.303(5)). Effort 2.
+7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped:**
+- Dead-code orphans, with no user value: `recordVendorDocument`, `requireResident`, and plain-list wrappers whose `*Result` twins are the ones in use.
+- No unreachable pages found.
+- No forms whose submit does nothing.
+
 ## Ranked open work — round 17 (2026-10-31, code-verified) — Done 2026-10-31 except item 7 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action. Billing, pricing, the pilot copy and vendor emails are off limits.
