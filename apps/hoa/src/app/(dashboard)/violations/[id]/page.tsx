@@ -423,7 +423,10 @@ export default async function ViolationDetailPage({
           </Card>
 
           <Card>
+            {/* Stacked on phones: beside "Draft follow-up letter" the title
+                block was left 72px, narrower than its longest word. */}
             <CardHeader
+              className="flex-col sm:flex-row"
               actions={
                 canDraftFollowUp && unitId ? (
                   <FollowUpLetterDialog

@@ -697,7 +697,9 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
 
       <section className="space-y-1 pt-4">
         <p className="text-foreground-secondary">Sincerely,</p>
-        <p className="pt-6 text-foreground-secondary">______________________________</p>
+        <p className="pt-6 text-foreground-secondary">
+          <span aria-hidden className="block h-5 max-w-72 border-b border-current" />
+        </p>
         <p className="text-foreground">
           <Value field={field('signer')} values={values} />
         </p>

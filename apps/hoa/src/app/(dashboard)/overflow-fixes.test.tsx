@@ -208,3 +208,39 @@ describe('insurance policy row header (/insurance @375: 320px in a 301px box)', 
     expect(cls).not.toContain('shrink-0')
   })
 })
+
+// Be Vietnam Pro (b54bf54) is wider than the old font: these held their
+// width at 375px once the font changed (UI shots run 211, 2026-10-31).
+describe('wider-font regressions @375', () => {
+  const src = (...p: string[]) => readFileSync(path.join(here, ...p), 'utf8')
+
+  it('the violation wizard notes label row wraps under its AI button (322px in a 301px box)', () => {
+    expect(src('violations', 'new', 'Wizard.tsx')).toMatch(
+      /<div className="flex flex-wrap items-center justify-between gap-2">\s*<Label htmlFor="notes"/,
+    )
+  })
+
+  it('"Invite all owners without an account" wraps and goes full width on phones (325px in a 301px box)', () => {
+    const button = src('settings', 'members', 'OwnerInvites.tsx').match(
+      /className="([^"]*)"\s*>\s*Invite all owners without an account/,
+    )
+    expect(button).not.toBeNull()
+    expect(button![1].split(/\s+/)).toEqual(expect.arrayContaining(['h-auto', 'w-full', 'whitespace-normal', 'sm:w-auto']))
+  })
+
+  it('the follow-up letters header stacks on phones (violation page 383px > 375px)', () => {
+    expect(src('violations', '[id]', 'page.tsx')).toMatch(
+      /<CardHeader\s+className="flex-col sm:flex-row"\s+actions=\{\s*canDraftFollowUp && unitId \? \(\s*<FollowUpLetterDialog/,
+    )
+  })
+
+  it('signature lines are drawn rules, not runs of underscores that never wrap (330px in a 301px box)', () => {
+    for (const file of [
+      src('properties', '[id]', 'estoppel', 'EstoppelCertificate.tsx'),
+      src('properties', '[id]', 'collections-letter', 'CollectionsLetter.tsx'),
+    ]) {
+      expect(file).not.toMatch(/_{10,}/)
+      expect(file).toMatch(/<span aria-hidden className="[^"]*\bmax-w-72\b[^"]*\bborder-b border-current"/)
+    }
+  })
+})
