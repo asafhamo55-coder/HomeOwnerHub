@@ -26,3 +26,22 @@ export { M3_APPLIED } from './m3'
 export { M4_APPLIED } from './m4'
 export { M5_APPLIED } from './m5'
 export { M6_APPLIED } from './m6'
+export { M8_APPLIED } from './m8'
+
+export type {
+  AssociationStripeAccountRow,
+  OnlinePaymentMethodRow,
+  AutopayEnrollmentRow,
+  OnlinePaymentRow,
+  OnlinePaymentAdjustmentRow,
+  StripePayoutRow,
+  OnlinePaymentStatus,
+  OnlinePaymentMethodType,
+  OnlineFeePayer,
+  OnlinePaymentAllocationPart,
+  RecordOnlinePaymentSuccessArgs,
+  RecordOnlinePaymentSuccessResult,
+  ReverseOnlinePaymentArgs,
+  ReverseOnlinePaymentResult,
+  ReverseKind,
+} from './online-payments.types'

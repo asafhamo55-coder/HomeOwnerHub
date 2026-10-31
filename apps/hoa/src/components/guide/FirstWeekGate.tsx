@@ -17,17 +17,30 @@ import { FirstWeekCard } from './FirstWeekCard'
  * after mount, so the server render and the first client render agree
  * (nothing) and a dismissed card never flashes.
  */
-export function BoardFirstWeek({ orgId, orgCreatedAt }: { orgId: string; orgCreatedAt: string | null }) {
+export function BoardFirstWeek({
+  orgId,
+  orgCreatedAt,
+  welcomeFor,
+}: {
+  orgId: string
+  orgCreatedAt: string | null
+  /** The HOA's name: an invited member gets the short welcome card instead of the full one. */
+  welcomeFor?: string
+}) {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
-    setShow(isWithinFirstWeeks(orgCreatedAt, Date.now()) && !isBoardFirstWeekDismissed(browserStorage(), orgId))
-  }, [orgId, orgCreatedAt])
+    // The welcome card is for a member who just joined, which the org's age can't tell us (the
+    // org may be years old), so it shows until dismissed. The full card is for a brand-new org.
+    const inWindow = welcomeFor ? true : isWithinFirstWeeks(orgCreatedAt, Date.now())
+    setShow(inWindow && !isBoardFirstWeekDismissed(browserStorage(), orgId))
+  }, [orgId, orgCreatedAt, welcomeFor])
 
   if (!show) return null
   return (
     <FirstWeekCard
       variant="board"
+      welcomeFor={welcomeFor}
       onDismiss={() => {
         dismissBoardFirstWeek(browserStorage(), orgId)
         setShow(false)

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { ArrowRight, BookOpen, X } from 'lucide-react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { BOARD_FIRST_WEEK_STEPS, RESIDENT_FIRST_WEEK_STEPS, type FirstWeekStep } from '@/lib/guide/first-week'
+import { WELCOME_STEP_COUNT, welcomeTitle } from '@/lib/guide/guidance-cards'
 
 const COPY = {
   board: {
@@ -23,8 +24,25 @@ const COPY = {
  * same shape as the setup checklist. Its own `.cq`, so the step grid follows
  * the card's real width (a docked Copilot narrows it), not the viewport.
  */
-export function FirstWeekCard({ variant, onDismiss }: { variant: 'board' | 'resident'; onDismiss?: () => void }) {
-  const copy = COPY[variant]
+export function FirstWeekCard({
+  variant,
+  onDismiss,
+  welcomeFor,
+}: {
+  variant: 'board' | 'resident'
+  onDismiss?: () => void
+  /** An invited board member's one welcome card: the HOA's name. Shows the first 3 board steps. */
+  welcomeFor?: string
+}) {
+  const base = COPY[variant]
+  const copy = welcomeFor
+    ? {
+        ...base,
+        title: welcomeTitle(welcomeFor),
+        description: 'Each step opens a short guide with the exact steps.',
+        steps: base.steps.slice(0, WELCOME_STEP_COUNT),
+      }
+    : base
   return (
     <section aria-labelledby="first-week-heading" className="cq">
       <Card>
@@ -43,7 +61,7 @@ export function FirstWeekCard({ variant, onDismiss }: { variant: 'board' | 'resi
           <CardDescription>{copy.description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <ol className={variant === 'board' ? 'grid gap-2 cq-md:grid-cols-2 cq-lg:grid-cols-3' : 'grid gap-2 cq-md:grid-cols-2'}>
+          <ol className={variant === 'board' && !welcomeFor ? 'grid gap-2 cq-md:grid-cols-2 cq-lg:grid-cols-3' : 'grid gap-2 cq-md:grid-cols-2'}>
             {copy.steps.map((step, i) => (
               <li key={step.key} className="min-w-0">
                 <StepRow step={step} index={i} variant={variant} />

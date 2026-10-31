@@ -22,9 +22,9 @@ describe('DashboardWelcome', () => {
     expect(html).toContain('Friday, October 30')
   })
 
-  it('renders exactly one h1 and a primary action to the approvals list', () => {
+  it('renders exactly one h1 and no button: the "Do this next" card owns the one big action', () => {
     expect(html.match(/<h1/g)).toHaveLength(1)
-    expect(html).toContain('href="#approvals"')
-    expect(html).toContain('Review approvals')
+    expect(html).not.toContain('<a ')
+    expect(html).not.toContain('<button')
   })
 })

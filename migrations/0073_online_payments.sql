@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS public.online_payments (
 
   -- [{"assessment_id": "<uuid>", "cents": 12345} ... , {"kind":"credit","cents":500}]
   allocation         jsonb NOT NULL
-    CHECK (jsonb_typeof(allocation) = 'array' AND jsonb_array_length(allocation) BETWEEN 1 AND 200),
+    CHECK (CASE WHEN jsonb_typeof(allocation) = 'array' THEN jsonb_array_length(allocation) BETWEEN 1 AND 200 ELSE false END),
   allocation_mode    text NOT NULL CHECK (allocation_mode IN ('ga_statutory', 'oldest_first')),
   -- What posting actually did: [{"payment_id","assessment_id","credit_id","journal_entry_id","cents"}]
   posted_result      jsonb,
@@ -348,7 +348,9 @@ BEGIN
       ('online_payments',             'autopay_enrollment_id', 'autopay_enrollments',      'organization_id', 'organization_id'),
       ('online_payments',             'online_payment_method_id', 'online_payment_methods','organization_id', 'organization_id'),
       ('online_payment_adjustments',  'online_payment_id',     'online_payments',          'organization_id', 'organization_id'),
+      ('online_payment_adjustments',  'association_id',        'associations',             'organization_id', 'organization_id'),
       ('stripe_payouts',              'association_id',        'associations',             'organization_id', 'organization_id'),
+      ('stripe_payouts',              'bank_transaction_id',   'bank_transactions',        'organization_id', 'organization_id'),
       ('stripe_payouts',              'journal_entry_id',      'journal_entries',          'organization_id', 'organization_id')
     ) v(child, fk, parent, parent_org, child_org)
   LOOP

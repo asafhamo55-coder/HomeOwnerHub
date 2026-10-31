@@ -38,6 +38,13 @@ import { LeaseSummaryCard } from '@/components/dashboard/LeaseSummaryCard'
 import { NextMeeting } from '@/components/dashboard/NextMeeting'
 import { DashboardWelcome } from '@/components/dashboard/DashboardWelcome'
 import { SetupChecklistCard } from '@/components/dashboard/SetupChecklistCard'
+import { SampleCommunityPanel } from '@/components/dashboard/SampleCommunityPanel'
+import { loadSampleState } from '@/lib/sample-community/core'
+import { DoNextCard } from '@/components/dashboard/DoNextCard'
+import { HealthDisclosure } from '@/components/dashboard/HealthDisclosure'
+import { FAILED, NA, ok, pickDoNext, type Check, type SetupNext } from '@/lib/dashboard/do-next'
+import { healthDefaultOpen } from '@/lib/dashboard/health-disclosure'
+import { guidanceFor } from '@/lib/guide/guidance-cards'
 import { UnassignedHomesNotice } from '@/components/properties/UnassignedHomesNotice'
 import { BoardFirstWeek } from '@/components/guide/FirstWeekGate'
 import { MyTasksCard } from '@/components/dashboard/MyTasksCard'
@@ -48,7 +55,7 @@ import { ReserveSnapshotCard } from '@/components/dashboard/ReserveSnapshotCard'
 import { loadReserveSnapshot, reserveDisclosureHint } from '@/lib/accounting/reserves'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { ComplianceDeadlinesCard } from '@/components/dashboard/ComplianceDeadlinesCard'
-import { complianceAckSecret, pendingComplianceItems } from '@/lib/compliance/deadlines'
+import { complianceAckSecret, pendingComplianceItems, type PendingComplianceItem } from '@/lib/compliance/deadlines'
 import { loadComplianceDoneAndMigrate } from '@/lib/compliance/done'
 import { DirectorCertCard } from '@/components/dashboard/DirectorCertCard'
 import { loadDirectorCertBoard } from '@/lib/compliance/director-certs-load'
@@ -144,31 +151,106 @@ export default async function DashboardHome() {
   // checklist's placeholder matches what will most likely render: a card
   // when it has not been dismissed, nothing when it has.
   const dismissed = cookieStore.get(setupDismissedCookie(org.id))?.value === '1'
+  // The org creator ran onboarding and is an 'admin'; invited board members
+  // are 'board' (lib/guide/guidance-cards.ts). Memoized with the layout's read.
+  const roleCtx = await getCurrentUserRole()
+  const guidance = guidanceFor(roleCtx?.role ?? null, dismissed)
+  const orgCreatedAt = orgRow.ok ? (orgRow.data?.created_at ?? null) : null
 
   return (
     <Page
       width="wide"
       header={<DashboardWelcome name={userName} associationName={org.name} fallbackDate={serverDateLabel} />}
     >
-      <Suspense fallback={dismissed ? null : <CardSkeleton body="h-24" />}>
-        <SetupChecklistSection orgId={org.id} dismissed={dismissed} />
+      <Suspense fallback={<CardSkeleton body="h-12" />}>
+        <DoNextSection orgId={org.id} isAdmin={guidance.setupChecklist} dismissed={dismissed} />
       </Suspense>
+      <Suspense fallback={null}>
+        <SampleCommunitySection orgId={org.id} />
+      </Suspense>
+      {guidance.setupChecklist ? (
+        <Suspense fallback={dismissed ? null : <CardSkeleton body="h-24" />}>
+          <SetupChecklistSection orgId={org.id} dismissed={dismissed} />
+        </Suspense>
+      ) : null}
       {/* BL-125: homes with no association are never billed. Hidden when there are none. */}
       <Suspense fallback={null}>
         <UnassignedHomesNotice orgId={org.id} />
       </Suspense>
-      <BoardFirstWeek orgId={org.id} orgCreatedAt={orgRow.ok ? (orgRow.data?.created_at ?? null) : null} />
+      {guidance.firstWeek === 'none' ? null : (
+        <BoardFirstWeek
+          orgId={org.id}
+          orgCreatedAt={orgCreatedAt}
+          welcomeFor={guidance.firstWeek === 'welcome' ? org.name : undefined}
+        />
+      )}
 
-      <DashboardSections orgId={org.id} />
+      <DashboardSections orgId={org.id} healthOpen={healthDefaultOpen(orgCreatedAt, Date.now())} />
     </Page>
   )
 }
 
-async function SetupChecklistSection({ orgId, dismissed }: { orgId: string; dismissed: boolean }) {
+/**
+ * A8/A4: the sample-community banner while sample data exists, or the "Try
+ * it with a sample community" offer while the org has no homes at all.
+ * Hidden for good once real homes exist. A failed read shows nothing.
+ */
+async function SampleCommunitySection({ orgId }: { orgId: string }) {
+  const supabase = await getSupabaseServerClient()
+  const state = await timed('/', 'dashboard.sampleCommunity', () => loadSampleState(supabase, orgId))
+  return <SampleCommunityPanel state={state} variant="compact" />
+}
+
+// Once per request: the checklist card and "Do this next" both read it.
+const setupChecklistFor = cache(async (orgId: string) => {
   const supabase = await getSupabaseServerClient()
   // Each step's read fails on its own ("Couldn't check"), so this never
   // takes the dashboard down.
-  const checklist = await timed('/', 'dashboard.setupChecklist', () => loadSetupChecklist(supabase, orgId))
+  return timed('/', 'dashboard.setupChecklist', () => loadSetupChecklist(supabase, orgId))
+})
+
+// "Do this next": built only from reads the cards below already make
+// (memoized per request in lib/dashboard/loaders.ts), so it adds no queries.
+async function DoNextSection({ orgId, isAdmin, dismissed }: { orgId: string; isAdmin: boolean; dismissed: boolean }) {
+  const [approvals, atRisk, triage, compliance, setup] = await Promise.all([
+    load.approvalsInbox(orgId),
+    load.atRiskThisWeek(orgId),
+    load.triageSnapshot(orgId),
+    complianceFor(orgId),
+    isAdmin ? setupChecklistFor(orgId) : Promise.resolve(null),
+  ])
+  const setupCheck: Check<SetupNext | null> = !isAdmin
+    ? NA
+    : setup === null
+      ? FAILED
+      : setup.complete && dismissed
+        ? ok(null)
+        : ok(nextSetupStep(setup))
+  const next = pickDoNext({
+    complianceOverdue:
+      compliance === null
+        ? NA
+        : compliance.items === null
+          ? FAILED
+          : ok(compliance.items.filter((i) => i.tone === 'overdue').length),
+    // A partial list is not "inbox zero", and a partial count of 0 proves nothing.
+    approvals: approvals.failed === true && approvals.totalCount === 0 ? FAILED : ok(approvals.totalCount),
+    residentReplies: triage.failed ? FAILED : ok(triage.needsReply.count),
+    violationsOverdue: atRisk.failed ? FAILED : ok(atRisk.counts.cureDeadlinesElapsed),
+    homesBehind: atRisk.failed ? FAILED : ok(atRisk.counts.duesOverdueUnits),
+    setup: setupCheck,
+  })
+  return <DoNextCard next={next} />
+}
+
+/** The first required step that is not done. A step we couldn't check counts as not done. */
+function nextSetupStep(checklist: Awaited<ReturnType<typeof setupChecklistFor>>): SetupNext | null {
+  const step = checklist.steps.find((s) => !s.optional && s.state !== 'done')
+  return step ? { title: step.title.charAt(0).toLowerCase() + step.title.slice(1), href: step.href, cta: step.cta } : null
+}
+
+async function SetupChecklistSection({ orgId, dismissed }: { orgId: string; dismissed: boolean }) {
+  const checklist = await setupChecklistFor(orgId)
   if (checklist.complete && dismissed) return null
   return <SetupChecklistCard checklist={checklist} />
 }
@@ -180,7 +262,7 @@ async function SetupChecklistSection({ orgId, dismissed }: { orgId: string; dism
 // saw anything. Sources shared between cards are memoized per request
 // (lib/dashboard/loaders.ts), so this is still one read per source.
 
-function DashboardSections({ orgId }: { orgId: string }) {
+function DashboardSections({ orgId, healthOpen }: { orgId: string; healthOpen: boolean }) {
   return (
     <div className="cq space-y-8">
       {/* BL-131: statutory deadlines for the board's state (GA registration,
@@ -274,13 +356,7 @@ function DashboardSections({ orgId }: { orgId: string }) {
       {/* ── Community health ───────────────────────────────────────────
           Reference numbers and trends: below the fold on purpose, so they
           never compete with today's work above. */}
-      <section aria-labelledby="health-heading" className="space-y-4">
-        <div className="flex items-baseline justify-between gap-4 border-t border-border pt-6">
-          <h2 id="health-heading" className="text-lg font-semibold text-foreground">
-            Community health
-          </h2>
-          <span className="text-xs text-muted">Changes vs 30 days ago</span>
-        </div>
+      <HealthDisclosure orgId={orgId} defaultOpen={healthOpen}>
         <div className="grid grid-cols-2 gap-3 cq-sm:gap-4 cq-md:grid-cols-4">
           <Suspense
             fallback={
@@ -313,7 +389,7 @@ function DashboardSections({ orgId }: { orgId: string }) {
         <Suspense fallback={<CardSkeleton body="h-40" />}>
           <HeatMapSection orgId={orgId} />
         </Suspense>
-      </section>
+      </HealthDisclosure>
     </div>
   )
 }
@@ -491,41 +567,53 @@ async function ReservesSection() {
 // no board member has marked done (signed acknowledgment, or a
 // compliance_deadlines_done row once M3_APPLIED). Board/admin only,
 // re-checked here although the layout already sends residents away.
+// Once per request: the deadlines card and "Do this next" both need the items.
+// null = not shown to this member; items null = the read failed.
+const complianceFor = cache(
+  async (orgId: string): Promise<{ items: PendingComplianceItem[] | null; multiple: boolean } | null> => {
+    const ctx = await getCurrentUserRole()
+    if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return null
+    const [supabase, timeZone] = await Promise.all([getSupabaseServerClient(), currentTimeZone()])
+    const res = await timed('/', 'dashboard.complianceDeadlines', () =>
+      loadOrFail(
+        'compliance deadlines',
+        supabase
+          .from('associations')
+          .select('id, name, state, governing_law_state, compliance_settings')
+          .eq('organization_id', orgId),
+      ),
+    )
+    if (!res.ok) return { items: null, multiple: false }
+    const rows = (res.data ?? []) as Array<{
+      id: string
+      name: string
+      state: string | null
+      governing_law_state: string | null
+      compliance_settings: unknown
+    }>
+    const associations = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      state: r.state,
+      governingLawState: r.governing_law_state,
+      complianceSettings: r.compliance_settings,
+    }))
+    const secret = complianceAckSecret()
+    // M3_APPLIED (0067): also the compliance_deadlines_done rows, copying any
+    // signed acknowledgment that has no row yet. Null (flag off or a failed
+    // read): the signed acknowledgments alone.
+    const done = await loadComplianceDoneAndMigrate(supabase, orgId, associations, secret)
+    return {
+      items: pendingComplianceItems(associations, todayIn(timeZone), secret, done),
+      multiple: rows.length > 1,
+    }
+  },
+)
+
 async function ComplianceDeadlinesSection({ orgId }: { orgId: string }) {
-  const ctx = await getCurrentUserRole()
-  if (!ctx || (ctx.role !== 'board' && ctx.role !== 'admin')) return null
-  const [supabase, timeZone] = await Promise.all([getSupabaseServerClient(), currentTimeZone()])
-  const res = await timed('/', 'dashboard.complianceDeadlines', () =>
-    loadOrFail(
-      'compliance deadlines',
-      supabase
-        .from('associations')
-        .select('id, name, state, governing_law_state, compliance_settings')
-        .eq('organization_id', orgId),
-    ),
-  )
-  if (!res.ok) return <ComplianceDeadlinesCard items={null} />
-  const rows = (res.data ?? []) as Array<{
-    id: string
-    name: string
-    state: string | null
-    governing_law_state: string | null
-    compliance_settings: unknown
-  }>
-  const associations = rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    state: r.state,
-    governingLawState: r.governing_law_state,
-    complianceSettings: r.compliance_settings,
-  }))
-  const secret = complianceAckSecret()
-  // M3_APPLIED (0067): also the compliance_deadlines_done rows, copying any
-  // signed acknowledgment that has no row yet. Null (flag off or a failed
-  // read): the signed acknowledgments alone.
-  const done = await loadComplianceDoneAndMigrate(supabase, orgId, associations, secret)
-  const items = pendingComplianceItems(associations, todayIn(timeZone), secret, done)
-  return <ComplianceDeadlinesCard items={items} multipleAssociations={rows.length > 1} />
+  const res = await complianceFor(orgId)
+  if (!res) return null
+  return <ComplianceDeadlinesCard items={res.items} multipleAssociations={res.multiple} />
 }
 
 // BL-139: Florida only. Board/admin only, re-checked here like the
