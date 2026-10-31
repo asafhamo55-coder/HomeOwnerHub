@@ -99,24 +99,24 @@ const sections: { title: string; rows: Row[] }[] = [
 function CellIcon({ value }: { value: Cell }) {
   if (value === 'partial') {
     return (
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-warning-subtle text-warning ring-1 ring-warning/15">
-        <Minus className="h-4 w-4" aria-hidden /><span className="sr-only">Partly</span>
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-warning-subtle text-warning ring-1 ring-warning/15">
+        <Minus className="h-5 w-5" aria-hidden /><span className="sr-only">Partly</span>
       </span>
     )
   }
   if (typeof value === 'string') {
-    return <span className="text-sm font-medium text-foreground">{value}</span>
+    return <span className="text-center text-[18px] font-medium leading-snug text-foreground">{value}</span>
   }
   if (value === true) {
     return (
-      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-success-subtle text-success ring-1 ring-success/15">
-        <Check className="h-4 w-4" aria-hidden /><span className="sr-only">Yes</span>
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-success-subtle text-success ring-1 ring-success/15">
+        <Check className="h-5 w-5" aria-hidden /><span className="sr-only">Yes</span>
       </span>
     )
   }
   return (
-    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-subtle text-muted ring-1 ring-border">
-      <X className="h-4 w-4" aria-hidden /><span className="sr-only">No</span>
+    <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-subtle text-muted ring-1 ring-border">
+      <X className="h-5 w-5" aria-hidden /><span className="sr-only">No</span>
     </span>
   )
 }
@@ -147,7 +147,7 @@ export default function ComparePage() {
                 <ul className="space-y-3">
                   {s.rows.map((r) => (
                     <li key={r.label} className="card p-4">
-                      <p className="text-[15px] font-semibold text-foreground">{r.label}</p>
+                      <p className="text-[18px] font-semibold leading-snug text-foreground">{r.label}</p>
                       <dl className="mt-3 grid grid-cols-2 gap-2">
                         {columns.map((c) => (
                           <div
@@ -157,10 +157,10 @@ export default function ComparePage() {
                               c.key === 'hh' ? 'col-span-2 bg-primary-subtle' : 'bg-subtle/70',
                             )}
                           >
-                            <dt className={cn('text-xs font-semibold', c.key === 'hh' ? 'text-primary' : 'text-muted')}>
+                            <dt className={cn('text-base font-semibold', c.key === 'hh' ? 'text-primary' : 'text-muted')}>
                               {c.name}
                             </dt>
-                            <dd className="mt-1.5 flex min-h-7 items-center">
+                            <dd className="mt-1.5 flex min-h-9 items-center">
                               <CellIcon value={r[c.key]} />
                             </dd>
                           </div>
@@ -174,8 +174,8 @@ export default function ComparePage() {
           </div>
 
           <div className="card hidden overflow-hidden md:block">
-            <div className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr] border-b border-border/70 bg-subtle/40">
-              <div className="px-5 py-4 text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <div className="grid grid-cols-[1.7fr,1.2fr,1fr,1fr,1fr] border-b border-border/70 bg-subtle/40">
+              <div className="px-5 py-4 text-base font-semibold uppercase tracking-wider text-muted">
                 Capability
               </div>
               {columns.map((c) => (
@@ -189,7 +189,7 @@ export default function ComparePage() {
                   <p className={cn('text-sm font-semibold', c.key === 'hh' ? 'text-primary' : 'text-foreground')}>
                     {c.name}
                   </p>
-                  <p className="mt-0.5 text-sm text-muted">{c.sub}</p>
+                  <p className="mt-0.5 text-base text-muted">{c.sub}</p>
                 </div>
               ))}
             </div>
@@ -197,16 +197,16 @@ export default function ComparePage() {
             {sections.map((s) => (
               <div key={s.title}>
                 <div className="border-t border-border/70 bg-subtle/40 px-5 py-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                  <p className="text-base font-semibold uppercase tracking-wider text-primary">
                     {s.title}
                   </p>
                 </div>
                 {s.rows.map((r) => (
                   <div
                     key={r.label}
-                    className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr] border-t border-border"
+                    className="grid grid-cols-[1.7fr,1.2fr,1fr,1fr,1fr] border-t border-border"
                   >
-                    <div className="px-5 py-4 text-sm text-foreground">{r.label}</div>
+                    <div className="px-5 py-4 text-[18px] leading-snug text-foreground">{r.label}</div>
                     <div className="flex items-center justify-center bg-primary-subtle/40 px-5 py-4">
                       <CellIcon value={r.hh} />
                     </div>
@@ -229,6 +229,16 @@ export default function ComparePage() {
 
       <section className="section">
         <div className="container-page">
+          <div className="mx-auto mb-10 max-w-3xl rounded-2xl border border-primary/25 bg-primary-subtle/40 p-6 text-center md:p-8">
+            <p className="eyebrow">Comparing with PayHOA?</p>
+            <p className="mt-3 text-[18px] leading-relaxed text-foreground-secondary">
+              We wrote a separate, side-by-side page for it, including where PayHOA is ahead today.
+            </p>
+            <Link href="/compare/payhoa" className="btn btn-secondary btn-lg group mt-5">
+              HomeownerHub vs PayHOA
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </Link>
+          </div>
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
             <SummaryCard
               title="vs Management company"
@@ -273,9 +283,9 @@ function SummaryCard({ title, body, note }: { title: string; body: string; note:
   return (
     <div className="card p-7">
       <h3 className="t-h3 text-foreground">{title}</h3>
-      <p className="mt-3 text-[15px] leading-relaxed text-foreground-secondary">{body}</p>
+      <p className="mt-3 text-[18px] leading-relaxed text-foreground-secondary">{body}</p>
       <div className="mt-5 rounded-xl border border-primary/25 bg-primary-subtle/40 p-3">
-        <p className="text-sm font-medium text-primary">{note}</p>
+        <p className="text-base font-medium text-primary">{note}</p>
       </div>
     </div>
   )

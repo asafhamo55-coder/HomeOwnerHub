@@ -77,6 +77,11 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     description:
       'The comparison your board can send around: AI workflows, HomeownerHub’s checkout price, and what the alternatives publish.',
   },
+  '/compare/payhoa': {
+    title: 'HomeownerHub vs PayHOA: a fair comparison',
+    description:
+      'Feature parity, prices as of Oct 31, 2026, and how to switch. Where HomeownerHub leads, and where PayHOA is ahead today.',
+  },
   '/demo': {
     title: 'Book a demo: 20 minutes for your board',
     description:
