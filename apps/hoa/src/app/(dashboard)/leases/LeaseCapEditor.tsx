@@ -17,6 +17,8 @@ interface Props {
   currentCapPct: number | null
   aiSuggestedPct: number | null
   aiSource: string | null
+  /** The cap read failed: nothing here may save over a cap the board never saw. */
+  disabled?: boolean
 }
 
 export function LeaseCapEditor({
@@ -24,6 +26,7 @@ export function LeaseCapEditor({
   currentCapPct,
   aiSuggestedPct,
   aiSource,
+  disabled = false,
 }: Props) {
   const router = useRouter()
   const toast = useToast()
@@ -41,6 +44,7 @@ export function LeaseCapEditor({
   } | null>(null)
 
   function handleSave() {
+    if (disabled) return
     setError(null)
     const trimmed = value.trim()
     let capPct: number | null
@@ -116,12 +120,13 @@ export function LeaseCapEditor({
     <div className="space-y-3">
       {!editing ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="secondary" onClick={() => setEditing(true)} icon={<Pencil aria-hidden />}>
+          <Button size="sm" variant="secondary" disabled={disabled} onClick={() => setEditing(true)} icon={<Pencil aria-hidden />}>
             {currentCapPct === null ? 'Set cap' : 'Edit cap'}
           </Button>
           <Button
             size="sm"
             variant="ghost"
+            disabled={disabled}
             onClick={handleSuggest}
             loading={suggestPending}
             icon={<Sparkles aria-hidden />}

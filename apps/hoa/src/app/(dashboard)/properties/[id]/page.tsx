@@ -134,7 +134,8 @@ export default async function PropertyDetailPage({
       isAdmin={ctx.role === 'admin'}
       canManage={canManage}
       {...(consent !== undefined ? { consent } : {})}
-      capInPlace={assocInfo.cap?.capPct !== null && assocInfo.cap?.capPct !== undefined}
+      capInPlace={assocInfo.cap?.ok === true && assocInfo.cap.cap?.capPct !== null && assocInfo.cap.cap?.capPct !== undefined}
+      capLoadFailed={assocInfo.cap?.ok === false}
       section={parseSection(one('tab'))}
       listHref={listHref}
       listQuery={query}

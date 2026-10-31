@@ -47,6 +47,8 @@ const tables = {
   platform_admin_audit: [],
 }
 
+const detailOf = (r: Awaited<ReturnType<typeof getTenantDetail>>) => (r.ok ? r.data : undefined)
+
 describe('platform-admin metrics read past the row cap', () => {
   it('getPlatformStats counts every tenant and every AI run', async () => {
     ;({ db } = cappedFakeDb(tables))
@@ -71,7 +73,7 @@ describe('platform-admin metrics read past the row cap', () => {
 
   it('getTenantDetail counts every row for the tenant', async () => {
     ;({ db } = cappedFakeDb(tables))
-    const d = await getTenantDetail('org00000')
+    const d = detailOf(await getTenantDetail('org00000'))
     expect(d?.members.total).toBe(N)
     expect(d?.vendors.total).toBe(N)
     expect(d?.rfps.total).toBe(N)
@@ -83,7 +85,7 @@ describe('platform-admin metrics read past the row cap', () => {
   it('getTenantDetail counts only that tenant’s documents', async () => {
     const docs = [...tables.hoa_documents, { id: 'd-other', org_id: 'org-other' }]
     ;({ db } = cappedFakeDb({ ...tables, hoa_documents: docs }))
-    const d = await getTenantDetail('org00000')
+    const d = detailOf(await getTenantDetail('org00000'))
     expect(d?.documents).toBe(N)
   })
 

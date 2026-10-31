@@ -187,11 +187,17 @@ export async function loadLeaseStats(
   }
 }
 
+/**
+ * A failed read is not "no cap": `ok: false` means the read errored, while
+ * `ok: true` with `cap: null` means the association row is genuinely absent.
+ */
+export type LeaseCapLoad = { ok: true; cap: LeaseCap | null } | { ok: false }
+
 export async function getLeaseCap(
   associationId: string,
-): Promise<LeaseCap | null> {
+): Promise<LeaseCapLoad> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('associations' as never)
     .select(
       'lease_cap_pct, lease_cap_ai_suggested_pct, lease_cap_ai_source, lease_cap_set_at, lease_cap_set_by',
@@ -204,8 +210,12 @@ export async function getLeaseCap(
       lease_cap_set_at: string | null
       lease_cap_set_by: string | null
     }>()
-  if (!data) return null
-  return {
+  if (error) {
+    console.error('[leases] lease cap read failed', error.code)
+    return { ok: false }
+  }
+  if (!data) return { ok: true, cap: null }
+  return { ok: true, cap: {
     capPct: data.lease_cap_pct === null ? null : Number(data.lease_cap_pct),
     aiSuggestedPct:
       data.lease_cap_ai_suggested_pct === null
@@ -214,7 +224,7 @@ export async function getLeaseCap(
     aiSource: data.lease_cap_ai_source,
     setAt: data.lease_cap_set_at,
     setBy: data.lease_cap_set_by,
-  }
+  } }
 }
 
 const SetLeaseCapSchema = z.object({

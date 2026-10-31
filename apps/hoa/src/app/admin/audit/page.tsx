@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/format-datetime'
 import { ClipboardList } from 'lucide-react'
-import { DataTable, EmptyState, Page, StatusPill, type StatusTone } from '@homeowner-portal/ui'
+import { DataTable, EmptyState, LoadFailed, Page, StatusPill, type StatusTone } from '@homeowner-portal/ui'
 import { listPlatformAuditLog } from '@/lib/platform-admin'
 
 export const metadata = { title: 'Audit log' }
@@ -21,7 +21,15 @@ const ACTIONS: Record<string, { tone: StatusTone; label: string }> = {
 }
 
 export default async function AuditLogPage() {
-  const rows = await listPlatformAuditLog(LIMIT)
+  const res = await listPlatformAuditLog(LIMIT)
+  if (!res.ok) {
+    return (
+      <Page width="wide" title="Audit log" description="Every action a platform admin takes, newest first.">
+        <LoadFailed what="the audit log" retryHref="/admin/audit" />
+      </Page>
+    )
+  }
+  const rows = res.rows
 
   return (
     <Page

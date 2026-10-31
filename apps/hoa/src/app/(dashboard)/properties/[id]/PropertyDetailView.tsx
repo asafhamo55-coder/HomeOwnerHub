@@ -113,6 +113,8 @@ export interface PropertyDetailViewProps {
   canManage?: boolean
   /** A lease cap is set (drives "Add to waiting list"). */
   capInPlace: boolean
+  /** The rental cap read failed, so `capInPlace` is unknown rather than false. */
+  capLoadFailed?: boolean
   /** The section a phone shows. */
   section: SectionKey
   /** The list this home was opened from (filters kept). */
@@ -141,7 +143,7 @@ export interface PropertyDetailViewProps {
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, capLoadFailed = false, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -293,7 +295,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
           </Section>
 
           <Section id="leases" title="Leases" active={section === 'leases'}>
-            <LeasesSection data={data} today={today} waiting={waiting} capInPlace={capInPlace} leasesHref={scoped('/leases')} />
+            <LeasesSection data={data} today={today} waiting={waiting} capInPlace={capInPlace} capLoadFailed={capLoadFailed} leasesHref={scoped('/leases')} />
           </Section>
 
           <Section
@@ -1139,12 +1141,14 @@ function LeasesSection({
   today,
   waiting,
   capInPlace,
+  capLoadFailed,
   leasesHref,
 }: {
   data: Property360
   today: string
   waiting: ReturnType<typeof waitingPosition>
   capInPlace: boolean
+  capLoadFailed: boolean
   leasesHref: string
 }) {
   const p = data.property
@@ -1169,6 +1173,7 @@ function LeasesSection({
               Queued since {formatStamp(waiting.requestedAt)}. <Link href={leasesHref}>Approve or withdraw on Leases</Link>.
             </Alert>
           ) : null}
+          {capLoadFailed ? <LoadFailed what="the rental cap" hint="Whether this association has a cap is unknown right now." /> : null}
           <TenureSelector propertyId={p.id} currentTenure={p.tenure} capInPlace={capInPlace} alreadyWaiting={waiting !== null} />
         </CardContent>
       </Card>
