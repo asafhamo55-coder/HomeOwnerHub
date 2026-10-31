@@ -972,3 +972,26 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **In flight:** item 3 (period close checks) and item 7 (Budget vs actual CSV).
 - **CI catch:** `text-muted-foreground` slipped past the agent's local gate. Run the colour-token ratchet explicitly.
 - **Decks:** refreshed at 08:00 with 50 guides; the product deck has 3 new tour slides.
+
+## 2026-10-31, rounds 26â€“28 and the PayHOA pivot
+
+- **Round 26 (treasurer month-end):** done.
+  - Period close checks (refuses to close before the period ends; checks reconciliations by the approved statement date).
+  - Budget vs actual CSV.
+  - Budget save can't wipe the lines.
+  - Approved reconciliations are locked.
+  - Friendly accounting errors.
+  - Unbudgeted spending is counted.
+- **Round 27 (accessibility and mobile):** done. Live in 2eecc95b at 14:34.
+- **Round 28 (older volunteers, owner priority):**
+  - The sign-in fixes and the confirmations before sending and before ARC decisions are live in 2eecc95b.
+  - The "Do this next" dashboard card is live in 44acd108.
+- **Owner directive: PayHOA is the target.** docs/backlog.md now opens with the PayHOA parity program (tracks A, B and C). The gap analysis is published as an artifact and kept in docs/decisions.
+  - A1 website phase 1: live at 16:26 (9780a0a8). Phase 2 is in build.
+  - A2 online payments: design done; the M8 flag, types and fee engine are in, still off. The owner needs to decide OA-42.
+  - A4 sample community: live in 44acd108 at about 20:00.
+- **Incidents:**
+  - The disk filled to 100% from about 350 worktree build caches. 229 GB of caches were pruned and a memory saved.
+  - A UI shots import-alias bug was fixed, and the job now completes.
+  - The Mac slept twice mid-agent. It's now kept awake with caffeinate.
+  - Auto-mode classifier timeouts blocked several prod pushes.
