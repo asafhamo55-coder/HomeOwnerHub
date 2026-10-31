@@ -15,7 +15,7 @@ import { AccountingTabs } from '../AccountingTabs'
 import { AccountingLoadFailed, AccountingNotSetUp } from '../_components/shared'
 import { BooksNotOpen } from '../../_components/BooksNotOpen'
 import { OpenNextFiscalYearButton } from '../_components/OpenNextFiscalYearButton'
-import { loadLastReconciled } from '@/lib/accounting/last-reconciled'
+import { loadLastApprovedStatementDate } from '@/lib/accounting/last-reconciled'
 import { periodColumns } from './columns'
 import { periodHasEnded, unreconciledAccounts, type CloseChecks, type CountRead } from './close-checks-shared'
 
@@ -46,7 +46,7 @@ export default async function PeriodsPage() {
       tryLoad('bank accounts', () => listBankAccounts(ctx.associationId)),
     ])
     const recs = accounts.ok
-      ? await tryLoad('last reconciliations', () => loadLastReconciled(accounts.data.map((a) => a.id)))
+      ? await tryLoad('last reconciliations', () => loadLastApprovedStatementDate(accounts.data.map((a) => a.id)))
       : null
     const proposalRead: CountRead = proposals.ok ? { ok: true, n: proposals.data } : { ok: false }
     for (const p of closable) {

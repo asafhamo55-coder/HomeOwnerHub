@@ -19,7 +19,7 @@ export interface CloseChecks {
   unreconciled: { ok: true; accounts: string[] } | { ok: false }
 }
 
-/** Bank accounts whose last approved reconciliation is before the period end (or missing). */
+/** Bank accounts whose last approved statement date is before the period end (or missing). */
 export function unreconciledAccounts(
   accounts: { id: string; name: string }[],
   lastReconciled: Map<string, string>,

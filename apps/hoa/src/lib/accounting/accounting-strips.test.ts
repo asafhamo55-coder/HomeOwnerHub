@@ -106,7 +106,7 @@ describe('loadLastReconciled counts approved reconciliations only', async () => 
   const { cappedFakeDb } = await import('@/lib/supabase/capped-fake-db')
   let db: unknown
   vi.doMock('@/lib/supabase/server', () => ({ getSupabaseServerClient: async () => db }))
-  const { loadLastReconciled } = await import('./last-reconciled')
+  const { loadLastReconciled, loadLastApprovedStatementDate } = await import('./last-reconciled')
 
   it('an account whose only reconciliation is unapproved still needs reconciling', async () => {
     ;({ db } = cappedFakeDb({
@@ -119,5 +119,16 @@ describe('loadLastReconciled counts approved reconciliations only', async () => 
     expect(last.has('acct-1')).toBe(false)
     expect(needsReconciliation(acct(), last.get('acct-1') ?? null, TODAY, TZ)).toBe(true)
     expect(needsReconciliation(acct(), last.get('acct-2') ?? null, TODAY, TZ)).toBe(false)
+  })
+
+  it('the period-close check uses the approved statement date, not when it was saved', async () => {
+    ;({ db } = cappedFakeDb({
+      bank_reconciliations: [
+        { id: 'r1', bank_account_id: 'acct-1', statement_date: '2026-09-30', reconciled_at: '2026-11-02T15:00:00Z', approved_at: '2026-11-02T16:00:00Z' },
+        { id: 'r2', bank_account_id: 'acct-1', statement_date: '2026-10-31', reconciled_at: '2026-11-01T15:00:00Z', approved_at: null },
+      ],
+    }))
+    const last = await loadLastApprovedStatementDate(['acct-1'])
+    expect(last.get('acct-1')).toBe('2026-09-30')
   })
 })
