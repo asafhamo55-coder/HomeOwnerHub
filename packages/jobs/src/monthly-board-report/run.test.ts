@@ -307,6 +307,28 @@ describe('runMonthlyBoardReport (cron)', () => {
   })
 })
 
+describe('runMonthlyBoardReport — failure report (report-only)', () => {
+  it('reports once with org ids when an org errors, return unchanged', async () => {
+    const { store } = fakeStore({ orgs: [ORG, { id: 'org-2', name: 'Oak Hollow' }] })
+    store.primaryAssociation = vi.fn(async (orgId: string) => {
+      if (orgId === 'org-1') throw new Error('db down')
+      return { ...ASSOC, id: 'assoc-2' }
+    })
+    const report = vi.fn()
+    const res = await runMonthlyBoardReport(store, fakeDeps(), CRON_NOW, logger(), async (_n, fn) => fn(), report)
+    expect(res).toEqual({ orgs: 2, sent: 1, skipped: 0, errored: 1 })
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report).toHaveBeenCalledWith('monthly-board-report', { errored: 1, orgs: 2 }, ['org-1'])
+  })
+
+  it('does not report when nothing failed', async () => {
+    const { store } = fakeStore()
+    const report = vi.fn()
+    await runMonthlyBoardReport(store, fakeDeps(), CRON_NOW, logger(), async (_n, fn) => fn(), report)
+    expect(report).not.toHaveBeenCalled()
+  })
+})
+
 describe('runRequestedMonthlyReport (Send now)', () => {
   it('sends for the one requested org and month', async () => {
     const { store } = fakeStore()

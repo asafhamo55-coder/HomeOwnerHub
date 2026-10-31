@@ -3,6 +3,7 @@ import {
   DISPATCH_BATCH,
   runScheduledDispatch,
   supabaseScheduledStore,
+  STUCK_AFTER_MS,
   type ScheduledStore,
 } from './communications-scheduled'
 
@@ -156,5 +157,83 @@ describe('supabaseScheduledStore.claim', () => {
     ])
     const lost = fakeDb([])
     expect(await supabaseScheduledStore(lost.db).claim('x', NOW.toISOString())).toBe(false)
+  })
+})
+
+describe('runScheduledDispatch — failure reporting (report-only)', () => {
+  const due = (id: string): Row => ({ id, status: 'scheduled', scheduled_for: '2026-10-19T13:55:00.000Z' })
+
+  it('reports delivery failures once per run, and not when all delivered', async () => {
+    const report = vi.fn()
+    const store = memoryStore([due('a'), due('b'), due('c')])
+    const deliver = vi.fn(async (id: string) => (id === 'b' ? { ok: false as const, error: 'x' } : ok))
+    const summary = await runScheduledDispatch(store, { deliver }, NOW, silent, undefined, report)
+    expect(summary).toMatchObject({ claimed: 3, delivered: 2, failed: 1 })
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report.mock.calls[0][2]).toEqual(['b'])
+
+    const quiet = vi.fn()
+    await runScheduledDispatch(memoryStore([due('z')]), { deliver: async () => ok }, NOW, silent, undefined, quiet)
+    expect(quiet).not.toHaveBeenCalled()
+  })
+
+  it('reports a markFailed that throws, and does not retry the send', async () => {
+    const report = vi.fn()
+    const store = memoryStore([due('a')])
+    store.markFailed = vi.fn(async () => {
+      throw new Error('write failed')
+    })
+    const deliver = vi.fn(async () => {
+      throw new Error('boom')
+    })
+    const summary = await runScheduledDispatch(store, { deliver }, NOW, silent, undefined, report)
+    expect(deliver).toHaveBeenCalledTimes(1)
+    expect(summary).toMatchObject({ failed: 1 })
+    expect(report.mock.calls[0][1]).toMatchObject({ markFailedErrors: 1 })
+    expect(report.mock.calls[0][2]).toEqual(['a'])
+  })
+
+  it('supabase markFailed throws on a write error', async () => {
+    const b: Record<string, unknown> = {}
+    b.update = () => b
+    b.eq = () => b
+    b.then = (r: (v: unknown) => unknown) => Promise.resolve({ error: { code: '42' } }).then(r)
+    await expect(supabaseScheduledStore({ from: () => b } as never).markFailed('x')).rejects.toThrow(/mark failed/)
+  })
+
+  it('stuck check reports old sending rows only, with no sends or status changes', async () => {
+    const report = vi.fn()
+    const rows: Row[] = [
+      { id: 'old', status: 'sending', scheduled_for: new Date(NOW.getTime() - STUCK_AFTER_MS - 60_000).toISOString() },
+      { id: 'fresh', status: 'sending', scheduled_for: new Date(NOW.getTime() - 5 * 60_000).toISOString() },
+    ]
+    const store = memoryStore(rows)
+    store.listStuck = async (before) => rows.filter((r) => r.status === 'sending' && r.scheduled_for < before).map((r) => r.id)
+    const claim = vi.spyOn(store, 'claim')
+    const markFailed = vi.spyOn(store, 'markFailed')
+    const deliver = vi.fn()
+    await runScheduledDispatch(store, { deliver }, NOW, silent, undefined, report)
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report.mock.calls[0][0]).toBe('communications-scheduled-dispatch:stuck-sending')
+    expect(report.mock.calls[0][2]).toEqual(['old'])
+    expect(deliver).not.toHaveBeenCalled()
+    expect(claim).not.toHaveBeenCalled()
+    expect(markFailed).not.toHaveBeenCalled()
+    expect(rows.map((r) => r.status)).toEqual(['sending', 'sending'])
+  })
+
+  it('supabase listStuck is a read-only select', async () => {
+    const calls: string[] = []
+    const b: Record<string, unknown> = {}
+    for (const m of ['select', 'eq', 'lt', 'is', 'order', 'limit', 'update', 'insert', 'delete']) {
+      b[m] = (...a: unknown[]) => {
+        calls.push(`${m}:${a[0]}`)
+        return b
+      }
+    }
+    b.then = (r: (v: unknown) => unknown) => Promise.resolve({ data: [{ id: 'x' }], error: null }).then(r)
+    expect(await supabaseScheduledStore({ from: () => b } as never).listStuck!('t', 50)).toEqual(['x'])
+    expect(calls.some((c) => /^(update|insert|delete)/.test(c))).toBe(false)
+    expect(calls).toContain('eq:status')
   })
 })

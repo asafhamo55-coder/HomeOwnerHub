@@ -44,6 +44,7 @@ import { todayInZone } from './schedule'
 import { ASSOCIATION_ZONE_COLUMNS, DEFAULT_ASSOCIATION_TIME_ZONE, associationTimeZone } from '../association-time'
 import { readAll } from '../read-all'
 import { completePaidOffPlans } from '@homeowner-portal/workflows/payment-plans'
+import { reportJobFailures } from '../failure-reporting'
 
 /** Same marker the manual reminder writes (apps/hoa dues-reminders/queries.ts),
  *  so "Reminded 3d ago" on /dues counts automated reminders too. */
@@ -373,6 +374,7 @@ export async function runDuesReminders(
     fn,
   ) => fn(),
   planStep: (associationId: string, fn: () => Promise<PlanSweepResult>) => Promise<PlanSweepResult> = (_id, fn) => fn(),
+  report: typeof reportJobFailures = reportJobFailures,
 ): Promise<DuesRemindersSummary> {
   const associations = await store.loadAssociations()
   const secret = deps.settingsSecret()
@@ -385,6 +387,10 @@ export async function runDuesReminders(
     failed: 0,
     plansCompleted: 0,
   }
+
+  const sweepFailed: string[] = []
+  const runFailed: string[] = []
+  const sendFailedIds: string[] = []
 
   for (const a of associations) {
     // Per association (BL-043): one cron instant can be different days.
@@ -401,6 +407,7 @@ export async function runDuesReminders(
         summary.plansCompleted += r.completed
         if (r.completed > 0) logger.info(`[dues-reminders] ${a.id}: ${r.completed} payment plan(s) completed`)
       } catch (err) {
+        sweepFailed.push(a.id)
         logger.error(`[dues-reminders] ${a.id}: payment plan sweep failed`, { error: err instanceof Error ? err.name : 'unknown' })
       }
     }
@@ -426,9 +433,26 @@ export async function runDuesReminders(
       summary.sent += r.sent
       summary.suppressed += r.suppressed
       summary.failed += r.failed
+      if (r.failed > 0) sendFailedIds.push(a.id)
     } catch (err) {
+      runFailed.push(a.id)
       logger.error(`[dues-reminders] ${a.id}: run failed`, { error: err instanceof Error ? err.name : 'unknown' })
     }
+  }
+
+  // Report-only, once, after the loop: counts and association ids.
+  const ids = [...new Set([...sweepFailed, ...runFailed, ...sendFailedIds])]
+  if (ids.length > 0) {
+    report(
+      'dues-reminders',
+      {
+        sweepFailedAssociations: sweepFailed.length,
+        runFailedAssociations: runFailed.length,
+        associationsWithFailedSends: sendFailedIds.length,
+        failedSends: summary.failed,
+      },
+      ids,
+    )
   }
   return summary
 }
