@@ -68,6 +68,7 @@ export const SITEMAP_PATHS: readonly string[] = [
   '/features/architecture-requests',
   '/features/ask-your-documents',
   '/compare',
+  '/compare/payhoa',
   '/demo',
   '/states',
   ...STATE_HUB_PATHS,
