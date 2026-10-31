@@ -3,7 +3,7 @@ import { chunk, readAll } from '@/lib/supabase/read-all'
 import { queryFailed } from './queries'
 
 /**
- * Latest reconciled_at per bank account (read-only). Accounts never
+ * Latest reconciled_at per bank account, counting approved reconciliations only (read-only). Accounts never
  * reconciled are absent from the map. Throws on a failed read; callers wrap
  * it in tryLoad.
  */
@@ -19,6 +19,12 @@ export async function loadLastReconciled(accountIds: string[]): Promise<Map<stri
           .select('id, bank_account_id, reconciled_at')
           .in('bank_account_id', part)
           .not('reconciled_at', 'is', null)
+          // reconciled_at is stamped when the statement is saved; only an
+          // approved reconciliation means the account was actually reconciled.
+          .not('approved_at', 'is', null)
+          // reconciled_at is stamped when the statement is saved; only an
+          // approved reconciliation means the account was actually reconciled.
+          .not('approved_at', 'is', null)
           .order('id', { ascending: true })
           .range(from, to),
       queryFailed,

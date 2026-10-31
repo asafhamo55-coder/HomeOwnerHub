@@ -12,6 +12,9 @@ export async function loadBudgetGlance(associationId: string, periodId: string |
   const budgets = (await listBudgets(associationId)).filter((b) => b.fiscalPeriod?.id === periodId && b.status !== 'archived')
   if (budgets.length === 0) return budgetGlance(null)
   const reports = await Promise.all(budgets.map((b) => computeBudgetVsActual(associationId, b.id, { through: today })))
-  const rows: BudgetVsActualRow[] = reports.flatMap((r) => r?.rows ?? [])
+  // An account budgeted in one fund's budget is not "unbudgeted" in another's:
+  // drop those stray rows so the same activity isn't listed twice.
+  const budgetedElsewhere = new Set(reports.flatMap((r) => (r?.rows ?? []).filter((x) => !x.unbudgeted).map((x) => x.accountId)))
+  const rows: BudgetVsActualRow[] = reports.flatMap((r) => (r?.rows ?? []).filter((x) => !x.unbudgeted || !budgetedElsewhere.has(x.accountId)))
   return budgetGlance(rows)
 }

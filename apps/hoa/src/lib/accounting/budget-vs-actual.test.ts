@@ -88,6 +88,34 @@ describe('computeBudgetVsActual — actuals through a day', () => {
   })
 })
 
+describe('computeBudgetVsActual — unbudgeted accounts', () => {
+  it('shows spending on an account with no budget line and counts it in the totals', async () => {
+    const t = tables()
+    ;({ db } = cappedFakeDb({
+      ...t,
+      journal_entries: [{ id: 'je-x', association_id: A, fiscal_period_id: FY, status: 'posted', entry_date: '2026-03-01' }],
+      ledger_entries: [
+        { id: 'le-x1', journal_entry_id: 'je-x', account_id: 'pool', debit_amount: 500, credit_amount: 0 },
+        { id: 'le-x2', journal_entry_id: 'je-x', account_id: 'cash', debit_amount: 0, credit_amount: 500 },
+        { id: 'le-x3', journal_entry_id: 'je-x', account_id: 'land', debit_amount: 100, credit_amount: 0 },
+        { id: 'le-x4', journal_entry_id: 'je-x', account_id: 'cash', debit_amount: 0, credit_amount: 100 },
+      ],
+      chart_of_accounts: [
+        { id: 'pool', association_id: A, account_number: '6200', account_name: 'Pool', account_type: 'expense' },
+        { id: 'cash', association_id: A, account_number: '1010', account_name: 'Cash', account_type: 'asset' },
+        { id: 'other', association_id: 'assoc-2', account_number: '6300', account_name: 'Other org', account_type: 'expense' },
+      ],
+    }))
+    const r = await computeBudgetVsActual(A, 'b1')
+    const pool = r!.rows.find((x) => x.accountId === 'pool')
+    expect(pool).toMatchObject({ budgeted: 0, actual: 500, variance: -500, unbudgeted: true })
+    expect(r!.rows.some((x) => x.accountId === 'cash')).toBe(false)
+    expect(r!.totals.actualExpense).toBe(600)
+    expect(r!.totals.budgetedExpense).toBe(24_000)
+    expect(r!.totals.varianceNet).toBe(-96_600)
+  })
+})
+
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
