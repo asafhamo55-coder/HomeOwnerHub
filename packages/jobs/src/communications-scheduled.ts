@@ -34,6 +34,7 @@
 
 import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
+import { reportJobFailures } from './failure-reporting'
 
 /** Most communications one run claims; the next run picks up the rest. */
 export const DISPATCH_BATCH = 20
@@ -56,7 +57,14 @@ export interface ScheduledStore {
   claim(id: string, nowIso: string): Promise<boolean>
   /** Give up on a claimed row the delivery threw on. */
   markFailed(id: string): Promise<void>
+  /** READ-ONLY: ids of rows still 'sending' whose scheduled_for is before
+   *  `beforeIso`. Changes nothing. */
+  listStuck?(beforeIso: string, limit: number): Promise<string[]>
 }
+
+/** A claimed row still 'sending' after this long is stuck (delivery takes seconds). */
+export const STUCK_AFTER_MS = 30 * 60 * 1000
+const STUCK_LIST_CAP = 50
 
 export interface DispatchLogger {
   info: (msg: string, ...rest: unknown[]) => void
@@ -103,7 +111,22 @@ export function supabaseScheduledStore(db: AdminDb): ScheduledStore {
       return (data ?? []).length === 1
     },
     async markFailed(id) {
-      await db.from('communications').update({ status: 'failed' }).eq('id', id).eq('status', 'sending')
+      const { error } = await db.from('communications').update({ status: 'failed' }).eq('id', id).eq('status', 'sending')
+      if (error) throw new Error(`[communications-scheduled] mark failed: ${error.code ?? 'error'}`)
+    },
+    async listStuck(beforeIso, limit) {
+      // scheduled_for, not updated_at: nothing touches updated_at on claim.
+      // Immediate sends have no scheduled_for and are never matched.
+      const { data, error } = await db
+        .from('communications')
+        .select('id')
+        .eq('status', 'sending')
+        .lt('scheduled_for', beforeIso)
+        .is('deleted_at', null)
+        .order('scheduled_for', { ascending: true })
+        .limit(limit)
+      if (error) throw new Error(`[communications-scheduled] list stuck: ${error.code ?? 'error'}`)
+      return ((data ?? []) as Array<{ id: string }>).map((r) => r.id)
     },
   }
 }
@@ -114,10 +137,14 @@ export async function runScheduledDispatch(
   now: Date,
   logger: DispatchLogger,
   step: StepRunner = (_name, fn) => fn(),
+  report: typeof reportJobFailures = reportJobFailures,
 ): Promise<DispatchSummary> {
   const nowIso = now.toISOString()
   const due = await step('list-due', () => store.listDue(nowIso, DISPATCH_BATCH))
   const summary: DispatchSummary = { due: due.length, claimed: 0, delivered: 0, failed: 0 }
+
+  const failedIds: string[] = []
+  const markFailedErrorIds: string[] = []
 
   for (const id of due) {
     const claimed = await step(`claim-${id}`, () => store.claim(id, nowIso))
@@ -127,7 +154,13 @@ export async function runScheduledDispatch(
       try {
         return await deps.deliver(id)
       } catch {
-        await store.markFailed(id)
+        try {
+          await store.markFailed(id)
+        } catch {
+          // The row stays 'sending' and the stuck check will surface it.
+          markFailedErrorIds.push(id)
+          logger.error(`[communications-scheduled] ${id}: could not mark failed`)
+        }
         return { ok: false, error: 'delivery threw' }
       }
     })
@@ -138,7 +171,27 @@ export async function runScheduledDispatch(
       )
     } else {
       summary.failed += 1
+      failedIds.push(id)
       logger.warn(`[communications-scheduled] ${id}: not delivered`)
+    }
+  }
+
+  // Report-only. Never throws, sends nothing, changes no status.
+  if (failedIds.length > 0) {
+    report(
+      'communications-scheduled-dispatch',
+      { failed: failedIds.length, markFailedErrors: markFailedErrorIds.length },
+      failedIds,
+    )
+  }
+  if (store.listStuck) {
+    try {
+      const stuck = await store.listStuck(new Date(now.getTime() - STUCK_AFTER_MS).toISOString(), STUCK_LIST_CAP)
+      if (stuck.length > 0) {
+        report('communications-scheduled-dispatch:stuck-sending', { stuck: stuck.length }, stuck)
+      }
+    } catch {
+      logger.error('[communications-scheduled] stuck check failed')
     }
   }
   return summary

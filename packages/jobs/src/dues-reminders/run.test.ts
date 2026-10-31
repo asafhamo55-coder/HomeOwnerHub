@@ -472,4 +472,35 @@ describe('runDuesReminders — payment plans complete before the plan (BL-080)',
     expect(summary).toMatchObject({ plansCompleted: 0, sent: 1 })
     expect(log.error).toHaveBeenCalledWith(`[dues-reminders] ${ASSOC}: payment plan sweep failed`, { error: 'TypeError' })
   })
+
+  it('reports once (ids and counts only) when a sweep or a run fails; return unchanged', async () => {
+    const { store } = memoryStore({ associations: [enabled(ASSOC)], assessments: [assessment()], ownerships: [OWNER] })
+    store.completePaidOffPlans = async () => {
+      throw new TypeError('x')
+    }
+    const report = vi.fn()
+    const summary = await runDuesReminders(
+      store,
+      deps(),
+      NOW,
+      logger(),
+      async () => {
+        throw new Error('boom')
+      },
+      undefined,
+      report,
+    )
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report.mock.calls[0][2]).toEqual([ASSOC])
+    expect(report.mock.calls[0][1]).toMatchObject({ sweepFailedAssociations: 1, runFailedAssociations: 1 })
+    expect(summary).toMatchObject({ associations: 1, enabled: 1, planned: 0, sent: 0, failed: 0 })
+  })
+
+  it('does not report when nothing failed', async () => {
+    const { store } = memoryStore({ associations: [enabled(ASSOC)], assessments: [assessment()], ownerships: [OWNER] })
+    const report = vi.fn()
+    const summary = await runDuesReminders(store, deps(), NOW, logger(), undefined, undefined, report)
+    expect(report).not.toHaveBeenCalled()
+    expect(summary).toMatchObject({ sent: 1, failed: 0 })
+  })
 })

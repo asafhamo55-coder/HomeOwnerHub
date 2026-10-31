@@ -32,6 +32,7 @@ import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '../association-time'
 import { loadBoardRecipients, type BoardRecipient } from '../daily-digest'
 import { deterministicUuid } from '../deterministic-id'
+import { reportJobFailures } from '../failure-reporting'
 import { isCompleteMonth, previousMonthIn, reportMonthOf, type ReportMonth } from './period'
 import { wantsMonthlyBoardReport } from './prefs'
 
@@ -270,9 +271,11 @@ export async function runMonthlyBoardReport(
   now: Date,
   logger: MonthlyReportLogger,
   runStep: StepRunner,
+  report: typeof reportJobFailures = reportJobFailures,
 ): Promise<CronRunResult> {
   const orgs = await store.loadOrgs()
   const out: CronRunResult = { orgs: orgs.length, sent: 0, skipped: 0, errored: 0 }
+  const erroredIds: string[] = []
   for (const org of orgs) {
     try {
       const res = await runStep(`monthly-board-report-${org.id}`, () =>
@@ -283,9 +286,11 @@ export async function runMonthlyBoardReport(
     } catch (err) {
       // That org's step has used its retries; the others still get theirs.
       out.errored += 1
+      erroredIds.push(org.id)
       logger.error(`[monthly-board-report] ${org.id}: failed`, { name: err instanceof Error ? err.name : 'unknown' })
     }
   }
+  if (erroredIds.length > 0) report('monthly-board-report', { errored: erroredIds.length, orgs: out.orgs }, erroredIds)
   return out
 }
 
