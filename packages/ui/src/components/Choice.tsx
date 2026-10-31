@@ -27,6 +27,14 @@ function useChoiceIds(id: string | undefined, hasDescription: boolean) {
   return { controlId, descriptionId: hasDescription ? `${controlId}-desc` : undefined }
 }
 
+function barePadClass(pad: string) {
+  return pad === '10px'
+    ? 'coarse:-m-[10px] coarse:p-[10px]'
+    : pad === '12px'
+      ? 'coarse:-m-[12px] coarse:p-[12px]'
+      : 'coarse:-m-[13px] coarse:p-[13px]'
+}
+
 function ChoiceRow({
   controlId,
   descriptionId,
@@ -34,6 +42,7 @@ function ChoiceRow({
   description,
   disabled,
   className,
+  barePad = '13px',
   children,
 }: {
   controlId: string
@@ -42,9 +51,14 @@ function ChoiceRow({
   description?: React.ReactNode
   disabled?: boolean
   className?: string
+  /** Coarse-pointer padding that lifts a label-less control to a 44px hit area. */
+  barePad?: string
   children: React.ReactNode
 }) {
-  if (!label) return <>{children}</>
+  // No visible label: a wrapping <label> grows the tap area on touch (padding
+  // offset by negative margin, so layout is unchanged) and forwards the tap
+  // to the control. Desktop renders the same inline box as before.
+  if (!label) return <label className={cn('inline-flex', barePadClass(barePad))}>{children}</label>
   return (
     // On touch the whole row is the target: min 44px tall, and the label's
     // ::after stretches over the row so the gap between box and label (and
@@ -230,6 +244,7 @@ export const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
         label={label}
         description={description}
         disabled={props.disabled}
+        barePad={size === 'sm' ? '12px' : '10px'}
         className={wrapperClassName}
       >
         <span className="relative inline-flex">

@@ -130,14 +130,14 @@ export function TaskList({ tasks, assignees, meetingLabels, today }: TaskListPro
                   </span>
                 )}
 
-                <label className={cn('flex items-center gap-1.5', overdue ? 'text-danger' : 'text-muted')}>
+                <label className={cn('flex items-center gap-1.5 coarse:min-h-11', overdue ? 'text-danger' : 'text-muted')}>
                   <span className="sr-only">Due date of “{task.title}”</span>
                   <input
                     type="date"
                     defaultValue={task.due_date ?? ''}
                     disabled={pending || !open}
                     className={cn(
-                      'num h-8 rounded-md border border-transparent bg-transparent px-1.5 outline-none hover:border-border focus:border-ring focus:ring-2 focus:ring-ring/25',
+                      'num h-8 coarse:h-11 rounded-md border border-transparent bg-transparent px-1.5 outline-none hover:border-border focus:border-ring focus:ring-2 focus:ring-ring/25',
                       overdue ? 'text-danger' : 'text-foreground',
                     )}
                     onBlur={(e) => {

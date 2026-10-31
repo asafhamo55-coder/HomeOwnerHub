@@ -247,14 +247,14 @@ export function ActionItemsSection({ meetingId, items, today }: ActionItemsSecti
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                  <label className="flex items-center gap-1.5 text-muted">
+                  <label className="flex items-center gap-1.5 text-muted coarse:min-h-11">
                     <User2 className="size-4" aria-hidden />
                     <span className="sr-only">Responsible</span>
                     <input
                       type="text"
                       defaultValue={item.assignee_name ?? ''}
                       placeholder="Unassigned"
-                      className="h-8 w-36 rounded-md border border-transparent bg-transparent px-1.5 text-foreground outline-none placeholder:text-muted hover:border-border focus:border-ring focus:ring-2 focus:ring-ring/25"
+                      className="h-8 coarse:h-11 w-36 rounded-md border border-transparent bg-transparent px-1.5 text-foreground outline-none placeholder:text-muted hover:border-border focus:border-ring focus:ring-2 focus:ring-ring/25"
                       onBlur={(e) => {
                         const next = e.currentTarget.value.trim() || null
                         if (next !== item.assignee_name) handleFieldChange(item.id, { assignee_name: next })
@@ -262,13 +262,13 @@ export function ActionItemsSection({ meetingId, items, today }: ActionItemsSecti
                     />
                   </label>
 
-                  <label className={cn('flex items-center gap-1.5', overdue ? 'text-danger' : 'text-muted')}>
+                  <label className={cn('flex items-center gap-1.5 coarse:min-h-11', overdue ? 'text-danger' : 'text-muted')}>
                     <span className="sr-only">Due date</span>
                     <input
                       type="date"
                       defaultValue={item.due_date ?? ''}
                       className={cn(
-                        'num h-8 rounded-md border border-transparent bg-transparent px-1.5 outline-none hover:border-border focus:border-ring focus:ring-2 focus:ring-ring/25',
+                        'num h-8 coarse:h-11 rounded-md border border-transparent bg-transparent px-1.5 outline-none hover:border-border focus:border-ring focus:ring-2 focus:ring-ring/25',
                         overdue ? 'text-danger' : 'text-foreground',
                       )}
                       onBlur={(e) => {
