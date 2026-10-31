@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 ;(globalThis as { React?: typeof React }).React = React
 
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }))
+vi.mock('next/navigation', () => ({ redirect: vi.fn(), useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }))
+vi.mock('@/components/auth/HashSessionHandler', () => ({ HashSessionHandler: () => null }))
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
 }))
