@@ -2046,6 +2046,23 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 22 (2026-10-31, code-verified)
+
+None of these needs a migration or an owner action. Items 3, 4 and 5 touch sending or money, so their behaviour must not change.
+
+1. **BUG: Leases shows "No cap set" when the cap read fails.** `getLeaseCap` returns null on error, so the board can save a new cap over a real one it never saw. Effort 1.
+2. **BUG: the platform audit log and stats show empty or zero when a read fails.** Effort 2.
+3. **BUG: `auth.admin.listUsers()` is called unpaged in 5 places, so it only sees the first page of accounts.** Past about 50 accounts, inviting an existing user fails and member emails go missing. The fix uses a shared lookup helper. It changes no sends. Effort 2.
+4. **BUG (job): new-ticket board notifications fail silently when a read fails.** Throw so the step retries and the failure reaches Sentry. Existing dedupe stops a double notification. Push send. Effort 2.
+5. **Jobs: late-fee and recurring journal entry failures are never reported to Sentry.** Report only. Don't throw, and don't change any amount. Money. Effort 1.
+6. **Documents page summary strip.** Effort 1.
+7. **BL-172 SEO batch 20: Texas violation notice and hearing (§§ 209.006 and 209.007).** Use the unused pr209 fixture. Effort 2.
+8. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped:**
+- No server actions trusting client-supplied ids.
+- Dashboard cards, insurance, documents, motions and the bell are already handled.
+
 ## Ranked open work — round 21 (2026-10-31, code-verified) — Done 2026-10-31 except item 8 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action. Nothing here moves money or sends anything.
