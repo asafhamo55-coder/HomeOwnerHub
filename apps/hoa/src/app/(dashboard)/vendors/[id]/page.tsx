@@ -11,6 +11,7 @@ import {
   EmptyState,
   KeyValue,
   KeyValueList,
+  LoadFailed,
   Page,
   StatusBadge,
   StatusPill,
@@ -51,12 +52,16 @@ export default async function VendorDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const vendor = await getVendor(id)
-  if (!vendor) notFound()
+  const loaded = await getVendor(id)
+  if (!loaded.ok) {
+    if (loaded.reason === 'error') return <LoadFailed what="this vendor" retryHref={`/vendors/${id}`} />
+    notFound()
+  }
+  const { vendor, documentsFailed, complianceFailed } = loaded
 
   const compliance = vendor.compliance
   const status = compliance?.coi_status ?? null
-  const canApprove = status === 'green' && vendor.status === 'prospect'
+  const canApprove = !complianceFailed && status === 'green' && vendor.status === 'prospect'
   const coiDays = daysUntil(compliance?.coi_expiration_date)
   // BL-083: expiring (≤30 days) / expired, on the association's own day.
   // Board/admin only — anyone else gets no draft and no button.
@@ -111,7 +116,7 @@ export default async function VendorDetailPage({
             icon={<FileCheck2 aria-hidden />}
           >
             <Link href={`/vendors/${vendor.id}/compliance`}>
-              {compliance ? 'Re-run compliance' : 'Run compliance check'}
+              {complianceFailed ? 'Open compliance check' : compliance ? 'Re-run compliance' : 'Run compliance check'}
             </Link>
           </Button>
           {canApprove ? <ApproveVendorButton vendorId={vendor.id} vendorName={vendor.legal_name} /> : null}
@@ -145,6 +150,12 @@ export default async function VendorDetailPage({
         </Alert>
       ) : null}
 
+      {complianceFailed ? (
+        <Alert variant="error" title="Couldn’t load insurance status">
+          This vendor’s insurance record did not load, so its certificate status is unknown. Any expired or
+          expiring certificate is not flagged on this page until it loads. Reload to try again.
+        </Alert>
+      ) : null}
       {isVendorIncomplete({ ein: vendor.ein, trades: vendor.trades ?? null }) ? (
         <Alert
           variant="warning"
@@ -216,7 +227,11 @@ export default async function VendorDetailPage({
             <CardTitle as="h2">Compliance</CardTitle>
           </CardHeader>
           <CardContent>
-            {compliance ? (
+            {complianceFailed ? (
+              <p className="text-sm text-danger">
+                Couldn’t load insurance status. Reload to try again.
+              </p>
+            ) : compliance ? (
               <KeyValueList>
                 <KeyValue label="COI carrier" value={compliance.coi_carrier} />
                 <KeyValue label="Policy #" value={compliance.coi_policy_number} />
@@ -298,7 +313,11 @@ export default async function VendorDetailPage({
         >
           <CardTitle as="h2">Documents</CardTitle>
         </CardHeader>
-        {vendor.documents.length > 0 ? (
+        {documentsFailed ? (
+          <CardContent>
+            <p className="text-sm text-danger">Couldn’t load documents. Reload to try again.</p>
+          </CardContent>
+        ) : vendor.documents.length > 0 ? (
           <ul className="divide-y divide-border border-t border-border">
             {vendor.documents.map((d) => (
               <li key={d.id} className="flex items-center gap-3 px-5 py-3 text-sm">

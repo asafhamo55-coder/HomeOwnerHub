@@ -207,12 +207,19 @@ export interface CommunicationDetail extends CommunicationSummary {
   }[]
 }
 
+/** A real miss (`not_found`) is kept apart from a failed read (`error`). */
+export type CommunicationLoad =
+  | { ok: true; communication: CommunicationDetail }
+  | { ok: false; reason: 'not_found' | 'error' }
+
 export async function getCommunication(
   associationId: string,
   commId: string,
-): Promise<CommunicationDetail | null> {
+): Promise<CommunicationLoad> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const res = await loadOrFail(
+    'communication',
+    supabase
     .from('communications')
     .select(
       'id, category, subject, status, channels, audience_summary, scheduled_for, sent_at, created_at, ' +
@@ -224,9 +231,11 @@ export async function getCommunication(
     .eq('association_id', associationId)
     .eq('id', commId)
     .is('deleted_at', null)
-    .maybeSingle()
-
-  if (!data) return null
+    .maybeSingle(),
+  )
+  if (!res.ok) return { ok: false, reason: 'error' }
+  const data = res.data
+  if (!data) return { ok: false, reason: 'not_found' }
 
   type Shape = {
     id: string
@@ -273,7 +282,7 @@ export async function getCommunication(
     { sent: 0, opened: 0, replied: 0, failed: 0, held: 0 },
   )
 
-  return {
+  const communication: CommunicationDetail = {
     id: d.id,
     category: d.category,
     subject: d.subject,
@@ -299,14 +308,20 @@ export async function getCommunication(
     recipients,
     replies: d.replies ?? [],
   }
+  return { ok: true, communication }
 }
+
+/** `{ ok: false }` when saved templates could not be read; never `[]` for a failure. */
+export type TemplatesLoad = { ok: true; templates: CommunicationTemplate[] } | { ok: false }
 
 export async function listTemplates(
   organizationId: string,
   associationId: string,
-): Promise<CommunicationTemplate[]> {
+): Promise<TemplatesLoad> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
+  const res = await loadOrFail(
+    'communication templates',
+    supabase
     .from('communication_templates')
     .select('*')
     // organization_id is nullable as of migration 0044: NULL means a global
@@ -321,8 +336,10 @@ export async function listTemplates(
     // this, org-specific and global rows would interleave by name and read as
     // shuffled once the seven global community templates are visible.
     .order('organization_id', { ascending: true, nullsFirst: false })
-    .order('name')
-  return data ?? []
+    .order('name'),
+  )
+  if (!res.ok) return { ok: false }
+  return { ok: true, templates: res.data ?? [] }
 }
 
 /**

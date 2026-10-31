@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Alert, Page } from '@homeowner-portal/ui'
+import { Alert, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
 import { getVendor } from '@/lib/vendors'
 import { ComplianceForm } from './ComplianceForm'
@@ -15,8 +15,12 @@ export default async function VendorCompliancePage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [vendor, ctx] = await Promise.all([getVendor(id), getCurrentUserRole()])
-  if (!vendor) notFound()
+  const [loaded, ctx] = await Promise.all([getVendor(id), getCurrentUserRole()])
+  if (!loaded.ok) {
+    if (loaded.reason === 'error') return <LoadFailed what="this vendor" retryHref={`/vendors/${id}/compliance`} />
+    notFound()
+  }
+  const { vendor, documentsFailed, complianceFailed } = loaded
 
   // Only board/admin can override the AI compliance grade. Residents
   // shouldn't be in this tree anyway (layout redirects them) but defense
@@ -40,11 +44,23 @@ export default async function VendorCompliancePage({
         reading is available, the upload will fill these fields from the ACORD-25 certificate.
       </Alert>
 
-      <DocumentUploader vendorId={vendor.id} documents={vendor.documents} />
+      {documentsFailed ? (
+        <Alert variant="error" title="Couldn’t load documents">
+          The documents already uploaded for this vendor did not load, so the list below is not shown. Reload
+          to try again.
+        </Alert>
+      ) : null}
+      {complianceFailed ? (
+        <Alert variant="error" title="Couldn’t load insurance status">
+          The current compliance record did not load, so the current grade is not shown. Reload to try again.
+        </Alert>
+      ) : null}
+
+      {documentsFailed ? null : <DocumentUploader vendorId={vendor.id} documents={vendor.documents} />}
 
       <ComplianceForm vendorId={vendor.id} />
 
-      {canOverride ? (
+      {canOverride && !complianceFailed ? (
         <ManualOverrideCard vendorId={vendor.id} currentStatus={vendor.compliance?.coi_status ?? null} />
       ) : null}
     </Page>

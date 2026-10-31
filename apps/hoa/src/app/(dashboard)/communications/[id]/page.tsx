@@ -13,6 +13,7 @@ import {
   EmptyState,
   FilterChips,
   Kpi,
+  LoadFailed,
   Page,
   Pager,
   StatusBadge,
@@ -106,8 +107,12 @@ export default async function CommunicationDetailPage({ params, searchParams }: 
   const sp = await searchParams
   const assoc = await getPrimaryAssociation()
   if (!assoc) notFound()
-  const comm = await getCommunication(assoc.id, id)
-  if (!comm) notFound()
+  const loaded = await getCommunication(assoc.id, id)
+  if (!loaded.ok) {
+    if (loaded.reason === 'error') return <LoadFailed what="this message" retryHref={`/communications/${id}`} />
+    notFound()
+  }
+  const comm = loaded.communication
   // BL-102 A9: a draft has no results; it opens in the composer.
   if (comm.status === 'draft') redirect(draftHref(comm.id))
 

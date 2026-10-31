@@ -103,7 +103,7 @@ export default async function NewCommunicationPage({
   // listPropertyResidents server action. No hard cap: a silent cap hid the
   // 501st property from the picker. The count makes any server-side row
   // limit visible instead.
-  const [templates, propertyRes, audienceCounts, boardRes, streets] = await Promise.all([
+  const [templatesRes, propertyRes, audienceCounts, boardRes, streets] = await Promise.all([
     listTemplates(orgId, assoc.id),
     loadOrFail(
       'properties',
@@ -143,6 +143,8 @@ export default async function NewCommunicationPage({
     )
   }
 
+  const templatesFailed = !templatesRes.ok
+  const templates = templatesRes.ok ? templatesRes.templates : []
   const propertyRows = propertyRes.data ?? []
   const properties = propertyRows.map((p) => ({
     id: p.id as string,
@@ -176,13 +178,16 @@ export default async function NewCommunicationPage({
   const via = parseFollowUpVia(sp.via)
   let followUp: FollowUpDraft | null = null
   let followUpUnavailable = false
+  let followUpFailed = false
   if (!resumeDraft && sp.followUp && UUID_RE.test(sp.followUp) && via) {
-    const original = await getCommunication(assoc.id, sp.followUp)
+    const originalRes = await getCommunication(assoc.id, sp.followUp)
+    followUpFailed = !originalRes.ok && originalRes.reason === 'error'
+    const original = originalRes.ok ? originalRes.communication : null
     followUp =
       original && (via === 'email' || smsConfigured())
         ? buildFollowUpDraft(original, { associationName: assoc.name, via })
         : null
-    followUpUnavailable = followUp === null
+    followUpUnavailable = followUp === null && !followUpFailed
   }
 
   const counts = {
@@ -210,6 +215,18 @@ export default async function NewCommunicationPage({
       {draftMissing ? (
         <Alert variant="warning" title="That draft isn’t here any more">
           It was sent or deleted. You can start a new message below.
+        </Alert>
+      ) : null}
+      {templatesFailed ? (
+        <Alert variant="warning" title="Couldn’t load your saved templates">
+          Your association’s saved templates are missing from the list below because they did not load. The
+          built-in templates are still available. Reload to try again.
+        </Alert>
+      ) : null}
+      {followUpFailed ? (
+        <Alert variant="warning" title="Couldn’t load the original message">
+          The message you are following up on did not load, so no follow-up was prefilled. Reload to try
+          again, or write a new message below.
         </Alert>
       ) : null}
       {followUpUnavailable ? (
