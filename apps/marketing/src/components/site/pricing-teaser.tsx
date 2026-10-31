@@ -140,10 +140,11 @@ export function PricingTeaser() {
                       </li>
                     ))}
                   </ul>
-                  <Link href={SIGN_UP_URL} className={cn('btn mt-7', p.featured ? 'btn-primary' : 'btn-secondary')}>
+                  {/* A plain <a>: sign-up lives in the app, not this site. */}
+                  <a href={SIGN_UP_URL} className={cn('btn mt-7', p.featured ? 'btn-primary' : 'btn-secondary')}>
                     Start free trial
                     <ArrowRight className="h-4 w-4" aria-hidden />
-                  </Link>
+                  </a>
                 </div>
               )
             })}
