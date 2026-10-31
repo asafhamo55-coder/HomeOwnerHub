@@ -213,6 +213,7 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
     { href: '/guides/texas-hoa-resale-certificate-chapter-207', label: 'Texas resale certificate' },
     { href: '/templates/texas-hoa-payment-plan-agreement', label: 'Texas payment plan agreement template' },
     { href: '/guides/texas-hoa-third-party-collections-notice', label: 'Texas notice before collections' },
+    { href: '/guides/texas-hoa-flag-display-rules', label: 'Texas flag display rules' },
   ],
 }
 

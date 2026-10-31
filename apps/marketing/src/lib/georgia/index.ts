@@ -16,6 +16,7 @@ import { GA_ESTOPPEL, TX_RESALE } from './guides-l'
 import { GA_BOARD_POWERS } from './guides-m'
 import { CA_IDR } from './guides-n'
 import { CA_COLLECTIONS, TX_COLLECTIONS } from './guides-o'
+import { GA_BORROW_SUE, TX_FLAGS } from './guides-p'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -38,7 +39,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -271,6 +272,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: pathOf(GA_BOARD_POWERS),
     title: 'What a Georgia HOA board can do under O.C.G.A. § 44-3-231',
     blurb: GA_BOARD_POWERS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_BORROW_SUE.slug,
+    path: pathOf(GA_BORROW_SUE),
+    title: 'Georgia HOA board: what it can borrow, sue over and amend, and what needs owner votes',
+    blurb: GA_BORROW_SUE.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'georgia-hoa-board-resolution-template',
+    path: '/templates/georgia-hoa-board-resolution-template',
+    title: 'Georgia HOA certified board resolution template (printable)',
+    blurb: 'A checklist and a fill-in certified board resolution with fields for the meeting, quorum, motion, vote and secretary certification, and the Georgia text behind each.',
+    kind: 'tool',
+  },
+  {
+    slug: TX_FLAGS.slug,
+    path: pathOf(TX_FLAGS),
+    title: 'Texas HOA flag display: what Property Code 202.012 lets an owner fly',
+    blurb: TX_FLAGS.summary[0]!,
     kind: 'guide',
   },
   {
