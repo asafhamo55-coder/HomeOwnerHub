@@ -506,8 +506,8 @@
     }
     @keyframes reveal-up {
       from {
-        opacity: 0.2;
-        transform: translateY(28px);
+        opacity: 0.85;
+        transform: translateY(20px);
       }
       to {
         opacity: 1;

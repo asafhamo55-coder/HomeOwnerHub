@@ -107,9 +107,9 @@ const barColor: Record<'C' | 'B' | 'A', string> = {
 }
 
 const statusColor: Record<AuditEntry['status'], string> = {
-  completed: 'text-success',
-  'human-gated': 'text-warning',
-  sent: 'text-primary',
+  completed: 'on-dark text-accent',
+  'human-gated': 'on-dark text-foreground',
+  sent: 'on-dark text-primary',
 }
 
 const actorIcon: Record<string, typeof ShieldCheck> = {
@@ -177,10 +177,10 @@ export function AuditLogLive() {
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-success-solid" />
               </span>
               <span className="font-mono text-xs text-background/80">
-                <span className="text-background/40">stream</span> homeownerhub.eventlog
+                <span className="text-background/70">stream</span> homeownerhub.eventlog
               </span>
             </div>
-            <div className="flex items-center gap-3 font-mono text-[11px] text-background/50">
+            <div className="flex items-center gap-3 font-mono text-[11px] text-background/70">
               <span className="hidden sm:inline">{entries.length} entries · last 60s</span>
               <button
                 onClick={() => setPaused((p) => !p)}
@@ -207,19 +207,19 @@ export function AuditLogLive() {
                     transition={{ duration: 0.5 }}
                     className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3"
                   >
-                    <div className="hidden flex-col items-end gap-0.5 font-mono text-[10px] text-background/40 sm:flex">
+                    <div className="hidden flex-col items-end gap-0.5 font-mono text-[10px] text-background/70 sm:flex">
                       <span>{e.ts}</span>
-                      <span className="text-background/30">{e.hash}</span>
+                      <span className="text-background/60">{e.hash}</span>
                     </div>
                     <div className="flex min-w-0 items-center gap-3">
-                      <Icon className="h-4 w-4 shrink-0 text-success/70" />
+                      <Icon className="h-4 w-4 shrink-0 on-dark text-accent" />
                       <div className="min-w-0">
                         <p className="truncate font-mono text-xs text-background/90">
-                          <span className="text-success">{e.actor}</span>
-                          <span className="text-background/40"> · </span>
-                          <span className="text-background/70">{e.action}</span>
+                          <span className="on-dark text-accent">{e.actor}</span>
+                          <span className="text-background/70"> · </span>
+                          <span className="text-background/80">{e.action}</span>
                         </p>
-                        <p className="mt-1 truncate font-mono text-[10px] text-background/40">
+                        <p className="mt-1 truncate font-mono text-[10px] text-background/70">
                           tenant={e.tenant} model={e.model}
                         </p>
                       </div>
@@ -242,7 +242,7 @@ export function AuditLogLive() {
             </AnimatePresence>
           </ul>
 
-          <div className="flex items-center justify-between border-t border-background/10 bg-surface/[0.03] px-5 py-3 font-mono text-[10px] text-background/40">
+          <div className="flex items-center justify-between border-t border-background/10 bg-surface/[0.03] px-5 py-3 font-mono text-[10px] text-background/70">
             <span>per association · readable by its board and admins</span>
             <span className="inline-flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />

@@ -12,13 +12,16 @@ import { SITE_NAME, SITE_ORIGIN } from '@/lib/site'
 // open, friendly proportions of current enterprise-software sites.
 const beVietnam = Be_Vietnam_Pro({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-be-vietnam',
   display: 'swap',
 })
 
-const jetbrainsMono =JetBrains_Mono({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
+  // Only a few components use the mono face: skip the preload so pages that
+  // don't render it never fetch the file.
+  preload: false,
   variable: '--font-jetbrains-mono',
   display: 'swap',
 })
