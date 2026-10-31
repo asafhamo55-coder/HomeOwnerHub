@@ -5,6 +5,7 @@ import {
 } from '@homeowner-portal/db'
 import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import { inngest } from './client'
+import { reportJobFailures } from './failure-reporting'
 import { readAll } from './read-all'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn } from './association-time'
 // BL-147: the board's late-fee policy and the state caps. Dependency-free
@@ -377,51 +378,86 @@ export async function runLateFeesForAssociation(
  *  - logs always carry association context for debugging
  *  - the SELECT only ever pulls one tenant's rows into memory at a time
  */
+export interface LateFeeJobStep {
+  run(id: string, fn: () => Promise<unknown>): Promise<unknown>
+}
+
+export interface LateFeeJobLogger {
+  warn(msg: string): void
+  info(msg: string): void
+  error(msg: string, meta?: unknown): void
+}
+
+export async function runHoaLateFees(
+  db: Db,
+  step: LateFeeJobStep,
+  logger: LateFeeJobLogger,
+  now: Date = new Date(),
+  report: typeof reportJobFailures = reportJobFailures,
+  runForAssociation: typeof runLateFeesForAssociation = runLateFeesForAssociation,
+) {
+  const secret = lateFeeSettingsSecret()
+
+  // All HOA associations — joined to their org so the `hub_type` filter
+  // stays applied even though we're now keyed on association_id.
+  const { data: associations, error } = await db
+    .from('associations')
+    .select(
+      `id, organization_id, governing_law_state, compliance_settings, type, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`,
+    )
+
+  if (error) {
+    logger.error('[hoa-late-fees] failed to load associations', { code: error.code })
+    throw new Error(`hoa-late-fees: associations read failed (${error.code ?? 'no code'})`)
+  }
+
+  const hoaAssocs = (associations ?? []).filter((a) => {
+    const org = a.orgs as { hub_type: string } | null
+    return org?.hub_type === 'hoa'
+  })
+
+  const totals = { evaluated: 0, charged: 0, skipped: 0, capped: 0, notCharged: 0 }
+  const failedIds: string[] = []
+  let readFailed = 0
+  let failedCharges = 0
+
+  for (const assoc of hoaAssocs) {
+    const result = (await step.run(`late-fees-${assoc.id}`, () =>
+      runForAssociation(db, assoc as unknown as LateFeeAssociation, todayIn(associationTimeZone(assoc), now), {
+        secret,
+        log: { warn: (m) => logger.warn(m), info: (m) => logger.info(m) },
+      }),
+    )) as LateFeeRunResult
+    totals.evaluated += result.evaluated
+    totals.charged += result.charged
+    totals.skipped += result.skipped
+    totals.capped += result.capped
+    if (result.status !== 'ran') totals.notCharged += 1
+    // Policy outcomes (no_policy, off, unregistered, ...) are intended; only
+    // a failed read or a failed insert/JE is a failure worth a report.
+    if (result.status === 'read_failed') readFailed += 1
+    failedCharges += result.failed
+    if (result.status === 'read_failed' || result.failed > 0) failedIds.push(assoc.id)
+  }
+
+  // Report-only: counts and association ids, never thrown, nothing re-run.
+  if (failedIds.length > 0) {
+    report(
+      'hoa-late-fees',
+      { associations: hoaAssocs.length, failedAssociations: failedIds.length, readFailed, failedCharges, notCharged: totals.notCharged },
+      failedIds,
+    )
+  }
+
+  return { associations: hoaAssocs.length, ...totals }
+}
+
 export const hoaLateFeeJob = inngest.createFunction(
   { id: 'hoa-late-fees', name: 'HOA Late Fee Calculation' },
   { cron: 'TZ=America/New_York 0 0 * * *' },
   async ({ step, logger }) => {
-    const db = createAdminClient()
     // One instant for the whole run; each association reads its own day
-    // from it (BL-043). The UTC day was right at midnight Eastern only by
-    // accident, and a day early for an association west of Eastern.
-    const now = new Date()
-    const secret = lateFeeSettingsSecret()
-
-    // All HOA associations — joined to their org so the `hub_type` filter
-    // stays applied even though we're now keyed on association_id.
-    const { data: associations, error } = await db
-      .from('associations')
-      .select(
-        `id, organization_id, governing_law_state, compliance_settings, type, ${ASSOCIATION_ZONE_COLUMNS}, orgs:organization_id(hub_type)`,
-      )
-
-    if (error) {
-      logger.error('[hoa-late-fees] failed to load associations', { code: error.code })
-      throw new Error(`hoa-late-fees: associations read failed (${error.code ?? 'no code'})`)
-    }
-
-    const hoaAssocs = (associations ?? []).filter((a) => {
-      const org = a.orgs as { hub_type: string } | null
-      return org?.hub_type === 'hoa'
-    })
-
-    const totals = { evaluated: 0, charged: 0, skipped: 0, capped: 0, notCharged: 0 }
-
-    for (const assoc of hoaAssocs) {
-      const result = await step.run(`late-fees-${assoc.id}`, () =>
-        runLateFeesForAssociation(db, assoc as unknown as LateFeeAssociation, todayIn(associationTimeZone(assoc), now), {
-          secret,
-          log: { warn: (m) => logger.warn(m), info: (m) => logger.info(m) },
-        }),
-      )
-      totals.evaluated += result.evaluated
-      totals.charged += result.charged
-      totals.skipped += result.skipped
-      totals.capped += result.capped
-      if (result.status !== 'ran') totals.notCharged += 1
-    }
-
-    return { associations: hoaAssocs.length, ...totals }
+    // from it (BL-043).
+    return runHoaLateFees(createAdminClient(), step, logger)
   },
 )

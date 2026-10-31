@@ -1,5 +1,6 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
+import { reportJobFailures } from './failure-reporting'
 
 /**
  * At midnight ET each day, walk PM rent ledger rows that are now past due
@@ -13,12 +14,22 @@ import { inngest } from './client'
  * tenant-isolation rationale (per-org steps + scoped reads + scoped
  * updates for defense-in-depth).
  */
-export const pmLateFeeJob = inngest.createFunction(
-  { id: 'pm-late-fees', name: 'PM Late Fee Calculation' },
-  { cron: 'TZ=America/New_York 0 0 * * *' },
-  async ({ step, logger }) => {
-    const db = createAdminClient()
-    const today = new Date().toISOString().slice(0, 10)
+export interface PmLateFeesStep {
+  run(id: string, fn: () => Promise<unknown>): Promise<unknown>
+}
+
+export interface PmLateFeesLogger {
+  warn(msg: string, meta?: unknown): void
+  error(msg: string, meta?: unknown): void
+}
+
+export async function runPmLateFees(
+  db: ReturnType<typeof createAdminClient>,
+  step: PmLateFeesStep,
+  logger: PmLateFeesLogger,
+  report: typeof reportJobFailures = reportJobFailures,
+) {
+  const today = new Date().toISOString().slice(0, 10)
 
     const { data: orgs, error } = await db
       .from('orgs')
@@ -32,11 +43,13 @@ export const pmLateFeeJob = inngest.createFunction(
 
     let totalEvaluated = 0
     let totalUpdated = 0
+    const failedOrgIds: string[] = []
+    let failedUpdates = 0
 
     for (const org of orgs ?? []) {
       const orgId = org.id as string
 
-      const result = await step.run(`pm-late-fees-${orgId}`, async () => {
+      const result = (await step.run(`pm-late-fees-${orgId}`, async () => {
         const { data: rows, error: rowsError } = await db
           .from('pm_rent_ledger')
           .select('id, amount_due, late_fee, late_fee_rate, status')
@@ -49,10 +62,11 @@ export const pmLateFeeJob = inngest.createFunction(
           logger.warn(
             `[pm-late-fees] org ${orgId} read failed: ${rowsError.message}`,
           )
-          return { evaluated: 0, updated: 0 }
+          return { evaluated: 0, updated: 0, readFailed: true, failedUpdates: 0 }
         }
 
         let updated = 0
+        let failedUpdates = 0
         for (const row of rows ?? []) {
           const ratePct = (row.late_fee_rate as number | null) ?? 5
           const computed = Math.round(
@@ -69,16 +83,30 @@ export const pmLateFeeJob = inngest.createFunction(
             logger.warn(
               `[pm-late-fees] org ${orgId} ledger ${row.id} update failed: ${updateError.message}`,
             )
+            failedUpdates += 1
             continue
           }
           updated += 1
         }
 
-        return { evaluated: (rows ?? []).length, updated }
-      })
+        return { evaluated: (rows ?? []).length, updated, readFailed: false, failedUpdates }
+      })) as { evaluated: number; updated: number; readFailed: boolean; failedUpdates: number }
 
       totalEvaluated += result.evaluated
       totalUpdated += result.updated
+      if (result.readFailed || result.failedUpdates > 0) {
+        failedOrgIds.push(orgId)
+        failedUpdates += result.failedUpdates
+      }
+    }
+
+    // Report-only: counts and org ids, never thrown, nothing re-run.
+    if (failedOrgIds.length > 0) {
+      report(
+        'pm-late-fees',
+        { orgs: (orgs ?? []).length, failedOrgs: failedOrgIds.length, failedUpdates, evaluated: totalEvaluated, updated: totalUpdated },
+        failedOrgIds,
+      )
     }
 
     return {
@@ -86,5 +114,10 @@ export const pmLateFeeJob = inngest.createFunction(
       evaluated: totalEvaluated,
       updated: totalUpdated,
     }
-  },
+}
+
+export const pmLateFeeJob = inngest.createFunction(
+  { id: 'pm-late-fees', name: 'PM Late Fee Calculation' },
+  { cron: 'TZ=America/New_York 0 0 * * *' },
+  async ({ step, logger }) => runPmLateFees(createAdminClient(), step, logger),
 )

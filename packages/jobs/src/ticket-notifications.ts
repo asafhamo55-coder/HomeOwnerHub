@@ -139,11 +139,15 @@ export async function runTicketNotifications(
   const { ticketId, organizationId: payloadOrganizationId } = payload
 
   const ticket = (await step.run('load-ticket', async () => {
-    const { data } = await db
+    const { data, error } = await db
       .from('tickets')
       .select('id, subject, category, unit_id, submitted_by, organization_id')
       .eq('id', ticketId)
       .maybeSingle()
+    // A read error is not "ticket not found": throw so Inngest retries the
+    // step and failure-reporting sees it. A genuine miss (no row, no error)
+    // still returns quietly below.
+    if (error) throw new Error(`ticket-notifications: load-ticket read failed (${error.code ?? 'no code'})`)
     return data
   })) as {
     id: string
@@ -170,10 +174,12 @@ export async function runTicketNotifications(
   }
 
   const recipients = (await step.run('resolve-recipients', async () => {
-    const { data } = await db
+    const { data, error } = await db
       .from('org_members')
       .select('user_id, role')
       .eq('org_id', organizationId)
+    // An ignored error used to read as "no board members" and end the job.
+    if (error) throw new Error(`ticket-notifications: resolve-recipients read failed (${error.code ?? 'no code'})`)
     return boardRecipients((data ?? []) as OrgMemberRow[], ticket.submitted_by)
   })) as string[]
   if (recipients.length === 0) return { notified: 0 }
@@ -199,21 +205,27 @@ export async function runTicketNotifications(
 
   // The durable record, written before any push is attempted, so a
   // provider outage costs the OS banner and nothing else.
-  await step.run('write-notifications', async () => {
+  // Returns the users whose row was written by THIS step; only they are
+  // pushed, so a replayed event or a retry never re-pushes someone who was
+  // already told (the push `tag` is a second, OS-level net).
+  const freshUsers = (await step.run('write-notifications', async () => {
     // Dedupe by reading first rather than ON CONFLICT. The unique index
     // guarding this is PARTIAL (`WHERE entity_id IS NOT NULL`), and
     // Postgres infers a partial index for ON CONFLICT only if the
     // statement repeats that predicate — which PostgREST cannot emit. An
     // upsert here fails outright with "no unique or exclusion constraint
     // matching the ON CONFLICT specification".
-    const { data: existing } = await db
+    const { data: existing, error: readErr } = await db
       .from('notifications')
       .select('user_id')
       .eq('kind', 'ticket.created')
       .eq('entity_id', ticket.id)
+    // Without the dedupe read we cannot tell who was already notified, so a
+    // blind insert could double-notify on retry. Throw and retry instead.
+    if (readErr) throw new Error(`ticket-notifications: write-notifications read failed (${readErr.code ?? 'no code'})`)
     const already = new Set(((existing ?? []) as { user_id: string }[]).map((r) => r.user_id))
     const fresh = recipients.filter((userId) => !already.has(userId))
-    if (fresh.length === 0) return
+    if (fresh.length === 0) return [] as string[]
 
     const { error } = await db.from('notifications').insert(
       fresh.map((userId) => ({
@@ -229,14 +241,20 @@ export async function runTicketNotifications(
     )
     // 23505 means a concurrent retry inserted the same rows between the
     // read and the write — the desired end state either way.
+    // Anything else must throw: the push below would otherwise go out for a
+    // notification that was never recorded. On retry the read-before-insert
+    // above skips rows that landed, so a user is never written twice.
     if (error && error.code !== '23505') {
-      logger.warn(`ticket-notifications: notifications insert: ${error.message}`)
+      throw new Error(`ticket-notifications: notifications insert failed (${error.code ?? 'no code'})`)
     }
-  })
+    // On 23505 a concurrent run wrote these rows and owns their push.
+    return error ? ([] as string[]) : fresh
+  })) as string[]
 
   const pushed = (await step.run('send-push', async () => {
+    if (freshUsers.length === 0) return 0
     const { sendPushToUsers } = await import('./web-push')
-    return sendPushToUsers(db, organizationId, recipients, content, logger)
+    return sendPushToUsers(db, organizationId, freshUsers, content, logger)
   })) as number
 
   return { notified: recipients.length, pushed }
