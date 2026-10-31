@@ -225,6 +225,7 @@ export const STATE_GUIDE_LINKS: Readonly<Record<string, readonly { href: string;
     { href: '/guides/texas-hoa-third-party-collections-notice', label: 'Texas notice before collections' },
     { href: '/guides/texas-hoa-flag-display-rules', label: 'Texas flag display rules' },
     { href: '/guides/texas-hoa-violation-notice-and-hearing-209-006', label: 'Texas violation notice and hearing request' },
+    { href: '/guides/texas-hoa-written-ballots-209-0058', label: 'Texas written ballots' },
     { href: '/templates/texas-hoa-violation-notice-checklist', label: 'Texas violation notice checklist' },
   ],
 }

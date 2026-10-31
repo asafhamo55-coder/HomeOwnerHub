@@ -261,3 +261,14 @@ describe('batch 17 pages are in the library', () => {
     }
   })
 })
+
+describe('batch 21 pages are in the library', () => {
+  const page = '/guides/texas-hoa-written-ballots-209-0058'
+
+  it('is in the palette feed, the sitemap and the Texas hub list, with a page file', () => {
+    expect(libraryEntries().map((e) => e.path)).toContain(page)
+    expect(SITEMAP_PATHS).toContain(page)
+    expect(STATE_GUIDE_LINKS.TX!.map((l) => l.href)).toContain(page)
+    expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+  })
+})
