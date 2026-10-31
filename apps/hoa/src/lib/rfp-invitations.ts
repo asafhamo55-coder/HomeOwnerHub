@@ -31,7 +31,18 @@ export interface InvitableVendor {
   status: 'prospect' | 'active' | 'inactive' | 'blacklisted'
   compliance_status: 'green' | 'yellow' | 'red' | 'missing' | null
   already_invited: boolean
+  /** True when the vendor has a primary email, so an invitation can be sent. */
+  has_email: boolean
 }
+
+/**
+ * Returned instead of a list when a read failed. A list would read as
+ * "none", so callers must show a load failure and never build a send list.
+ */
+export interface ReadFailed {
+  loadFailed: true
+}
+const READ_FAILED: ReadFailed = { loadFailed: true }
 
 /**
  * Why one vendor's invitation did not go out. Stable codes only: never a
@@ -71,7 +82,7 @@ function generateToken(): string {
 export async function listInvitableVendors(
   rfpId: string,
   associationId: string,
-): Promise<InvitableVendor[]> {
+): Promise<InvitableVendor[] | ReadFailed> {
   // Board-only page data, but an exported 'use server' function is a
   // public POST endpoint: gate it and org-own the RFP like a write.
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
@@ -80,21 +91,27 @@ export async function listInvitableVendors(
   const org = { id: gate.orgId }
   const supabase = await getSupabaseServerClient()
 
-  const { data: vendorRows } = await supabase
+  const { data: vendorRows, error: vendorErr } = await supabase
     .from('vendors' as never)
-    .select('id, legal_name, trades, status')
+    .select('id, legal_name, trades, status, primary_email')
     .eq('organization_id', org.id)
     .neq('status', 'blacklisted')
     .order('legal_name', { ascending: true })
+  if (vendorErr) {
+    logRouteFailure('rfp-invitations.list_vendors', vendorErr, { orgId: org.id, rfpId })
+    return READ_FAILED
+  }
 
-  const vendors = (vendorRows ?? []) as unknown as Array<
-    Pick<InvitableVendor, 'id' | 'legal_name' | 'trades' | 'status'>
-  >
+  const vendors = (
+    (vendorRows ?? []) as unknown as Array<
+      Pick<InvitableVendor, 'id' | 'legal_name' | 'trades' | 'status'> & { primary_email: string | null }
+    >
+  ).map(({ primary_email, ...v }) => ({ ...v, has_email: !!primary_email?.trim() }))
   if (vendors.length === 0) return []
 
   const vendorIds = vendors.map((v) => v.id)
 
-  const [{ data: complianceRows }, { data: inviteRows }] = await Promise.all([
+  const [{ data: complianceRows, error: complianceErr }, { data: inviteRows, error: inviteErr }] = await Promise.all([
     supabase
       .from('vendor_compliance' as never)
       .select('vendor_id, coi_status')
@@ -106,6 +123,14 @@ export async function listInvitableVendors(
       .eq('rfp_id', rfpId)
       .in('vendor_id', vendorIds),
   ])
+
+  // A failed invitation read would show invited vendors as eligible, so
+  // it fails the whole list. A failed compliance read only loses a badge,
+  // but it is surfaced the same way rather than shown as "missing".
+  if (inviteErr || complianceErr) {
+    logRouteFailure('rfp-invitations.list_vendor_status', (inviteErr ?? complianceErr)!, { orgId: org.id, rfpId })
+    return READ_FAILED
+  }
 
   const complianceByVendor = new Map<string, InvitableVendor['compliance_status']>()
   for (const c of (complianceRows ?? []) as unknown as Array<{
@@ -129,13 +154,13 @@ export async function listInvitableVendors(
 
 export async function listRfpInvitations(
   rfpId: string,
-): Promise<RfpInvitationRow[]> {
+): Promise<RfpInvitationRow[] | ReadFailed> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return []
   if ((await checkOrgOwned('rfps', rfpId, gate.orgId)) !== 'owned') return []
   const supabase = await getSupabaseServerClient()
 
-  const { data: invitations } = await supabase
+  const { data: invitations, error: invitationsErr } = await supabase
     .from('rfp_invitations' as never)
     .select(
       'id, vendor_id, invited_at, acknowledged_at, vendor:vendors(legal_name)',
@@ -143,6 +168,10 @@ export async function listRfpInvitations(
     .eq('rfp_id', rfpId)
     .eq('organization_id', gate.orgId)
     .order('invited_at', { ascending: false })
+  if (invitationsErr) {
+    logRouteFailure('rfp-invitations.list', invitationsErr, { orgId: gate.orgId, rfpId })
+    return READ_FAILED
+  }
 
   const rows = (invitations ?? []) as unknown as Array<{
     id: string
@@ -154,11 +183,16 @@ export async function listRfpInvitations(
   if (rows.length === 0) return []
 
   const vendorIds = Array.from(new Set(rows.map((r) => r.vendor_id)))
-  const { data: bidRows } = await supabase
+  const { data: bidRows, error: bidsErr } = await supabase
     .from('bids' as never)
     .select('vendor_id, status')
     .eq('rfp_id', rfpId)
     .in('vendor_id', vendorIds)
+  // Without bids every row would read "no bid yet" and offer Revoke.
+  if (bidsErr) {
+    logRouteFailure('rfp-invitations.list_bids', bidsErr, { orgId: gate.orgId, rfpId })
+    return READ_FAILED
+  }
   const bidByVendor = new Map<string, string>()
   for (const b of (bidRows ?? []) as unknown as Array<{
     vendor_id: string

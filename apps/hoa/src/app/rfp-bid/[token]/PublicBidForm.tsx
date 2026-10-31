@@ -129,6 +129,7 @@ export function PublicBidForm({ token }: { token: string }) {
               <div className="grid gap-2 sm:grid-cols-4">
                 <div className="sm:col-span-2">
                   <Input
+                    aria-label={`Line ${i + 1} description`}
                     placeholder="Bi-weekly mowing"
                     maxLength={BID_SHORT_TEXT}
                     value={line.description}
@@ -136,12 +137,14 @@ export function PublicBidForm({ token }: { token: string }) {
                   />
                 </div>
                 <Input
+                  aria-label={`Line ${i + 1} quantity`}
                   placeholder="Qty"
                   inputMode="decimal"
                   value={line.quantity}
                   onChange={(e) => updateLine(i, { quantity: e.target.value })}
                 />
                 <Input
+                  aria-label={`Line ${i + 1} unit price`}
                   placeholder="Unit $"
                   inputMode="decimal"
                   value={line.unitPrice}
@@ -151,6 +154,7 @@ export function PublicBidForm({ token }: { token: string }) {
               <div className="mt-2 flex items-start gap-2">
                 <Textarea
                   rows={1}
+                  aria-label={`Line ${i + 1} notes`}
                   placeholder="Notes (optional)"
                   maxLength={BID_LONG_TEXT}
                   value={line.notes}
@@ -162,7 +166,7 @@ export function PublicBidForm({ token }: { token: string }) {
                     variant="outline"
                     size="sm"
                     onClick={() => removeLine(i)}
-                    aria-label="Remove line"
+                    aria-label={`Remove line ${i + 1}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
