@@ -5,8 +5,11 @@ import { AlertTriangle, CheckCircle2, Info, XCircle, X } from 'lucide-react'
 import { cn } from '../lib/cn'
 
 // Lightweight toast system. Bottom-right on desktop, bottom-centre on
-// phones. Each toast auto-dismisses after `duration` ms (paused while
-// hovered or focused) unless the user dismisses it. Use via `useToast()`.
+// phones. Success and info toasts dismiss themselves after 8 seconds
+// (paused while hovered, focused or touched). Errors and warnings stay until
+// the person closes them, because someone reading slowly or on a phone with
+// large text must not lose the one message that says something went wrong.
+// Use via `useToast()`.
 //
 // Toasts confirm an action or report a non-field error. A validation
 // problem belongs next to its field (`Field error=…`), not here.
@@ -20,7 +23,7 @@ export interface ToastOptions {
   title?: string
   /** One inline action, e.g. Undo. */
   action?: { label: string; onClick: () => void }
-  /** ms before auto-dismiss. 0 = sticky. Default 4500 (errors 8000). */
+  /** ms before auto-dismiss. 0 = sticky. Default 8000; errors stay until closed. */
   duration?: number
 }
 
@@ -31,6 +34,17 @@ interface ToastRow {
   title?: string
   action?: ToastOptions['action']
   duration: number
+}
+
+/** Time a success or info toast stays up. Long enough to read at large text sizes. */
+export const TOAST_DEFAULT_MS = 8000
+/** After a finger lifts, keep at least this much time so the reader isn't cut off. */
+export const TOAST_TOUCH_GRACE_MS = 4000
+
+/** Errors (and warnings) are sticky: duration 0 means "until dismissed". */
+export function toastDuration(tone: ToastTone, requested?: number): number {
+  if (requested !== undefined) return requested
+  return tone === 'error' || tone === 'warning' ? 0 : TOAST_DEFAULT_MS
 }
 
 const ToastCtx = React.createContext<((opts: ToastOptions) => void) | null>(null)
@@ -70,7 +84,7 @@ export function ToastProvider({
       tone,
       title: opts.title,
       action: opts.action,
-      duration: opts.duration ?? (tone === 'error' ? 8000 : 4500),
+      duration: toastDuration(tone, opts.duration),
     }
     // Cap the stack so a loop cannot bury the page.
     setToasts((rows) => [...rows.slice(-3), row])
@@ -124,6 +138,12 @@ function ToastBody({ toast, onDismiss }: { toast: ToastRow; onDismiss: () => voi
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => {
+        remaining.current = Math.max(remaining.current, TOAST_TOUCH_GRACE_MS)
+        setPaused(false)
+      }}
+      onTouchCancel={() => setPaused(false)}
       className="pointer-events-auto flex w-full max-w-sm animate-slide-up items-start gap-3 rounded-xl border border-border bg-elevated px-4 py-3 text-foreground shadow-lg"
     >
       <Icon className={cn('mt-0.5 size-[18px] shrink-0', ICON_COLOR[toast.tone])} aria-hidden />

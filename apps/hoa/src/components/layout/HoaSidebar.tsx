@@ -56,6 +56,7 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges
   return (
     <>
       <SidebarBrand
+        href="/"
         logo={<BrandMark className="size-8 rounded-lg shadow-xs" />}
       >
         <div className="min-w-0 flex-1 leading-tight">

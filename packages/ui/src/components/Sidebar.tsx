@@ -15,12 +15,15 @@ import { Tooltip } from './Tooltip'
 export function SidebarBrand({
   children,
   logo,
+  href,
   className,
 }: {
   /** Name / org switcher. Hidden when the sidebar is a rail. */
   children: React.ReactNode
   /** Square mark shown in both expanded and rail modes. */
   logo?: React.ReactNode
+  /** When set, the logo is a link with this destination, named "Home". */
+  href?: string
   className?: string
 }) {
   return (
@@ -31,7 +34,22 @@ export function SidebarBrand({
         className,
       )}
     >
-      {logo ? <div className="shrink-0">{logo}</div> : null}
+      {logo ? (
+        <div className="shrink-0">
+          {href ? (
+            <a
+              href={href}
+              aria-label="Home"
+              title="Home"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {logo}
+            </a>
+          ) : (
+            logo
+          )}
+        </div>
+      ) : null}
       <div className={cn('flex min-w-0 flex-1 items-center gap-2.5', logo && 'md:in-rail:hidden')}>{children}</div>
     </div>
   )

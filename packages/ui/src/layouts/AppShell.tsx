@@ -248,11 +248,12 @@ export function AppShellHeader({
       <button
         type="button"
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="inline-flex size-11 items-center justify-center rounded-md text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
-        aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
+        className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium text-foreground-secondary hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+        aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         aria-expanded={mobileOpen}
       >
         <Menu className="size-5" aria-hidden />
+        <span>{mobileOpen ? 'Close' : 'Menu'}</span>
       </button>
       {children}
     </header>

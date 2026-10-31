@@ -111,10 +111,10 @@ export function HelpDrawer({ data, variant = 'board' }: { data: DrawerData; vari
             type="button"
             aria-label="Help for this page"
             title="Help for this page (?)"
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-foreground-secondary transition-colors duration-fast hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm coarse:min-h-11 font-medium text-foreground-secondary transition-colors duration-fast hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <CircleHelp className="size-4 shrink-0" aria-hidden />
-            <span className="hidden bar-lg:inline">Help</span>
+            <span>Help</span>
           </button>
         )}
       </SheetTrigger>
