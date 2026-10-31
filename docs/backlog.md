@@ -2046,6 +2046,21 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 24 (2026-10-31, code-verified): a new board's first week
+
+None of these needs a migration or an owner action. Item 2 changes money display only. Item 4 is a read-only count, and the send path is unchanged.
+
+1. **BUG: an expired or already-used email link lands on a bare sign-in page.** Read `?error=` and offer a new reset link or account creation. Also check whether owner invites arrive as a code or hash tokens. Effort 1.
+2. **First dues run: preview homes x amount = total and the due date before posting.** Drop the hard-coded $250 default. Effort 2.
+3. **Roster import "Import finished": add next steps.** Invite owners, generate dues, send the first announcement. Effort 1.
+4. **First announcement: say up front when no home is reachable** (no email or phone on file). Effort 2.
+5. **New violation: fix the "No parsed CC&Rs" copy and link, and stop showing it on a failed read.** Effort 1.
+6. **Offline page: Retry reloads the current page instead of going to /.** Effort 1.
+7. **BL-172 SEO batch 22: does Georgia's POA Act apply to your HOA (§§ 44-3-222, 234, 235)?** Quote the 2026 version only. Effort 2.
+8. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped (sound):** impersonation, the password reset form, onboarding and join, the setup checklist.
+
 ## Ranked open work — round 23 (2026-10-31, code-verified) — Done 2026-10-31 except item 7 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action. Items 3 and 4 touch sends, but are report-only with no change in behaviour.
