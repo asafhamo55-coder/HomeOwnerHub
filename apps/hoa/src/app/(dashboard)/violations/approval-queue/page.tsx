@@ -34,6 +34,7 @@ import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { orgPhotoPaths } from '@/lib/violation-photo-paths'
 import { FOLLOW_UP_AWAITING_SAVE_PATH, followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
 import { formatDateTime } from '@/lib/format-datetime'
+import { usd } from '@/lib/money/format'
 
 export const metadata = { title: 'Violation Approval Queue' }
 export const dynamic = 'force-dynamic'
@@ -191,7 +192,7 @@ function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) 
   const severity = output.recommendedSeverity ?? 'low'
   const fineDollars =
     typeof output.recommendedFineAmountCents === 'number'
-      ? `$${(output.recommendedFineAmountCents / 100).toFixed(0)}/day`
+      ? `${usd(output.recommendedFineAmountCents / 100)} a day`
       : null
   const cureDays =
     typeof output.recommendedCurePeriodDays === 'number' ? `${output.recommendedCurePeriodDays} days` : null

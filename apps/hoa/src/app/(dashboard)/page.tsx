@@ -74,6 +74,7 @@ import { nudgeDigestLine } from '@/lib/announcements/nudge'
 import { LateFeePromptCard } from '@/components/dashboard/LateFeePromptCard'
 import { lateFeePrompt, lateFeePromptDismissedCookie } from '@/lib/late-fees/dashboard-prompt'
 import { paySettingsSecret } from '@/lib/pay-by-zelle'
+import { usd as fmtUsd } from '@/lib/money/format'
 
 export const metadata = { title: 'Dashboard' }
 
@@ -93,7 +94,7 @@ const serverDateLabel = new Date().toLocaleDateString(undefined, {
   day: 'numeric',
 })
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`
+const usd = (n: number) => fmtUsd(n, { whole: true })
 
 export default async function DashboardHome() {
   const org = await getCurrentOrg()

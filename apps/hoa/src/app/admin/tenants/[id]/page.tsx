@@ -18,10 +18,11 @@ import { getTenantDetail } from '@/lib/platform-admin'
 import { TenantStatusPill, planLabel } from '../../_components/tenant-status'
 import { TenantActions } from './TenantActions'
 import { formatShortDate } from '@/lib/format-datetime'
+import { usd as fmtUsd } from '@/lib/money/format'
 
 export const metadata = { title: 'Tenant' }
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString()}`
+const usd = (n: number) => fmtUsd(n, { whole: true })
 
 export default async function TenantDetailPage({
   params,

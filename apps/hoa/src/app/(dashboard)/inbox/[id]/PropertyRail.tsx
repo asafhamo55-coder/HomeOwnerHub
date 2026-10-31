@@ -10,6 +10,7 @@ import { formatShortDate } from '@/lib/format-datetime'
 import type { ThreadRailContext } from '@/lib/inbox/thread-context'
 import { MoneyCard, SenderLine, ViolationList } from './ContextSections'
 import { filedByLine, matchRuleLabel } from '@/lib/inbox/match-label'
+import { usd } from '@/lib/money/format'
 
 interface Props {
   thread: ThreadDetail
@@ -143,7 +144,7 @@ export function PropertyRail({ thread, context, contextLoadFailed, suggestedProp
                 context.duesBalance > 0 ? (
                   <StatusPill
                     tone="danger"
-                    label={`$${context.duesBalance.toFixed(2)}${
+                    label={`${usd(context.duesBalance)}${
                       context.duesOverdueCount > 0 ? ` · ${context.duesOverdueCount} overdue` : ''
                     }`}
                   />

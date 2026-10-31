@@ -23,6 +23,7 @@ import { logRouteFailure } from '@/lib/api/log'
 import { requireAiQuota } from '@/lib/api/rate-limit'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { AI_ELIGIBLE_DOCUMENT_FILTER } from '@/lib/documents-rules'
+import { usd } from '@/lib/money/format'
 
 const ROUTE = 'ai.analyze-violation'
 const PHOTO_BUCKET = 'hoa-photos'
@@ -64,7 +65,7 @@ function isOrgPhotoPath(path: string, orgId: string): boolean {
 }
 
 function dollars(cents: number): string {
-  return (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)
+  return usd(cents / 100, { whole: cents % 100 === 0 })
 }
 
 // The wizard's heavy lift. Three independent AI calls, each wrapped so that
@@ -233,7 +234,7 @@ export const POST = withRoute(ROUTE, async (request: Request) => {
         body.fineAmountCents > rules.fineCapCents
       ) {
         warnings.push(
-          `California caps a fine at $100 per violation unless the board makes a written health or safety finding at an open meeting. Lower the $${dollars(body.fineAmountCents)} fine or record that finding first — verify against the statute.`,
+          `California caps a fine at $100 per violation unless the board makes a written health or safety finding at an open meeting. Lower the ${dollars(body.fineAmountCents)} fine or record that finding first — verify against the statute.`,
         )
       }
     } catch (err) {
