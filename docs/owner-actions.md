@@ -41,6 +41,28 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-42 · Online dues payments: five decisions, then Stripe Connect
+
+**Urgency:** Soon. This is the main PayHOA gap.
+
+**Why it matters:** residents can't pay dues online by card or bank transfer yet, and that is PayHOA's core feature. The full design is in docs/decisions/2026-10-31-online-dues-payments-design.md. Each HOA connects its own Stripe account, so money goes straight to the HOA's bank and never through ours.
+
+**Decide (reply to Claude with your choices):**
+
+1. **Who pays the fee by default.** Recommended: the HOA pays for bank transfers, and the homeowner pays for cards.
+2. **Bank transfer fee.** Either a flat $2.45 (the same as PayHOA, but we lose money on payments above about $306), or $2.45 rising to at most $5.45 on large payments.
+3. **Card fee.** Recommended: 3.0% + $0.50 until a lawyer confirms surcharge rules. 3.5% may exceed Visa's cap.
+4. **Our share on refunds.** Whether our share of the fee is returned when a payment is refunded.
+5. **Returned payment fee.** The default charge when a bank transfer bounces.
+
+**Then:**
+
+- Have a lawyer review card surcharge rules, the autopay wording, and our position as a platform rather than a money transmitter.
+- Finish OA-40 (payout bank).
+- Turn on Stripe Connect in the dashboard and add the Connect webhook.
+- Apply migrations/0073_online_payments.sql. Claude will send it to you when the code is ready.
+- Make one $1 live test.
+
 ### OA-41 · Make the invite email clear and the link last longer (Supabase dashboard)
 
 **Urgency:** Soon
