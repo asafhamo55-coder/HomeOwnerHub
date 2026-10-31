@@ -379,7 +379,7 @@ function WhatYouGet() {
           <h2 id="what-you-get-h" className="text-xl font-semibold tracking-tight text-foreground">
             What you get
           </h2>
-          <Link href="/#product-tour" className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-primary hover:underline">
+          <Link href="/#features" className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold text-primary hover:underline">
             See the full tour
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
@@ -387,7 +387,7 @@ function WhatYouGet() {
         <ul className="mt-4 grid gap-5 md:grid-cols-3">
           {WHAT_YOU_GET.map((w) => (
             <li key={w.title} className="min-w-0">
-              <Link href="/#product-tour" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <Link href="/#features" className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                 <div aria-hidden className="pointer-events-none h-[190px] w-full overflow-hidden rounded-xl border border-border/70 bg-subtle/60">
                   <div className="w-[640px] origin-top-left scale-50">{w.screen}</div>
                 </div>

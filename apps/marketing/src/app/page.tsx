@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { Hero } from '@/components/site/hero'
-import { Pillars } from '@/components/site/pillars'
-import { ProductTour } from '@/components/site/product-tour'
-import { HowItWorks } from '@/components/site/how-it-works'
+import { FeatureExplorer } from '@/components/site/feature-explorer'
+import { UpAndRunning } from '@/components/site/up-and-running'
 import { StateLawBuiltIn } from '@/components/site/state-law-built-in'
 import { TrustSecurity } from '@/components/site/trust-security'
 import { PricingTeaser } from '@/components/site/pricing-teaser'
@@ -24,18 +23,18 @@ export const metadata: Metadata = {
 }
 
 // Section order is a product decision (docs/decisions/2026-10-27-website-
-// product-first-positioning.md): the workspace leads, state law is ONE
-// section after "how it works", then trust, pricing and the closing CTA.
-// marketing-truth.test.ts pins this order.
+// product-first-positioning.md, revised by 2026-10-31-website-payhoa-
+// quality-bar.md): the workspace leads, then the feature explorer, a 3-step
+// start, ONE state-law section, trust, pricing slider, FAQ and the closing
+// CTA. marketing-truth.test.ts pins this order.
 export default function HomePage() {
   return (
     <>
       <Nav />
     <main id="main-content">
       <Hero />
-      <Pillars />
-      <ProductTour />
-      <HowItWorks />
+      <FeatureExplorer />
+      <UpAndRunning />
       <StateLawBuiltIn />
       <TrustSecurity />
       <PricingTeaser />

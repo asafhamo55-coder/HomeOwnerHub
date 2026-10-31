@@ -137,8 +137,8 @@ describe('every page that shows an HOA price derives it from hoa-pricing', () =>
     expect(read(rel)).toMatch(/from '@\/lib\/hoa-pricing'/)
   })
 
-  it('the homepage teaser and /pricing render the same plan list', () => {
-    expect(read(pages.teaser)).toMatch(/HOA_PLANS/)
+  it('the homepage slider prices from the same band functions /pricing mirrors', () => {
+    expect(read(pages.teaser)).toMatch(/bandMonthlyUsd/)
     expect(read(pages.pricing)).toMatch(/HOA_PLANS/)
   })
 

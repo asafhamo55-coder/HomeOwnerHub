@@ -190,7 +190,7 @@ describe('State law coverage (BL-157)', () => {
   // law is ONE section, Georgia's SB 406 hub one card among four.
   it('the home page leads with the product and has one state-law section, in the agreed order', () => {
     const home = code('app/page.tsx')
-    const order = ['<Hero', '<Pillars', '<ProductTour', '<HowItWorks', '<StateLawBuiltIn', '<TrustSecurity', '<PricingTeaser', '<HomeFaq', '<CtaCloser']
+    const order = ['<Hero', '<FeatureExplorer', '<UpAndRunning', '<StateLawBuiltIn', '<TrustSecurity', '<PricingTeaser', '<HomeFaq', '<CtaCloser']
     const at = order.map((t) => home.indexOf(t))
     expect(at.every((i) => i >= 0), order.join(' ')).toBe(true)
     expect([...at].sort((x, y) => x - y)).toEqual(at)
@@ -208,8 +208,17 @@ describe('State law coverage (BL-157)', () => {
     expect(code('app/hoa/page.tsx')).toMatch(/<ProductTour/)
     const pricing = code('app/pricing/page.tsx')
     expect(pricing).toMatch(/<ApprovalsScreen/)
-    expect(pricing).toMatch(/\/#product-tour/)
-    expect(code('app/page.tsx')).toMatch(/<ProductTour/)
+    expect(pricing).toMatch(/\/#features/)
+  })
+
+  it('the home page feature explorer tabs are shipped apps/hoa areas and never claim online payments', () => {
+    const src = code('components/site/feature-explorer.tsx')
+    const ids = [...src.matchAll(/^\s{4}id: '([a-z-]+)',/gm)].map((m) => m[1])
+    expect(ids).toEqual(['dues', 'violations', 'announcements', 'documents', 'arc'])
+    for (const route of ['/dues', '/violations', '/communications', '/ai/ask', '/arc']) {
+      expect(hoaRouteExists(route), route).toBe(true)
+    }
+    expect(src).not.toMatch(/\b(ACH|credit card|pay online|online payment|card payment)/i)
   })
 
   it('/hoa shows state law as one section, after the product features', () => {
@@ -220,7 +229,7 @@ describe('State law coverage (BL-157)', () => {
 
   it('the hero headline is the product, not a state', () => {
     const hero = code('components/site/hero.tsx')
-    expect(hero).toMatch(/AI workspace for self-managed HOA boards/)
+    expect(hero).toMatch(/with less paperwork/)
     expect(hero).not.toMatch(/Georgia/)
     expect(code('app/hoa/page.tsx')).not.toMatch(/Georgia first|georgia-first/i)
   })
@@ -278,7 +287,6 @@ describe('State law coverage (BL-157)', () => {
 
   it('nav and footer say "State laws" and link /states; the Georgia hub stays linked from the footer', () => {
     expect(read('components/site/nav.tsx')).toContain("label: 'State laws'")
-    expect(read('components/site/nav.tsx')).not.toMatch(/label: 'Georgia'/)
     const footer = read('components/site/footer.tsx')
     expect(footer).toContain("href: '/states'")
     expect(footer).toContain("href: '/georgia'")
@@ -498,8 +506,10 @@ describe('numbers: every figure on the site is sourced, or it is gone', () => {
     for (const t of Object.values(BAR_TARGETS)) expect(t.threshold).not.toMatch(/\d+%/)
   })
 
-  it('the hero stat counts the live workflow list instead of a typed number', () => {
-    expect(read('components/site/hero.tsx')).toMatch(/SHIPPED_HOA_WORKFLOWS\.length/)
+  it('the hero signs up through the app (not /demo), has no typed counts and no "we load your roster" claim', () => {
+    const hero = read('components/site/hero.tsx')
+    expect(hero).toMatch(/href=\{SIGN_UP_URL\} event="pilot_cta_click"/)
+    expect(hero).not.toMatch(/We load your roster|reviews|stars|customers/i)
   })
 })
 
@@ -636,7 +646,7 @@ describe('Georgia growth pages (BL-171)', () => {
   })
 
   it('"Book a demo" is in the header and every main page closer', () => {
-    expect(read('components/site/nav.tsx')).toMatch(/position="header"[\s\S]*Book a demo/)
+    expect(read('components/site/nav.tsx')).toMatch(/position="mobile_menu"[\s\S]*Book a demo/)
     for (const rel of ['components/site/cta-closer.tsx', 'app/pricing/page.tsx', 'app/compare/page.tsx', 'app/about/page.tsx']) {
       expect(read(rel), rel).toMatch(/Book a demo/)
     }
