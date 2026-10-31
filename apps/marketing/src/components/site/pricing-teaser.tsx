@@ -71,13 +71,13 @@ export function PricingTeaser() {
             </p>
           </div>
 
-          <div className="mx-auto mt-10 max-w-3xl rounded-2xl bg-white/10 p-5 sm:p-6">
+          <div className="mx-auto mt-10 max-w-3xl rounded-2xl bg-[rgb(255_255_255/0.1)] p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <label htmlFor={`${uid}-homes`} className="text-lg font-semibold text-foreground">
                 <span className="tabular-nums">{homes}</span> homes
                 <span className="ml-3 text-base font-normal text-muted">{bandLabel(homes)}</span>
               </label>
-              <div role="group" aria-label="Billing period" className="inline-flex rounded-xl bg-white/10 p-1">
+              <div role="group" aria-label="Billing period" className="inline-flex rounded-xl bg-[rgb(255_255_255/0.1)] p-1">
                 {[
                   { y: false, label: 'Monthly' },
                   { y: true, label: 'Yearly' },
@@ -89,7 +89,7 @@ export function PricingTeaser() {
                     onClick={() => setYearly(o.y)}
                     className={cn(
                       'min-h-[44px] rounded-lg px-4 text-base font-semibold transition-colors',
-                      yearly === o.y ? 'bg-white text-[#3b1ab5]' : 'text-foreground hover:bg-white/10',
+                      yearly === o.y ? 'bg-[#fff] text-[#3b1ab5]' : 'text-foreground hover:bg-[rgb(255_255_255/0.1)]',
                     )}
                   >
                     {o.label}
