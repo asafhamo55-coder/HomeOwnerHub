@@ -8,6 +8,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
 import { getResidentActor, IMPERSONATION_READONLY_MSG } from '@/lib/impersonation'
 import { loadOrFail, type LoadResult } from '@/lib/load-or-fail'
+import { residentActionFailed } from '@/lib/resident-action-error'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
@@ -216,7 +217,7 @@ export async function createTicket(
     .single<{ id: string }>()
 
   if (error || !row) {
-    return { ok: false, error: error?.message ?? 'Could not create ticket.' }
+    return residentActionFailed('createTicket', error)
   }
 
   // Tell the board. Deliberately after the insert and deliberately
@@ -277,7 +278,7 @@ export async function addTicketMessage(
       internal: false,
     } as never)
 
-  if (error) return { ok: false, error: error.message }
+  if (error) return residentActionFailed('addTicketMessage', error)
 
   revalidatePath(`/resident/tickets/${ticketId}`)
   revalidatePath(`/tickets/${ticketId}`)

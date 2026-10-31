@@ -8,6 +8,7 @@ import { AiRewriteButton } from '@/components/ai/AiRewriteButton'
 import { createTicket, type TicketCategory } from '@/lib/resident-tickets'
 import type { ResidentUnit } from '@/lib/resident'
 import { trackEvent } from '@/lib/analytics/track'
+import { TICKET_DESCRIPTION_HINT, TICKET_PHOTO_HINT, TICKET_SENT_TOAST } from './ticket-copy'
 
 const CATEGORIES: Array<{ value: TicketCategory; label: string }> = [
   { value: 'maintenance', label: 'Maintenance request' },
@@ -57,7 +58,7 @@ export function CreateTicketForm({
         return
       }
       trackEvent('resident.request_submitted', { type: 'ticket' })
-      toast({ tone: 'success', message: 'Request sent. The board will reply here.' })
+      toast({ tone: 'success', message: TICKET_SENT_TOAST })
       router.push(`/resident/tickets/${result.data.ticketId}`)
     })
   }
@@ -100,7 +101,7 @@ export function CreateTicketForm({
         label="Description"
         required
         error={fieldErrors.description}
-        hint="Include dates, locations and anything the board needs to act. At least 20 characters."
+        hint={`${TICKET_DESCRIPTION_HINT} ${TICKET_PHOTO_HINT}`}
         labelAside={
           <AiRewriteButton
             textareaRef={descRef}

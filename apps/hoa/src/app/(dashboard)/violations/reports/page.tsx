@@ -120,7 +120,7 @@ export default async function ViolationReportsListPage({
     <Page
       title="Violations"
       width="wide"
-      description="Concerns residents submitted from their portal. You see who reported; per Policy §12.03, never share it with other residents."
+      description="Concerns residents submitted from their portal. You see who reported. Residents were told their identity is kept confidential where possible, so don't share it with other residents."
       linkAs={Link}
       tabs={<Tabs items={violationTabs('/violations/reports')} aria-label="Violation sections" linkAs={Link} />}
     >
