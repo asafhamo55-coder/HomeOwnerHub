@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Send, UserCheck } from 'lucide-react'
 import {
@@ -11,6 +12,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  LoadFailed,
   StatusBadge,
   StatusPill,
   cn,
@@ -27,6 +29,7 @@ import {
   complianceKey,
 } from '@/lib/status/vendors'
 import { tradesLabel } from '@/components/vendors/format'
+import { bucketVendors } from '@/lib/rfp-invitation-view'
 import {
   inviteVendorsToRfp,
   revokeRfpInvitation,
@@ -47,9 +50,19 @@ interface Props {
   rfpId: string
   invitableVendors: InvitableVendor[]
   invitations: RfpInvitationRow[]
+  /** The vendor read failed: show a load failure, never a send list. */
+  vendorsFailed?: boolean
+  /** The invitation read failed: show a load failure, never "none yet". */
+  invitationsFailed?: boolean
 }
 
-export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Props) {
+export function InviteVendorsPanel({
+  rfpId,
+  invitableVendors,
+  invitations,
+  vendorsFailed = false,
+  invitationsFailed = false,
+}: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -63,9 +76,9 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
   const vendorName = (id: string) =>
     invitableVendors.find((v) => v.id === id)?.legal_name ?? 'Vendor'
 
-  const eligible = useMemo(
-    () => invitableVendors.filter((v) => !v.already_invited),
-    [invitableVendors],
+  const { eligible, noEmail, emptyReason } = useMemo(
+    () => bucketVendors(vendorsFailed ? [] : invitableVendors),
+    [invitableVendors, vendorsFailed],
   )
 
   function toggle(id: string) {
@@ -106,10 +119,14 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {eligible.length === 0 ? (
-            <p className="text-sm text-muted">
-              All vendors are already invited or none are eligible.
-            </p>
+          {vendorsFailed ? (
+            <LoadFailed what="your vendors" retryHref={`/rfps/${rfpId}`} />
+          ) : eligible.length === 0 ? (
+            <EmptyReason
+              reason={emptyReason}
+              total={invitableVendors.length}
+              noEmail={noEmail}
+            />
           ) : (
             <ul className="max-h-96 space-y-1 overflow-y-auto">
               {eligible.map((v) => {
@@ -148,6 +165,9 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
               })}
             </ul>
           )}
+          {!vendorsFailed && eligible.length > 0 && noEmail.length > 0 ? (
+            <NoEmailNote vendors={noEmail} />
+          ) : null}
 
           {error ? (
             <Alert variant="error" title="Couldn’t send invitations">
@@ -178,7 +198,7 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
               variant="secondary"
               onClick={handleInvite}
               loading={isPending}
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || vendorsFailed}
               icon={<Send aria-hidden />}
             >
               {selected.size > 0 ? `Send ${selected.size} ${selected.size === 1 ? 'invite' : 'invites'}` : 'Send invites'}
@@ -190,10 +210,14 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
       <Card>
         <CardHeader className="pb-3">
           <CardTitle as="h2">Invitations sent</CardTitle>
-          <CardDescription className="num">{invitations.length} sent</CardDescription>
+          {invitationsFailed ? null : (
+            <CardDescription className="num">{invitations.length} sent</CardDescription>
+          )}
         </CardHeader>
         <CardContent>
-          {invitations.length === 0 ? (
+          {invitationsFailed ? (
+            <LoadFailed what="the invitations" retryHref={`/rfps/${rfpId}`} />
+          ) : invitations.length === 0 ? (
             <p className="text-sm text-muted">
               No invitations yet. Pick vendors and send.
             </p>
@@ -207,6 +231,49 @@ export function InviteVendorsPanel({ rfpId, invitableVendors, invitations }: Pro
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function NoEmailNote({ vendors }: { vendors: Array<{ id: string; legal_name: string }> }) {
+  return (
+    <p className="text-sm text-muted">
+      These vendors have no email on file:{' '}
+      {vendors.map((v, i) => (
+        <span key={v.id}>
+          {i > 0 ? ', ' : ''}
+          <Link href={`/vendors/${v.id}/edit`} className="font-medium text-primary underline">
+            {v.legal_name}
+          </Link>
+        </span>
+      ))}
+    </p>
+  )
+}
+
+function EmptyReason({
+  reason,
+  total,
+  noEmail,
+}: {
+  reason: ReturnType<typeof bucketVendors>['emptyReason']
+  total: number
+  noEmail: Array<{ id: string; legal_name: string }>
+}) {
+  if (reason === 'no_vendors') {
+    return (
+      <p className="text-sm text-muted">
+        You haven’t added any vendors yet.{' '}
+        <Link href="/vendors" className="font-medium text-primary underline">
+          Go to vendors
+        </Link>
+      </p>
+    )
+  }
+  if (reason === 'missing_email') return <NoEmailNote vendors={noEmail} />
+  return (
+    <p className="text-sm text-muted">
+      All {total} {total === 1 ? 'vendor is' : 'vendors are'} invited.
+    </p>
   )
 }
 

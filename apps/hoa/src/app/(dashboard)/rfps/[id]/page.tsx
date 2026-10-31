@@ -17,6 +17,7 @@ import { getRfp } from '@/lib/rfps'
 import { RFP_STATUS_LABELS, RFP_STATUS_TONES } from '@/lib/status/vendors'
 import { formatBudget } from '@/components/vendors/format'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { isReadFailed } from '@/lib/rfp-invitation-view'
 import {
   listInvitableVendors,
   listRfpInvitations,
@@ -48,12 +49,16 @@ export default async function RfpDetailPage({
     : []
 
   const association = isOpen ? await getPrimaryAssociation() : null
-  const [invitableVendors, invitations] = isOpen && association
+  const [vendorsRead, invitationsRead] = isOpen && association
     ? await Promise.all([
         listInvitableVendors(rfp.id, association.id),
         listRfpInvitations(rfp.id),
       ])
     : [[], []]
+  const vendorsFailed = isReadFailed(vendorsRead)
+  const invitationsFailed = isReadFailed(invitationsRead)
+  const invitableVendors = isReadFailed(vendorsRead) ? [] : vendorsRead
+  const invitations = isReadFailed(invitationsRead) ? [] : invitationsRead
 
   const budget = formatBudget(rfp.budget_min, rfp.budget_max)
 
@@ -118,7 +123,13 @@ export default async function RfpDetailPage({
       )}
 
       {isOpen ? (
-        <InviteVendorsPanel rfpId={rfp.id} invitableVendors={invitableVendors} invitations={invitations} />
+        <InviteVendorsPanel
+          rfpId={rfp.id}
+          invitableVendors={invitableVendors}
+          invitations={invitations}
+          vendorsFailed={vendorsFailed}
+          invitationsFailed={invitationsFailed}
+        />
       ) : null}
 
       {rfp.line_items.length > 0 ? (
