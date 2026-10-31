@@ -13,6 +13,7 @@ import { appVersion } from '@/lib/app-version'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
 import { drawerData } from '@/lib/guide'
 import { SkipLink } from '@homeowner-portal/ui'
+import { ChoosePasswordPrompt } from '@/components/auth/ChoosePasswordPrompt'
 
 // Resident-only route tree. Unlike the board/admin dashboard (fixed
 // sidebar shell), the resident portal wears a consumer app shell: a slim
@@ -78,6 +79,7 @@ export default async function ResidentLayout({
             <ImpersonationBanner name={impersonation.name} />
           </div>
         ) : null}
+        <ChoosePasswordPrompt />
         {children}
         {/* BL-071: residents see the running version too (no link). */}
         <footer className="mt-10 text-center print:hidden">

@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Circle } from 'lucide-react'
+import { Check, Circle, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@homeowner-portal/ui'
 
 /**
@@ -9,6 +9,12 @@ import { cn } from '@homeowner-portal/ui'
  * the real gate.
  */
 export const MIN_PASSWORD = 10
+
+/**
+ * Auth screens only: lifts Field's hint, error and "Forgot password?" lines
+ * from text-xs to text-sm, for people on large-text phones.
+ */
+export const AUTH_FIELD_CLASS = '[&_p]:!text-sm [&>div:first-child>div]:!text-sm'
 
 /** A deliberately loose shape check — the server decides what is valid. */
 export function emailProblem(raw: string): string | null {
@@ -39,10 +45,10 @@ export function PasswordRules({
       : []),
   ]
   return (
-    <ul id={id} className="space-y-1 text-xs" aria-live="polite">
+    <ul id={id} className="space-y-1 text-sm" aria-live="polite">
       {rules.map((r) => (
         <li key={r.label} className={cn('flex items-center gap-1.5', r.ok ? 'text-success' : 'text-muted')}>
-          {r.ok ? <Check className="size-3.5" aria-hidden /> : <Circle className="size-3.5" aria-hidden />}
+          {r.ok ? <Check className="size-4" aria-hidden /> : <Circle className="size-4" aria-hidden />}
           <span>
             {r.label}
             <span className="sr-only">{r.ok ? ' — done' : ' — not yet'}</span>
@@ -56,10 +62,25 @@ export function PasswordRules({
 /** "Or" divider between alternative actions. */
 export function OrDivider({ label = 'or' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-3 text-xs uppercase tracking-[0.08em] text-muted" aria-hidden>
+    <div className="flex items-center gap-3 text-sm uppercase tracking-[0.08em] text-muted" aria-hidden>
       <span className="h-px flex-1 bg-border" />
       {label}
       <span className="h-px flex-1 bg-border" />
     </div>
+  )
+}
+
+/** Show/hide password button: a 44px target, labelled in words for screen readers. */
+export function PasswordToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="-my-2 -mr-2 inline-flex size-11 items-center justify-center rounded-md text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={shown ? 'Hide password' : 'Show password'}
+      aria-pressed={shown}
+    >
+      {shown ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+    </button>
   )
 }

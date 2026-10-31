@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, Lock, Mail, MailCheck } from 'lucide-react'
+import { Lock, Mail, MailCheck } from 'lucide-react'
 import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { MIN_PASSWORD, PasswordRules, emailProblem } from '@/components/auth/auth-fields'
+import { AUTH_FIELD_CLASS, MIN_PASSWORD, PasswordRules, PasswordToggle, emailProblem } from '@/components/auth/auth-fields'
+import { friendlyAuthError } from '@/components/auth/auth-errors-shared'
+import { PASSWORD_SET_FLAG } from '@/components/auth/sign-in-memory-shared'
 
 // Email + password signup. Confirm-email is required at the project level,
 // so a successful signUp shows a "check your email" state rather than
@@ -46,12 +48,16 @@ export function SignupForm({
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { emailRedirectTo: callbackUrl.toString() },
+      options: {
+        emailRedirectTo: callbackUrl.toString(),
+        // They chose a password here, so the first-screen prompt stays away.
+        data: { [PASSWORD_SET_FLAG]: true },
+      },
     })
 
     if (error) {
       setStatus('error')
-      setErrorMessage(error.message)
+      setErrorMessage(friendlyAuthError(error))
       return
     }
     setStatus('sent')
@@ -65,13 +71,13 @@ export function SignupForm({
         </span>
         <div className="space-y-1">
           <p className="text-base font-semibold text-foreground">Confirm your email</p>
-          <p className="text-sm text-muted">
+          <p className="text-base text-muted">
             We sent a confirmation link to{' '}
             <span className="font-medium text-foreground">{email.trim()}</span>. Open it to activate your
             account, then we’ll set up your HOA.
           </p>
         </div>
-        <p className="text-xs text-muted">
+        <p className="text-sm text-muted">
           Nothing after a minute? Check spam, or{' '}
           <button
             type="button"
@@ -90,7 +96,7 @@ export function SignupForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <Field label="Email address" error={emailError}>
+      <Field label="Email address" error={emailError} className={AUTH_FIELD_CLASS}>
         <Input
           name="email"
           type="email"
@@ -113,7 +119,7 @@ export function SignupForm({
       </Field>
 
       <div className="space-y-2">
-        <Field label="Password" error={passwordError}>
+        <Field label="Password" error={passwordError} className={AUTH_FIELD_CLASS}>
             <Input
               name="password"
               type={showPassword ? 'text' : 'password'}
@@ -127,15 +133,7 @@ export function SignupForm({
               }}
               prefix={<Lock aria-hidden />}
               suffix={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="rounded p-0.5 text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPassword}
-                >
-                  {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
-                </button>
+                <PasswordToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
               }
               error={status === 'error' || Boolean(passwordError)}
               disabled={busy}

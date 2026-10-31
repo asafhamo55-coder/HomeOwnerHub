@@ -4,10 +4,12 @@ import { safeNextPath } from '@/lib/safe-next-path'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import { Lock, Mail } from 'lucide-react'
 import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { emailProblem } from '@/components/auth/auth-fields'
+import { AUTH_FIELD_CLASS, PasswordToggle, emailProblem } from '@/components/auth/auth-fields'
+import { friendlyAuthError } from '@/components/auth/auth-errors-shared'
+import { PASSWORD_SET_FLAG, hasChosenPassword, rememberSignInMethod } from '@/components/auth/sign-in-memory-shared'
 
 // Email + password sign-in. The email is the username. Runs alongside the
 // magic-link form (see LoginMethods); both resolve to the same Supabase user.
@@ -51,11 +53,22 @@ export function PasswordForm({
 
     if (error) {
       setStatus('error')
-      // Supabase returns a generic "Invalid login credentials" for both wrong
-      // password and unknown email — we surface it verbatim so we don't leak
-      // which accounts exist.
-      setErrorMessage(error.message)
+      // Supabase returns one generic error for a wrong password and an
+      // unknown email, so the friendly text does not leak which accounts exist.
+      setErrorMessage(friendlyAuthError(error))
       return
+    }
+
+    // Signing in with a password proves one exists: remember it, and flag the
+    // account so the "choose a password" prompt never shows for it.
+    rememberSignInMethod('password')
+    try {
+      const { data } = await supabase.auth.getUser()
+      if (data?.user && !hasChosenPassword(data.user.user_metadata)) {
+        await supabase.auth.updateUser({ data: { [PASSWORD_SET_FLAG]: true } })
+      }
+    } catch {
+      /* best effort: the prompt just stays available */
     }
 
     // Full reload so the server picks up the freshly-set auth cookie before
@@ -68,7 +81,7 @@ export function PasswordForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <Field label="Email address" error={emailError}>
+      <Field label="Email address" error={emailError} className={AUTH_FIELD_CLASS}>
         <Input
           name="email"
           type="email"
@@ -93,6 +106,7 @@ export function PasswordForm({
       <Field
         label="Password"
         error={passwordError}
+        className={AUTH_FIELD_CLASS}
         labelAside={
           <Link href="/forgot-password" className="font-medium text-primary hover:underline">
             Forgot password?
@@ -111,15 +125,7 @@ export function PasswordForm({
           }}
           prefix={<Lock aria-hidden />}
           suffix={
-            <button
-              type="button"
-              onClick={() => setShowPassword((s) => !s)}
-              className="rounded p-0.5 text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-              aria-pressed={showPassword}
-            >
-              {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
-            </button>
+            <PasswordToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
           }
           error={status === 'error'}
           disabled={busy}

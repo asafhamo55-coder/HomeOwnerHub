@@ -32,8 +32,23 @@ const TOK = 'SECRET_AT_123'
 const REF = 'SECRET_RT_456'
 let logs: unknown[][]
 
+// Node's own experimental localStorage can shadow jsdom's; use a plain in-memory one.
+function installMemoryStorage() {
+  const m = new Map<string, string>()
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => void m.set(k, String(v)),
+      removeItem: (k: string) => void m.delete(k),
+      clear: () => m.clear(),
+    },
+  })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  installMemoryStorage()
   setSession.mockResolvedValue({ error: null })
   getUser.mockResolvedValue({ data: { user: { id: 'u' } }, error: null })
   logs = []
@@ -81,11 +96,22 @@ describe('HashSessionHandler', () => {
     expect(replace).toHaveBeenCalledWith('/reset-password')
   })
 
-  it('clears an error hash without a session', async () => {
+  it('sends an expired-link hash to /login?error=link_expired, without a session', async () => {
     await mount('/login#error=access_denied&error_code=otp_expired&error_description=expired')
     expect(setSession).not.toHaveBeenCalled()
-    expect(replace).not.toHaveBeenCalled()
+    expect(replace).toHaveBeenCalledWith('/login?error=link_expired')
     expect(window.location.hash).toBe('')
+  })
+
+  it('keeps next on the way to the expired-link alert', async () => {
+    await mount('/login?next=/dues#error=access_denied&error_code=otp_expired')
+    expect(replace).toHaveBeenCalledWith('/login?error=link_expired&next=%2Fdues')
+  })
+
+  it('remembers a link sign-in so the login can default to that tab', async () => {
+    window.localStorage.clear()
+    await mount(`/login#access_token=${TOK}&refresh_token=${REF}&type=invite`)
+    expect(window.localStorage.getItem('hh:last-signin-method')).toBe('link')
   })
 
   it('clears the hash and stays put when setSession fails', async () => {

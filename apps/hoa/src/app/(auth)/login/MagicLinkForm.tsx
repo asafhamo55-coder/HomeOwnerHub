@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { Mail, MailCheck } from 'lucide-react'
 import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { emailProblem } from '@/components/auth/auth-fields'
+import { AUTH_FIELD_CLASS, emailProblem } from '@/components/auth/auth-fields'
+import { sendSignInLink } from '@/components/auth/send-sign-in-link'
 
 export function MagicLinkForm({
   redirectTo,
@@ -36,26 +36,10 @@ export function MagicLinkForm({
     setStatus('sending')
     setErrorMessage(null)
 
-    const supabase = getSupabaseBrowserClient()
-    // Vercel auto-generates a project-specific URL alongside the canonical
-    // production URL; both serve the same code but cookies don't cross
-    // between them. Pin the magic-link callback to NEXT_PUBLIC_APP_URL so
-    // a user on the long alias still gets sent back to the canonical host.
-    const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-    const callbackUrl = new URL('/auth/callback', origin)
-    if (redirectTo) callbackUrl.searchParams.set('next', redirectTo)
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: callbackUrl.toString(),
-        shouldCreateUser: true,
-      },
-    })
-
-    if (error) {
+    const failure = await sendSignInLink(email, redirectTo)
+    if (failure) {
       setStatus('error')
-      setErrorMessage(error.message)
+      setErrorMessage(failure)
       return
     }
     setStatus('sent')
@@ -68,13 +52,16 @@ export function MagicLinkForm({
           <MailCheck className="size-6" aria-hidden />
         </span>
         <div className="space-y-1">
-          <p className="text-base font-semibold text-foreground">Check your email</p>
-          <p className="text-sm text-muted">
+          <p className="text-lg font-semibold text-foreground">Check your email</p>
+          <p className="text-base text-muted">
             We sent a sign-in link to <span className="font-medium text-foreground">{email.trim()}</span>.
-            Open it on this device.
           </p>
         </div>
-        <p className="text-xs text-muted">
+        <p className="rounded-lg bg-subtle p-3 text-left text-base text-foreground">
+          <strong className="font-semibold">Open the email on this same phone or computer.</strong> The
+          link only works on the device where you asked for it.
+        </p>
+        <p className="text-sm text-muted">
           Nothing after a minute? Check spam, or{' '}
           <button
             type="button"
@@ -93,7 +80,7 @@ export function MagicLinkForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <Field label="Email address" hint={emailError ? undefined : helperText} error={emailError}>
+      <Field label="Email address" hint={emailError ? undefined : helperText} error={emailError} className={AUTH_FIELD_CLASS}>
         <Input
           name="email"
           type="email"
