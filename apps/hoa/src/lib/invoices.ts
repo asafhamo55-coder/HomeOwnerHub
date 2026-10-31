@@ -11,6 +11,7 @@ import { booksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-n
 import { todayIn } from '@/lib/association-time'
 import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
+import { accountingActionFailed } from '@/lib/accounting-action-error'
 
 type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
 type PaymentInsert = Database['public']['Tables']['payments']['Insert']
@@ -143,7 +144,7 @@ export async function enterBill(input: {
     .select('id')
     .single()
   if (iErr || !invoice) {
-    return { ok: false, error: `invoice insert: ${iErr?.message}` }
+    return accountingActionFailed('createInvoice', iErr)
   }
 
   const je = await postJournalEntry(supabase, {
@@ -216,7 +217,7 @@ export async function deleteInvoice(
     .update({ deleted_at: new Date().toISOString() } as never)
     .eq('id', invoiceId)
     .is('deleted_at', null)
-  if (error) return { ok: false, error: error.message }
+  if (error) return accountingActionFailed('deleteInvoice', error)
 
   revalidatePath('/accounting/invoices')
   revalidatePath('/accounting')
@@ -271,7 +272,8 @@ export async function markInvoicePaid(input: {
     .eq('id', value.invoiceId)
     .eq('association_id', assoc.id)
     .single()
-  if (iErr || !invoice) return { ok: false, error: iErr?.message ?? 'invoice not found' }
+  if (iErr) return accountingActionFailed('recordPayment.read', iErr)
+  if (!invoice) return { ok: false, error: 'Invoice not found.' }
 
   if (invoice.status === 'paid') {
     return { ok: false, error: 'invoice already paid' }
@@ -309,7 +311,7 @@ export async function markInvoicePaid(input: {
     .insert(paymentPayload)
     .select('id')
     .single()
-  if (pErr || !payment) return { ok: false, error: `payment insert: ${pErr?.message}` }
+  if (pErr || !payment) return accountingActionFailed('recordPayment.insert', pErr)
 
   const je = await postJournalEntry(supabase, {
     organizationId: invoice.organization_id,
