@@ -910,3 +910,24 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` �
   - Resolving the owner-actions merge by taking one side dropped OA-14 and OA-40. Merge that file by hand from now on.
 - **Outbound:** "Email this statement" is gated by consent, the outbound guard, dedupe and audit. An integration test against CI's ephemeral database is being written before it ships.
 - **SEO:** batches 7 to 14 shipped or merged today (about 50 pages, including the first FL, CA and TX templates).
+
+## 2026-10-31 00:50 → 04:45 IST (22:50 → 02:45 UTC): rounds 17 to 19
+
+- **Deploys:**
+  - beb428b3, round 15. Pushed by hand at 23:40. The scheduled push failed: zsh `$sha:r` mangled the refspec. Memory: feedback_zsh_sha_colon.
+  - 5c28120f, round 16 plus the peer's 30-day trial copy, live 00:46.
+  - e701ff55, round 17, live 01:57.
+  - a19e6c9b, round 18, scheduled 02:48.
+- **Round 17** was an orphaned-action sweep. Three built-but-unreachable flows were fixed:
+  - collection case status: resolve, write off, reopen, and keep the close date;
+  - viewing vendor documents;
+  - bulk tenure.
+  - Write-off is status-only, recorded in docs/decisions/2026-10-31-collection-write-off-is-status-only.md for Asaf.
+- **Round 18:** pro portal loading and error screens, Tasks and RFPs strips, law update editing.
+- **Round 19** was a correctness pass:
+  - Resident reads now surface errors instead of showing "No home linked yet" or an empty thread. Forms catch the throw.
+  - Timestamps on 45 pages are now Eastern, not server UTC, with a ratchet.
+- **SEO:** batches 14 to 17, about 64 pages. Paraphrased statute claims were checked against the fixtures before merge (TX § 202.001 scope; FL § 720.303(2) personnel and website notice).
+- **Ratchets caught before CI:**
+  - the navigation loading-state ratchet (the law update edit page);
+  - the records flag test, which assumed the actions slot was empty.
