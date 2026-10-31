@@ -125,7 +125,7 @@ export const TX_COLLECTIONS: Guide = {
       a: 'The statute says an owner is not liable for the agent’s fees if the association’s payment obligation is in any way dependent or contingent on amounts recovered.',
     },
   ],
-  related: ['texas-hoa-payment-plans-and-payment-priority', 'texas-hoa-payment-plan-agreement', 'texas-hoa-management-certificate', 'texas-hoa-resale-certificate-chapter-207', 'certified-mail-collections-notices', 'florida-hoa-notice-of-intent-to-lien', 'california-hoa-pre-lien-notice-and-collections'],
+  related: ['texas-hoa-payment-plans-and-payment-priority', 'texas-hoa-payment-plan-agreement', 'texas-hoa-violation-notice-and-hearing-209-006', 'texas-hoa-management-certificate', 'texas-hoa-resale-certificate-chapter-207', 'certified-mail-collections-notices', 'florida-hoa-notice-of-intent-to-lien', 'california-hoa-pre-lien-notice-and-collections'],
   hoaDoes: [
     {
       text: 'For Texas, the collections letter is the delinquency notice under § 209.0064, with at least 45 days to cure and payment-plan options. It waits in Approvals, and nothing is emailed. You print it and mail it yourself.',

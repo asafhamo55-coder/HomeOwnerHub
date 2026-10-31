@@ -24,6 +24,7 @@ import {
   documentParseStatus,
 } from '@/lib/status/knowledge'
 import { LIBRARY_TYPES, filterDocs, parseLibraryType, searchDocs, typeCounts } from '@/lib/documents/filter'
+import { SummaryStrip } from '@/components/SummaryStrip'
 import { DocumentTabs, formatBytes } from '@/components/knowledge/DocumentTabs'
 import { formatShortDate } from '@/lib/format-datetime'
 
@@ -92,9 +93,10 @@ const columns: DataTableColumn<DocRow>[] = [
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; type?: string }>
+  searchParams: Promise<{ q?: string; type?: string; text?: string }>
 }) {
-  const { q: rawQ, type: rawType } = await searchParams
+  const { q: rawQ, type: rawType, text: rawText } = await searchParams
+  const textMissing = rawText === 'missing'
   const q = rawQ?.trim() ?? ''
   const type = parseLibraryType(rawType)
   const org = await getCurrentOrg()
@@ -113,12 +115,14 @@ export default async function DocumentsPage({
   const docs = result.ok ? ((result.data ?? []) as DocRow[]) : []
   const needsText = docs.filter((d) => !d.parsed_at).length
   const counts = typeCounts(searchDocs(docs, q))
-  const shown = filterDocs(docs, q, type)
-  const filtered = Boolean(q || type)
+  const allCounts = typeCounts(docs)
+  const shown = filterDocs(docs, q, type).filter((d) => !textMissing || !d.parsed_at)
+  const filtered = Boolean(q || type || textMissing)
   const hrefFor = (t: string | null) => {
     const p = new URLSearchParams()
     if (q) p.set('q', q)
     if (t) p.set('type', t)
+    if (textMissing) p.set('text', 'missing')
     const qs = p.toString()
     return qs ? `/documents?${qs}` : '/documents'
   }
@@ -157,6 +161,24 @@ export default async function DocumentsPage({
             </p>
           ) : null}
           {docs.length > 0 ? (
+            <SummaryStrip
+              ariaLabel="Documents summary"
+              testId="documents-summary"
+              tiles={[
+                { label: 'Total documents', value: String(docs.length), hint: 'In the library', href: '/documents' },
+                {
+                  label: 'Not searchable',
+                  value: String(needsText),
+                  hint: 'No text yet',
+                  href: '/documents?text=missing',
+                  tone: needsText > 0 ? 'warning' : 'default',
+                },
+                { label: 'CC&Rs', value: String(allCounts.ccr), hint: 'Covenants and restrictions', href: '/documents?type=ccr' },
+                { label: 'Rules', value: String(allCounts.rules), hint: 'Rules and regulations', href: '/documents?type=rules' },
+              ]}
+            />
+          ) : null}
+          {docs.length > 0 ? (
             <>
               <ListToolbar>
                 <FilterChips
@@ -177,7 +199,7 @@ export default async function DocumentsPage({
                   defaultValue={q || undefined}
                   label="Search documents"
                   placeholder="Search by name"
-                  keep={{ type }}
+                  keep={{ type, text: textMissing ? 'missing' : null }}
                   linkAs={Link}
                 />
               </ListToolbar>
