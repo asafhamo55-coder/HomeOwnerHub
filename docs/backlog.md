@@ -2046,6 +2046,23 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 23 (2026-10-31, code-verified)
+
+None of these needs a migration or an owner action. Items 3 and 4 touch sends, but are report-only with no change in behaviour.
+
+1. **"Earlier violations at this home" on the violation page and in the new-violation wizard.** The board sees repeat offenses before fining. Effort 2.
+2. **/arc: "Approved, past completion date" tile and filter.** Effort 2.
+3. **BUG (job): dues reminders and the monthly board report hide per-association failures.** Report them with `reportJobFailures`. Effort 1.
+4. **BUG (job): failed scheduled announcements leave no trace and can stay "sending" forever.** Check the write error in `markFailed`, report failures, and add a stuck-row report. Effort 2.
+5. **Summary strip on /events.** Effort 1.
+6. **BL-172 SEO batch 21: Texas written ballots (§ 209.0058).** Optionally add § 209.017. The fixture has two versions of (a), so quote the S.B. 1168 form. Effort 2.
+7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+
+**Dropped:**
+- Competitor gaps are closed, or need a migration or an owner action.
+- API routes are sound.
+- Dropping a failed digest section is a design choice.
+
 ## Ranked open work — round 22 (2026-10-31, code-verified) — Done 2026-10-31 except item 8 (SEO audit due Nov 2)
 
 None of these needs a migration or an owner action. Items 3, 4 and 5 touch sending or money, so their behaviour must not change.
