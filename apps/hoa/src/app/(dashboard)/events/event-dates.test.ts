@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RecurringEvent } from '@/lib/events'
-import { alertState, daysUntilDate } from './event-dates'
+import { alertState, daysUntilDate, eventsSummaryTiles } from './event-dates'
 
 // BL-065: the events pages judge "today" on the event's association day,
 // passed in explicitly — never the UTC day, never the machine clock.
@@ -52,5 +52,47 @@ describe('alertState', () => {
 
   it('paused wins', () => {
     expect(alertState(event({ is_active: false }), '2026-10-13').kind).toBe('paused')
+  })
+})
+
+describe('eventsSummaryTiles', () => {
+  const day = () => ({ today: '2026-10-13', timeZone: 'America/New_York' })
+  const values = (events: RecurringEvent[] | null) =>
+    Object.fromEntries(eventsSummaryTiles(events, day).map((t) => [t.label, t.value]))
+
+  it('counts the four tiles on the association day', () => {
+    const v = values([
+      event({ id: 'a', event_date: '2026-10-20' }), // due (7 days lead), in 30 days
+      event({ id: 'b', event_date: '2026-11-12' }), // day 30, scheduled
+      event({ id: 'c', event_date: '2026-11-13' }), // day 31, outside
+      event({ id: 'd', event_date: '2026-10-30', is_active: false }), // paused, in 30 days
+      event({ id: 'e', event_date: '2026-10-01' }), // past, never reminded
+      event({ id: 'f', event_date: '2026-10-01', last_alert_sent_for: '2026-10-01' }), // past, sent
+      event({ id: 'g', event_date: '2026-10-01', is_active: false }), // paused, not "never reminded"
+    ])
+    expect(v['Next 30 days']).toBe('3')
+    expect(v['Reminders due today']).toBe('1')
+    expect(v['Paused']).toBe('2')
+    expect(v['Past, never reminded']).toBe('1')
+  })
+
+  it('shows zero as 0 when the read worked and the list is empty', () => {
+    expect(Object.values(values([]))).toEqual(['0', '0', '0', '0'])
+  })
+
+  it('a failed read is null on every tile, never 0', () => {
+    expect(Object.values(values(null))).toEqual([null, null, null, null])
+  })
+
+  it('judges each event on its own association day', () => {
+    const zoned = (e: RecurringEvent) =>
+      e.id === 'late' ? { today: '2026-10-14', timeZone: 'Pacific/Auckland' } : day()
+    const tiles = eventsSummaryTiles(
+      [event({ id: 'late', event_date: '2026-10-13' }), event({ id: 'ny', event_date: '2026-10-13' })],
+      zoned,
+    )
+    // In Auckland the 13th has passed (never reminded); in New York it is today (due).
+    expect(tiles.find((t) => t.label === 'Past, never reminded')!.value).toBe('1')
+    expect(tiles.find((t) => t.label === 'Reminders due today')!.value).toBe('1')
   })
 })

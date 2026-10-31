@@ -17,14 +17,14 @@ import {
   formatDate,
   relativeDays,
   CHANNEL_LABEL,
+  eventsSummaryTiles,
+  type EventDay,
 } from './event-dates'
+import { SummaryStrip } from '@/components/SummaryStrip'
 import { DeadlineChips } from './DeadlineChips'
 import { loadAssociationState } from './association-state'
 import { todayIn } from '@/lib/association-time'
 import { currentScopeZones } from '@/lib/association-time-current'
-
-/** An event's association day and zone (BL-065), the cron's rule. */
-type EventDay = (e: RecurringEvent) => { today: string; timeZone: string }
 
 export const metadata = { title: 'Events' }
 export const dynamic = 'force-dynamic'
@@ -44,6 +44,11 @@ export default async function EventsListPage() {
   if (events === null) {
     return (
       <Page title="Events" description="Dated reminders the board gets ahead of each deadline." actions={newButton}>
+        <SummaryStrip
+          ariaLabel="Events summary"
+          testId="events-summary"
+          tiles={eventsSummaryTiles(null, () => ({ today: '', timeZone: '' }))}
+        />
         <LoadFailed what="events" />
       </Page>
     )
@@ -68,6 +73,9 @@ export default async function EventsListPage() {
       description="Dated reminders — annual meeting, insurance renewal, budget deadline. We alert the people you choose ahead of each one."
       actions={newButton}
     >
+      {events.length > 0 ? (
+        <SummaryStrip ariaLabel="Events summary" testId="events-summary" tiles={eventsSummaryTiles(events, dayOfEvent)} />
+      ) : null}
       {events.length === 0 ? (
         <div className="space-y-6">
         <EmptyState

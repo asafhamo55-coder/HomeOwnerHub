@@ -1,4 +1,5 @@
 import type { RecurringEvent } from '@/lib/events'
+import type { SummaryTile } from '@/components/SummaryStrip'
 import { DEFAULT_ASSOCIATION_TIME_ZONE, addCalendarDays, calendarDaysBetween, dayOf } from '@/lib/association-time'
 
 // Date helpers for the events pages. Event dates are calendar dates
@@ -75,4 +76,53 @@ export function audienceLabel(event: RecurringEvent): string {
     default:
       return a?.boardUserIds ? `${a.boardUserIds.length} board member${a.boardUserIds.length === 1 ? '' : 's'}` : 'Whole board'
   }
+}
+
+/** An event's association day and zone (BL-065), the cron's rule. */
+export type EventDay = (e: RecurringEvent) => { today: string; timeZone: string }
+
+/**
+ * Tiles for the Events strip. Pure: it reads the rows the page already has.
+ * `events` null means the read failed, and every tile says "Not available"
+ * rather than 0. Each event is judged on its own association's day.
+ */
+export function eventsSummaryTiles(events: readonly RecurringEvent[] | null, dayOfEvent: EventDay): SummaryTile[] {
+  let next30 = 0
+  let dueToday = 0
+  let paused = 0
+  let neverSent = 0
+  for (const e of events ?? []) {
+    const { today, timeZone } = dayOfEvent(e)
+    const days = daysUntilDate(e.event_date, today)
+    if (days >= 0 && days <= 30) next30++
+    switch (alertState(e, today, timeZone).kind) {
+      case 'due':
+        dueToday++
+        break
+      case 'paused':
+        paused++
+        break
+      case 'none':
+        // Past, active, and the reminder never went out.
+        neverSent++
+        break
+    }
+  }
+  const n = (v: number) => (events === null ? null : String(v))
+  return [
+    { label: 'Next 30 days', value: n(next30), hint: 'Events dated in the next 30 days' },
+    {
+      label: 'Reminders due today',
+      value: n(dueToday),
+      hint: 'Going out in today’s run',
+      tone: dueToday > 0 ? 'warning' : 'default',
+    },
+    { label: 'Paused', value: n(paused), hint: 'Reminders switched off' },
+    {
+      label: 'Past, never reminded',
+      value: n(neverSent),
+      hint: 'Date passed with no reminder sent',
+      tone: neverSent > 0 ? 'warning' : 'default',
+    },
+  ]
 }

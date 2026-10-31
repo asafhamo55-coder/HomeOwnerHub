@@ -133,6 +133,7 @@ export const TX_VIOLATION_NOTICE: Guide = {
   ],
   related: [
     'texas-hoa-violation-notice-checklist',
+    'texas-hoa-written-ballots-209-0058',
     'texas-hoa-flag-display-rules',
     'texas-hoa-third-party-collections-notice',
     'ai-hoa-violation-letters-board-approval',

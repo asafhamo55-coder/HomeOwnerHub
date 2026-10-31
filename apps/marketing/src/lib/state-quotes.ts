@@ -1220,4 +1220,32 @@ export const STATE_QUOTES = {
     fixture: TX3,
     quote: "The following are examples of acts considered curable for purposes of this section: (1) a parking violation; (2) a maintenance violation; (3) the failure to construct improvements or modifications in accordance with approved plans and specifications; and (4) an ongoing noise violation such as a barking dog.",
   },
+  // Texas: ballots, Tex. Prop. Code § 209.0058 (BL-172 batch 21). The excerpt prints
+  // subsections (a) and (d) twice, once per amending act (S.B. 864 and S.B. 1168).
+  // These quote the S.B. 1168 forms only. (a-1), (b) and (c) appear once.
+  txBallotSigned: {
+    cite: 'Tex. Prop. Code § 209.0058(a)',
+    fixture: TX3,
+    quote: "Except as provided by Subsection (d), a vote cast by a member of a property owners' association must be in writing and signed by the member if the vote is cast: (1) outside of a meeting; (2) in an election to fill a position on the board; (3) on a proposed adoption or amendment of a dedicatory instrument; (4) on a proposed increase in the amount of a regular assessment or the proposed adoption of a special assessment; or (5) on the proposed removal of a board member.",
+  },
+  txBallotOther: {
+    cite: 'Tex. Prop. Code § 209.0058(a-1)',
+    fixture: TX3,
+    quote: "If a property owners' association elects to use a ballot for a vote on a matter other than a matter described by Subsection (a), the ballot must be: (1) in writing and signed by the member; or (2) cast by secret ballot in accordance with Subsection (d).",
+  },
+  txBallotElectronic: {
+    cite: 'Tex. Prop. Code § 209.0058(b)',
+    fixture: TX3,
+    quote: "Electronic votes cast under Section 209.00592 constitute written and signed ballots.",
+  },
+  txBallotUncontested: {
+    cite: 'Tex. Prop. Code § 209.0058(c)',
+    fixture: TX3,
+    quote: "In a property owners' association election, written and signed ballots are not required for uncontested races.",
+  },
+  txBallotSecret: {
+    cite: 'Tex. Prop. Code § 209.0058(d)',
+    fixture: TX3,
+    quote: "A property owners' association may adopt rules to allow voting by secret ballot by association members. The association must take measures to reasonably ensure that: (1) a member cannot cast more votes than the member is eligible to cast in an election or vote; (2) the association counts each vote cast by a member that the member is eligible to cast; and (3) in any election for the board, each candidate may name one person to observe the counting of the ballots, provided that this does not entitle any observer to see the name of the person who cast any ballot, and that any disruptive observer may be removed.",
+  },
 } as const satisfies Record<string, StatuteQuote>
