@@ -2046,6 +2046,21 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 27 (2026-10-31, code-verified): accessibility and mobile on the board app
+
+None of these needs a migration or an owner action, and nothing here moves money.
+
+1. **The AI rewrite dialog doesn't manage focus.** It is hand-rolled and used in 17 forms (AiRewriteButton.tsx:80-195). Move it to the kit Dialog, with status and alert roles. Effort 2.
+2. **The violation wizard's progress is silent to screen readers, and its photo Remove button is about 20px** (Wizard.tsx:413-423, 535-541, 725-735). Effort 1.
+3. **BUG: the inbox `c` shortcut drops errors and doesn't refresh** (InboxKeyboard.tsx:62-70). Show a toast and refresh. Effort 1.
+4. **Unlabelled checkboxes stay 18px on touch, including the approvals bulk-select** (Choice.tsx:47). Effort 1.
+5. **About 15 inline action errors have no `role="alert"`** (RFP, vendor, member, hearing and dashboard pages). Add the role and a ratchet. Effort 1.
+6. **Inputs in the task and action-item lists are 32px on phones** (TaskList.tsx:135, ActionItemsSection.tsx:253). Effort 1.
+
+**Dropped:**
+- Form labels, tables, filter chips, status badges and the kit dialogs: already sound.
+- The marketing site: out of scope for this round.
+
 ## Ranked open work — round 26 (2026-10-31, code-verified): the treasurer's month-end
 
 None of these needs a migration or an owner action, and nothing here moves money.
