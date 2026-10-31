@@ -1,6 +1,8 @@
 import { timed } from '@/lib/perf/timing'
 import { Alert, LoadFailed, NoOrgSelected, Page } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentUserRoleInOrg } from '@/lib/auth'
+import { BulkTenureProvider } from './BulkTenure'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { PropertyList } from './PropertyList'
@@ -28,9 +30,24 @@ export default async function PropertiesPage({
   const params = parsePropertyListParams(await searchParams)
   const supabase = await getSupabaseServerClient()
 
-  const { list, counts, allCount, searchMatches } = await timed('/properties', 'properties.list', () =>
-    loadPropertyListPane(supabase, org.id, params),
-  )
+  const [{ list, counts, allCount, searchMatches }, role] = await Promise.all([
+    timed('/properties', 'properties.list', () => loadPropertyListPane(supabase, org.id, params)),
+    getCurrentUserRoleInOrg(org.id),
+  ])
+  // Bulk tenure is board/admin only; bulkSetPropertyTenure re-checks on the server.
+  const canBulk = role === 'admin' || role === 'board'
+
+  const propList = list.ok ? (
+    <PropertyList
+      selectable={canBulk}
+      rows={list.data.rows}
+      params={params}
+      noPropertiesYet={allCount === 0}
+      allMatches={counts?.all ?? null}
+      signalsOk={list.data.signalsOk}
+      footer={<PropertyListPager params={params} rowCount={list.data.rows.length} total={list.data.total} />}
+    />
+  ) : null
 
   return (
     <Page
@@ -60,14 +77,7 @@ export default async function PropertiesPage({
               Those two columns show “—”. Balances, violations and everything else are current.
             </Alert>
           ) : null}
-          <PropertyList
-            rows={list.data.rows}
-            params={params}
-            noPropertiesYet={allCount === 0}
-            allMatches={counts?.all ?? null}
-            signalsOk={list.data.signalsOk}
-            footer={<PropertyListPager params={params} rowCount={list.data.rows.length} total={list.data.total} />}
-          />
+          {canBulk ? <BulkTenureProvider>{propList}</BulkTenureProvider> : propList}
         </>
       )}
     </Page>

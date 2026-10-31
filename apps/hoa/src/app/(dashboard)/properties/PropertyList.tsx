@@ -26,6 +26,7 @@ import { ContactIcons } from '@/components/contact/ContactIcons'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
 import { RowKeyNav } from './RowKeyNav'
+import { BulkTenureRowCheckbox, BulkTenureSelectAll } from './BulkTenure'
 
 function money(n: number): string {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -53,6 +54,7 @@ export function PropertyList({
   allMatches = null,
   signalsOk = true,
   footer,
+  selectable = false,
 }: {
   rows: PropertyListRow[]
   params: PropertyListParams
@@ -70,6 +72,8 @@ export function PropertyList({
   signalsOk?: boolean
   /** The Pager, inside the frame. */
   footer?: React.ReactNode
+  /** Board/admin: row checkboxes for bulk tenure. The page wraps this in BulkTenureProvider. */
+  selectable?: boolean
 }) {
   if (rows.length === 0 && noPropertiesYet && !params.search) {
     return (
@@ -320,11 +324,20 @@ export function PropertyList({
   // and every click opened the last property (bug 2026-10-26). The address
   // cell keeps the real, focusable link; every other cell gets a hidden
   // overlay link to the same home, so a click anywhere on the row still works.
+  if (selectable) {
+    columns.unshift({
+      key: 'select',
+      header: <span className="sr-only">Select</span>,
+      className: 'w-10',
+      cell: (row) => <BulkTenureRowCheckbox id={row.id} title={streetOf(row.address)} />,
+    })
+  }
+
   const cellLinkedColumns: DataTableColumn<PropertyListRow>[] = columns.map((col) => ({
     ...col,
     className: cn(col.className, 'relative'),
     cell:
-      col.key === 'address'
+      col.key === 'address' || col.key === 'select'
         ? col.cell
         : (row: PropertyListRow) => (
             <>
@@ -336,6 +349,7 @@ export function PropertyList({
 
   return (
     <RowKeyNav className="overflow-hidden rounded-xl border border-border bg-surface">
+      {selectable ? <BulkTenureSelectAll ids={rows.map((r) => r.id)} emphasize={params.filter === 'unknown'} /> : null}
       <div className="hidden md:block">
         <DataTable
           caption="Properties"
@@ -355,6 +369,7 @@ export function PropertyList({
           const status = statusLine(row)
           return (
             <li key={row.id} data-row className="relative flex items-center gap-2 px-4 py-3">
+              {selectable ? <BulkTenureRowCheckbox id={row.id} title={streetOf(row.address)} /> : null}
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <Link

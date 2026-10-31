@@ -272,6 +272,98 @@ export interface SetTenureInput {
   notes?: string
 }
 
+// Everything that follows a committed tenure write, shared by the single
+// and bulk paths so they cannot drift: the tenure_changed event, lease
+// started/ended markers, and (on becoming leased) resolving the home's open
+// waiting-list entries. `via: 'bulk'` is stamped on the audit payloads.
+async function recordTenureChange(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  userId: string,
+  propertyId: string,
+  prev: PropertyTenure,
+  target: PropertyTenure,
+  opts: { notes?: string | null; via?: 'bulk' } = {},
+): Promise<void> {
+  const via = opts.via ? { via: opts.via } : {}
+  const evTenure = await logPropertyEvent({
+    propertyId: propertyId,
+    kind: 'tenure_changed',
+    payload: { from: prev, to: target, ...via },
+    notes: opts.notes ?? null,
+  })
+  if (!evTenure.ok) {
+    console.error('[properties.recordTenureChange] event log failed', evTenure.error)
+  }
+
+  // When a property flips to 'leased', record a lease_started marker so
+  // the timeline reads as a story instead of a single tenure-change row.
+  if (target === 'leased' && prev !== 'leased') {
+    const evStart = await logPropertyEvent({
+      propertyId: propertyId,
+      kind: 'lease_started',
+      payload: { from: prev, ...via },
+    })
+    if (!evStart.ok) {
+      console.error('[properties.recordTenureChange] event log failed', evStart.error)
+    }
+
+    // Setting tenure by hand is the other way a queued property starts
+    // leasing — approveWaitingListEntry is the first, and it flips tenure
+    // from the entry's side. Without this, the entry sits at 'waiting'
+    // forever: the property shows a "Waiting list" pill while reading as
+    // leased, /leases keeps offering Approve/Deny on it, the dashboard
+    // count overstates, and listWaitingListCandidates won't re-offer it
+    // (it excludes leased properties) so nobody can clear it from the UI.
+    //
+    // Recorded as 'approved' because that is what materially happened,
+    // with `via` naming the route so the audit trail never implies a
+    // board vote that didn't take place. Conditional on status='waiting'
+    // for the same TOCTOU reason approveWaitingListEntry is.
+    const { data: resolved, error: wlErr } = await supabase
+      .from('lease_waiting_list' as never)
+      .update({
+        status: 'approved',
+        status_updated_at: new Date().toISOString(),
+        status_updated_by: userId,
+      } as never)
+      .eq('property_id', propertyId)
+      .eq('status', 'waiting')
+      .select('id')
+
+    if (wlErr) {
+      // Non-fatal: the tenure change itself already committed, and
+      // failing the action here would report "couldn't set tenure" for a
+      // write that succeeded. The stale entry is recoverable by hand.
+      console.error('[properties.recordTenureChange] waiting list', wlErr.message)
+    } else {
+      for (const row of (resolved ?? []) as unknown as Array<{ id: string }>) {
+        const evWl = await logPropertyEvent({
+          propertyId: propertyId,
+          kind: 'waiting_list_resolved',
+          payload: {
+            outcome: 'approved',
+            entryId: row.id,
+            via: opts.via ? `${opts.via}_tenure_change` : 'manual_tenure_change',
+          },
+        })
+        if (!evWl.ok) {
+          console.error('[properties.recordTenureChange] event log failed', evWl.error)
+        }
+      }
+    }
+  }
+  if (target !== 'leased' && prev === 'leased') {
+    const evEnd = await logPropertyEvent({
+      propertyId: propertyId,
+      kind: 'lease_ended',
+      payload: { to: target, ...via },
+    })
+    if (!evEnd.ok) {
+      console.error('[properties.recordTenureChange] event log failed', evEnd.error)
+    }
+  }
+}
+
 export async function setPropertyTenure(
   input: SetTenureInput,
 ): Promise<ActionResult> {
@@ -323,83 +415,9 @@ export async function setPropertyTenure(
     .eq('id', parsed.data.property_id)
   if (error) return { ok: false, error: error.message }
 
-  const evTenure = await logPropertyEvent({
-    propertyId: parsed.data.property_id,
-    kind: 'tenure_changed',
-    payload: { from: prev, to: parsed.data.tenure },
+  await recordTenureChange(supabase, user.id, parsed.data.property_id, prev, parsed.data.tenure, {
     notes: parsed.data.notes ?? null,
   })
-  if (!evTenure.ok) {
-    console.error('[properties.setPropertyTenure] event log failed', evTenure.error)
-  }
-
-  // When a property flips to 'leased', record a lease_started marker so
-  // the timeline reads as a story instead of a single tenure-change row.
-  if (parsed.data.tenure === 'leased' && prev !== 'leased') {
-    const evStart = await logPropertyEvent({
-      propertyId: parsed.data.property_id,
-      kind: 'lease_started',
-      payload: { from: prev },
-    })
-    if (!evStart.ok) {
-      console.error('[properties.setPropertyTenure] event log failed', evStart.error)
-    }
-
-    // Setting tenure by hand is the other way a queued property starts
-    // leasing — approveWaitingListEntry is the first, and it flips tenure
-    // from the entry's side. Without this, the entry sits at 'waiting'
-    // forever: the property shows a "Waiting list" pill while reading as
-    // leased, /leases keeps offering Approve/Deny on it, the dashboard
-    // count overstates, and listWaitingListCandidates won't re-offer it
-    // (it excludes leased properties) so nobody can clear it from the UI.
-    //
-    // Recorded as 'approved' because that is what materially happened,
-    // with `via` naming the route so the audit trail never implies a
-    // board vote that didn't take place. Conditional on status='waiting'
-    // for the same TOCTOU reason approveWaitingListEntry is.
-    const { data: resolved, error: wlErr } = await supabase
-      .from('lease_waiting_list' as never)
-      .update({
-        status: 'approved',
-        status_updated_at: new Date().toISOString(),
-        status_updated_by: user.id,
-      } as never)
-      .eq('property_id', parsed.data.property_id)
-      .eq('status', 'waiting')
-      .select('id')
-
-    if (wlErr) {
-      // Non-fatal: the tenure change itself already committed, and
-      // failing the action here would report "couldn't set tenure" for a
-      // write that succeeded. The stale entry is recoverable by hand.
-      console.error('[properties.setPropertyTenure] waiting list', wlErr.message)
-    } else {
-      for (const row of (resolved ?? []) as unknown as Array<{ id: string }>) {
-        const evWl = await logPropertyEvent({
-          propertyId: parsed.data.property_id,
-          kind: 'waiting_list_resolved',
-          payload: {
-            outcome: 'approved',
-            entryId: row.id,
-            via: 'manual_tenure_change',
-          },
-        })
-        if (!evWl.ok) {
-          console.error('[properties.setPropertyTenure] event log failed', evWl.error)
-        }
-      }
-    }
-  }
-  if (parsed.data.tenure !== 'leased' && prev === 'leased') {
-    const evEnd = await logPropertyEvent({
-      propertyId: parsed.data.property_id,
-      kind: 'lease_ended',
-      payload: { to: parsed.data.tenure },
-    })
-    if (!evEnd.ok) {
-      console.error('[properties.setPropertyTenure] event log failed', evEnd.error)
-    }
-  }
 
   revalidatePath(propertyHref(asPropertyId(parsed.data.property_id)))
   revalidatePath('/properties')
@@ -431,7 +449,7 @@ export interface BulkSetTenureInput {
 // re-run getCurrentUserRoleInOrg() for every row (one round-trip each).
 export async function bulkSetPropertyTenure(
   input: BulkSetTenureInput,
-): Promise<ActionResult<{ updated: number; failed: number }>> {
+): Promise<ActionResult<{ updated: number; failed: number; failedIds: string[] }>> {
   const parsed = BulkSetTenureSchema.safeParse({
     property_ids: input.propertyIds,
     tenure: input.tenure,
@@ -457,11 +475,13 @@ export async function bulkSetPropertyTenure(
   // De-dupe IDs in case the client posted the same id twice.
   const ids = Array.from(new Set(parsed.data.property_ids))
 
-  // Single round-trip to read prior tenures. RLS scopes this to the
-  // user's org automatically; ids outside the org just won't return.
+  // Single round-trip to read prior tenures. Scoped to the caller's org
+  // explicitly, not only by RLS: an id from another org never returns, so
+  // it counts as failed and is never written.
   const { data: existingRows, error: readErr } = await supabase
     .from('hoa_properties')
     .select('id, tenure')
+    .eq('org_id', org.id)
     .in('id', ids)
   if (readErr) return { ok: false, error: readErr.message }
 
@@ -477,12 +497,14 @@ export async function bulkSetPropertyTenure(
   const target = parsed.data.tenure
   let updated = 0
   let failed = 0
+  const failedIds: string[] = []
 
   for (const propertyId of ids) {
     const prev = existing.get(propertyId)
     if (prev === undefined) {
-      // Property either doesn't exist or RLS hid it. Count as failure.
+      // Property either doesn't exist or belongs to another org. Count as failure.
       failed += 1
+      failedIds.push(propertyId)
       continue
     }
     if (prev === target) {
@@ -500,46 +522,20 @@ export async function bulkSetPropertyTenure(
         tenure_updated_by: user.id,
       } as never)
       .eq('id', propertyId)
+      .eq('org_id', org.id)
     if (updErr) {
       console.error('[properties.bulkSetPropertyTenure] update failed', propertyId, updErr.message)
       failed += 1
+      failedIds.push(propertyId)
       continue
     }
 
-    const evTenure = await logPropertyEvent({
-      propertyId,
-      kind: 'tenure_changed',
-      payload: { from: prev, to: target, via: 'bulk' },
-    })
-    if (!evTenure.ok) {
-      console.error('[properties.bulkSetPropertyTenure] event log failed', evTenure.error)
-    }
-
-    if (target === 'leased' && prev !== 'leased') {
-      const evStart = await logPropertyEvent({
-        propertyId,
-        kind: 'lease_started',
-        payload: { from: prev, via: 'bulk' },
-      })
-      if (!evStart.ok) {
-        console.error('[properties.bulkSetPropertyTenure] event log failed', evStart.error)
-      }
-    }
-    if (target !== 'leased' && prev === 'leased') {
-      const evEnd = await logPropertyEvent({
-        propertyId,
-        kind: 'lease_ended',
-        payload: { to: target, via: 'bulk' },
-      })
-      if (!evEnd.ok) {
-        console.error('[properties.bulkSetPropertyTenure] event log failed', evEnd.error)
-      }
-    }
+    await recordTenureChange(supabase, user.id, propertyId, prev, target, { via: 'bulk' })
 
     updated += 1
   }
 
   revalidatePath('/properties')
   revalidatePath('/leases')
-  return { ok: true, data: { updated, failed } }
+  return { ok: true, data: { updated, failed, failedIds } }
 }
