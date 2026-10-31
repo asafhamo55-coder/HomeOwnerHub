@@ -116,6 +116,11 @@ export const MIGRATION_MANIFEST: string[] = [
   // + unapplied_credits, BL-176 admin-only state/type trigger on associations
   // (security/m7-batch.test.ts). One file, one entry.
   '0072_m7_batch.sql',
+  // M8: BL-035/036 online dues payments (Stripe Connect) and autopay: six tables
+  // plus record_online_payment_success() / reverse_online_payment(). Unapplied in
+  // production (M8_APPLIED = false); replayed here like 0072 was, so the
+  // integration suite runs "objects present, flag false". One file, one entry.
+  '0073_online_payments.sql',
 ]
 
 /**
