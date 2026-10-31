@@ -9,7 +9,7 @@
 //
 // No "@/..." imports: the tests import this module.
 
-import { HOA_PRICE_COPY } from './hoa-pricing'
+import { HOA_PRICE_COPY, PRICING_V2 } from './hoa-pricing'
 import { HOA_PRODUCT_NAME, OTHER_HUBS_ENABLED } from './hubs'
 import { PROFESSIONALS_META } from './professionals'
 import { STATE_HUBS } from './state-law'
@@ -24,7 +24,7 @@ export interface PageMetaEntry {
 
 export const TITLE_SUFFIX = ` · ${SITE_NAME}`
 
-export const HOME_TITLE = 'HomeownerHub: AI workspace for HOA boards'
+export const HOME_TITLE = 'HomeownerHub: AI workspace for self-managed HOA boards'
 
 export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   '/': {
@@ -45,27 +45,29 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     // BL-097: PM and Eviction are not offered right now.
     description: OTHER_HUBS_ENABLED
       ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary} PM free tier or $19–$49/mo. Eviction $99–$199 per case.`
-      : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary}`,
+      : PRICING_V2
+        ? `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary} Month to month, and no card needed to start.`
+        : `${HOA_PRODUCT_NAME}: ${HOA_PRICE_COPY.metaSummary}`,
   },
   '/features/dues-and-accounting': {
-    title: 'Dues and accounting for HOA boards',
+    title: 'Dues and accounting software for HOA boards',
     description:
-      'Balances, late fees held to the state cap, scanned vendor bills and a month-end board report, in one ledger for volunteer HOA boards.',
+      'Balances, late fees held to the state cap, scanned vendor bills and a month-end board report, all in one ledger built for volunteer HOA boards and treasurers.',
   },
   '/features/violations': {
-    title: 'HOA violation letters from a photo',
+    title: 'HOA violation letters drafted from a photo',
     description:
-      'Photo and caption in, a drafted violation letter with the rule cited out. It waits in Approvals until a board member decides.',
+      'Photo and caption in, a drafted violation letter with the rule cited out. The draft waits in Approvals until a board member decides what goes out.',
   },
   '/features/announcements': {
     title: 'HOA announcements drafted from a sentence',
     description:
-      'Write one sentence and get a drafted announcement with audience and timing, a Spanish version the board reviews, and results by home.',
+      'Write one sentence and get a drafted announcement with audience and timing, a Spanish version for the board to review, and delivery results by home.',
   },
   '/features/architecture-requests': {
-    title: 'HOA architecture request review',
+    title: 'HOA architecture request review for boards',
     description:
-      'Residents pre-check a project against your guidelines. The board gets a cited review, photo findings and editable decision letters.',
+      'Residents pre-check a project against your guidelines before they submit. The board gets a cited review, photo findings and editable decision letters.',
   },
   '/features/ask-your-documents': {
     title: 'Ask your HOA documents, with citations',
@@ -75,12 +77,12 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   '/compare': {
     title: 'HomeownerHub vs managers, Vantaca and DIY',
     description:
-      'The comparison your board can send around: AI workflows, HomeownerHub’s checkout price, and what the alternatives publish.',
+      'The comparison your board can send around: AI workflows, HomeownerHub’s checkout price, and what management companies, Vantaca and DIY publish.',
   },
   '/demo': {
     title: 'Book a demo: 20 minutes for your board',
     description:
-      'Send us your CC&R. We pre-load it. We show Covenant Brain answering your actual rules. Your board decides.',
+      'Send us your CC&R and we pre-load it. In 20 minutes we show Covenant Brain answering questions about your actual rules. Your board decides what happens next.',
   },
   '/states': {
     title: 'State HOA laws built in: GA, FL, CA and TX',
@@ -99,12 +101,12 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
       'Ten yes/no questions to see how ready your Georgia HOA is for SB 406. You get a score and a checklist with plain-language guides. Nothing is stored or sent.',
   },
   '/guides': {
-    title: 'HOA guides for boards, by state',
+    title: 'HOA guides for volunteer boards, by state',
     description:
-      'Plain-language HOA guides for volunteer boards, grouped by Georgia, Florida, California and Texas, plus guides that apply in any state.',
+      'Plain-language HOA guides for volunteer boards, grouped by Georgia, Florida, California and Texas, plus guides that apply in any state. Statutes quoted.',
   },
   '/templates': {
-    title: 'Free HOA templates and checklists',
+    title: 'Free HOA board templates and checklists',
     description:
       'Printable HOA board templates and checklists: meeting agendas, minutes, violation and collections letters, and Georgia notice checklists. No sign-up.',
   },
@@ -113,14 +115,14 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
         description: PROFESSIONALS_META.description,
   },
   '/about': {
-    title: 'About: AI for volunteer HOA boards',
+    title: 'About us: AI built for volunteer HOA boards',
     description:
-      'Why HomeownerHub exists, what we believe, and how we work. Built in Atlanta for the volunteer board members doing the unpaid hours.',
+      'Why HomeownerHub exists, what we believe, and how we work. Built in Atlanta for the volunteer board members doing the unpaid hours, and their neighbors.',
   },
   '/roadmap': {
     title: 'Public roadmap: every workflow and bar',
     description:
-      'The public HomeownerHub roadmap. Every workflow with its current quality bar, shipped/building/planned status, and target month.',
+      'The public HomeownerHub roadmap. Every workflow with its current quality bar, its shipped, building or planned status, and a target month for each one.',
   },
   '/honesty-bars': {
     title: 'AI honesty bars: what Bar A, B, and C mean',
@@ -129,40 +131,40 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
   },
   '/case-studies': {
     title: 'Customer case studies (coming soon)',
-    description: 'HomeownerHub case studies will be published once a customer approves them.',
+    description: 'HomeownerHub case studies will be published once a customer approves them. Until then we show the product, the pricing and the quality bars instead.',
   },
   '/security': {
-    title: 'Security: how we protect your data',
+    title: 'Security: how we protect your HOA data',
     description:
       'Encryption at rest and in transit. Postgres row-level security by tenant. Named AI providers, owner contact details kept out of prompts. AI runs logged.',
   },
   '/docs': {
     title: 'Product documentation and user guide',
     description:
-      'Product documentation for HomeownerHub. The step-by-step user guide lives inside the app; API reference and runbooks come later.',
+      'Product documentation for HomeownerHub. The step-by-step user guide lives inside the app, and the API reference and runbooks will be published here later.',
   },
   '/blog': {
     title: 'HOA governance blog for volunteer boards',
     // BL-097: no landlord or eviction topics while those hubs are not offered.
     description: OTHER_HUBS_ENABLED
       ? 'Jurisdiction-specific writing on HOA governance, landlord operations, and the AI work that’s replacing them.'
-      : 'Jurisdiction-specific writing on HOA governance for volunteer boards, and the AI work that helps with it.',
+      : 'Jurisdiction-specific writing on HOA governance for volunteer boards, and the AI work that helps with it. Each post names the statute it relies on.',
   },
   '/status': {
     title: 'Service status and incident reporting',
-    description: 'How to check on HomeownerHub services, and how to report an incident to our support team.',
+    description: 'How to check on HomeownerHub services, what the status page covers, and how to report an incident, an outage or a data concern to our support team.',
   },
   '/privacy': {
-    title: 'Privacy policy and data practices',
+    title: 'Privacy policy: how we handle your data',
     description:
-      'The HomeownerHub privacy policy: how we collect, use, and protect your information when you use our site and service.',
+      'The HomeownerHub privacy policy: how we collect, use, and protect your information when you use our site and service, and the choices you have over it.',
   },
   '/terms': {
     title: 'Terms of service for using the product',
-    description: 'The terms of service under which you use HomeownerHub, the AI platform for self-managed HOA boards.',
+    description: 'The terms of service under which you use HomeownerHub, the AI platform for self-managed HOA boards: accounts, acceptable use, billing and liability.',
   },
   '/dpa': {
-    title: 'Data Processing Agreement',
-    description: 'HomeownerHub’s DPA for customers needing a formal data-processing addendum.',
+    title: 'Data Processing Agreement (DPA) for customers',
+    description: 'HomeownerHub’s Data Processing Agreement for customers who need a formal data-processing addendum: roles, subprocessors, security measures and breach notice.',
   },
 }

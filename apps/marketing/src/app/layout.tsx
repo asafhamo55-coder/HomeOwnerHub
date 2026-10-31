@@ -4,7 +4,7 @@ import './globals.css'
 import { Analytics } from '@vercel/analytics/next'
 import { JsonLd } from '@/components/site/json-ld'
 import { MotionProvider } from '@/components/site/motion-provider'
-import { organizationLd } from '@/lib/jsonld'
+import { organizationLd, softwareApplicationLd, websiteLd } from '@/lib/jsonld'
 import { OTHER_HUBS_ENABLED } from '@/lib/hubs'
 import { SITE_NAME, SITE_ORIGIN } from '@/lib/site'
 
@@ -72,7 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
-        <JsonLd data={organizationLd()} />
+        <JsonLd data={[organizationLd(), websiteLd(), softwareApplicationLd()]} />
         <MotionProvider>{children}</MotionProvider>
         <Analytics />
       </body>

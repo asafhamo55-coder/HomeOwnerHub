@@ -155,7 +155,7 @@ export const TX_FLAGS: Guide = {
   path: '/guides/texas-hoa-flag-display-rules',
   state: 'TX',
   title: 'Texas HOA flag display: what Property Code 202.012 lets an owner fly',
-  metaTitle: 'Texas HOA flag display rules',
+  metaTitle: 'Texas HOA flag and flagpole rules for boards',
   description:
     'Tex. Prop. Code 202.012 limits what a Texas HOA can ban or regulate about the U.S., Texas and military flags and flagpoles. The statute text, quoted.',
   eyebrow: 'Texas · Rules',

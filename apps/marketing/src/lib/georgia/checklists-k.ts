@@ -13,7 +13,7 @@ export const FL_LIEN_NOTICE: Checklist = {
   title: 'Florida HOA notice of intent to record a claim of lien',
   metaTitle: 'Florida HOA notice of intent to lien',
   description:
-    'A free, printable checklist and fill-in 45-day notice of intent to record a claim of lien for a Florida HOA, from Fla. Stat. 720.3085(4).',
+    'A free, printable checklist and fill-in 45-day notice of intent to record a claim of lien for a Florida HOA board, drawn from Fla. Stat. 720.3085(4).',
   eyebrow: 'Free template · Print it',
   intro: [
     'Use this when a Florida homeowners’ association plans to record a claim of lien for unpaid assessments. Each field below is tagged: statute means the quoted Florida text calls for it, practice means it is our suggestion.',

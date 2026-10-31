@@ -279,7 +279,7 @@ export const STATE_HUBS: readonly StateHub[] = [
     ],
     caveats: ['State-law answers for Florida are built and being loaded next. Until then, drafts cite the section but the Ask feature does not yet quote Florida’s statute.'],
     meta: {
-      title: 'Florida HOA law tools for boards',
+      title: 'Florida HOA law tools for volunteer boards',
       description: 'How the HomeownerHub workspace follows Florida HOA law (chapter 720) for boards: estoppel certificates, collections letters, budget notice and fine hearings.',
     },
   },
@@ -330,7 +330,7 @@ export const STATE_HUBS: readonly StateHub[] = [
       'State-law answers for Texas are built and being loaded next.',
     ],
     meta: {
-      title: 'Texas HOA law tools for boards',
+      title: 'Texas HOA law tools for volunteer boards',
       description: 'How the HomeownerHub workspace follows the Texas Property Code for boards: the resale certificate and collections letters, with the section cited on each draft.',
     },
   },

@@ -22,7 +22,7 @@ export const TX_VIOLATION_NOTICE: Guide = {
   title: 'Texas HOA violation notice and hearing request: Property Code § 209.006',
   metaTitle: 'Texas HOA violation notice and hearing',
   description:
-    'What Tex. Prop. Code 209.006 requires in a Texas HOA violation notice before a fine: certified mail, a cure date and a hearing request.',
+    'What Tex. Prop. Code 209.006 requires in a Texas HOA violation notice before a fine: certified mail, a cure date and the owner’s right to request a hearing.',
   eyebrow: 'Texas · Violations',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,

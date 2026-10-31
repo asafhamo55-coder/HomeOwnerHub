@@ -151,7 +151,7 @@ export const CA_ELECTIONS: Guide = {
   slug: 'california-hoa-election-rules',
   path: '/guides/california-hoa-election-rules',
   title: 'California HOA elections: nominations, the inspector and the right to vote',
-  metaTitle: 'California HOA election rules',
+  metaTitle: 'California HOA election rules for boards',
   description:
     'What California Civil Code 5100 to 5145 say about HOA elections: secret ballots, nominations, the independent inspector and a member’s right to a ballot.',
   eyebrow: 'California · Elections',

@@ -133,7 +133,7 @@ export const CA_RECORDS: Guide = {
   title: 'California HOA records: what members can inspect and how fast',
   metaTitle: 'California HOA records inspection rules',
   description:
-    'California Civil Code 5200 and 5210 define association records and set 10-business-day and 30-day response times. The rules, quoted.',
+    'California Civil Code 5200 and 5210 define association records and set 10-business-day and 30-day response times for owner requests. The rules, quoted.',
   eyebrow: 'California · Records',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,

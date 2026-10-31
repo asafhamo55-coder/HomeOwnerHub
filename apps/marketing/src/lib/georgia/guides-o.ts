@@ -24,7 +24,7 @@ export const TX_COLLECTIONS: Guide = {
   title: 'Texas HOA notice before collections: what Property Code 209.0064 requires',
   metaTitle: 'Texas HOA notice before collections',
   description:
-    'Tex. Prop. Code 209.0064 requires a certified-mail notice and a 45-day cure period before an owner owes a collection agent’s fees. Quoted.',
+    'Tex. Prop. Code 209.0064 requires a certified-mail notice and a 45-day cure period before an owner owes a collection agent’s fees. The statute text, quoted.',
   eyebrow: 'Texas · Collections',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
@@ -149,7 +149,7 @@ export const CA_COLLECTIONS: Guide = {
   title: 'California HOA pre-lien notice and collections: what Civil Code 5650 to 5665 require',
   metaTitle: 'California HOA pre-lien notice rules',
   description:
-    'California Civil Code 5660 requires a certified-mail notice 30 days before an HOA records a lien. What it says, the caps and payment plans.',
+    'California Civil Code 5660 requires a certified-mail notice 30 days before an HOA records a lien. What it says, the fee caps and the payment plan rules.',
   eyebrow: 'California · Collections',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
