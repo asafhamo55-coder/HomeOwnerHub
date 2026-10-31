@@ -225,28 +225,43 @@ export async function listTicketsForBoard(opts: {
   }
 }
 
-export async function getTicketForBoard(
-  id: string,
-): Promise<TicketBoardDetail | null> {
+export type BoardTicketLoad =
+  | { ok: true; ticket: TicketBoardDetail; messagesFailed: boolean }
+  | { ok: false; reason: 'not_found' | 'error' }
+
+/**
+ * Three outcomes, never conflated: a real miss (`not_found`), a failed read
+ * of the ticket itself (`error`), and a ticket that loaded while its
+ * conversation did not (`ok` with `messagesFailed`, messages empty).
+ */
+export async function getTicketForBoard(id: string): Promise<BoardTicketLoad> {
   await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
-  const { data: ticket } = await supabase
-    .from('tickets' as never)
-    .select(
-      'id, unit_id, submitted_by, category, subject, description, status, priority, created_at, closed_at, closed_by, unit:units(unit_number), submitter:profiles!tickets_submitted_by_fkey(full_name, email)',
-    )
-    .eq('id', id)
-    .is('deleted_at', null)
-    .maybeSingle()
-  if (!ticket) return null
+  const parent = await loadOrFail(
+    'board ticket',
+    supabase
+      .from('tickets' as never)
+      .select(
+        'id, unit_id, submitted_by, category, subject, description, status, priority, created_at, closed_at, closed_by, unit:units(unit_number), submitter:profiles!tickets_submitted_by_fkey(full_name, email)',
+      )
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  )
+  if (!parent.ok) return { ok: false, reason: 'error' }
+  const ticket = parent.data
+  if (!ticket) return { ok: false, reason: 'not_found' }
 
-  const { data: msgs } = await supabase
-    .from('ticket_messages' as never)
-    .select(
-      'id, author_id, author_role, body, internal, created_at, author:profiles!ticket_messages_author_id_fkey(full_name)',
-    )
-    .eq('ticket_id', id)
-    .order('created_at', { ascending: true })
+  const msgRes = await loadOrFail(
+    'board ticket messages',
+    supabase
+      .from('ticket_messages' as never)
+      .select(
+        'id, author_id, author_role, body, internal, created_at, author:profiles!ticket_messages_author_id_fkey(full_name)',
+      )
+      .eq('ticket_id', id)
+      .order('created_at', { ascending: true }),
+  )
 
   const r = ticket as unknown as TicketBoardDetail & {
     unit: { unit_number: string | null } | null
@@ -254,37 +269,41 @@ export async function getTicketForBoard(
   }
 
   return {
-    id: r.id,
-    unit_id: r.unit_id,
-    unit_number: r.unit?.unit_number ?? null,
-    submitted_by: r.submitted_by,
-    submitter_name: r.submitter?.full_name ?? null,
-    submitter_email: r.submitter?.email ?? null,
-    category: r.category,
-    subject: r.subject,
-    description: r.description,
-    status: r.status,
-    priority: r.priority,
-    created_at: r.created_at,
-    closed_at: r.closed_at,
-    closed_by: r.closed_by,
-    messages: ((msgs ?? []) as unknown as Array<{
-      id: string
-      author_id: string
-      author_role: 'resident' | 'board' | 'admin'
-      body: string
-      internal: boolean
-      created_at: string
-      author: { full_name: string | null } | null
-    }>).map((m) => ({
-      id: m.id,
-      author_id: m.author_id,
-      author_role: m.author_role,
-      author_name: m.author?.full_name ?? null,
-      body: m.body,
-      internal: m.internal,
-      created_at: m.created_at,
-    })),
+    ok: true,
+    messagesFailed: !msgRes.ok,
+    ticket: {
+      id: r.id,
+      unit_id: r.unit_id,
+      unit_number: r.unit?.unit_number ?? null,
+      submitted_by: r.submitted_by,
+      submitter_name: r.submitter?.full_name ?? null,
+      submitter_email: r.submitter?.email ?? null,
+      category: r.category,
+      subject: r.subject,
+      description: r.description,
+      status: r.status,
+      priority: r.priority,
+      created_at: r.created_at,
+      closed_at: r.closed_at,
+      closed_by: r.closed_by,
+      messages: ((msgRes.ok ? msgRes.data ?? [] : []) as unknown as Array<{
+        id: string
+        author_id: string
+        author_role: 'resident' | 'board' | 'admin'
+        body: string
+        internal: boolean
+        created_at: string
+        author: { full_name: string | null } | null
+      }>).map((m) => ({
+        id: m.id,
+        author_id: m.author_id,
+        author_role: m.author_role,
+        author_name: m.author?.full_name ?? null,
+        body: m.body,
+        internal: m.internal,
+        created_at: m.created_at,
+      })),
+    },
   }
 }
 

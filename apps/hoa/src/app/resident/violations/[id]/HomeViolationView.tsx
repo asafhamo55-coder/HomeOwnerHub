@@ -38,7 +38,7 @@ export function HomeViolationView({
   thread: MyViolationThread | null
   threadFailed: boolean
   canRespond: boolean
-  attachments: SubmissionAttachment[]
+  attachments: SubmissionAttachment[] | null
   /** BL-133 (M4_APPLIED). `off` renders nothing. */
   hearing?: ResidentHearingLoad
 }) {

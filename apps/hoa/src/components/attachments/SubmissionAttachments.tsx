@@ -29,7 +29,8 @@ export function SubmissionAttachments({
 }: {
   threadType: ThreadType
   parentId: string
-  attachments: SubmissionAttachment[]
+  /** `null` = the list failed to load (not the same as no attachments). */
+  attachments: SubmissionAttachment[] | null
   canDelete?: boolean
 }) {
   const router = useRouter()
@@ -69,7 +70,17 @@ export function SubmissionAttachments({
 
   return (
     <div className="space-y-3">
-      {attachments.length === 0 ? (
+      {attachments === null ? (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
+          Couldn’t load attachments.{' '}
+          <button type="button" onClick={() => router.refresh()} className="underline underline-offset-2">
+            Try again
+          </button>
+        </p>
+      ) : attachments.length === 0 ? (
         <p className="text-sm text-muted">No documents attached yet.</p>
       ) : (
         <ul className="space-y-2">
@@ -101,7 +112,7 @@ export function SubmissionAttachments({
                     <span className="hidden sm:inline">Download</span>
                   </a>
                 ) : (
-                  <span className="text-xs text-muted">unavailable</span>
+                  <span className="text-xs text-muted">Link unavailable</span>
                 )}
                 {canDelete ? (
                   <button
