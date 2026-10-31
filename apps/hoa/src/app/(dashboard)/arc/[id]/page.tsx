@@ -54,7 +54,7 @@ export default async function ArcReviewDetailPage({
   const arc = await getArcRequestForBoard(id)
   if (!arc) notFound()
   const supabase = await getSupabaseServerClient()
-  const [messages, attachments, aiReview, clockLoad] = await Promise.all([
+  const [messages, attachmentList, aiReview, clockLoad] = await Promise.all([
     getArcMessagesForBoard(id),
     listSubmissionAttachments('arc', id),
     // BL-027: the W37 draft (and the resident's BL-024 pre-check). A failed
@@ -64,6 +64,9 @@ export default async function ArcReviewDetailPage({
     // 30 calendar days rather than hiding the deadline.
     getArcClockSettings(),
   ])
+  // A failed attachment read shows a notice in the Documents card; the photo
+  // links and review inputs just have nothing to work with.
+  const attachments = attachmentList ?? []
   const clockAssociations = clockLoad.ok ? clockLoad.associations : []
   const clock = arcClock({
     status: arc.status,
@@ -161,7 +164,7 @@ export default async function ArcReviewDetailPage({
               <CardDescription>Plans, photos and quotes attached to this application.</CardDescription>
             </CardHeader>
             <CardContent>
-              <SubmissionAttachments threadType="arc" parentId={arc.id} attachments={attachments} canDelete />
+              <SubmissionAttachments threadType="arc" parentId={arc.id} attachments={attachmentList} canDelete />
             </CardContent>
           </Card>
         </div>

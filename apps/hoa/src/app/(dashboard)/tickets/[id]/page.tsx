@@ -9,6 +9,7 @@ import {
   CardTitle,
   KeyValue,
   KeyValueList,
+  LoadFailed,
   Page,
   StatusBadge,
   Timeline,
@@ -45,12 +46,16 @@ export default async function BoardTicketDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [ticket, actionItems, attachments] = await Promise.all([
+  const [loaded, actionItems, attachments] = await Promise.all([
     getTicketForBoard(id),
     listTicketActionItems(id),
     listSubmissionAttachments('ticket', id),
   ])
-  if (!ticket) notFound()
+  if (!loaded.ok) {
+    if (loaded.reason === 'error') return <LoadFailed what="this ticket" retryHref={`/tickets/${id}`} />
+    notFound()
+  }
+  const { ticket, messagesFailed } = loaded
 
   const submitter = ticket.submitter_name ?? ticket.submitter_email ?? 'Unknown resident'
 
@@ -114,16 +119,22 @@ export default async function BoardTicketDetailPage({
             <CardHeader>
               <CardTitle as="h2">Conversation</CardTitle>
               <CardDescription>
-                {ticket.messages.length === 0
+                {messagesFailed
+                  ? 'The ticket loaded, but its replies did not.'
+                  : ticket.messages.length === 0
                   ? 'No replies yet — the resident is waiting on the board.'
                   : `${ticket.messages.length} ${ticket.messages.length === 1 ? 'reply' : 'replies'}. Internal notes are highlighted and never shown to the resident.`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <Timeline items={timeline} label="Ticket conversation" />
-              <div className="border-t border-border pt-5">
-                <TicketReplyForm ticketId={ticket.id} />
-              </div>
+              {messagesFailed ? (
+                <LoadFailed what="the conversation" retryHref={`/tickets/${id}`} />
+              ) : (
+                <div className="border-t border-border pt-5">
+                  <TicketReplyForm ticketId={ticket.id} />
+                </div>
+              )}
             </CardContent>
           </Card>
 

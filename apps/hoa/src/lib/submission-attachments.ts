@@ -7,6 +7,8 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { removeStorageObjects } from '@/lib/storage-remove'
 import { isSubmissionAttachmentPath } from '@/lib/storage-path'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
+import { loadOrFail } from '@/lib/load-or-fail'
+import { reportError } from '@homeowner-portal/observability/report'
 import {
   ATTACHMENT_ALLOWED_TYPES,
   ATTACHMENT_BUCKET,
@@ -29,7 +31,7 @@ export interface SubmissionAttachment {
   sizeBytes: number | null
   uploadedByRole: 'resident' | 'board' | 'admin'
   createdAt: string
-  /** Time-limited download URL (1h). Null if the file can't be signed. */
+  /** Time-limited download URL (1h). Null if the file can't be signed; the UI shows "Link unavailable". */
   signedUrl: string | null
 }
 
@@ -60,19 +62,29 @@ function safeName(original: string): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`
 }
 
+/**
+ * The attachments on a thread, or `null` when the read failed, so a page
+ * can say "couldn't load" instead of "no documents attached yet". One file
+ * whose signed URL fails keeps its row with `signedUrl: null`; the others
+ * are unaffected. Failures are reported without file names or paths.
+ */
 export async function listSubmissionAttachments(
   threadType: ThreadType,
   parentId: string,
-): Promise<SubmissionAttachment[]> {
+): Promise<SubmissionAttachment[] | null> {
   const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('submission_attachments' as never)
-    .select('id, file_name, content_type, size_bytes, uploaded_by_role, storage_path, created_at')
-    .eq('thread_type' as never, threadType)
-    .eq('parent_id' as never, parentId)
-    .order('created_at' as never, { ascending: true })
+  const res = await loadOrFail(
+    'submission attachments',
+    supabase
+      .from('submission_attachments' as never)
+      .select('id, file_name, content_type, size_bytes, uploaded_by_role, storage_path, created_at')
+      .eq('thread_type' as never, threadType)
+      .eq('parent_id' as never, parentId)
+      .order('created_at' as never, { ascending: true }),
+  )
+  if (!res.ok) return null
 
-  const rows = (data ?? []) as unknown as Array<{
+  const rows = (res.data ?? []) as unknown as Array<{
     id: string
     file_name: string
     content_type: string | null
@@ -84,9 +96,22 @@ export async function listSubmissionAttachments(
 
   const out: SubmissionAttachment[] = []
   for (const r of rows) {
-    const { data: signed } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(r.storage_path, 60 * 60)
+    let signedUrl: string | null = null
+    try {
+      const { data: signed, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(r.storage_path, 60 * 60)
+      signedUrl = error ? null : (signed?.signedUrl ?? null)
+      if (error) {
+        reportError(new Error('Failed to sign submission attachment URL'), 'submission-attachments', {
+          code: 'sign_error',
+        })
+      }
+    } catch {
+      reportError(new Error('Failed to sign submission attachment URL'), 'submission-attachments', {
+        code: 'thrown',
+      })
+    }
     out.push({
       id: r.id,
       fileName: r.file_name,
@@ -94,7 +119,7 @@ export async function listSubmissionAttachments(
       sizeBytes: r.size_bytes,
       uploadedByRole: r.uploaded_by_role,
       createdAt: r.created_at,
-      signedUrl: signed?.signedUrl ?? null,
+      signedUrl,
     })
   }
   return out
