@@ -15,6 +15,7 @@ const TXC = 'tx-prop-209-2026.txt'
 const TX4 = 'tx-prop-209-004-2026.txt'
 const TX7 = 'tx-prop-207-2026.txt'
 const TX2 = 'tcss-pr202-2026-excerpt.htm'
+const TX3 = 'tcss-pr209-2026-excerpt.htm'
 
 export const STATE_QUOTES = {
   // Florida: estoppel certificates, Fla. Stat. § 720.30851
@@ -1146,5 +1147,77 @@ export const STATE_QUOTES = {
     cite: 'Tex. Prop. Code § 202.001(5)',
     fixture: TX2,
     quote: "\"Front yard\" means a yard within a lot having a front building setback line with a setback of not less than 15 feet extending the full width of the lot between the front lot line and the front building setback line.",
+  },
+  // Texas: violation notice and hearing request, Tex. Prop. Code § 209.006 (BL-172 batch 20).
+  // The excerpt holds § 209.006 whole but not § 209.007, which it only cites.
+  txViolNotice: {
+    cite: 'Tex. Prop. Code § 209.006(a)',
+    fixture: TX3,
+    quote: "Before a property owners' association may suspend an owner's right to use a common area, file a suit against an owner other than a suit to collect a regular or special assessment or foreclose under an association's lien, charge an owner for property damage, levy a fine for a violation of the restrictions or bylaws or rules of the association, or report any delinquency of an owner to a credit reporting service, the association or its agent must give written notice to the owner by certified mail.",
+  },
+  txViolContents: {
+    cite: 'Tex. Prop. Code § 209.006(b)(1)',
+    fixture: TX3,
+    quote: "describe the violation or property damage that is the basis for the suspension action, charge, or fine and state any amount due the association from the owner;",
+  },
+  txViolCure: {
+    cite: 'Tex. Prop. Code § 209.006(b)(2)(A)',
+    fixture: TX3,
+    quote: "is entitled to a reasonable period to cure the violation and avoid the fine or suspension if the violation is of a curable nature and does not pose a threat to public health or safety;",
+  },
+  txHearRequest: {
+    cite: 'Tex. Prop. Code § 209.006(b)(2)(B)',
+    fixture: TX3,
+    quote: "may request a hearing under Section 209.007 on or before the 30th day after the date the notice was mailed to the owner; and",
+  },
+  txViolMilitary: {
+    cite: 'Tex. Prop. Code § 209.006(b)(2)(C)',
+    fixture: TX3,
+    quote: "may have special rights or relief related to the enforcement action under federal law, including the Servicemembers Civil Relief Act (50 U.S.C. App. Section 501 et seq.), if the owner is serving on active military duty;",
+  },
+  txViolCureDate: {
+    cite: 'Tex. Prop. Code § 209.006(b)(3)',
+    fixture: TX3,
+    quote: "specify the date by which the owner must cure the violation if the violation is of a curable nature and does not pose a threat to public health or safety; and",
+  },
+  txViolMailed: {
+    cite: 'Tex. Prop. Code § 209.006(b)(4)',
+    fixture: TX3,
+    quote: "be sent by verified mail to the owner at the owner's last known address as shown on the association records.",
+  },
+  txViolReasonable: {
+    cite: 'Tex. Prop. Code § 209.006(c)',
+    fixture: TX3,
+    quote: "The date specified in the notice under Subsection (b)(3) must provide a reasonable period to cure the violation if the violation is of a curable nature and does not pose a threat to public health or safety.",
+  },
+  txViolRepeat: {
+    cite: 'Tex. Prop. Code § 209.006(d)',
+    fixture: TX3,
+    quote: "Subsections (a) and (b) do not apply to a violation for which the owner has been previously given notice under this section and the opportunity to exercise any rights available under this section in the preceding six months.",
+  },
+  txViolCured: {
+    cite: 'Tex. Prop. Code § 209.006(e)',
+    fixture: TX3,
+    quote: "If the owner cures the violation before the expiration of the period for cure described by Subsection (c), a fine may not be assessed for the violation.",
+  },
+  txViolThreat: {
+    cite: 'Tex. Prop. Code § 209.006(f)',
+    fixture: TX3,
+    quote: "For purposes of this section, a violation is considered a threat to public health or safety if the violation could materially affect the physical health or safety of an ordinary resident.",
+  },
+  txViolUncurable: {
+    cite: 'Tex. Prop. Code § 209.006(g)',
+    fixture: TX3,
+    quote: "For purposes of this section, a violation is considered uncurable if the violation has occurred but is not a continuous action or a condition capable of being remedied by affirmative action. For purposes of this subsection, the nonrepetition of a one-time violation or other violation that is not ongoing is not considered an adequate remedy.",
+  },
+  txViolUncurableEx: {
+    cite: 'Tex. Prop. Code § 209.006(h)',
+    fixture: TX3,
+    quote: "The following are examples of acts considered uncurable for purposes of this section: (1) shooting fireworks; (2) an act constituting a threat to health or safety; (3) a noise violation that is not ongoing; (4) property damage, including the removal or alteration of landscape; and (5) holding a garage sale or other event prohibited by a dedicatory instrument.",
+  },
+  txViolCurableEx: {
+    cite: 'Tex. Prop. Code § 209.006(i)',
+    fixture: TX3,
+    quote: "The following are examples of acts considered curable for purposes of this section: (1) a parking violation; (2) a maintenance violation; (3) the failure to construct improvements or modifications in accordance with approved plans and specifications; and (4) an ongoing noise violation such as a barking dog.",
   },
 } as const satisfies Record<string, StatuteQuote>

@@ -15,6 +15,7 @@ import { CA_HEARING_RESOLUTION, FL_RECORDS_RESPONSE } from './checklists-m'
 import { FL_DIRECTOR_CERTIFICATION } from './checklists-n'
 import { FL_FINE_CAP_CHECKLIST } from './checklists-o'
 import { FL_ESTOPPEL_CHECKLIST } from './checklists-p'
+import { TX_VIOLATION_CHECKLIST } from './checklists-q'
 
 export interface Checklist {
   slug: string
@@ -133,4 +134,5 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
 [FL_DIRECTOR_CERTIFICATION.slug]: FL_DIRECTOR_CERTIFICATION,
   [FL_FINE_CAP_CHECKLIST.slug]: FL_FINE_CAP_CHECKLIST,
   [FL_ESTOPPEL_CHECKLIST.slug]: FL_ESTOPPEL_CHECKLIST,
+  [TX_VIOLATION_CHECKLIST.slug]: TX_VIOLATION_CHECKLIST,
 }

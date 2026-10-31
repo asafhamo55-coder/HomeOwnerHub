@@ -20,6 +20,7 @@ import { GA_BORROW_SUE, TX_FLAGS } from './guides-p'
 import { FL_BOARD_MEETINGS } from './guides-q'
 import { FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS } from './guides-r'
 import { FL_LIEN_TIMELINE } from './guides-s'
+import { TX_VIOLATION_NOTICE } from './guides-t'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -42,7 +43,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE, TX_VIOLATION_NOTICE]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -381,6 +382,20 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     title: 'Florida HOA assessment lien and foreclosure timeline: the 45-day notices in order',
     blurb: FL_LIEN_TIMELINE.summary[0]!,
     kind: 'guide',
+  },
+  {
+    slug: TX_VIOLATION_NOTICE.slug,
+    path: pathOf(TX_VIOLATION_NOTICE),
+    title: 'Texas HOA violation notice and hearing request: what § 209.006 requires',
+    blurb: TX_VIOLATION_NOTICE.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: 'texas-hoa-violation-notice-checklist',
+    path: '/templates/texas-hoa-violation-notice-checklist',
+    title: 'Texas HOA violation notice checklist (printable)',
+    blurb: 'A working checklist and a fill-in worksheet for the notice a Texas association sends before a fine or suspension: contents, cure date, certified mail and the hearing request, with the Texas text behind each step.',
+    kind: 'tool',
   },
   {
     slug: 'florida-hoa-fine-cap-and-daily-fine-checklist',

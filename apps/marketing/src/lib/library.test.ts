@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { ALL_GUIDES, CHECKLISTS, pathOf } from './georgia'
 import { GUIDES_PATH, TEMPLATES_PATH, filterItems, filterSections, groupOf, guideGroups, libraryEntries, templateGroups } from './library'
 import { SITEMAP_PATHS } from './site'
+import { STATE_GUIDE_LINKS } from './state-law'
 
 const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel: string) => readFileSync(path.join(src, rel), 'utf8')
@@ -198,6 +199,29 @@ describe('batch 16 pages are in the library', () => {
       expect(SITEMAP_PATHS, p).toContain(p)
       expect(read(`app${p}/page.tsx`)).toContain('pageMetadata(')
     }
+  })
+})
+
+describe('batch 20 pages are in the library', () => {
+  const pages = ['/guides/texas-hoa-violation-notice-and-hearing-209-006', '/templates/texas-hoa-violation-notice-checklist']
+
+  it('lists them in the palette feed, and the template on /templates', () => {
+    const feed = libraryEntries().map((e) => e.path)
+    const templates = templateGroups().flatMap((g) => g.items.map((i) => i.path))
+    for (const p of pages) expect(feed, p).toContain(p)
+    expect(templates).toContain(pages[1])
+  })
+
+  it('puts them in the sitemap, with a page file each', () => {
+    for (const p of pages) {
+      expect(SITEMAP_PATHS, p).toContain(p)
+      expect(read(`app${p}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+
+  it('links them from the Texas state hub list', () => {
+    const hrefs = STATE_GUIDE_LINKS.TX!.map((l) => l.href)
+    for (const p of pages) expect(hrefs, p).toContain(p)
   })
 })
 

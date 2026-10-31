@@ -12,6 +12,7 @@ export type QuoteFixture =
   | 'tx-prop-209-004-2026.txt'
   | 'tx-prop-207-2026.txt'
 | 'tcss-pr202-2026-excerpt.htm'
+  | 'tcss-pr209-2026-excerpt.htm'
   | 'ca-civ-davis-stirling-2026.txt'
 
 export interface StatuteQuote {

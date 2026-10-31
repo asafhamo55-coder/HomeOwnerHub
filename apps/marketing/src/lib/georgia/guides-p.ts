@@ -254,7 +254,7 @@ export const TX_FLAGS: Guide = {
       a: 'Chapter 202 defines a property owners’ association to include a condominium or townhouse regime. Ask your attorney how it applies to yours.',
     },
   ],
-  related: ['texas-hoa-third-party-collections-notice', 'texas-hoa-payment-plans-and-payment-priority', 'texas-hoa-management-certificate', 'ai-hoa-violation-letters-board-approval'],
+  related: ['texas-hoa-violation-notice-and-hearing-209-006', 'texas-hoa-third-party-collections-notice', 'texas-hoa-payment-plans-and-payment-priority', 'texas-hoa-management-certificate', 'ai-hoa-violation-letters-board-approval'],
   hoaDoes: [
     {
       text: 'Follow-up violation letters (second notice, hearing, fine, decision) are drafted for the board and wait in Approvals. Nothing is sent until a board member approves it.',
