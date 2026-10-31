@@ -33,18 +33,18 @@ export function TrustSecurity() {
       <div className="container-page">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.4fr] lg:gap-20">
           <div>
-            <p className="eyebrow">Trust and security</p>
+            <p className="eyebrow !text-sm">Trust and security</p>
             <h2 id="trust-heading" className="t-h2 mt-4 text-[#fff]">
               Built to be{' '}
               <span className="t-serif text-primary">checked,</span> not just trusted.
             </h2>
-            <p className="mt-5 text-[17px] leading-relaxed text-foreground-secondary">
+            <p className="mt-5 text-lg leading-relaxed text-foreground-secondary">
               A volunteer board is answerable to its neighbors. So every answer cites its source and every AI action
               leaves a record.
             </p>
             <Link
               href="/security"
-              className="mt-8 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#fff] underline-offset-4 hover:underline"
+              className="mt-8 inline-flex min-h-11 items-center gap-1.5 text-lg font-semibold text-[#fff] underline-offset-4 hover:underline"
             >
               How we protect your data
               <ArrowRight className="h-4 w-4" aria-hidden />
@@ -54,11 +54,11 @@ export function TrustSecurity() {
           <ul className="grid gap-4 sm:grid-cols-2">
             {POINTS.map(({ Icon, title, body }) => (
               <li key={title} className="rounded-2xl border border-[#ffffff1a] bg-[#ffffff0d] p-6">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-foreground/10 text-primary">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#ffffff1a] text-primary">
                   <Icon className="h-5 w-5" aria-hidden />
                 </span>
-                <h3 className="mt-5 text-[17px] font-semibold text-[#fff]">{title}</h3>
-                <p className="mt-2 text-[15px] leading-relaxed text-foreground-secondary">{body}</p>
+                <h3 className="mt-5 text-xl font-semibold text-[#fff]">{title}</h3>
+                <p className="mt-2 text-lg leading-relaxed text-foreground-secondary">{body}</p>
               </li>
             ))}
           </ul>
