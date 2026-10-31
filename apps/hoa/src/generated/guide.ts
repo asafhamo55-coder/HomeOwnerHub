@@ -52923,6 +52923,33 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    "id": "2026-10-31-1130-calendar-day-details#1",
+    "note": "2026-10-31-1130-calendar-day-details",
+    "date": "2026-10-31",
+    "title": "See what is due on a calendar day",
+    "body": "On the dashboard's compliance calendar, click any coloured day to see what is on it, such as how many dues charges are due or paid and which violations reach their cure deadline. Each line links to Dues or Violations.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "improvement"
+  },
+  {
+    "id": "2026-10-31-1100-faster-page-switching#1",
+    "note": "2026-10-31-1100-faster-page-switching",
+    "date": "2026-10-31",
+    "title": "Faster switching between pages",
+    "body": "Pages you open from the menu now start loading while your pointer rests on the link, or as soon as your finger touches it on a phone. Most pages open with their data already in place instead of a grey outline first.",
+    "roles": [
+      "admin",
+      "board",
+      "resident"
+    ],
+    "article": null,
+    "label": "improvement"
+  },
+  {
     "id": "2026-10-30-2359-essentials-and-complete-plans#1",
     "note": "2026-10-30-2359-essentials-and-complete-plans",
     "date": "2026-10-30",
