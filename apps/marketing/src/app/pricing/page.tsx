@@ -1,12 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, Check, Clock } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Nav } from '@/components/site/nav'
 import { Footer } from '@/components/site/footer'
 import { FaqList } from '@/components/site/faq'
 import { PricingSlab } from '@/components/site/pricing-slab'
 import { HeroCtas } from '@/components/site/hero-ctas'
 import { ApprovalsScreen, AskScreen, DuesScreen } from '@/components/site/tour-screens'
+import { PlanCompare } from '@/components/site/plan-compare'
+import { ReassuranceBand, ByHandStory } from '@/components/site/pricing-story'
 import { RoiCalculator } from '@/components/site/roi-calculator'
 import { HOA_PLANS, HOA_PRICE_COPY, PRICING_V2, TRIAL_DAYS } from '@/lib/hoa-pricing'
 import { pageMetadata } from '@/lib/site'
@@ -14,82 +16,6 @@ import { PAGE_META } from '@/lib/page-meta'
 import { STATE_COVERAGE_SENTENCE, STATE_LAW_ANSWERS_NOTE } from '@/lib/state-law'
 
 export const metadata: Metadata = pageMetadata({ ...PAGE_META['/pricing']!, path: '/pricing' })
-
-// Two plans, Essentials and Complete, in size bands. Every number comes from
-// lib/hoa-pricing.ts, which a unit test pins to what Stripe checkout charges.
-//
-// Truth rule (BL-002, BL-042): every item below maps to a shipped route in
-// apps/hoa. Anything not built yet goes under "Coming soon", and only if it
-// is on docs/backlog.md. `complete: true` = only on Complete
-// (docs/decisions/2026-10-20-pricing.md section 1).
-type Item = { text: string; complete?: true }
-const INCLUDED: Array<{ area: string; items: Item[] }> = [
-  {
-    area: 'Ask and understand',
-    items: [
-      { text: 'AI Daily Digest + Compliance Heat Map' }, // (dashboard)/page.tsx
-      { text: 'Ask your governing documents and get cited answers' }, // /ai/ask, W1
-      { text: '⌘K record search, built-in user guide and Ask the guide' }, // /api/search, /help, /api/help/ask
-    ],
-  },
-  {
-    area: 'Rules and requests',
-    items: [
-      { text: 'Violation letters drafted from photos, approved or rejected in one click' }, // /violations/new, /approvals, W3
-      { text: 'AI ARC review: resident pre-check, cited board review, decision letters' }, // /arc, /resident/arc/new
-    ],
-  },
-  {
-    area: 'Meetings',
-    items: [
-      { text: 'Meeting minutes drafted from your transcript; board packet as of month end' }, // /meetings, /meetings/[id]/packet
-      { text: 'State-law Compliance page, election planner and annual meeting kit' }, // /compliance, /meetings/[id]/election
-    ],
-  },
-  {
-    area: 'Communication',
-    items: [
-      { text: 'Announcements drafted from a sentence, phone preview, street audiences, scheduled sends and templates' }, // /communications/new
-      { text: 'Spanish version of announcements, reviewed by the board before sending' }, // BL-025
-      { text: 'Message results by home, with a reminder to those who haven’t opened' }, // /communications/[id]
-      { text: 'Shared Gmail inbox with AI reply drafts, saved replies and Create from email', complete: true }, // /inbox, W32
-    ],
-  },
-  {
-    area: 'Money',
-    items: [
-      { text: 'Accounting: general ledger, bank feeds, reconciliation', complete: true }, // /accounting
-      { text: 'AI bill scan into the approvals queue', complete: true }, // /accounting/invoices/new, W36
-      { text: 'Month-end board report, emailed on the 1st', complete: true }, // BL-073
-      { text: 'Late-fee policy the board sets, held to the state cap', complete: true }, // /settings/late-fees
-      { text: 'Collections letters (GA, FL, CA, TX), estoppel and resale certificates and the owner budget notice', complete: true }, // /properties/[id]/collections-letter
-    ],
-  },
-  {
-    area: 'Vendors',
-    items: [{ text: 'Vendor onboarding, RFPs and AI bid comparison', complete: true }], // /vendors, /rfps
-  },
-  {
-    area: 'State law',
-    items: [
-      { text: 'State law built in (GA, FL, CA, TX), including Georgia’s SB 406 registration kit, quorum and proxy rules, and the annual report for owners' }, // /compliance/ga-registration
-    ],
-  },
-  {
-    area: 'Residents',
-    items: [
-      { text: 'Resident portal: dues balance, ARC, requests, documents' }, // /resident
-      { text: 'Resident assistant that answers from the resident’s account and your documents, cited' }, // /resident/ask
-    ],
-  },
-  {
-    area: 'Setup and data',
-    items: [
-      { text: 'Roster import from CSV or Excel, CINC exports included' }, // /properties/import
-      { text: 'Download all your data any time, as spreadsheets' }, // /settings/data, BL-011
-    ],
-  },
-]
 
 // Backlog items (docs/backlog.md). Not available today.
 const COMING_SOON = [
@@ -145,56 +71,9 @@ export default function PricingPage() {
           headline={PRICING_V2 ? 'HOAs pay one flat price for their size.' : 'HOAs pay per door.'}
         />
 
-        <section className="section scroll-mt-20" id="included" aria-labelledby="included-h">
-          <div className="container-page">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="eyebrow">What’s included</p>
-              <h2 id="included-h" className="t-h2 mt-4 text-foreground">
-                Everything your board can use today.
-              </h2>
-              <p className="t-lead mt-4">
-                Essentials has the core. Complete adds the books and the mailbox. Items marked Complete are only on that plan.
-              </p>
-            </div>
-            <div className="mt-14 grid gap-5 md:grid-cols-2">
-              {INCLUDED.map((g) => (
-                <div key={g.area} className="card p-7">
-                  <h3 className="t-h3 text-foreground">{g.area}</h3>
-                  <ul className="mt-4 space-y-3">
-                    {g.items.map((it) => (
-                      <li key={it.text} className="flex gap-2.5 text-base text-foreground-secondary">
-                        <Check className="mt-1 h-4 w-4 shrink-0 text-success" aria-hidden />
-                        <span>
-                          {it.text}
-                          {it.complete && (
-                            <span className="ml-2 inline-block rounded-full bg-primary-subtle px-2 py-0.5 text-sm font-semibold text-primary">
-                              Complete
-                            </span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              <div className="card p-7">
-                <h3 className="t-h3 text-foreground">Coming soon</h3>
-                <p className="mt-2 text-base text-muted">Not available yet.</p>
-                <ul className="mt-4 space-y-3">
-                  {COMING_SOON.map((r) => (
-                    <li key={r} className="flex gap-2.5 text-base text-muted">
-                      <Clock className="mt-1 h-4 w-4 shrink-0" aria-hidden />
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <p className="mt-8 text-center text-base text-muted">
-              Plans start from {HOA_PLANS.map((p) => `${p.name} ${p.price}${p.period}`).join(' and ')}.
-            </p>
-          </div>
-        </section>
+        <ReassuranceBand />
+
+        <PlanCompare comingSoon={COMING_SOON} />
 
         <section className="section-warm section" aria-labelledby="fees-h">
           <div className="container-page">
@@ -228,6 +107,8 @@ export default function PricingPage() {
             </div>
           </div>
         </section>
+
+        <ByHandStory />
 
         <WhatYouGet />
 

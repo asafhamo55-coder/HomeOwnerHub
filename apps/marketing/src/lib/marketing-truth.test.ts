@@ -142,7 +142,7 @@ describe('round 4: shipped features are on the site, each with proof', () => {
   })
 
   it('/pricing lists the round-4 features', () => {
-    const src = read('app/pricing/page.tsx')
+    const src = read('app/pricing/page.tsx') + read('components/site/plan-compare.tsx')
     for (const s of ['Create from email', 'Resident assistant', 'Collections letters', 'phone preview']) {
       expect(src.toLowerCase(), s).toContain(s.toLowerCase())
     }

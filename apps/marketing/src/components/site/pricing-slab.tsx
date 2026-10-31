@@ -113,7 +113,7 @@ export function PricingSlab({ headline }: { headline: string }) {
             aria-valuetext={`${homes} homes`}
             className="mt-5 h-11 w-full cursor-pointer accent-white"
           />
-          <div className="flex justify-between text-sm text-muted" aria-hidden>
+          <div className="flex justify-between text-base text-muted" aria-hidden>
             <span>{MIN_HOMES}</span>
             <span>{MAX_HOMES}</span>
           </div>
@@ -139,7 +139,7 @@ export function PricingSlab({ headline }: { headline: string }) {
                   </span>
                   <span className="text-base text-muted">{yearly ? '/year' : '/month'}</span>
                 </p>
-                <p className="mt-1 min-h-[1.5rem] text-sm text-muted">
+                <p className="mt-1 min-h-[1.5rem] text-base text-muted">
                   {yearly ? `${ANNUAL_MONTHS_BILLED} months billed for 12: 2 months free.` : 'Billed monthly, cancel anytime.'}
                 </p>
                 <ul className="mt-6 flex-1 space-y-3">
