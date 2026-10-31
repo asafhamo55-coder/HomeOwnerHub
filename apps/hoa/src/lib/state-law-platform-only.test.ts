@@ -88,6 +88,26 @@ describe('law updates are platform-admin only', () => {
     expect(h.adminCalls[0]).toMatchObject({ table: 'state_law_updates', op: 'insert', payload: { state: 'GA', posted_by: 'user-1' } })
   })
 
+  it('editing applies the same validation as posting, with no write on failure', async () => {
+    h.platformAdmin = true
+    const short = await updateLawUpdate(ID, { headline: 'abc', summary: 'too short', sourceUrl: 'not a url' })
+    expect(short.ok).toBe(false)
+    expect(short).toMatchObject({ fieldErrors: { headline: 'Headline is too short.', summary: 'Summary should be at least 20 chars.' } })
+    expect(h.adminCalls).toEqual([])
+  })
+
+  it('editing saves every changed field, including the related statute', async () => {
+    h.platformAdmin = true
+    const STATUTE = '22222222-2222-4222-8222-222222222222'
+    const r = await updateLawUpdate(ID, { ...input, category: 'fines', effectiveDate: '2027-01-01', relatedStatuteId: STATUTE })
+    expect(r).toEqual({ ok: true })
+    expect(h.adminCalls[0]).toMatchObject({
+      table: 'state_law_updates',
+      op: 'update',
+      payload: { headline: input.headline, category: 'fines', effective_date: '2027-01-01', related_statute_id: STATUTE },
+    })
+  })
+
   it('a platform admin archives, restores, soft-deletes and edits through the service role', async () => {
     h.platformAdmin = true
     expect(await archiveLawUpdate(ID)).toEqual({ ok: true })

@@ -367,11 +367,46 @@ export async function deleteLawUpdate(id: string): Promise<ActionResult> {
   return { ok: true }
 }
 
+/** One live law update, for the edit form. Null when it is gone or deleted. */
+export async function getLawUpdateForEdit(id: string): Promise<LawUpdateAdminRow | null> {
+  const supabase = await getSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('state_law_updates' as never)
+    .select(
+      'id, state, headline, summary, action_items, category, effective_date, source_url, related_statute_id, posted_at, archived_at',
+    )
+    .eq('id', id)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (error) throw new Error(`state_law_updates: ${error.code ?? 'error'}`)
+  return (data as unknown as LawUpdateAdminRow) ?? null
+}
+
 export async function updateLawUpdate(
   id: string,
   input: Partial<CreateLawUpdateInput>,
 ): Promise<ActionResult> {
   if (!(await isPlatformAdmin())) return { ok: false, error: LAW_UPDATES_PLATFORM_ONLY }
+
+  // Same rules as posting a new update, applied to the fields being changed.
+  const parsed = CreateUpdateSchema.partial().safeParse({
+    headline: input.headline,
+    summary: input.summary,
+    action_items: input.actionItems,
+    category: input.category,
+    effective_date: input.effectiveDate,
+    source_url: input.sourceUrl,
+    related_statute_id: input.relatedStatuteId,
+  })
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {}
+    for (const issue of parsed.error.issues) {
+      const key = String(issue.path[0] ?? '')
+      if (key && !fieldErrors[key]) fieldErrors[key] = issue.message
+    }
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.', fieldErrors }
+  }
+
   const patch: Record<string, unknown> = {}
   if (input.headline !== undefined) patch.headline = input.headline
   if (input.summary !== undefined) patch.summary = input.summary
@@ -379,6 +414,7 @@ export async function updateLawUpdate(
   if (input.category !== undefined) patch.category = input.category ?? null
   if (input.effectiveDate !== undefined) patch.effective_date = input.effectiveDate || null
   if (input.sourceUrl !== undefined) patch.source_url = input.sourceUrl || null
+  if (input.relatedStatuteId !== undefined) patch.related_statute_id = input.relatedStatuteId ?? null
 
   if (Object.keys(patch).length === 0) return { ok: true }
 

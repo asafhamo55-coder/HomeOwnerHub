@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { rfpComposer, type RfpComposerOutput } from '@homeowner-portal/workflows'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { readAllResult } from '@/lib/supabase/read-all'
+import { countBidsByRfp } from '@/lib/rfps-list'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
@@ -56,21 +58,47 @@ export async function listRfps(): Promise<RfpRow[]> {
   return res.ok ? res.data : []
 }
 
-/** Same read, but a failure is reported instead of becoming "no RFPs". */
+/** Same read, but a failure is reported instead of becoming "no RFPs". Paged, so nothing is cut off. */
 export async function listRfpsResult(): Promise<{ ok: true; data: RfpRow[] } | { ok: false }> {
   const supabase = await getSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('rfps' as never)
-    .select(
-      'id, rfp_number, title, status, submission_deadline, budget_min, budget_max, ai_generated, created_at',
-    )
-    .order('created_at', { ascending: false })
-    .limit(100)
-  if (error) {
-    console.error('listRfps failed', { code: error.code, message: error.message })
+  const res = await readAllResult<RfpRow>((from, to) =>
+    supabase
+      .from('rfps' as never)
+      .select(
+        'id, rfp_number, title, status, submission_deadline, budget_min, budget_max, ai_generated, created_at',
+      )
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to) as never,
+  )
+  if (res.error) {
+    console.error('listRfps failed', { code: res.error.code, message: res.error.message })
     return { ok: false }
   }
-  return { ok: true, data: (data ?? []) as unknown as RfpRow[] }
+  return { ok: true, data: res.data ?? [] }
+}
+
+/**
+ * Bids per RFP for one org, from a single grouped read (rfp_id + status only,
+ * paged). A failure is reported, never turned into zero bids.
+ */
+export async function listBidCountsByRfpResult(
+  orgId: string,
+): Promise<{ ok: true; data: Record<string, number> } | { ok: false }> {
+  const supabase = await getSupabaseServerClient()
+  const res = await readAllResult<{ rfp_id: string; status: string | null }>((from, to) =>
+    supabase
+      .from('bids' as never)
+      .select('id, rfp_id, status')
+      .eq('organization_id', orgId)
+      .order('id')
+      .range(from, to) as never,
+  )
+  if (res.error) {
+    console.error('listBidCountsByRfp failed', { code: res.error.code, message: res.error.message })
+    return { ok: false }
+  }
+  return { ok: true, data: countBidsByRfp(res.data ?? []) }
 }
 
 export async function getRfp(id: string): Promise<RfpDetail | null> {
