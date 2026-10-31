@@ -38,7 +38,7 @@ export function RevokeInvitationButton({ invitationId }: { invitationId: string 
       <Button variant="secondary" size="sm" onClick={handleClick} loading={isPending}>
         Revoke
       </Button>
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

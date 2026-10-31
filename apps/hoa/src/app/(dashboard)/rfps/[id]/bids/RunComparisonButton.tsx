@@ -28,7 +28,7 @@ export function RunComparisonButton({ rfpId }: { rfpId: string }) {
       <Button onClick={handleClick} loading={isPending} icon={<Sparkles aria-hidden />}>
         {isPending ? 'Comparing…' : 'Compare bids'}
       </Button>
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

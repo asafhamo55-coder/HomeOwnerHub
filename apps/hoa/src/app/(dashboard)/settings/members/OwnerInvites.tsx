@@ -181,7 +181,7 @@ function PendingRow({ inv, canManage }: { inv: PendingInvitation; canManage: boo
           {inv.role === 'resident' ? 'Resident' : inv.role === 'board' ? 'Board' : 'Admin'}
           {inv.invitedAt ? ` · invited ${formatShortDate(inv.invitedAt)}` : ''}
         </p>
-        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+        {error ? <p role="alert" className="mt-1 text-xs text-destructive">{error}</p> : null}
       </div>
       {canManage ? (
         <div className="flex shrink-0 gap-2">

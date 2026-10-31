@@ -151,7 +151,7 @@ export default async function ReconciliationQueuePage({ searchParams }: { search
                       </div>
                       <p className="text-sm font-medium text-foreground">{p.summary}</p>
                       {p.status === 'approved' ? (
-                        <p className="text-sm text-danger">
+                        <p role="alert" className="text-sm text-danger">
                           Approved{p.decided_at ? ` ${formatStamp(p.decided_at)}` : ''}, but the posting didn’t finish. It won’t retry on its own
                           (that could post twice) — check the ledger, then resolve it by hand.
                         </p>

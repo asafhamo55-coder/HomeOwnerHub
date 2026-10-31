@@ -334,7 +334,7 @@ function InvitationRow({ invitation }: { invitation: RfpInvitationRow }) {
           ) : null}
         </div>
       </div>
-      {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="mt-1 text-xs text-danger">{error}</p> : null}
     </li>
   )
 }

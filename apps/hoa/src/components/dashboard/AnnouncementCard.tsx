@@ -52,7 +52,7 @@ export function AnnouncementCard({ nudge }: { nudge: Nudge | null }) {
                 <p className="text-sm text-muted">Parties, holidays, reminders. Pick one, check the draft, send.</p>
               </>
             )}
-            {error ? <p className="text-sm text-danger">{error}</p> : null}
+            {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">

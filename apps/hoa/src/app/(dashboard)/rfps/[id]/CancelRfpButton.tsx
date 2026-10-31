@@ -39,7 +39,7 @@ export function CancelRfpButton({ rfpId }: { rfpId: string }) {
       <Button variant="destructive-ghost" onClick={handleClick} loading={isPending}>
         {isPending ? 'Cancelling…' : 'Cancel RFP'}
       </Button>
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

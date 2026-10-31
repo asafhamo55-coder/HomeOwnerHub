@@ -307,7 +307,7 @@ export function OpeningBalancesWizard({
                       />
                     </label>
                   </Button>
-                  {fileError ? <p className="text-xs font-medium text-danger">{fileError}</p> : null}
+                  {fileError ? <p role="alert" className="text-xs font-medium text-danger">{fileError}</p> : null}
                 </div>
               </>
             ) : null}

@@ -125,7 +125,7 @@ function UploadSlot({
       >
         {isUploading ? 'Uploading…' : 'Choose file'}
       </Button>
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }
@@ -186,7 +186,7 @@ function DocumentRow({ doc }: { doc: VendorDocument }) {
         <p className="text-xs text-muted">
           {new Date(doc.uploaded_at).toLocaleString()}
           {doc.expires_at ? <span className="ml-2">Expires {dateOnly(doc.expires_at)}</span> : null}
-          {error ? <span className="ml-2 text-danger">{error}</span> : null}
+          {error ? <span role="alert" className="ml-2 text-danger">{error}</span> : null}
         </p>
       </div>
       <Button

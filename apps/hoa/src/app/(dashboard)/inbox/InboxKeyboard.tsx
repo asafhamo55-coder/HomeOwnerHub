@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Keyboard } from 'lucide-react'
-import { Button, Dialog, DialogContent } from '@homeowner-portal/ui'
+import { Button, Dialog, DialogContent, useToast } from '@homeowner-portal/ui'
 import { setThreadStatus } from '@/lib/inbox/actions'
 import {
   INBOX_APPROVE_CLOSE_EVENT,
@@ -36,6 +36,7 @@ export function InboxKeyboard({
   showButton?: boolean
 }) {
   const router = useRouter()
+  const toast = useToast()
   const [helpOpen, setHelpOpen] = useState(false)
   const [, startTransition] = useTransition()
 
@@ -60,7 +61,12 @@ export function InboxKeyboard({
           form.set('threadId', threadId)
           form.set('status', 'closed')
           const result = await setThreadStatus({}, form)
-          if (!result.error && afterCloseHref) router.push(afterCloseHref)
+          if (result.error) {
+            toast({ tone: 'error', title: "Couldn't close it", message: result.error })
+            return
+          }
+          if (afterCloseHref) router.push(afterCloseHref)
+          else router.refresh()
         })
         return
       case 'help':

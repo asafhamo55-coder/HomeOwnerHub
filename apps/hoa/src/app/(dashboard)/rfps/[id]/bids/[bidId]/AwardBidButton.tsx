@@ -40,7 +40,7 @@ export function AwardBidButton({ rfpId, bidId }: { rfpId: string; bidId: string 
       <Button onClick={handleClick} loading={isPending} icon={<Award aria-hidden />}>
         {isPending ? 'Awarding…' : 'Award this bid'}
       </Button>
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
     </div>
   )
 }

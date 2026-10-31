@@ -333,7 +333,7 @@ export function HearingCard({ violation, state, associationName, hearing, loadFa
                       />
                     </div>
                   ))}
-                  {fieldErrors.panel ? <p className="text-sm text-danger">{fieldErrors.panel}</p> : null}
+                  {fieldErrors.panel ? <p role="alert" className="text-sm text-danger">{fieldErrors.panel}</p> : null}
                   {panel.length < MAX_PANEL ? (
                     <Button
                       type="button"
