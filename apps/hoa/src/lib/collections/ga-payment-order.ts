@@ -44,7 +44,7 @@
  * date first, whatever the type (today's behaviour).
  */
 
-import { GA_17A8_ORDER, type DriftCitation } from '@/lib/compliance/statute-drift'
+import { GA_17A8_ORDER, type DriftCitation } from '../compliance/statute-drift'
 
 /** SB 406 § 9(a): the Act is effective January 1, 2027. */
 export const GA_PAYMENT_ORDER_EFFECTIVE_ON = '2027-01-01'
