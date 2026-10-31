@@ -454,6 +454,185 @@ export const STATE_QUOTES = {
     quote: "The association shall retain each director’s educational certificate for inspection by the members for 5 years after the director’s election. However, the failure to have the written certification or educational certificate on file does not affect the validity of any board action.",
   },
 
+  // Florida: member meetings, elections and voting, Fla. Stat. §§ 720.306, 720.3065 (BL-172 batch 18)
+  flElectQuorum: {
+    cite: 'Fla. Stat. § 720.306(1)(a)',
+    fixture: FL,
+    quote: "Unless a lower number is provided in the bylaws, the percentage of voting interests required to constitute a quorum at a meeting of the members shall be 30 percent of the total voting interests.",
+  },
+  flElectAnnual: {
+    cite: 'Fla. Stat. § 720.306(2)',
+    fixture: FL,
+    quote: "The election of directors, if one is required to be held, must be held at, or in conjunction with, the annual meeting or as provided in the governing documents.",
+  },
+  flElectNotice: {
+    cite: 'Fla. Stat. § 720.306(5)',
+    fixture: FL,
+    quote: "The association shall give all parcel owners and members actual notice of all membership meetings, which shall be mailed, delivered, or electronically transmitted to the members not less than 14 days prior to the meeting. Evidence of compliance with this 14-day notice shall be made by an affidavit executed by the person providing the notice and filed upon execution among the official records of the association.",
+  },
+  flElectNominate: {
+    cite: 'Fla. Stat. § 720.306(9)(a)',
+    fixture: FL,
+    quote: "Except as provided in paragraph (b), all members of the association are eligible to serve on the board of directors, and a member may nominate himself or herself as a candidate for the board at a meeting where the election is to be held; provided, however, that if the election process allows candidates to be nominated in advance of the meeting, the association is not required to allow nominations at the meeting.",
+  },
+  flElectUncontested: {
+    cite: 'Fla. Stat. § 720.306(9)(a)',
+    fixture: FL,
+    quote: "An election is not required unless more candidates are nominated than vacancies exist.",
+  },
+  flElectPlurality: {
+    cite: 'Fla. Stat. § 720.306(9)(a)',
+    fixture: FL,
+    quote: "Except as otherwise provided in the governing documents, boards of directors must be elected by a plurality of the votes cast by eligible voters. Any challenge to the election process must be commenced within 60 days after the election results are announced.",
+  },
+  flElectSecret: {
+    cite: 'Fla. Stat. § 720.306(8)(b)',
+    fixture: FL,
+    quote: "If the governing documents permit voting by secret ballot by members who are not in attendance at a meeting of the members for the election of directors, such ballots must be placed in an inner envelope with no identifying markings and mailed or delivered to the association in an outer envelope bearing identifying information reflecting the name of the member, the lot or parcel for which the vote is being cast, and the signature of the lot or parcel owner casting that ballot.",
+  },
+  flElectDuplicate: {
+    cite: 'Fla. Stat. § 720.306(8)(b)',
+    fixture: FL,
+    quote: "If more than one ballot is submitted for a lot or parcel, the ballots for that lot or parcel shall be disqualified. Any vote by ballot received after the closing of the balloting may not be considered.",
+  },
+  flElectDelinq: {
+    cite: 'Fla. Stat. § 720.306(9)(b)',
+    fixture: FL,
+    quote: "A person who is delinquent in the payment of any fee, fine, or other monetary obligation to the association on the day that he or she could last nominate himself or herself or be nominated for the board may not seek election to the board, and his or her name shall not be listed on the ballot.",
+  },
+  flElectDispute: {
+    cite: 'Fla. Stat. § 720.306(9)(c)',
+    fixture: FL,
+    quote: "Any election dispute between a member and an association must be submitted to binding arbitration with the division or filed with a court of competent jurisdiction.",
+  },
+  flElectFraud: {
+    cite: 'Fla. Stat. § 720.3065(1)(c)',
+    fixture: FL,
+    quote: "Preventing a member from voting or preventing a member from voting as he or she intended by fraudulently changing or attempting to change a ballot, ballot envelope, vote, or voting certificate of the member.",
+  },
+  flMemSpecial: {
+    cite: 'Fla. Stat. § 720.306(3)',
+    fixture: FL,
+    quote: "Special meetings must be held when called by the board of directors or, unless a different percentage is stated in the governing documents, by at least 10 percent of the total voting interests of the association. Business conducted at a special meeting is limited to the purposes described in the notice of the meeting.",
+  },
+  flMemContent: {
+    cite: 'Fla. Stat. § 720.306(4)',
+    fixture: FL,
+    quote: "Unless law or the governing documents require otherwise, notice of an annual meeting need not include a description of the purpose or purposes for which the meeting is called. Notice of a special meeting must include a description of the purpose or purposes for which the meeting is called.",
+  },
+  flMemSpeak: {
+    cite: 'Fla. Stat. § 720.306(6)',
+    fixture: FL,
+    quote: "Notwithstanding any provision to the contrary in the governing documents or any rules adopted by the board or by the membership, a member and a parcel owner have the right to speak for at least 3 minutes on any item.",
+  },
+  flMemSpeakRules: {
+    cite: 'Fla. Stat. § 720.306(6)',
+    fixture: FL,
+    quote: "The association may adopt written reasonable rules governing the frequency, duration, and other manner of member and parcel owner statements, which rules must be consistent with this subsection.",
+  },
+  flMemAdjourn: {
+    cite: 'Fla. Stat. § 720.306(7)',
+    fixture: FL,
+    quote: "Unless the bylaws require otherwise, adjournment of an annual or special meeting to a different date, time, or place must be announced at that meeting before an adjournment is taken, or notice must be given of the new date, time, or place pursuant to s. 720.303(2).",
+  },
+  flMemProxyValid: {
+    cite: 'Fla. Stat. § 720.306(8)(a)',
+    fixture: FL,
+    quote: "To be valid, a proxy must be dated, must state the date, time, and place of the meeting for which it was given, and must be signed by the authorized person who executed the proxy.",
+  },
+  flMemProxyEffect: {
+    cite: 'Fla. Stat. § 720.306(8)(a)',
+    fixture: FL,
+    quote: "A proxy is effective only for the specific meeting for which it was originally given, as the meeting may lawfully be adjourned and reconvened from time to time, and automatically expires 90 days after the date of the meeting for which it was originally given. A proxy is revocable at any time at the pleasure of the person who executes it.",
+  },
+  flMemRecord: {
+    cite: 'Fla. Stat. § 720.306(10)',
+    fixture: FL,
+    quote: "Any parcel owner may tape record or videotape meetings of the board of directors and meetings of the members. The board of directors of the association may adopt reasonable rules governing the taping of meetings of the board and the membership.",
+  },
+
+  // California: elections, Civ. Code §§ 5100 to 5145 (BL-172 batch 18)
+  caElectScope: {
+    cite: 'Cal. Civ. Code § 5100(a)(1)',
+    fixture: CA,
+    quote: "Notwithstanding any other law or provision of the governing documents, elections regarding assessments legally requiring a vote, election and removal of directors, amendments to the governing documents, or the grant of exclusive use of common area pursuant to Section 4600 shall be held by secret ballot in accordance with the procedures set forth in this article.",
+  },
+  caElectFourYear: {
+    cite: 'Cal. Civ. Code § 5100(a)(2)',
+    fixture: CA,
+    quote: "An association shall hold an election for a seat on the board of directors in accordance with the procedures set forth in this article at the expiration of the corresponding director’s term and at least once every four years.",
+  },
+  caElectNominate: {
+    cite: 'Cal. Civ. Code § 5105(a)(3)',
+    fixture: CA,
+    quote: "A nomination or election procedure shall not be deemed reasonable if it disallows any member from nominating themself for election to the board.",
+  },
+  caElectNomNotice: {
+    cite: 'Cal. Civ. Code § 5115(a)',
+    fixture: CA,
+    quote: "An association shall provide general notice of the procedure and deadline for submitting a nomination at least 30 days before any deadline for submitting a nomination. Individual notice shall be delivered pursuant to Section 4040 if individual notice is requested by a member.",
+  },
+  caElectAssessCand: {
+    cite: 'Cal. Civ. Code § 5105(d)',
+    fixture: CA,
+    quote: "An association may disqualify a person from nomination for nonpayment of regular and special assessments, but may not disqualify a nominee for nonpayment of fines, fines renamed as assessments, collection charges, late charges, or costs levied by a third party.",
+  },
+  caElectProtest: {
+    cite: 'Cal. Civ. Code § 5105(d)(1)',
+    fixture: CA,
+    quote: "The person has paid the regular or special assessment under protest pursuant to Section 5658.",
+  },
+  caElectPlan: {
+    cite: 'Cal. Civ. Code § 5105(d)(2)',
+    fixture: CA,
+    quote: "The person has entered into and is in compliance with a payment plan pursuant to Section 5665.",
+  },
+  caElectBallotLead: {
+    cite: 'Cal. Civ. Code § 5105(h)',
+    fixture: CA,
+    quote: "Notwithstanding any other law, the rules adopted pursuant to this section shall do all of the following:",
+  },
+  caElectBallotRight: {
+    cite: 'Cal. Civ. Code § 5105(h)(1)',
+    fixture: CA,
+    quote: "Prohibit the denial of a ballot to a member for any reason other than not being a member at the time when ballots are distributed.",
+  },
+  caElectInspector: {
+    cite: 'Cal. Civ. Code § 5110(a)',
+    fixture: CA,
+    quote: "The association shall select an independent third party or parties as an inspector of elections. The number of inspectors of elections shall be one or three.",
+  },
+  caElectIndep: {
+    cite: 'Cal. Civ. Code § 5110(b)',
+    fixture: CA,
+    quote: "An independent third party may be a member, but may not be a director or a candidate for director or be related to a director or to a candidate for director.",
+  },
+  caElectInspChallenge: {
+    cite: 'Cal. Civ. Code § 5110(c)(5)',
+    fixture: CA,
+    quote: "Hear and determine all challenges and questions in any way arising out of or in connection with the right to vote.",
+  },
+  caElectBallotMail: {
+    cite: 'Cal. Civ. Code § 5115(c)',
+    fixture: CA,
+    quote: "In order to preserve confidentiality, a voter may not be identified by name, address, or lot, parcel, or unit number on the ballot.",
+  },
+  caElectCount: {
+    cite: 'Cal. Civ. Code § 5120(a)',
+    fixture: CA,
+    quote: "All votes shall be counted and tabulated by the inspector or inspectors of elections, or the designee of the inspector or inspectors of elections, in public at a properly noticed open meeting of the board or members. Any candidate or other member of the association may witness the counting and tabulation of the votes.",
+  },
+  caElectResults: {
+    cite: 'Cal. Civ. Code § 5120(b)',
+    fixture: CA,
+    quote: "Within 15 days of the election, the board shall give general notice pursuant to Section 4045 of the tabulated results of the election.",
+  },
+  caElectChallenge: {
+    cite: 'Cal. Civ. Code § 5145(a)',
+    fixture: CA,
+    quote: "A member of an association may bring a civil action for declaratory or equitable relief for a violation of this article by the association, including, but not limited to, injunctive relief, restitution, or a combination thereof, within one year of the date that the inspector or inspectors of elections notifies the board and membership of the election results or the cause of action accrues, whichever is later.",
+  },
+
   // California: association records, Civ. Code §§ 5200, 5210, 5220 (BL-172 batch 10)
   caRecDef: {
     cite: 'Cal. Civ. Code § 5200(a)',

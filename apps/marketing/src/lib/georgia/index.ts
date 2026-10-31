@@ -18,6 +18,7 @@ import { CA_IDR } from './guides-n'
 import { CA_COLLECTIONS, TX_COLLECTIONS } from './guides-o'
 import { GA_BORROW_SUE, TX_FLAGS } from './guides-p'
 import { FL_BOARD_MEETINGS } from './guides-q'
+import { FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS } from './guides-r'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -40,7 +41,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -350,6 +351,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: pathOf(FL_BOARD_MEETINGS),
     title: 'Florida HOA board meetings: the 48-hour notice, the agenda and owner comment',
     blurb: FL_BOARD_MEETINGS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: FL_ELECTIONS.slug,
+    path: pathOf(FL_ELECTIONS),
+    title: 'Florida HOA elections: quorum, notice, nominations and the ballot',
+    blurb: FL_ELECTIONS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: CA_ELECTIONS.slug,
+    path: pathOf(CA_ELECTIONS),
+    title: 'California HOA elections: nominations, the inspector and the right to vote',
+    blurb: CA_ELECTIONS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: FL_MEMBER_MEETINGS.slug,
+    path: pathOf(FL_MEMBER_MEETINGS),
+    title: 'Florida HOA member meetings: special meetings, speaking time, proxies and recording',
+    blurb: FL_MEMBER_MEETINGS.summary[0]!,
     kind: 'guide',
   },
   {

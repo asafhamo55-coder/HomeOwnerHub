@@ -124,6 +124,7 @@ export const FL_BOARD_MEETINGS: Guide = {
   ],
   related: [
     'florida-hoa-director-certification-checklist',
+    'florida-hoa-elections-and-quorum',
     'florida-hoa-fine-hearing-committee',
     'florida-hoa-official-records-inspection',
     'hoa-board-meeting-minutes',
