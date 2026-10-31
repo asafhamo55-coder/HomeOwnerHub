@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Plus, Scale } from 'lucide-react'
 import { Button, EmptyState, Field, FilterBar, Kpi, LoadFailed, Page, Select, StatementTable, filterFieldClass } from '@homeowner-portal/ui'
 import { computeBudgetVsActual, getAccountingContext, listBudgets, type BudgetVsActualRow } from '@/lib/accounting/queries'
+import { ExportDownloadButton } from '@/components/export/ExportDownloadButton'
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDayRange, periodLabel, signTone, usd, usdSigned } from '@/lib/money/format'
 import { BUDGET_STATUS, statusOf } from '@/lib/money/status'
@@ -104,6 +105,13 @@ export default async function BudgetVsActualPage({ searchParams }: PageProps) {
         />
       ) : (
         <>
+          <div className="flex justify-end">
+            <ExportDownloadButton
+              url={`/accounting/reports/budget-vs-actual/export?budget=${encodeURIComponent(budgetId)}`}
+              label="Export CSV"
+              fallbackName="budget-vs-actual.csv"
+            />
+          </div>
           <section aria-label="Totals" className="grid gap-3 sm:grid-cols-3 sm:gap-4">
             <Kpi label="Budgeted net" value={usd(res.data.totals.budgetedNet, { whole: true })} />
             <Kpi label="Actual net" value={usd(res.data.totals.actualNet, { whole: true })} />

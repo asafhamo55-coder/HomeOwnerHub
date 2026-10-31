@@ -31,6 +31,13 @@ describe('csvCell', () => {
     expect(csvCell(0)).toBe('0')
   })
 
+  it('leaves a plain negative decimal string as a number, but still guards a formula', () => {
+    expect(csvCell('-300.00')).toBe('-300.00')
+    expect(csvCell('-3')).toBe('-3')
+    expect(csvCell('-300.00+1')).toBe("'-300.00+1")
+    expect(csvCell('-')).toBe("'-")
+  })
+
   it('renders booleans, arrays and JSON', () => {
     expect(csvCell(true)).toBe('true')
     expect(csvCell(['plumbing', 'roofing'])).toBe('plumbing; roofing')
