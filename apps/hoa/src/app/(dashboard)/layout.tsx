@@ -105,6 +105,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           />
         </AppShellSidebar>
         <AppShellMain>
+          {/* On phones the dev role switcher is an in-flow strip instead:
+              with the Menu and Help labels always shown, the admin's top bar
+              no longer fits 375px. Renders nothing for non-admins. */}
+          <div className="print:hidden sm:hidden">
+            <RoleSwitcherMount placement="banner" />
+          </div>
           <AppShellHeader>
             <AppShellSearchTrigger />
             {/* shrink-0: the search field is what gives way when the bar
@@ -113,7 +119,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
               {/* Dev-only role switcher, docked in the top bar so it never
                   floats over page content. Renders nothing for non-admins. */}
-              <RoleSwitcherMount placement="toolbar" />
+              <div className="hidden sm:contents">
+                <RoleSwitcherMount placement="toolbar" />
+              </div>
               {role === 'admin' && <PlatformAdminLink />}
               <HelpDrawer data={drawerData(role)} />
               <CopilotTrigger />
