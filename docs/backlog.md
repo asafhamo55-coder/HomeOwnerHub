@@ -2046,6 +2046,30 @@ Migrations through 0072 are applied and M1 to M7 are all true. Each item below w
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
+## Ranked open work — round 28 (2026-10-31, code-verified): easy for older volunteers (owner priority)
+
+Asaf, 2026-10-31: "people that are running HOA in many cases are not young… they should be able to get a link, register and start using the system easily." The persona is a 70-year-old volunteer on a phone with large text turned on. None of these needs a migration.
+
+1. **BLOCKER: an expired or used invite link lands silently on a password form.** HashSessionHandler.tsx:27-30 clears the error hash with no message. Show a plain "This link has expired" with "Email me a new link". The expired-link alert should not say "reset link" for an invite. Effort 1.
+2. **BLOCKER: invited people are never asked to choose a password.** Their next visit opens on the password tab. After an invite session, offer "Choose a password (or skip and use email links)". Make the "Email me a link" tab the default for anyone without a password. Effort 2.
+3. **Raw Supabase errors on sign-in** (PasswordForm.tsx:57, SignupForm.tsx:54, MagicLinkForm.tsx:58). Map each to plain words plus a next step. Effort 1.
+4. **No help before login.** Add a "Need help? support@homeownerledger.com" line to the AuthShell footer and to the expired-link alert. Effort 1.
+5. **A link opened on another device fails as "expired".** Explain that it was opened on a different phone or computer, and give one button to send a new link to the typed email. Effort 1.
+6. **Auth screens use 12-13px hints, and the show-password control is about 24px.** There is no show-password on the reset screen. Raise the text floor on auth screens and add the toggle. Effort 1.
+7. **Announcements send to the whole community on one click** (NewCommunicationWizard.tsx:1611). Add "This goes to N homes by email/text. Send?". Effort 1.
+8. **ARC approve and deny fire on one click** and notify the resident (ArcDecisionForm.tsx:70-76). Add a confirm that names who will be told. Effort 1.
+9. **Success toasts vanish in 4.5 seconds and don't pause on touch** (Toast.tsx). Make it 8 seconds for success, keep errors until dismissed, and pause on touch. Effort 1.
+10. **Header controls go icon-only at zoom, and the logo isn't a link home.** Show a visible "Menu" and "Help" at all widths, and link the logo to /. Effort 1.
+11. **The dashboard stacks about 20 blocks with no first step.** Add one "Do this next" card at the top, and collapse "Community health" for new orgs. A new invited board member sees one welcome card, not three. Effort 2.
+12. **The violation form uses legal jargon** (Wizard.tsx:634-766). Use "Days to fix it", "Fine per day if not fixed (optional)" and "Write the notice for me", and add a reason why photos are required. Effort 1.
+13. **The sidebar has about 28 links.** Add a "Show only the basics" menu (localStorage). Use plain names: "Architecture requests" and "Things to approve". Effort 2.
+14. **The global text-xs is 13px and is used 520 times on board screens.** Raise it to 14px. Use line-clamp instead of truncate on addresses. Effort 2.
+15. **Single-key "g" shortcuts can be pressed by accident.** Drop the chords and keep "?" and "/". Effort 1.
+
+**Owner actions:**
+- OA-41: the invite email template and link expiry, in the Supabase dashboard.
+- The 24h session cap is a policy call.
+
 ## Ranked open work — round 27 (2026-10-31, code-verified): accessibility and mobile on the board app
 
 None of these needs a migration or an owner action, and nothing here moves money.

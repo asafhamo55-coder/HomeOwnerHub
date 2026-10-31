@@ -41,6 +41,21 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-41 · Make the invite email clear and the link last longer (Supabase dashboard)
+
+**Urgency:** Soon
+
+**Why it matters:** invites use Supabase's built-in email template. Its wording, sender and button are set in the Supabase dashboard, not in the app. The link likely expires after 1 hour, so an invite sent Friday is dead by the time a volunteer opens it on Monday. Older board members are the main users, so the email must be obvious and forgiving.
+
+**Steps:**
+
+1. **Link expiry.** Go to Supabase → Authentication → Providers → Email (or Auth settings) → **Email OTP expiration**. Set it to `86400` (24 hours), the longest Supabase allows.
+2. **Invite email.** Go to Supabase → Authentication → Email Templates → **Invite user**:
+   - Subject: `You're invited to help run {{ .Data.org_name }} on HomeownerHub`. If org_name isn't available, use `You're invited to HomeownerHub`.
+   - Body: one short paragraph, one big button ("Accept your invitation"), and "This link works for 24 hours. If it stops working, ask your board to send a new one or email support@homeownerledger.com."
+   - Optional: add `{{ .Token }}` as a 6-digit code, so people can sign in without the link.
+3. Tell Claude when it's done. The app's "link expired" screen will match the new wording.
+
 ### OA-40 · Activate the Stripe account for live payments
 
 **Progress 2026-10-30:** business details, public details (support email support@homeownerledger.com), statement descriptor HOMEOWNERHUB and the account representative are done. Only the payout bank account is left; Asaf is holding it for now. Stripe can take payments before a bank is linked and pays out once one is.
