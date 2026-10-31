@@ -367,6 +367,93 @@ export const STATE_QUOTES = {
     quote: "Social security numbers, driver license numbers, credit card numbers, electronic mailing addresses, telephone numbers, facsimile numbers, emergency contact information, any addresses for a parcel owner other than as provided for association notice requirements, and other personal identifying information of any person, excluding the person’s name, parcel designation, mailing address, and property address.",
   },
 
+  // Florida: board meetings, Fla. Stat. § 720.303(2), and director certification, § 720.3033(1) (BL-172 batch 17)
+  flMeetDef: {
+    cite: 'Fla. Stat. § 720.303(2)(a)',
+    fixture: FL,
+    quote: "A meeting of the board of directors of an association occurs whenever a quorum of the board gathers to conduct association business.",
+  },
+  flMeetEmail: {
+    cite: 'Fla. Stat. § 720.303(2)(a)',
+    fixture: FL,
+    quote: "Members of the board of administration may use e-mail as a means of communication but may not cast a vote on an association matter via e-mail.",
+  },
+  flMeetOpen: {
+    cite: 'Fla. Stat. § 720.303(2)(a)',
+    fixture: FL,
+    quote: "Meetings of the board must be open to all members, except for meetings between the board and its attorney with respect to proposed or pending litigation where the contents of the discussion would otherwise be governed by the attorney-client privilege.",
+  },
+  flMeetSpeak: {
+    cite: 'Fla. Stat. § 720.303(2)(b)',
+    fixture: FL,
+    quote: "Members have the right to attend all meetings of the board. The right to attend such meetings includes the right to speak at such meetings with reference to all designated items.",
+  },
+  flMeetRules: {
+    cite: 'Fla. Stat. § 720.303(2)(b)',
+    fixture: FL,
+    quote: "The association may adopt written reasonable rules expanding the right of members to speak and governing the frequency, duration, and other manner of member statements, which rules must be consistent with this paragraph and may include a sign-up sheet for members wishing to speak.",
+  },
+  flMeetNotice: {
+    cite: 'Fla. Stat. § 720.303(2)(c)1.',
+    fixture: FL,
+    quote: "Notices of all board meetings must specifically identify agenda items for the meetings and must be posted in a conspicuous place in the community at least 48 hours in advance of a meeting, except in an emergency. In the alternative, if notice is not posted in a conspicuous place in the community, notice of each board meeting must be mailed or delivered to each member at least 7 days before the meeting, except in an emergency.",
+  },
+  flMeetAssess: {
+    cite: 'Fla. Stat. § 720.303(2)(c)2.',
+    fixture: FL,
+    quote: "An assessment may not be levied at a board meeting unless the notice of the meeting includes a statement that assessments will be considered and the nature of the assessments. Written notice of any meeting at which special assessments will be considered or at which amendments to rules regarding parcel use will be considered must be mailed, delivered, or electronically transmitted to the members and parcel owners and posted conspicuously on the property or broadcast on closed-circuit cable television not less than 14 days before the meeting.",
+  },
+  flMeetProxy: {
+    cite: 'Fla. Stat. § 720.303(2)(c)3.',
+    fixture: FL,
+    quote: "Directors may not vote by proxy or by secret ballot at board meetings, except that secret ballots may be used in the election of officers.",
+  },
+  flMeetPetition: {
+    cite: 'Fla. Stat. § 720.303(2)(d)',
+    fixture: FL,
+    quote: "If 20 percent of the total voting interests petition the board to address an item of business, the board shall at its next regular board meeting or at a special meeting of the board, but not later than 60 days after the receipt of the petition, take the petitioned item up on an agenda.",
+  },
+  flCertSubmit: {
+    cite: 'Fla. Stat. § 720.3033(1)(a)',
+    fixture: FL,
+    quote: "Within 90 days after being elected or appointed to the board, each director must submit a certificate of having satisfactorily completed the educational curriculum administered by a department-approved education provider.",
+  },
+  flCertValid: {
+    cite: 'Fla. Stat. § 720.3033(1)(a)2.',
+    fixture: FL,
+    quote: "The certificate of completion is valid for up to 4 years.",
+  },
+  flCertRepeat: {
+    cite: 'Fla. Stat. § 720.3033(1)(a)3.',
+    fixture: FL,
+    quote: "A director must complete the education specific to newly elected or appointed directors at least every 4 years.",
+  },
+  flCertCurriculum: {
+    cite: 'Fla. Stat. § 720.3033(1)(a)4.',
+    fixture: FL,
+    quote: "The department-approved educational curriculum specific to newly elected or appointed directors must include training relating to financial literacy and transparency, recordkeeping, levying of fines, and notice and meeting requirements.",
+  },
+  flCertSmall: {
+    cite: 'Fla. Stat. § 720.3033(1)(a)5.a.',
+    fixture: FL,
+    quote: "A director of an association that has fewer than 2,500 parcels must complete at least 4 hours of continuing education annually.",
+  },
+  flCertLarge: {
+    cite: 'Fla. Stat. § 720.3033(1)(a)5.b.',
+    fixture: FL,
+    quote: "A director of an association that has 2,500 parcels or more must complete at least 8 hours of continuing education annually.",
+  },
+  flCertSuspend: {
+    cite: 'Fla. Stat. § 720.3033(1)(b)',
+    fixture: FL,
+    quote: "A director who does not timely file the educational certificate is suspended from the board until he or she complies with the requirement. The board may temporarily fill the vacancy during the period of suspension.",
+  },
+  flCertRetain: {
+    cite: 'Fla. Stat. § 720.3033(1)(c)',
+    fixture: FL,
+    quote: "The association shall retain each director’s educational certificate for inspection by the members for 5 years after the director’s election. However, the failure to have the written certification or educational certificate on file does not affect the validity of any board action.",
+  },
+
   // California: association records, Civ. Code §§ 5200, 5210, 5220 (BL-172 batch 10)
   caRecDef: {
     cite: 'Cal. Civ. Code § 5200(a)',

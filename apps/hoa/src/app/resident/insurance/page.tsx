@@ -9,10 +9,11 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor } from '@/lib/impersonation'
 import { currentTimeZone } from '@/lib/association-time-current'
 import { todayIn } from '@/lib/association-time'
-import { formatCents, POLICY_KINDS, POLICY_KIND_LABELS } from '@/lib/insurance/model'
-import { ownerPolicySummaries, type OwnerPolicySummary } from '@/lib/insurance/analysis'
+import { POLICY_KINDS } from '@/lib/insurance/model'
+import { ownerPolicySummaries } from '@/lib/insurance/analysis'
 import { loadOwnerInsurancePolicies, type LooseDb } from '@/lib/insurance/queries'
-import { IconTile, Panel, RowGroup, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
+import { Panel, RowGroup, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
+import { PolicyRow } from './policy-row'
 
 export const metadata = { title: 'Insurance' }
 export const dynamic = 'force-dynamic'
@@ -123,28 +124,6 @@ export default async function ResidentInsurancePage() {
       </Panel>
 
       {certificate}
-    </div>
-  )
-}
-
-function PolicyRow({ p }: { p: OwnerPolicySummary }) {
-  return (
-    <div className="flex min-h-16 items-start gap-3 bg-surface px-4 py-3">
-      <IconTile icon={<ShieldCheck />} />
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-semibold text-foreground [overflow-wrap:anywhere]">{POLICY_KIND_LABELS[p.kind]}</p>
-        <p className="text-xs text-muted [overflow-wrap:anywhere]">{p.carrier || 'Insurance company not recorded'}</p>
-        <dl className="grid grid-cols-2 gap-x-4 text-xs">
-          <div>
-            <dt className="text-muted">Limit</dt>
-            <dd className="num text-foreground">{formatCents(p.coverageLimitCents)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">Deductible</dt>
-            <dd className="num text-foreground">{formatCents(p.deductibleCents)}</dd>
-          </div>
-        </dl>
-      </div>
     </div>
   )
 }

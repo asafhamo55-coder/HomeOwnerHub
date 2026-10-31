@@ -200,3 +200,21 @@ describe('batch 16 pages are in the library', () => {
     }
   })
 })
+
+describe('batch 17 pages are in the library', () => {
+  const pages = ['/guides/florida-hoa-board-meeting-notice-rules', '/templates/florida-hoa-director-certification-checklist']
+
+  it('lists them in the palette feed, and the template on /templates', () => {
+    const feed = libraryEntries().map((e) => e.path)
+    const templates = templateGroups().flatMap((g) => g.items.map((i) => i.path))
+    for (const p of pages) expect(feed, p).toContain(p)
+    expect(templates).toContain(pages[1])
+  })
+
+  it('puts them in the sitemap, with a page file each', () => {
+    for (const p of pages) {
+      expect(SITEMAP_PATHS, p).toContain(p)
+      expect(read(`app${p}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+})
