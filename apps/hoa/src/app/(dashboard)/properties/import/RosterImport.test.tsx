@@ -35,6 +35,7 @@ const { autoMap } = await import('@/lib/properties/roster/fields')
 const { toRosterRows } = await import('@/lib/properties/roster/rows')
 const { classifyRoster, summarize } = await import('@/lib/properties/roster/classify')
 const { finalResults } = await import('@/lib/properties/roster/run')
+const { importedEmailCount } = await import('@/lib/properties/roster/next-steps')
 
 // ─── The real pipeline over a synthetic CINC-style export ──────────────
 const CSV = [
@@ -193,6 +194,34 @@ describe('ProgressStep and DoneStep', () => {
     expect(out).toContain('rows were not imported')
     expect(out).toContain('Download error rows (CSV)')
     expect(out).toContain('href="/properties"')
+  })
+})
+
+describe('DoneStep next steps', () => {
+  it('links to dues and the first announcement, and to owner invites when emails were mapped', () => {
+    const out = html(<DoneStep summary={summarize(results)} results={results} classified={classifiedSkip} onDownloadErrors={noop} onRestart={noop} />)
+    expect(out).toContain('What’s next')
+    expect(out).toContain('href="/settings/members"')
+    expect(out).toContain('Invite owners')
+    expect(out).toContain('href="/dues"')
+    expect(out).toContain('href="/communications/announce"')
+    const n = importedEmailCount(classifiedSkip, results)
+    expect(n).toBeGreaterThan(0)
+    expect(out).toContain(`${n} ${n === 1 ? 'row has' : 'rows have'} an email`)
+  })
+
+  it('leaves out the owner link when no row had an email', () => {
+    const noEmail = classifiedSkip.map((c) => ({ ...c, row: { ...c.row, ownerEmail: null } }))
+    const out = html(<DoneStep summary={summarize(results)} results={results} classified={noEmail} onDownloadErrors={noop} onRestart={noop} />)
+    expect(importedEmailCount(noEmail, results)).toBe(0)
+    expect(out).not.toContain('Invite owners')
+    expect(out).not.toContain('/settings/members')
+    expect(out).toContain('href="/dues"')
+  })
+
+  it('does not count rows that failed to import', () => {
+    const failed = results.map((r) => ({ ...r, status: 'error' as const }))
+    expect(importedEmailCount(classifiedSkip, failed)).toBe(0)
   })
 })
 

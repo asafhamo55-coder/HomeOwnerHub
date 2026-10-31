@@ -96,11 +96,40 @@ const STEPS: Array<{ id: Step; label: string }> = [
   { id: 'review', label: '3. Review and send' },
 ]
 
+/**
+ * Says how many homes have an email or phone on file. Advisory only: it
+ * never disables Send.
+ */
+export function ReachableNote({ reachable, total }: { reachable: number | null; total: number }) {
+  if (reachable === null || total === 0) return null
+  if (reachable === 0) {
+    return (
+      <Alert variant="warning" title="No home has an email or phone on file">
+        An announcement would reach no one yet. Add contacts by{' '}
+        <Link href="/properties/import" className="font-medium underline">
+          importing your roster
+        </Link>{' '}
+        or on the{' '}
+        <Link href="/properties" className="font-medium underline">
+          Properties list
+        </Link>
+        .
+      </Alert>
+    )
+  }
+  return (
+    <p className="pl-8 text-sm text-muted">
+      {reachable} of {total} {total === 1 ? 'home' : 'homes'} can be reached by email or text.
+    </p>
+  )
+}
+
 export function AnnouncementFlow({
   associationName,
   today,
   streets,
   everyoneCount,
+  reachableCount = null,
   smsAvailable,
   schedulingEnabled,
   initialOccasionId,
@@ -110,6 +139,8 @@ export function AnnouncementFlow({
   today: string
   streets: StreetOption[]
   everyoneCount: number
+  /** Homes with an email or phone on file; null when it could not be counted. */
+  reachableCount?: number | null
   smsAvailable: boolean
   schedulingEnabled: boolean
   initialOccasionId: string | null
@@ -538,6 +569,12 @@ export function AnnouncementFlow({
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
+      {/* The zero case is said before anything is written; the count line
+          waits for the audience choice on the review step. */}
+      {step !== 'review' && reachableCount === 0 && everyoneCount > 0 ? (
+        <ReachableNote reachable={0} total={everyoneCount} />
+      ) : null}
+
       {step === 'pick' ? (
         <div className="space-y-5">
           <h2 data-step-heading tabIndex={-1} className="text-base font-semibold text-foreground focus:outline-none">
@@ -752,6 +789,7 @@ export function AnnouncementFlow({
               />
               All residents ({everyoneCount} {everyoneCount === 1 ? 'home' : 'homes'})
             </label>
+            <ReachableNote reachable={reachableCount} total={everyoneCount} />
             {streets.length > 0 ? (
               <div className="space-y-2">
                 <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">

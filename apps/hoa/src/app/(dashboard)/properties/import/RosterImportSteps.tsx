@@ -32,6 +32,7 @@ import { saveRosterBalances } from '@/lib/accounting/opening-balances/handoff'
 import { PRESET_LABELS, ROSTER_FIELDS, type ColumnMapping, type RosterFieldKey, type RosterPreset } from '@/lib/properties/roster/fields'
 import type { ClassifiedRow, RosterMode, RosterSummary, RowStatus } from '@/lib/properties/roster/classify'
 import type { RowResult } from '@/lib/properties/roster/commit'
+import { importedEmailCount } from '@/lib/properties/roster/next-steps'
 import type { SheetRow } from '@/lib/properties/roster/xlsx'
 
 /**
@@ -562,6 +563,39 @@ export function ProgressStep({ done, total }: { done: number; total: number }) {
 
 // ─── 5. Done ────────────────────────────────────────────────────────
 
+/** The three things a board usually does next. Invite owners only when the file had emails. */
+export function WhatsNext({ emailCount }: { emailCount: number }) {
+  return (
+    <section aria-labelledby="roster-next-h" className="space-y-2 rounded-xl border border-border bg-surface p-4">
+      <h3 id="roster-next-h" className="text-sm font-semibold text-foreground">
+        What’s next
+      </h3>
+      <ul className="space-y-1.5 text-sm">
+        {emailCount > 0 ? (
+          <li>
+            <Link href="/settings/members" className="font-medium text-primary underline">
+              Invite owners
+            </Link>{' '}
+            <span className="text-muted">
+              ({emailCount.toLocaleString('en-US')} {emailCount === 1 ? 'row has' : 'rows have'} an email)
+            </span>
+          </li>
+        ) : null}
+        <li>
+          <Link href="/dues" className="font-medium text-primary underline">
+            Generate dues
+          </Link>
+        </li>
+        <li>
+          <Link href="/communications/announce" className="font-medium text-primary underline">
+            Send your first announcement
+          </Link>
+        </li>
+      </ul>
+    </section>
+  )
+}
+
 export function DoneStep({
   summary,
   results,
@@ -600,6 +634,7 @@ export function DoneStep({
           </Alert>
         ) : null}
         <RowTable rows={rows} showBalance={false} filter={filter} onFilter={setFilter} counts={summary} />
+        <WhatsNext emailCount={importedEmailCount(classified, results)} />
       </CardContent>
       <CardFooter className="flex-wrap justify-between gap-2">
         <Button variant="ghost" onClick={onRestart}>

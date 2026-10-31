@@ -4,7 +4,7 @@ import { Button, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
-import { countAudiences } from '@/lib/communications/audience'
+import { countAudiences, countReachableHomes } from '@/lib/communications/audience'
 import { loadStreetOptions } from '@/lib/communications/streets'
 import { SCHEDULING_ENABLED } from '@/lib/communications/scheduling'
 import { smsConfigured } from '@/lib/sms'
@@ -57,8 +57,10 @@ export default async function AnnouncePage({
   }
 
   const supabase = await getSupabaseServerClient()
-  const [counts, streets] = await Promise.all([
+  const [counts, reach, streets] = await Promise.all([
     countAudiences(supabase, assoc.id),
+    // Read-only. A failed count hides the line; it never blocks a send.
+    countReachableHomes(supabase, assoc.id).catch(() => null),
     // The same street list the full composer offers (BL-102 A5, BL-146).
     loadStreetOptions(supabase, assoc.id),
   ])
@@ -79,6 +81,7 @@ export default async function AnnouncePage({
         today={todayIn(assoc.timeZone)}
         streets={streets}
         everyoneCount={counts.everyone}
+        reachableCount={reach ? reach.reachable : null}
         smsAvailable={smsConfigured()}
         schedulingEnabled={SCHEDULING_ENABLED}
         initialOccasionId={initialOccasion}
