@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { Building2, Plus } from 'lucide-react'
 import { Button, DataTable, EmptyState, Page, Tabs, type SortDirection } from '@homeowner-portal/ui'
 import { listTenants, type TenantRow } from '@/lib/platform-admin'
 import { TenantStatusPill, planLabel, tenantStatus } from '../_components/tenant-status'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Tenants' }
 
@@ -142,7 +142,7 @@ export default async function TenantsListPage({
             header: 'Created',
             sortable: true,
             hideBelowLg: true,
-            cell: (t) => <span className="text-foreground-secondary">{t.created_at ? format(new Date(t.created_at), 'PP') : '—'}</span>,
+            cell: (t) => <span className="text-foreground-secondary">{t.created_at ? formatShortDate(t.created_at) : '—'}</span>,
           },
           { key: 'status', header: 'Status', cell: (t) => <TenantStatusPill tenant={t} /> },
         ]}

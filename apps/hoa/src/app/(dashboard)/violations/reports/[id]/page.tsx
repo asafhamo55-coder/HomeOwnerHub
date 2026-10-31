@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
 import {
   Alert,
   Badge,
@@ -21,6 +20,7 @@ import { BoardConversation } from '@/components/board-review/BoardConversation'
 import { VIOLATION_REPORT_CATEGORY, VIOLATION_REPORT_STATUS } from '@/lib/status/community'
 import { ReportDecisionForm } from './ReportDecisionForm'
 import { ReportBoardReplyForm } from './ReportBoardReplyForm'
+import { formatDateTime, formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Resident violation report' }
 // Force a fresh render after a board decision so the status reflects the
@@ -61,7 +61,7 @@ export default async function ViolationReportDetailPage({
       }
       description={
         <>
-          Submitted <time dateTime={report.submitted_at}>{format(new Date(report.submitted_at), 'PP')}</time>
+          Submitted <time dateTime={report.submitted_at}>{formatShortDate(report.submitted_at)}</time>
           {report.about_unit_number ? ` · Unit ${report.about_unit_number}` : ''}
         </>
       }
@@ -77,7 +77,7 @@ export default async function ViolationReportDetailPage({
               <KeyValueList className="border-t border-border pt-4 sm:grid-cols-3">
                 <KeyValue
                   label="Occurred"
-                  value={report.occurred_at ? format(new Date(report.occurred_at), 'PP, h:mm a') : null}
+                  value={report.occurred_at ? formatDateTime(report.occurred_at) : null}
                 />
                 <KeyValue label="Category" value={category} />
                 <KeyValue
@@ -139,7 +139,7 @@ export default async function ViolationReportDetailPage({
               <CardDescription>
                 {report.reviewed_at ? (
                   <>
-                    Last reviewed <time dateTime={report.reviewed_at}>{format(new Date(report.reviewed_at), 'PPp')}</time>
+                    Last reviewed <time dateTime={report.reviewed_at}>{formatDateTime(report.reviewed_at)}</time>
                   </>
                 ) : (
                   'Not reviewed yet.'

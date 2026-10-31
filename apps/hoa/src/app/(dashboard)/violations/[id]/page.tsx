@@ -3,7 +3,8 @@ import { PhotoViewer } from '@/components/PhotoViewer'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
+import { formatShortDate } from '@/lib/format-datetime'
+import { formatDay } from '@/lib/money/format'
 import { CalendarClock, CheckCircle2, Clock, FileCheck2, Flag, Gavel, Mail, XCircle } from 'lucide-react'
 import {
   Card,
@@ -268,8 +269,9 @@ export default async function ViolationDetailPage({
   const followUps = followUpResult?.ok ? ((followUpResult.data ?? []) as unknown as FollowUpRunRow[]) : []
   const canDraftFollowUp = Boolean(org) && !NO_FOLLOW_UP.has(v.status)
 
-  const fmt = (iso: string, pattern = 'PP') => format(new Date(iso), pattern)
-  const timeEl = (iso: string, pattern = 'PP') => <time dateTime={iso}>{fmt(iso, pattern)}</time>
+  // A bare 'YYYY-MM-DD' is a DATE column and must never be shifted by a zone.
+  const fmt = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? formatDay(iso) : formatShortDate(iso))
+  const timeEl = (iso: string) => <time dateTime={iso}>{fmt(iso)}</time>
 
   // History, oldest first. Only events that actually happened, plus the
   // cure deadline (past or upcoming) because it is the date everyone asks about.
@@ -292,7 +294,7 @@ export default async function ViolationDetailPage({
       id: 'cure',
       title: overdue ? 'Cure period ended' : 'Cure period ends',
       meta: overdue ? 'Overdue' : 'Upcoming',
-      time: <time dateTime={cureDeadline.toISOString()}>{format(cureDeadline, 'PP')}</time>,
+      time: <time dateTime={cureDeadline.toISOString()}>{formatShortDate(cureDeadline)}</time>,
       icon: overdue ? <Clock /> : <CalendarClock />,
       tone: overdue ? 'danger' : 'warning',
     })
@@ -307,9 +309,9 @@ export default async function ViolationDetailPage({
   if (hr?.requestedAt)
     history.push({ id: 'hearing-req', title: 'Hearing requested by the owner', time: timeEl(hr.requestedAt), icon: <Flag />, tone: 'warning' })
   if (hr?.noticeSentOn)
-    history.push({ id: 'hearing-notice', title: 'Hearing notice sent', time: timeEl(`${hr.noticeSentOn}T12:00:00Z`), icon: <Mail />, tone: 'info' })
+    history.push({ id: 'hearing-notice', title: 'Hearing notice sent', time: timeEl(hr.noticeSentOn), icon: <Mail />, tone: 'info' })
   if (hr?.status === 'held' && hr.hearingOn)
-    history.push({ id: 'hearing-held', title: 'Hearing held', meta: hr.outcome ? HEARING_OUTCOME_LABEL[hr.outcome] : undefined, time: timeEl(`${hr.hearingOn}T12:00:00Z`), icon: <Gavel />, tone: 'brand' })
+    history.push({ id: 'hearing-held', title: 'Hearing held', meta: hr.outcome ? HEARING_OUTCOME_LABEL[hr.outcome] : undefined, time: timeEl(hr.hearingOn), icon: <Gavel />, tone: 'brand' })
   if (v.fine_start_date)
     history.push({ id: 'fines', title: 'Fines started', meta: v.fine_amount != null ? `$${v.fine_amount}/day` : undefined, time: timeEl(v.fine_start_date), icon: <Gavel />, tone: 'danger' })
   if (v.resolved_at)

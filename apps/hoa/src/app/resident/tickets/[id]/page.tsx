@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
 import { Badge, KeyValue, KeyValueList } from '@homeowner-portal/ui'
 import { getMyTicket } from '@/lib/resident-tickets'
 import { listSubmissionAttachments } from '@/lib/submission-attachments'
@@ -8,6 +7,7 @@ import { Panel, ScreenHeader, Section } from '@/components/resident/screen'
 import { ResidentStatus, TICKET_CATEGORY_LABEL } from '@/components/resident/status'
 import { Conversation, ThreadClosed } from '@/components/resident/Conversation'
 import { ReplyComposer } from '@/components/resident/ReplyComposer'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Support request' }
 export const dynamic = 'force-dynamic'
@@ -41,8 +41,8 @@ export default async function ResidentTicketDetailPage({
         <Panel className="space-y-4">
           <p className="whitespace-pre-wrap text-sm text-foreground [overflow-wrap:anywhere]">{ticket.description}</p>
           <KeyValueList className="border-t border-border pt-4">
-            <KeyValue label="Opened" value={format(new Date(ticket.created_at), 'PPp')} />
-            <KeyValue label="Closed" value={ticket.closed_at ? format(new Date(ticket.closed_at), 'PPp') : null} />
+            <KeyValue label="Opened" value={formatDateTime(ticket.created_at)} />
+            <KeyValue label="Closed" value={ticket.closed_at ? formatDateTime(ticket.closed_at) : null} />
           </KeyValueList>
         </Panel>
       </Section>

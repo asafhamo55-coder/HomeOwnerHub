@@ -37,6 +37,7 @@ import { cureDueDay, isCurePassed, summarizeViolations, type ViolationSummaryRow
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
 import { plural } from '@/lib/money/format'
+import { formatMonthDay, formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Violations' }
 export const dynamic = 'force-dynamic'
@@ -197,7 +198,7 @@ export default async function ViolationsListPage({
               'Property unknown'
             )}
             {v.created_at ? (
-              <span className="md:hidden"> · {format(new Date(v.created_at), 'MMM d')}</span>
+              <span className="md:hidden"> · {formatMonthDay(v.created_at)}</span>
             ) : null}
           </p>
         </div>
@@ -248,7 +249,7 @@ export default async function ViolationsListPage({
       hideOnMobile: true,
       cell: (v) => (
         <span className="whitespace-nowrap text-foreground-secondary">
-          {v.created_at ? format(new Date(v.created_at), 'MMM d, yyyy') : '—'}
+          {v.created_at ? formatShortDate(v.created_at) : '—'}
         </span>
       ),
     },

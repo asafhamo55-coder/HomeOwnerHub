@@ -1,4 +1,3 @@
-import { format } from 'date-fns'
 import {
   Alert,
   Avatar,
@@ -18,6 +17,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { InvitePlatformAdminForm } from './InvitePlatformAdminForm'
 import { RevokeButton } from './RevokeButton'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Platform admins' }
 
@@ -117,7 +117,7 @@ export default async function PlatformAdminsPage() {
                 header: 'Granted',
                 cell: (r) => (
                   <span className="text-foreground-secondary">
-                    {format(new Date(r.granted_at), 'PP')}
+                    {formatShortDate(r.granted_at)}
                     {r.granted_by_email ? <span className="block text-xs text-muted">by {r.granted_by_email}</span> : null}
                   </span>
                 ),

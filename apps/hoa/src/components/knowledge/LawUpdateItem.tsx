@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { CheckSquare, ExternalLink } from 'lucide-react'
-import { format } from 'date-fns'
 import { Badge, StatusPill } from '@homeowner-portal/ui'
 import { lawCategoryLabel } from '@/lib/status/knowledge'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export interface LawUpdateItemData {
   headline: string
@@ -47,7 +47,7 @@ export function LawUpdateItem({ update, headingAs: H = 'h3' }: { update: LawUpda
         <div className="min-w-0 space-y-1">
           <H className="text-base font-semibold leading-snug text-foreground">{update.headline}</H>
           <p className="text-xs text-muted">
-            Posted {format(new Date(update.posted_at), 'PP')}
+            Posted {formatShortDate(update.posted_at)}
             {category ? ` · ${category}` : ''}
           </p>
         </div>

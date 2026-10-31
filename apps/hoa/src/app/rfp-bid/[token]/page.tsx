@@ -1,9 +1,9 @@
-import { format } from 'date-fns'
 import { Alert, Card, CardContent, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { validateRfpInvitationToken } from '@/lib/rfp-invitations'
 import { loadPublicInvitation } from '@/lib/public-invitation-load'
 import { InvitationUnavailable } from '@/components/public/InvitationUnavailable'
 import { PublicBidForm } from './PublicBidForm'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Submit your bid' }
 
@@ -57,7 +57,7 @@ export default async function RfpBidPage({ params }: PageProps) {
   }
 
   const inv = validation.invitation
-  const deadlineFmt = format(new Date(inv.submissionDeadline), 'PPp')
+  const deadlineFmt = formatDateTime(inv.submissionDeadline)
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">

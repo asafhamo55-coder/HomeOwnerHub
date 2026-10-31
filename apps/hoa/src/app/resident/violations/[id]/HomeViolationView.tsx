@@ -1,4 +1,3 @@
-import { format } from 'date-fns'
 import { CalendarClock, CheckCircle2, Clock, Flag, Gavel, Mail, XCircle } from 'lucide-react'
 import { KeyValue, KeyValueList, LoadFailed, Timeline, type TimelineItem } from '@homeowner-portal/ui'
 import type { SubmissionAttachment } from '@/lib/submission-attachments'
@@ -13,6 +12,8 @@ import { RespondToBoardForm } from './RespondToBoardForm'
 import { RequestHearingForm } from './RequestHearingForm'
 import type { ResidentHearingLoad } from '@/lib/violation-hearings/queries'
 import { HEARING_OUTCOME_LABEL, type ResidentHearingView } from '@/lib/violation-hearings/rules'
+import { formatShortDate } from '@/lib/format-datetime'
+import { formatDay } from '@/lib/money/format'
 
 // BL-129: a violation on the resident's own home — the notice, the cure-by
 // date, the board's photos, the history, and the resident's response.
@@ -21,7 +22,9 @@ function humanize(value: string): string {
   return value.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 }
 
-const timeEl = (iso: string, pattern = 'PP') => <time dateTime={iso}>{format(new Date(iso), pattern)}</time>
+// A bare 'YYYY-MM-DD' is a DATE column and must never be shifted by a zone.
+const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/
+const timeEl = (iso: string) => <time dateTime={iso}>{DAY_ONLY.test(iso) ? formatDay(iso) : formatShortDate(iso)}</time>
 
 export function HomeViolationView({
   violation: v,
@@ -96,13 +99,13 @@ export function HomeViolationView({
           <p className="whitespace-pre-wrap text-sm text-foreground [overflow-wrap:anywhere]">{v.description}</p>
           <KeyValueList className="border-t border-border pt-4">
             <KeyValue label="Rule cited" value={v.ruleCited} />
-            <KeyValue label="Notice sent" value={v.noticeSentAt ? format(new Date(v.noticeSentAt), 'PP') : 'Not yet'} />
+            <KeyValue label="Notice sent" value={v.noticeSentAt ? formatShortDate(v.noticeSentAt) : 'Not yet'} />
             <KeyValue
               label="Fix by"
               value={
                 v.cureBy ? (
                   <span className={overdue ? 'font-medium text-danger' : undefined}>
-                    {format(new Date(v.cureBy), 'PP')}
+                    {formatShortDate(v.cureBy)}
                     {overdue ? ' (passed)' : ''}
                   </span>
                 ) : null
@@ -197,7 +200,7 @@ export function HomeViolationView({
 }
 
 function dayText(day: string): string {
-  return format(new Date(`${day}T12:00:00Z`), 'PP')
+  return formatDay(day)
 }
 
 // BL-133: what the resident can see of the hearing. The day and place only
@@ -213,7 +216,7 @@ function HearingStatusBlock({ hearing }: { hearing: ResidentHearingView | null }
   }
   return (
     <KeyValueList>
-      {hearing.requestedAt ? <KeyValue label="You asked for a hearing" value={format(new Date(hearing.requestedAt), 'PP')} /> : null}
+      {hearing.requestedAt ? <KeyValue label="You asked for a hearing" value={formatShortDate(hearing.requestedAt)} /> : null}
       <KeyValue
         label="Hearing"
         value={

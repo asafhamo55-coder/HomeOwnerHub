@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { Building2, Plus, Sparkles } from 'lucide-react'
 import {
   Button,
@@ -17,6 +16,7 @@ import { getPlatformStats, listTenants } from '@/lib/platform-admin'
 import { BarList } from './_components/BarList'
 import { MonthBars } from './_components/MonthBars'
 import { TenantStatusPill, planLabel } from './_components/tenant-status'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Platform overview' }
 
@@ -166,7 +166,7 @@ export default async function AdminOverviewPage() {
               key: 'created',
               header: 'Created',
               hideBelowLg: true,
-              cell: (t) => (t.created_at ? format(new Date(t.created_at), 'PP') : '—'),
+              cell: (t) => (t.created_at ? formatShortDate(t.created_at) : '—'),
             },
             { key: 'status', header: 'Status', cell: (t) => <TenantStatusPill tenant={t} /> },
           ]}

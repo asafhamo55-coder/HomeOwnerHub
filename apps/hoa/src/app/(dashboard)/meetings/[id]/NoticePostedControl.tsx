@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
 import { Megaphone } from 'lucide-react'
 import { Button, Field, Input } from '@homeowner-portal/ui'
 import { recordMeetingNoticePosted } from '@/lib/meetings'
+import { formatDateTime } from '@/lib/format-datetime'
 
 /**
  * BL-050 (M1): record when this meeting's notice was posted
@@ -46,7 +46,7 @@ export function NoticePostedControl({ meetingId, postedAt }: { meetingId: string
   return (
     <div className="space-y-2">
       <p className="text-sm text-foreground">
-        {postedAt ? `Posted ${format(new Date(postedAt), 'MMM d, yyyy h:mm a')}` : 'Not recorded'}
+        {postedAt ? `Posted ${formatDateTime(postedAt)}` : 'Not recorded'}
       </p>
       {editing ? (
         <div className="space-y-2">

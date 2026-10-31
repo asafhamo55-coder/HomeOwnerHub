@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import { ClipboardList, Plus } from 'lucide-react'
-import { format } from 'date-fns'
 import { Button, LoadFailed } from '@homeowner-portal/ui'
 import { loadMyArcRequests } from '@/lib/resident-submissions'
 import { RowGroup, ScreenEmpty, ScreenHeader, TappableRow } from '@/components/resident/screen'
 import { ARC_CATEGORY_LABEL, ResidentStatus } from '@/components/resident/status'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'ARC applications' }
 export const dynamic = 'force-dynamic'
@@ -54,7 +54,7 @@ export default async function MyArcRequestsPage() {
               icon={<ClipboardList />}
               tone="emerald"
               title={r.summary}
-              subtitle={`${ARC_CATEGORY_LABEL[r.category] ?? r.category} · submitted ${format(new Date(r.submitted_at), 'PP')}`}
+              subtitle={`${ARC_CATEGORY_LABEL[r.category] ?? r.category} · submitted ${formatShortDate(r.submitted_at)}`}
               status={<ResidentStatus kind="arc" status={r.status} />}
             />
           ))}

@@ -63,7 +63,7 @@ export function formatMessageTimestamp(value: string | Date | null | undefined):
 /**
  * Date only, for compact lists where a full timestamp would crowd the row.
  */
-export function formatShortDate(value: string | Date | null | undefined): string {
+export function formatShortDate(value: string | Date | null | undefined, timeZone: string = HOA_TIME_ZONE): string {
   const date = toDate(value)
   if (!date) return ''
 
@@ -73,6 +73,29 @@ export function formatShortDate(value: string | Date | null | undefined): string
     month: 'short',
     day: 'numeric',
   }).format(date)
+}
+
+type Instant = string | Date | null | undefined
+
+function fmt(value: Instant, opts: Intl.DateTimeFormatOptions, timeZone: string): string {
+  const date = toDate(value)
+  if (!date) return ''
+  return new Intl.DateTimeFormat('en-US', { timeZone, ...opts }).format(date)
+}
+
+/** Timestamp with date and time, no zone label: "Oct 5, 2026, 10:05 AM". */
+export function formatDateTime(value: Instant, timeZone: string = HOA_TIME_ZONE): string {
+  return fmt(value, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }, timeZone)
+}
+
+/** Timestamp, month and day only: "Oct 5". */
+export function formatMonthDay(value: Instant, timeZone: string = HOA_TIME_ZONE): string {
+  return fmt(value, { month: 'short', day: 'numeric' }, timeZone)
+}
+
+/** Timestamp, month, day and time: "Oct 5, 10:05 AM". */
+export function formatMonthDayTime(value: Instant, timeZone: string = HOA_TIME_ZONE): string {
+  return fmt(value, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }, timeZone)
 }
 
 /**

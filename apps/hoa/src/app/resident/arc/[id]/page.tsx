@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
 import { formatDay } from '@/lib/money/format'
 import { CheckCircle2, Circle, Clock, Gavel, Send, Undo2, XCircle } from 'lucide-react'
 import { Badge, KeyValue, KeyValueList, Timeline, type TimelineItem } from '@homeowner-portal/ui'
@@ -13,6 +12,7 @@ import { ARC_CATEGORY_LABEL, ResidentStatus, residentStatusLabel } from '@/compo
 import { Conversation, ThreadClosed } from '@/components/resident/Conversation'
 import { ReplyComposer } from '@/components/resident/ReplyComposer'
 import { WithdrawArcButton } from './WithdrawArcButton'
+import { formatDateTime, formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'ARC application' }
 export const dynamic = 'force-dynamic'
@@ -42,7 +42,7 @@ export default async function ResidentArcDetailPage({
   const attachments = await listSubmissionAttachments('arc', id)
 
   const pending = PENDING.includes(arc.status)
-  const fmt = (d: string | null) => (d ? format(new Date(d), 'PP') : null)
+  const fmt = (d: string | null) => (d ? formatShortDate(d) : null)
   // proposed_start/proposed_completion are DATE columns: calendar days, not instants.
   const day = (d: string | null) => (d ? formatDay(d) : null)
 
@@ -50,7 +50,7 @@ export default async function ResidentArcDetailPage({
     id: st.id,
     title: <span className={st.state === 'upcoming' ? 'text-muted' : undefined}>{st.label}</span>,
     meta: st.state === 'current' ? 'Now' : undefined,
-    time: st.at ? <time dateTime={st.at}>{format(new Date(st.at), 'PP')}</time> : undefined,
+    time: st.at ? <time dateTime={st.at}>{formatShortDate(st.at)}</time> : undefined,
     icon: STEP_ICON[st.id],
     tone: st.state === 'upcoming' ? 'neutral' : st.state === 'current' ? (STEP_TONE[st.id] ?? 'brand') : 'success',
   }))
@@ -93,7 +93,7 @@ export default async function ResidentArcDetailPage({
             <KeyValue label="Proposed completion" value={day(arc.proposed_completion)} />
             <KeyValue label="Contractor" value={arc.contractor_name} />
             <KeyValue label="License #" value={arc.contractor_license} />
-            <KeyValue label="Submitted" value={format(new Date(arc.submitted_at), 'PPp')} />
+            <KeyValue label="Submitted" value={formatDateTime(arc.submitted_at)} />
           </KeyValueList>
         </Panel>
       </Section>

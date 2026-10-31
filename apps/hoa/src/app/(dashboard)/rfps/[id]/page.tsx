@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FileSpreadsheet, Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Badge,
   Button,
@@ -26,6 +25,7 @@ import { RfpEditForm } from './RfpEditForm'
 import { PublishRfpButton } from './PublishRfpButton'
 import { CancelRfpButton } from './CancelRfpButton'
 import { InviteVendorsPanel } from './InviteVendorsPanel'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'RFP' }
 
@@ -71,7 +71,7 @@ export default async function RfpDetailPage({
       }
       description={
         <span className="num">
-          Bids due {format(new Date(rfp.submission_deadline), 'PPp')}
+          Bids due {formatDateTime(rfp.submission_deadline)}
           {budget ? ` · Budget ${budget}` : ''}
         </span>
       }

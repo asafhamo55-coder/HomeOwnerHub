@@ -1,6 +1,6 @@
+import { formatDay } from '@/lib/money/format'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { format } from 'date-fns'
 import { LoadFailed, Page } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
@@ -51,7 +51,7 @@ export default async function EditMeetingPage({ params }: { params: Promise<{ id
   }
   const upcoming = m.meeting_date >= todayIn(await currentTimeZone())
   const agendaContext = upcoming ? await loadAgendaContext() : undefined
-  const dateLabel = format(new Date(`${m.meeting_date}T00:00:00`), 'MMM d, yyyy')
+  const dateLabel = formatDay(m.meeting_date)
 
   return (
     <Page

@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { FileText, Search, Upload } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Badge,
   Button,
@@ -26,6 +25,7 @@ import {
 } from '@/lib/status/knowledge'
 import { LIBRARY_TYPES, filterDocs, parseLibraryType, searchDocs, typeCounts } from '@/lib/documents/filter'
 import { DocumentTabs, formatBytes } from '@/components/knowledge/DocumentTabs'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Documents' }
 export const dynamic = 'force-dynamic'
@@ -73,7 +73,7 @@ const columns: DataTableColumn<DocRow>[] = [
     header: 'Uploaded',
     hideOnMobile: true,
     cell: (d) => (
-      <span className="num whitespace-nowrap text-muted">{d.created_at ? format(new Date(d.created_at), 'PP') : '—'}</span>
+      <span className="num whitespace-nowrap text-muted">{d.created_at ? formatShortDate(d.created_at) : '—'}</span>
     ),
   },
   {

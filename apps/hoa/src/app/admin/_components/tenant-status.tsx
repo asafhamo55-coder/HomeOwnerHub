@@ -1,5 +1,5 @@
-import { format } from 'date-fns'
 import { StatusPill } from '@homeowner-portal/ui'
+import { formatShortDate } from '@/lib/format-datetime'
 
 /**
  * One status vocabulary for tenants across the platform-admin tree
@@ -29,7 +29,7 @@ export function TenantStatusPill({
   return (
     <StatusPill
       tone={status === 'archived' ? 'neutral' : 'danger'}
-      label={withDate && since ? `${label} ${format(new Date(since), 'PP')}` : label}
+      label={withDate && since ? `${label} ${formatShortDate(since)}` : label}
     />
   )
 }

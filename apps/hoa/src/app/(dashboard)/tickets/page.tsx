@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { FileText, Inbox, MessageSquare, Search } from 'lucide-react'
 import { RECORDS_REQUESTS_LIVE } from '@homeowner-portal/db/records-requests'
-import { format } from 'date-fns'
 import {
   Button,
   DataTable,
@@ -21,6 +20,7 @@ import { SummaryStrip } from '@/components/SummaryStrip'
 import { formatTicketAge, ticketAgeDays } from '@/lib/tickets-board'
 import { listTicketsForBoard, type TicketBoardRow, type TicketStatus } from '@/lib/tickets'
 import { TICKET_CATEGORY, TICKET_PRIORITY, TICKET_STATUS } from '@/lib/status/community'
+import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Tickets' }
 
@@ -105,7 +105,7 @@ function buildColumns(timeZone: string): DataTableColumn<TicketBoardRow>[] {
         <span className="num text-foreground">
           {formatTicketAge(ticketAgeDays(t.created_at, timeZone))}
         </span>
-        <span className="num block text-xs text-muted">{format(new Date(t.created_at), 'MMM d, yyyy')}</span>
+        <span className="num block text-xs text-muted">{formatShortDate(t.created_at)}</span>
       </time>
     ),
   },

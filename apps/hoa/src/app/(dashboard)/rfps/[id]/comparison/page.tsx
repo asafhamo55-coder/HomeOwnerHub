@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
 import {
   Badge,
   Button,
@@ -22,6 +21,7 @@ import { listBidsForRfpResult, getLatestBidComparison } from '@/lib/bids'
 import { tryLoad } from '@/lib/load-or-fail'
 import { COMPARISON_CELL_LABELS, COMPARISON_CELL_TONES } from '@/lib/status/vendors'
 import { usd } from '@/components/vendors/format'
+import { formatDateTime } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Bid comparison' }
 
@@ -107,7 +107,7 @@ export default async function ComparisonPage({
               >
                 <CardTitle as="h2">Recommendation memo</CardTitle>
                 <CardDescription>
-                  Generated {format(new Date(comparison.generated_at), 'PPp')}. A draft for discussion — the
+                  Generated {formatDateTime(comparison.generated_at)}. A draft for discussion — the
                   board makes the decision.
                 </CardDescription>
               </CardHeader>
