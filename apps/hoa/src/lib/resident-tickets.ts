@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { inngest } from '@homeowner-portal/jobs'
 import { z } from 'zod'
+import { reportError } from '@homeowner-portal/observability/report'
+import { notifyBoardSafely, ticketReplyBell } from '@/lib/board-in-app-notify'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getResidentUnits } from '@/lib/resident'
@@ -268,7 +270,7 @@ export async function addTicketMessage(
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, error: 'Not signed in.' }
 
-  const { error } = await supabase
+  const { data: msg, error } = await supabase
     .from('ticket_messages' as never)
     .insert({
       ticket_id: parsed.data.ticket_id,
@@ -277,8 +279,34 @@ export async function addTicketMessage(
       body: parsed.data.body,
       internal: false,
     } as never)
+    .select('id')
+    .single<{ id: string }>()
 
-  if (error) return residentActionFailed('addTicketMessage', error)
+  if (error || !msg) return residentActionFailed('addTicketMessage', error)
+
+  // Bell the board (in-app only, no email/SMS/push). The reply is saved, so
+  // nothing below may fail it: the ticket read and the write both sit inside
+  // notifyBoardSafely's contract or this try/catch, and report instead.
+  try {
+    const { data: ticket } = await supabase
+      .from('tickets' as never)
+      .select('id, subject, organization_id')
+      .eq('id', parsed.data.ticket_id)
+      .maybeSingle<{ id: string; subject: string; organization_id: string }>()
+    if (ticket) {
+      await notifyBoardSafely(
+        ticketReplyBell({
+          organizationId: ticket.organization_id,
+          actorId: user.id,
+          ticketId: ticket.id,
+          messageId: msg.id,
+          subject: ticket.subject,
+        }),
+      )
+    }
+  } catch (err) {
+    reportError(err, 'resident-tickets.reply-bell', { ticketId: parsed.data.ticket_id })
+  }
 
   revalidatePath(`/resident/tickets/${ticketId}`)
   revalidatePath(`/tickets/${ticketId}`)

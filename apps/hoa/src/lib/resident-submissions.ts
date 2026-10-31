@@ -12,6 +12,7 @@ import { residentActionFailed } from '@/lib/resident-action-error'
 import { closeArcReviewsOnWithdraw, startBoardArcReview } from '@/lib/arc-review/server'
 import { bindPrecheckRun } from '@/lib/arc-review/precheck-binding'
 import { createAdminClient } from '@homeowner-portal/db'
+import { arcCreatedBell, concernCreatedBell, notifyBoardSafely } from '@/lib/board-in-app-notify'
 
 // ─── shared ──────────────────────────────────────────────────────────
 
@@ -217,6 +218,11 @@ export async function createArcRequest(
     userId: user.id,
   })
   after(() => startBoardArcReview({ orgId: org.id, arcId: row.id, precheckRunId }))
+
+  // Bell the board (in-app only). Never fails the submission; see notifyBoardSafely.
+  await notifyBoardSafely(
+    arcCreatedBell({ organizationId: org.id, actorId: user.id, arcId: row.id, summary: parsed.data.summary }),
+  )
 
   revalidatePath('/')  // dashboard rollup
   revalidatePath('/resident')
@@ -467,6 +473,9 @@ export async function createViolationReport(
   if (error || !row) {
     return residentActionFailed('createViolationReport', error)
   }
+
+  // Bell the board (in-app only). Never fails the submission; see notifyBoardSafely.
+  await notifyBoardSafely(concernCreatedBell({ organizationId: org.id, actorId: user.id, reportId: row.id }))
 
   revalidatePath('/resident')
   revalidatePath('/resident/violations')

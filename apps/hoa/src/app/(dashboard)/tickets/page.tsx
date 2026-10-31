@@ -20,6 +20,7 @@ import { SummaryStrip } from '@/components/SummaryStrip'
 import { formatTicketAge, ticketAgeDays } from '@/lib/tickets-board'
 import { listTicketsForBoard, type TicketBoardRow, type TicketStatus } from '@/lib/tickets'
 import { TICKET_CATEGORY, TICKET_PRIORITY, TICKET_STATUS } from '@/lib/status/community'
+import { REPLY_CHIP_LABEL } from '@/lib/ticket-reply-state'
 import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'Tickets' }
@@ -33,10 +34,21 @@ function parseStatus(raw: string | undefined): TicketStatus | undefined {
   return STATUSES.find((s) => s === raw)
 }
 
-function hrefFor({ status, page, q: term }: { status?: TicketStatus; page?: number; q?: string }): string {
+function hrefFor({
+  status,
+  page,
+  q: term,
+  reply,
+}: {
+  status?: TicketStatus
+  page?: number
+  q?: string
+  reply?: 'resident'
+}): string {
   const q = new URLSearchParams()
   if (status) q.set('status', status)
   if (term) q.set('q', term)
+  if (reply) q.set('reply', reply)
   if (page && page > 1) q.set('page', String(page))
   const qs = q.toString()
   return qs ? `/tickets?${qs}` : '/tickets'
@@ -65,6 +77,17 @@ function buildColumns(timeZone: string): DataTableColumn<TicketBoardRow>[] {
         >
           {t.subject}
         </Link>
+        {t.reply_state ? (
+          <span
+            className={
+              t.reply_state === 'resident'
+                ? 'ml-2 inline-flex items-center rounded-full bg-primary-subtle px-2 py-0.5 text-xs font-medium text-primary'
+                : 'ml-2 inline-flex items-center rounded-full bg-background px-2 py-0.5 text-xs font-medium text-muted'
+            }
+          >
+            {REPLY_CHIP_LABEL[t.reply_state]}
+          </span>
+        ) : null}
         <p className="mt-0.5 truncate text-xs text-muted">
           {t.submitter_name ?? t.submitter_email ?? 'Unknown resident'}
           {t.unit_number ? ` · Unit ${t.unit_number}` : ''}
@@ -115,13 +138,14 @@ function buildColumns(timeZone: string): DataTableColumn<TicketBoardRow>[] {
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; status?: string; q?: string }>
+  searchParams: Promise<{ page?: string; status?: string; q?: string; reply?: string }>
 }) {
   const sp = await searchParams
   const page = parsePageParam(sp.page)
   const status = parseStatus(sp.status)
   const q = (sp.q ?? '').trim().slice(0, 80)
-  const result = await listTicketsForBoard({ page, pageSize: PAGE_SIZE, status, q })
+  const reply = sp.reply === 'resident' ? ('resident' as const) : undefined
+  const result = await listTicketsForBoard({ page, pageSize: PAGE_SIZE, status, q, reply })
   const tickets = result.ok ? result.rows : []
   const summary = result.ok ? result.summary : null
   const columns = buildColumns(result.ok ? result.timeZone : 'America/New_York')
@@ -188,13 +212,14 @@ export default async function TicketsPage({
               label="Filter tickets by status"
               linkAs={Link}
               items={[
-                { label: 'All', href: hrefFor({}), active: !status, count: allCount },
+                { label: 'All', href: hrefFor({}), active: !status && !reply, count: allCount },
                 ...STATUSES.map((s) => ({
                   label: TICKET_STATUS.labels[s],
                   href: hrefFor({ status: s }),
-                  active: status === s,
+                  active: status === s && !reply,
                   count: result.statusCounts[s],
                 })),
+                { label: 'Resident replied', href: hrefFor({ reply: 'resident' }), active: !!reply },
               ]}
             />
             <SearchForm
@@ -202,7 +227,7 @@ export default async function TicketsPage({
               defaultValue={q}
               label="Search tickets"
               placeholder="Search subject, resident or unit"
-              keep={{ status }}
+              keep={{ status, reply }}
               linkAs={Link}
             />
           </ListToolbar>
@@ -259,7 +284,7 @@ export default async function TicketsPage({
                   pageSize={PAGE_SIZE}
                   total={result.total}
                   rowCount={tickets.length}
-                  hrefFor={(p) => hrefFor({ status, q, page: p })}
+                  hrefFor={(p) => hrefFor({ status, q, reply, page: p })}
                   linkAs={Link}
                   noun="tickets"
                 />

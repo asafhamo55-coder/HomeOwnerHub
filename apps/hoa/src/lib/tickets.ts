@@ -11,6 +11,7 @@ import { notifyResidentAfterResponse } from '@/lib/resident-notify/notify'
 import { summarizeTickets, type TicketSummary } from '@/lib/tickets-board'
 import { applyTicketFilters } from '@/lib/tickets-filter'
 import { orgTimeZone } from '@/lib/association-time-server'
+import { loadReplyStates, type ReplyState } from '@/lib/ticket-reply-state'
 
 type ActionOk<T> = T extends void ? { ok: true } : { ok: true; data: T }
 type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
@@ -54,6 +55,8 @@ export interface TicketBoardRow {
   status: TicketStatus
   priority: TicketPriority
   created_at: string
+  /** Who spoke last in the non-internal thread; null when unknown, closed or no messages. */
+  reply_state?: ReplyState | null
 }
 
 export interface TicketMessageRow {
@@ -112,10 +115,39 @@ export async function listTicketsForBoard(opts: {
   status?: TicketStatus
   /** Free text matched against the subject and the resident or unit label. */
   q?: string
+  /** 'resident': only open tickets whose latest non-internal message is the resident's. */
+  reply?: 'resident'
 }): Promise<TicketBoardPage> {
   const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const from = (opts.page - 1) * opts.pageSize
+
+  // The reply filter needs the latest-message state of every open ticket, not
+  // just this page. A failed read fails the page: never an unfiltered list.
+  let replyIds: string[] | null = null
+  if (opts.reply === 'resident') {
+    const open = await loadOrFail(
+      'open ticket ids',
+      readAllResult<{ id: string }>((from, to) =>
+        supabase
+          .from('tickets' as never)
+          .select('id')
+          .eq('organization_id', org.id)
+          .is('deleted_at', null)
+          .in('status', ['open', 'in_progress'])
+          .order('id')
+          .range(from, to) as never,
+      ),
+    )
+    if (!open.ok) return { ok: false }
+    const states = await loadReplyStates(
+      supabase,
+      org.id,
+      ((open.data ?? []) as unknown as { id: string }[]).map((r) => r.id),
+    )
+    if (!states) return { ok: false }
+    replyIds = [...states].filter(([, v]) => v === 'resident').map(([id]) => id)
+  }
   let query = supabase
     .from('tickets' as never)
     .select(
@@ -127,6 +159,10 @@ export async function listTicketsForBoard(opts: {
   const filtered = await applyTicketFilters(supabase, query, { status: opts.status, q: opts.q })
   if (!filtered.ok) return { ok: false }
   query = filtered.query
+  if (replyIds) {
+    // An empty match must stay empty: a nil uuid matches no row.
+    query = query.in('id', replyIds.length ? replyIds : ['00000000-0000-0000-0000-000000000000'])
+  }
 
   const countFor = (status: TicketStatus) =>
     loadOrFail(
@@ -202,6 +238,9 @@ export async function listTicketsForBoard(opts: {
     submitter: { full_name: string | null; email: string | null } | null
   }>
 
+  // Chips are secondary: a failed read shows none, never a wrong one.
+  const states = await loadReplyStates(supabase, org.id, rows.map((r) => r.id))
+
   return {
     ok: true,
     total: list.count ?? rows.length,
@@ -221,6 +260,7 @@ export async function listTicketsForBoard(opts: {
       status: r.status,
       priority: r.priority,
       created_at: r.created_at,
+      reply_state: r.status === 'closed' ? null : (states?.get(r.id) ?? null),
     })),
   }
 }
