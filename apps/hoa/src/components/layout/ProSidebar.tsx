@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { NavLink as Link } from '@/components/layout/NavLink'
 import { usePathname } from 'next/navigation'
 import { Calculator, FolderOpen, Gavel, Inbox, type LucideIcon } from 'lucide-react'
 import { BrandMark, NavItem, SidebarBrand, SidebarFooter, SidebarNav, SidebarSection } from '@homeowner-portal/ui'

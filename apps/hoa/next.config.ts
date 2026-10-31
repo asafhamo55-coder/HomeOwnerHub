@@ -115,7 +115,8 @@ const config: NextConfig = {
     webpackBuildWorker: true,
     staleTimes: {
       dynamic: 30,
-      static: 300,
+      // Also how long a hover-loaded page (NavLink) is reused, so keep it short.
+      static: 30,
     },
     // Next 15 defaults server-action bodies to 1 MB, which silently rejects
     // every real phone photo (a typical iPhone HEIC is 2-4 MB) before the
