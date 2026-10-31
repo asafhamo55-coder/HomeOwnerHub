@@ -112,7 +112,7 @@ export function PlanCompare({ comingSoon }: { comingSoon: string[] }) {
                   <th
                     key={h.k}
                     scope="col"
-                    className={`sticky top-[4.5rem] z-10 border-b border-border bg-surface px-3 py-4 align-bottom sm:px-6 md:top-[6.05rem] ${i === 0 ? 'rounded-tl-3xl' : 'w-[6.5rem] text-center sm:w-44'} ${i === 2 ? 'rounded-tr-3xl' : ''}`}
+                    className={`sticky top-[4rem] z-10 border-b border-border bg-surface px-3 py-4 align-bottom sm:px-6 md:top-[4.5rem] ${i === 0 ? 'rounded-tl-3xl' : 'w-[6.5rem] text-center sm:w-44'} ${i === 2 ? 'rounded-tr-3xl' : ''}`}
                   >
                     <span className="block text-base font-semibold text-foreground sm:text-lg">{h.t}</span>
                     {h.s && <span className="block text-sm font-normal text-muted">{h.s}</span>}
