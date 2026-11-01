@@ -72,7 +72,8 @@ describe('renderMonthlyReportEmail', () => {
       }),
       links,
     )
-    expect(html.match(/We couldn’t/g)).toHaveLength(11)
+    // 11 sections plus the one sentence in the summary that names them.
+    expect(html.match(/We couldn’t/g)).toHaveLength(12)
     expect(html).not.toMatch(/\$0\.00/)
   })
 
@@ -187,9 +188,9 @@ describe('renderMonthlyReportEmail', () => {
     it('counts, the most pressing obligation, and a link to /compliance', () => {
       const { html, text } = renderMonthlyReportEmail(reportFixture(), links)
       expect(text).toContain('STATE LAW COMPLIANCE')
-      expect(text).toContain('Overdue: None — on track')
+      expect(text).toContain('Overdue: None, on track')
       expect(text).toContain('Coming up: 2 obligations')
-      expect(text).toContain('Most pressing: Register with the Georgia Secretary of State — Takes effect in 92 days (Jan 1, 2027)')
+      expect(text).toContain('Most pressing: Register with the Georgia Secretary of State: Takes effect in 92 days (Jan 1, 2027)')
       expect(html).toContain('/compliance')
     })
 
@@ -214,12 +215,12 @@ describe('renderMonthlyReportEmail', () => {
         links,
       )
       expect(overdue.text).toContain('Overdue: 1 obligation')
-      expect(overdue.html).toContain('#B42318')
+      expect(overdue.html).toContain('#C4261B')
       const none = renderMonthlyReportEmail(
         reportFixture({ compliance: { ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: true, election: null } } }),
         links,
       )
-      expect(none.text).toContain('None loaded for your state — check your governing documents')
+      expect(none.text).toContain('None loaded for your state. Check your governing documents.')
     })
   })
 })

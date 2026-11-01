@@ -1,40 +1,62 @@
 /**
  * The month-end board report email (BL-073). Pure: data in, subject +
- * HTML + text out. The in-app Preview renders exactly this HTML.
+ * HTML + text out.
  *
- * Built on the shell every HomeownerHub email uses (email/shell.ts), one
- * column of short blocks so it reads on a phone. Plain language; aggregates
- * only — no resident names, emails or phone numbers, and no per-unit list.
+ * Built on the shell every HomeownerHub email uses (email/shell.ts). The
+ * reading order comes from view.ts, which the in-app page uses too, so the
+ * email, the page and the plain-text part say the same things in the same
+ * order: a plain-words summary and the headline figures first, then the
+ * detail, one block per topic.
+ *
+ * Email rules followed: tables for layout, every style inline, a bgcolor on
+ * every coloured cell (dark-mode engines recolour the backgrounds they can
+ * see), no SVG (Gmail strips it) and no remote images. The logo is a violet
+ * cell with an "H", as in the release-note email. Aggregates only: no
+ * resident names, emails or phone numbers.
  *
  * Truthful sections: one that failed to load says so ("We couldn't load
  * …"), and its numbers are never shown as zeros.
  */
 
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
-import { formatDay, plural, usd } from '@/lib/money/format'
-import { MEETING_TYPE } from '@/lib/status/community'
-import type { ComplianceSummary } from '@/lib/compliance/obligations'
-import type { MonthlyReportData, ReserveReport, Section, Variance } from './model'
+import { formatDay } from '@/lib/money/format'
+import type { MonthlyReportData } from './model'
+import {
+  BRAND_PRIMARY,
+  REPORT_PAGE_PATH,
+  buildReportView,
+  unavailableSentence,
+  type Block,
+  type Figure,
+  type Line,
+  type MonthlyReportLinks,
+  type ReportSummary,
+  type Tone,
+} from './view'
 
-/** Band accent — inside the dark-mode-safe window (email/palette.ts; render.test.ts asserts it). */
+export { COMPLIANCE_PATH, RESERVE_SETUP_PATH, type MonthlyReportLinks } from './view'
+
+/** Band accent — inside the dark-mode-safe window (email/palette.ts; render.test.ts asserts it). Kept for the shell's optional band; the report's own brand colour is BRAND_PRIMARY. */
 export const REPORT_ACCENT = '#2F5D8A'
 
-/** BL-145: the state-law obligations page. */
-export const COMPLIANCE_PATH = '/compliance'
-
-/** Where "Set up a reserve fund" goes: the chart of accounts' Funds card (BL-120). */
-export const RESERVE_SETUP_PATH = '/accounting/coa#funds'
-
-const TEXT = '#1A1D21'
-const MUTED = '#5B6570'
-const LINE = '#E8EBED'
-const DANGER = '#B42318'
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+const TEXT = '#0F172A'
+const TEXT_2 = '#334155'
+const MUTED = '#526077'
+const LINE = '#E2E8F0'
+const TINT = '#F5F8FC'
+const PRIMARY = BRAND_PRIMARY
+const PRIMARY_TINT = '#F0ECFF'
+const DANGER = '#C4261B'
 const SUCCESS = '#067647'
+const WARN_BG = '#FFF8E6'
+const WARN_EDGE = '#F79009'
+const WARN_FG = '#93370D'
+/** Tabular figures where the client supports them (Apple Mail, iOS); harmless elsewhere. */
+const NUM = 'font-variant-numeric:tabular-nums;'
 
-export interface MonthlyReportLinks {
-  /** Absolute URL for an app path. */
-  appUrl: (path: string) => string
-}
+/** A value longer than this is stacked under its label instead of sitting beside it. */
+const STACK_OVER = 20
 
 export interface RenderedReport {
   subject: string
@@ -42,245 +64,130 @@ export interface RenderedReport {
   text: string
 }
 
-// ─── wording (shared by HTML and text) ──────────────────────────────
+const toneColor = (t?: Tone) => (t === 'danger' ? DANGER : t === 'success' ? SUCCESS : TEXT)
 
-interface Line {
-  label: string
-  value: string
-  tone?: 'danger' | 'success'
+// ─── HTML pieces ────────────────────────────────────────────────────
+
+const EMAIL_CSS = `
+@media only screen and (max-width:480px){
+  .eh-page{padding:8px !important}
+  .eh-body{padding:18px 16px !important}
+  .rp-kpi{display:block !important;width:100% !important;padding:0 0 10px 0 !important}
+  .rp-kpi-gap{display:none !important}
+  .rp-h1{font-size:24px !important;line-height:30px !important}
+}
+`
+
+function headerHtml(): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="36" valign="middle" style="width:36px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" valign="middle" bgcolor="${PRIMARY}" style="width:36px;height:36px;background-color:${PRIMARY};color:#FFFFFF;border-radius:9px;font-family:${FONT};font-size:21px;line-height:36px;font-weight:700;">H</td></tr></table>
+</td>
+<td valign="middle" style="padding-left:10px;font-family:${FONT};font-size:20px;line-height:24px;font-weight:700;letter-spacing:-0.3px;color:${TEXT};">Homeowner<span style="color:${PRIMARY};">Hub</span></td>
+<td align="right" valign="middle" style="font-family:${FONT};font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};">Board report</td>
+</tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="3" bgcolor="${PRIMARY}" style="height:3px;line-height:3px;font-size:3px;background-color:${PRIMARY};">&nbsp;</td></tr></table>`
 }
 
-interface Block {
-  title: string
-  /** null when the section failed: `failed` is said instead. */
-  lines: Line[] | null
-  failed: string
-  note?: string
-  link?: { label: string; href: string }
+function summaryHtml(s: ReportSummary): string {
+  const sentences = s.sentences
+    .map((t) => `<p style="margin:0 0 8px 0;font-family:${FONT};font-size:16px;line-height:24px;color:${TEXT_2};">${escapeHtml(t)}</p>`)
+    .join('')
+  const missing = unavailableSentence(s.unavailable)
+  const missingHtml = missing
+    ? `<p style="margin:0;font-family:${FONT};font-size:15px;line-height:22px;color:${DANGER};">${escapeHtml(missing)}</p>`
+    : ''
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="${PRIMARY_TINT}" style="background-color:${PRIMARY_TINT};border-radius:10px;padding:18px 18px 12px 18px;color:${TEXT};">
+<p style="margin:0 0 4px 0;font-family:${FONT};font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${PRIMARY};">In brief</p>
+<p style="margin:0 0 10px 0;font-family:${FONT};font-size:19px;line-height:26px;font-weight:700;color:${TEXT};">${escapeHtml(s.headline)}</p>
+${sentences}${missingHtml}
+</td></tr></table>`
 }
 
-function pct(part: number, whole: number): string | null {
-  if (!(whole > 0)) return null
-  return `${Math.round((part / whole) * 100)}%`
+function attentionHtml(s: ReportSummary): string {
+  if (s.attention.length === 0) return ''
+  const items = s.attention
+    .map((a) => {
+      const text = escapeHtml(a.text)
+      const linked = a.href
+        ? ` <a href="${escapeHtml(a.href)}" style="color:${WARN_FG};font-weight:700;text-decoration:underline;">Open</a>`
+        : ''
+      return `<tr><td valign="top" width="18" style="width:18px;font-family:${FONT};font-size:16px;line-height:24px;color:${WARN_FG};">&#8226;</td><td style="font-family:${FONT};font-size:16px;line-height:24px;color:${TEXT};padding:0 0 6px 0;">${text}${linked}</td></tr>`
+    })
+    .join('')
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="14" style="height:14px;line-height:14px;font-size:14px;">&nbsp;</td></tr><tr>
+<td bgcolor="${WARN_BG}" style="background-color:${WARN_BG};border-left:4px solid ${WARN_EDGE};border-radius:6px;padding:14px 16px 8px 16px;color:${TEXT};">
+<p style="margin:0 0 8px 0;font-family:${FONT};font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${WARN_FG};">Worth a look</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items}</table>
+</td></tr></table>`
 }
 
-function varianceLine(v: Variance): Line {
-  const amount = usd(Math.abs(v.variance), { whole: true })
-  const favorable = v.variance > 0
-  const what =
-    v.accountType === 'income'
-      ? favorable
-        ? `${amount} more than budgeted`
-        : `${amount} less than budgeted`
-      : favorable
-        ? `${amount} under budget`
-        : `${amount} over budget`
-  return {
-    label: v.accountName,
-    value: `${what} (${usd(v.actual, { whole: true })} of ${usd(v.budgeted, { whole: true })})`,
-    tone: favorable ? 'success' : 'danger',
+function figureCell(f: Figure, last: boolean): string {
+  const color = f.unavailable ? MUTED : toneColor(f.tone)
+  return `<td class="rp-kpi" width="50%" valign="top" style="width:50%;padding:0 ${last ? '0' : '6px'} 0 ${last ? '6px' : '0'};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="${TINT}" style="background-color:${TINT};border:1px solid ${LINE};border-radius:10px;padding:14px 14px 12px 14px;">
+<p style="margin:0 0 4px 0;font-family:${FONT};font-size:13px;line-height:18px;font-weight:700;color:${MUTED};">${escapeHtml(f.label)}</p>
+<p style="margin:0 0 2px 0;font-family:${FONT};font-size:${f.unavailable ? '18' : '24'}px;line-height:30px;font-weight:700;color:${color};${NUM}">${escapeHtml(f.value)}</p>
+${f.sub ? `<p style="margin:0;font-family:${FONT};font-size:14px;line-height:20px;color:${MUTED};">${escapeHtml(f.sub)}</p>` : ''}
+</td></tr></table></td>`
+}
+
+function figuresHtml(figures: Figure[]): string {
+  if (figures.length === 0) return ''
+  const rows: string[] = []
+  for (let i = 0; i < figures.length; i += 2) {
+    const pair = figures.slice(i, i + 2)
+    const cells = pair.map((f, j) => figureCell(f, j === 1)).join('')
+    const pad = pair.length === 1 ? '<td class="rp-kpi" width="50%" style="width:50%;">&nbsp;</td>' : ''
+    rows.push(`<tr>${cells}${pad}</tr><tr><td colspan="2" height="12" style="height:12px;line-height:12px;font-size:12px;">&nbsp;</td></tr>`)
   }
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="16" style="height:16px;line-height:16px;font-size:16px;">&nbsp;</td></tr>${rows.join('')}</table>`
 }
 
-/** BL-120. No reserve fund: a gentle "set one up", never a row of zeros. */
-function reserveBlock(res: Section<ReserveReport>, asOf: string, links: MonthlyReportLinks): Block {
-  const title = `Reserves as of ${asOf}`
-  const failed = 'We couldn’t load the reserve fund, so reserves aren’t shown.'
-  if (res.ok && res.data.result.kind === 'no_reserve_fund') {
-    return {
-      title,
-      lines: [{ label: 'Reserve fund', value: 'No reserve fund is set up yet' }],
-      failed,
-      link: { label: 'Set up a reserve fund', href: links.appUrl(RESERVE_SETUP_PATH) },
-    }
+function buttonHtml(href: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td align="left" style="padding:4px 0 6px 0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td bgcolor="${PRIMARY}" style="background-color:${PRIMARY};border-radius:8px;"><a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 26px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:8px;">Open the full report</a></td>
+</tr></table>
+<p style="margin:8px 0 0 0;font-family:${FONT};font-size:14px;line-height:20px;color:${MUTED};">Sign in to see it in the app. It prints cleanly too.</p>
+</td></tr></table>`
+}
+
+function lineHtml(l: Line, first: boolean): string {
+  const border = first ? '' : `border-top:1px solid ${LINE};`
+  if (l.value.length > STACK_OVER) {
+    return `<tr><td style="${border}padding:10px 0;font-family:${FONT};">
+<p style="margin:0 0 2px 0;font-size:14px;line-height:20px;color:${MUTED};">${escapeHtml(l.label)}</p>
+<p style="margin:0;font-size:16px;line-height:23px;font-weight:600;color:${toneColor(l.tone)};${NUM}">${escapeHtml(l.value)}</p>
+</td></tr>`
   }
-  const ready = res.ok && res.data.result.kind === 'ready' ? res.data.result.snapshot : null
-  const hint = res.ok ? res.data.hint : null
-  return {
-    title,
-    lines: ready
-      ? [
-          { label: 'Reserve balance', value: usd(ready.balance) },
-          {
-            label: 'Contributed this year',
-            value: ready.budget
-              ? `${usd(ready.contributionsYtd)} of ${usd(ready.budget.ytd)} budgeted so far`
-              : `${usd(ready.contributionsYtd)} (no contribution budgeted)`,
-            ...(ready.behindBudget ? { tone: 'danger' as const } : {}),
-          },
-          ...(ready.behindBudget
-            ? [{ label: 'Behind budget', value: 'Contributions trail the budget by more than 10%', tone: 'danger' as const }]
-            : []),
-          ...(ready.interestYtd !== 0 ? [{ label: 'Interest earned this year', value: usd(ready.interestYtd) }] : []),
-          { label: 'Drawn this year', value: usd(ready.drawsYtd) },
-        ]
-      : null,
-    failed,
-    ...(ready ? { note: `“This year” runs from ${formatDay(ready.year.start)}.${hint ? ` ${hint.cite}: ${hint.text}` : ''}` } : {}),
-    link: { label: 'Open the balance sheet', href: links.appUrl('/accounting/reports/balance-sheet') },
-  }
+  return `<tr><td style="${border}padding:10px 0;font-family:${FONT};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="top" style="font-size:15px;line-height:22px;color:${MUTED};padding-right:10px;">${escapeHtml(l.label)}</td>
+<td valign="top" align="right" style="font-size:16px;line-height:22px;font-weight:600;color:${toneColor(l.tone)};text-align:right;white-space:nowrap;${NUM}">${escapeHtml(l.value)}</td>
+</tr></table></td></tr>`
 }
-
-/** BL-145: one line per count, the most pressing obligation, and the page link. */
-function complianceBlock(res: Section<ComplianceSummary>, links: MonthlyReportLinks): Block {
-  return {
-    title: 'State law compliance',
-    lines: lines(res, (c) =>
-      c.nothingTracked
-        ? [{ label: 'Obligations', value: 'None loaded for your state — check your governing documents' }]
-        : [
-            {
-              label: 'Overdue',
-              value: c.overdue === 0 ? 'None — on track' : plural(c.overdue, 'obligation'),
-              tone: c.overdue > 0 ? 'danger' : 'success',
-            },
-            { label: 'Coming up', value: c.open - c.overdue === 0 ? 'Nothing dated coming up' : plural(c.open - c.overdue, 'obligation') },
-            ...(c.next ? [{ label: 'Most pressing', value: `${c.next.title} — ${c.next.label}`, ...(c.overdue > 0 ? { tone: 'danger' as const } : {}) }] : []),
-            ...(c.election ? [{ label: 'Director elections', value: c.election.label }] : []),
-          ],
-    ),
-    failed: 'We couldn’t load your state-law obligations.',
-    note: 'Quoted from the statute text HomeownerHub holds. Not legal advice.',
-    link: { label: 'Open Compliance', href: links.appUrl(COMPLIANCE_PATH) },
-  }
-}
-
-function lines<T>(res: Section<T>, fn: (t: T) => Line[]): Line[] | null {
-  return res.ok ? fn(res.data) : null
-}
-
-function blocks(d: MonthlyReportData, links: MonthlyReportLinks): Block[] {
-  const asOf = formatDay(d.period.end)
-  const meeting = d.meeting.ok ? d.meeting.data : null
-  const packetHref = meeting ? links.appUrl(`/meetings/${meeting.id}/packet`) : links.appUrl('/accounting/reports')
-
-  return [
-    {
-      title: `Cash as of ${asOf}`,
-      lines: lines(d.cash, (c) => [
-        { label: 'Operating cash', value: c.operating === null ? 'No operating cash account' : usd(c.operating) },
-        { label: 'Reserve cash', value: c.reserve === null ? 'No reserve cash account' : usd(c.reserve) },
-      ]),
-      failed: 'We couldn’t load the balance sheet, so cash balances aren’t shown.',
-    },
-    reserveBlock(d.reserves, asOf, links),
-    {
-      title: `Dues collected in ${d.period.label}`,
-      lines: lines(d.collections, (c) => {
-        const rate = pct(c.collected, c.billed)
-        return [
-          { label: 'Billed', value: usd(c.billed) },
-          { label: 'Collected', value: rate ? `${usd(c.collected)} (${rate} of billed)` : usd(c.collected) },
-        ]
-      }),
-      failed: 'We couldn’t load this month’s charges and payments.',
-      note: 'Collected counts every payment received in the month, including ones for earlier charges.',
-    },
-    {
-      title: `Overdue dues as of ${asOf}`,
-      lines: lines(d.delinquency, (x) =>
-        x.units === 0
-          ? [{ label: 'Overdue', value: 'Nothing overdue', tone: 'success' }]
-          : [
-              { label: 'Overdue', value: `${usd(x.total)} across ${plural(x.units, 'unit')}`, tone: 'danger' },
-              { label: '90+ days late', value: usd(x.over90), ...(x.over90 > 0 ? { tone: 'danger' as const } : {}) },
-            ],
-      ),
-      failed: 'We couldn’t load overdue charges, so delinquency isn’t shown.',
-    },
-    {
-      title: `Income and expenses, ${d.period.label}`,
-      lines: lines(d.income, (s) => [
-        { label: 'Income', value: usd(s.totalIncome) },
-        { label: 'Expenses', value: usd(s.totalExpenses) },
-        { label: 'Net', value: usd(s.netIncome), tone: s.netIncome < 0 ? 'danger' : 'success' },
-      ]),
-      failed: 'We couldn’t load the income statement for the month.',
-    },
-    {
-      title: `Budget vs. actual through ${asOf}`,
-      lines: lines(d.budget, (b) =>
-        !b.hasBudget
-          ? [{ label: 'Budget', value: 'No budget covers this month' }]
-          : b.top.length === 0
-            ? [{ label: 'Budget', value: 'Every line is on budget' }]
-            : b.top.map(varianceLine),
-      ),
-      failed: 'We couldn’t load the budget comparison.',
-      note: 'The lines furthest from the year’s budget so far.',
-    },
-    {
-      title: `Violations in ${d.period.label}`,
-      lines: lines(d.violations, (v) => [
-        { label: 'Opened', value: String(v.opened) },
-        { label: 'Closed', value: String(v.closed) },
-        {
-          label: 'Past the cure deadline',
-          value: `${v.pastCure} at month end`,
-          ...(v.pastCure > 0 ? { tone: 'danger' as const } : {}),
-        },
-      ]),
-      failed: 'We couldn’t load violations.',
-    },
-    {
-      title: `Architectural requests in ${d.period.label}`,
-      lines: lines(d.arc, (a) => [
-        { label: 'Submitted', value: String(a.submitted) },
-        { label: 'Decided', value: `${a.approved + a.denied} (${a.approved} approved, ${a.denied} denied)` },
-      ]),
-      failed: 'We couldn’t load architectural requests.',
-    },
-    {
-      title: 'Waiting on the board',
-      lines: lines(d.approvals, (n) => [
-        { label: 'Approvals waiting now', value: n === 0 ? 'None — all clear' : plural(n, 'item'), ...(n > 0 ? { tone: 'danger' as const } : {}) },
-      ]),
-      failed: 'We couldn’t count the approvals waiting for the board.',
-      link: { label: 'Open approvals', href: links.appUrl('/approvals') },
-    },
-    complianceBlock(d.compliance, links),
-    {
-      title: 'Next meeting',
-      lines: lines(d.meeting, (m) =>
-        m
-          ? [
-              {
-                label: m.meeting_type ? `${MEETING_TYPE[m.meeting_type] ?? m.meeting_type} meeting` : 'Meeting',
-                value: formatDay(m.meeting_date),
-              },
-            ]
-          : [{ label: 'Meeting', value: 'None scheduled yet' }],
-      ),
-      failed: 'We couldn’t load the meeting calendar.',
-      link: meeting
-        ? { label: 'Open the full board packet', href: packetHref }
-        : { label: 'Open accounting reports', href: packetHref },
-    },
-  ]
-}
-
-// ─── HTML ───────────────────────────────────────────────────────────
-
-const toneColor = (t?: Line['tone']) => (t === 'danger' ? DANGER : t === 'success' ? SUCCESS : TEXT)
 
 function blockHtml(b: Block): string {
-  const head = `<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:${TEXT};">${escapeHtml(b.title)}</p>`
-  const body =
-    b.lines === null
-      ? `<p style="margin:0;font-size:13px;line-height:1.5;color:${DANGER};">${escapeHtml(b.failed)}</p>`
-      : b.lines
-          .map(
-            (l) =>
-              `<tr><td style="padding:4px 0;font-size:13px;line-height:1.4;color:${MUTED};vertical-align:top;">${escapeHtml(l.label)}</td></tr>` +
-              `<tr><td style="padding:0 0 6px;font-size:15px;line-height:1.4;font-weight:600;color:${toneColor(l.tone)};">${escapeHtml(l.value)}</td></tr>`,
-          )
-          .join('')
-  const table = b.lines === null ? body : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${body}</table>`
-  const note = b.note && b.lines !== null ? `<p style="margin:4px 0 0;font-size:11px;line-height:1.5;color:${MUTED};">${escapeHtml(b.note)}</p>` : ''
+  const head = `<p style="margin:0 0 4px 0;font-family:${FONT};font-size:18px;line-height:24px;font-weight:700;color:${TEXT};">${escapeHtml(b.title)}</p>`
+  let body: string
+  if (b.lines === null) {
+    body = `<p style="margin:0;font-family:${FONT};font-size:15px;line-height:22px;color:${DANGER};">${escapeHtml(b.failed)}</p>`
+  } else if (b.empty) {
+    // Loaded and genuinely empty: said in words, never a row of zeros.
+    body = `<p style="margin:0;font-family:${FONT};font-size:15px;line-height:22px;color:${MUTED};">${escapeHtml(b.lines[0]?.value ?? '')}.</p>`
+  } else {
+    body = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${b.lines.map((l, i) => lineHtml(l, i === 0)).join('')}</table>`
+  }
+  const note =
+    b.note && b.lines !== null
+      ? `<p style="margin:4px 0 0 0;font-family:${FONT};font-size:14px;line-height:20px;color:${MUTED};">${escapeHtml(b.note)}</p>`
+      : ''
   const link = b.link
-    ? `<p style="margin:8px 0 0;font-size:13px;"><a href="${escapeHtml(b.link.href)}" style="color:${REPORT_ACCENT};font-weight:600;">${escapeHtml(b.link.label)} &rarr;</a></p>`
+    ? `<p style="margin:10px 0 0 0;font-family:${FONT};font-size:15px;line-height:22px;"><a href="${escapeHtml(b.link.href)}" style="color:${PRIMARY};font-weight:700;text-decoration:underline;">${escapeHtml(b.link.label)} &rarr;</a></p>`
     : ''
-  return `<div style="border-top:1px solid ${LINE};padding:14px 0;">${head}${table}${note}${link}</div>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid ${LINE};padding:18px 0 18px 0;">${head}${body}${note}${link}</td></tr></table>`
 }
 
 // ─── text ───────────────────────────────────────────────────────────
@@ -294,35 +201,58 @@ function blockText(b: Block): string {
   return out.join('\n')
 }
 
+function summaryText(s: ReportSummary): string {
+  const out = ['IN BRIEF', s.headline, ...s.sentences]
+  const missing = unavailableSentence(s.unavailable)
+  if (missing) out.push(missing)
+  if (s.attention.length > 0) {
+    out.push('', 'WORTH A LOOK', ...s.attention.map((a) => `- ${a.text}`))
+  }
+  out.push('', 'KEY FIGURES', ...s.figures.map((f) => `${f.label}: ${f.value}${f.sub ? ` (${f.sub})` : ''}`))
+  return out.join('\n')
+}
+
 // ─── entry ──────────────────────────────────────────────────────────
 
 export function renderMonthlyReportEmail(d: MonthlyReportData, links: MonthlyReportLinks): RenderedReport {
   const subject = `${d.associationName}: ${d.period.label} board report`
-  const bs = blocks(d, links)
+  const view = buildReportView(d, links)
   const settingsUrl = links.appUrl('/settings/notifications')
-  const intro = `Here’s how ${d.associationName} finished ${d.period.label}. Money figures are as of the close of ${formatDay(d.period.end)} unless they say otherwise.`
+  const reportUrl = links.appUrl(REPORT_PAGE_PATH)
+  const intro = `Money figures are as of the close of ${formatDay(d.period.end)} unless they say otherwise.`
 
-  const bodyHtml = `<div style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};font-weight:700;">${escapeHtml(d.associationName)}</div>
-<p style="margin:10px 0 4px;font-size:18px;font-weight:700;color:${TEXT};">${escapeHtml(d.period.label)} board report</p>
-<p style="margin:0 0 14px;font-size:13px;line-height:1.5;color:${MUTED};">${escapeHtml(intro)}</p>
-${bs.map(blockHtml).join('\n')}`
+  const bodyHtml = `${headerHtml()}
+<p style="margin:22px 0 4px 0;font-family:${FONT};font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};">${escapeHtml(d.associationName)}</p>
+<h1 class="rp-h1" style="margin:0 0 6px 0;font-family:${FONT};font-size:28px;line-height:34px;font-weight:700;letter-spacing:-0.4px;color:${TEXT};">${escapeHtml(d.period.label)} board report</h1>
+<p style="margin:0 0 18px 0;font-family:${FONT};font-size:15px;line-height:22px;color:${MUTED};">${escapeHtml(intro)}</p>
+${summaryHtml(view.summary)}
+${attentionHtml(view.summary)}
+${figuresHtml(view.summary.figures)}
+${buttonHtml(reportUrl)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="14" style="height:14px;line-height:14px;font-size:14px;">&nbsp;</td></tr></table>
+<p style="margin:0 0 2px 0;font-family:${FONT};font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${PRIMARY};">The detail</p>
+${view.sections.map(blockHtml).join('\n')}`
 
   const html = renderEmailDocument({
     // Reads on a phone without zooming (the ghost-table hybrid, shell.ts).
     fluid: true,
-    band: { text: 'Month-end board report', color: REPORT_ACCENT },
-    previewText: `${d.period.label}: cash, reserves, collections, overdue dues and what’s waiting on the board.`,
+    extraCss: EMAIL_CSS,
+    previewText: `${d.period.label}: ${view.summary.headline}`,
     bodyHtml,
-    footerHtml: `Sent by HomeownerHub to board members of ${escapeHtml(d.associationName)}. Board only — please don’t forward to residents. <a href="${escapeHtml(settingsUrl)}" style="color:${MUTED};">Turn off the monthly board report</a>.`,
+    footerHtml: `<div style="font-family:${FONT};font-size:13px;line-height:20px;color:${MUTED};">Sent by HomeownerHub to board members of ${escapeHtml(d.associationName)}. Board only, please don’t forward to residents.<br /><a href="${escapeHtml(settingsUrl)}" style="color:${MUTED};text-decoration:underline;">Turn off the monthly board report</a></div>`,
   })
 
   const text = [
-    `${d.associationName} — ${d.period.label} board report`,
+    `${d.associationName}: ${d.period.label} board report`,
     '',
     intro,
     '',
-    ...bs.flatMap((b) => [blockText(b), '']),
-    `Sent by HomeownerHub to board members of ${d.associationName}. Board only — please don’t forward to residents.`,
+    summaryText(view.summary),
+    '',
+    `Open the full report: ${reportUrl}`,
+    '',
+    ...view.sections.flatMap((b) => [blockText(b), '']),
+    `Sent by HomeownerHub to board members of ${d.associationName}. Board only, please don’t forward to residents.`,
     `Turn off the monthly board report: ${settingsUrl}`,
   ].join('\n')
 
