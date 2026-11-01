@@ -58,6 +58,7 @@ const sources = new Map<string, string>(
 const TRANSPORTS: Record<string, string> = {
   'apps/hoa/src/lib/email.ts': 'resend (sendEmail, sendEmailBatch)',
   'apps/hoa/src/lib/sms.ts': 'vonage (sendSms)',
+  'apps/marketing/src/lib/chat/support-actions.ts': 'resend (website chat support request to internal inbox)',
   'packages/jobs/src/web-push.ts': 'web-push (sendPushToUsers)',
   'apps/marketing/src/app/demo/actions.ts': 'resend (demo request to internal inbox)',
 }
