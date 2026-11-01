@@ -90,7 +90,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       {/* Instant click-to-motion feedback. Renders nothing until a
           same-origin link is clicked; bar sweeps left-to-right during
           server fetch. Pure client component, no server-side risk. */}
-      <NavigationProgress />
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       <ShortcutsHelp />
       <AppShell>
         <AppShellSidebar collapsible>

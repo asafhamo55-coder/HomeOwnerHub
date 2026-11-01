@@ -37,6 +37,19 @@
   .nav-progress-bar { animation: none; transform: scaleX(0.8); opacity: 1; }
 }
 
+/* The tapped menu link while its page loads (NavLink PendingMark). The old
+   page stays on screen meanwhile, so the link itself shows the tap landed. */
+@keyframes nav-link-pending {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+a:has(> [data-link-pending]) {
+  animation: nav-link-pending 0.9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  a:has(> [data-link-pending]) { animation: none; opacity: 0.6; }
+}
+
 /* Printed resident statement (/resident/dues/statement): even margins on
    paper. The page's own print: utilities hide the app chrome. */
 @page {

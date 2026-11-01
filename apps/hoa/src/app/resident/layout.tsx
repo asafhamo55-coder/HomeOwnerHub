@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
+import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { getCurrentOrg, getSignedInUser } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
 import { getResidentActor, getImpersonationTarget } from '@/lib/impersonation'
@@ -60,6 +62,9 @@ export default async function ResidentLayout({
   return (
     <ResidentProviders>
     <SkipLink />
+<Suspense fallback={null}>
+<NavigationProgress />
+</Suspense>
     <div className="flex min-h-dvh flex-col bg-background">
       {/* Dev-only role switcher: an in-flow strip, so it can never cover
           content or the tab bar. Renders nothing for non-admins. */}

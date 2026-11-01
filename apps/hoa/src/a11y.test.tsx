@@ -34,6 +34,7 @@ vi.mock('next/link', () => ({
       {children}
     </a>
   ),
+  useLinkStatus: () => ({ pending: false }),
 }))
 vi.mock('@/lib/announcements/actions', () => ({ sendAnnouncement: async () => ({ ok: true }) }))
 vi.mock('@/lib/association-settings-actions', () => ({ updateAssociationSettings: async () => ({ ok: true }) }))
