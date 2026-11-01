@@ -8,7 +8,7 @@ routes: ["/accounting/reports/monthly-report", "/accounting/reports", "/settings
 primary_route: /accounting/reports/monthly-report
 keywords: [monthly report, board report, monthly board report, month end, month-end report, treasurer report, financial summary, email report, board email, report email, send report, send now, preview report, 1st of the month, first of the month, stop emails, unsubscribe, turn off report, opt out, email settings, notifications, collections, overdue dues, cash summary, reserves, reserve fund, board update, finances, monthly email]
 related: [accounting-reports-overview, accounting-reserves, settings-notifications, accounting-bank-reconcile]
-reviewed: 2026-10-20
+reviewed: 2026-11-01
 ---
 
 The app emails every board member a short report on the 1st of each month. It covers last month's cash, reserves, collections, overdue dues, income and expenses, budget, violations, architectural requests, what's waiting on the board and the next meeting. You don't have to do anything for it to go out.
@@ -19,7 +19,7 @@ The app emails every board member a short report on the 1st of each month. It co
 
 ## Steps
 1. Open **Accounting**, then the [[Reports]] tab. The **Monthly board report** card shows when the last one went out and which month is next.
-2. Select [[Preview]] to see exactly the email the board will get for last month, including its subject line.
+2. Select [[Preview]] to read last month's report in the app. It opens with a short summary and the main figures, then the detail, and it has the same content as the email. To keep a copy, use **Print / Save as PDF** on that page.
 3. To send last month's report now instead of waiting for the 1st, an admin selects [[Send now]] on the card.
 4. To stop getting the email yourself, select [[Your email settings]] on the card (or open **Settings**, then [[Notifications]]) and turn off **Monthly board report**. It saves right away.
 
@@ -36,7 +36,8 @@ The app emails every board member a short report on the 1st of each month. It co
 
 ## Good to know
 - The report always covers the last full month. You can't pick a different month, change what's in it, or add your own notes.
-- The preview builds the email live, so it shows today's numbers for last month. Nothing is sent from the preview.
+- The preview builds the report live, so it shows today's numbers for last month. Nothing is sent from the preview.
+- A month with no activity says so in words, in the app and in the email, instead of showing rows of zeros.
 - If part of the report can't load, that section says so in the email rather than showing a wrong number.
 - Turning the email off only affects you. It applies to every association you're on the board of, and other board members still get it.
 - If every board member turns it off, no report is sent that month.

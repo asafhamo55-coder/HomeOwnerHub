@@ -61,3 +61,20 @@ export function reportFixture(over: Partial<MonthlyReportData> = {}): MonthlyRep
     ...over,
   }
 }
+
+/** A month with no activity at all: every section loaded and is genuinely empty. */
+export function emptyMonthFixture(): MonthlyReportData {
+  return reportFixture({
+    cash: { ok: true, data: { operating: 0, reserve: 0 } },
+    reserves: { ok: true, data: { result: { kind: 'no_reserve_fund' }, hint: null } },
+    income: { ok: true, data: { totalIncome: 0, totalExpenses: 0, netIncome: 0 } },
+    collections: { ok: true, data: { billed: 0, collected: 0 } },
+    delinquency: { ok: true, data: { total: 0, units: 0, over90: 0 } },
+    budget: { ok: true, data: { hasBudget: false, top: [] } },
+    violations: { ok: true, data: { opened: 0, closed: 0, pastCure: 0 } },
+    arc: { ok: true, data: { submitted: 0, approved: 0, denied: 0 } },
+    approvals: { ok: true, data: 0 },
+    meeting: { ok: true, data: null },
+    compliance: { ok: true, data: { open: 0, overdue: 0, done: 0, next: null, nothingTracked: false, election: null } },
+  })
+}
