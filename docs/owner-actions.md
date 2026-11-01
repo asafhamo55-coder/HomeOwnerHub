@@ -105,19 +105,6 @@ require a 10DLC registration before business texts are delivered.
 2. If yes: create the Vonage account, start the 10DLC brand and campaign registration, and add the Vonage keys as Vercel production environment variables.
 3. In Vonage, set a HELP auto-reply on the number or campaign (for example "HomeownerHub alerts for your HOA. Reply STOP to stop. Help: support@homeownerledger.com"). Residents' consent wording promises HELP works.
 
-### OA-13 · Rotate the Supabase service-role key
-
-**Urgency:** Whenever
-
-**Why it matters:** routine security hygiene before any investor due
-diligence. Claude has the background.
-
-**Steps:**
-
-1. In the Supabase dashboard, open **Project Settings → API** and rotate the service-role key.
-2. Put the new key in Vercel (production environment) and GitHub secrets where the old one was. Never in a file.
-3. Tell Claude, so it can check the app still works.
-
 ### OA-15 · Fill in the investor deck's traction numbers
 
 **Urgency:** Whenever
@@ -165,6 +152,21 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-13 · Rotate the Supabase service-role key
+
+**Urgency:** Whenever
+
+**Why it matters:** routine security hygiene before any investor due
+diligence. Claude has the background.
+
+**Steps:**
+
+1. In the Supabase dashboard, open **Project Settings → API** and rotate the service-role key.
+2. Put the new key in Vercel (production environment) and GitHub secrets where the old one was. Never in a file.
+3. Tell Claude, so it can check the app still works.
+
+**Done:** 2026-11-01. New keys are in Vercel production and the old ones are retired. Asaf confirmed sign-in, dues data, violation photos and an accepted invite.
 
 ### OA-43 · Turn on the website help chat (Vercel, marketing project)
 
