@@ -52923,6 +52923,58 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    "id": "2026-11-01-0330-plain-words-basics-menu#1",
+    "note": "2026-11-01-0330-plain-words-basics-menu",
+    "date": "2026-11-01",
+    "title": "The violation form now uses plain words",
+    "body": "\"Cure period\" is now \"Days to fix it\", and the button that drafts the letter now says \"Write the notice for me\". Short hints explain the fine and why photos matter.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": "violations-report-and-letter",
+    "label": "improvement"
+  },
+  {
+    "id": "2026-11-01-0330-plain-words-basics-menu#2",
+    "note": "2026-11-01-0330-plain-words-basics-menu",
+    "date": "2026-11-01",
+    "title": "A shorter menu while you are getting started",
+    "body": "New board members see only the everyday pages for their first 30 days. Use \"Show all menu items\" at any time to see everything, and \"Show only the basics\" to go back. Your choice is remembered on that device.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-11-01-0330-plain-words-basics-menu#3",
+    "note": "2026-11-01-0330-plain-words-basics-menu",
+    "date": "2026-11-01",
+    "title": "Two menu items have clearer names",
+    "body": "Approvals is now \"Things to approve\" and ARC review is now \"Architecture requests\". They open the same pages as before.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "improvement"
+  },
+  {
+    "id": "2026-11-01-0330-plain-words-basics-menu#4",
+    "note": "2026-11-01-0330-plain-words-basics-menu",
+    "date": "2026-11-01",
+    "title": "A stray key no longer changes the page",
+    "body": "We removed the keyboard shortcuts that used the letter \"g\" to jump to another page, because a stray keypress could move you away from your work. The \"?\" key still opens the shortcuts help.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "fix"
+  },
+  {
     "id": "2026-10-31-1130-calendar-day-details#1",
     "note": "2026-10-31-1130-calendar-day-details",
     "date": "2026-10-31",
