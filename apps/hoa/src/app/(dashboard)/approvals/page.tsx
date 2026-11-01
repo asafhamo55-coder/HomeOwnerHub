@@ -55,7 +55,7 @@ import { JoinDetails } from './JoinDetails'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
 import { guideHref } from '@/lib/guide'
 
-export const metadata = { title: 'Approvals' }
+export const metadata = { title: 'Things to approve' }
 export const dynamic = 'force-dynamic'
 
 // BL-014: every AI-proposed action waiting on the board, in one place.
@@ -126,7 +126,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
 
   return (
     <Page
-      title="Approvals"
+      title="Things to approve"
       description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={

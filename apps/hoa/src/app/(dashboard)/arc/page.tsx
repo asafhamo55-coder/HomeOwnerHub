@@ -39,7 +39,7 @@ import { formatDay } from '@/lib/money/format'
 import { currentTimeZone } from '@/lib/association-time-current'
 import { ARC_OVERDUE_VIEW, overdueCutoff, parseArcView } from '@/lib/arc-review/overdue'
 
-export const metadata = { title: 'ARC review' }
+export const metadata = { title: 'Architecture requests' }
 export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 50
@@ -194,7 +194,7 @@ export default async function ArcReviewListPage({
 
   return (
     <Page
-      title="ARC review"
+      title="Architecture requests"
       description={
         pending != null && all != null
           ? `Architectural review applications from residents. ${pending} awaiting a decision · ${all} total.`
