@@ -312,3 +312,25 @@ describe('batch 22 pages are in the library', () => {
     expect(GUIDES['condo-vs-hoa-law']!.related).toContain('georgia-hoa-does-poa-act-apply-44-3-222')
   })
 })
+
+describe('batch 24 pages are in the library', () => {
+  const pages = [
+    '/guides/georgia-hoa-owners-take-control-from-declarant-44-3-232-1',
+    '/guides/georgia-hoa-unpaid-assessments-when-a-lot-is-sold-44-3-225',
+    '/guides/georgia-hoa-charging-some-lots-not-all-44-3-225',
+  ]
+
+  it('are in the palette feed, the sitemap and the Georgia list, with a page file each', () => {
+    for (const page of pages) {
+      expect(libraryEntries().map((e) => e.path)).toContain(page)
+      expect(SITEMAP_PATHS).toContain(page)
+      expect(GENERAL_PATHS).toContain(page)
+      expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+
+  it('are grouped under Georgia', () => {
+    const ga = guideGroups().find((g) => g.id === 'georgia')!
+    for (const page of pages) expect(ga.items.map((i) => i.path)).toContain(page)
+  })
+})

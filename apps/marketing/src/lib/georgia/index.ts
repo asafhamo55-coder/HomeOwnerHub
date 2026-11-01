@@ -24,6 +24,7 @@ import { TX_VIOLATION_NOTICE } from './guides-t'
 import { TX_BALLOTS } from './guides-u'
 import { GA_POA_APPLY, GA_LOT_OWNER_BOARD } from './guides-v'
 import { FL_ARC, FL_MEDIATION, FL_FLAGS_RAMPS } from './guides-w'
+import { GA_DECLARANT_CONTROL, GA_SALE_ASSESSMENTS, GA_ALLOCATE_EXPENSES } from './guides-x'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -46,7 +47,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE, TX_VIOLATION_NOTICE, TX_BALLOTS, GA_POA_APPLY, GA_LOT_OWNER_BOARD, FL_ARC, FL_MEDIATION, FL_FLAGS_RAMPS]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE, TX_VIOLATION_NOTICE, TX_BALLOTS, GA_POA_APPLY, GA_LOT_OWNER_BOARD, FL_ARC, FL_MEDIATION, FL_FLAGS_RAMPS, GA_DECLARANT_CONTROL, GA_SALE_ASSESSMENTS, GA_ALLOCATE_EXPENSES]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -433,6 +434,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: pathOf(FL_FLAGS_RAMPS),
     title: 'Flags, flagpoles, access ramps and security signs in a Florida HOA (§ 720.304)',
     blurb: FL_FLAGS_RAMPS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_DECLARANT_CONTROL.slug,
+    path: pathOf(GA_DECLARANT_CONTROL),
+    title: 'How Georgia owners can take control of an HOA from the developer (§ 44-3-232.1)',
+    blurb: GA_DECLARANT_CONTROL.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_SALE_ASSESSMENTS.slug,
+    path: pathOf(GA_SALE_ASSESSMENTS),
+    title: 'Who owes unpaid HOA assessments when a Georgia lot is sold or foreclosed (§ 44-3-225)',
+    blurb: GA_SALE_ASSESSMENTS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_ALLOCATE_EXPENSES.slug,
+    path: pathOf(GA_ALLOCATE_EXPENSES),
+    title: 'Can a Georgia HOA charge some lots more than others? (§ 44-3-225(a))',
+    blurb: GA_ALLOCATE_EXPENSES.summary[0]!,
     kind: 'guide',
   },
   {
