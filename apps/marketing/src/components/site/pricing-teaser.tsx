@@ -12,7 +12,7 @@ import {
   bandAnnualUsd,
   bandMonthlyUsd,
   formatUsd,
-  type HoaBandPlan,
+  SOLD_BAND_PLAN,
 } from '@/lib/hoa-pricing'
 
 // Homepage pricing slider. Every number comes from lib/hoa-pricing.ts (the
@@ -23,29 +23,17 @@ import {
 const MIN_HOMES = 10
 const MAX_HOMES = 500
 
-const PLANS: { id: HoaBandPlan; name: string; sub: string; bullets: string[]; featured?: boolean }[] = [
-  {
-    id: 'essentials',
-    name: 'Essentials',
-    sub: 'The AI assistant, dues and the resident portal',
-    bullets: [
-      'Ask your governing documents and get cited answers',
-      'Violation letters drafted from photos, approved in one click',
-      'Dues, resident portal and announcements',
-    ],
-  },
-  {
-    id: 'complete',
-    name: 'Complete',
-    sub: 'Everything in Essentials, plus the money and the mailbox',
-    featured: true,
-    bullets: [
-      'Accounting, bank feeds and AI bill scan',
-      'Shared inbox with AI reply drafts, vendors and RFPs',
-      'Month-end board report',
-    ],
-  },
-]
+const PLAN = {
+  name: 'HomeownerHub',
+  sub: 'One plan, everything included',
+  bullets: [
+    'Ask your governing documents and get cited answers',
+    'Violation letters drafted from photos, approved in one click',
+    'Dues, resident portal and announcements',
+    'Accounting, bank feeds and AI bill scan',
+    'Shared inbox with AI reply drafts, vendors and RFPs',
+  ],
+}
 
 function bandLabel(homes: number): string {
   const edge = BAND_EDGES.find((e) => homes <= e)
@@ -64,7 +52,7 @@ export function PricingTeaser() {
           <div className="mx-auto max-w-3xl text-center">
             <p className="eyebrow">Pricing</p>
             <h2 id={`${uid}-h`} className="t-h2 mt-4 text-foreground">
-              Two plans. Priced by the size of your community.
+              One plan, everything included. Priced by the size of your community.
             </h2>
             <p className="t-lead mt-4">
               Drag to your number of homes. {TRIAL_DAYS}-day free trial, no credit card, cancel anytime.
@@ -114,11 +102,11 @@ export function PricingTeaser() {
             </div>
           </div>
 
-          <div className="mx-auto mt-8 grid max-w-3xl gap-5 md:grid-cols-2">
-            {PLANS.map((p) => {
-              const price = yearly ? bandAnnualUsd(p.id, homes) : bandMonthlyUsd(p.id, homes)
+          <div className="mx-auto mt-8 max-w-xl">
+            {[PLAN].map((p) => {
+              const price = yearly ? bandAnnualUsd(SOLD_BAND_PLAN, homes) : bandMonthlyUsd(SOLD_BAND_PLAN, homes)
               return (
-                <div key={p.id} className="card flex flex-col p-7">
+                <div key={p.name} className="card flex flex-col p-7">
                   <p className="text-lg font-semibold text-foreground">{p.name}</p>
                   <p className="mt-1 text-base text-muted">{p.sub}</p>
                   <p className="mt-5 flex items-baseline gap-1.5" aria-live="polite">
@@ -141,7 +129,7 @@ export function PricingTeaser() {
                     ))}
                   </ul>
                   {/* A plain <a>: sign-up lives in the app, not this site. */}
-                  <a href={SIGN_UP_URL} className={cn('btn mt-7', p.featured ? 'btn-primary' : 'btn-secondary')}>
+                  <a href={SIGN_UP_URL} className="btn btn-primary mt-7">
                     Start free trial
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </a>
@@ -151,7 +139,7 @@ export function PricingTeaser() {
           </div>
           <p className="mt-8 text-center text-base text-muted">
             <Link href="/pricing" className="font-semibold text-foreground underline underline-offset-4">
-              See every plan detail
+              See everything that is included
             </Link>
           </p>
         </div>

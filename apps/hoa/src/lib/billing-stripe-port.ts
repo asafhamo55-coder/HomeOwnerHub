@@ -6,12 +6,12 @@
 // Not a 'use server' module: nothing here is callable from a browser.
 
 import type Stripe from 'stripe'
-import { getStripe, HOA_PLAN_IDS, V2_LOOKUP_KEYS, V2_PRICE_ENV } from '@homeowner-portal/billing'
+import { getStripe, PRICE_FAMILY_IDS, V2_LOOKUP_KEYS, V2_PRICE_ENV } from '@homeowner-portal/billing'
 import type { BillingStripePort, SubscriptionSnapshot } from '@homeowner-portal/jobs'
 
 /** The env override for a band Price's lookup key (STRIPE_PRICE_<PLAN>_<CADENCE>), if any. */
 export function priceEnvForLookupKey(lookupKey: string): string | null {
-  for (const plan of HOA_PLAN_IDS) {
+  for (const plan of PRICE_FAMILY_IDS) {
     for (const cadence of ['monthly', 'annual'] as const) {
       if (V2_LOOKUP_KEYS[plan][cadence] === lookupKey) return V2_PRICE_ENV[plan][cadence]
     }

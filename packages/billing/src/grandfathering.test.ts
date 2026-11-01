@@ -9,7 +9,7 @@ describe('existing subscriptions keep their price until renewal (decision §5)',
     expect(legacyRenewalDate(facts).toISOString()).toBe('2027-03-15T00:00:00.000Z')
     const g = grandfathering(facts, d('2026-10-20T00:00:00Z'))!
     expect(g.keepLegacyPrice).toBe(true)
-    expect(g.moveTo).toBe('complete')
+    expect(g.moveTo).toBe('essentials')
     expect(g.noticeAt.toISOString()).toBe('2027-02-13T00:00:00.000Z')
   })
 

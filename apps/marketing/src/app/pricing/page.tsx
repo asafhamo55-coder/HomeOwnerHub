@@ -32,7 +32,7 @@ const FEES: Array<{ item: string; cost: string; note: string }> = [
   { item: 'Setup', cost: 'Free', note: 'No setup fee. The board imports its own roster from a spreadsheet.' },
   { item: 'Roster import', cost: 'Free', note: 'CSV or Excel, with a preview of every row before anything is saved.' },
   { item: 'Your data', cost: 'Free', note: 'Download everything as spreadsheets from Settings, any time.' },
-  { item: 'Feature add-ons', cost: 'None', note: 'Two plans. No per-feature charges on top.' },
+  { item: 'Feature add-ons', cost: 'None', note: 'One plan with everything included. No per-feature charges on top.' },
   { item: 'Paying for a year', cost: '2 months free', note: 'Yearly is 10 months billed for 12.' },
   { item: 'Cancelling', cost: 'Free', note: 'Month to month. Cancel in Settings, Billing.' },
   { item: 'Online card and bank payments', cost: 'Coming soon', note: 'Not available yet, so there is no fee to list.' },
@@ -41,7 +41,7 @@ const FEES: Array<{ item: string; cost: string; note: string }> = [
 const faqs = [
   {
     q: 'How does the free trial work?',
-    a: `Every HOA gets ${TRIAL_DAYS} days free to actually use the product. No card is needed to start and there is no data migration. Before the trial ends, the board decides whether to continue. A board that continues moves to ${PRICING_V2 ? 'one of the plans above' : 'the per-door plan above'}.`,
+    a: `Every HOA gets ${TRIAL_DAYS} days free to actually use the product. No card is needed to start and there is no data migration. Before the trial ends, the board decides whether to continue. A board that continues moves to ${PRICING_V2 ? 'the plan above' : 'the per-door plan above'}.`,
   },
   { q: 'Is there a contract?', a: HOA_PRICE_COPY.contract },
   {

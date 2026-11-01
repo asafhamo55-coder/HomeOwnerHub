@@ -115,6 +115,24 @@ describe('BL-108 sizing rule: a heavy-use month ≤ 20% of the price, 1–2,000 
   })
 })
 
+describe('one plan (2026-11-01): the former Essentials limits against the new Prices', () => {
+  it('the spend ceiling (30% of the OLD Essentials price) is never above 30% of the new HomeownerHub price, every size', () => {
+    for (let doors = 1; doors <= 2000; doors++) {
+      const newPrice = monthlyPriceCents('homeownerhub', doors) / 100
+      expect(aiCostCeilingUsd('essentials', doors)).toBeLessThanOrEqual(newPrice * 0.3 + 1e-9)
+      // The new Price is above the old one at every size, so the margin only grows.
+      expect(newPrice).toBeGreaterThan(monthlyPriceCents('essentials', doors) / 100)
+    }
+  })
+
+  it('a heavy-use month on the Essentials limits stays within 20% of the new price at every size', () => {
+    for (let doors = 1; doors <= 2000; doors++) {
+      const heavy = heavyUseMonthlyAiCostUsd({ plan: 'essentials', band: bandFor(doors).id })
+      expect(heavy).toBeLessThanOrEqual((monthlyPriceCents('homeownerhub', doors) / 100) * HEAVY_USE_PRICE_SHARE)
+    }
+  })
+})
+
 describe('BL-108: the all-caps-hit month is bounded by the spend ceiling (30% of the price)', () => {
   it('without the ceiling, every cap hit every day is 42–50% of the price (closed bands)', () => {
     for (const plan of HOA_PLAN_IDS) {

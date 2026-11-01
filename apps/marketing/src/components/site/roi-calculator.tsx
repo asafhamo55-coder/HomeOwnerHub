@@ -47,8 +47,8 @@ export function RoiCalculator() {
 
         <div className="mx-auto mt-12 grid max-w-5xl gap-6 rounded-3xl border border-border bg-surface p-6 ring-card md:grid-cols-[1.15fr,1fr] md:p-10">
           <div className="space-y-8">
-            <Slider label="Homes in your community" min={10} max={500} step={5} value={doors} onChange={setDoors} display={`${doors}`} hint={`Complete plan: ${fmtUsd(r.planMonthly)} a month, ${fmtUsd(r.plan)} paid yearly.`} />
-            <Slider label="Cost today that Complete would replace" min={0} max={15} step={1} value={replacedPerDoor} onChange={setReplacedPerDoor} display={`${fmtUsd(replacedPerDoor)} per home a month`} hint={`Bookkeeping, mailing or software. About ${fmtUsd(doors * replacedPerDoor)} a month. Set to $0 if none.`} />
+            <Slider label="Homes in your community" min={10} max={500} step={5} value={doors} onChange={setDoors} display={`${doors}`} hint={`HomeownerHub plan: ${fmtUsd(r.planMonthly)} a month, ${fmtUsd(r.plan)} paid yearly.`} />
+            <Slider label="Cost today that HomeownerHub would replace" min={0} max={15} step={1} value={replacedPerDoor} onChange={setReplacedPerDoor} display={`${fmtUsd(replacedPerDoor)} per home a month`} hint={`Bookkeeping, mailing or software. About ${fmtUsd(doors * replacedPerDoor)} a month. Set to $0 if none.`} />
             <Slider label="Board volunteer hours on admin" min={0} max={30} step={1} value={hoursPerWeek} onChange={setHoursPerWeek} display={`${hoursPerWeek} hours a week`} />
             <Slider label="Share of those hours it could save" min={0} max={80} step={5} value={pctSaved} onChange={setPctSaved} display={`${pctSaved}%`} hint="Our assumption, not a measured result. Lower it if you are unsure." />
             <Slider label="What an hour of your time is worth" min={0} max={100} step={5} value={valuePerHour} onChange={setValuePerHour} display={`${fmtUsd(valuePerHour)} an hour`} hint="Your estimate. Volunteers are unpaid, so $0 is a fair answer too." />
@@ -69,7 +69,7 @@ export function RoiCalculator() {
             <dl className="space-y-2 text-base">
               <Line label="Costs it replaces" value={fmtUsd(r.replaced)} />
               <Line label="Time saved, valued" value={fmtUsd(r.hoursValue)} />
-              <Line label="Complete, paid yearly" value={`- ${fmtUsd(r.plan)}`} />
+              <Line label="HomeownerHub, paid yearly" value={`- ${fmtUsd(r.plan)}`} />
               <div className="flex items-baseline justify-between border-t border-border-strong pt-3 font-semibold text-foreground">
                 <dt>Estimated difference</dt>
                 <dd className="tabular-nums">{r.net >= 0 ? fmtUsd(r.net) : `- ${fmtUsd(-r.net)}`}</dd>
@@ -83,8 +83,8 @@ export function RoiCalculator() {
         </div>
 
         <p className="mx-auto mt-8 max-w-3xl text-center text-base text-muted">
-          This is an estimate built from the numbers you enter, not a promise or a measured result. Essentials costs
-          less than Complete, so a smaller plan may suit you. Your costs and hours will differ.
+          This is an estimate built from the numbers you enter, not a promise or a measured result. Your costs and
+          hours will differ.
         </p>
       </div>
     </section>

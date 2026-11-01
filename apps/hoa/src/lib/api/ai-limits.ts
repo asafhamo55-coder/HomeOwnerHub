@@ -17,6 +17,12 @@
 // action `ai.usage.<bucket>`. Changing a number here takes effect on the next
 // request; no migration, no cache.
 //
+// One plan (docs/decisions/2026-11-01-one-plan.md): every org has every
+// feature and a new org's limits are the former Essentials values below.
+// An org holding a stored 'complete' plan, or a legacy $4.99/door one, keeps
+// the larger limits it has today (never reduced). The tables below keep the
+// two plan keys for that reason only.
+//
 // BL-104 (docs/decisions/2026-10-20-pricing.md §3) — live now, not behind
 // PRICING_V2. The numbers in AI_RATE_LIMITS are the BASE ceilings. What an
 // org actually gets is aiLimitFor(bucket, tier):
@@ -109,8 +115,8 @@ export interface AiRateLimit {
   flat?: true
   /**
    * BL-108: a flat bucket's per-org daily ceiling for orgs on a new plan, by
-   * plan and band (tiered orgs only). Absent = the base perOrg. A 0 would
-   * mean "not on the plan" (429 plan_limit without a ledger read).
+   * plan and band (tiered orgs only). Absent = the base perOrg. Every value
+   * is above 0: no bucket is "not on the plan".
    */
   perOrgByPlanBand?: Readonly<Record<HoaPlanId, Readonly<Record<BandId, number>>>>
 }

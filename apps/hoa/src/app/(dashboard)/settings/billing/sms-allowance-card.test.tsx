@@ -13,7 +13,7 @@ const html = (el: React.ReactElement) => renderToStaticMarkup(el).replace(/<!-- 
 describe('SmsAllowanceCard', () => {
   it('under 80%: usage, no warning', () => {
     const out = html(<SmsAllowanceCard status={smsAllowanceStatus('essentials', 40, 10)} />)
-    expect(out).toContain('Essentials includes 100 text message segments a month')
+    expect(out).toContain('HomeownerHub includes 100 text message segments a month')
     expect(out).toContain('20</span> of 100 segments used (20%)')
     expect(out).not.toContain('role="alert"')
   })

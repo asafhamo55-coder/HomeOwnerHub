@@ -11,11 +11,11 @@ import type { SubscriptionSnapshot } from './billing-stripe-port'
 import { fakeDb, fakeStripe, filterValue, silentLogger, type FakeQuery } from './billing-fake.test-util'
 
 // BL-104 grandfathered renewal: the 30-day board notice (once per term) and
-// the switch to Complete at renewal. Stripe is a fake port, the sender a
+// the switch to the one plan at renewal. Stripe is a fake port, the sender a
 // mock, the db an in-memory query fake. No real Stripe, email or database.
 
 const RENEWS = new Date('2026-12-01T00:00:00.000Z')
-const PRICES = { hoa_complete_monthly: 'price_cm', hoa_complete_annual: 'price_ca' }
+const PRICES = { hoa_essentials_monthly: 'price_em', hoa_essentials_annual: 'price_ea' }
 
 function legacySub(over: Partial<SubscriptionSnapshot> = {}): SubscriptionSnapshot {
   return {
@@ -128,7 +128,7 @@ describe('runRenewalJob', () => {
     expect(filterValue(q, 'not', 'stripe_sub_id')).toEqual(['is', null])
   })
 
-  it('30 days out: emails the board (never residents) once per term, with the Complete price', async () => {
+  it('30 days out: emails the board (never residents) once per term, with the one plan price', async () => {
     const w = world({ homes: 48 })
     const s = fakeStripe({ sub_1: legacySub() }, PRICES)
     const d = deps(s)
@@ -138,9 +138,9 @@ describe('runRenewalJob', () => {
     expect(tos.sort()).toEqual(['admin@hoa.test', 'board@hoa.test'])
     expect(tos).not.toContain('resident@hoa.test')
     const [email, opts] = d.sendEmail.mock.calls[0] as unknown as [{ subject: string; text: string }, { orgSandbox: boolean; ref: string }]
-    // Complete 1–50, annual: $990.
-    expect(planPriceCents('complete', 'annual', 48)).toBe(99000)
-    expect(email.subject).toBe('Your plan changes on December 1, 2026: Complete at $990 a year')
+    // 1–50, annual: $490 (the former Essentials price; never Complete's $990).
+    expect(planPriceCents('essentials', 'annual', 48)).toBe(49000)
+    expect(email.subject).toBe('Your plan changes on December 1, 2026: HomeownerHub at $490 a year')
     expect(email.text).toContain('48 homes on file (1–50 doors)')
     expect(email.text).toContain('https://hoa.test/settings/billing')
     expect(opts).toEqual({ orgSandbox: false, ref: 'renewal:org-1' })
@@ -148,7 +148,7 @@ describe('runRenewalJob', () => {
       expect.objectContaining({
         action: RENEWAL_NOTICE_AUDIT_ACTION,
         org_id: 'org-1',
-        metadata: expect.objectContaining({ term: 'sub_1:2026-12-01T00:00:00.000Z', new_price_cents: 99000, recipients: 2 }),
+        metadata: expect.objectContaining({ term: 'sub_1:2026-12-01T00:00:00.000Z', new_price_cents: 49000, recipients: 2 }),
       }),
     ])
     // No address in the claim row.
@@ -169,7 +169,7 @@ describe('runRenewalJob', () => {
     expect(d.sendEmail).not.toHaveBeenCalled()
   })
 
-  it('at renewal (within 2 days): switches to the Complete band Price, no proration, once', async () => {
+  it('at renewal (within 2 days): switches to the band Price of the one plan, no proration, once', async () => {
     const w = world({ homes: 48 })
     const s = fakeStripe({ sub_1: legacySub() }, PRICES)
     const d = deps(s)
@@ -183,7 +183,7 @@ describe('runRenewalJob', () => {
       {
         subscriptionId: 'sub_1',
         itemId: 'si_1',
-        priceId: 'price_ca',
+        priceId: 'price_ea',
         quantity: 48,
         prorationBehavior: 'none',
         idempotencyKey: 'renewal-switch:sub_1:2026-12-01T00:00:00.000Z',
@@ -235,12 +235,12 @@ describe('runRenewalJob', () => {
     const r = await runRenewalJob(w.db, deps(s), { pricingV2: true, now: Date.parse('2026-11-30T14:00:00Z'), logger })
     expect(r).toMatchObject({ switched: 0, failed: 1 })
     const logged = JSON.stringify([...logger.error.mock.calls, ...logger.info.mock.calls])
-    expect(logged).toContain('hoa_complete_annual')
+    expect(logged).toContain('hoa_essentials_annual')
     expect(logged).not.toContain('@')
   })
 
   it('cancelled or already-moved subscriptions are left alone', async () => {
-    for (const over of [{ status: 'canceled' }, { lookupKey: 'hoa_complete_monthly' }]) {
+    for (const over of [{ status: 'canceled' }, { lookupKey: 'hoa_complete_monthly' }, { lookupKey: 'hoa_essentials_monthly' }]) {
       const w = world()
       const s = fakeStripe({ sub_1: legacySub(over) }, PRICES)
       const d = deps(s)
@@ -254,7 +254,7 @@ describe('runRenewalJob', () => {
 describe('buildRenewalNotice', () => {
   it('monthly at 401 homes shows cents', () => {
     const n = buildRenewalNotice({ orgName: 'A & B <HOA>', renewsAt: RENEWS, cadence: 'monthly', homes: 401, link: 'https://x.test/settings/billing' })
-    expect(n.subject).toBe('Your plan changes on December 1, 2026: Complete at $349.85 a month')
+    expect(n.subject).toBe('Your plan changes on December 1, 2026: HomeownerHub at $180.45 a month')
     expect(n.html).toContain('A &amp; B &lt;HOA&gt;')
     expect(n.html).not.toContain('<HOA>')
   })

@@ -8,7 +8,6 @@ import {
   linkAiUsageToRun,
   loadAiBudget,
   loadAiTier,
-  notOnPlanError,
   rateLimitedError,
 } from './rate-limit'
 import { AI_RATE_LIMITS, DAY_MS, HOUR_MS, type AiBudget } from './ai-limits'
@@ -550,12 +549,6 @@ describe('BL-108 per-plan, per-band Copilot and meeting-summary caps', () => {
       tier: await loadAiTier(f.db, 'org-1', true),
     }).catch((e) => e)
     expect(after).toMatchObject({ extra: { reason: 'org_limit' } })
-  })
-
-  it('a 0 ceiling would still answer plan_limit (mechanism kept, no plan uses it)', () => {
-    const err = notOnPlanError(AI_RATE_LIMITS.ask_community)
-    expect(err).toMatchObject({ code: 'rate_limited', status: 429, extra: { reason: 'plan_limit', retryAfterSeconds: 86400 } })
-    expect(err.publicMessage).toBe('Copilot questions aren’t included in your community’s plan.')
   })
 })
 

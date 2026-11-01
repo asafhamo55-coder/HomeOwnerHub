@@ -9,8 +9,13 @@
 // page types an HOA price by hand. Kept literal because the marketing app
 // doesn't depend on @homeowner-portal/billing (it pulls in stripe and db).
 //
-// BL-104: the Essentials / Complete band pricing
-// (docs/decisions/2026-10-20-pricing.md) is here too, behind PRICING_V2.
+// BL-104: the band pricing (docs/decisions/2026-10-20-pricing.md) is here
+// too, behind PRICING_V2. Since 2026-11-01 it is ONE plan with every feature
+// (docs/decisions/2026-11-01-one-plan.md). Which table it is priced from is
+// ONE_PLAN_NEW_PRICES: false = the existing Essentials Prices (what checkout
+// charges today), true = the new HomeownerHub Prices. The Essentials and
+// Complete tables stay below because the /compare pages still call
+// bandMonthlyUsd('essentials' | 'complete', ...); no page here sells Complete.
 // The flag MIRRORS packages/billing/src/pricing-flag.ts (the test fails if
 // they differ), so the site switches in the same commit as checkout — the
 // marketing-truth rule (2026-10-18-marketing-pricing-truth.md §5). While
@@ -18,6 +23,9 @@
 
 /** Mirrors packages/billing/src/pricing-flag.ts. Flip both in one commit. */
 export const PRICING_V2: boolean = true
+
+/** Mirrors packages/billing/src/pricing-flag.ts ONE_PLAN_NEW_PRICES. Flip both in one commit. */
+export const ONE_PLAN_NEW_PRICES: boolean = false
 
 // ─── Legacy: $4.99/door (what checkout charges while PRICING_V2 is off) ──
 
@@ -66,10 +74,13 @@ export function formatUsd(value: number, opts?: { withCents?: boolean }): string
   })
 }
 
-// ─── BL-104: Essentials / Complete in flat size bands ────────────────────
+// ─── BL-104: flat size bands ──────────────────────────────────────────────
 // Literal copy of packages/billing/src/pricing-v2.ts, pinned by the test.
 
-export type HoaBandPlan = 'essentials' | 'complete'
+export type HoaBandPlan = 'essentials' | 'complete' | 'homeownerhub'
+
+/** The price table the one plan is sold on. Mirrors SOLD_PRICE_FAMILY in packages/billing. */
+export const SOLD_BAND_PLAN: HoaBandPlan = ONE_PLAN_NEW_PRICES ? 'homeownerhub' : 'essentials'
 
 /** Upper edges of the closed bands; 401+ is per door. */
 export const BAND_EDGES = [50, 100, 200, 400] as const
@@ -77,11 +88,13 @@ export const BAND_EDGES = [50, 100, 200, 400] as const
 export const BAND_MONTHLY_CENTS: Readonly<Record<HoaBandPlan, readonly [number, number, number, number]>> = {
   essentials: [4900, 7900, 11900, 17900],
   complete: [9900, 14900, 22900, 34900],
+  homeownerhub: [5900, 10900, 16900, 24900],
 }
 /** 401+: flat + per door, monthly cents. */
 export const OPEN_BAND_MONTHLY_CENTS: Readonly<Record<HoaBandPlan, { flatCents: number; perDoorCents: number }>> = {
   essentials: { flatCents: 0, perDoorCents: 45 },
   complete: { flatCents: 900, perDoorCents: 85 },
+  homeownerhub: { flatCents: 0, perDoorCents: 65 },
 }
 export const ANNUAL_MONTHS_BILLED = 10
 export const TRIAL_DAYS = 30
@@ -134,7 +147,7 @@ export interface HoaPricingView {
     /** The /demo FAQ lead-in before `summary`. */
     model: string
   }
-  /** "All features" monthly bill at a size (Complete on the band pricing). */
+  /** "All features" monthly bill at a size (the one plan on the band pricing). */
   monthlyBillUsd: (doors: number) => number
   /** "All features" annual bill at a size. */
   annualBillUsd: (doors: number) => number
@@ -184,50 +197,41 @@ function legacyView(): HoaPricingView {
   }
 }
 
-function v2View(): HoaPricingView {
-  const ess = formatUsd(bandMonthlyUsd('essentials', 1))
-  const comp = formatUsd(bandMonthlyUsd('complete', 1))
+function v2View(sold: HoaBandPlan): HoaPricingView {
+  const from = formatUsd(bandMonthlyUsd(sold, 1))
   const bands = `${BAND_EDGES[0]}, ${BAND_EDGES[1]}, ${BAND_EDGES[2]} and ${BAND_EDGES[3]} homes`
   return {
     plans: [
       {
-        id: 'essentials',
-        name: 'Essentials',
-        price: ess,
+        id: sold,
+        name: 'HomeownerHub',
+        price: from,
         period: '/mo',
-        sub: `Up to ${BAND_EDGES[0]} homes · rises by size band · AI assistant included`,
-        cta: 'Start free trial',
-      },
-      {
-        id: 'complete',
-        name: 'Complete',
-        price: comp,
-        period: '/mo',
-        sub: `Up to ${BAND_EDGES[0]} homes · rises by size band · accounting, mailbox, vendors, leases`,
+        sub: `Up to ${BAND_EDGES[0]} homes · rises by size band · every feature included`,
         cta: 'Start free trial',
         featured: true,
       },
     ],
     copy: {
-      perDoor: `from ${ess}/mo`,
+      perDoor: `from ${from}/mo`,
       minimum: 'no door minimum',
       term: 'month to month',
-      summary: `Essentials from ${ess} a month and Complete from ${comp} a month, priced in size bands (up to ${bands}). 2 months free when you pay for the year. ${TRIAL_DAYS}-day free trial, cancel any time.`,
-      title: `Essentials ${ess}, Complete ${comp}/mo`,
-      metaSummary: `Essentials from ${ess} a month, Complete from ${comp}, by community size. ${TRIAL_DAYS}-day free trial.`,
-      headline: 'Two plans. Priced by the size of your community.',
-      contract: `No. Both plans are month to month and you can cancel any time from Settings → Billing. Paying for the year gets you 2 months free. Every plan starts with a ${TRIAL_DAYS}-day free trial, no card needed.`,
+      summary: `One plan with everything included, from ${from} a month, priced in size bands (up to ${bands}). 2 months free when you pay for the year. ${TRIAL_DAYS}-day free trial, cancel any time.`,
+      title: `Everything included from ${from}/mo`,
+      metaSummary: `One plan, everything included, from ${from} a month, by community size. ${TRIAL_DAYS}-day free trial.`,
+      headline: 'One plan, everything included. Priced by the size of your community.',
+      contract: `No. It is month to month and you can cancel any time from Settings → Billing. Paying for the year gets you 2 months free. Every new account starts with a ${TRIAL_DAYS}-day free trial, no card needed.`,
       contractShort: 'Month to month',
-      model: 'Pricing is two plans in size bands, with no per-feature add-ons:',
+      model: 'Pricing is one plan in size bands, with no per-feature add-ons:',
     },
-    monthlyBillUsd: (doors) => bandMonthlyUsd('complete', doors),
-    annualBillUsd: (doors) => bandAnnualUsd('complete', doors),
+    monthlyBillUsd: (doors) => bandMonthlyUsd(sold, doors),
+    annualBillUsd: (doors) => bandAnnualUsd(sold, doors),
     minBillableDoors: 0,
   }
 }
 
-export function hoaPricingView(pricingV2: boolean): HoaPricingView {
-  return pricingV2 ? v2View() : legacyView()
+export function hoaPricingView(pricingV2: boolean, newPrices: boolean = ONE_PLAN_NEW_PRICES): HoaPricingView {
+  return pricingV2 ? v2View(newPrices ? 'homeownerhub' : 'essentials') : legacyView()
 }
 
 const VIEW = hoaPricingView(PRICING_V2)

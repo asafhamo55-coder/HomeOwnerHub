@@ -1,11 +1,12 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import {
   HOA_PLAN_IDS,
+  PRICE_FAMILY_IDS,
   PRICING_V2,
   V2_LOOKUP_KEYS,
   bandFor,
   monthlyPriceCents,
-  type HoaPlanId,
+  type PriceFamilyId,
 } from '@homeowner-portal/billing'
 import { inngest } from './client'
 import { CHANGEABLE_SUBSCRIPTION_STATUSES, errorFacts, type BillingStripePort } from './billing-stripe-port'
@@ -61,12 +62,12 @@ export interface BandSyncResult {
 
 type Logger = Pick<Console, 'info' | 'error'>
 
-const V2_KEY_PLAN: ReadonlyMap<string, HoaPlanId> = new Map(
-  HOA_PLAN_IDS.flatMap((plan) => Object.values(V2_LOOKUP_KEYS[plan]).map((key) => [key, plan] as const)),
+const V2_KEY_PLAN: ReadonlyMap<string, PriceFamilyId> = new Map(
+  PRICE_FAMILY_IDS.flatMap((plan) => Object.values(V2_LOOKUP_KEYS[plan]).map((key) => [key, plan] as const)),
 )
 
-/** The plan a band Price's lookup key belongs to; null for any other Price. */
-export function planForBandLookupKey(lookupKey: string | null): HoaPlanId | null {
+/** The Price family a band Price's lookup key belongs to; null for any other Price. */
+export function planForBandLookupKey(lookupKey: string | null): PriceFamilyId | null {
   return (lookupKey && V2_KEY_PLAN.get(lookupKey)) || null
 }
 

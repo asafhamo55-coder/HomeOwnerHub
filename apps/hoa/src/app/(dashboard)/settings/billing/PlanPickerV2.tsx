@@ -1,7 +1,8 @@
 'use client'
 
-// BL-104: the Essentials / Complete picker, rendered only when PRICING_V2
-// is on (page.tsx). Every amount is planPriceCents() — the same arithmetic
+// BL-104: the plan picker, rendered only when PRICING_V2 is on (page.tsx).
+// There is one plan with every feature, so there is one card and the form
+// sends only the cadence (docs/decisions/2026-11-01-one-plan.md). Every amount is planPriceCents() — the same arithmetic
 // as the Stripe tiers (packages/billing/src/pricing-v2.test.ts proves it).
 // The door count shown is the homes on file, the quantity checkout sends.
 
@@ -9,28 +10,27 @@ import { useActionState, useState } from 'react'
 import { Check } from 'lucide-react'
 import { Alert, Badge, Button, Card, CardContent, StatusPill, cn } from '@homeowner-portal/ui'
 import {
-  HOA_PLAN_IDS,
+  HOA_MODULES,
   MODULE_LABEL,
   PLAN_LABEL,
-  PLAN_MODULES,
+  SOLD_PLAN_ID,
+  SOLD_PRICE_FAMILY,
   TRIAL_DAYS,
   bandFor,
   bandLabel,
   formatUsd,
+  isHoaPlanId,
   isLegacyPlan,
   planAnnualSavingsUsd,
   planPriceUsd,
   type BillingCadence,
-  type HoaPlanId,
 } from '@homeowner-portal/billing/pure'
 import { startHoaCheckout, type BillingActionResult } from '@/lib/billing'
 
 const initial: BillingActionResult = {}
 
-const PLAN_PITCH: Record<HoaPlanId, string> = {
-  essentials: 'Portal, communications, violations, ARC, meetings, documents and cited state-law answers, dues, and the AI assistant.',
-  complete: 'Everything in Essentials plus full accounting, the shared mailbox, vendors and RFPs, leases, and higher AI limits.',
-}
+const PLAN_PITCH =
+  'One plan, everything included: portal, communications, violations, ARC, meetings, documents and cited state-law answers, dues, accounting, the shared mailbox, vendors and RFPs, leases, and the AI assistant.'
 
 const cents = (usd: number) => formatUsd(usd, { withCents: true })
 
@@ -52,13 +52,18 @@ export function PlanPickerV2({
   const band = bandFor(homes)
   const legacy = isLegacyPlan(currentPlan)
   const noHomes = homes < 1
+  // Any stored value of the sold family counts as the current plan, a
+  // stored 'complete' included: that org already has the plan and every feature.
+  const isCurrent = isHoaPlanId(currentPlan)
+  const price = planPriceUsd(SOLD_PRICE_FAMILY, cadence, homes)
+  const cta = firstSubscription ? `Start ${TRIAL_DAYS}-day free trial` : `Subscribe · ${cents(price)}`
 
   return (
     <div className="space-y-4">
       {legacy ? (
         <Alert variant="info" title="Your current price stays until your term ends">
-          You keep today’s per-door price until the end of your current term. Then your subscription moves to Complete at your size —{' '}
-          {cents(planPriceUsd('complete', 'monthly', homes))} a month, lower than today. We’ll email you 30 days before. To move sooner,
+          You keep today’s per-door price until the end of your current term. Then your subscription moves to the HomeownerHub plan at your size —{' '}
+          {cents(planPriceUsd(SOLD_PRICE_FAMILY, 'monthly', homes))} a month, lower than today. We’ll email you 30 days before. To move sooner,
           email support and we’ll switch you at your next invoice.
         </Alert>
       ) : null}
@@ -102,53 +107,43 @@ export function PlanPickerV2({
         {homes} {homes === 1 ? 'home' : 'homes'} on file · {bandLabel(band)} band. Month to month; cancel any time.
       </p>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {HOA_PLAN_IDS.map((plan) => {
-          const price = planPriceUsd(plan, cadence, homes)
-          const isCurrent = currentPlan === plan
-          const cta = firstSubscription ? `Start ${TRIAL_DAYS}-day free trial` : `Subscribe · ${cents(price)}`
-          return (
-            <Card key={plan}>
-              <CardContent className="space-y-4 p-6">
-                <header className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <h3 className="text-base font-semibold text-foreground">{PLAN_LABEL[plan]}</h3>
-                    <p className="num text-3xl font-semibold tracking-tight text-foreground">
-                      {cents(price)}
-                      <span className="ml-1 text-sm font-normal text-muted">{cadence === 'annual' ? '/ year' : '/ month'}</span>
-                    </p>
-                    <p className="text-sm text-muted">
-                      {cadence === 'annual'
-                        ? `Billed once a year — saves ${cents(planAnnualSavingsUsd(plan, homes))} vs paying monthly.`
-                        : 'Billed every month.'}
-                    </p>
-                  </div>
-                  {isCurrent ? <StatusPill tone="success" label="Current" size="sm" /> : null}
-                </header>
-                <p className="text-sm text-foreground-secondary">{PLAN_PITCH[plan]}</p>
-                <ul className="grid gap-2 text-sm text-foreground-secondary">
-                  {PLAN_MODULES[plan].map((m) => (
-                    <li key={m} className="flex items-start gap-2">
-                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-                      <span>{MODULE_LABEL[m]}</span>
-                    </li>
-                  ))}
-                </ul>
-                {firstSubscription ? (
-                  <p className="text-xs text-muted">No card needed to start. After {TRIAL_DAYS} days, add a card to keep going.</p>
-                ) : null}
-                <form action={action}>
-                  <input type="hidden" name="plan" value={plan} />
-                  <input type="hidden" name="cadence" value={cadence} />
-                  <Button type="submit" size="lg" className="w-full" loading={pending} disabled={isCurrent || legacy || noHomes}>
-                    {isCurrent ? 'Current plan' : cta}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+      <Card>
+        <CardContent className="space-y-4 p-6">
+          <header className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold text-foreground">{PLAN_LABEL[SOLD_PLAN_ID]}</h3>
+              <p className="num text-3xl font-semibold tracking-tight text-foreground">
+                {cents(price)}
+                <span className="ml-1 text-sm font-normal text-muted">{cadence === 'annual' ? '/ year' : '/ month'}</span>
+              </p>
+              <p className="text-sm text-muted">
+                {cadence === 'annual'
+                  ? `Billed once a year, saves ${cents(planAnnualSavingsUsd(SOLD_PRICE_FAMILY, homes))} vs paying monthly.`
+                  : 'Billed every month.'}
+              </p>
+            </div>
+            {isCurrent ? <StatusPill tone="success" label="Current" size="sm" /> : null}
+          </header>
+          <p className="text-sm text-foreground-secondary">{PLAN_PITCH}</p>
+          <ul className="grid gap-2 text-sm text-foreground-secondary sm:grid-cols-2">
+            {HOA_MODULES.filter((m) => m !== 'core').map((m) => (
+              <li key={m} className="flex items-start gap-2">
+                <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+                <span>{MODULE_LABEL[m]}</span>
+              </li>
+            ))}
+          </ul>
+          {firstSubscription ? (
+            <p className="text-xs text-muted">No card needed to start. After {TRIAL_DAYS} days, add a card to keep going.</p>
+          ) : null}
+          <form action={action}>
+            <input type="hidden" name="cadence" value={cadence} />
+            <Button type="submit" size="lg" className="w-full" loading={pending} disabled={isCurrent || legacy || noHomes}>
+              {isCurrent ? 'Current plan' : cta}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {state.error ? (
         <Alert variant="error" title="Couldn’t start checkout">

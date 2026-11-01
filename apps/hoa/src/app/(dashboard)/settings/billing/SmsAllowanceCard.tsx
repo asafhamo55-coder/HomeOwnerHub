@@ -4,7 +4,7 @@ import { PLAN_LABEL, smsAllowanceNotice, type SmsAllowanceStatus } from '@homeow
 /**
  * BL-104 / decision §4: this month's text message use against the plan's
  * allowance. Rendered by Settings → Billing only when PRICING_V2 is on and
- * the org is on Essentials or Complete (readSmsAllowance returns null
+ * the org is on a stored 'essentials' or 'complete' plan (readSmsAllowance returns null
  * otherwise). 80%: a warning. 100%: texts are paused until the 1st; email
  * and the portal still go.
  */

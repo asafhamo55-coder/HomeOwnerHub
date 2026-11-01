@@ -8,7 +8,7 @@
 // The same rows are the webhook's ordering clock (see webhook.ts) and the
 // source of the "payment failed" banner board members see.
 
-import { HOA_PLAN_IDS, V2_LOOKUP_KEYS, V2_PRICE_ENV } from './pricing-v2'
+import { PRICE_FAMILY_IDS, V2_LOOKUP_KEYS, V2_PRICE_ENV, type PriceFamilyId } from './pricing-v2'
 
 /** audit_log.action for an applied customer.subscription.updated. */
 export const AUDIT_SUBSCRIPTION_UPDATED = 'billing.subscription_updated'
@@ -49,6 +49,17 @@ export const PLAN_FOR_LOOKUP_KEY: Readonly<Record<string, OrgPlanFromPrice>> = {
   [V2_LOOKUP_KEYS.essentials.annual]: 'essentials',
   [V2_LOOKUP_KEYS.complete.monthly]: 'complete',
   [V2_LOOKUP_KEYS.complete.annual]: 'complete',
+  // The one plan's own Prices (2026-11-01). orgs_plan_check has no value for
+  // them and no migration is allowed, so they are stored as 'essentials';
+  // the price an org pays is always read from the Stripe Price itself.
+  [V2_LOOKUP_KEYS.homeownerhub.monthly]: 'essentials',
+  [V2_LOOKUP_KEYS.homeownerhub.annual]: 'essentials',
+}
+
+const STORED_PLAN_FOR_FAMILY: Readonly<Record<PriceFamilyId, OrgPlanFromPrice>> = {
+  essentials: 'essentials',
+  complete: 'complete',
+  homeownerhub: 'essentials',
 }
 
 /** orgs.plan for a known Price: the legacy cadence, or a BL-104 plan. */
@@ -72,10 +83,10 @@ export function planForPrice(
   if (price.id) {
     if (price.id === env.STRIPE_PRICE_PER_DOOR_MONTHLY || price.id === env.STRIPE_PRICE_STANDARD) return 'monthly'
     if (price.id === env.STRIPE_PRICE_PER_DOOR_ANNUAL) return 'annual'
-    for (const plan of HOA_PLAN_IDS) {
+    for (const plan of PRICE_FAMILY_IDS) {
       for (const cadence of ['monthly', 'annual'] as const) {
         const id = env[V2_PRICE_ENV[plan][cadence]]
-        if (id && price.id === id) return plan
+        if (id && price.id === id) return STORED_PLAN_FOR_FAMILY[plan]
       }
     }
   }

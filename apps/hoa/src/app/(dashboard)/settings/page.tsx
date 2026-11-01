@@ -43,6 +43,8 @@ export const dynamic = 'force-dynamic'
 
 const PLAN_LABEL: Record<string, string> = {
   free: 'Free',
+  essentials: 'HomeownerHub',
+  complete: 'HomeownerHub',
   trial: 'Trial',
   starter: 'Starter',
   pro: 'Pro',

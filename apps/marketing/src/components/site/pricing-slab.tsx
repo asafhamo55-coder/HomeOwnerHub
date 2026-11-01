@@ -12,11 +12,11 @@ import {
   bandAnnualUsd,
   bandMonthlyUsd,
   formatUsd,
-  type HoaBandPlan,
+  SOLD_BAND_PLAN,
 } from '../../lib/hoa-pricing'
 
-// /pricing slab: headline, homes slider, monthly/yearly toggle and the two
-// plans. Same logic as the homepage teaser: every number comes from
+// /pricing slab: headline, homes slider, monthly/yearly toggle and the one
+// plan. Same logic as the homepage teaser: every number comes from
 // lib/hoa-pricing.ts (mirrors checkout), never typed here. The slider is a
 // native range input, so keyboard and screen readers work without extra code.
 // Highlights name shipped features only; the full grouped list is below the
@@ -25,33 +25,21 @@ import {
 const MIN_HOMES = 10
 const MAX_HOMES = 500
 
-const PLANS: { id: HoaBandPlan; name: string; sub: string; bullets: string[]; featured?: boolean }[] = [
-  {
-    id: 'essentials',
-    name: 'Essentials',
-    sub: 'The AI assistant, dues and the resident portal.',
-    bullets: [
-      'Ask your governing documents and get cited answers',
-      'Violation letters drafted from photos, approved in one click',
-      'Meeting minutes, announcements and ARC review',
-      'Resident portal with balances and requests',
-      'State law built in',
-    ],
-  },
-  {
-    id: 'complete',
-    name: 'Complete',
-    sub: 'Everything in Essentials, plus the books and the mailbox.',
-    featured: true,
-    bullets: [
-      'Accounting, bank feeds and reconciliation',
-      'AI bill scan into the approvals queue',
-      'Shared Gmail inbox with AI reply drafts',
-      'Vendors, RFPs and AI bid comparison',
-      'Collections letters, estoppel and the month-end board report',
-    ],
-  },
-]
+const PLAN = {
+  name: 'HomeownerHub',
+  sub: 'One plan, everything included.',
+  bullets: [
+    'Ask your governing documents and get cited answers',
+    'Violation letters drafted from photos, approved in one click',
+    'Meeting minutes, announcements and ARC review',
+    'Resident portal with balances and requests',
+    'Accounting, bank feeds and AI bill scan',
+    'Shared Gmail inbox with AI reply drafts',
+    'Vendors, RFPs and AI bid comparison',
+    'Collections letters, estoppel and the month-end board report',
+    'State law built in',
+  ],
+}
 
 function bandLabel(homes: number): string {
   const edge = BAND_EDGES.find((e) => homes <= e)
@@ -69,7 +57,7 @@ export function PricingSlab({ headline }: { headline: string }) {
         <div className="mx-auto max-w-3xl text-center">
           <p className="eyebrow">Pricing</p>
           <h1 id={`${uid}-h`} className="t-display mt-4 text-foreground">
-            Two plans. <span className="t-serif text-primary">Priced by the size of your community.</span>
+            One plan, everything included. <span className="t-serif text-primary">Priced by the size of your community.</span>
           </h1>
           <p className="t-lead mt-5">
             {headline} Drag to your number of homes. {TRIAL_DAYS}-day free trial, no credit card, cancel anytime.
@@ -119,18 +107,13 @@ export function PricingSlab({ headline }: { headline: string }) {
           </div>
         </div>
 
-        <div className="mx-auto mt-8 grid max-w-4xl gap-5 md:grid-cols-2">
-          {PLANS.map((p) => {
-            const price = yearly ? bandAnnualUsd(p.id, homes) : bandMonthlyUsd(p.id, homes)
+        <div className="mx-auto mt-8 max-w-xl">
+          {[PLAN].map((p) => {
+            const price = yearly ? bandAnnualUsd(SOLD_BAND_PLAN, homes) : bandMonthlyUsd(SOLD_BAND_PLAN, homes)
             return (
-              <div key={p.id} className="card flex flex-col p-7">
+              <div key={p.name} className="card flex flex-col p-7">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-lg font-semibold text-foreground">{p.name}</p>
-                  {p.featured && (
-                    <span className="rounded-full bg-primary-subtle px-3 py-1 text-sm font-semibold text-primary">
-                      Most complete
-                    </span>
-                  )}
                 </div>
                 <p className="mt-1 text-base text-muted">{p.sub}</p>
                 <p className="mt-5 flex items-baseline gap-1.5" aria-live="polite">
@@ -150,7 +133,7 @@ export function PricingSlab({ headline }: { headline: string }) {
                     </li>
                   ))}
                 </ul>
-                <Link href={SIGN_UP_URL} className={cn('btn mt-7', p.featured ? 'btn-primary' : 'btn-secondary')}>
+                <Link href={SIGN_UP_URL} className="btn btn-primary mt-7">
                   Start free trial
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>

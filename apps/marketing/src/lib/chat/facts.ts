@@ -60,7 +60,7 @@ export const FACTS: readonly Fact[] = [
     title: 'Free trial and cancelling',
     url: '/pricing',
     text:
-      'Every HOA gets 30 days free. No credit card is needed to start. There is no setup fee. Plans are month to month and you can cancel in Settings, Billing. ' +
+      'Every HOA gets 30 days free. No credit card is needed to start. There is no setup fee. HomeownerHub is one plan with every feature, month to month, and you can cancel in Settings, Billing. ' +
       'Paying for a year is 10 months billed for 12.',
   },
   {

@@ -21,12 +21,12 @@ import { planForBandLookupKey } from './billing-band-sync'
 /**
  * BL-104 (decision §5): grandfathered $4.99/door subscriptions keep their
  * price until renewal (packages/billing/src/grandfathering.ts), then move to
- * Complete at their band. Once a day this job:
+ * the one HomeownerHub plan at their band. Once a day this job:
  *
  * 1. NOTICE — from 30 days before the renewal (grandfathering().noticeAt)
  *    until it, emails the org's board (org_members role board/admin, via
  *    loadBoardRecipients — never residents) that the subscription moves to
- *    Complete at renewal, with the new price from pricing-v2 at the homes on
+ *    the HomeownerHub plan at renewal, with the new price from pricing-v2 at the homes on
  *    file. Once per subscription term: a claim row `billing.renewal_notice`
  *    (metadata.term = `<subscription id>:<renewal ISO>`) is written to
  *    audit_log BEFORE sending, and a term with a claim is never emailed
@@ -34,7 +34,7 @@ import { planForBandLookupKey } from './billing-band-sync'
  *    with the org's sandbox flag.
  * 2. SWITCH — when the renewal is the next invoice (renewal ===
  *    current_period_end) and is at most SWITCH_LEAD_MS away, and the board
- *    was given this term's notice, swaps the item to the Complete band Price
+ *    was given this term's notice, swaps the item to the band Price of the one plan
  *    (quantity = homes on file) with `proration_behavior: 'none'`, so the
  *    renewal invoice is the first at the new price. The webhook then
  *    rewrites orgs.plan from the Price's lookup key. Writes
@@ -111,11 +111,11 @@ export function buildRenewalNotice(args: {
   const per = args.cadence === 'annual' ? 'year' : 'month'
   const date = longDate(args.renewsAt)
   const band = bandLabel(bandFor(args.homes))
-  const subject = `Your plan changes on ${date}: Complete at ${price} a ${per}`
+  const subject = `Your plan changes on ${date}: HomeownerHub at ${price} a ${per}`
   const paras = [
-    `On ${date}, when your subscription renews, ${args.orgName} moves from the $4.99-per-home price to the Complete plan.`,
+    `On ${date}, when your subscription renews, ${args.orgName} moves from the $4.99-per-home price to the HomeownerHub plan.`,
     `Your new price: ${price} a ${per} for ${args.homes} homes on file (${band}).`,
-    'Complete includes every feature you use today. You don’t need to do anything: the change takes effect at that renewal, with no partial charges before it.',
+    'The HomeownerHub plan includes every feature you use today, and every other feature too. You don’t need to do anything: the change takes effect at that renewal, with no partial charges before it.',
     `Questions, or want to move sooner? Email ${SUPPORT_EMAIL}.`,
   ]
   const text = [...paras, '', `See your plan: ${args.link}`].join('\n\n')
@@ -272,7 +272,7 @@ export async function runRenewalJob(
           idempotencyKey: `renewal-switch:${sub.id}:${renewsIso}`,
         })
         result.switched += 1
-        log.info('[billing-renewal] switched to Complete at renewal', { orgId: org.id, subscriptionId: sub.id, quantity: homes.count })
+        log.info('[billing-renewal] switched to the HomeownerHub plan at renewal', { orgId: org.id, subscriptionId: sub.id, quantity: homes.count })
         const { error: auditErr } = await db.from('audit_log').insert({
           action: RENEWAL_SWITCH_AUDIT_ACTION,
           org_id: org.id,
