@@ -768,6 +768,111 @@ export const QUOTES = {
     fixture: "ga-ocga-44-3-art6-2026.txt",
     quote: "Any individual who would not be eligible to serve as a member of the board of directors or officer were he or she not a shareholder, director, officer, partner in, or trustee of such a person shall be deemed to have disqualified himself or herself from continuing in office if he or she ceases to have any such affiliation with that person.",
   },
+  gcWhen: {
+    cite: "O.C.G.A. § 44-3-232.1(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Notwithstanding and prior to the usual expiration of the period of the declarant’s right to control the association pursuant to any property owners’ association instruments, the association’s articles of incorporation, or the association’s bylaws, the right to control may pass to the property owners as provided in this Code section if the declarant fails to do any of the following:",
+  },
+  gcReg: {
+    cite: "O.C.G.A. § 44-3-232.1(a)(1)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Incorporate or maintain an annual registration pursuant to subsection (a) of Code Section 44-3-227",
+  },
+  gcBoard: {
+    cite: "O.C.G.A. § 44-3-232.1(a)(2)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Cause the board of directors to be duly appointed and the officers to be elected pursuant to subsection (b) of Code Section 44-3-227",
+  },
+  gcList: {
+    cite: "O.C.G.A. § 44-3-232.1(a)(3)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Maintain and make available to owners, upon written request, a list of the names and business or home addresses of the association’s current directors and officers",
+  },
+  gcMeet: {
+    cite: "O.C.G.A. § 44-3-232.1(a)(4)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Call meetings of the members of the association in accordance with the provisions of the association’s bylaws at least annually pursuant to Code Section 44-3-230",
+  },
+  gcBudget: {
+    cite: "O.C.G.A. § 44-3-232.1(a)(5)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Prepare an annual operating budget, establish the annual assessment, and distribute such budget and notice of assessment to the owners in accordance with the condominium instruments no later than 30 days after the beginning of the association’s fiscal year",
+  },
+  gcTaxes: {
+    cite: "O.C.G.A. § 44-3-232.1(a)(6)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Pay property taxes on common property of the association for two or more years.",
+  },
+  gcNotice: {
+    cite: "O.C.G.A. § 44-3-232.1(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "In the event that the declarant fails to meet one or more of the obligations of this Code section, then any owner, acting individually or jointly with other owners, may send the declarant written notice of the failure to comply with such requirements and provide the declarant a 30 day opportunity to cure the failure; and such notice shall be sent by certified mail or statutory overnight delivery to the declarant’s principal office.",
+  },
+  gcSuit: {
+    cite: "O.C.G.A. § 44-3-232.1(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "If the declarant fails to cure any or all deficiencies identified in the notice within 30 days of such notice, then any owner, acting individually or jointly with other owners, shall have standing individually, and not solely through a derivative action, to institute an action in the superior court of the county in which any portion of the property owner’s association is located in order to obtain a declaratory judgment to grant the owner or owners control of the association by ordering an election and setting the terms thereof, or issuing any other orders appropriate to transfer control of the association.",
+  },
+  gcHearing: {
+    cite: "O.C.G.A. § 44-3-232.1(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The superior court shall have authority to hold a hearing and issue a summary ruling on said action at any time designated by the court not earlier than 20 days after the service thereof, unless the parties consent in writing to an earlier trial.",
+  },
+  gcFees: {
+    cite: "O.C.G.A. § 44-3-232.1(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "If the owner or owners prevail in such action, then the superior court shall award to the owner or owners all reasonable attorney’s fees and costs incurred for the prosecution of such action.",
+  },
+  gcExclusive: {
+    cite: "O.C.G.A. § 44-3-232.1(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "This Code section shall not be the basis for any liability against any party or agent of any party outside of the exclusive remedies provided herein.",
+  },
+  saleGrantee: {
+    cite: "O.C.G.A. § 44-3-225(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Unless otherwise provided in the instrument and except as provided in subsection (d) of this Code section, the grantee in a conveyance of a lot shall be jointly and severally liable with the grantor thereof for all unpaid assessments against the latter up to the time of the conveyance without prejudice to the grantee’s right to recover from the grantor the amounts paid by the grantee",
+  },
+  saleStatement: {
+    cite: "O.C.G.A. § 44-3-225(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "if the grantor or grantee shall request a statement from the association as provided in subsection (d) of Code Section 44-3-232, such grantee and his or her successors, successors-in-title, and assigns shall not be liable for nor shall the property owners’ association lot conveyed be subject to a lien for any unpaid assessments against such grantor in excess of any amount set forth in the statement.",
+  },
+  saleMortgagee: {
+    cite: "O.C.G.A. § 44-3-225(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "In the event that the holder of a first priority mortgage or secondary purchase money mortgage of record, provided that neither the grantee nor any successor grantee on the secondary purchase money mortgage is the seller of the lot, or in the event that any other person acquires title to any lot as a result of foreclosure of any such mortgage, such holder or other person and his or her successors, successors-in-title, and assigns shall not be liable for nor shall the lot be subject to any lien for assessments under this Code section or under any instrument chargeable to the lot on account of any period prior to the acquisition of title",
+  },
+  saleShare: {
+    cite: "O.C.G.A. § 44-3-225(d)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "the unpaid share of an assessment or assessments shall be deemed to be a common expense collectable from all of the lot owners, including such holder or other person and his or her successors, successors-in-title, and assigns.",
+  },
+  allocIntro: {
+    cite: "O.C.G.A. § 44-3-225(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "To the extent that the instrument expressly so provides:",
+  },
+  alloc1: {
+    cite: "O.C.G.A. § 44-3-225(a)(1)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any common expenses benefiting less than all of the lots shall be specially assessed equitably among all of the lots so benefited, as determined by the board",
+  },
+  alloc2: {
+    cite: "O.C.G.A. § 44-3-225(a)(2)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any common expenses occasioned by the conduct of less than all of those entitled to occupy all of the lots or by the licensees or invitees of any such lot or lots shall be specially assessed against the lot or lots, the conduct of any occupant, licensee, or invitee of which occasioned any such common expenses",
+  },
+  alloc3: {
+    cite: "O.C.G.A. § 44-3-225(a)(3)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any common expenses significantly disproportionately benefiting all of the lots shall be assessed equitably among all of the lots in the development as determined by the board",
+  },
+  alloc4: {
+    cite: "O.C.G.A. § 44-3-225(a)(4)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Other than for limited common areas expressly designated as such in the instrument and assigned to fewer than all lots, nothing contained in paragraph (1) or (3) of this subsection shall permit an association to specially or disproportionately allocate common expenses for periodic maintenance, repair, and replacement of any portion of the common area or the lots which the association has the obligation to maintain, repair, or replace.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES
