@@ -28,8 +28,7 @@ import { BillingStatusBanner } from '@/components/billing/BillingStatusBanner'
 import { AiSpendBanner } from '@/components/billing/AiSpendBanner'
 import { RoleSwitcherMount } from '@/components/dev/RoleSwitcherMount'
 import { Copilot, CopilotTrigger } from '@/components/copilot/Copilot'
-import { countPendingApprovals } from '@/lib/approvals-inbox/load'
-import { approvalsBadge } from '@/lib/approvals-inbox/model'
+import { sidebarBadges } from '@/lib/approvals-inbox/sidebar-badge'
 import { appVersion } from '@/lib/app-version'
 import { ChoosePasswordPrompt } from '@/components/auth/ChoosePasswordPrompt'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
@@ -81,9 +80,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // sidebar under /pro; none of this tree is theirs.
   if (isProfessionalRole(role)) redirect('/pro')
 
-  // Sidebar count for /approvals (BL-014): four head-only counts. A failed
-  // count yields no badge (or a "3+" lower bound), never a false 0.
-  const approvalCounts = await countPendingApprovals(supabase, org.id, { viewerId: user.id })
+  // Sidebar count for /approvals (BL-014): head-only counts. NOT awaited: it
+  // is ten-odd reads for one small number, and the layout used to wait for
+  // all of them before sending anything. The sidebar receives the promise and
+  // fills the badge in when it resolves (navigation-perf-ratchet.test.ts).
+  // A failed count yields no badge (or a "3+" lower bound), never a false 0.
+  const badges = sidebarBadges(supabase, org.id, user.id)
 
   return (
     <DashboardProviders>
@@ -101,7 +103,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             currentOrgName={org.name}
             hoaOrgs={role === 'admin' ? hoaOrgs : hoaOrgs.filter((o) => o.id === org.id)}
             role={role}
-            badges={{ '/approvals': approvalsBadge(approvalCounts) }}
+            badges={badges}
             version={appVersion()}
             whatsNewLatestId={latestBoardWhatsNewId()}
           />

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { clearAuthCookies, updateSession } from '@/lib/supabase/middleware'
 import { apiError } from '@/lib/api/errors'
-import { perfTimer } from '@/lib/perf/timing'
+import { perfTimer, redactPath, requestKind } from '@/lib/perf/timing'
 
 // Routes a signed-out user is allowed to hit. The /onboarding page handles
 // its own "already onboarded? bounce home" check, so we don't gate on
@@ -52,7 +52,15 @@ export async function middleware(request: NextRequest) {
   // local, on every request; getUser on the two sign-in pages only). Its
   // duration rides on the response as `Server-Timing: mw.session;dur=N`
   // (browser network panel) and is logged when slow — route + ms, no ids.
-  const perf = perfTimer('middleware')
+  // The route label is the pathname with ids taken out (redactPath), so a
+  // slow line says WHICH page without saying which record.
+  const perf = perfTimer(`middleware ${redactPath(path)}`)
+  // Which kind of request this is, as a zero-length marker: `mw.kind.prefetch`
+  // (a link in view or hovered), `mw.kind.rsc` (a soft navigation) or
+  // `mw.kind.document` (a full load). It rides on Server-Timing, and with
+  // PERF_LOG=1 each request also logs one line, so the share of background
+  // prefetches in the traffic can be counted straight from the logs.
+  await perf.time(`mw.kind.${requestKind(request.headers)}`, () => 0)
   const { user, response, sessionExpired } = await perf.time(isSignInPage ? 'mw.session.strict' : 'mw.session', () =>
     updateSession(request, { strict: isSignInPage }),
   )

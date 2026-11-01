@@ -81,6 +81,7 @@ export function ThreadList({
         return (
           <li key={thread.id}>
             <Link
+              prefetch={false}
               href={`/inbox/${thread.id}${qs}`}
               aria-current={selected ? 'page' : undefined}
               className={cn(

@@ -119,3 +119,36 @@ export function applyServerTiming<R extends Response>(
   }
   return response
 }
+
+/**
+ * A request path with anything that could identify a record taken out, so it
+ * is safe to put in a log line or a header: ids, numbers and long opaque
+ * tokens become `:id`. `/properties/3f2a…-…/edit` -> `/properties/:id/edit`.
+ * Query strings are never part of the input (callers pass the pathname).
+ */
+export function redactPath(pathname: string): string {
+  return (
+    pathname
+      .split('/')
+      .map((seg) => {
+        if (!seg) return seg
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)) return ':id'
+        if (/^\d+$/.test(seg)) return ':id'
+        if (seg.length >= 20 && /\d/.test(seg)) return ':id'
+        if (seg.includes('@') || seg.includes('%')) return ':id'
+        return seg
+      })
+      .join('/') || '/'
+  )
+}
+
+/**
+ * What kind of request the router sent, from its own headers. Prefetches are
+ * the background requests Next fires for links in view or hovered; `rsc` is a
+ * real soft navigation; `document` is a full page load.
+ */
+export function requestKind(headers: { get(name: string): string | null }): 'prefetch' | 'rsc' | 'document' {
+  if (headers.get('next-router-prefetch')) return 'prefetch'
+  if (headers.get('rsc')) return 'rsc'
+  return 'document'
+}

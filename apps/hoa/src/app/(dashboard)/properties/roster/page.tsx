@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Alert, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
+import { getSignedInUser } from '@/lib/orgs'
 import { todayIn } from '@/lib/association-time'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { tryLoad } from '@/lib/load-or-fail'
@@ -72,9 +73,7 @@ export default async function StatutoryRosterPage({
   }
 
   const report = buildReport(kind, loaded.data.input, params.asOf)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getSignedInUser()
   const audit = user
     ? await recordRosterExport(supabase, { orgId, userId: user.id, kind, asOf: params.asOf, format: 'print', counts: reportCounts(report) })
     : ({ ok: false, code: null } as const)

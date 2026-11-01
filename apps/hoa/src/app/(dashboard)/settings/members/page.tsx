@@ -10,6 +10,7 @@ import {
   Page,
 } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
+import { getSignedInUser } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { listMembers, listOrgProperties } from '@/lib/members'
 import { tryLoad } from '@/lib/load-or-fail'
@@ -40,9 +41,8 @@ export default async function MembersPage() {
   const { role, org } = await requireBoardOrAdmin()
 
   const supabase = await getSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Memoized per request: the guard above already resolved the user.
+  const user = await getSignedInUser()
 
   const [membersResult, properties, pushDevices, consentResult, ownerPreview, pending] = await Promise.all([
     tryLoad('members', () => listMembers()),

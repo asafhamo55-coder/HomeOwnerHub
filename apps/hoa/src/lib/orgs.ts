@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { grantExpired, isProfessionalRole } from '@/lib/roles'
+import { timed } from '@/lib/perf/timing'
 
 export interface CurrentOrg {
   id: string
@@ -42,9 +43,11 @@ export const ACTIVE_ORG_COOKIE = 'hoa_active_org_id'
  */
 export const getSignedInUser = cache(async (): Promise<User | null> => {
   const supabase = await getSupabaseServerClient()
+  // Timed (BL-099 follow-up): the auth-server round trip every page render
+  // pays once. Logged when slow, or always with PERF_LOG=1; no ids.
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await timed('auth', 'auth.getUser', () => supabase.auth.getUser())
   return user ?? null
 })
 
@@ -73,16 +76,18 @@ const membershipRows = cache(async (): Promise<{ userId: string; rows: Membershi
   const user = await getSignedInUser()
   if (!user) return null
   const supabase = await getSupabaseServerClient()
-  const { data, error } = await supabase
-    .from('org_members')
-    .select(
-      M6_APPLIED
-        ? 'org_id, role, access_expires_at, officer_title, general_counsel, org:orgs(id, name, hub_type, plan, doors_count)'
-        : 'org_id, role, org:orgs(id, name, hub_type, plan, doors_count)',
-    )
-    .eq('user_id', user.id)
-    .order('joined_at', { ascending: true })
-    .limit(MEMBERSHIP_LIMIT)
+  const { data, error } = await timed('auth', 'auth.memberships', () =>
+    supabase
+      .from('org_members')
+      .select(
+        M6_APPLIED
+          ? 'org_id, role, access_expires_at, officer_title, general_counsel, org:orgs(id, name, hub_type, plan, doors_count)'
+          : 'org_id, role, org:orgs(id, name, hub_type, plan, doors_count)',
+      )
+      .eq('user_id', user.id)
+      .order('joined_at', { ascending: true })
+      .limit(MEMBERSHIP_LIMIT),
+  )
   if (error || !data) return { userId: user.id, rows: null }
   const rows = data as unknown as MembershipRow[]
   // BL-168: a professional cannot read the orgs table (every column of it,

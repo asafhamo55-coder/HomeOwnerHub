@@ -29,13 +29,21 @@ import {
   type NavMode,
 } from './nav'
 
+function isPromise<T>(v: T | Promise<T> | undefined): v is Promise<T> {
+  return typeof v === 'object' && v !== null && typeof (v as { then?: unknown }).then === 'function'
+}
+
 interface HoaSidebarProps {
   currentOrgId: string
   currentOrgName: string
   hoaOrgs: UserHoaOrg[]
   role: 'admin' | 'board'
-  /** Count badges keyed by nav href (e.g. pending approvals). Null/absent = no badge. */
-  badges?: Record<string, string | null>
+  /**
+   * Count badges keyed by nav href (e.g. pending approvals). Null/absent = no
+   * badge. A promise is how the server layout streams a slow count in without
+   * blocking the page: the badge appears when it resolves.
+   */
+  badges?: Record<string, string | null> | Promise<Record<string, string | null>>
   /** BL-071: running version, resolved on the server by the layout. */
   version: AppVersionInfo
   /** BL-070: newest board What's new entry id, for the unread dot. */
@@ -44,6 +52,25 @@ interface HoaSidebarProps {
 
 export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges, version, whatsNewLatestId = null }: HoaSidebarProps) {
   const pathname = usePathname()
+  const [resolvedBadges, setResolvedBadges] = useState<Record<string, string | null> | null>(
+    badges && !isPromise(badges) ? badges : null,
+  )
+  useEffect(() => {
+    if (!isPromise(badges)) {
+      setResolvedBadges(badges ?? null)
+      return
+    }
+    let live = true
+    badges.then(
+      (b) => {
+        if (live) setResolvedBadges(b)
+      },
+      () => {},
+    )
+    return () => {
+      live = false
+    }
+  }, [badges])
   const account = role === 'admin' ? ADMIN_ACCOUNT : BOARD_ACCOUNT
   const active = activeNavHref(pathname, [...HOA_NAV.flatMap((g) => g.items), ...account])
 
@@ -85,7 +112,7 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges
         // every page load (BL-074, navigation-perf-ratchet.test.ts).
         icon={<Icon aria-hidden />}
         label={link.label}
-        badge={badges?.[link.href] ?? undefined}
+        badge={resolvedBadges?.[link.href] ?? undefined}
         active={active === link.href}
       />
     )
