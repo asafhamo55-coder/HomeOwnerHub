@@ -18,6 +18,8 @@ import {
   MIN_BILLABLE_DOORS,
   MIN_MONTHLY_BILL_USD,
   OPEN_BAND_MONTHLY_CENTS,
+  ONE_PLAN_NEW_PRICES,
+  SOLD_BAND_PLAN,
   PRICING_V2,
   TRIAL_DAYS,
   bandAnnualUsd,
@@ -83,8 +85,10 @@ describe('marketing HOA pricing matches what checkout charges', () => {
 })
 
 describe('BL-104 band pricing (behind PRICING_V2)', () => {
-  it('the flag mirrors packages/billing (the site and checkout switch in one commit)', () => {
+  it('the flags mirror packages/billing (the site and checkout switch in one commit)', () => {
     expect(PRICING_V2).toBe(billingFlag.PRICING_V2)
+    expect(ONE_PLAN_NEW_PRICES).toBe(billingFlag.ONE_PLAN_NEW_PRICES)
+    expect(SOLD_BAND_PLAN).toBe(v2.SOLD_PRICE_FAMILY)
   })
 
   it('the pages get the view the flag selects', () => {
@@ -101,7 +105,7 @@ describe('BL-104 band pricing (behind PRICING_V2)', () => {
   })
 
   it('marketing and checkout show the same numbers at every size, 1–2,000 doors', () => {
-    for (const plan of ['essentials', 'complete'] as const) {
+    for (const plan of v2.PRICE_FAMILY_IDS) {
       for (let d = 1; d <= 2000; d++) {
         expect(Math.round(bandMonthlyUsd(plan, d) * 100)).toBe(v2.planPriceCents(plan, 'monthly', d))
         expect(Math.round(bandAnnualUsd(plan, d) * 100)).toBe(v2.planPriceCents(plan, 'annual', d))
@@ -109,18 +113,32 @@ describe('BL-104 band pricing (behind PRICING_V2)', () => {
     }
   })
 
-  it('the v2 view: Essentials and Complete from the 1–50 band, month to month, no minimum', () => {
-    const view = hoaPricingView(true)
-    expect(view.plans.map((p) => [p.id, p.price])).toEqual([
-      ['essentials', '$49'],
-      ['complete', '$99'],
-    ])
+  it('the old table (flag off): one plan from the 1–50 band at $49, month to month, no minimum', () => {
+    const view = hoaPricingView(true, false)
+    expect(view.plans.map((p) => [p.id, p.name, p.price])).toEqual([['essentials', 'HomeownerHub', '$49']])
+    // Nothing the site shows names a second plan or the Complete price.
+    expect(JSON.stringify([view.plans, view.copy])).not.toMatch(/Complete|Essentials|\$99/)
     expect(view.copy.contract).toContain('month to month')
     expect(view.copy.contract).not.toMatch(/can't be cancelled/)
-    expect(view.monthlyBillUsd(180)).toBe(229)
-    expect(view.annualBillUsd(180)).toBe(2290)
-    expect(view.monthlyBillUsd(401)).toBe(349.85)
+    expect(view.monthlyBillUsd(180)).toBe(119)
+    expect(view.annualBillUsd(180)).toBe(1190)
+    expect(view.monthlyBillUsd(401)).toBe(180.45)
     expect(view.minBillableDoors).toBe(0)
+  })
+
+  it('the new table (flag on): $59 / $109 / $169 / $249 / $0.65 a home, yearly 10 x', () => {
+    const view = hoaPricingView(true, true)
+    expect(view.plans.map((p) => [p.id, p.name, p.price])).toEqual([['homeownerhub', 'HomeownerHub', '$59']])
+    expect(JSON.stringify([view.plans, view.copy])).not.toMatch(/Complete|Essentials|\$99/)
+    expect([1, 50, 51, 100, 101, 200, 201, 400].map((d) => view.monthlyBillUsd(d))).toEqual([59, 59, 109, 109, 169, 169, 249, 249])
+    expect([50, 100, 200, 400].map((d) => view.annualBillUsd(d))).toEqual([590, 1090, 1690, 2490])
+    expect(view.monthlyBillUsd(401)).toBe(260.65)
+    expect(view.annualBillUsd(401)).toBe(2606.5)
+    expect(view.copy.summary).toContain('from $59 a month')
+  })
+
+  it('the pages show the table the flag selects', () => {
+    expect(HOA_PLANS[0]!.id).toBe(ONE_PLAN_NEW_PRICES ? 'homeownerhub' : 'essentials')
   })
 })
 

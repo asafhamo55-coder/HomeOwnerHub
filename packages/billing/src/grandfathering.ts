@@ -7,18 +7,18 @@
 //     (start + COMMIT_MONTHS). A monthly subscriber already past month 12 is
 //     out of commitment, so their next monthly invoice is the renewal.
 //   - annual: the end of the current paid year (Stripe current_period_end).
-// At renewal the subscription moves to Complete at its band, with
+// At renewal the subscription moves to the one plan at its band, with
 // proration_behavior 'none'. The board is emailed 30 days before.
 // A customer who asks to move earlier is moved at the next invoice and
 // released from the remaining commitment (an admin action; never unasked).
 
 import { PRICING } from './pricing'
-import { isLegacyPlan, type HoaPlanId } from './pricing-v2'
+import { SOLD_PRICE_FAMILY, isLegacyPlan, type PriceFamilyId } from './pricing-v2'
 
 /** Days before the renewal that the board is told about the move. */
 export const RENEWAL_NOTICE_DAYS = 30
-/** Where a grandfathered subscription lands: Complete holds every current feature. */
-export const RENEWAL_TARGET_PLAN: HoaPlanId = 'complete'
+/** Where a grandfathered subscription lands: the one plan, which holds every feature. */
+export const RENEWAL_TARGET_PLAN: PriceFamilyId = SOLD_PRICE_FAMILY
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -51,7 +51,7 @@ export interface GrandfatheringDecision {
   /** When the 30-day notice is due. */
   noticeAt: Date
   /** Plan it moves to at renewal. */
-  moveTo: HoaPlanId
+  moveTo: PriceFamilyId
 }
 
 /** The renewal date for a grandfathered subscription. */

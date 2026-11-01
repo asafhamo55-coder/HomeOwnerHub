@@ -1,35 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { HOA_MODULES, enabledModules, moduleEnabled, modulesAddedByComplete } from './entitlements'
+import { HOA_MODULES, enabledModules, moduleEnabled } from './entitlements'
 
-describe('plan → module entitlements (BL-104 §7 on BL-068 switches)', () => {
-  it('before PRICING_V2 every org has every module (nobody loses a feature)', () => {
-    for (const plan of ['free', 'monthly', 'annual', 'essentials', 'complete', null]) {
-      expect(enabledModules({ plan }, false)).toEqual([...HOA_MODULES])
-    }
+describe('one plan, every feature (docs/decisions/2026-11-01-one-plan.md)', () => {
+  it('every org has every module: orgs.plan is not an input, so a stored complete, a legacy value, a pilot override or a trial all see all of them', () => {
+    expect(enabledModules({})).toEqual([...HOA_MODULES])
   })
 
-  it('Essentials = core + dues + ai', () => {
-    expect(enabledModules({ plan: 'essentials' }, true)).toEqual(['core', 'dues', 'ai'])
+  it('accounting, mailbox, vendors and leases are on with no override', () => {
+    for (const m of ['accounting', 'mailbox', 'vendors', 'leases'] as const) expect(moduleEnabled({ overrides: null }, m)).toBe(true)
   })
 
-  it('Complete adds accounting, mailbox, vendors and leases', () => {
-    expect(enabledModules({ plan: 'complete' }, true)).toEqual([...HOA_MODULES])
-    expect(modulesAddedByComplete()).toEqual(['accounting', 'mailbox', 'vendors', 'leases'])
-  })
-
-  it('legacy $4.99/door subscriptions get Complete', () => {
-    expect(enabledModules({ plan: 'monthly' }, true)).toEqual([...HOA_MODULES])
-    expect(enabledModules({ plan: 'annual' }, true)).toEqual([...HOA_MODULES])
-  })
-
-  it('a trial (no subscription) is on Essentials', () => {
-    expect(moduleEnabled({ plan: 'free' }, 'accounting', true)).toBe(false)
-    expect(moduleEnabled({ plan: 'free' }, 'ai', true)).toBe(true)
-  })
-
-  it('a platform-admin override wins either way; core cannot be switched off', () => {
-    expect(moduleEnabled({ plan: 'essentials', overrides: { accounting: true } }, 'accounting', true)).toBe(true)
-    expect(moduleEnabled({ plan: 'complete', overrides: { leases: false } }, 'leases', true)).toBe(false)
-    expect(moduleEnabled({ plan: 'complete', overrides: { core: false } }, 'core', true)).toBe(true)
+  it('a platform-admin override can still force a module off; core cannot be switched off', () => {
+    expect(moduleEnabled({ overrides: { leases: false } }, 'leases')).toBe(false)
+    expect(moduleEnabled({ overrides: { accounting: true } }, 'accounting')).toBe(true)
+    expect(moduleEnabled({ overrides: { core: false } }, 'core')).toBe(true)
   })
 })

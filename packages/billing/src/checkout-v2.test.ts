@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { planV2Checkout, type V2CheckoutFacts } from './checkout-v2'
 
 const NEW: V2CheckoutFacts = {
-  plan: 'essentials',
   cadence: 'monthly',
   unitCount: 50,
   currentPlan: 'free',
@@ -23,9 +22,12 @@ describe('planV2Checkout (no Stripe calls)', () => {
     })
   })
 
-  it('plan × cadence picks the Price', () => {
-    const r = planV2Checkout({ ...NEW, plan: 'complete', cadence: 'annual' })
-    expect(r).toMatchObject({ ok: true, lookupKey: 'hoa_complete_annual', priceEnv: 'STRIPE_PRICE_COMPLETE_ANNUAL', metadataPlan: 'complete' })
+  it('the cadence picks the Price, and it is always the one sold plan (never Complete)', () => {
+    const r = planV2Checkout({ ...NEW, cadence: 'annual' })
+    expect(r).toMatchObject({ ok: true, lookupKey: 'hoa_essentials_annual', priceEnv: 'STRIPE_PRICE_ESSENTIALS_ANNUAL', metadataPlan: 'essentials' })
+    // A caller that still sends a plan (a stale form) cannot select Complete.
+    const forged = planV2Checkout({ ...NEW, plan: 'complete' } as V2CheckoutFacts)
+    expect(forged).toMatchObject({ ok: true, lookupKey: 'hoa_essentials_monthly', metadataPlan: 'essentials' })
   })
 
   it('an org that checked out before gets no second trial and must give a card', () => {

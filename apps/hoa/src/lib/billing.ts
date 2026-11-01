@@ -10,7 +10,6 @@ import {
   checkoutErrorMessage,
   getStripe,
   stripeErrorFacts,
-  HOA_PLAN_IDS,
   PRICING_V2,
   planV2Checkout,
 } from '@homeowner-portal/billing'
@@ -76,7 +75,7 @@ export interface BillingActionResult {
   error?: string
 }
 
-// ─── BL-104: Essentials / Complete band Prices (PRICING_V2) ──────────
+// ─── BL-104: the one plan's band Prices (PRICING_V2) ─────────────────
 
 // Process-scoped like priceIdCache above; keyed by lookup key.
 const v2PriceIdCache: Record<string, string> = {}
@@ -119,11 +118,13 @@ async function billingAdminOrg(): Promise<{ id: string } | null> {
   return { id: ctx.org.id }
 }
 
-const V2FormSchema = z.object({ plan: z.enum(HOA_PLAN_IDS), cadence: CadenceSchema })
+// One plan is on sale, so the form carries only the cadence. A `plan` field
+// (a stale page, a crafted post) is never read: Complete cannot be selected.
+const V2FormSchema = z.object({ cadence: CadenceSchema })
 
 async function startV2Checkout(formData: FormData): Promise<BillingActionResult> {
-  const parsed = V2FormSchema.safeParse({ plan: formData.get('plan'), cadence: formData.get('cadence') })
-  if (!parsed.success) return { error: 'Pick a plan and a billing cadence first.' }
+  const parsed = V2FormSchema.safeParse({ cadence: formData.get('cadence') })
+  if (!parsed.success) return { error: 'Pick monthly or annual billing first.' }
 
   const org = await billingAdminOrg()
   if (!org) return { error: BILLING_ADMIN_ONLY }
@@ -145,7 +146,6 @@ async function startV2Checkout(formData: FormData): Promise<BillingActionResult>
   }
 
   const planned = planV2Checkout({
-    plan: parsed.data.plan,
     cadence: parsed.data.cadence,
     unitCount: unitsRes.count ?? 0,
     currentPlan: (orgRes.data?.plan as string | null) ?? null,

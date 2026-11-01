@@ -32,9 +32,14 @@ export {
 export type { BillingSummary } from './pricing'
 export type { OrgPlanFromPrice } from './billing-status'
 // BL-104 — Essentials / Complete band pricing, behind PRICING_V2.
-export { PRICING_V2 } from './pricing-flag'
+export { PRICING_V2, ONE_PLAN_NEW_PRICES } from './pricing-flag'
 export {
   HOA_PLAN_IDS,
+  SOLD_PLAN_ID,
+  PRICE_FAMILY_IDS,
+  NEW_PRICE_FAMILY,
+  SOLD_PRICE_FAMILY,
+  priceFamilyForLookupKey,
   BILLING_CADENCES,
   BAND_IDS,
   BANDS,
@@ -61,8 +66,8 @@ export {
   effectivePlan,
   onTrialFooting,
 } from './pricing-v2'
-export type { HoaPlanId, BillingCadence, BandId, Band, StripeTier } from './pricing-v2'
-export { HOA_MODULES, MODULE_LABEL, PLAN_MODULES, moduleEnabled, enabledModules, modulesAddedByComplete } from './entitlements'
+export type { PriceFamilyId, HoaPlanId, BillingCadence, BandId, Band, StripeTier } from './pricing-v2'
+export { HOA_MODULES, MODULE_LABEL, moduleEnabled, enabledModules } from './entitlements'
 export type { HoaModule, ModuleOverrides } from './entitlements'
 export { planV2Checkout } from './checkout-v2'
 export type { V2CheckoutFacts, V2CheckoutPlan } from './checkout-v2'

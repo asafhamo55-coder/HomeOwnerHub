@@ -193,17 +193,15 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
           lookupKey: 'hoa_per_door_annual',
         },
       },
-      // BL-104: PRICING_V2 is on, so the four tiered band Prices come too.
+      // BL-104: PRICING_V2 is on, so the two tiered band Prices of the one plan (hoa_homeownerhub_*) come too; the Essentials and Complete Prices are never created here.
       bandPrices: [
-        { plan: 'essentials', cadence: 'monthly', id: 'price_hoa_essentials_monthly', lookupKey: 'hoa_essentials_monthly' },
-        { plan: 'essentials', cadence: 'annual', id: 'price_hoa_essentials_annual', lookupKey: 'hoa_essentials_annual' },
-        { plan: 'complete', cadence: 'monthly', id: 'price_hoa_complete_monthly', lookupKey: 'hoa_complete_monthly' },
-        { plan: 'complete', cadence: 'annual', id: 'price_hoa_complete_annual', lookupKey: 'hoa_complete_annual' },
+        { plan: 'homeownerhub', cadence: 'monthly', id: 'price_hoa_homeownerhub_monthly', lookupKey: 'hoa_homeownerhub_monthly' },
+        { plan: 'homeownerhub', cadence: 'annual', id: 'price_hoa_homeownerhub_annual', lookupKey: 'hoa_homeownerhub_annual' },
       ],
       nextSteps: expect.any(Array),
     })
     expect(h.productCreates).toBe(1)
-    expect(h.priceCreates).toBe(6) // 2 legacy per-door + 4 band Prices
+    expect(h.priceCreates).toBe(4) // 2 legacy per-door + 2 band Prices
   })
 
   it('is idempotent: finds the product past the first page and reuses prices (RC-9)', async () => {
@@ -222,10 +220,10 @@ describe('POST /api/admin/setup-stripe-pricing', () => {
     expect(b.product.id).toBe('prod_hoa')
     expect(b.prices.monthly.id).toBe('price_m')
     expect(h.productCreates).toBe(0)
-    expect(h.priceCreates).toBe(4) // only the four band Prices; the legacy ones are reused
+    expect(h.priceCreates).toBe(2) // only the two band Prices; the legacy ones are reused
 
     // A second run finds the band Prices too and creates nothing.
-    for (const k of ['hoa_essentials_monthly', 'hoa_essentials_annual', 'hoa_complete_monthly', 'hoa_complete_annual']) {
+    for (const k of ['hoa_homeownerhub_monthly', 'hoa_homeownerhub_annual']) {
       h.existingPrices[k] = { id: `price_${k}`, unit_amount: 0, lookup_key: k }
     }
     h.priceCreates = 0

@@ -62,7 +62,7 @@ beforeEach(() => {
 
 describe('v2 checkout before the band Prices exist', () => {
   it('no Price under the lookup key: friendly error, no session, the lookup key is logged', async () => {
-    const res = await startHoaCheckout({} as never, form({ plan: 'essentials', cadence: 'monthly' }))
+    const res = await startHoaCheckout({} as never, form({ cadence: 'monthly' }))
     expect(res).toHaveProperty('error')
     expect(h.search).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(h.search.mock.calls)).toContain('hoa_essentials_monthly')
@@ -72,14 +72,23 @@ describe('v2 checkout before the band Prices exist', () => {
 
   it('the Price lookup itself failing is the same friendly error, not a throw', async () => {
     h.searchThrows = true
-    const res = await startHoaCheckout({} as never, form({ plan: 'complete', cadence: 'annual' }))
+    const res = await startHoaCheckout({} as never, form({ cadence: 'annual' }))
     expect(res).toHaveProperty('error')
     expect(h.createCheckoutSession).not.toHaveBeenCalled()
   })
 
+  it('a forged plan=complete field is ignored: the Essentials Price is looked up and sold, Complete never is', async () => {
+    h.search.mockResolvedValueOnce({ data: [{ id: 'price_ess_a' }] })
+    await startHoaCheckout({} as never, form({ plan: 'complete', cadence: 'annual' }))
+    const queries = JSON.stringify(h.search.mock.calls)
+    expect(queries).toContain('hoa_essentials_annual')
+    expect(queries).not.toContain('complete')
+    expect(h.createCheckoutSession).toHaveBeenCalledWith(expect.objectContaining({ priceId: 'price_ess_a', plan: 'essentials' }))
+  })
+
   it('once the Price exists, the same click starts a session', async () => {
     h.search.mockResolvedValueOnce({ data: [{ id: 'price_ess_m' }] })
-    const res = await startHoaCheckout({} as never, form({ plan: 'essentials', cadence: 'monthly' }))
+    const res = await startHoaCheckout({} as never, form({ cadence: 'monthly' }))
     expect(h.createCheckoutSession).toHaveBeenCalledTimes(1)
     expect((res as { error?: string } | undefined)?.error).toBeUndefined()
   })

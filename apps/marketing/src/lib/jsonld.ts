@@ -1,7 +1,7 @@
 // Structured data (schema.org JSON-LD) builders. Pure, so tests can check
 // them. Imports only ./site (no "@/..."): marketing-truth tests import this.
 
-import { BAND_EDGES, HOA_PRICING, PRICING_V2, TRIAL_DAYS, bandMonthlyUsd } from './hoa-pricing'
+import { BAND_EDGES, HOA_PRICING, PRICING_V2, SOLD_BAND_PLAN, TRIAL_DAYS, bandMonthlyUsd } from './hoa-pricing'
 import { SITE_NAME, SITE_ORIGIN } from './site'
 
 export type JsonLdObject = Record<string, unknown>
@@ -37,15 +37,15 @@ export function websiteLd(): JsonLdObject {
 
 /**
  * The product, with offers taken from lib/hoa-pricing.ts (the same numbers
- * /pricing shows and checkout charges). Prices are the entry price of each
+ * /pricing shows and checkout charges). Price is the entry price of the one
  * plan; the size band raises them, which the offer description says. No
  * ratings or review counts: there are none to report.
  */
 export function softwareApplicationLd(): JsonLdObject {
   const offers: JsonLdObject[] = PRICING_V2
-    ? (['essentials', 'complete'] as const).map((plan) => ({
+    ? [SOLD_BAND_PLAN].map((plan) => ({
         '@type': 'Offer',
-        name: plan === 'essentials' ? 'Essentials' : 'Complete',
+        name: 'HomeownerHub',
         price: bandMonthlyUsd(plan, 1).toFixed(2),
         priceCurrency: 'USD',
         priceSpecification: {

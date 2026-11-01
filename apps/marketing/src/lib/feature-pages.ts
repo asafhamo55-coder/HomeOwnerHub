@@ -44,7 +44,7 @@ export const FEATURE_PAGES: readonly FeaturePageData[] = [
       },
       {
         title: 'A report on the 1st',
-        body: 'The month-end board report is emailed on the 1st, from the books. Accounting, bank feeds and the report are on the Complete plan.',
+        body: 'The month-end board report is emailed on the 1st, from the books.',
       },
     ],
     related: ['violations', 'announcements', 'ask-your-documents'],
@@ -67,7 +67,7 @@ export const FEATURE_PAGES: readonly FeaturePageData[] = [
       },
       {
         title: 'Collections letters for four states',
-        body: 'Collections letters follow Georgia, Florida, California or Texas law. They are approved in Approvals and printed. Collections letters are on the Complete plan.',
+        body: 'Collections letters follow Georgia, Florida, California or Texas law. They are approved in Approvals and printed.',
       },
       {
         title: 'A trail you can show',

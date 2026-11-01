@@ -54,7 +54,7 @@ const PAIRS: Array<{ job: string; hand: string; hub: string }> = [
   {
     job: 'A vendor invoice',
     hand: 'Retype it into a spreadsheet and chase approvals by email.',
-    hub: 'Scan the bill into the approvals queue (Complete plan).',
+    hub: 'Scan the bill into the approvals queue.',
   },
   {
     job: 'Announcements',

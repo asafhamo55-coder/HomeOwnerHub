@@ -82,7 +82,7 @@ const weeklyAnalyticsJob = createWeeklyAnalyticsJob({ sendEmail })
 //  - Nightly band sync: new-plan orgs' quantity follows the homes on file
 //    when that changes the price; the new band bills from the next renewal.
 //  - Grandfathered renewal: the 30-day notice to the BOARD (guarded
-//    sendEmail, once per term) and the switch to Complete at renewal.
+//    sendEmail, once per term) and the switch to the one plan at renewal.
 const billingBandSyncJob = createBillingBandSyncJob({ stripe: billingStripePort })
 const billingRenewalJob = createBillingRenewalJob({ stripe: billingStripePort, sendEmail, appUrl })
 

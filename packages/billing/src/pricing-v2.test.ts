@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { PRICING_V2 } from './pricing-flag'
+import { ONE_PLAN_NEW_PRICES, PRICING_V2 } from './pricing-flag'
 import {
   BANDS,
   HOA_PLAN_IDS,
+  SOLD_PLAN_ID,
+  SOLD_PRICE_FAMILY,
+  NEW_PRICE_FAMILY,
+  PRICE_FAMILY_IDS,
+  priceFamilyForLookupKey,
   V2_LOOKUP_KEYS,
   bandFor,
   effectivePlan,
@@ -19,12 +24,12 @@ import {
 // docs/decisions/2026-10-20-pricing.md §1.
 
 describe('PRICING_V2', () => {
-  it('on since the 2026-10-30 cut-over: checkout and the site sell Essentials / Complete', () => {
+  it('on since the 2026-10-30 cut-over: checkout and the site sell the one plan', () => {
     expect(PRICING_V2).toBe(true)
   })
 })
 
-describe('the band table', () => {
+describe('the band table (Complete rows are kept only to price and recognise stored Complete subscriptions)', () => {
   const TABLE: Array<[number, number, number, number, number]> = [
     // doors, Essentials /mo, Complete /mo, Essentials /yr, Complete /yr (cents)
     [1, 4900, 9900, 49000, 99000],
@@ -75,15 +80,40 @@ describe('the band table', () => {
     expect(planPriceCents('essentials', 'monthly', 0)).toBe(4900)
   })
 
-  it('Complete costs more than Essentials at every size', () => {
-    for (let d = 1; d <= 2000; d++) {
-      expect(monthlyPriceCents('complete', d)).toBeGreaterThan(monthlyPriceCents('essentials', d))
-    }
+  it('the one plan is stored as essentials (no migration adds a value) and sold on the family the flag selects', () => {
+    expect(SOLD_PLAN_ID).toBe('essentials')
+    expect(SOLD_PRICE_FAMILY).toBe(ONE_PLAN_NEW_PRICES ? 'homeownerhub' : 'essentials')
+  })
+
+  it('the new Prices (docs/decisions/2026-11-01-one-plan.md): $59 / $109 / $169 / $249 monthly, $0.65 a home from 401', () => {
+    expect(NEW_PRICE_FAMILY).toBe('homeownerhub')
+    expect([1, 50, 51, 100, 101, 200, 201, 400].map((d) => monthlyPriceCents('homeownerhub', d))).toEqual([
+      5900, 5900, 10900, 10900, 16900, 16900, 24900, 24900,
+    ])
+    expect(monthlyPriceCents('homeownerhub', 401)).toBe(26065)
+    expect([50, 100, 200, 400].map((d) => planPriceCents('homeownerhub', 'annual', d))).toEqual([59000, 109000, 169000, 249000])
+    expect(planPriceCents('homeownerhub', 'annual', 401)).toBe(260650)
+  })
+
+  it('the old Essentials table is unchanged, so existing subscriptions keep pricing the same', () => {
+    expect([1, 50, 51, 100, 101, 200, 201, 400].map((d) => monthlyPriceCents('essentials', d))).toEqual([
+      4900, 4900, 7900, 7900, 11900, 11900, 17900, 17900,
+    ])
+    expect(monthlyPriceCents('essentials', 401)).toBe(18045)
+  })
+
+  it('each lookup key maps to its own family; legacy and unknown keys map to none', () => {
+    expect(priceFamilyForLookupKey('hoa_homeownerhub_monthly')).toBe('homeownerhub')
+    expect(priceFamilyForLookupKey('hoa_homeownerhub_annual')).toBe('homeownerhub')
+    expect(priceFamilyForLookupKey('hoa_essentials_annual')).toBe('essentials')
+    expect(priceFamilyForLookupKey('hoa_complete_monthly')).toBe('complete')
+    expect(priceFamilyForLookupKey('hoa_per_door_monthly')).toBeNull()
+    expect(priceFamilyForLookupKey(null)).toBeNull()
   })
 })
 
 describe('the price never decreases as doors rise (1–2,000 doors)', () => {
-  it.each(HOA_PLAN_IDS.flatMap((p) => (['monthly', 'annual'] as const).map((c) => [p, c] as const)))('%s %s', (plan, cadence) => {
+  it.each(PRICE_FAMILY_IDS.flatMap((p) => (['monthly', 'annual'] as const).map((c) => [p, c] as const)))('%s %s', (plan, cadence) => {
     let prev = planPriceCents(plan, cadence, 1)
     for (let doors = 2; doors <= 2000; doors++) {
       const cur = planPriceCents(plan, cadence, doors)
@@ -94,7 +124,7 @@ describe('the price never decreases as doors rise (1–2,000 doors)', () => {
 })
 
 describe('the Stripe tiers charge exactly planPriceCents', () => {
-  it.each(HOA_PLAN_IDS.flatMap((p) => (['monthly', 'annual'] as const).map((c) => [p, c] as const)))('%s %s', (plan, cadence) => {
+  it.each(PRICE_FAMILY_IDS.flatMap((p) => (['monthly', 'annual'] as const).map((c) => [p, c] as const)))('%s %s', (plan, cadence) => {
     const tiers = stripeTiers(plan, cadence)
     expect(tiers.map((t) => t.up_to)).toEqual([50, 100, 200, 400, 'inf'])
     for (let doors = 1; doors <= 2000; doors++) {
@@ -109,9 +139,26 @@ describe('the Stripe tiers charge exactly planPriceCents', () => {
     expect(stripeTiers('essentials', 'annual').at(-1)).toEqual({ up_to: 'inf', flat_amount: 0, unit_amount: 450 })
   })
 
-  it('four distinct lookup keys, none of them the legacy ones', () => {
-    const keys = HOA_PLAN_IDS.flatMap((p) => Object.values(V2_LOOKUP_KEYS[p]))
-    expect(new Set(keys).size).toBe(4)
+  it('the new Prices tier amounts', () => {
+    expect(stripeTiers('homeownerhub', 'monthly')).toEqual([
+      { up_to: 50, flat_amount: 5900, unit_amount: 0 },
+      { up_to: 100, flat_amount: 10900, unit_amount: 0 },
+      { up_to: 200, flat_amount: 16900, unit_amount: 0 },
+      { up_to: 400, flat_amount: 24900, unit_amount: 0 },
+      { up_to: 'inf', flat_amount: 0, unit_amount: 65 },
+    ])
+    expect(stripeTiers('homeownerhub', 'annual').map((t) => [t.flat_amount, t.unit_amount])).toEqual([
+      [59000, 0],
+      [109000, 0],
+      [169000, 0],
+      [249000, 0],
+      [0, 650],
+    ])
+  })
+
+  it('six distinct lookup keys, none of them the legacy ones', () => {
+    const keys = PRICE_FAMILY_IDS.flatMap((p) => Object.values(V2_LOOKUP_KEYS[p]))
+    expect(new Set(keys).size).toBe(6)
     expect(keys).not.toContain('hoa_per_door_monthly')
     expect(keys).not.toContain('hoa_per_door_annual')
   })

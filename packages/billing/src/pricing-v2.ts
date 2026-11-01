@@ -1,5 +1,12 @@
-// BL-104 — Essentials / Complete in flat size bands
-// (docs/decisions/2026-10-20-pricing.md §1). Pure: no Stripe client, no
+import { ONE_PLAN_NEW_PRICES } from './pricing-flag'
+
+// BL-104 — flat size bands (docs/decisions/2026-10-20-pricing.md §1), now
+// ONE plan with every feature (docs/decisions/2026-11-01-one-plan.md). The Complete price tables, lookup
+// keys and the 'complete' value stay here only so an org that already holds
+// a Complete subscription keeps working, is priced correctly on Settings →
+// Billing, and has its old Stripe events recognised. Nothing sells Complete:
+// SOLD_PRICE_FAMILY below is the only Price family checkout may use.
+// Pure: no Stripe client, no
 // database, no env. Checkout, Settings → Billing, the Stripe setup route,
 // the AI ceilings and the marketing test all read the numbers from here.
 //
@@ -14,8 +21,39 @@
 // Annual = 10 × monthly (2 months free). No door minimum and no `ceil`
 // floor: a 1-door HOA pays the 1–50 band.
 
+/** Every price family we recognise. 'complete' is no longer sold; see the header. */
 export const HOA_PLAN_IDS = ['essentials', 'complete'] as const
 export type HoaPlanId = (typeof HOA_PLAN_IDS)[number]
+
+/**
+ * The orgs.plan value every new subscription is stored as. orgs_plan_check
+ * has no value for the new Prices and this change adds no migration, so the
+ * one plan is stored as 'essentials'; the PRICE an org pays is read from its
+ * Stripe Price (price family), never from this value.
+ */
+export const SOLD_PLAN_ID = 'essentials' as const satisfies HoaPlanId
+
+/**
+ * A family of Stripe Prices. 'essentials' and 'complete' are the live
+ * 2026-10-30 Prices (recognised forever, never sold again once the new ones
+ * exist); 'homeownerhub' is the one plan's own Prices
+ * (docs/decisions/2026-11-01-one-plan.md: $59 / $109 / $169 / $249 / $0.65).
+ */
+export const PRICE_FAMILY_IDS = ['essentials', 'complete', 'homeownerhub'] as const
+export type PriceFamilyId = (typeof PRICE_FAMILY_IDS)[number]
+
+/** The family the new Prices belong to. */
+export const NEW_PRICE_FAMILY = 'homeownerhub' as const satisfies PriceFamilyId
+
+/**
+ * The family checkout sells and every price display shows. Until the owner
+ * has created the two new Stripe Prices ONE_PLAN_NEW_PRICES stays false and
+ * the one plan is sold on the existing Essentials Prices (what is live
+ * today), so the deploy cannot break trial sign-up or checkout. Flipping the
+ * flag moves checkout, Settings → Billing and (through its mirror) the
+ * marketing site to the new table in one commit.
+ */
+export const SOLD_PRICE_FAMILY: PriceFamilyId = ONE_PLAN_NEW_PRICES ? NEW_PRICE_FAMILY : 'essentials'
 
 export const BILLING_CADENCES = ['monthly', 'annual'] as const
 export type BillingCadence = (typeof BILLING_CADENCES)[number]
@@ -39,38 +77,52 @@ export const BANDS: readonly Band[] = [
 ]
 
 /** Monthly flat price per closed band, in cents (1–50, 51–100, 101–200, 201–400). */
-export const BAND_MONTHLY_CENTS: Readonly<Record<HoaPlanId, readonly [number, number, number, number]>> = {
+export const BAND_MONTHLY_CENTS: Readonly<Record<PriceFamilyId, readonly [number, number, number, number]>> = {
   essentials: [4900, 7900, 11900, 17900],
   complete: [9900, 14900, 22900, 34900],
+  homeownerhub: [5900, 10900, 16900, 24900],
 }
 
 /** 401+ monthly: flat + per door, in cents. Essentials $0.45/door; Complete $9 + $0.85/door. */
-export const OPEN_BAND_MONTHLY_CENTS: Readonly<Record<HoaPlanId, { flatCents: number; perDoorCents: number }>> = {
+export const OPEN_BAND_MONTHLY_CENTS: Readonly<Record<PriceFamilyId, { flatCents: number; perDoorCents: number }>> = {
   essentials: { flatCents: 0, perDoorCents: 45 },
   complete: { flatCents: 900, perDoorCents: 85 },
+  homeownerhub: { flatCents: 0, perDoorCents: 65 },
 }
 
 /** Annual = this many monthly bills (2 months free). */
 export const ANNUAL_MONTHS_BILLED = 10
 
-/** New subscriptions: 30-day free trial, on Essentials limits, no card to start. */
+/** New subscriptions: 30-day free trial, no card to start. */
 export const TRIAL_DAYS = 30
 
 /** Stripe Price lookup keys for the four new Prices. */
-export const V2_LOOKUP_KEYS: Readonly<Record<HoaPlanId, Record<BillingCadence, string>>> = {
+export const V2_LOOKUP_KEYS: Readonly<Record<PriceFamilyId, Record<BillingCadence, string>>> = {
   essentials: { monthly: 'hoa_essentials_monthly', annual: 'hoa_essentials_annual' },
   complete: { monthly: 'hoa_complete_monthly', annual: 'hoa_complete_annual' },
+  homeownerhub: { monthly: 'hoa_homeownerhub_monthly', annual: 'hoa_homeownerhub_annual' },
 }
 
 /** Explicit env overrides for the four Price ids (checked before the lookup key). */
-export const V2_PRICE_ENV: Readonly<Record<HoaPlanId, Record<BillingCadence, string>>> = {
+export const V2_PRICE_ENV: Readonly<Record<PriceFamilyId, Record<BillingCadence, string>>> = {
   essentials: { monthly: 'STRIPE_PRICE_ESSENTIALS_MONTHLY', annual: 'STRIPE_PRICE_ESSENTIALS_ANNUAL' },
   complete: { monthly: 'STRIPE_PRICE_COMPLETE_MONTHLY', annual: 'STRIPE_PRICE_COMPLETE_ANNUAL' },
+  homeownerhub: { monthly: 'STRIPE_PRICE_HOMEOWNERHUB_MONTHLY', annual: 'STRIPE_PRICE_HOMEOWNERHUB_ANNUAL' },
+}
+
+/** One product name for every stored plan value: there is one plan. */
+/** The Price family a band Price's lookup key belongs to; null for any other Price. */
+export function priceFamilyForLookupKey(lookupKey: string | null | undefined): PriceFamilyId | null {
+  if (!lookupKey) return null
+  for (const f of PRICE_FAMILY_IDS) {
+    if (V2_LOOKUP_KEYS[f].monthly === lookupKey || V2_LOOKUP_KEYS[f].annual === lookupKey) return f
+  }
+  return null
 }
 
 export const PLAN_LABEL: Readonly<Record<HoaPlanId, string>> = {
-  essentials: 'Essentials',
-  complete: 'Complete',
+  essentials: 'HomeownerHub',
+  complete: 'HomeownerHub',
 }
 
 export function isHoaPlanId(v: unknown): v is HoaPlanId {
@@ -95,7 +147,7 @@ export function bandFor(doors: number): Band {
 }
 
 /** Monthly price in cents for one plan at a door count. */
-export function monthlyPriceCents(plan: HoaPlanId, doors: number): number {
+export function monthlyPriceCents(plan: PriceFamilyId, doors: number): number {
   const d = normalizeDoors(doors)
   const idx = BANDS.indexOf(bandFor(d))
   if (idx < 4) return BAND_MONTHLY_CENTS[plan][idx]!
@@ -104,18 +156,18 @@ export function monthlyPriceCents(plan: HoaPlanId, doors: number): number {
 }
 
 /** The price Stripe charges per billing period, in integer cents. */
-export function planPriceCents(plan: HoaPlanId, cadence: BillingCadence, doors: number): number {
+export function planPriceCents(plan: PriceFamilyId, cadence: BillingCadence, doors: number): number {
   const monthly = monthlyPriceCents(plan, doors)
   return cadence === 'annual' ? monthly * ANNUAL_MONTHS_BILLED : monthly
 }
 
 /** Same in USD, for display. */
-export function planPriceUsd(plan: HoaPlanId, cadence: BillingCadence, doors: number): number {
+export function planPriceUsd(plan: PriceFamilyId, cadence: BillingCadence, doors: number): number {
   return planPriceCents(plan, cadence, doors) / 100
 }
 
 /** Annual savings vs 12 monthly bills (= two months), in USD. */
-export function planAnnualSavingsUsd(plan: HoaPlanId, doors: number): number {
+export function planAnnualSavingsUsd(plan: PriceFamilyId, doors: number): number {
   return (monthlyPriceCents(plan, doors) * 12 - planPriceCents(plan, 'annual', doors)) / 100
 }
 
@@ -137,7 +189,7 @@ export interface StripeTier {
  * (billing_scheme 'tiered', tiers_mode 'volume'). Used by the setup route
  * and listed in docs/specs/2026-10-20-pricing-v2-rollout.md.
  */
-export function stripeTiers(plan: HoaPlanId, cadence: BillingCadence): StripeTier[] {
+export function stripeTiers(plan: PriceFamilyId, cadence: BillingCadence): StripeTier[] {
   const mult = cadence === 'annual' ? ANNUAL_MONTHS_BILLED : 1
   const closed = BAND_MONTHLY_CENTS[plan].map((cents, i) => ({
     up_to: BANDS[i]!.maxDoors as number,
@@ -164,8 +216,8 @@ export function stripeVolumeTotalCents(tiers: readonly StripeTier[], quantity: n
 /**
  * orgs.plan values written for the $4.99/door Prices (the webhook writes
  * the cadence; 'legacy_per_door' is reserved for the cut-over). These are
- * grandfathered: they keep their price until renewal and get Complete
- * entitlements and limits.
+ * grandfathered: they keep their price until renewal and get every feature
+ * and the larger (former Complete) AI and SMS limits.
  */
 export const LEGACY_PLAN_VALUES = ['monthly', 'annual', 'legacy_per_door'] as const
 
@@ -179,13 +231,15 @@ export function isUnsubscribedPlan(plan: string | null | undefined): boolean {
 }
 
 /**
- * The plan whose entitlements and AI limits an org gets.
+ * The plan whose AI and SMS limits an org gets. Every org has every feature
+ * (entitlements.ts); only the limits differ.
  *
- * Before PRICING_V2 every org is Complete: nobody loses a feature or
- * capacity they have today. After the flip: 'essentials' and an org with no
- * subscription (trial / trial ended) get Essentials; 'complete', legacy
- * $4.99/door subscriptions and any other value (pilot overrides such as
- * 'pro') get Complete — fail open, never strip a paying customer.
+ * Before PRICING_V2 every org gets the larger limits: nobody loses capacity
+ * they have today. After the flip: 'essentials' and an org with no
+ * subscription (trial / trial ended) get the Essentials limits, which are
+ * the limits of the one plan. A stored 'complete', a legacy $4.99/door
+ * subscription and any other value (pilot overrides such as 'pro') keep the
+ * larger limits: fail open, never strip a paying customer.
  */
 export function effectivePlan(plan: string | null | undefined, pricingV2: boolean): HoaPlanId {
   if (!pricingV2) return 'complete'

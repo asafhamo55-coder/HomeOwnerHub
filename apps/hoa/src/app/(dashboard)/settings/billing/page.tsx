@@ -1,5 +1,16 @@
 import { Alert, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, LoadFailed, NoOrgSelected, Page, StatusPill } from '@homeowner-portal/ui'
-import { isLegacyPlan, isStripeConfigured, PLAN_LABEL, PRICING, PRICING_V2, isHoaPlanId } from '@homeowner-portal/billing'
+import {
+  SOLD_PRICE_FAMILY,
+  getStripe,
+  isHoaPlanId,
+  isLegacyPlan,
+  isStripeConfigured,
+  PLAN_LABEL,
+  PRICING,
+  PRICING_V2,
+  priceFamilyForLookupKey,
+  type PriceFamilyId,
+} from '@homeowner-portal/billing'
 import { getCurrentOrg } from '@/lib/orgs'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -15,6 +26,24 @@ import { readSmsAllowance } from '@/lib/sms-allowance'
 import { logRouteFailure } from '@/lib/api/log'
 
 export const metadata = { title: 'Billing' }
+
+/**
+ * null when a subscribed org's Price cannot be read (Stripe down or the
+ * subscription is not a band Price we know): the page then shows no amount
+ * rather than one that might be wrong.
+ */
+async function resolvePriceFamily(orgId: string, plan: string, subId: string | null): Promise<PriceFamilyId | null> {
+  if (!subId || !isHoaPlanId(plan)) return SOLD_PRICE_FAMILY
+  try {
+    const stripe = getStripe()
+    if (!stripe) return null
+    const sub = await stripe.subscriptions.retrieve(subId)
+    return priceFamilyForLookupKey(sub.items.data[0]?.price?.lookup_key)
+  } catch (err) {
+    logRouteFailure('billing.price_family', err, { orgId })
+    return null
+  }
+}
 
 export default async function BillingPage() {
   const { role } = await requireBoardOrAdmin()
@@ -51,6 +80,7 @@ export default async function BillingPage() {
   const doors = (orgRow?.doors_count as number | null) ?? 0
   const homes = homesRes?.count ?? 0
   const stripeCustomerId = (orgRow?.stripe_customer_id as string | null) ?? null
+  const stripeSubId = ((res.data as { stripe_sub_id?: string | null } | null)?.stripe_sub_id as string | null) ?? null
   const stripeReady = isStripeConfigured()
   if (!stripeReady) logBillingUnavailable(org.id, v2)
   const isFree = plan === 'free' || plan === ''
@@ -59,6 +89,10 @@ export default async function BillingPage() {
   // BL-104 §4: this month's texts against the plan's allowance — null (and
   // no read) before PRICING_V2 or for an org not on the new plans.
   // Advisory: a failed read hides the card rather than failing the page.
+  // The Price family the subscription is on. orgs.plan cannot say which
+  // Essentials-valued Price an org pays, so a subscribed org is read from
+  // Stripe; no subscription means the Price it would be sold.
+  const priceFamily = v2 ? await resolvePriceFamily(org.id, plan, stripeSubId) : SOLD_PRICE_FAMILY
   const smsAllowance = v2
     ? await readSmsAllowance(supabase, org.id).catch((err: unknown) => {
         logRouteFailure('billing.sms_allowance', err, { orgId: org.id })
@@ -78,11 +112,11 @@ export default async function BillingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {v2 ? <PlanTotalsV2 homes={homes} plan={plan} /> : <PlanTotals doors={doors} />}
+          {v2 ? <PlanTotalsV2 homes={homes} family={priceFamily} /> : <PlanTotals doors={doors} />}
           {isFree ? (
             v2 ? (
               <Alert variant="info" title="Try it free for 30 days">
-                Start on either plan below with no card. Add a card before the trial ends to keep going.
+                Start below with no card. Add a card before the trial ends to keep going.
               </Alert>
             ) : (
               <Alert variant="warning" title="The free plan is temporary">
