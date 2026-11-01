@@ -388,7 +388,7 @@ function ViolationScene({ s }: { s: number }) {
           <Btn variant="ghost">Save draft & exit</Btn>
           <Btn hot>
             <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            Analyze with Covenant Brain
+            Write the notice for me
           </Btn>
         </div>
       </div>
@@ -403,7 +403,7 @@ function ViolationScene({ s }: { s: number }) {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-subtle text-primary">
               <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
             </div>
-            <p className="mt-3 text-xs font-medium text-foreground">Running Covenant Brain</p>
+            <p className="mt-3 text-xs font-medium text-foreground">Writing your notice</p>
             <p className="mx-auto mt-1 max-w-[260px] text-[11px] text-muted">Reading your photo, matching the right CC&amp;R section, and drafting a letter.</p>
           </div>
         ) : (

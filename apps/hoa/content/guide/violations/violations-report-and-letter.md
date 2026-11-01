@@ -9,7 +9,7 @@ primary_route: /violations
 keywords: [violation, notice, letter, follow-up, follow up, second notice, hearing notice, fine notice, decision letter, hearing, covenant, ccr, fine, cure, cure period, compliance, report, close, resolve, financial commitment, commitment to cure, california, suspension, state law check, fine cap, "$100 fine", override, "5850", "720.305", "209.006", "44-3-223"]
 shots:
   - name: guide-violations-new
-    alt: The Report a violation form with the state law panel and the Analyze with Covenant Brain button highlighted
+    alt: The Report a violation form with the state law panel and the Write the notice for me button highlighted
   - name: guide-violations-approval-queue
     alt: The AI approval queue with a drafted letter and the Approve letter button highlighted
 related: [approvals-queue, documents-governing-and-ask]
@@ -26,7 +26,7 @@ A violation goes from report, to notice, to cure period, to closed. HomeownerHub
 ### Report a violation
 1. Open **Violations** from the sidebar and select [[Report violation]].
 2. Under **Property**, type an address or unit and pick the home from the list. Add at least one photo, and **Additional notes** if they help.
-3. Select [[Analyze with Covenant Brain]]. It reads the photo, matches the CC&R section and drafts the letter.
+3. Select [[Write the notice for me]]. It reads the photo, matches the CC&R section and drafts the letter.
 4. Read the draft all the way to the bottom and fix anything that is wrong.
 5. Select [[Approve & mark notice sent]].
 6. Send the approved letter to the owner yourself, by mail or email.

@@ -53,13 +53,13 @@ export const PROCESSES: Record<ProcessId, ProcessDef> = {
         ms: 4200,
         ptr: [78, 90],
         click: true,
-        proof: { file: WIZ, text: 'Analyze with Covenant Brain' },
+        proof: { file: WIZ, text: 'Write the notice for me' },
       },
       {
         caption: '2. The AI finds the CC&R section and drafts the notice',
         ms: 4200,
         ptr: [50, 55],
-        proof: { file: WIZ, text: 'Running Covenant Brain' },
+        proof: { file: WIZ, text: 'Writing your notice' },
       },
       {
         caption: '3. The board reads the letter and edits the wording',
