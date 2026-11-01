@@ -63,13 +63,7 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 **Why it matters:** residents can't pay dues online by card or bank transfer yet, and that is PayHOA's core feature. The full design is in docs/decisions/2026-10-31-online-dues-payments-design.md. Each HOA connects its own Stripe account, so money goes straight to the HOA's bank and never through ours.
 
-**Decide (reply to Claude with your choices):**
-
-1. **Who pays the fee by default.** Recommended: the HOA pays for bank transfers, and the homeowner pays for cards.
-2. **Bank transfer fee.** Either a flat $2.45 (the same as PayHOA, but we lose money on payments above about $306), or $2.45 rising to at most $5.45 on large payments.
-3. **Card fee.** Recommended: 3.0% + $0.50 until a lawyer confirms surcharge rules. 3.5% may exceed Visa's cap.
-4. **Our share on refunds.** Whether our share of the fee is returned when a payment is refunded.
-5. **Returned payment fee.** The default charge when a bank transfer bounces.
+**Decided 2026-11-01** (`docs/decisions/2026-11-01-online-payment-fee-decisions.md`): the association pays for bank transfers and the homeowner pays for cards; the bank transfer fee is $2.45 rising to at most $5.45; the card fee is 3.0% + $0.50, held to the card network limit; our share is returned on full refunds only; the returned payment fee is off by default, capped at $30.
 
 **Then:**
 
@@ -78,21 +72,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 - Turn on Stripe Connect in the dashboard and add the Connect webhook.
 - Apply migrations/0073_online_payments.sql. Claude will send it to you when the code is ready.
 - Make one $1 live test.
-
-### OA-41 · Make the invite email clear and the link last longer (Supabase dashboard)
-
-**Urgency:** Soon
-
-**Why it matters:** invites use Supabase's built-in email template. Its wording, sender and button are set in the Supabase dashboard, not in the app. The link likely expires after 1 hour, so an invite sent Friday is dead by the time a volunteer opens it on Monday. Older board members are the main users, so the email must be obvious and forgiving.
-
-**Steps:**
-
-1. **Link expiry.** Go to Supabase → Authentication → Providers → Email (or Auth settings) → **Email OTP expiration**. Set it to `86400` (24 hours), the longest Supabase allows.
-2. **Invite email.** Go to Supabase → Authentication → Email Templates → **Invite user**:
-   - Subject: `You're invited to help run {{ .Data.org_name }} on HomeownerHub`. If org_name isn't available, use `You're invited to HomeownerHub`.
-   - Body: one short paragraph, one big button ("Accept your invitation"), and "This link works for 24 hours. If it stops working, ask your board to send a new one or email support@homeownerledger.com."
-   - Optional: add `{{ .Token }}` as a 6-digit code, so people can sign in without the link.
-3. Tell Claude when it's done. The app's "link expired" screen will match the new wording.
 
 ### OA-40 · Activate the Stripe account for live payments
 
@@ -202,6 +181,23 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-41 · Make the invite email clear and the link last longer (Supabase dashboard)
+
+**Urgency:** Soon
+
+**Why it matters:** invites use Supabase's built-in email template. Its wording, sender and button are set in the Supabase dashboard, not in the app. The link likely expires after 1 hour, so an invite sent Friday is dead by the time a volunteer opens it on Monday. Older board members are the main users, so the email must be obvious and forgiving.
+
+**Steps:**
+
+1. **Link expiry.** Go to Supabase → Authentication → Providers → Email (or Auth settings) → **Email OTP expiration**. Set it to `86400` (24 hours), the longest Supabase allows.
+2. **Invite email.** Go to Supabase → Authentication → Email Templates → **Invite user**:
+   - Subject: `You're invited to help run {{ .Data.org_name }} on HomeownerHub`. If org_name isn't available, use `You're invited to HomeownerHub`.
+   - Body: one short paragraph, one big button ("Accept your invitation"), and "This link works for 24 hours. If it stops working, ask your board to send a new one or email support@homeownerledger.com."
+   - Optional: add `{{ .Token }}` as a 6-digit code, so people can sign in without the link.
+3. Tell Claude when it's done. The app's "link expired" screen will match the new wording.
+
+**Done:** 2026-11-01. Link expiry is 24 hours, and the new invite email was tested end to end on a phone. The subject has no association name, because the app does not send one, and there is no 6-digit code.
 
 ### OA-16 · Prepare Stripe for the new Essentials / Complete pricing
 
