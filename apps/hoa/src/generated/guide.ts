@@ -52942,6 +52942,33 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    "id": "2026-11-01-1030-no-grey-pages-board-report#1",
+    "note": "2026-11-01-1030-no-grey-pages-board-report",
+    "date": "2026-11-01",
+    "title": "The page stays on screen while the next one loads",
+    "body": "When you open another page, you no longer see grey lines. The page you are on stays visible with a progress bar until the new one is ready, and the link you tapped shows it is working.",
+    "roles": [
+      "admin",
+      "board",
+      "resident"
+    ],
+    "article": null,
+    "label": "improvement"
+  },
+  {
+    "id": "2026-11-01-1030-no-grey-pages-board-report#2",
+    "note": "2026-11-01-1030-no-grey-pages-board-report",
+    "date": "2026-11-01",
+    "title": "A clearer monthly board report",
+    "body": "The monthly board report now starts with a short summary in plain words, a list of what needs a look and the key numbers. The email, the page in the app and the board packet PDF all follow the same layout.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": "accounting-monthly-board-report",
+    "label": "improvement"
+  },
+  {
     "id": "2026-11-01-0330-plain-words-basics-menu#1",
     "note": "2026-11-01-0330-plain-words-basics-menu",
     "date": "2026-11-01",
