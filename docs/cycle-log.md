@@ -995,3 +995,16 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - A UI shots import-alias bug was fixed, and the job now completes.
   - The Mac slept twice mid-agent. It's now kept awake with caffeinate.
   - Auto-mode classifier timeouts blocked several prod pushes.
+
+## 2026-11-01
+
+- **Deploys:** 86c96bc2 (plain words, basics menu, help chat code), 26ed0558 (SEO batch 24), 2f0304cf (no skeletons on page changes, board report redesign), 64a6e71a (fewer background page loads, timing), 6b17a5a6 (one plan, old prices), a9309943 (one-plan prices switched on, compare page covers all competitors).
+- **Owner decisions:** one plan at $59 to $249 by size (`docs/decisions/2026-11-01-one-plan.md`); online payment fees (`docs/decisions/2026-11-01-online-payment-fee-decisions.md`); no dedicated PayHOA page.
+- **Owner actions closed:** OA-41, OA-43 and OA-13. New Stripe Prices created; both active with 0 subscriptions.
+- **Open:**
+  - Page speed: Asaf reports an improvement, but nothing has been measured end to end. The only step logged above 300 ms was `inbox.list` at 1.08 s, in a small sample. Some non-menu pages are still requested, cause not confirmed.
+  - The UI shots workflow fails on its overflow check on recent commits, including 86c96bc2; not investigated.
+  - The anon variable is now Production only on the hoa, pm and eviction Vercel projects, so Preview builds may lack it.
+  - The decks need a refresh for one plan. The investor deck waits on Madison Park numbers from Asaf; only Madison Park is a real association.
+  - The `keytest2` invite never created a user. A fresh invite worked; the cause wasn't established.
+  - The pricing page's static HTML doesn't show $249, though the code holds it. Not checked in a browser.

@@ -8,6 +8,10 @@ this file is the reference it points to.
 
 ## 00. HANDOFF 2026-11-01 ~08:00 UTC (session 37afa776 closed by Asaf: "update next.md… exit and resume with new session"). READ THIS FIRST; it supersedes §0a and §0.
 
+### Update 2026-11-01 ~22:00 UTC (read first; supersedes the state below)
+- **Prod:** `a9309943`. It has one plan at $59 to $249 by size, the compare page covering all competitors, no route skeletons, the redesigned board report and the help chat on. See `docs/cycle-log.md` 2026-11-01 for open items.
+- **Local dev scripts:** the old database keys are retired, so local env files holding them no longer work.
+
 ### Owner directives from this session (all still in force)
 - **PayHOA is the target.**
   - Asaf, 2026-10-31: "https://www.payhoa.com is where we need to target… all the backlog should shift to replicate their features and the website."
