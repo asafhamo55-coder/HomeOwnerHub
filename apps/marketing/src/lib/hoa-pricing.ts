@@ -25,7 +25,7 @@
 export const PRICING_V2: boolean = true
 
 /** Mirrors packages/billing/src/pricing-flag.ts ONE_PLAN_NEW_PRICES. Flip both in one commit. */
-export const ONE_PLAN_NEW_PRICES: boolean = false
+export const ONE_PLAN_NEW_PRICES: boolean = true
 
 // ─── Legacy: $4.99/door (what checkout charges while PRICING_V2 is off) ──
 

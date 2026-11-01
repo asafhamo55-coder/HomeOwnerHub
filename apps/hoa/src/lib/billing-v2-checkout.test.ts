@@ -52,7 +52,7 @@ function form(entries: Record<string, string>): FormData {
 }
 
 beforeEach(() => {
-  vi.stubEnv('STRIPE_PRICE_ESSENTIALS_MONTHLY', '')
+  vi.stubEnv('STRIPE_PRICE_HOMEOWNERHUB_MONTHLY', '')
   h.search.mockClear()
   h.searchThrows = false
   h.createCheckoutSession.mockClear()
@@ -65,9 +65,9 @@ describe('v2 checkout before the band Prices exist', () => {
     const res = await startHoaCheckout({} as never, form({ cadence: 'monthly' }))
     expect(res).toHaveProperty('error')
     expect(h.search).toHaveBeenCalledTimes(1)
-    expect(JSON.stringify(h.search.mock.calls)).toContain('hoa_essentials_monthly')
+    expect(JSON.stringify(h.search.mock.calls)).toContain('hoa_homeownerhub_monthly')
     expect(h.createCheckoutSession).not.toHaveBeenCalled()
-    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain('hoa_essentials_monthly')
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).toContain('hoa_homeownerhub_monthly')
   })
 
   it('the Price lookup itself failing is the same friendly error, not a throw', async () => {
@@ -77,11 +77,11 @@ describe('v2 checkout before the band Prices exist', () => {
     expect(h.createCheckoutSession).not.toHaveBeenCalled()
   })
 
-  it('a forged plan=complete field is ignored: the Essentials Price is looked up and sold, Complete never is', async () => {
+  it('a forged plan=complete field is ignored: the one plan Price is looked up and sold, Complete never is', async () => {
     h.search.mockResolvedValueOnce({ data: [{ id: 'price_ess_a' }] })
     await startHoaCheckout({} as never, form({ plan: 'complete', cadence: 'annual' }))
     const queries = JSON.stringify(h.search.mock.calls)
-    expect(queries).toContain('hoa_essentials_annual')
+    expect(queries).toContain('hoa_homeownerhub_annual')
     expect(queries).not.toContain('complete')
     expect(h.createCheckoutSession).toHaveBeenCalledWith(expect.objectContaining({ priceId: 'price_ess_a', plan: 'essentials' }))
   })

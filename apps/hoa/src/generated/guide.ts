@@ -52918,6 +52918,19 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    "id": "2026-11-01-1345-new-prices-all-competitors#1",
+    "note": "2026-11-01-1345-new-prices-all-competitors",
+    "date": "2026-11-01",
+    "title": "One plan with everything included",
+    "body": "HomeownerHub now has one plan with every feature, including accounting. The price depends only on the number of homes. Existing subscriptions keep their current price until renewal, and boards get a notice before any change.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": "settings-billing",
+    "label": "improvement"
+  },
+  {
     "id": "2026-11-01-1030-no-grey-pages-board-report#1",
     "note": "2026-11-01-1030-no-grey-pages-board-report",
     "date": "2026-11-01",

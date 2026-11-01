@@ -13,8 +13,8 @@ describe('planV2Checkout (no Stripe calls)', () => {
   it('a first subscription: lookup key, quantity = units, 30-day trial, no card to start', () => {
     expect(planV2Checkout(NEW)).toEqual({
       ok: true,
-      lookupKey: 'hoa_essentials_monthly',
-      priceEnv: 'STRIPE_PRICE_ESSENTIALS_MONTHLY',
+      lookupKey: 'hoa_homeownerhub_monthly',
+      priceEnv: 'STRIPE_PRICE_HOMEOWNERHUB_MONTHLY',
       quantity: 50,
       metadataPlan: 'essentials',
       trialPeriodDays: 30,
@@ -24,10 +24,10 @@ describe('planV2Checkout (no Stripe calls)', () => {
 
   it('the cadence picks the Price, and it is always the one sold plan (never Complete)', () => {
     const r = planV2Checkout({ ...NEW, cadence: 'annual' })
-    expect(r).toMatchObject({ ok: true, lookupKey: 'hoa_essentials_annual', priceEnv: 'STRIPE_PRICE_ESSENTIALS_ANNUAL', metadataPlan: 'essentials' })
+    expect(r).toMatchObject({ ok: true, lookupKey: 'hoa_homeownerhub_annual', priceEnv: 'STRIPE_PRICE_HOMEOWNERHUB_ANNUAL', metadataPlan: 'essentials' })
     // A caller that still sends a plan (a stale form) cannot select Complete.
     const forged = planV2Checkout({ ...NEW, plan: 'complete' } as V2CheckoutFacts)
-    expect(forged).toMatchObject({ ok: true, lookupKey: 'hoa_essentials_monthly', metadataPlan: 'essentials' })
+    expect(forged).toMatchObject({ ok: true, lookupKey: 'hoa_homeownerhub_monthly', metadataPlan: 'essentials' })
   })
 
   it('an org that checked out before gets no second trial and must give a card', () => {

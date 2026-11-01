@@ -15,7 +15,7 @@ import { fakeDb, fakeStripe, filterValue, silentLogger, type FakeQuery } from '.
 // mock, the db an in-memory query fake. No real Stripe, email or database.
 
 const RENEWS = new Date('2026-12-01T00:00:00.000Z')
-const PRICES = { hoa_essentials_monthly: 'price_em', hoa_essentials_annual: 'price_ea' }
+const PRICES = { hoa_homeownerhub_monthly: 'price_em', hoa_homeownerhub_annual: 'price_ea' }
 
 function legacySub(over: Partial<SubscriptionSnapshot> = {}): SubscriptionSnapshot {
   return {
@@ -138,9 +138,9 @@ describe('runRenewalJob', () => {
     expect(tos.sort()).toEqual(['admin@hoa.test', 'board@hoa.test'])
     expect(tos).not.toContain('resident@hoa.test')
     const [email, opts] = d.sendEmail.mock.calls[0] as unknown as [{ subject: string; text: string }, { orgSandbox: boolean; ref: string }]
-    // 1–50, annual: $490 (the former Essentials price; never Complete's $990).
+    // 1–50, annual: the one plan is $590; the stored Essentials table stays $490 for old subscribers.
     expect(planPriceCents('essentials', 'annual', 48)).toBe(49000)
-    expect(email.subject).toBe('Your plan changes on December 1, 2026: HomeownerHub at $490 a year')
+    expect(email.subject).toBe('Your plan changes on December 1, 2026: HomeownerHub at $590 a year')
     expect(email.text).toContain('48 homes on file (1–50 doors)')
     expect(email.text).toContain('https://hoa.test/settings/billing')
     expect(opts).toEqual({ orgSandbox: false, ref: 'renewal:org-1' })
@@ -148,7 +148,7 @@ describe('runRenewalJob', () => {
       expect.objectContaining({
         action: RENEWAL_NOTICE_AUDIT_ACTION,
         org_id: 'org-1',
-        metadata: expect.objectContaining({ term: 'sub_1:2026-12-01T00:00:00.000Z', new_price_cents: 49000, recipients: 2 }),
+        metadata: expect.objectContaining({ term: 'sub_1:2026-12-01T00:00:00.000Z', new_price_cents: 59000, recipients: 2 }),
       }),
     ])
     // No address in the claim row.
@@ -235,12 +235,12 @@ describe('runRenewalJob', () => {
     const r = await runRenewalJob(w.db, deps(s), { pricingV2: true, now: Date.parse('2026-11-30T14:00:00Z'), logger })
     expect(r).toMatchObject({ switched: 0, failed: 1 })
     const logged = JSON.stringify([...logger.error.mock.calls, ...logger.info.mock.calls])
-    expect(logged).toContain('hoa_essentials_annual')
+    expect(logged).toContain('hoa_homeownerhub_annual')
     expect(logged).not.toContain('@')
   })
 
   it('cancelled or already-moved subscriptions are left alone', async () => {
-    for (const over of [{ status: 'canceled' }, { lookupKey: 'hoa_complete_monthly' }, { lookupKey: 'hoa_essentials_monthly' }]) {
+    for (const over of [{ status: 'canceled' }, { lookupKey: 'hoa_complete_monthly' }, { lookupKey: 'hoa_homeownerhub_monthly' }]) {
       const w = world()
       const s = fakeStripe({ sub_1: legacySub(over) }, PRICES)
       const d = deps(s)
@@ -254,7 +254,7 @@ describe('runRenewalJob', () => {
 describe('buildRenewalNotice', () => {
   it('monthly at 401 homes shows cents', () => {
     const n = buildRenewalNotice({ orgName: 'A & B <HOA>', renewsAt: RENEWS, cadence: 'monthly', homes: 401, link: 'https://x.test/settings/billing' })
-    expect(n.subject).toBe('Your plan changes on December 1, 2026: HomeownerHub at $180.45 a month')
+    expect(n.subject).toBe('Your plan changes on December 1, 2026: HomeownerHub at $260.65 a month')
     expect(n.html).toContain('A &amp; B &lt;HOA&gt;')
     expect(n.html).not.toContain('<HOA>')
   })

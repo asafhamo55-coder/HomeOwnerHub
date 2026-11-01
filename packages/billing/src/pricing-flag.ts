@@ -38,4 +38,4 @@ export const PRICING_V2: boolean = true
  * apps/marketing/src/lib/hoa-pricing.ts mirrors this literal and its test
  * fails if the two differ, so one commit flips checkout, the app and the site.
  */
-export const ONE_PLAN_NEW_PRICES: boolean = false
+export const ONE_PLAN_NEW_PRICES: boolean = true
