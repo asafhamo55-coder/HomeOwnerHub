@@ -80,7 +80,7 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges
         key={link.href}
         href={link.href}
         linkAs={Link}
-        // Default (auto) prefetch: down to the loading.tsx skeleton only.
+        // Default (auto) prefetch: the shared layout only.
         // A full prefetch rendered all ~20 destinations on the server on
         // every page load (BL-074, navigation-perf-ratchet.test.ts).
         icon={<Icon aria-hidden />}

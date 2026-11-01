@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
+import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import { AppShell, AppShellContent, AppShellHeader, AppShellMain, AppShellSidebar, Alert, EmptyState, Page } from '@homeowner-portal/ui'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { getCurrentOrg, getMembershipDetail, getSignedInUser } from '@/lib/orgs'
@@ -43,6 +45,9 @@ export default async function ProLayout({ children }: { children: React.ReactNod
 
   return (
     <DashboardProviders>
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       <AppShell>
         <AppShellSidebar collapsible>
           <ProSidebar role={role} orgName={org.name} general={detail?.generalCounsel === true} />

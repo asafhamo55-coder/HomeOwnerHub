@@ -5,36 +5,50 @@ import { describe, expect, it } from 'vitest'
 // BL-074 ratchets for "every navigation takes noticeable time".
 const src = (p: string) => resolve(__dirname, p)
 
-describe('navigation responds before the server finishes', () => {
-  // Every board and resident page is force-dynamic. Without a loading
-  // boundary above them, a click leaves the old page frozen on screen until
-  // the new one has fully rendered on the server.
-  it.each(['app/(dashboard)/loading.tsx', 'app/resident/loading.tsx', 'app/admin/loading.tsx'])(
-    '%s exists',
-    (path) => {
-      expect(existsSync(src(path))).toBe(true)
-    },
-  )
-})
-
-describe('every board and resident page has its own loading state (BL-099)', () => {
-  // The shell-level loading.tsx above paints a generic card stack; each
-  // page directory has its own, laid out like the page, so the header and
-  // column don't jump when the page streams in.
-  const pageDirs = (root: string): string[] => {
+describe('signed-in pages keep the old page on screen until the next one is ready', () => {
+  // A route-level loading.tsx is a Suspense fallback. Next swaps it in the
+  // instant a link is tapped, so the page the person was reading turned into
+  // grey bars on every menu change. With no loading.tsx, the router's
+  // navigation transition holds the current page (with NavigationProgress
+  // moving) until the next page's first chunk arrives; slow widgets inside a
+  // page still stream in under their own in-page <Suspense>. Verified against
+  // next 15.5 router-reducer/ppr-navigations: a pending segment with no
+  // loading boundary has nothing to render, so React keeps the old UI.
+  const loadingFiles = (root: string): string[] => {
     const out: string[] = []
     const walk = (dir: string) => {
       for (const e of readdirSync(dir, { withFileTypes: true })) {
         if (e.isDirectory()) walk(join(dir, e.name))
-        else if (e.name === 'page.tsx') out.push(dir)
+        else if (/^loading\.(tsx|ts|jsx|js)$/.test(e.name)) out.push(join(dir, e.name))
       }
     }
     walk(src(root))
     return out
   }
-  it.each(['app/(dashboard)', 'app/resident'])('%s', (root) => {
-    const missing = pageDirs(root).filter((d) => !existsSync(join(d, 'loading.tsx')))
-    expect(missing.map((d) => relative(src('.'), d))).toEqual([])
+  it.each(['app/(dashboard)', 'app/resident', 'app/admin', 'app/(pro)'])(
+    '%s has no route-level loading.tsx',
+    (root) => {
+      expect(loadingFiles(root).map((f) => relative(src('.'), f))).toEqual([])
+    },
+  )
+
+  it('no loading file hides anywhere else under app/ either', () => {
+    expect(loadingFiles('app').map((f) => relative(src('.'), f))).toEqual([])
+  })
+
+  it.each([
+    'app/(dashboard)/layout.tsx',
+    'app/resident/layout.tsx',
+    'app/admin/layout.tsx',
+    'app/(pro)/layout.tsx',
+  ])('%s mounts NavigationProgress so a tap responds at once', (file) => {
+    expect(readFileSync(src(file), 'utf8')).toContain('<NavigationProgress />')
+  })
+
+  it('NavLink shows a pending state on the tapped link', () => {
+    const text = readFileSync(src('components/layout/NavLink.tsx'), 'utf8')
+    expect(text).toContain('useLinkStatus')
+    expect(text).toContain('data-link-pending')
   })
 })
 
@@ -45,9 +59,8 @@ describe('the sidebar does not fully prefetch every page', () => {
   // fire ~20 complete page renders in the background, competing with the
   // page the user actually asked for, and the results expired from the
   // router cache after 30s anyway (next.config.ts staleTimes.dynamic).
-  // The default ("auto") prefetches only down to the nearest loading.tsx,
-  // which is cheap and cached for staleTimes.static, so a click paints the
-  // skeleton at once and streams the page in.
+  // The default ("auto") prefetches only the shared layout, which is cheap
+  // and cached for staleTimes.static.
   it('HoaSidebar leaves Link prefetch at its default', () => {
     const file = readFileSync(src('components/layout/HoaSidebar.tsx'), 'utf8')
     // The JSX prop, bare or ={true} (comments mentioning it are fine).
@@ -57,11 +70,10 @@ describe('the sidebar does not fully prefetch every page', () => {
 })
 
 describe('menus load the hovered page in full', () => {
-  // The loading.tsx skeleton still flashed on every click while the page
-  // rendered. NavLink upgrades only the hovered or touched link to a full
+  // NavLink upgrades only the hovered or touched link to a full
   // prefetch, so the page is usually ready by the time the click lands.
   it('NavLink asks Next for a full prefetch on hover', () => {
-    expect(readFileSync(src('components/layout/NavLink.tsx'), 'utf8')).toMatch(/<AppLink \{\.\.\.props\} unstable_dynamicOnHover \/>/)
+    expect(readFileSync(src('components/layout/NavLink.tsx'), 'utf8')).toMatch(/<AppLink \{\.\.\.props\} unstable_dynamicOnHover>/)
   })
 
   it.each([

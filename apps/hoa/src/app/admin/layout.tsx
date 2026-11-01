@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { Suspense } from 'react'
+import { NavigationProgress } from '@/components/layout/NavigationProgress'
 import {
   AppShell,
   AppShellContent,
@@ -35,6 +37,9 @@ export default async function AdminLayout({
 
   return (
     <AppShell>
+<Suspense fallback={null}>
+<NavigationProgress />
+</Suspense>
       <AppShellSidebar>
         <AdminSidebar userEmail={user.email ?? ''} />
       </AppShellSidebar>

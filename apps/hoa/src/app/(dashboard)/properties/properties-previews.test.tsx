@@ -42,7 +42,6 @@ const { PropertyList } = await import('./PropertyList')
 const { PropertyListFilters } = await import('./PropertyListFilters')
 const { PropertiesHeader } = await import('./PropertiesHeader')
 const { PropertyDetailView } = await import('./[id]/PropertyDetailView')
-const { default: PropertyLoading } = await import('./[id]/loading')
 const { parsePropertyListParams } = await import('@/lib/properties/list-params')
 type Row = import('@/lib/properties/list').PropertyListRow
 type Data = import('@/lib/properties/property-360').Property360
@@ -317,12 +316,6 @@ describe('property 360 (rendered)', () => {
     expect(unread).not.toContain('Behind on plan')
     expect(unread).toContain('6 × $150.00 from May 1, 2026')
   })
-
-  it('the loading skeleton names the sections', () => {
-    const out = renderToStaticMarkup(<PropertyLoading />)
-    expect(out).toContain('aria-busy="true"')
-    expect(out).toContain('People')
-  })
 })
 
 // ─── Previews ────────────────────────────────────────────────────────
@@ -339,7 +332,6 @@ const PREVIEWS: Record<string, { title: string; body: () => React.ReactElement }
   'detail-quiet': { title: 'Property 360 — quiet home (no strip)', body: () => view(quietHome()) },
   'detail-unlinked': { title: 'Property 360 — no unit linked', body: () => view(unlinkedHome()) },
   'detail-failed': { title: 'Property 360 — failed sections', body: () => view(failingHome(), 'activity') },
-  'detail-loading': { title: 'Property 360 — loading skeleton', body: () => <PropertyLoading /> },
 }
 
 function frameDoc(inner: string, css: string[], dark: boolean): string {
