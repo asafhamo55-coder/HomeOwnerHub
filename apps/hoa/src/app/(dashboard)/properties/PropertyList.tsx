@@ -181,6 +181,7 @@ export function PropertyList({
           <span className="flex min-w-0 items-center gap-2">
             <span className={cn('size-2 shrink-0 rounded-full', severityDotClass(tone))} title={severityLabel(row.severityRank)} aria-hidden />
             <Link
+              prefetch={false}
               href={open(row)}
               data-row-link
               title={row.address}
@@ -342,7 +343,7 @@ export function PropertyList({
         : (row: PropertyListRow) => (
             <>
               {col.cell(row)}
-              <Link href={open(row)} tabIndex={-1} aria-hidden className="absolute inset-0" />
+              <Link prefetch={false} href={open(row)} tabIndex={-1} aria-hidden className="absolute inset-0" />
             </>
           ),
   }))
@@ -373,6 +374,7 @@ export function PropertyList({
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <Link
+                    prefetch={false}
                     href={open(row)}
                     data-row-link
                     title={row.address}

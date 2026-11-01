@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Alert, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
+import { getSignedInUser } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { tryLoad } from '@/lib/load-or-fail'
 import { propertyHref } from '@/lib/properties/href'
@@ -55,9 +56,7 @@ export default async function EstoppelPage({ params }: { params: Promise<{ id: s
   const { input, today } = loaded.data
 
   const cert = buildCertificate(input, { requestDate: today, issueDate: today, delivery: 'electronic', expedited: false })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getSignedInUser()
   const audit = user
     ? await recordEstoppelAudit(supabase, {
         action: ESTOPPEL_PREPARED,

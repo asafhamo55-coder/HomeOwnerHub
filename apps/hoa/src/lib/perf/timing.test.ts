@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyServerTiming, perfTimer, serverTimingValue, SLOW_LOADER_MS, timed } from './timing'
+import { applyServerTiming, perfTimer, redactPath, requestKind, serverTimingValue, SLOW_LOADER_MS, timed } from './timing'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -74,5 +74,23 @@ describe('Server-Timing', () => {
     const res = new Response('ok')
     applyServerTiming(res, [])
     expect(res.headers.get('Server-Timing')).toBeNull()
+  })
+})
+
+describe('redactPath', () => {
+  it('keeps the route shape and drops anything that identifies a record', () => {
+    expect(redactPath('/properties/3f2a9c1e-1b2c-4d3e-8f90-123456789abc/edit')).toBe('/properties/:id/edit')
+    expect(redactPath('/inbox/12345')).toBe('/inbox/:id')
+    expect(redactPath('/documents/abcdef0123456789abcdef01')).toBe('/documents/:id')
+    expect(redactPath('/dues')).toBe('/dues')
+    expect(redactPath('/')).toBe('/')
+  })
+})
+
+describe('requestKind', () => {
+  it('tells prefetches, soft navigations and full loads apart', () => {
+    expect(requestKind(new Headers({ 'next-router-prefetch': '1', rsc: '1' }))).toBe('prefetch')
+    expect(requestKind(new Headers({ rsc: '1' }))).toBe('rsc')
+    expect(requestKind(new Headers())).toBe('document')
   })
 })

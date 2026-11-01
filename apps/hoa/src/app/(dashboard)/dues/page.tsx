@@ -165,22 +165,26 @@ export default async function DuesPage({
   // pre-fill — the board types the amount, as before.
   const ratesP = M5_APPLIED ? timed(R, 'dues.rates', () => loadDuesRates(supabase as unknown as LooseDb, assoc.id)) : Promise.resolve([])
 
-  const [listResult, overdueResult, rates] = await Promise.all([
+  // BL-163: "Record payment…" (one amount split in § 43-17A-8's order) is for
+  // Georgia associations. A failed read hides it; Mark paid is unaffected.
+  // It needs only the association, so it runs beside the list instead of
+  // after it (one fewer database round trip in series on every visit).
+  const stateP = loadOrFail(
+    'dues association state',
+    supabase.from('associations').select('state, governing_law_state').eq('id', assoc.id),
+  )
+
+  const [listResult, overdueResult, rates, stateRes] = await Promise.all([
     scopeUnits && !scopeUnits.ok
       ? Promise.resolve({ ok: false } as const)
       : timed(R, 'dues.list', () => loadOrFail('dues', listQuery.order('due_date', { ascending: false }).range(from, to))),
     overdueP,
     ratesP,
+    stateP,
   ])
   const generatePrefill = rates ? billingPrefill(rates, todayIsoStr, 'monthly') : null
   const prefill = generatePrefill ? { cents: generatePrefill.cents, hint: generatePrefill.hint } : null
 
-  // BL-163: "Record payment…" (one amount split in § 43-17A-8's order) is for
-  // Georgia associations. A failed read hides it; Mark paid is unaffected.
-  const stateRes = await loadOrFail(
-    'dues association state',
-    supabase.from('associations').select('state, governing_law_state').eq('id', assoc.id),
-  )
   const stateRow = stateRes.ok ? ((stateRes.data ?? []) as Array<{ state: string | null; governing_law_state: string | null }>)[0] : undefined
   const isGeorgia = (stateRow?.governing_law_state ?? stateRow?.state ?? '').trim().toUpperCase() === 'GA'
 
@@ -406,6 +410,7 @@ function MonthTable({
           {r.unit?.id ? (
             // A unit id: /properties/[id] redirects it to the home's page.
             <Link
+                prefetch={false}
               href={propertyHref(asUnitId(r.unit.id))}
               className="block font-medium text-foreground no-underline hover:text-primary hover:underline"
             >

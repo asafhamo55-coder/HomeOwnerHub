@@ -72,8 +72,16 @@ describe('the sidebar does not fully prefetch every page', () => {
 describe('menus load the hovered page in full', () => {
   // NavLink upgrades only the hovered or touched link to a full
   // prefetch, so the page is usually ready by the time the click lands.
-  it('NavLink asks Next for a full prefetch on hover', () => {
-    expect(readFileSync(src('components/layout/NavLink.tsx'), 'utf8')).toMatch(/<AppLink \{\.\.\.props\} unstable_dynamicOnHover>/)
+  it('NavLink rests on prefetch={false} and goes to a full prefetch on hover, focus or touch', () => {
+    const text = readFileSync(src('components/layout/NavLink.tsx'), 'utf8')
+    // Resting state: no prefetch request for a link that is merely in view.
+    expect(text).toContain('useState(false)')
+    expect(text).toContain('prefetch={mode}')
+    expect(text).toMatch(/const mode = prefetch !== undefined \? prefetch : armed/)
+    // Armed by pointer, keyboard and touch (touch devices have no hover).
+    for (const handler of ['onMouseEnter', 'onTouchStart', 'onFocus']) {
+      expect(text).toContain(`${handler}={(e) => {`)
+    }
   })
 
   it.each([
@@ -85,5 +93,59 @@ describe('menus load the hovered page in full', () => {
     const text = readFileSync(src(file), 'utf8')
     expect(text).toContain("import { NavLink as Link } from '@/components/layout/NavLink'")
     expect(text).not.toMatch(/from 'next\/link'/)
+  })
+})
+
+describe('the board layout does not wait for a sidebar badge', () => {
+  // countPendingApprovals is about ten database reads for one small number.
+  // Awaited in the layout, every page's first paint waited for the slowest of
+  // them. The layout starts it and hands the promise to the sidebar.
+  const layout = readFileSync(src('app/(dashboard)/layout.tsx'), 'utf8')
+
+  it('the layout never awaits the approvals count', () => {
+    expect(layout).not.toMatch(/await\s+(countPendingApprovals|sidebarBadges)/)
+    expect(layout).not.toContain('countPendingApprovals')
+    expect(layout).toMatch(/const badges = sidebarBadges\(/)
+    expect(layout).toContain('badges={badges}')
+  })
+
+  it('sidebarBadges never rejects, so an unawaited promise cannot crash the render', () => {
+    const helper = readFileSync(src('lib/approvals-inbox/sidebar-badge.ts'), 'utf8')
+    expect(helper).toMatch(/\.then\(\s*\(counts\)[\s\S]*\(\) => \(\{\}\)/)
+  })
+
+  it('the sidebar accepts the promise and fills the badge in when it resolves', () => {
+    const sidebar = readFileSync(src('components/layout/HoaSidebar.tsx'), 'utf8')
+    expect(sidebar).toContain('Promise<Record<string, string | null>>')
+    expect(sidebar).toContain('resolvedBadges?.[link.href]')
+  })
+})
+
+describe('timings that make a slow navigation measurable', () => {
+  it('the middleware tags each request as prefetch, rsc or document', () => {
+    const mw = readFileSync(src('middleware.ts'), 'utf8')
+    expect(mw).toContain('requestKind(request.headers)')
+    expect(mw).toContain('redactPath(path)')
+  })
+
+  it('the signed-in user and membership reads are timed', () => {
+    const orgs = readFileSync(src('lib/orgs.ts'), 'utf8')
+    expect(orgs).toContain("'auth.getUser'")
+    expect(orgs).toContain("'auth.memberships'")
+  })
+})
+
+describe('long lists do not prefetch every row', () => {
+  // A table of 50 homes holds 50 to 300 links to /properties/[id]; with the
+  // default prefetch every one in view fired a request on page load. Row
+  // links open on click (one request); the menus keep hover and touch prefetch.
+  it.each([
+    ['app/(dashboard)/properties/PropertyList.tsx', 3],
+    ['app/(dashboard)/violations/page.tsx', 2],
+    ['app/(dashboard)/inbox/ThreadList.tsx', 1],
+    ['app/(dashboard)/dues/page.tsx', 1],
+  ])('%s row links set prefetch={false}', (file, min) => {
+    const count = (readFileSync(src(file), 'utf8').match(/prefetch=\{false\}/g) ?? []).length
+    expect(count).toBeGreaterThanOrEqual(min as number)
   })
 })

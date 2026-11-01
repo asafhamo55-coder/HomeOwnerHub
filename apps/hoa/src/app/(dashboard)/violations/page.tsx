@@ -183,6 +183,7 @@ export default async function ViolationsListPage({
       cell: (v) => (
         <div className="min-w-0">
           <Link
+            prefetch={false}
             href={`/violations/${v.id}`}
             className="line-clamp-2 font-medium text-foreground no-underline hover:text-primary hover:underline"
           >
@@ -190,7 +191,7 @@ export default async function ViolationsListPage({
           </Link>
           <p className="mt-0.5 truncate text-xs text-muted">
             {v.property && v.property_id ? (
-              <Link href={propertyHref(asPropertyId(v.property_id))} className="text-muted hover:text-primary hover:underline">
+              <Link prefetch={false} href={propertyHref(asPropertyId(v.property_id))} className="text-muted hover:text-primary hover:underline">
                 {v.property.address}
                 {v.property.unit_number ? ` · ${v.property.unit_number}` : ''}
               </Link>
