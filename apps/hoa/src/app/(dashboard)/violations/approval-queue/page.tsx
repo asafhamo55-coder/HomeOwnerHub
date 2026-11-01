@@ -107,7 +107,7 @@ export default async function ApprovalQueuePage({
         <EmptyState
           icon={<Sparkles aria-hidden />}
           title="Nothing waiting for approval"
-          description="Drafts from Covenant Brain land here until the board reviews them."
+          description="Violation notices the assistant wrote land here until the board reviews them."
           action={
             <Button asChild icon={<Plus aria-hidden />}>
               <Link href="/violations/new">Draft a violation</Link>

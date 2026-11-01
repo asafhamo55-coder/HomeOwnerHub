@@ -92,7 +92,7 @@ export default async function ArcReviewDetailPage({
     <Page
       width="wide"
       title={arc.summary}
-      breadcrumbs={[{ label: 'ARC review', href: '/arc' }, { label: arc.summary }]}
+      breadcrumbs={[{ label: 'Architecture requests', href: '/arc' }, { label: arc.summary }]}
       linkAs={Link}
       meta={
         <>

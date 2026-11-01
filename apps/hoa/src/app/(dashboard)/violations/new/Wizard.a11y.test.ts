@@ -19,3 +19,21 @@ describe('violation wizard accessibility', () => {
     expect(src).toMatch(/p-1 text-background coarse:size-11/)
   })
 })
+
+describe('violation wizard plain words', () => {
+  it('uses plain labels and keeps the analytics hooks', () => {
+    for (const text of [
+      'label="Days to fix it"',
+      'label="Fine per day if not fixed (optional)"',
+      'Photos are your proof if the owner disputes it.',
+      'Write the notice for me',
+      'Rule in your CC&Rs (section)',
+    ]) expect(src).toContain(text)
+    for (const old of ['Cure period (days)', 'Daily fine if uncured', 'Analyze with Covenant Brain']) {
+      expect(src).not.toContain(old)
+    }
+    expect(src).toContain('htmlFor="cure"')
+    expect(src).toContain('htmlFor="fine"')
+    expect(src).toContain('onClick={handleAnalyze}')
+  })
+})

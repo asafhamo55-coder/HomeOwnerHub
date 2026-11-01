@@ -55,6 +55,8 @@ export interface HoaNavLink {
    * (BL-102 A11) covers both /inbox/** and /communications/**.
    */
   match?: readonly string[]
+  /** Shown in the "Show only the basics" menu (C3). */
+  basic?: boolean
 }
 
 export interface HoaNavGroup {
@@ -65,12 +67,13 @@ export interface HoaNavGroup {
 export const HOA_NAV: HoaNavGroup[] = [
   {
     items: [
-      { href: '/', icon: Home, label: 'Dashboard', keywords: ['home', 'overview'] },
+      { href: '/', icon: Home, label: 'Dashboard', basic: true, keywords: ['home', 'overview'] },
       {
         href: '/approvals',
         icon: ListChecks,
-        label: 'Approvals',
-        keywords: ['approve', 'pending', 'queue', 'decisions', 'ai', 'proposals'],
+        label: 'Things to approve',
+        basic: true,
+        keywords: ['approvals', 'approve', 'pending', 'queue', 'decisions', 'ai', 'proposals'],
       },
       { href: '/ai/ask', icon: Sparkles, label: 'Ask the Docs', keywords: ['ai', 'question', 'ccr', 'bylaws'] },
     ],
@@ -85,14 +88,15 @@ export const HOA_NAV: HoaNavGroup[] = [
         href: '/inbox',
         icon: Mail,
         label: 'Messages',
+        basic: true,
         match: MESSAGES_PREFIXES,
         keywords: ['inbox', 'email', 'mail', 'communications', 'announcements', 'broadcast', 'sent', 'drafts', 'replies'],
       },
       { href: '/properties', icon: Building2, label: 'Properties', keywords: ['units', 'homes', 'residents', 'owners'] },
       { href: '/leases', icon: KeyRound, label: 'Leases', keywords: ['rentals', 'tenants'] },
-      { href: '/violations', icon: AlertTriangle, label: 'Violations', keywords: ['notices', 'compliance'] },
-      { href: '/arc', icon: ClipboardCheck, label: 'ARC review', keywords: ['architectural', 'applications'] },
-      { href: '/meetings', icon: CalendarDays, label: 'Meetings', keywords: ['minutes', 'agenda'] },
+      { href: '/violations', icon: AlertTriangle, label: 'Violations', basic: true, keywords: ['notices', 'compliance'] },
+      { href: '/arc', icon: ClipboardCheck, label: 'Architecture requests', basic: true, keywords: ['arc', 'arc review', 'architectural', 'applications'] },
+      { href: '/meetings', icon: CalendarDays, label: 'Meetings', basic: true, keywords: ['minutes', 'agenda'] },
       // BL-119: meeting action items and ticket follow-ups, board-wide.
       {
         href: '/tasks',
@@ -101,13 +105,13 @@ export const HOA_NAV: HoaNavGroup[] = [
         keywords: ['action items', 'to do', 'todo', 'follow ups', 'assigned', 'my tasks', 'due'],
       },
       { href: '/events', icon: CalendarHeart, label: 'Events' },
-      { href: '/tickets', icon: MessageSquare, label: 'Tickets', keywords: ['requests', 'maintenance'] },
+      { href: '/tickets', icon: MessageSquare, label: 'Tickets', basic: true, keywords: ['requests', 'maintenance'] },
     ],
   },
   {
     label: 'Money',
     items: [
-      { href: '/dues', icon: Wallet, label: 'Dues', keywords: ['assessments', 'overdue', 'payments'] },
+      { href: '/dues', icon: Wallet, label: 'Dues', basic: true, keywords: ['assessments', 'overdue', 'payments'] },
       { href: '/accounting', icon: Calculator, label: 'Accounting', keywords: ['ledger', 'invoices', 'bank', 'budget'] },
       // BL-132: only once migration 0068 is applied (M4_APPLIED), so the
       // sidebar doesn't change before then.
@@ -130,7 +134,7 @@ export const HOA_NAV: HoaNavGroup[] = [
   {
     label: 'Knowledge',
     items: [
-      { href: '/documents', icon: FileText, label: 'Documents', keywords: ['files', 'governing'] },
+      { href: '/documents', icon: FileText, label: 'Documents', basic: true, keywords: ['files', 'governing'] },
       { href: '/legal', icon: Scale, label: 'State Law', keywords: ['statutes', 'legal', 'compliance', '720.303', 'official records'] },
       // BL-145: every statutory obligation, its status and the evidence.
       {
@@ -160,7 +164,7 @@ export const ADMIN_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
   { href: '/settings/activity', icon: History, label: 'Activity log', keywords: ['audit', 'audit log', 'history', 'who did', 'activity'] },
   { href: '/settings/handover', icon: ListChecks, label: 'Board handover', keywords: ['turnover', 'handover', 'leaving', 'new board', 'transfer', 'successor'] },
-  { href: '/help', icon: CircleHelp, label: 'Help', keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
+  { href: '/help', icon: CircleHelp, label: 'Help', basic: true, keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
 ]
 
 export const BOARD_ACCOUNT: HoaNavLink[] = [
@@ -172,7 +176,7 @@ export const BOARD_ACCOUNT: HoaNavLink[] = [
   { href: '/settings/data', icon: DatabaseBackup, label: 'Your data', keywords: ['export', 'download', 'backup', 'csv'] },
   { href: '/settings/activity', icon: History, label: 'Activity log', keywords: ['audit', 'audit log', 'history', 'who did', 'activity'] },
   { href: '/settings/handover', icon: ListChecks, label: 'Board handover', keywords: ['turnover', 'handover', 'leaving', 'new board', 'transfer', 'successor'] },
-  { href: '/help', icon: CircleHelp, label: 'Help', keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
+  { href: '/help', icon: CircleHelp, label: 'Help', basic: true, keywords: ['guide', 'how do i', 'how to', 'support', 'tutorial'] },
 ]
 
 /** Quick-create actions offered in the palette. */
@@ -220,4 +224,43 @@ export function activeNavHref(pathname: string, links: readonly HoaNavLink[]): s
     }
   }
   return best
+}
+
+/** localStorage key for the menu choice: 'all' or 'basics'. */
+export const NAV_MODE_KEY = 'hoa.nav.mode'
+/** localStorage key for the first time this browser opened the board menu. */
+export const NAV_FIRST_SEEN_KEY = 'hoa.nav.firstSeen'
+export const NAV_NEW_BOARD_DAYS = 30
+
+export type NavMode = 'all' | 'basics'
+
+/**
+ * Which menu to show. A stored choice always wins. Otherwise admins see
+ * everything, and board members see the basics for their first 30 days
+ * (or when we cannot tell how long they have been here).
+ */
+export function resolveNavMode(input: {
+  stored: string | null
+  role: 'admin' | 'board'
+  firstSeen: number | null
+  now: number
+}): NavMode {
+  if (input.stored === 'all' || input.stored === 'basics') return input.stored
+  if (input.role === 'admin') return 'all'
+  if (input.firstSeen === null || !Number.isFinite(input.firstSeen)) return 'basics'
+  const ageDays = (input.now - input.firstSeen) / 86_400_000
+  return ageDays < NAV_NEW_BOARD_DAYS ? 'basics' : 'all'
+}
+
+/**
+ * The links to render in the basics menu: the basic ones, plus the page
+ * you are on (so the menu never loses your place).
+ */
+export function visibleNavLinks(
+  links: readonly HoaNavLink[],
+  mode: NavMode,
+  activeHref: string | null,
+): HoaNavLink[] {
+  if (mode === 'all') return [...links]
+  return links.filter((l) => l.basic || l.href === activeHref)
 }

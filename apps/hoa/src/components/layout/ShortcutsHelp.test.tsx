@@ -47,6 +47,18 @@ describe('ShortcutsHelp', () => {
     await press(input, '?')
     expect(dialog()).toBeNull()
   })
+  it('lists search but no go-to chords, and g then d goes nowhere', async () => {
+    await mount()
+    await press(document.body, 'g')
+    await press(document.body, 'd')
+    expect(dialog()).toBeNull()
+    await press(document.body, '?')
+    const text = dialog()!.textContent ?? ''
+    expect(text).toContain('Search')
+    expect(text).not.toMatch(/Go to/)
+    expect(dialog()!.querySelectorAll('kbd')).toBeTruthy()
+    expect(text).not.toMatch(/\bthen\b.*\bthen\b/)
+  })
   it('closes on Escape', async () => {
     await mount()
     await press(document.body, '?')

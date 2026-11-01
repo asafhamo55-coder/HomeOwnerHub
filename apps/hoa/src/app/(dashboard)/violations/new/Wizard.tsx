@@ -491,6 +491,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
               {photoUploading ? ', uploading…' : ''})
             </span>
           </Label>
+          <p className="text-xs text-muted">Photos are your proof if the owner disputes it.</p>
 
           {photoPreviews.length > 0 || photoStoragePaths.length > 0 ? (
             <div className="space-y-2">
@@ -565,7 +566,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
               className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-subtle px-6 py-8 text-center transition-colors hover:border-primary hover:bg-primary-subtle"
             >
               <ImagePlus className="h-6 w-6 text-muted" aria-hidden />
-              <span className="text-sm font-medium text-foreground">Click to add photos</span>
+              <span className="text-sm font-medium text-foreground">Tap to add photos</span>
               <span className="text-xs text-muted">JPG, PNG, WebP, or HEIC · up to 25 MB each · multiple allowed</span>
             </label>
           )}
@@ -631,7 +632,8 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FieldWithSuggestion
-            label="Cure period (days)"
+            label="Days to fix it"
+            hint="How long the owner has to put it right before a fine starts."
             htmlFor="cure"
             isAI={aiAppliedFields.has('cure_period_days')}
             reasoning={reasoningFor('cure_period_days')}
@@ -659,7 +661,8 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
             />
           </FieldWithSuggestion>
           <FieldWithSuggestion
-            label="Daily fine if uncured ($)"
+            label="Fine per day if not fixed (optional)"
+            hint="In dollars. Leave it at 0 for no fine."
             htmlFor="fine"
             isAI={aiAppliedFields.has('fine_amount')}
             reasoning={reasoningFor('fine_amount')}
@@ -710,7 +713,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
             Save draft & exit
           </Button>
           <Button onClick={handleAnalyze} disabled={!canAnalyze} icon={<Sparkles aria-hidden />}>
-            Analyze with Covenant Brain
+            Write the notice for me
           </Button>
         </div>
       </div>
@@ -727,7 +730,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
           <div className="mt-4 space-y-1">
-            <p className="font-medium text-foreground">Running Covenant Brain</p>
+            <p className="font-medium text-foreground">Writing your notice</p>
             <p className="text-sm text-muted">
               Reading your photo, matching the right CC&amp;R section, and drafting a letter.
               Usually 5–10 seconds.
@@ -763,7 +766,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
           <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
             <Detail label="Property">{selectedProperty?.address ?? '—'}</Detail>
             <Detail label="Violation type">{analysis.violationType}</Detail>
-            <Detail label="CC&R section">
+            <Detail label="Rule in your CC&Rs (section)">
               {analysis.ccrSection ?? <span className="text-muted">Not matched</span>}
             </Detail>
             <Detail label="Severity">
@@ -862,8 +865,10 @@ function FieldWithSuggestion({
   isAI,
   reasoning,
   onClearAI,
+  hint,
   children,
 }: {
+  hint?: string
   label: string
   htmlFor: string
   isAI?: boolean
@@ -887,6 +892,7 @@ function FieldWithSuggestion({
         ) : null}
       </div>
       {children}
+      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
       {isAI && reasoning ? (
         <p className="text-xs text-muted">{reasoning}</p>
       ) : null}
