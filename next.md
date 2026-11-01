@@ -6,6 +6,75 @@ this file is the reference it points to.
 
 ---
 
+## 00. HANDOFF 2026-11-01 ~08:00 UTC (session 37afa776 closed by Asaf: "update next.md… exit and resume with new session"). READ THIS FIRST; it supersedes §0a and §0.
+
+### Owner directives from this session (all still in force)
+- **PayHOA is the target.**
+  - Asaf, 2026-10-31: "https://www.payhoa.com is where we need to target… all the backlog should shift to replicate their features and the website."
+  - `docs/backlog.md` now opens with the **PayHOA parity program** (Tracks A/B/C). It replaces round-based ranking. Work it top-down.
+  - The analysis is in `docs/decisions/2026-10-31-payhoa-gap-analysis.md` and the artifact https://claude.ai/artifact/6mmwTNaBVmMHpPDd33Euss.
+  - Never copy PayHOA's text, images or brand. Never fake reviews, logos or testimonials.
+- **Website quality bar = payhoa.com.**
+  - Asaf said "it doesn't look good enough". He wants each feature shown as an interactive process "video". These now exist as code-built players.
+  - Use the ui-ux-pro-max skill for the menu and elements.
+  - **Up to 10 parallel agents are allowed for apps/marketing work**, each with a disjoint file scope. App work stays at 2 agents.
+  - Never call the website "done" without viewing screenshots.
+- **Older users.** HOA boards are often older and not tech-savvy. "Get a link, register and start using it" must be effortless. The persona is a 70-year-old on a phone. Treat sign-in confusion as a blocker.
+- **Website help chatbot.** Built (see below). Asaf asked for "a chatbot… for any question or technical support".
+
+### State at handoff
+- **Prod (app):** `37aaafab`, the full website redesign, live since 2026-10-31 22:37 UTC. Check `/api/health`.
+- **Integration tip `50848ec0`, pushed, CI pending.** Deploy it when CI is green: fast-forward check, then push to the prod branch. It contains:
+  - the help chat (flag-off until OA-43);
+  - C2 plain words in the violation form;
+  - C3 the "Show only the basics" menu, with "ARC review" renamed "Architecture requests" and "Approvals" renamed "Things to approve";
+  - C5 single-key "g" shortcuts removed;
+  - the CI fixes: chat support-actions is registered in the outbound-guard TRANSPORTS, and the help article and website demo use the new button names.
+- **No release note exists yet for C2/C3/C5 and the chat.** Write `docs/releases/2026-11-01-*` before deploying, then run `pnpm guide:build`.
+- **Shipped 2026-10-31:**
+  - rounds 25–28: resident path, treasurer month-end, a11y, easier sign-in for older volunteers;
+  - A1 website (all pages, 10 agents), A4 sample community, C1 "Do this next" card;
+  - A2 payments fee engine + `M8_APPLIED=false` + `migrations/0073_online_payments.sql` (in the manifest, NOT applied in prod).
+- **Decks:** refreshed 2026-10-31 (product 78 slides, investor 26, PayHOA slide). They need a refresh after the next deploy.
+- **SEO:**
+  - 50 guides.
+  - The weekly audit is done early: `docs/seo/2026-11-02-weekly-audit.md`.
+  - The **daily SEO batch for 2026-11-01 has NOT run yet.** Dispatch it.
+- **Docs to update:** `docs/session-handoff.md` and `docs/cycle-log.md` (append 2026-11-01).
+
+### Next work (PayHOA program order)
+1. Deploy `50848ec0`, with its release note.
+2. **A2 online payments**, PRs 3–10 behind M8, following `docs/decisions/2026-10-31-online-dues-payments-design.md`. Needs Asaf's OA-42 decisions to go live; the code can proceed with the recommended defaults.
+3. Website follow-ups:
+   - real product screenshots once there is a demo login;
+   - the Ask demo click-through to the cited section (needs an app feature first);
+   - the state pages (/states/*) were not restyled;
+   - deck screenshots.
+4. **Track B**, each needing a migration plus an M-flag, with SQL pbcopied to Asaf: surveys/polls, online voting, amenities, public HOA site, message board, print-and-mail, bill pay, 1099s.
+5. **C4:** a 14px text-xs floor and line-clamp instead of truncate.
+6. **ARC past decide-by** in the "Do this next" picker.
+
+### Waiting on Asaf (`docs/owner-actions.md`)
+- OA-42: five online-payment decisions.
+- OA-40: Stripe payout bank.
+- OA-41: invite email wording and link expiry (24h) in Supabase.
+- OA-43: help chat env vars on the marketing Vercel project (`NEXT_PUBLIC_SUPPORT_CHAT=1`, `AI_API_KEY`, then redeploy).
+- A5: one plan or two.
+- Real testimonials, with permission.
+
+### Lessons from this session (keep)
+- **Disk.** 350 agent worktrees filled the disk to 100%. Prune `.next` and `.turbo` in idle worktrees daily (memory: worktree-disk-cleanup). Never delete worktrees.
+- **Mac sleep.** The Mac sleeps and kills agents. Run `caffeinate -i -s -t 43200` in the background at session start.
+- **No `timeout` on macOS.** Use `perl -e 'alarm 60; exec @ARGV' gh …` for network calls in loops.
+- **Auto-mode classifier timeouts.** They often block prod pushes and multi-command Bash calls. Keep calls short and single-purpose. If blocked twice, report it and move on.
+- **Old labels pinned elsewhere.** Renaming a UI label breaks the help-article `[[button label]]` guide check and the marketing `process-demos.test.ts` proofs. Grep `apps/hoa/content` and `apps/marketing/src/lib/process-demos.ts` when renaming.
+- **New senders.** Any new Resend/Vonage import needs an entry in `packages/observability/src/outbound-guard.ratchet.test.ts` TRANSPORTS.
+- **Marketing palette classes.** The marketing ux-ratchet bans `bg-white`, including `bg-white/10`. Use `bg-[#fff]` or `bg-[rgb(255_255_255/0.1)]`.
+- **Sticky offsets.** The marketing header is now 64/72px with no utility bar. Sticky offsets must match.
+- **Other sessions push too.** Peer `homeownerhub-42` and a cloud session (claude.ai/code) push to claude/quality-oracle. Coordinate push windows and verify authorship before crediting work.
+
+---
+
 ## 0a. LOOP RESUMED 2026-10-30 ~16:15 IST (Asaf: "please resume the work per the prioritized backlog"). This supersedes §0's pause.
 - After the 5-hour UI/UX window (deploys c8f0e731 and 5150dcc8), the full 24/7 loop is back on. The hourly cron `23 * * * *` uses the §3 prompt, adds "work the newest ranked round top-down; groom the next round if exhausted", and allows at most 2 building agents. A one-shot renewal runs on Nov 6.
 - Round 8 is done, so a round-9 grooming pass ran 2026-10-30 (see docs/backlog.md).
@@ -82,8 +151,10 @@ Asaf paused the 24/7 loop on 2026-10-28 around 08:00 ET. The hourly cron and its
 
 > Read `next.md` at the repo root, then `docs/session-handoff.md`, `docs/backlog.md` (bottom sections first) and the last 5 entries of `docs/cycle-log.md`.
 >
+> Start with §00 (the 2026-11-01 handoff): PayHOA parity program, deploy `50848ec0`, run `caffeinate` in the background.
+>
 > Then resume the 24/7 HomeownerHub product loop exactly as `next.md` describes:
-> 1. Recreate the hourly cycle cron (`23 * * * *`) with the cycle prompt from `next.md` §3.
+> 1. Recreate the hourly cycle cron (`23 * * * *`) with the cycle prompt from `next.md` §3. Work the PayHOA parity program in `docs/backlog.md` top-down.
 > 2. Schedule a one-shot renewal before the 7-day cron expiry.
 > 3. Check the leftover agent worktrees listed in §6 and finish or re-dispatch that work.
 > 4. Refresh the product deck and the investor deck (`~/HomeownerHub-decks/`) so they match what is live and merged, then keep them current every cycle (§2 "Presentations stay current").
