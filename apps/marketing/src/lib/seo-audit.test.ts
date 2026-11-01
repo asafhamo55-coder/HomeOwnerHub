@@ -125,12 +125,9 @@ describe('SEO audit: structure', () => {
 
   it('no orphan pages: every sitemap page is linked from the footer, the nav or the Georgia hub lists', () => {
     const navs = read(path.join(marketingSrc, 'components/site/footer.tsx')) + read(path.join(marketingSrc, 'components/site/nav.tsx'))
-    // /compare is in the nav and links to its subpages (compare/payhoa).
-    const comparePage = read(path.join(marketingSrc, 'app/compare/page.tsx'))
     const orphans = SITEMAP_PATHS.filter(
       (p) =>
         p !== '/' &&
-        !(p.startsWith('/compare/') && comparePage.includes(`href="${p}"`)) &&
         !navs.includes(`'${p}'`) &&
         !navs.includes(`"${p}"`) &&
         !SITE_LINKS.some((l) => l.path === p) &&

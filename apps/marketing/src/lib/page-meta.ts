@@ -80,14 +80,9 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
       'Ask a rule question in plain English and get an answer that cites your CC&R section or the state statute, and says so when it is not covered.',
   },
   '/compare': {
-    title: 'HomeownerHub vs managers, Vantaca and DIY',
+    title: 'Compare HOA software for a self-managed board',
     description:
-      'The comparison your board can send around: AI workflows, HomeownerHub’s checkout price, and what management companies, Vantaca and DIY publish.',
-  },
-  '/compare/payhoa': {
-    title: 'HomeownerHub vs PayHOA: a fair comparison',
-    description:
-      'Feature parity, prices as of Oct 31, 2026, and how to switch your HOA board. Where HomeownerHub leads today, and where PayHOA is still ahead of us.',
+      'A fair look at HomeownerHub, PayHOA, HOA Express, Buildium, AppFolio, Vantaca and others for a volunteer board. Prices as of November 1, 2026.',
   },
   '/demo': {
     title: 'Book a demo: 20 minutes for your board',
