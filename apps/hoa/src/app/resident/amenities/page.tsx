@@ -5,8 +5,17 @@ import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor } from '@/lib/impersonation'
 import { getResidentUnits } from '@/lib/resident'
-import { DEFAULT_ASSOCIATION_TIME_ZONE, addCalendarDays, todayIn } from '@/lib/association-time'
-import { STATUS_LABELS, canCancel, formatSlot, rulesSummary, type Reservation } from '@/lib/amenities/model'
+import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
+import {
+  DISPLAY_LABELS,
+  canCancel,
+  dayStrip,
+  displayStatus,
+  formatSlot,
+  residentMustAskBoard,
+  rulesSummary,
+  type Reservation,
+} from '@/lib/amenities/model'
 import { loadAmenities, loadHeldSlots, loadHomeReservations, type LooseDb } from '@/lib/amenities/queries'
 import { Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
 import { CancelButton } from '@/app/(dashboard)/amenities/ReservationButtons'
@@ -15,7 +24,7 @@ import { BookingForm } from './BookingForm'
 export const metadata = { title: 'Book a space' }
 export const dynamic = 'force-dynamic'
 
-const SUBTITLE = 'Reserve the clubhouse, pool or courts. Pick a day and the hours you want.'
+const SUBTITLE = 'Reserve the clubhouse, pool or courts. Pick a day, then a time that is free.'
 
 /**
  * BL-034: a resident books an amenity for their home. Amenities and the
@@ -64,7 +73,7 @@ export default async function ResidentAmenitiesPage() {
   }
 
   const associationIds = new Set(units.map((u) => u.association_id))
-  const amenities = allAmenities.filter((a) => associationIds.has(a.associationId))
+  const amenities = allAmenities.filter((a) => associationIds.has(a.associationId) && !a.retiredAt)
   const held = await loadHeldSlots(db, org.id, amenities.map((a) => a.id), now.toISOString())
   if (held === null) {
     return (
@@ -90,7 +99,8 @@ export default async function ResidentAmenitiesPage() {
 
   const zoneFor = (associationId: string | null) =>
     units.find((u) => u.association_id === associationId)?.association_time_zone ?? DEFAULT_ASSOCIATION_TIME_ZONE
-  const names = new Map(amenities.map((a) => [a.id, a.name]))
+  const names = new Map(allAmenities.map((a) => [a.id, a.name]))
+  const cutoffs = new Map(allAmenities.map((a) => [a.id, a.cancelCutoffHours]))
   const homeLabel = (u: (typeof units)[number]) => [u.address, u.unit_number ? `Unit ${u.unit_number}` : null].filter(Boolean).join(', ') || 'Your home'
 
   return (
@@ -100,8 +110,7 @@ export default async function ResidentAmenitiesPage() {
       {amenities.map((a) => {
         const homes = units.filter((u) => u.association_id === a.associationId)
         const zone = zoneFor(a.associationId)
-        const today = todayIn(zone, now)
-        const taken = held.get(a.id) ?? []
+        const days = dayStrip({ amenity: a, timeZone: zone, now, held: held.get(a.id) ?? [], count: 28 })
         return (
           <Section key={a.id} label={a.name}>
             <Panel className="space-y-4">
@@ -116,21 +125,10 @@ export default async function ResidentAmenitiesPage() {
                   <p className="whitespace-pre-line text-base text-foreground-secondary">{a.rules}</p>
                 </div>
               ) : null}
-              {taken.length > 0 ? (
-                <div>
-                  <p className="text-base font-semibold text-foreground">Already taken</p>
-                  <ul className="list-disc pl-5 text-base text-foreground-secondary">
-                    {taken.slice(0, 12).map((t) => (
-                      <li key={t.startsAt}>{formatSlot(t.startsAt, t.endsAt, zone)}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
               <BookingForm
                 amenity={a}
                 homes={homes.map((u) => ({ id: u.unit_id, label: homeLabel(u) }))}
-                today={today}
-                lastDay={addCalendarDays(today, a.advanceDays)}
+                days={days}
               />
             </Panel>
           </Section>
@@ -146,10 +144,17 @@ export default async function ResidentAmenitiesPage() {
                   {names.get(r.amenityId) ?? 'Space'}: {formatSlot(r.startsAt, r.endsAt, zoneFor(units.find((u) => u.unit_id === r.unitId)?.association_id ?? null))}
                 </p>
                 <Badge variant={r.status === 'approved' ? 'success' : r.status === 'pending' ? 'warning' : 'neutral'} size="md">
-                  {STATUS_LABELS[r.status]}
+                  {DISPLAY_LABELS[displayStatus(r, now)]}
                 </Badge>
                 {r.decisionNote ? <p className="text-base text-foreground-secondary">Board note: {r.decisionNote}</p> : null}
-                {canCancel(r, now) ? <CancelButton reservationId={r.id} /> : null}
+                {r.cancelReason ? <p className="text-base text-foreground-secondary">Reason: {r.cancelReason}</p> : null}
+                {canCancel(r, now) ? (
+                  residentMustAskBoard(r, cutoffs.get(r.amenityId) ?? 0, now) ? (
+                    <p className="text-base text-foreground-secondary">This is close to the start time. To cancel, please ask the board.</p>
+                  ) : (
+                    <CancelButton reservationId={r.id} />
+                  )
+                ) : null}
               </div>
             ))}
           </Panel>

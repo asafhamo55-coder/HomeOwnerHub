@@ -7,7 +7,13 @@
  *   2. two requests for the same slot made at the same moment: exactly one wins;
  *   3. a resident cannot write either table through their own client, and
  *      reads only their home's bookings; another org sees nothing;
- *   4. a booking cannot point at another org's amenity (same-org trigger).
+ *   4. a booking cannot point at another org's amenity (same-org trigger);
+ *   5. concurrent_limit N lets exactly N overlapping holds in, also under a race;
+ *   6. a board hold has no home, a booking without one is refused, and a
+ *      resident never reads the hold;
+ *   7. amenity_hours and amenity_blackouts: members read, nobody writes through
+ *      their own client, another org sees nothing, and neither can point at
+ *      another org's amenity.
  *
  * Fixture rule (fixtures/factory.ts): adminDb() seeds; every RLS assertion
  * runs through a user's own client. Ids and counts only.
@@ -164,5 +170,126 @@ describe('4. same-org keys', () => {
     expect(a.error).not.toBeNull()
     const u = await insert(booking(10, 14, { unit_id: otherUnitId }))
     expect(u.error).not.toBeNull()
+  })
+})
+
+async function setLimit(id: string, limit: number) {
+  const r = await adminDb()
+    .from('amenities' as never)
+    .update({ concurrent_limit: limit } as never)
+    .eq('id', id)
+  if (r.error) throw new Error(`seed limit: ${r.error.code}`)
+}
+
+describe('5. concurrent bookings', () => {
+  it('allows overlaps up to the limit and refuses the next one', async () => {
+    await setLimit(amenityId, 2)
+    expect((await insert(booking(10, 14))).error).toBeNull()
+    expect((await insert(booking(12, 16))).error).toBeNull()
+    expect((await insert(booking(13, 15))).error?.code).toBe('23P01')
+    // outside both holds there is still room
+    expect((await insert(booking(16, 18))).error).toBeNull()
+    expect((await insert(booking(8, 10))).error).toBeNull()
+  })
+
+  it('lets exactly the limit of simultaneous requests in', async () => {
+    await setLimit(amenityId, 3)
+    const results = await Promise.all([1, 2, 3, 4, 5, 6].map(() => insert(booking(10, 14))))
+    expect(results.filter((r) => r.error === null)).toHaveLength(3)
+    expect(results.filter((r) => r.error?.code === '23P01')).toHaveLength(3)
+  })
+
+  it('frees a place when one of the holds is canceled', async () => {
+    await setLimit(amenityId, 1)
+    const first = await insert(booking(10, 14))
+    expect((await insert(booking(11, 12))).error?.code).toBe('23P01')
+    await adminDb()
+      .from('amenity_reservations' as never)
+      .update({ status: 'canceled', canceled_at: new Date().toISOString() } as never)
+      .eq('id', (first.data as unknown as { id: string }).id)
+    expect((await insert(booking(11, 12))).error).toBeNull()
+  })
+
+  it('refuses a limit outside 1 to 50', async () => {
+    const r = await adminDb()
+      .from('amenities' as never)
+      .update({ concurrent_limit: 0 } as never)
+      .eq('id', amenityId)
+    expect(r.error).not.toBeNull()
+  })
+})
+
+describe('6. board holds', () => {
+  it('stores a hold without a home, takes the time, and hides it from a resident', async () => {
+    const hold = await insert(booking(10, 12, { unit_id: null, kind: 'hold', status: 'approved', purpose: 'Pool cleaning' }))
+    expect(hold.error).toBeNull()
+    expect((await insert(booking(11, 13))).error?.code).toBe('23P01')
+    const seen = await resident.client.from('amenity_reservations' as never).select('id')
+    expect(seen.data ?? []).toHaveLength(0)
+    const board_ = await board.client.from('amenity_reservations' as never).select('id')
+    expect((board_.data ?? []).length).toBe(1)
+  })
+
+  it('refuses a booking without a home', async () => {
+    const r = await insert(booking(10, 12, { unit_id: null }))
+    expect(r.error).not.toBeNull()
+  })
+})
+
+describe('7. weekly hours and blackout dates', () => {
+  const hours = (o: OrgFixture, id: string, weekday = 6) => ({
+    organization_id: o.orgId,
+    amenity_id: id,
+    weekday,
+    open_hour: 10,
+    close_hour: 18,
+  })
+  const blackout = (o: OrgFixture, id: string) => ({
+    organization_id: o.orgId,
+    amenity_id: id,
+    starts_on: '2030-12-24',
+    ends_on: '2030-12-26',
+    reason: 'Closed for the holidays',
+  })
+
+  it('lets the server write them and refuses a duplicate weekday or a backwards range', async () => {
+    const a = await adminDb().from('amenity_hours' as never).insert(hours(org, amenityId) as never)
+    expect(a.error).toBeNull()
+    const dup = await adminDb().from('amenity_hours' as never).insert(hours(org, amenityId) as never)
+    expect(dup.error).not.toBeNull()
+    const bad = await adminDb()
+      .from('amenity_blackouts' as never)
+      .insert({ ...blackout(org, amenityId), starts_on: '2030-12-27' } as never)
+    expect(bad.error).not.toBeNull()
+  })
+
+  it('lets members read them, nobody write them, and another org see nothing', async () => {
+    await adminDb().from('amenity_hours' as never).insert(hours(org, amenityId) as never)
+    await adminDb().from('amenity_blackouts' as never).insert(blackout(org, amenityId) as never)
+
+    const h = await resident.client.from('amenity_hours' as never).select('id')
+    const b = await resident.client.from('amenity_blackouts' as never).select('id')
+    expect((h.data ?? []).length).toBe(1)
+    expect((b.data ?? []).length).toBe(1)
+
+    const writeH = await resident.client.from('amenity_hours' as never).insert(hours(org, amenityId, 2) as never).select('id')
+    expect(writeH.error).not.toBeNull()
+    const writeB = await board.client.from('amenity_blackouts' as never).insert(blackout(org, amenityId) as never).select('id')
+    expect(writeB.error).not.toBeNull()
+    const del = await board.client.from('amenity_hours' as never).delete().eq('amenity_id', amenityId).select('id')
+    expect(del.data ?? []).toHaveLength(0)
+
+    const foreignH = await outsider.client.from('amenity_hours' as never).select('id')
+    const foreignB = await outsider.client.from('amenity_blackouts' as never).select('id')
+    expect(foreignH.data ?? []).toHaveLength(0)
+    expect(foreignB.data ?? []).toHaveLength(0)
+  })
+
+  it('refuses a row that points at another org amenity', async () => {
+    const foreign = await makeAmenity(other)
+    const h = await adminDb().from('amenity_hours' as never).insert(hours(org, foreign) as never)
+    expect(h.error).not.toBeNull()
+    const b = await adminDb().from('amenity_blackouts' as never).insert(blackout(org, foreign) as never)
+    expect(b.error).not.toBeNull()
   })
 })

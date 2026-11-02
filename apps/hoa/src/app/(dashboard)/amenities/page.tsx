@@ -5,10 +5,12 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { currentTimeZone } from '@/lib/association-time-current'
-import { formatSlot, rulesSummary } from '@/lib/amenities/model'
-import { loadAmenities, loadBoardReservations, type LooseDb } from '@/lib/amenities/queries'
+import { formatSlot, isRealDay, rulesSummary } from '@/lib/amenities/model'
+import { loadAmenities, loadAmenityReservations, loadBoardReservations, type LooseDb } from '@/lib/amenities/queries'
+import { addCalendarDays, todayIn } from '@/lib/association-time'
 import { AmenityDialog } from './AmenityDialog'
-import { CancelButton, DecideButtons } from './ReservationButtons'
+import { BoardCalendar } from './BoardCalendar'
+import { CancelButton, DecideButtons, HoldDialog, RetireButton } from './ReservationButtons'
 
 export const metadata = { title: 'Amenities' }
 export const dynamic = 'force-dynamic'
@@ -20,8 +22,13 @@ export const dynamic = 'force-dynamic'
 const DESCRIPTION =
   'Set up the places residents can book, with your rules. Residents pick a day and hours, and two bookings can never overlap.'
 
-export default async function AmenitiesPage() {
+export default async function AmenitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ amenity?: string; month?: string; day?: string }>
+}) {
   const { org } = await requireBoardOrAdmin()
+  const params = await searchParams
 
   if (!M11_APPLIED) {
     return (
@@ -37,11 +44,16 @@ export default async function AmenitiesPage() {
 
   const db = createAdminClient() as unknown as LooseDb
   const timeZone = await currentTimeZone()
-  const [amenities, reservations] = await Promise.all([
+  const now = new Date()
+  const [allAmenities, reservations, associations] = await Promise.all([
     loadAmenities(db, org.id),
-    loadBoardReservations(db, org.id, new Date().toISOString()),
+    loadBoardReservations(db, org.id, now.toISOString()),
+    db.from('associations').select('id, name').eq('organization_id', org.id).order('created_at', { ascending: true }).range(0, 99) as Promise<{
+      data: { id: string; name: string }[] | null
+      error: { code?: string } | null
+    }>,
   ])
-  if (amenities === null || reservations === null) {
+  if (allAmenities === null || reservations === null || associations.error) {
     return (
       <Page title="Amenities" description={DESCRIPTION} linkAs={Link}>
         <LoadFailed what="your amenities" retryHref="/amenities" />
@@ -49,13 +61,56 @@ export default async function AmenitiesPage() {
     )
   }
 
-  const names = new Map(amenities.map((a) => [a.id, a.name]))
+  const associationOptions = (associations.data ?? []).map((a) => ({ id: a.id, name: a.name }))
+  const amenities = allAmenities.filter((a) => !a.retiredAt)
+  const retired = allAmenities.filter((a) => a.retiredAt)
+  const names = new Map(allAmenities.map((a) => [a.id, a.name]))
+  const upcomingBy = new Map<string, number>()
+  for (const r of reservations) upcomingBy.set(r.amenityId, (upcomingBy.get(r.amenityId) ?? 0) + 1)
+
+  // Month calendar for one amenity at a time (?amenity=&month=&day=).
+  const calAmenity = amenities.find((a) => a.id === params.amenity) ?? amenities[0] ?? null
+  const month = /^\d{4}-\d{2}$/.test(params.month ?? '') && isRealDay(`${params.month}-01`) ? (params.month as string) : todayIn(timeZone, now).slice(0, 7)
+  const selectedDay = params.day && isRealDay(params.day) ? params.day : null
+  const monthStart = `${month}-01`
+  const monthReservations = calAmenity
+    ? await loadAmenityReservations(
+        db,
+        org.id,
+        calAmenity.id,
+        addCalendarDays(monthStart, -1),
+        addCalendarDays(addCalendarDays(monthStart, 31), 7),
+      )
+    : []
+  if (monthReservations === null) {
+    return (
+      <Page title="Amenities" description={DESCRIPTION} linkAs={Link}>
+        <LoadFailed what="your amenities" retryHref="/amenities" />
+      </Page>
+    )
+  }
   const waiting = reservations.filter((r) => r.status === 'pending')
   const confirmed = reservations.filter((r) => r.status === 'approved')
 
   return (
-    <Page title="Amenities" description={DESCRIPTION} linkAs={Link} actions={<AmenityDialog amenity={null} />}>
+    <Page title="Amenities" description={DESCRIPTION} linkAs={Link} actions={
+        <div className="flex flex-wrap gap-2">
+          <HoldDialog amenities={amenities.map((a) => ({ id: a.id, name: a.name }))} />
+          <AmenityDialog amenity={null} associations={associationOptions} />
+        </div>
+      }
+    >
       <div className="space-y-6">
+        {calAmenity ? (
+          <BoardCalendar
+            amenities={amenities}
+            amenity={calAmenity}
+            month={month}
+            selectedDay={selectedDay}
+            reservations={monthReservations}
+            timeZone={timeZone}
+          />
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Waiting for your answer ({waiting.length})</CardTitle>
@@ -69,7 +124,7 @@ export default async function AmenitiesPage() {
                   <p className="text-base font-semibold text-foreground">
                     {names.get(r.amenityId) ?? 'Amenity'}: {formatSlot(r.startsAt, r.endsAt, timeZone)}
                   </p>
-                  <p className="text-sm text-foreground-secondary">For {r.homeLabel}</p>
+                  <p className="text-sm text-foreground-secondary">For {r.homeLabel}{r.partySize ? `, about ${r.partySize} people` : ''}</p>
                   {r.purpose ? <p className="text-sm text-foreground-secondary">Reason given: {r.purpose}</p> : null}
                   <DecideButtons reservationId={r.id} />
                 </div>
@@ -92,9 +147,11 @@ export default async function AmenitiesPage() {
                     <p className="text-base font-semibold text-foreground">
                       {names.get(r.amenityId) ?? 'Amenity'}: {formatSlot(r.startsAt, r.endsAt, timeZone)}
                     </p>
-                    <p className="text-sm text-foreground-secondary">For {r.homeLabel}</p>
+                    <p className="text-sm text-foreground-secondary">
+                      {r.kind === 'hold' ? `Board hold: ${r.purpose ?? ''}` : `For ${r.homeLabel}`}
+                    </p>
                   </div>
-                  <CancelButton reservationId={r.id} />
+                  <CancelButton reservationId={r.id} asBoard isHold={r.kind === 'hold'} />
                 </div>
               ))
             )}
@@ -121,12 +178,30 @@ export default async function AmenitiesPage() {
                     </p>
                     <p className="text-sm text-foreground-secondary">{rulesSummary(a)}</p>
                   </div>
-                  <AmenityDialog amenity={a} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AmenityDialog amenity={a} associations={associationOptions} />
+                    <RetireButton amenityId={a.id} name={a.name} upcoming={upcomingBy.get(a.id) ?? 0} />
+                  </div>
                 </div>
               ))
             )}
           </CardContent>
         </Card>
+
+        {retired.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Retired ({retired.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {retired.map((a) => (
+                <p key={a.id} className="text-base text-foreground-secondary">
+                  {a.name}: not offered to residents. Its history is kept.
+                </p>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </Page>
   )

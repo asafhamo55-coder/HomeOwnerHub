@@ -15,8 +15,15 @@
 --                               pending -> approved | denied | canceled
 --                               approved -> canceled
 --   3. amenity_reservation_no_overlap(): the double-booking guard. A pending or
---      approved booking holds its time; a second one that overlaps it is
+--      approved booking holds its time; once the amenity's concurrent_limit
+--      (1 by default) holds are already there, another one that overlaps is
 --      refused with SQLSTATE 23P01 (exclusion_violation), whatever the app does.
+--   4. amenity_hours          different opening hours per weekday (a weekday
+--                             with no row is closed once any row exists).
+--   5. amenity_blackouts      dates a space is closed (winter, election night).
+--   Also on the two main tables: capacity and concurrent_limit, minimum notice,
+--   cancel cutoff, retired_at, board holds (kind = 'hold', no home), party size,
+--   cancel reason and a rules snapshot.
 --
 -- No money. Fees and deposits are out of scope for this version (they wait for
 -- online payments, BL-035), so there is no amount column here.
@@ -68,6 +75,17 @@ CREATE TABLE IF NOT EXISTS public.amenities (
   -- How many pending or approved future bookings one home may hold.
   max_active_per_unit smallint NOT NULL DEFAULT 2 CHECK (max_active_per_unit BETWEEN 1 AND 20),
   is_active        boolean NOT NULL DEFAULT true,
+  -- Most people the space holds (shown to residents, checked against party size).
+  capacity         smallint CHECK (capacity IS NULL OR capacity BETWEEN 1 AND 1000),
+  -- How many bookings may overlap in time: 1 is exclusive; 4 fits four tennis courts.
+  concurrent_limit smallint NOT NULL DEFAULT 1 CHECK (concurrent_limit BETWEEN 1 AND 50),
+  -- A booking must start at least this many hours from now.
+  min_notice_hours smallint NOT NULL DEFAULT 0 CHECK (min_notice_hours BETWEEN 0 AND 720),
+  -- A resident may cancel on their own until this many hours before the start
+  -- (0 = any time before it starts); later, they ask the board.
+  cancel_cutoff_hours smallint NOT NULL DEFAULT 0 CHECK (cancel_cutoff_hours BETWEEN 0 AND 720),
+  -- Set when the board retires the space: hidden from residents, history kept.
+  retired_at       timestamptz,
   created_by       uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
@@ -88,7 +106,9 @@ CREATE TABLE IF NOT EXISTS public.amenity_reservations (
   organization_id  uuid NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
   association_id   uuid NOT NULL REFERENCES public.associations(id) ON DELETE CASCADE,
   amenity_id       uuid NOT NULL REFERENCES public.amenities(id) ON DELETE CASCADE,
-  unit_id          uuid NOT NULL REFERENCES public.units(id) ON DELETE CASCADE,
+  -- NULL only for a board hold (maintenance, a meeting): kind = 'hold'.
+  unit_id          uuid REFERENCES public.units(id) ON DELETE CASCADE,
+  kind             text NOT NULL DEFAULT 'booking' CHECK (kind IN ('booking', 'hold')),
   requested_by     uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   starts_at        timestamptz NOT NULL,
   ends_at          timestamptz NOT NULL,
@@ -102,8 +122,15 @@ CREATE TABLE IF NOT EXISTS public.amenity_reservations (
   decided_at       timestamptz,
   canceled_by      uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   canceled_at      timestamptz,
+  cancel_reason    text CHECK (cancel_reason IS NULL OR char_length(cancel_reason) <= 500),
+  -- How many people the resident said are coming (display and a capacity check).
+  party_size       smallint CHECK (party_size IS NULL OR party_size BETWEEN 1 AND 1000),
+  -- The rules the booking was made under (hours, max length), so a later rule
+  -- change does not rewrite what the resident agreed to.
+  rules_snapshot   jsonb,
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
+  CHECK (kind = 'hold' OR unit_id IS NOT NULL),
   CHECK (ends_at > starts_at),
   CHECK (ends_at - starts_at <= interval '24 hours'),
   CHECK ((status = 'canceled') = (canceled_at IS NOT NULL))
@@ -118,6 +145,42 @@ CREATE INDEX IF NOT EXISTS amenity_reservations_assoc_status_idx
 
 COMMENT ON TABLE public.amenity_reservations IS
   '0076 (BL-034): one row per booking request. A pending or approved row holds its time; the trigger amenity_reservation_no_overlap refuses an overlap. Board reads the association''s rows; a resident reads their home''s. Written only by the server.';
+
+-- ── 2b. weekly hours and blackout dates ────────────────────────────────
+-- amenity_hours: once an amenity has any row, only the listed weekdays are
+-- open (0 = Sunday ... 6 = Saturday, association-local). No rows: the
+-- open_hour/close_hour pair on amenities applies every day.
+CREATE TABLE IF NOT EXISTS public.amenity_hours (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  uuid NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
+  amenity_id       uuid NOT NULL REFERENCES public.amenities(id) ON DELETE CASCADE,
+  weekday          smallint NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+  open_hour        smallint NOT NULL CHECK (open_hour BETWEEN 0 AND 23),
+  close_hour       smallint NOT NULL CHECK (close_hour BETWEEN 1 AND 24),
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (amenity_id, weekday),
+  CHECK (close_hour > open_hour)
+);
+CREATE INDEX IF NOT EXISTS amenity_hours_org_idx ON public.amenity_hours (organization_id);
+
+-- amenity_blackouts: association-local dates the space is closed (inclusive).
+CREATE TABLE IF NOT EXISTS public.amenity_blackouts (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  uuid NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
+  amenity_id       uuid NOT NULL REFERENCES public.amenities(id) ON DELETE CASCADE,
+  starts_on        date NOT NULL,
+  ends_on          date NOT NULL,
+  reason           text CHECK (reason IS NULL OR char_length(reason) <= 200),
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  CHECK (ends_on >= starts_on)
+);
+CREATE INDEX IF NOT EXISTS amenity_blackouts_amenity_idx ON public.amenity_blackouts (amenity_id, starts_on);
+CREATE INDEX IF NOT EXISTS amenity_blackouts_org_idx ON public.amenity_blackouts (organization_id);
+
+COMMENT ON TABLE public.amenity_hours IS
+  '0076 (BL-034): per-weekday opening hours for an amenity. Members read; written only by the server.';
+COMMENT ON TABLE public.amenity_blackouts IS
+  '0076 (BL-034): dates an amenity is closed. Members read; written only by the server.';
 
 -- ── 3. updated_at ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.amenities_touch()
@@ -144,7 +207,9 @@ END $touch$;
 -- amenity that overlap cannot both be stored, however they arrive: the
 -- transaction takes a lock on the amenity first, so two requests that race
 -- are checked one after the other, and the second sees the first.
--- Back-to-back bookings (one ends when the next starts) are allowed.
+-- Back-to-back bookings (one ends when the next starts) are allowed. With
+-- concurrent_limit N, up to N overlapping holds are allowed (the lock makes the
+-- count safe under a race).
 --
 -- Invoker rights on purpose: it is a trigger, never called directly, and the
 -- writes come from the service role, which sees every row. EXECUTE is revoked
@@ -154,6 +219,9 @@ RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $fn$
+DECLARE
+  v_limit smallint;
+  v_held  integer;
 BEGIN
   IF NEW.status NOT IN ('pending', 'approved') THEN
     RETURN NEW;
@@ -168,15 +236,21 @@ BEGIN
 
   PERFORM pg_advisory_xact_lock(hashtextextended('amenity_reservation:' || NEW.amenity_id::text, 0));
 
-  IF EXISTS (
-    SELECT 1
-      FROM public.amenity_reservations r
-     WHERE r.amenity_id = NEW.amenity_id
-       AND r.id <> NEW.id
-       AND r.status IN ('pending', 'approved')
-       AND r.starts_at < NEW.ends_at
-       AND r.ends_at   > NEW.starts_at
-  ) THEN
+  -- The amenity's concurrent_limit (1 = exclusive). A missing amenity row
+  -- cannot happen (foreign key) but would fall back to exclusive.
+  SELECT coalesce(a.concurrent_limit, 1) INTO v_limit
+    FROM public.amenities a WHERE a.id = NEW.amenity_id;
+  v_limit := coalesce(v_limit, 1);
+
+  SELECT count(*) INTO v_held
+    FROM public.amenity_reservations r
+   WHERE r.amenity_id = NEW.amenity_id
+     AND r.id <> NEW.id
+     AND r.status IN ('pending', 'approved')
+     AND r.starts_at < NEW.ends_at
+     AND r.ends_at   > NEW.starts_at;
+
+  IF v_held >= v_limit THEN
     RAISE EXCEPTION 'amenity_slot_taken'
       USING ERRCODE = '23P01',
             DETAIL = 'Another pending or approved booking overlaps this time.';
@@ -204,7 +278,9 @@ BEGIN
       ('amenities',             'association_id', 'associations', 'organization_id', 'organization_id'),
       ('amenity_reservations',  'association_id', 'associations', 'organization_id', 'organization_id'),
       ('amenity_reservations',  'amenity_id',     'amenities',    'organization_id', 'organization_id'),
-      ('amenity_reservations',  'unit_id',        'units',        'organization_id', 'organization_id')
+      ('amenity_reservations',  'unit_id',        'units',        'organization_id', 'organization_id'),
+      ('amenity_hours',         'amenity_id',     'amenities',    'organization_id', 'organization_id'),
+      ('amenity_blackouts',     'amenity_id',     'amenities',    'organization_id', 'organization_id')
     ) v(child, fk, parent, parent_org, child_org)
   LOOP
     v_name := 'zz_org_fk_' || r.child || '_' || r.fk;
@@ -226,10 +302,23 @@ END $triggers$;
 -- API. The server checks who is asking, then writes with the service role.
 ALTER TABLE public.amenities            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.amenity_reservations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.amenity_hours        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.amenity_blackouts    ENABLE ROW LEVEL SECURITY;
 
 -- any member of the org reads the amenities (a resident needs them to book)
 DROP POLICY IF EXISTS amenities_member_select ON public.amenities;
 CREATE POLICY amenities_member_select ON public.amenities
+  FOR SELECT TO authenticated
+  USING (organization_id = ANY (public.auth_org_ids()));
+
+-- weekly hours and blackout dates: any member of the org reads them
+DROP POLICY IF EXISTS amenity_hours_member_select ON public.amenity_hours;
+CREATE POLICY amenity_hours_member_select ON public.amenity_hours
+  FOR SELECT TO authenticated
+  USING (organization_id = ANY (public.auth_org_ids()));
+
+DROP POLICY IF EXISTS amenity_blackouts_member_select ON public.amenity_blackouts;
+CREATE POLICY amenity_blackouts_member_select ON public.amenity_blackouts
   FOR SELECT TO authenticated
   USING (organization_id = ANY (public.auth_org_ids()));
 
@@ -247,8 +336,8 @@ CREATE POLICY amenity_reservations_resident_select ON public.amenity_reservation
   USING (organization_id = ANY (public.auth_org_ids())
          AND unit_id = ANY ((SELECT public.auth_resident_unit_ids())::uuid[]));
 
-REVOKE ALL ON public.amenities, public.amenity_reservations FROM PUBLIC, anon;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.amenities, public.amenity_reservations FROM authenticated;
-GRANT SELECT ON public.amenities, public.amenity_reservations TO authenticated;
+REVOKE ALL ON public.amenities, public.amenity_reservations, public.amenity_hours, public.amenity_blackouts FROM PUBLIC, anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.amenities, public.amenity_reservations, public.amenity_hours, public.amenity_blackouts FROM authenticated;
+GRANT SELECT ON public.amenities, public.amenity_reservations, public.amenity_hours, public.amenity_blackouts TO authenticated;
 
 COMMIT;

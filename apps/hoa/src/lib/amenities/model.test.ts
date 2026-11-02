@@ -29,6 +29,13 @@ const hall: Amenity = {
   advanceDays: 60,
   maxActivePerUnit: 2,
   isActive: true,
+  capacity: null,
+  concurrentLimit: 1,
+  minNoticeHours: 0,
+  cancelCutoffHours: 0,
+  retiredAt: null,
+  weeklyHours: null,
+  blackouts: [],
 }
 
 const base = { amenity: hall, day: '2026-11-08', startHour: 14, endHour: 18, timeZone: TZ, now: NOW, held: [], homeActiveCount: 0 }
@@ -94,7 +101,7 @@ describe('checkRequest', () => {
 
   it('keeps the wall clock across daylight saving time', () => {
     const r = checkRequest({ ...base, day: '2026-11-08', startHour: 9, endHour: 11 })
-    // Clocks fall back at 2:00 AM on Nov 8, so 9 AM is UTC-5.
+    // Eastern time is on standard time from Nov 1, so 9 AM is UTC-5.
     expect(r).toEqual({ ok: true, startsAt: '2026-11-08T14:00:00.000Z', endsAt: '2026-11-08T16:00:00.000Z' })
   })
 })
