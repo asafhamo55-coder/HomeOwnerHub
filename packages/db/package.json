@@ -18,6 +18,7 @@
     "./m8": "./src/m8.ts",
     "./m9": "./src/m9.ts",
     "./polls-types": "./src/polls.types.ts",
+    "./m11": "./src/m11.ts",
     "./online-payments-types": "./src/online-payments.types.ts"
   },
   "scripts": {
