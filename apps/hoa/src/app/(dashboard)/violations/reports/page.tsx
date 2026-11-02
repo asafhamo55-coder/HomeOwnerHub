@@ -80,6 +80,7 @@ export default async function ViolationReportsListPage({
       cell: (r) => (
         <div className="min-w-0">
           <Link
+            prefetch={false}
             href={`/violations/reports/${r.id}`}
             className="font-medium text-foreground no-underline hover:text-primary hover:underline"
           >
@@ -162,7 +163,7 @@ export default async function ViolationReportsListPage({
                 description={filter === 'pending' ? 'Every report has a decision.' : 'Try another status.'}
                 action={
                   <Button asChild variant="secondary" size="sm">
-                    <Link href={href('all')}>Show all reports</Link>
+                    <Link prefetch={false} href={href('all')}>Show all reports</Link>
                   </Button>
                 }
               />

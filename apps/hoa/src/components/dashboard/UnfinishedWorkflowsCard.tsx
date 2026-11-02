@@ -53,6 +53,7 @@ export function UnfinishedWorkflowsCard({ drafts: allDrafts }: Props) {
             return (
               <li key={d.id}>
                 <Link
+                  prefetch={false}
                   href={`${path}?draft=${d.id}`}
                   className="flex items-center gap-3 py-3 transition-colors hover:bg-background/50"
                 >

@@ -271,13 +271,13 @@ export default async function ViolationsListPage({
             </a>
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/inspect">
+            <Link prefetch={false} href="/inspect">
               <Camera aria-hidden />
               Inspect homes
             </Link>
           </Button>
           <Button asChild>
-            <Link href={withPropertyParam('/violations/new', scope?.id ?? null)}>
+            <Link prefetch={false} href={withPropertyParam('/violations/new', scope?.id ?? null)}>
               <Plus aria-hidden />
               Report violation
             </Link>
@@ -319,7 +319,7 @@ export default async function ViolationsListPage({
       {cureFilterOn ? (
         <p className="text-sm text-muted">
           Showing only violations past their cure date.{' '}
-          <Link href={href({ status: 'notice', page: 1 })} className="font-medium text-primary hover:underline">
+          <Link prefetch={false} href={href({ status: 'notice', page: 1 })} className="font-medium text-primary hover:underline">
             Show the whole cure period
           </Link>
         </p>
@@ -366,7 +366,7 @@ export default async function ViolationsListPage({
                 description="Report your first violation. Covenant Brain will match it to a CC&R section and draft the letter."
                 action={
                   <Button asChild size="sm">
-                    <Link href="/violations/new">
+                    <Link prefetch={false} href="/violations/new">
                       <Plus aria-hidden />
                       Report a violation
                     </Link>
@@ -385,7 +385,7 @@ export default async function ViolationsListPage({
                 }
                 action={
                   <Button asChild variant="secondary" size="sm">
-                    <Link href={scope ? href({ status: 'all', q: '', page: 1 }) : '/violations'}>
+                    <Link prefetch={false} href={scope ? href({ status: 'all', q: '', page: 1 }) : '/violations'}>
                       {scope ? 'Clear filters for this home' : 'Clear filters'}
                     </Link>
                   </Button>
