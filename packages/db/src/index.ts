@@ -39,6 +39,7 @@ export type {
   BallotAuthorityBasis,
 } from './online-voting.types'
 export { M11_APPLIED } from './m11'
+export { M13_APPLIED } from './m13'
 
 export type {
   AssociationStripeAccountRow,

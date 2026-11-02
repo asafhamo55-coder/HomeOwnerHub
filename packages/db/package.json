@@ -20,6 +20,7 @@
     "./polls-types": "./src/polls.types.ts",
     "./m11": "./src/m11.ts",
     "./m12": "./src/m12.ts",
+    "./m13": "./src/m13.ts",
     "./online-payments-types": "./src/online-payments.types.ts"
   },
   "scripts": {

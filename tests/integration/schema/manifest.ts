@@ -134,6 +134,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // M12: BL-038 public community page per HOA (public_sites, public_site_items). Unapplied in
   // production (M12_APPLIED = false); replayed here. One file, one entry.
   '0077_public_site.sql',
+  // M13: B5 community message board (security/m13-community-board.test.ts).
+  // Unapplied in production (M13_APPLIED = false); replayed here. One file, one entry.
+  '0078_community_board.sql',
 ]
 
 /**

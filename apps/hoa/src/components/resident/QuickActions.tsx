@@ -6,11 +6,13 @@ import {
   FileText,
   Megaphone,
   MessageSquarePlus,
+  MessagesSquare,
   ShieldAlert,
   Sparkles,
   Vote,
 } from 'lucide-react'
 import { M9_APPLIED } from '@homeowner-portal/db/m9'
+import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { Badge } from '@homeowner-portal/ui'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { IconTile, type Tone } from '@/components/resident/screen'
@@ -63,6 +65,10 @@ export function QuickActions({ newAnnouncements }: { newAnnouncements: number })
       {M9_APPLIED ? (
         <ActionTile icon={<Vote />} tone="slate" label="Polls" hint="Quick questions" href="/resident/polls" />
       ) : null}
+      {/* B5: dark until M13_APPLIED (migration 0078). */}
+      {M13_APPLIED && (
+        <ActionTile icon={<MessagesSquare />} tone="slate" label="Community board" hint="Talk with neighbors" href="/resident/board" />
+      )}
     </div>
   )
 }
