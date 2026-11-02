@@ -65,6 +65,9 @@ export const ACTIVITY_EXPORT_ACTION = 'activity_log_export'
 /** BL-121: the year-end CPA package download. */
 export const YEAR_END_EXPORT_ACTION = 'year_end_package_export'
 
+/** B9: the per-vendor 1099-NEC summary download. */
+export const FORM_1099_EXPORT_ACTION = 'form_1099_summary_export'
+
 export const ACTION_LABELS: Record<string, ActionDef> = {
   // Violations
   'violation.cure_commitment.recorded': { label: 'Recorded an owner’s cure commitment', area: 'violations' },
@@ -107,6 +110,7 @@ export const ACTION_LABELS: Record<string, ActionDef> = {
   statutory_roster_export: { label: 'Exported the owner roster', area: 'records' },
   [ACTIVITY_EXPORT_ACTION]: { label: 'Exported the activity log', area: 'records' },
   [YEAR_END_EXPORT_ACTION]: { label: 'Downloaded the year-end package for the CPA', area: 'accounting' },
+  [FORM_1099_EXPORT_ACTION]: { label: 'Downloaded the 1099 vendor summary', area: 'accounting' },
   // Access
   'pro.granted': { label: 'Gave a CPA or attorney access', area: 'access' },
   'pro.renewed': { label: 'Renewed a professional’s access', area: 'access' },
