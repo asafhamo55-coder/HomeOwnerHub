@@ -121,6 +121,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // production (M8_APPLIED = false); replayed here like 0072 was, so the
   // integration suite runs "objects present, flag false". One file, one entry.
   '0073_online_payments.sql',
+  // M10: BL-156 online voting (ballots, options, voter list, secret ballot box).
+  // Unapplied in production (M10_APPLIED = false); security/m10-online-voting.test.ts.
+  '0075_online_voting.sql',
 ]
 
 /**
