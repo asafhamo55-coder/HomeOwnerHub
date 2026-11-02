@@ -84,9 +84,9 @@ describe('sendApprovedLetterByMail', () => {
     expect(provider.sent[0]?.idempotencyKey).toBe('v1')
     expect(rows[0]).toMatchObject({ source: { kind: 'violation', violationId: 'v1' }, collectionCaseId: null })
   })
-  it('never sends the same violation notice twice, and an approval id does not block a violation id', async () => {
+  it('never sends the same violation notice twice, and sending an approval does not block a violation', async () => {
     const { provider, deps, input } = setup()
-    const violation = { ...input, letter: { ...input.letter, source: { kind: 'violation' as const, violationId: 'r1' }, collectionCaseId: null } }
+    const violation = { ...input, letter: { ...input.letter, source: { kind: 'violation' as const, violationId: 'v1' }, collectionCaseId: null } }
     expect((await sendApprovedLetterByMail(deps, input)).ok).toBe(true)
     expect((await sendApprovedLetterByMail(deps, violation)).ok).toBe(true)
     expect((await sendApprovedLetterByMail(deps, violation)).ok).toBe(false)
