@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
 import { M9_APPLIED } from '@homeowner-portal/db/m9'
+import { M10_APPLIED } from '@homeowner-portal/db/m10'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { MESSAGES_PREFIXES } from '@/lib/messages/tabs'
@@ -105,6 +106,8 @@ export const HOA_NAV: HoaNavGroup[] = [
       { href: '/violations', icon: AlertTriangle, label: 'Violations', basic: true, keywords: ['notices', 'compliance'] },
       { href: '/arc', icon: ClipboardCheck, label: 'Architecture requests', basic: true, keywords: ['arc', 'arc review', 'architectural', 'applications'] },
       { href: '/meetings', icon: CalendarDays, label: 'Meetings', basic: true, keywords: ['minutes', 'agenda'] },
+      // BL-156: dark until M10_APPLIED (migration 0075).
+      ...(M10_APPLIED ? [{ href: '/ballots', icon: Vote, label: 'Online voting', keywords: ['ballot', 'election', 'vote', 'directors', 'secret ballot'] }] : []),
       ...(M9_APPLIED ? [{ href: '/polls', icon: Vote, label: 'Polls', keywords: ['survey', 'poll', 'questions'] }] : []),
       // BL-119: meeting action items and ticket follow-ups, board-wide.
       {

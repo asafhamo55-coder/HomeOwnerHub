@@ -36,3 +36,10 @@ SELECT 'functions not callable by anon' AS check,
 
 -- Counts only, no personal data.
 SELECT 'ballots by status' AS check, status AS result, count(*) FROM public.ballots GROUP BY status;
+
+-- The append-only exception must require the organization row to be gone, so deleting an
+-- association (or any nested delete) cannot cascade away cast votes.
+SELECT 'append-only cascade exception is org-scoped' AS check,
+       CASE WHEN pg_get_functiondef('public.ballot_append_only()'::regprocedure) LIKE '%public.orgs%'
+             AND pg_get_functiondef('public.ballots_guard()'::regprocedure) LIKE '%public.orgs%'
+            THEN 'PASS' ELSE 'FAIL' END AS result;

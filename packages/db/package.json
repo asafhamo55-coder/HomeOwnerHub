@@ -18,6 +18,7 @@
     "./m8": "./src/m8.ts",
     "./m9": "./src/m9.ts",
     "./polls-types": "./src/polls.types.ts",
+    "./m10": "./src/m10.ts",
     "./m11": "./src/m11.ts",
     "./m12": "./src/m12.ts",
     "./m13": "./src/m13.ts",

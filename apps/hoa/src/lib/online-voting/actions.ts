@@ -12,7 +12,9 @@ import { M10_APPLIED, createAdminClient } from '@homeowner-portal/db'
 import type { BallotResultsRpc } from '@homeowner-portal/db'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
 import { ACK_TEXT_VERSION, onlineVotingRule } from './law'
+import { localInputToInstant } from './time'
 import { UUID, acknowledgementComplete, checkDraft, checkSelections, rankResults, type DraftInput, type OptionResult } from './model'
 
 const OFF = 'Online voting isn’t switched on yet.'
@@ -22,11 +24,13 @@ type Loose = { from: (t: string) => any; rpc: (fn: string, args: Record<string, 
 
 export type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string }
 
+/** The form's fields: the open and close times are wall-clock text on the ASSOCIATION's clock. */
+export type DraftForm = Omit<DraftInput, 'opensAt' | 'closesAt'> & { opensLocal: string; closesLocal: string }
+
 export async function createBallotDraft(
   associationId: string,
-  state: string | null,
   meetingId: string | null,
-  input: DraftInput,
+  form: DraftForm,
 ): Promise<Result<{ ballotId: string }>> {
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, error: gate.error }
@@ -34,21 +38,26 @@ export async function createBallotDraft(
   if (typeof associationId !== 'string' || !UUID.test(associationId) || (meetingId !== null && !UUID.test(meetingId))) {
     return { ok: false, error: 'Invalid input.' }
   }
-  if (onlineVotingRule(state).support === 'not_supported') {
-    return { ok: false, error: 'Online voting isn’t available for your state yet. Use the paper election kit.' }
-  }
-  const checked = checkDraft(input, Date.now())
-  if (!checked.ok) return checked
-  const d = checked.value
 
   const db = createAdminClient() as unknown as Loose
   const { data: assoc, error: aErr } = await db
     .from('associations')
-    .select('id')
+    .select(`id, ${ASSOCIATION_ZONE_COLUMNS}`)
     .eq('id', associationId)
     .eq('organization_id', gate.orgId)
     .maybeSingle()
   if (aErr || !assoc) return { ok: false, error: 'That association isn’t part of your organization.' }
+  // The state and the clock come from the association's own row, never from the browser.
+  if (onlineVotingRule(assoc.state ?? null).support === 'not_supported') {
+    return { ok: false, error: 'Online voting isn’t available for your state yet. Use the paper election kit.' }
+  }
+  const zone = associationTimeZone(assoc)
+  const opensAt = localInputToInstant(form?.opensLocal, zone)
+  const closesAt = localInputToInstant(form?.closesLocal, zone)
+  if (!opensAt || !closesAt) return { ok: false, error: 'Choose when voting opens and closes.' }
+  const checked = checkDraft({ ...form, opensAt, closesAt }, Date.now())
+  if (!checked.ok) return checked
+  const d = checked.value
 
   const { data: ballot, error } = await db
     .from('ballots')
@@ -82,7 +91,6 @@ export async function createBallotDraft(
 /** The board ticks every statement, then the ballot opens. The database refuses without the acknowledgement. */
 export async function openBallot(
   ballotId: string,
-  state: string | null,
   basis: 'governing_documents' | 'state_law' | 'both',
   tickedStatements: string[],
 ): Promise<Result> {
@@ -91,13 +99,19 @@ export async function openBallot(
   if (!M10_APPLIED) return { ok: false, error: OFF }
   if (typeof ballotId !== 'string' || !UUID.test(ballotId)) return { ok: false, error: 'Invalid input.' }
   if (basis !== 'governing_documents' && basis !== 'state_law' && basis !== 'both') return { ok: false, error: 'Invalid input.' }
-  if (onlineVotingRule(state).support === 'not_supported') {
-    return { ok: false, error: 'Online voting isn’t available for your state yet.' }
-  }
   if (!Array.isArray(tickedStatements) || !acknowledgementComplete(tickedStatements)) {
     return { ok: false, error: 'Tick every box to confirm before voting opens.' }
   }
   const supabase = (await getSupabaseServerClient()) as unknown as Loose
+  // The state rule is read from the ballot's own association, not sent by the browser.
+  const { data: b } = await supabase.from('ballots').select('association_id').eq('id', ballotId).maybeSingle()
+  const { data: a } = b
+    ? await supabase.from('associations').select('state').eq('id', b.association_id).maybeSingle()
+    : { data: null }
+  if (!b || !a) return { ok: false, error: 'Couldn’t find that ballot.' }
+  if (onlineVotingRule(a.state ?? null).support === 'not_supported') {
+    return { ok: false, error: 'Online voting isn’t available for your state yet.' }
+  }
   const { error } = await supabase.rpc('open_ballot', { p_ballot: ballotId, p_basis: basis, p_text_version: ACK_TEXT_VERSION })
   if (error) {
     console.error('[ballot] open failed', { code: error.code ?? 'unknown' })

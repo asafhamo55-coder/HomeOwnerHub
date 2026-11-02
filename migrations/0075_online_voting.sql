@@ -129,12 +129,16 @@ BEGIN
 END $triggers$;
 
 -- ── 6. immutability ────────────────────────────────────────────────────
--- pg_trigger_depth() > 1 means the delete is a cascade from deleting an
--- organization or ballot; a direct DELETE runs the trigger at depth 1.
+-- A cascade runs the trigger at depth > 1, but depth alone is not enough: deleting
+-- an association (or any trigger-driven delete) also cascades to ballots and would
+-- wipe cast votes. The one allowed exception is deleting the whole organization,
+-- so the delete must be nested AND the organization row must already be gone
+-- (the RI cascade fires after the parent row is deleted). Anything else is refused.
 CREATE OR REPLACE FUNCTION public.ballot_append_only()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $f$
 BEGIN
-  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1 THEN
+  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1
+     AND NOT EXISTS (SELECT 1 FROM public.orgs WHERE id = OLD.organization_id) THEN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION '%: votes cannot be changed or removed', TG_TABLE_NAME USING errcode = '55000';
@@ -184,7 +188,9 @@ DECLARE
   v_status text;
   v_ballot uuid := COALESCE(NEW.ballot_id, OLD.ballot_id);
 BEGIN
-  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1 THEN
+  -- Nested delete after the ballot itself is gone (a draft ballot removed, or the org).
+  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1
+     AND NOT EXISTS (SELECT 1 FROM public.ballots WHERE id = OLD.ballot_id) THEN
     RETURN OLD;
   END IF;
   SELECT status INTO v_status FROM public.ballots WHERE id = v_ballot;
@@ -205,7 +211,8 @@ DECLARE
   v_opts int;
 BEGIN
   IF TG_OP = 'DELETE' THEN
-    IF OLD.status <> 'draft' AND pg_trigger_depth() <= 1 THEN
+    IF OLD.status <> 'draft'
+       AND NOT (pg_trigger_depth() > 1 AND NOT EXISTS (SELECT 1 FROM public.orgs WHERE id = OLD.organization_id)) THEN
       RAISE EXCEPTION 'ballots: an opened ballot cannot be deleted' USING errcode = '55000';
     END IF;
     RETURN OLD;
@@ -298,6 +305,7 @@ AS $fn$
       JOIN public.hoa_properties hp ON hp.id = u.legacy_hoa_property_id AND hp.org_id = u.organization_id
       JOIN public.orgs g ON g.id = hp.org_id
      WHERE auth.uid() IS NOT NULL AND o.owner_user_id = auth.uid() AND o.valid_to IS NULL
+       AND o.valid_from <= current_date
        AND hp.deleted_at IS NULL AND g.suspended_at IS NULL AND g.archived_at IS NULL
     UNION
     SELECT hp.id
@@ -373,6 +381,14 @@ BEGIN
   IF p_property IS NULL OR NOT (p_property = ANY (public.ballot_voter_property_ids())) THEN
     RAISE EXCEPTION 'cast_ballot: not_an_owner_of_this_home' USING errcode = '42501';
   END IF;
+  -- A home belongs to one association. In an organization with several, an owner votes
+  -- only on their own association's ballot. A home with no unit record (older data) is
+  -- not tied to any association, so only the organization check above applies to it.
+  IF EXISTS (SELECT 1 FROM public.units u WHERE u.legacy_hoa_property_id = p_property AND u.organization_id = b.organization_id)
+     AND NOT EXISTS (SELECT 1 FROM public.units u WHERE u.legacy_hoa_property_id = p_property
+                        AND u.organization_id = b.organization_id AND u.association_id = b.association_id) THEN
+    RAISE EXCEPTION 'cast_ballot: not_an_owner_of_this_home' USING errcode = '42501';
+  END IF;
   IF p_selections IS NULL OR cardinality(p_selections) NOT BETWEEN 1 AND b.max_selections THEN
     RAISE EXCEPTION 'cast_ballot: bad_choice_count' USING errcode = '22023';
   END IF;
@@ -387,6 +403,27 @@ BEGIN
   INSERT INTO public.ballot_box (organization_id, ballot_id, selections)
   VALUES (b.organization_id, p_ballot, v_sel);
   RETURN jsonb_build_object('recorded', true);
+END;
+$fn$;
+
+-- ── 10b. which of my homes have voted ──────────────────────────────────
+-- A co-owner's row in ballot_voters is not theirs to read, so without this a spouse
+-- would be shown the vote form for a home that has already voted. Returns only home
+-- ids the caller owns, and nothing about who cast the vote or what it was.
+CREATE OR REPLACE FUNCTION public.ballot_homes_voted(p_ballot uuid)
+RETURNS uuid[]
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp
+AS $fn$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'ballot_homes_voted: sign in required' USING errcode = '42501';
+  END IF;
+  RETURN COALESCE(ARRAY(
+    SELECT v.property_id FROM public.ballot_voters v
+     WHERE v.ballot_id = p_ballot
+       AND v.organization_id = ANY (public.auth_org_ids())
+       AND v.property_id = ANY (public.ballot_voter_property_ids())
+  ), ARRAY[]::uuid[]);
 END;
 $fn$;
 
@@ -456,7 +493,7 @@ DECLARE
   f text;
 BEGIN
   FOREACH f IN ARRAY ARRAY['public.ballot_voter_property_ids()', 'public.open_ballot(uuid,text,text)',
-                           'public.cast_ballot(uuid,uuid,uuid[])', 'public.close_ballot(uuid)',
+                           'public.cast_ballot(uuid,uuid,uuid[])', 'public.ballot_homes_voted(uuid)', 'public.close_ballot(uuid)',
                            'public.ballot_results(uuid)'] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', f);
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated, service_role', f);

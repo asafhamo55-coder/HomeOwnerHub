@@ -114,6 +114,19 @@ describe('0075 online voting', () => {
     expect((await db.from('ballots').update({ closes_at: seconds(-5) }).eq('id', ballotId)).error).not.toBeNull()
   })
 
+  it('deleting the association cannot cascade away cast votes (trigger-depth bypass)', async () => {
+    await seedBallot(seconds(-60), seconds(86_400))
+    await open()
+    await cast(owner, [optionIds[0]!])
+    const db = loose(adminDb())
+    const del = await db.from('associations').delete().eq('id', org.associationId)
+    expect(del.error).not.toBeNull()
+    const box = await db.from('ballot_box').select('id', { count: 'exact', head: true }).eq('ballot_id', ballotId)
+    const voters = await db.from('ballot_voters').select('id', { count: 'exact', head: true }).eq('ballot_id', ballotId)
+    const ballots = await db.from('ballots').select('id', { count: 'exact', head: true }).eq('id', ballotId)
+    expect([box.count, voters.count, ballots.count]).toEqual([1, 1, 1])
+  })
+
   it('a resident cannot write ballot tables directly', async () => {
     await seedBallot(seconds(-60), seconds(86_400))
     const r = await loose(owner.client).from('ballot_voters').insert({

@@ -12,6 +12,7 @@ import {
   Vote,
 } from 'lucide-react'
 import { M9_APPLIED } from '@homeowner-portal/db/m9'
+import { M10_APPLIED } from '@homeowner-portal/db/m10'
 import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { Badge } from '@homeowner-portal/ui'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
@@ -64,6 +65,10 @@ export function QuickActions({ newAnnouncements }: { newAnnouncements: number })
       />
       {M9_APPLIED ? (
         <ActionTile icon={<Vote />} tone="slate" label="Polls" hint="Quick questions" href="/resident/polls" />
+      ) : null}
+      {/* BL-156: dark until M10_APPLIED (migration 0075). */}
+      {M10_APPLIED ? (
+        <ActionTile icon={<Vote />} tone="slate" label="Vote" hint="Board elections and ballots" href="/resident/vote" />
       ) : null}
       {/* B5: dark until M13_APPLIED (migration 0078). */}
       {M13_APPLIED && (
