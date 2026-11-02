@@ -50,7 +50,7 @@ export default async function ResidentBallotPage({ params }: { params: Promise<{
         </Alert>
       ) : todo.length === 0 ? (
         <Alert variant="success" title="Your home has voted">
-          Your vote is recorded and can’t be changed. Nobody can see how you voted. Thank you.
+          Your vote is recorded and can’t be changed. Your board cannot see how you voted. Thank you.
         </Alert>
       ) : (
         <Panel>

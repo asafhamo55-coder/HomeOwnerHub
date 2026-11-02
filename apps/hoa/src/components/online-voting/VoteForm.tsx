@@ -74,7 +74,7 @@ export function VoteForm({
     return (
       <div className="space-y-4" role="status">
         <Alert variant="success" title="Your vote is recorded">
-          Thank you. {home ? `${home.label} has voted. ` : ''}Your vote is final and can’t be changed. Nobody can see how you
+          Thank you. {home ? `${home.label} has voted. ` : ''}Your vote is final and can’t be changed. Your board cannot see how you
           voted.
         </Alert>
         {homes.some((h) => h.propertyId !== propertyId) ? (
