@@ -37,6 +37,8 @@ export interface LetterContext {
   input: LetterInput
   today: string
   collectionCase: { id: string; status: CollectionStatus } | null
+  /** The home's association, for the mailed-letter record (BL-032). */
+  associationId?: string | null
   events: LetterEvent[]
   /** This case's letters, newest first (any status). */
   requests: LetterRequest[]
@@ -77,7 +79,7 @@ export async function loadLetterContext(supabase: SupabaseClient, orgId: string,
     ...(gaComplaintStay ? { gaComplaintStay } : {}),
     ...(M7_APPLIED ? { mailTracking: true } : {}),
   }
-  const base = { input, today: ctx.today, collectionCase: live ? { id: live.id, status: live.status } : null }
+  const base = { input, today: ctx.today, collectionCase: live ? { id: live.id, status: live.status } : null, associationId: ctx.associationId ?? null }
   if (!live) return { ...base, events: [], requests: [] }
 
   const db = supabase as unknown as Loose
