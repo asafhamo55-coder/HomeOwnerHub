@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { Tabs } from '@homeowner-portal/ui'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { M12_APPLIED } from '@homeowner-portal/db/m12'
+import { M8_APPLIED } from '@homeowner-portal/db/m8'
 
 type SettingsPath =
   | '/settings'
   | '/settings/members'
   | '/settings/payments'
+  | '/settings/online-payments'
   | '/settings/reminders'
   | '/settings/vendors'
   | '/settings/late-fees'
@@ -31,6 +33,8 @@ const ITEMS: Array<{ label: string; href: SettingsPath; adminOnly: boolean }> = 
   { label: 'General', href: '/settings', adminOnly: true },
   { label: 'Members', href: '/settings/members', adminOnly: false },
   { label: 'Resident payments', href: '/settings/payments', adminOnly: false },
+  // BL-035: only once migration 0073 is applied (M8_APPLIED).
+  { label: 'Online payments', href: '/settings/online-payments', adminOnly: false },
   { label: 'Dues reminders', href: '/settings/reminders', adminOnly: false },
   { label: 'Vendors', href: '/settings/vendors', adminOnly: false },
   { label: 'Late fees', href: '/settings/late-fees', adminOnly: false },
@@ -50,6 +54,7 @@ const ITEMS: Array<{ label: string; href: SettingsPath; adminOnly: boolean }> = 
 export function SettingsTabs({ current, role }: { current: SettingsPath; role: 'admin' | 'board' }) {
   const items = ITEMS.filter((i) => M6_APPLIED || i.href !== '/settings/professionals')
     .filter((i) => M12_APPLIED || i.href !== '/settings/public-site')
+    .filter((i) => M8_APPLIED || i.href !== '/settings/online-payments')
     .filter((i) => role === 'admin' || !i.adminOnly).map((i) => ({
     label: i.label,
     href: i.href,
