@@ -4,7 +4,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getAccountingContext, listFiscalPeriods } from '@/lib/accounting/queries'
 import { load1099Summary } from '@/lib/accounting/year-end/load-1099'
 import {
-  FORM_1099_NEC_2026_THRESHOLD_CENTS,
+  form1099NecMinimumCents,
   FORM_1099_NOT_TAX_ADVICE,
 } from '@/lib/accounting/year-end/form1099'
 import { todayIn } from '@/lib/association-time'
@@ -61,7 +61,7 @@ export default async function Vendor1099Page({ searchParams }: PageProps) {
       linkAs={Link}
       breadcrumbs={crumbs}
       title="1099 vendor summary"
-      description={`${periodLabel(period)} · one sheet for each vendor paid $600 or more, to hand your board or CPA`}
+      description={`${periodLabel(period)} · one sheet for each vendor paid $600 or more, to hand your board or CPA. Each sheet shows whether the vendor reaches the filing minimum`}
       actions={
         <span className="print:hidden">
           <PrintPacketButton />
@@ -81,8 +81,8 @@ export default async function Vendor1099Page({ searchParams }: PageProps) {
       ) : (
         <>
           <p className="text-sm text-muted">
-            Payments made in {res.data.calendarYear}. For tax year 2026 the IRS filing minimum for Form 1099-NEC is{' '}
-            {usd(FORM_1099_NEC_2026_THRESHOLD_CENTS / 100, { whole: true })} (IRS instructions revised 12/2026, checked 2026-11-02). Vendors
+            Payments made in {res.data.calendarYear}. For that year the IRS filing minimum for Form 1099-NEC is{' '}
+            {usd(form1099NecMinimumCents(res.data.calendarYear) / 100, { whole: true })} (IRS instructions revised 12/2026, checked 2026-11-02). Vendors
             below that line are still listed so your CPA can decide. Payments made by card are usually reported by the card company, so
             they are taken out of the Box 1a figure. Your CPA decides if a vendor is a corporation and does not need a form.
           </p>
@@ -132,7 +132,7 @@ export default async function Vendor1099Page({ searchParams }: PageProps) {
                     <dt className="text-muted">Box 1a, Nonemployee Compensation (suggested)</dt>
                     <dd className="text-base font-semibold text-foreground">{usd(r.box1aCents / 100)}</dd>
                     <dd className="text-muted">
-                      {r.meetsThreshold ? 'At or over the 2026 filing minimum.' : 'Under the 2026 filing minimum. Your CPA decides.'}
+                      {r.meetsThreshold ? 'At or over the filing minimum for this year.' : 'Under the filing minimum for this year. Your CPA decides.'}
                     </dd>
                   </div>
                 </dl>

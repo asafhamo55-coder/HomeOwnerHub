@@ -13,10 +13,11 @@
 //    1d Overtime Compensation; 2 Payer Made Direct Sales Totaling $5,000 or
 //    More; 3 Excess Golden Parachute Payments; 4 Federal Income Tax Withheld;
 //    5-7 State Information.
-//  NOT CONFIRMED from IRS text: the exact wording of the corporation
-//  exception, the due date for 2026, and the final printed box layout (the
-//  page was read through a summarizer and the last ~10k characters were not
-//  read). The UI tells the reader to check every figure.
+//  - Same page, read raw 2026-11-02: payments made by card go on Form 1099-K;
+//    "Generally, payments to a corporation" need no form, except items such as
+//    legal fees; Form 1099-NEC is filed "on or before January 31".
+//  Not checked: weekend or holiday shifts of that date, and the printed form
+//  layout. The UI tells the reader to check every figure.
 
 import { csvDocument } from '@/lib/csv'
 import type { NecCandidate } from './model'
@@ -25,8 +26,17 @@ import type { NecCandidate } from './model'
 export const FORM_1099_NEC_2026_THRESHOLD_CENTS = 200_000
 export const FORM_1099_NEC_TAX_YEAR = 2026
 
+/**
+ * The 1099-NEC minimum for payments made in a calendar year: $600 through 2025,
+ * $2,000 from 2026. The IRS may adjust it for inflation from 2027, so check
+ * this each year.
+ */
+export function form1099NecMinimumCents(calendarYear: number): number {
+  return calendarYear >= FORM_1099_NEC_TAX_YEAR ? FORM_1099_NEC_2026_THRESHOLD_CENTS : 60_000
+}
+
 export const FORM_1099_NOT_TAX_ADVICE =
-  'This is a worksheet from the association’s books, not tax advice. The board or its CPA must check every figure, decide who gets a form, and file. HomeownerHub does not file anything with the IRS.'
+  'This is a worksheet from the association’s books, not tax advice. The board or its CPA must check every figure, decide who gets a form, and file. Payments to a corporation are generally left out, but legal fees can still count. HomeownerHub does not file anything with the IRS.'
 
 export interface VendorAddress {
   line1?: string | null

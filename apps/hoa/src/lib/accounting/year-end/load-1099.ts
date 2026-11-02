@@ -6,7 +6,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { chunk } from '@/lib/supabase/read-all'
 import { queryFailed } from '../queries'
 import { loadVendorPayments, type YearEndScope } from './load'
-import { build1099Rows, tinLast4, type VendorAddress } from './form1099'
+import { build1099Rows, form1099NecMinimumCents, tinLast4, type VendorAddress } from './form1099'
 
 export async function load1099Summary(s: YearEndScope) {
   const db = await getSupabaseServerClient()
@@ -24,5 +24,5 @@ export async function load1099Summary(s: YearEndScope) {
       extra.set(v.id, { tinLast4: tinLast4(v.ein), address: (v.address as VendorAddress | null) ?? null })
     }
   }
-  return { calendarYear, rows: build1099Rows(nec, extra) }
+  return { calendarYear, rows: build1099Rows(nec, extra, form1099NecMinimumCents(calendarYear)) }
 }
