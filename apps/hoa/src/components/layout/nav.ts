@@ -29,10 +29,12 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  Vote,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
+import { M9_APPLIED } from '@homeowner-portal/db/m9'
 import { MESSAGES_PREFIXES } from '@/lib/messages/tabs'
 
 /**
@@ -97,6 +99,7 @@ export const HOA_NAV: HoaNavGroup[] = [
       { href: '/violations', icon: AlertTriangle, label: 'Violations', basic: true, keywords: ['notices', 'compliance'] },
       { href: '/arc', icon: ClipboardCheck, label: 'Architecture requests', basic: true, keywords: ['arc', 'arc review', 'architectural', 'applications'] },
       { href: '/meetings', icon: CalendarDays, label: 'Meetings', basic: true, keywords: ['minutes', 'agenda'] },
+      ...(M9_APPLIED ? [{ href: '/polls', icon: Vote, label: 'Polls', keywords: ['survey', 'poll', 'questions'] }] : []),
       // BL-119: meeting action items and ticket follow-ups, board-wide.
       {
         href: '/tasks',
