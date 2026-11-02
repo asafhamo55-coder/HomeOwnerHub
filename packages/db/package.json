@@ -16,6 +16,7 @@
     "./m6": "./src/m6.ts",
     "./m7": "./src/m7.ts",
     "./m8": "./src/m8.ts",
+    "./m11": "./src/m11.ts",
     "./online-payments-types": "./src/online-payments.types.ts"
   },
   "scripts": {

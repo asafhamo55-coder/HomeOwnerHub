@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { Badge } from '@homeowner-portal/ui'
+import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { IconTile, type Tone } from '@/components/resident/screen'
 
 /**
@@ -45,6 +46,10 @@ export function QuickActions({ newAnnouncements }: { newAnnouncements: number })
       />
       <ActionTile icon={<CreditCard />} tone="slate" label="Dues" hint="Balance & charges" href="/resident/dues" />
       <ActionTile icon={<CalendarDays />} tone="slate" label="Meetings" hint="Dates and agendas" href="/resident/meetings" />
+      {/* BL-034: only once migration 0076 is applied (M11_APPLIED). */}
+      {M11_APPLIED ? (
+        <ActionTile icon={<CalendarDays />} tone="slate" label="Book a space" hint="Clubhouse, pool, courts" href="/resident/amenities" />
+      ) : null}
       <ActionTile
         icon={<Megaphone />}
         tone="slate"

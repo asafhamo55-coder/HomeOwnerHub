@@ -27,6 +27,7 @@ export { M4_APPLIED } from './m4'
 export { M5_APPLIED } from './m5'
 export { M6_APPLIED } from './m6'
 export { M8_APPLIED } from './m8'
+export { M11_APPLIED } from './m11'
 
 export type {
   AssociationStripeAccountRow,

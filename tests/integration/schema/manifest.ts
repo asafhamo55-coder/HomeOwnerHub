@@ -121,6 +121,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // production (M8_APPLIED = false); replayed here like 0072 was, so the
   // integration suite runs "objects present, flag false". One file, one entry.
   '0073_online_payments.sql',
+  // M11: BL-034 amenity reservations (amenities, amenity_reservations, the no-overlap
+  // trigger; security/m11-amenities.test.ts). Unapplied in production (M11_APPLIED = false).
+  '0076_amenity_reservations.sql',
 ]
 
 /**

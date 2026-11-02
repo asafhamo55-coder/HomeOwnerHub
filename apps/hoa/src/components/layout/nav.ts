@@ -33,6 +33,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
+import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { MESSAGES_PREFIXES } from '@/lib/messages/tabs'
 
 /**
@@ -105,6 +106,10 @@ export const HOA_NAV: HoaNavGroup[] = [
         keywords: ['action items', 'to do', 'todo', 'follow ups', 'assigned', 'my tasks', 'due'],
       },
       { href: '/events', icon: CalendarHeart, label: 'Events' },
+      // BL-034: only once migration 0076 is applied (M11_APPLIED).
+      ...(M11_APPLIED
+        ? [{ href: '/amenities', icon: CalendarDays, label: 'Amenities', keywords: ['clubhouse', 'pool', 'reservations', 'book', 'bookings', 'courts'] }]
+        : []),
       { href: '/tickets', icon: MessageSquare, label: 'Tickets', basic: true, keywords: ['requests', 'maintenance'] },
     ],
   },
