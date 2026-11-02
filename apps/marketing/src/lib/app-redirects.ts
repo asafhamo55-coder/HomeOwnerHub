@@ -22,10 +22,13 @@ export const APP_PATH_SEGMENTS = [
   'reset-password',
   // (dashboard): the board's app pages
   'accounting',
+  'amenities',
   'ai',
   'approvals',
   'arc',
+  'ballots',
   'communications',
+  'community-board',
   'compliance',
   'documents',
   'dues',
@@ -37,6 +40,7 @@ export const APP_PATH_SEGMENTS = [
   'leases',
   'legal',
   'meetings',
+  'polls',
   'properties',
   'rfps',
   'settings',
@@ -58,6 +62,8 @@ export const APP_PATH_SEGMENTS = [
   'pro-invite',
   'resident',
   'rfp-bid',
+  // public share links
+  's',
   'vendor-onboard',
   // apps/hoa/public and generated icons referenced from already-sent
   // email and from the old service worker's notifications.
