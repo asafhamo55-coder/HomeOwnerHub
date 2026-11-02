@@ -140,10 +140,12 @@ export interface PropertyDetailViewProps {
   gaComplaints?: GaComplaintRead | null
   /** Round 16: the home's letters, newest first (board/admin only); null or omitted hides the card. */
   letterHistory?: LoadResult<LetterHistoryPage> | null
+  /** BL-035: the card and bank payments panel (board/admin, online payments on); omitted renders nothing. */
+  onlinePayments?: React.ReactNode
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, capLoadFailed = false, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, capLoadFailed = false, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null, onlinePayments = null } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -279,6 +281,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
             }
           >
             <MoneySection data={data} planStandings={planStandings ?? null} aging={aging} today={today} unitId={unitId} canManage={canManage} duesHref={scoped('/dues')} letterHref={canManage ? propertyHref(pid, { collectionsLetter: true }) : null} gaThreshold={canManage ? gaThreshold : null} gaComplaints={canManage ? gaComplaints : null} />
+            {canManage ? onlinePayments : null}
           </Section>
 
           <Section

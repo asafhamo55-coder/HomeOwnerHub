@@ -11,6 +11,7 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { appUrl, sendEmail } from '@/lib/email'
+import { getStripeConnect } from '@/lib/payments/stripe-connect'
 import { fetchBoardMembers } from '@/lib/communications/audience'
 import {
   ReverseRefused,
@@ -218,5 +219,14 @@ function toHtml(text: string): string {
 /** The service-role wiring the webhook route and the refund action use. */
 export function reversalDeps(): ReversalDeps {
   const db = createAdminClient() as unknown as Db
-  return { store: supabaseReversalStore(db), notifier: supabaseReversalNotifier(db), log: logger }
+  return {
+    store: supabaseReversalStore(db),
+    notifier: supabaseReversalNotifier(db),
+    log: logger,
+    async listRefunds(account, chargeId) {
+      const stripe = getStripeConnect()
+      if (!stripe) throw new Error('stripe_not_configured')
+      return stripe.listChargeRefunds(account, chargeId)
+    },
+  }
 }

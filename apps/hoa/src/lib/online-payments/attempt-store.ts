@@ -10,6 +10,7 @@
 
 import { associationTimeZone, todayIn } from '@/lib/association-time'
 import { toCents } from '@/lib/payments/lump-payment'
+import { loadInstallments } from '@homeowner-portal/workflows/payment-plans'
 import type { OpenCharge } from '@/lib/collections/ga-payment-order'
 import type { AttemptRow, AttemptStore, NewAttempt, PayContext } from './create-attempt'
 import type { WebhookStore } from './webhook-handlers'
@@ -58,11 +59,21 @@ export function supabaseAttemptStore(db: Db): AttemptStore {
       const list = (rows ?? []) as R[]
       // A capped read would split a payment over part of the account: refuse.
       if (list.length >= 1000) return null
+      // Payment-plan installments are stored as 'special' but rank last and are
+      // flagged, exactly as in the board's lump-payment flow, so the same money
+      // is applied the same way. A failed read throws; it never guesses.
+      let installmentIds: Set<string>
+      try {
+        installmentIds = new Set((await loadInstallments(db as never, unit.association_id)).map((i) => i.assessmentId))
+      } catch {
+        throw new Error('online-payments: installment read failed')
+      }
       const charges: OpenCharge[] = list.map((r) => ({
         id: r.id,
         type: r.assessment_type,
         dueDate: r.due_date,
         remainingCents: Math.max(0, toCents(r.amount) - (r.payments ?? []).reduce((s, p) => s + toCents(p.amount), 0)),
+        planInstallment: installmentIds.has(r.id),
       }))
       const state = ((assoc.governing_law_state ?? assoc.state ?? '') as string).trim().toUpperCase() || null
       const cs = assoc.compliance_settings as Record<string, unknown> | null

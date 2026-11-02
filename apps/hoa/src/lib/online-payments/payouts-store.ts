@@ -235,7 +235,7 @@ export function createSupabasePayoutPorts(
 
       const bankUpd = await db
         .from('bank_transactions')
-        .update({ matched_journal_entry_id: je.journalEntryId, match_method: 'stripe_payout', match_confidence: 1 })
+        .update({ matched_journal_entry_id: je.journalEntryId, match_method: 'auto_exact', match_confidence: 1 })
         .eq('id', bankTransactionId)
       if (bankUpd.error) return { ok: false, error: bankUpd.error.message }
       const payUpd = await l

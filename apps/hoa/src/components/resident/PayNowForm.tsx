@@ -7,18 +7,14 @@
 
 import { useRef, useState } from 'react'
 import { createOnlinePayment } from '@/lib/online-payments/actions'
+import { usd as formatUsd } from '@/lib/money/format'
+import type { FeePolicy } from '@/lib/online-payments/fees'
+import { customAmountError, parseDollarsToCents, payOptionsFor, type PayMethod, type PayOption } from '@/lib/online-payments/pay-amount'
 
-type Method = 'ach' | 'card'
+type Method = PayMethod
+export type PayNowOption = PayOption
 
-export interface PayNowOption {
-  method: Method
-  feeCents: number
-  /** 'homeowner' adds the fee to the charge. */
-  feePayer: 'association' | 'homeowner'
-  totalCents: number
-}
-
-const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const usd = (cents: number) => formatUsd(cents / 100)
 
 const LABEL: Record<Method, string> = { ach: 'Bank account', card: 'Card' }
 
@@ -43,31 +39,49 @@ type Phase =
 export function PayNowForm({
   unitId,
   duesCents,
-  options,
+  options: fullOptions,
+  policy,
   publishableKey,
 }: {
   unitId: string
+  /** Everything payable right now. */
   duesCents: number
+  /** Prices for paying the full amount. */
   options: PayNowOption[]
+  /** The fee rules, to price a different amount with the same pure engine. The server recomputes. */
+  policy: FeePolicy
   publishableKey: string
 }) {
-  const [method, setMethod] = useState<Method>(options[0]?.method ?? 'card')
+  const [custom, setCustom] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [method, setMethod] = useState<Method>(fullOptions[0]?.method ?? 'card')
   const [phase, setPhase] = useState<Phase>({ step: 'choose' })
   const [error, setError] = useState<string | null>(null)
   // One key per screen load and method: a double tap returns the same payment.
-  const keys = useRef<Partial<Record<Method, string>>>({})
+  const keys = useRef<Record<string, string>>({})
   const mount = useRef<HTMLDivElement | null>(null)
   const stripeRef = useRef<import('@stripe/stripe-js').Stripe | null>(null)
   const elementsRef = useRef<import('@stripe/stripe-js').StripeElements | null>(null)
 
+  // "Pay a different amount": the box value, checked the way the server will check it.
+  const customProblem = custom ? customAmountError(typed, duesCents) : null
+  const customCents = custom && !customProblem ? parseDollarsToCents(typed) : null
+  const payingCents = custom ? customCents : duesCents
+  const options = custom && customCents ? payOptionsFor(customCents, policy) : fullOptions
   const chosen = options.find((o) => o.method === method) ?? options[0]
   if (!chosen) return null
 
   async function start() {
     setError(null)
     setPhase({ step: 'starting' })
-    const key = (keys.current[method] ??= newKey())
-    const res = await createOnlinePayment({ unitId, method, idempotencyKey: key })
+    if (custom && customCents === null) {
+      setError(customProblem ?? 'Type the amount in dollars and cents, like 125.00.')
+      setPhase({ step: 'choose' })
+      return
+    }
+    // One key per method AND amount: a changed amount must never reuse an old payment.
+    const key = (keys.current[`${method}:${custom ? customCents : 'full'}`] ??= newKey())
+    const res = await createOnlinePayment({ unitId, method, idempotencyKey: key, ...(custom && customCents ? { amountCents: customCents } : {}) })
     if (!res.ok) {
       setError(res.error)
       setPhase({ step: 'choose' })
@@ -142,13 +156,49 @@ export function PayNowForm({
                 <input type="radio" name="pay-method" checked={o.method === method} onChange={() => setMethod(o.method)} className="size-5" />
                 {LABEL[o.method]}
               </span>
-              <span className="ml-8 text-base text-foreground-secondary">{feeLine(o, duesCents)}</span>
+              <span className="ml-8 text-base text-foreground-secondary">{feeLine(o, payingCents ?? duesCents)}</span>
             </label>
           ))}
         </fieldset>
       ) : (
         <div ref={mount} aria-label="Payment details" />
       )}
+
+      {!entering ? (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => {
+              setCustom((c) => !c)
+              setError(null)
+            }}
+            className="min-h-12 text-lg font-medium text-primary underline underline-offset-4"
+          >
+            {custom ? `Pay the full ${usd(duesCents)}` : 'Pay a different amount'}
+          </button>
+          {custom ? (
+            <div className="space-y-1">
+              <label htmlFor="pay-amount" className="block text-lg font-medium">
+                How much would you like to pay?
+              </label>
+              <input
+                id="pay-amount"
+                inputMode="decimal"
+                autoComplete="off"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                placeholder="125.00"
+                aria-describedby="pay-amount-help"
+                aria-invalid={typed !== '' && customProblem ? true : undefined}
+                className="min-h-12 w-full rounded-lg border border-border bg-background px-4 text-lg"
+              />
+              <p id="pay-amount-help" className={`text-base ${typed !== '' && customProblem ? 'text-danger' : 'text-foreground-secondary'}`}>
+                {typed !== '' && customProblem ? customProblem : `You can pay up to ${usd(duesCents)}. Whatever you do not pay stays on your account.`}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {error ? (
         <p role="alert" className="text-base text-danger">
@@ -158,16 +208,16 @@ export function PayNowForm({
 
       <button
         type="button"
-        disabled={phase.step === 'starting' || phase.step === 'paying'}
+        disabled={phase.step === 'starting' || phase.step === 'paying' || (!entering && custom && customCents === null)}
         onClick={() => (entering ? confirm(phase.step === 'enter' ? phase.method : method) : start())}
-        className="min-h-12 w-full rounded-lg bg-primary px-6 text-lg font-semibold text-primary-foreground disabled:opacity-60"
+        className="min-h-12 w-full rounded-lg bg-primary px-6 text-lg font-semibold text-primary-fg disabled:opacity-60"
       >
         {phase.step === 'starting' || phase.step === 'paying'
           ? 'One moment...'
           : `Pay ${usd(entering && phase.step === 'enter' ? phase.total : chosen.totalCents)}`}
       </button>
       <p className="text-base text-foreground-secondary">
-        {feeLine(chosen, duesCents)}
+        {feeLine(chosen, payingCents ?? duesCents)}
         {chosen.feePayer === 'homeowner' && chosen.feeCents > 0 ? ` = ${usd(chosen.totalCents)}` : ''}
       </p>
     </div>

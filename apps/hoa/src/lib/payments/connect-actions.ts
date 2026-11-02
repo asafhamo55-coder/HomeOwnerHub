@@ -15,6 +15,7 @@ import { appUrl } from '@/lib/app-origin'
 import { ACCOUNT_COLUMNS, adminDb, getAccountForAssociation, rowFromDb, writeAccountState, type UntypedDb } from './connect-store'
 import { validateFeeSettings, type ConnectAccountRow } from './connect-account'
 import { getStripeConnect, type StripeConnect } from './stripe-connect'
+import { ensureOnlinePaymentAccounts } from '@/lib/online-payments/payouts-store'
 
 export type ConnectActionResult = { ok: true; url?: string } | { ok: false; error: string }
 
@@ -25,6 +26,8 @@ const SETTINGS_PATH = '/settings/online-payments'
 export interface ConnectActionDeps {
   stripe?: StripeConnect | null
   db?: UntypedDb
+  /** Creates chart accounts 1015 and 6150; tests pass a fake. */
+  ensureAccounts?: (db: never, organizationId: string, associationId: string) => Promise<boolean>
 }
 
 interface Scope {
@@ -175,6 +178,20 @@ export async function saveOnlinePaymentSettings(
   const wantOn = input.onlinePaymentsEnabled === true
   if (wantOn && !(row.chargesEnabled && row.payoutsEnabled)) {
     return { ok: false, error: 'Stripe has to finish checking your account before you can turn payments on.' }
+  }
+
+  // First enable: the books need 1015 (clearing) and 6150 (fees) before any
+  // payment can post (design 1.3 step 6). Safe to repeat. Without them (no
+  // OPERATING fund yet) the switch stays off, so nothing can be taken that the
+  // ledger has nowhere to put.
+  if (wantOn) {
+    try {
+      const ensure = deps.ensureAccounts ?? ensureOnlinePaymentAccounts
+      const ready = await ensure(db as never, scope.orgId, scope.association.id)
+      if (!ready) return { ok: false, error: 'Set up your books first, then turn online payments on.' }
+    } catch {
+      return { ok: false, error: FAILED }
+    }
   }
 
   const v = valid.value

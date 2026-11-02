@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { M8_APPLIED } from '@homeowner-portal/db/m8'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getStripeConnect } from '@/lib/payments/stripe-connect'
 import { runBoardRefund, type RefundGateway, type RefundResult } from './refund-core'
 import { reversalDeps } from './reversals-deps'
 
@@ -19,17 +20,19 @@ const Schema = z.object({
   cents: z.number().int().positive().max(100_000_000).optional(),
 })
 
-async function stripeGateway(): Promise<RefundGateway> {
-  const key = process.env.STRIPE_SECRET_KEY
-  if (!key) throw new Error('STRIPE_SECRET_KEY is not set')
-  const { default: Stripe } = await import('stripe')
-  const stripe = new Stripe(key)
+function stripeGateway(): RefundGateway {
+  // The one shared Stripe client (pinned API version, same as every other payment call).
+  const stripe = getStripeConnect()
+  if (!stripe) throw new Error('STRIPE_SECRET_KEY is not set')
   return {
     async createRefund(i) {
-      const r = await stripe.refunds.create(
-        { payment_intent: i.paymentIntentId, amount: i.amountCents, refund_application_fee: i.refundApplicationFee },
-        { stripeAccount: i.stripeAccountId, idempotencyKey: i.idempotencyKey },
-      )
+      const r = await stripe.createRefund({
+        stripeAccount: i.stripeAccountId,
+        paymentIntentId: i.paymentIntentId,
+        amountCents: i.amountCents,
+        refundApplicationFee: i.refundApplicationFee,
+        idempotencyKey: i.idempotencyKey,
+      })
       return { id: r.id }
     },
   }
@@ -61,7 +64,7 @@ export async function refundOnlinePayment(input: { paymentId: string; cents?: nu
 
   let gateway: RefundGateway
   try {
-    gateway = await stripeGateway()
+    gateway = stripeGateway()
   } catch {
     return { ok: false, error: 'Refunds aren’t set up yet.' }
   }

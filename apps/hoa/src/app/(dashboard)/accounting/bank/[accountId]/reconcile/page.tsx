@@ -23,6 +23,8 @@ import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
 import { todayIn } from '@/lib/association-time'
 import { formatDay, formatStamp, usd } from '@/lib/money/format'
 import { AccountingLoadFailed, accountingCrumbs } from '../../../_components/shared'
+import { loadPayoutsMissingFromBank } from '@/lib/online-payments/clearing-read'
+import { MissingPayouts } from './MissingPayouts'
 import { ReconcileForm } from './ReconcileForm'
 import { ApproveReconciliationButton } from './ApproveReconciliationButton'
 
@@ -68,6 +70,8 @@ export default async function ReconcilePage({ params, searchParams }: PageProps)
       .order('statement_date', { ascending: false })
       .range(from, to),
   )
+  // Online payments only: Stripe payouts with no matching bank deposit. Null (no section) otherwise.
+  const missing = await tryLoad('missing stripe payouts', () => loadPayoutsMissingFromBank(ctx.associationId, todayIn(ctx.timeZone)))
   const rows = recs.ok ? ((recs.data ?? []) as RecRow[]) : []
   const total = recs.ok ? (recs.count ?? rows.length) : 0
 
@@ -123,6 +127,11 @@ export default async function ReconcilePage({ params, searchParams }: PageProps)
           <ReconcileForm bankAccountId={accountId} today={todayIn(ctx.timeZone)} />
         </CardContent>
       </Card>
+
+ {missing.ok && missing.data ? (
+        <MissingPayouts payouts={missing.data.map((p) => ({ id: p.id, amountCents: p.amountCents, arrivalDate: p.arrivalDate }))} />
+      ) : null}
+      {!missing.ok ? <LoadFailed what="Stripe payouts" /> : null}
 
       <section aria-labelledby="history" className="space-y-3">
         <h2 id="history" className="text-lg font-semibold text-foreground">

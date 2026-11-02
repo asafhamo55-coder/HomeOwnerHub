@@ -11,6 +11,7 @@ import { M8_APPLIED } from '@homeowner-portal/db/m8'
 import { getResidentActor } from '@/lib/impersonation'
 import { getResidentUnits } from '@/lib/resident'
 import { deps } from '@/lib/online-payments/saved-methods-deps'
+import { addMethodLimitMessage, checkAndRecordAddMethod } from '@/lib/online-payments/method-rate-limit'
 
 const NOT_YET = 'Saved payment methods aren’t available yet.'
 const READ_ONLY = 'You are viewing as this homeowner, so nothing can be changed.'
@@ -49,6 +50,10 @@ export async function startAddMethod(): Promise<AddMethodResult> {
   if (!acct || !acct.online_payments_enabled || !acct.charges_enabled) {
     return { ok: false, error: 'Your association hasn’t turned on online payments yet.' }
   }
+
+  // Card-testing guard (design 6.6), counted before Stripe is called.
+  const limit = await checkAndRecordAddMethod(db, { orgId: acct.organization_id, userId: who.userId })
+  if (!limit.ok) return { ok: false, error: addMethodLimitMessage(limit.retryAfterSeconds) }
 
   try {
     const { data: prior } = (await db

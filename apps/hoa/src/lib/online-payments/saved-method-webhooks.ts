@@ -11,6 +11,9 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { M8_APPLIED } from '@homeowner-portal/db/m8'
 import type { PaymentMethodSummary, SavedMethodsStripePort, SetupIntentLike } from './saved-methods'
 
+/** The only Stripe call the webhook handlers make. */
+export type SavedMethodsReader = Pick<SavedMethodsStripePort, 'retrievePaymentMethod'>
+
 /** The slice of Stripe.Event the handlers read; the route passes the real event. */
 export interface ConnectEventLike {
   id: string
@@ -72,7 +75,7 @@ async function pauseAutopayFor(db: HandlerDb, methodRowId: string, orgId: string
  */
 export async function handleSetupIntentSucceeded(
   event: ConnectEventLike,
-  deps: { stripe: SavedMethodsStripePort; db?: HandlerDb },
+  deps: { stripe: SavedMethodsReader; db?: HandlerDb },
 ): Promise<HandlerOutcome> {
   if (!M8_APPLIED) return 'ignored'
   const db = deps.db ?? defaultDb()
@@ -192,11 +195,12 @@ export async function handleMandateUpdated(event: ConnectEventLike, deps: { db?:
  *   const h = savedMethodEventHandlers(port)[event.type]; if (h) await h(event)
  */
 export function savedMethodEventHandlers(
-  stripe: SavedMethodsStripePort,
+  stripe: SavedMethodsReader,
+  db?: HandlerDb,
 ): Record<string, (e: ConnectEventLike) => Promise<HandlerOutcome>> {
   return {
-    'setup_intent.succeeded': (e) => handleSetupIntentSucceeded(e, { stripe }),
-    'payment_method.detached': (e) => handlePaymentMethodDetached(e),
-    'mandate.updated': (e) => handleMandateUpdated(e),
+    'setup_intent.succeeded': (e) => handleSetupIntentSucceeded(e, { stripe, db }),
+    'payment_method.detached': (e) => handlePaymentMethodDetached(e, { db }),
+    'mandate.updated': (e) => handleMandateUpdated(e, { db }),
   }
 }

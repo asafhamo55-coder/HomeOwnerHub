@@ -297,6 +297,8 @@ export async function runAutopay(
         })
         const next = afterFailure(e.consecutiveFailures)
         await store.setFailures(e.id, next.consecutiveFailures, next.paused)
+        // So a later webhook for this same attempt does not count it a second time.
+        await store.audit('autopay.failure_counted', e, { attempt_id: attempt.id, consecutive_failures: next.consecutiveFailures })
         await store.audit(next.paused ? 'autopay.paused' : 'online_payment.failed', e, { period: e.today, code: bad.failureCode })
         await mail(e.ownerEmail, buildFailed({ paused: next.paused, manageUrl: deps.appUrl('/resident/dues/autopay') }))
         await mailBoard(next.paused ? 'paused' : 'failed')

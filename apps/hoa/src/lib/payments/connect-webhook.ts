@@ -143,14 +143,25 @@ export async function processConnectWebhook(
 
   const handlers = connectHandlersFor(event.type)
   const outcomes: string[] = []
-  try {
-    for (const h of handlers) {
+  // Every handler runs even if an earlier one failed: one persistent failure
+  // must not starve the others of their only deliveries. The event is recorded
+  // only when ALL succeeded, so Stripe redelivers after any failure and the
+  // idempotent handlers that already finished do nothing the second time.
+  let failed = 0
+  for (const h of handlers) {
+    try {
       outcomes.push(await h({ event, account, stripe: deps.stripe }))
+    } catch (err) {
+      failed += 1
+      // Ids only: an error message can echo row values.
+      console.error('[stripe-connect webhook] handler failed', {
+        eventId: event.id,
+        type: event.type,
+        error: err instanceof Error ? err.name : 'unknown',
+      })
     }
-  } catch {
-    // Nothing recorded: Stripe redelivers and the handler finishes the job.
-    return fail(500, 'handler_failed')
   }
+  if (failed > 0) return fail(500, 'handler_failed')
 
   const outcome = handlers.length === 0 ? 'ignored' : outcomes.join(',').slice(0, 64)
   try {

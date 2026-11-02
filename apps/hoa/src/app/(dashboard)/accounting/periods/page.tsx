@@ -17,6 +17,7 @@ import { BooksNotOpen } from '../../_components/BooksNotOpen'
 import { OpenNextFiscalYearButton } from '../_components/OpenNextFiscalYearButton'
 import { loadLastApprovedStatementDate } from '@/lib/accounting/last-reconciled'
 import { periodColumns } from './columns'
+import { loadClearingForClose } from '@/lib/online-payments/clearing-read'
 import { periodHasEnded, unreconciledAccounts, type CloseChecks, type CountRead } from './close-checks-shared'
 
 export const metadata = { title: 'Fiscal Periods' }
@@ -53,7 +54,14 @@ export default async function PeriodsPage() {
       const drafts = await tryLoad('draft entries', () =>
         countDraftJournalEntries(ctx.associationId, { from: p.start_date, to: p.end_date }),
       )
+      // Only for an association that takes online payments; null leaves the checks as they were.
+      const clearing = await tryLoad('online payments clearing', () => loadClearingForClose(ctx.associationId, p.end_date))
       checks.set(p.id, {
+        ...(!clearing.ok
+          ? { clearing: { ok: false as const } }
+          : clearing.data
+            ? { clearing: { ok: true as const, balanceCents: clearing.data.balanceCents, unmatchedPayouts: clearing.data.unmatchedPayouts } }
+            : {}),
         drafts: drafts.ok ? { ok: true, n: drafts.data } : { ok: false },
         proposals: proposalRead,
         unreconciled:
