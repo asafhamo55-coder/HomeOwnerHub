@@ -125,6 +125,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // poll_results() (security/m9-polls.test.ts). Unapplied in production
   // (M9_APPLIED = false); replayed here. One file, one entry.
   '0074_polls.sql',
+  // M10: BL-156 online voting (ballots, options, voter list, secret ballot box).
+  // Unapplied in production (M10_APPLIED = false); security/m10-online-voting.test.ts.
+  '0075_online_voting.sql',
 ]
 
 /**

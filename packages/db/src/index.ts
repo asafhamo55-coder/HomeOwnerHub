@@ -28,6 +28,16 @@ export { M5_APPLIED } from './m5'
 export { M6_APPLIED } from './m6'
 export { M8_APPLIED } from './m8'
 export { M9_APPLIED } from './m9'
+export { M10_APPLIED } from './m10'
+
+export type {
+  BallotRow,
+  BallotOptionRow,
+  BallotResultsRpc,
+  BallotKind,
+  BallotStatus,
+  BallotAuthorityBasis,
+} from './online-voting.types'
 
 export type {
   AssociationStripeAccountRow,
