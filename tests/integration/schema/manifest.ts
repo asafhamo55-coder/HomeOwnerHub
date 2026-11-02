@@ -121,6 +121,10 @@ export const MIGRATION_MANIFEST: string[] = [
   // production (M8_APPLIED = false); replayed here like 0072 was, so the
   // integration suite runs "objects present, flag false". One file, one entry.
   '0073_online_payments.sql',
+  // M9: B1 informal polls (BL-023): four tables, submit_poll_response(),
+  // poll_results() (security/m9-polls.test.ts). Unapplied in production
+  // (M9_APPLIED = false); replayed here. One file, one entry.
+  '0074_polls.sql',
 ]
 
 /**

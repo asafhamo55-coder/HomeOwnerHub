@@ -8,7 +8,9 @@ import {
   MessageSquarePlus,
   ShieldAlert,
   Sparkles,
+  Vote,
 } from 'lucide-react'
+import { M9_APPLIED } from '@homeowner-portal/db/m9'
 import { Badge } from '@homeowner-portal/ui'
 import { IconTile, type Tone } from '@/components/resident/screen'
 
@@ -53,6 +55,9 @@ export function QuickActions({ newAnnouncements }: { newAnnouncements: number })
         href="/resident/announcements"
         badge={newAnnouncements > 0 ? `${newAnnouncements} new` : null}
       />
+      {M9_APPLIED ? (
+        <ActionTile icon={<Vote />} tone="slate" label="Polls" hint="Quick questions" href="/resident/polls" />
+      ) : null}
     </div>
   )
 }

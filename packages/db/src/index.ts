@@ -27,6 +27,7 @@ export { M4_APPLIED } from './m4'
 export { M5_APPLIED } from './m5'
 export { M6_APPLIED } from './m6'
 export { M8_APPLIED } from './m8'
+export { M9_APPLIED } from './m9'
 
 export type {
   AssociationStripeAccountRow,
@@ -45,3 +46,11 @@ export type {
   ReverseOnlinePaymentResult,
   ReverseKind,
 } from './online-payments.types'
+
+export type {
+  PollRow,
+  PollOptionRow,
+  PollResultRow,
+  PollStatus,
+  PollResultsVisibility,
+} from './polls.types'
