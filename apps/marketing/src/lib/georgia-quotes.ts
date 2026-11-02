@@ -873,6 +873,86 @@ export const QUOTES = {
     fixture: "ga-ocga-44-3-art6-2026.txt",
     quote: "Other than for limited common areas expressly designated as such in the instrument and assigned to fewer than all lots, nothing contained in paragraph (1) or (3) of this subsection shall permit an association to specially or disproportionately allocate common expenses for periodic maintenance, repair, and replacement of any portion of the common area or the lots which the association has the obligation to maintain, repair, or replace.",
   },
+  defDeclarant: {
+    cite: "O.C.G.A. § 44-3-221(5)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Declarant” means all owners and lessees of the property who execute the declaration or on whose behalf the declaration is executed",
+  },
+  defDeclaration: {
+    cite: "O.C.G.A. § 44-3-221(6)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Declaration” means the recordable instrument creating covenants upon property which covenants are administered by a property owners’ association in which membership is mandatory for all owners of lots in the property owners’ development.",
+  },
+  defCommonArea: {
+    cite: "O.C.G.A. § 44-3-221(2)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Common area” means all real and personal property submitted to the declaration which is owned or leased by the association for common use and enjoyment of the members.",
+  },
+  defCommonExpenses: {
+    cite: "O.C.G.A. § 44-3-221(3)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Common expenses” means all expenditures lawfully made or incurred by or on behalf of the association together with all funds lawfully assessed for the creation and maintenance of reserves pursuant to the provisions of the instrument.",
+  },
+  defLimited: {
+    cite: "O.C.G.A. § 44-3-221(8)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Limited common areas” means a portion of the common area reserved for the exclusive use of those entitled to occupy one or more, but less than all, of the lots.",
+  },
+  defLot: {
+    cite: "O.C.G.A. § 44-3-221(9)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Lot” means any plot or parcel of land, other than a common area, designated for separate ownership and occupancy shown on a recorded subdivision plat for a development and subject to a declaration.",
+  },
+  defInstrument: {
+    cite: "O.C.G.A. § 44-3-221(17)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Property owners’ association instrument” or “instrument” means the declaration, plats, and plans recorded pursuant to this article.",
+  },
+  defAssociation: {
+    cite: "O.C.G.A. § 44-3-221(16)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "“Property owners’ association” or “association” means a corporation formed for the purpose of exercising the powers of the property owners’ association created pursuant to this article.",
+  },
+  incType: {
+    cite: "O.C.G.A. § 44-3-227(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Prior to submission to this article, the association shall be duly incorporated either as a business corporation under Chapter 2 of Title 14 or as a nonprofit membership corporation under Chapter 3 of Title 14, as amended.",
+  },
+  incName: {
+    cite: "O.C.G.A. § 44-3-227(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The corporate name of the association shall include the word or words “homeowners,” “property owners,” “community,” “club,” or “association” and shall otherwise comply with applicable laws regarding corporate names.",
+  },
+  incMember: {
+    cite: "O.C.G.A. § 44-3-227(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The term “member” shall include a shareholder in the event the association is a business corporation or issues stock. Membership shall continue during the period of ownership by such lot owner.",
+  },
+  incFirstBoard: {
+    cite: "O.C.G.A. § 44-3-227(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Prior to the first conveyance of a property owners’ association lot, the declarant shall cause the first board directors to be duly appointed, the officers to be elected, and the organization of the association to be effectuated.",
+  },
+  incCopies: {
+    cite: "O.C.G.A. § 44-3-227(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "True and correct copies of the articles of incorporation and bylaws of the association and all amendments thereto shall be maintained at the principal and the registered offices of the association and at the sales office of the declarant so long as the declarant has the right to control the association pursuant to the instrument",
+  },
+  libCon: {
+    cite: "O.C.G.A. § 44-3-233",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The provisions of this article and of an instrument recorded pursuant thereto shall be liberally construed in favor of the valid establishment of property owners’ association pursuant to this article with respect to the submitted property.",
+  },
+  subComp: {
+    cite: "O.C.G.A. § 44-3-233",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Substantial compliance with the requirements of this article for the establishment of a property owners’ association shall suffice to being property described in an instrument recorded pursuant to this article within the purview and application of this article",
+  },
+  defectCure: {
+    cite: "O.C.G.A. § 44-3-233",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "any defects in such instrument or want of conformity with this article may be cured by an amendment thereto duly executed by the association and recorded or, upon application of any lot owner, with notice to the declarant, the association, and all other lot owners, by decree of the court.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES
