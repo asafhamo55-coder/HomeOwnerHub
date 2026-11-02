@@ -16,6 +16,8 @@ const PUBLIC_PREFIXES = [
   '/vendor-onboard',
   '/api/vendor-onboard',
   '/rfp-bid',
+  // BL-038 public community page (dark behind M12_APPLIED). Serves only what a board published.
+  '/s',
   '/api/rfp-bid',
   // Pictures inside announcement emails: mail clients fetch them with no
   // session. The route serves only <org>/announcement-images/<uuid>.<ext>.

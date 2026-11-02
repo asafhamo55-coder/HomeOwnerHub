@@ -131,6 +131,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // M11: BL-034 amenity reservations (amenities, amenity_reservations, the no-overlap
   // trigger; security/m11-amenities.test.ts). Unapplied in production (M11_APPLIED = false).
   '0076_amenity_reservations.sql',
+  // M12: BL-038 public community page per HOA (public_sites, public_site_items). Unapplied in
+  // production (M12_APPLIED = false); replayed here. One file, one entry.
+  '0077_public_site.sql',
 ]
 
 /**
