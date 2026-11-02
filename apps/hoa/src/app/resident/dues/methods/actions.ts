@@ -53,7 +53,10 @@ export async function startAddMethod(): Promise<AddMethodResult> {
 
   // Card-testing guard (design 6.6), counted before Stripe is called.
   const limit = await checkAndRecordAddMethod(db, { orgId: acct.organization_id, userId: who.userId })
-  if (!limit.ok) return { ok: false, error: addMethodLimitMessage(limit.retryAfterSeconds) }
+  if (!limit.ok) {
+    if (limit.unavailable) return { ok: false, error: 'Couldn’t start that right now. Nothing was saved. Try again in a minute.' }
+    return { ok: false, error: addMethodLimitMessage(limit.retryAfterSeconds) }
+  }
 
   try {
     const { data: prior } = (await db

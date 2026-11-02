@@ -63,8 +63,25 @@ describe('checkAndRecordAddMethod', () => {
     expect(f.inserted).toHaveLength(0)
   })
 
-  it('fails open when the ledger cannot be read', async () => {
+  it('fails CLOSED when the ledger cannot be read: adding a method is not paying, and a silent outage would disable the guard', async () => {
     const f = fakeDb([], true)
-    expect(await checkAndRecordAddMethod(f.db, { orgId: 'o', userId: 'u' }, NOW)).toEqual({ ok: true })
+    const d = await checkAndRecordAddMethod(f.db, { orgId: 'o', userId: 'u' }, NOW)
+    expect(d.ok).toBe(false)
+    expect(f.inserted).toHaveLength(0)
+  })
+
+  it('fails closed when this start cannot be recorded, so Stripe is never called uncounted', async () => {
+    const f = fakeDb([])
+    const failing = {
+      from: () => {
+        const q: Record<string, unknown> = {}
+        for (const m of ['select', 'eq', 'gte', 'order', 'limit']) q[m] = () => q
+        q.insert = () => Promise.resolve({ error: { code: 'XX' } })
+        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(ok)
+        return q
+      },
+    }
+    expect((await checkAndRecordAddMethod(failing, { orgId: 'o', userId: 'u' }, NOW)).ok).toBe(false)
+    expect(f.inserted).toHaveLength(0)
   })
 })
