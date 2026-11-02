@@ -134,6 +134,14 @@ export interface ReversalNotifier {
 export interface ReversalDeps {
   store: ReversalStore
   notifier: ReversalNotifier
+  /**
+   * Every refund on a charge, read from Stripe. Stripe's Charge object only
+   * carries `refunds` when expanded and the charge.refunded event does not
+   * expand it, so the handler asks. Required for production wiring; when
+   * absent the handler uses the event's own list and FAILS (throws, so the
+   * webhook answers 500 and Stripe redelivers) if the event has none.
+   */
+  listRefunds?: (stripeAccountId: string, chargeId: string) => Promise<Array<{ id: string; amountCents: number; status: string | null }>>
   log?: (msg: string, meta: Record<string, unknown>) => void
 }
 
@@ -245,11 +253,22 @@ async function onChargeRefunded(event: ConnectEventLike, deps: ReversalDeps): Pr
   if (!accountMatches(event, attempt)) return { outcome: 'rejected_account' }
   if (attempt.postedAt === null) return { outcome: 'ignored' }
 
-  // Stripe lists the refunds on the charge. Each one is its own ref, so the
-  // board's own refund (already applied under the same re_ id) is a no-op here.
-  const list = Array.isArray(rec(charge.refunds).data) ? (rec(charge.refunds).data as unknown[]) : []
-  const refunds = list
-    .map((r) => ({ id: str(rec(r).id), amount: int(rec(r).amount), status: str(rec(r).status) }))
+  // The refunds are NOT in the event (Stripe returns Charge.refunds only when
+  // expanded), so read them from Stripe. A silent skip here would leave the
+  // books showing money that went back to the payer, so fail loudly instead.
+  let listed: Array<{ id: string | null; amount: number | null; status: string | null }>
+  if (deps.listRefunds && chargeId && event.account) {
+    listed = (await deps.listRefunds(event.account, chargeId)).map((r) => ({ id: r.id, amount: r.amountCents, status: r.status }))
+  } else if (Array.isArray(rec(charge.refunds).data)) {
+    listed = (rec(charge.refunds).data as unknown[]).map((r) => ({ id: str(rec(r).id), amount: int(rec(r).amount), status: str(rec(r).status) }))
+  } else {
+    throw new Error('charge.refunded: no way to read the refunds (event has none and no Stripe reader is wired)')
+  }
+  // Money came back on Stripe's side but no refund is listed: do not guess, retry.
+  if (listed.length === 0 && (int(charge.amount_refunded) ?? 0) > 0) {
+    throw new Error('charge.refunded: amount_refunded is positive but Stripe lists no refunds')
+  }
+  const refunds = listed
     .filter((r): r is { id: string; amount: number; status: string | null } => r.id !== null && r.amount !== null && r.amount > 0)
     .filter((r) => r.status === null || r.status === 'succeeded' || r.status === 'pending')
   if (refunds.length === 0) return { outcome: 'ignored' }

@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   updates: [] as Array<{ table: string; patch: Record<string, unknown>; filters: Array<[string, unknown]> }>,
   rows: {} as Record<string, Record<string, unknown> | null>,
   detached: [] as string[],
+  auditRows: [] as Array<{ created_at: string }>,
 }))
 
 vi.mock('@homeowner-portal/db/m8', () => ({ M8_APPLIED: true }))
@@ -31,10 +32,12 @@ vi.mock('@/lib/online-payments/saved-methods-deps', () => ({
           eq: (c: string, v: unknown) => (filters.push([c, v]), q),
           in: () => q,
           limit: () => q,
+          gte: () => q,
+          order: () => q,
           maybeSingle: async () => ({ data: h.rows[table] ?? null, error: null }),
           then: (ok: (v: unknown) => unknown) => {
             if (patch) h.updates.push({ table, patch, filters })
-            return Promise.resolve({ data: null, error: null }).then(ok)
+            return Promise.resolve({ data: table === 'audit_log' ? h.auditRows : null, error: null }).then(ok)
           },
         }
         return q
@@ -52,6 +55,7 @@ beforeEach(() => {
   h.updates = []
   h.rows = {}
   h.detached = []
+  h.auditRows = []
 })
 
 describe('saved method actions', () => {
@@ -104,5 +108,14 @@ describe('saved method actions', () => {
     expect((await startAddMethod()).ok).toBe(false)
     h.rows.association_stripe_accounts = { organization_id: 'org-1', stripe_account_id: 'acct_x', online_payments_enabled: true, charges_enabled: true }
     expect(await startAddMethod()).toEqual({ ok: true, clientSecret: 'secret', stripeAccount: 'acct_x' })
+  })
+
+  it('start stops a person who keeps trying (card-testing guard) before Stripe is called', async () => {
+    h.rows.association_stripe_accounts = { organization_id: 'org-1', stripe_account_id: 'acct_x', online_payments_enabled: true, charges_enabled: true }
+    const now = Date.now()
+    h.auditRows = Array.from({ length: 5 }, (_, i) => ({ created_at: new Date(now - (i + 1) * 60_000).toISOString() }))
+    const res = await startAddMethod()
+    expect(res.ok).toBe(false)
+    if (!res.ok) expect(res.error).toMatch(/try again/i)
   })
 })

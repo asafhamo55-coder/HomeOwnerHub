@@ -168,6 +168,28 @@ describe('createOnlinePaymentAttempt', () => {
     expect(g.inserted[0]!.allocation.map((a) => a.assessment_id)).toEqual(['dues', 'late'])
   })
 
+  it('a flagged plan installment ranks last in Georgia, like the board lump-payment flow', async () => {
+    const charges = (planInstallment: boolean) => [
+      // stored as 'special' (tier 2) but a plan installment: ranked last (tier 4)
+      { id: 'plan', type: 'special', dueDate: '2026-12-01', remainingCents: 10000, planInstallment },
+      { id: 'fee', type: 'late_fee', dueDate: '2026-12-15', remainingCents: 5000 },
+      { id: 'dues', type: 'regular', dueDate: '2027-01-01', remainingCents: 25000 },
+    ]
+    const flagged = fakes(ctx({ state: 'GA', today: '2027-02-01', charges: charges(true) }))
+    await createOnlinePaymentAttempt(flagged, input({ method: 'ach', amountCents: 30000 }))
+    expect(flagged.inserted[0]!.allocation).toEqual([
+      { assessment_id: 'dues', cents: 25000 },
+      { assessment_id: 'fee', cents: 5000 },
+    ])
+    // Unflagged, the same row would have been paid before the late fee: the flag is what changes the split.
+    const plain = fakes(ctx({ state: 'GA', today: '2027-02-01', charges: charges(false) }))
+    await createOnlinePaymentAttempt(plain, input({ method: 'ach', amountCents: 30000 }))
+    expect(plain.inserted[0]!.allocation).toEqual([
+      { assessment_id: 'dues', cents: 25000 },
+      { assessment_id: 'plan', cents: 5000 },
+    ])
+  })
+
   it('a non-Georgia association pays oldest first even after 2027', async () => {
     const f = fakes(ctx({ state: 'FL', today: '2027-02-01' }))
     await createOnlinePaymentAttempt(f, input({ method: 'ach', amountCents: 100 }))

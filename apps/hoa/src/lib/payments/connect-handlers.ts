@@ -6,11 +6,15 @@
 import { makeAccountUpdatedHandler } from './connect-account-events'
 import { adminDb, writeAccountState } from './connect-store'
 import { registerConnectHandler } from './connect-webhook'
+import { registerOnlinePaymentConnectHandlers } from './connect-online-handlers'
+import { productionOnlineHandlerFactories } from './connect-online-production'
 
 registerConnectHandler(
   'account.updated',
   makeAccountUpdatedHandler((id, state) => writeAccountState(adminDb(), id, state)),
 )
 
-// PR 4+ add their lines here, for example:
-// registerConnectHandler('payment_intent.succeeded', handlePaymentIntentSucceeded)
+// Payment lifecycle, reversals (failed bank payment, refunds, disputes), saved
+// methods and payouts. Mapping of retry and rejected outcomes is documented in
+// ./connect-online-handlers.ts.
+registerOnlinePaymentConnectHandlers(registerConnectHandler, productionOnlineHandlerFactories)

@@ -106,6 +106,7 @@ export default async function ResidentPayPage() {
             unitId={payState.offer.unitId}
             duesCents={payState.offer.payableCents}
             options={payState.offer.methods}
+            policy={payState.offer.policy}
             publishableKey={payState.publishableKey}
           />
         </Section>

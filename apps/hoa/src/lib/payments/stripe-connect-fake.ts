@@ -3,7 +3,17 @@
  * `constructEvent` accepts only `fakeSignature(rawBody, secret)`, so a
  * bad-signature test is one wrong string.
  */
-import type { ConnectAccountState, CreatePaymentIntentInput, StripeConnect, StripeEvent } from './stripe-connect'
+import type {
+  ChargeRefund,
+  ConnectAccountState,
+  CreatePaymentIntentInput,
+  OffSessionChargeInput,
+  OffSessionChargeResult,
+  StripeConnect,
+  StripeEvent,
+} from './stripe-connect'
+import type { PaymentMethodSummary } from '@/lib/online-payments/saved-methods'
+import type { PayoutBalanceLine } from '@/lib/online-payments/payouts'
 
 export function fakeSignature(rawBody: string, secret: string): string {
   return `fake:${secret}:${rawBody.length}`
@@ -13,6 +23,15 @@ export interface FakeStripeConnect extends StripeConnect {
   accounts: Map<string, ConnectAccountState>
   paymentIntents: CreatePaymentIntentInput[]
   calls: string[]
+  /** chargeId -> refunds Stripe would list. */
+  refundsByCharge: Map<string, ChargeRefund[]>
+  payoutLines: Map<string, PayoutBalanceLine[]>
+  paymentMethods: Map<string, PaymentMethodSummary>
+  offSessionCharges: OffSessionChargeInput[]
+  /** What the next off-session charge returns (default: succeeded). */
+  nextOffSession: OffSessionChargeResult | Error | null
+  /** Make listChargeRefunds fail, as an unreachable Stripe would. */
+  failListRefunds: boolean
 }
 
 export function createFakeStripeConnect(): FakeStripeConnect {
@@ -20,9 +39,16 @@ export function createFakeStripeConnect(): FakeStripeConnect {
   const paymentIntents: CreatePaymentIntentInput[] = []
   const calls: string[] = []
   const byKey = new Map<string, string>()
+  const offKeys = new Map<string, OffSessionChargeResult>()
   let n = 0
-  return {
+  const fake: FakeStripeConnect = {
     isFake: true,
+    refundsByCharge: new Map(),
+    payoutLines: new Map(),
+    paymentMethods: new Map(),
+    offSessionCharges: [],
+    nextOffSession: null,
+    failListRefunds: false,
     accounts,
     paymentIntents,
     calls,
@@ -62,16 +88,58 @@ export function createFakeStripeConnect(): FakeStripeConnect {
       calls.push('createPaymentIntent')
       paymentIntents.push(i)
       n += 1
-      return { id: `pi_fake${n}`, clientSecret: `pi_fake${n}_secret`, status: 'requires_payment_method' }
+      return {
+        id: `pi_fake${n}`,
+        clientSecret: `pi_fake${n}_secret`,
+        status: 'requires_payment_method',
+        microdepositUrl: null,
+        chargeId: null,
+      }
     },
     async retrievePaymentIntent(_acct, id) {
       calls.push('retrievePaymentIntent')
-      return { id, status: 'requires_payment_method', amountCents: 0, applicationFeeCents: 0, metadata: {} }
+      return {
+        id,
+        status: 'requires_payment_method',
+        clientSecret: null,
+        microdepositUrl: null,
+        chargeId: null,
+        amountCents: 0,
+        applicationFeeCents: 0,
+        metadata: {},
+      }
     },
     async createRefund(i) {
       calls.push('createRefund')
       n += 1
       return { id: `re_fake${n}`, status: 'succeeded', amountCents: i.amountCents ?? 0 }
     },
+    async listChargeRefunds(_acct, chargeId) {
+      calls.push('listChargeRefunds')
+      if (fake.failListRefunds) throw new Error('stripe_unreachable')
+      return fake.refundsByCharge.get(chargeId) ?? []
+    },
+    async listPayoutBalanceLines(_acct, payoutId) {
+      calls.push('listPayoutBalanceLines')
+      return fake.payoutLines.get(payoutId) ?? []
+    },
+    async retrievePaymentMethod(_acct, pmId) {
+      calls.push('retrievePaymentMethod')
+      return fake.paymentMethods.get(pmId) ?? null
+    },
+    async chargeOffSession(i) {
+      calls.push('chargeOffSession')
+      // Same key, same answer: Stripe's idempotency, so a retry never charges twice.
+      const prior = offKeys.get(i.idempotencyKey)
+      if (prior) return prior
+      fake.offSessionCharges.push(i)
+      const next = fake.nextOffSession
+      if (next instanceof Error) throw next
+      n += 1
+      const result: OffSessionChargeResult = next ?? { status: 'succeeded', paymentIntentId: `pi_fake${n}`, failureCode: null }
+      offKeys.set(i.idempotencyKey, result)
+      return result
+    },
   }
+  return fake
 }

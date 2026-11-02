@@ -16,6 +16,7 @@
 
 import { M8_APPLIED } from '@homeowner-portal/db/m8'
 import { allocatePayment, allocationMode, type AllocationMode, type OpenCharge } from '@/lib/collections/ga-payment-order'
+import { payOptionsFor, type PayOption } from './pay-amount'
 import { computeOnlinePaymentFees, type FeePayer, type FeePolicy } from './fees'
 import { statementDescriptorSuffix, type OnlinePaymentsStripePort, type PayMethodKind } from './stripe-port'
 
@@ -213,7 +214,9 @@ export interface PayNowPreview {
   /** Everything payable right now, cents. */
   payableCents: number
   /** One entry per method the resident can choose, priced by the same engine the server uses. */
-  methods: Array<{ method: PayMethodKind; feeCents: number; feePayer: FeePayer; totalCents: number }>
+  methods: PayOption[]
+  /** The fee rules, so the browser can price "pay a different amount" with the same pure engine. The server recomputes. */
+  policy: FeePolicy
 }
 
 /** What the Pay screen shows before any attempt exists. Null when Pay now must stay hidden. */
@@ -233,11 +236,7 @@ export function previewPayNow(unitId: string, ctx: PayContext | null): PayNowPre
     cardFeeAcknowledged: acct.cardFeeAcknowledged,
     state: ctx.state,
   }
-  const methods = (['ach', 'card'] as const).map((method) => {
-    const f = computeOnlinePaymentFees(feeMethod(method), payable, policy)
-    return { method, feeCents: f.feeCents, feePayer: f.feePayer, totalCents: f.grossCents }
-  })
-  return { unitId, payableCents: payable, methods }
+  return { unitId, payableCents: payable, methods: payOptionsFor(payable, policy), policy }
 }
 
 async function finish(

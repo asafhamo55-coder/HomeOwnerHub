@@ -9,6 +9,8 @@
  * Pure types: safe to import anywhere.
  */
 
+import type { StripeConnect } from '@/lib/payments/stripe-connect'
+
 export type PayMethodKind = 'ach' | 'card'
 
 export interface CreateIntentInput {
@@ -41,6 +43,31 @@ export interface IntentSnapshot {
 export interface OnlinePaymentsStripePort {
   createPaymentIntent(input: CreateIntentInput): Promise<IntentSnapshot>
   retrievePaymentIntent(accountId: string, intentId: string): Promise<IntentSnapshot>
+}
+
+/**
+ * The attempt code's view of Stripe, over the one shared StripeConnect
+ * adapter (lib/payments/stripe-connect.ts). There is a single place that
+ * talks to Stripe; this only renames the arguments.
+ */
+export function portFromConnect(connect: StripeConnect): OnlinePaymentsStripePort {
+  return {
+    createPaymentIntent: (i) =>
+      connect.createPaymentIntent({
+        stripeAccount: i.accountId,
+        amountCents: i.amountCents,
+        applicationFeeCents: i.applicationFeeCents,
+        paymentMethodTypes: [i.method === 'ach' ? 'us_bank_account' : 'card'],
+        metadata: i.metadata,
+        ...(i.method === 'card' && i.descriptorSuffix ? { statementDescriptorSuffix: i.descriptorSuffix } : {}),
+        ...(i.method === 'ach' ? { achInstantVerification: true } : {}),
+        idempotencyKey: i.idempotencyKey,
+      }),
+    async retrievePaymentIntent(accountId, intentId) {
+      const { id, status, clientSecret, microdepositUrl, chargeId } = await connect.retrievePaymentIntent(accountId, intentId)
+      return { id, status, clientSecret, microdepositUrl, chargeId }
+    },
+  }
 }
 
 /**

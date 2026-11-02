@@ -1,6 +1,7 @@
+import { usd as formatUsd } from '@/lib/money/format'
 import type { PaymentOnTheWay as Item } from '@/lib/online-payments/pay-state'
 
-const usd = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const usd = (cents: number) => formatUsd(cents / 100)
 
 // A bank payment the resident already started. Their balance still shows the
 // charges until the bank confirms, so this note stops a second payment.
@@ -21,7 +22,7 @@ export function PaymentOnTheWay({ items }: { items: Item[] }) {
               href={p.finishBankUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-flex min-h-12 items-center rounded-lg bg-primary px-6 text-lg font-semibold text-primary-foreground no-underline"
+              className="mt-3 inline-flex min-h-12 items-center rounded-lg bg-primary px-6 text-lg font-semibold text-primary-fg no-underline"
             >
               Finish now
             </a>

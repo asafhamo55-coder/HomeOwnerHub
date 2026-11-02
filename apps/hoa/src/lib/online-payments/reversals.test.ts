@@ -225,3 +225,49 @@ describe('board refund', () => {
     expect(d.store.reverse).not.toHaveBeenCalled()
   })
 })
+
+describe('charge.refunded without a refunds list (Stripe omits Charge.refunds unless expanded)', () => {
+  const bare = { id: 'ch_1', payment_intent: 'pi_1', amount_refunded: 25000 }
+
+  it('reads the refunds from Stripe and applies them', async () => {
+    const { deps, store } = make(base)
+    const listRefunds = vi.fn(async () => [{ id: 're_9', amountCents: 25000, status: 'succeeded' }])
+    const r = await handleReversalEvent(ev('charge.refunded', bare), { ...deps, listRefunds })
+    expect(listRefunds).toHaveBeenCalledWith(ACCT, 'ch_1')
+    expect(r.outcome).toBe('applied')
+    expect(store.reverse).toHaveBeenCalledWith(expect.objectContaining({ kind: 'refund', ref: 're_9', cents: 25000 }))
+  })
+
+  it('fails loudly, never silently ignoring, when it has no way to read them', async () => {
+    const { deps, store } = make(base)
+    await expect(handleReversalEvent(ev('charge.refunded', bare), deps)).rejects.toThrow(/no way to read the refunds/)
+    expect(store.reverse).not.toHaveBeenCalled()
+  })
+
+  it('fails loudly when Stripe cannot be reached, so the route answers 500 and Stripe redelivers', async () => {
+    const { deps, store } = make(base)
+    const listRefunds = vi.fn(async () => {
+      throw new Error('stripe down')
+    })
+    await expect(handleReversalEvent(ev('charge.refunded', bare), { ...deps, listRefunds })).rejects.toThrow('stripe down')
+    expect(store.reverse).not.toHaveBeenCalled()
+  })
+
+  it('fails loudly when money came back but Stripe lists no refunds', async () => {
+    const { deps } = make(base)
+    await expect(handleReversalEvent(ev('charge.refunded', bare), { ...deps, listRefunds: async () => [] })).rejects.toThrow(/lists no refunds/)
+  })
+
+  it('a refund still pending is applied, a failed one is not', async () => {
+    const { deps, store } = make(base)
+    await handleReversalEvent(ev('charge.refunded', bare), {
+      ...deps,
+      listRefunds: async () => [
+        { id: 're_a', amountCents: 100, status: 'failed' },
+        { id: 're_b', amountCents: 200, status: 'pending' },
+      ],
+    })
+    expect(store.reverse).toHaveBeenCalledTimes(1)
+    expect(store.reverse).toHaveBeenCalledWith(expect.objectContaining({ ref: 're_b', cents: 200 }))
+  })
+})

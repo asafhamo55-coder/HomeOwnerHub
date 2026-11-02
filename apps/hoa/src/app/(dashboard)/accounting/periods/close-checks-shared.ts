@@ -1,6 +1,6 @@
 // Pure helpers for the "close period" checks. Imported by the server action
 // and by client components, so keep this file free of server-only imports.
-import { formatDay } from '@/lib/money/format'
+import { formatDay, usd } from '@/lib/money/format'
 
 /** A period can be closed once its last day is behind today (association's day). */
 export function periodHasEnded(endDate: string, today: string): boolean {
@@ -17,6 +17,13 @@ export interface CloseChecks {
   proposals: CountRead
   /** Names of bank accounts not reconciled through the period end. */
   unreconciled: { ok: true; accounts: string[] } | { ok: false }
+  /**
+   * Online payments (BL-035). Absent for an association that does not take
+   * them, so nothing changes for it. Account 1015 "Online payments clearing"
+   * is a reconciling item: money Stripe holds that has not reached the bank
+   * yet. It is expected, never an error, and never blocks closing.
+   */
+  clearing?: { ok: true; balanceCents: number; unmatchedPayouts: number } | { ok: false }
 }
 
 /** Bank accounts whose last approved statement date is before the period end (or missing). */
@@ -36,6 +43,9 @@ export function unreconciledAccounts(
 export const COULD_NOT_CHECK_DRAFTS = 'We couldn’t check for drafts.'
 export const COULD_NOT_CHECK_PROPOSALS = 'We couldn’t check for bank proposals.'
 export const COULD_NOT_CHECK_RECONCILIATIONS = 'We couldn’t check bank reconciliations.'
+export const COULD_NOT_CHECK_CLEARING = 'We couldn’t check the money Stripe is still holding.'
+
+const centsLabel = (cents: number): string => usd(cents / 100)
 
 export interface CloseWarning {
   text: string
@@ -62,6 +72,25 @@ export function closeWarnings(checks: CloseChecks, endDate: string): CloseWarnin
   else {
     for (const name of checks.unreconciled.accounts) {
       out.push({ text: `${name} isn’t reconciled through ${formatDay(endDate)}.`, unverified: false })
+    }
+  }
+  if (checks.clearing) {
+    const c = checks.clearing
+    if (!c.ok) out.push({ text: COULD_NOT_CHECK_CLEARING, unverified: true })
+    else {
+      if (c.balanceCents !== 0) {
+        out.push({
+          text: `${centsLabel(c.balanceCents)} in online payments had not reached your bank by ${formatDay(endDate)}. That is normal: Stripe pays it out a few days later. It is not an error and you can still close.`,
+          unverified: false,
+        })
+      }
+      if (c.unmatchedPayouts > 0) {
+        const n = c.unmatchedPayouts
+        out.push({
+          text: `${n} Stripe ${n === 1 ? 'payout has' : 'payouts have'} no matching deposit in your bank feed yet. Check that your bank account is linked.`,
+          unverified: false,
+        })
+      }
     }
   }
   return out

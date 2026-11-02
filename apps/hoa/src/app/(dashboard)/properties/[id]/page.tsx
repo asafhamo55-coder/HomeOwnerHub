@@ -20,6 +20,8 @@ import { timed } from '@/lib/perf/timing'
 import { loadGaThreshold } from '@/lib/collections/ga-threshold-load'
 import { loadLetterHistory } from '@/lib/violations/letter-history'
 import { loadGaComplaintView } from '@/lib/ga-complaints/load'
+import { M8_APPLIED } from '@homeowner-portal/db/m8'
+import { OnlinePaymentsPanel } from './OnlinePaymentsPanel'
 
 export const metadata = { title: 'Property' }
 export const dynamic = 'force-dynamic'
@@ -129,6 +131,7 @@ export default async function PropertyDetailPage({
       gaThreshold={gaThreshold}
       gaComplaints={gaComplaints}
       letterHistory={letterHistory}
+      onlinePayments={M8_APPLIED && canManage && complaintUnitId ? <OnlinePaymentsPanel unitId={complaintUnitId} /> : null}
       now={new Date()}
       today={today}
       isAdmin={ctx.role === 'admin'}

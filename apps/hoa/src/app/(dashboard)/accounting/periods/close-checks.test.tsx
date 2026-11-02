@@ -58,6 +58,36 @@ describe('close dialog warnings', () => {
   })
 })
 
+describe('online payments clearing (account 1015)', () => {
+  const base = { drafts: { ok: true as const, n: 0 }, proposals: { ok: true as const, n: 0 }, unreconciled: { ok: true as const, accounts: [] } }
+
+  it('says nothing for an association that does not take online payments', () => {
+    expect(html(<ClosePeriodDescription endDate="2026-09-30" checks={base} />)).not.toContain('Stripe')
+  })
+
+  it('explains a clearing balance as normal, not as an error', () => {
+    const out = html(
+      <ClosePeriodDescription endDate="2026-09-30" checks={{ ...base, clearing: { ok: true, balanceCents: 123456, unmatchedPayouts: 0 } }} />,
+    )
+    expect(out).toContain('$1,234.56 in online payments had not reached your bank by Sep 30, 2026.')
+    expect(out).toContain('It is not an error and you can still close.')
+  })
+
+  it('stays quiet when clearing is zero and every payout is matched', () => {
+    const out = html(
+      <ClosePeriodDescription endDate="2026-09-30" checks={{ ...base, clearing: { ok: true, balanceCents: 0, unmatchedPayouts: 0 } }} />,
+    )
+    expect(out).not.toContain('Before you close')
+  })
+
+  it('names unmatched payouts, and a failed read says it could not check', () => {
+    const a = html(<ClosePeriodDescription endDate="2026-09-30" checks={{ ...base, clearing: { ok: true, balanceCents: 0, unmatchedPayouts: 2 } }} />)
+    expect(a).toContain('2 Stripe payouts have no matching deposit in your bank feed yet.')
+    const b = html(<ClosePeriodDescription endDate="2026-09-30" checks={{ ...base, clearing: { ok: false } }} />)
+    expect(b).toContain('We couldn’t check the money Stripe is still holding.')
+  })
+})
+
 describe('end-date rule', () => {
   it('is ended only after the end date, not on it', () => {
     expect(periodHasEnded('2026-09-30', '2026-09-30')).toBe(false)
