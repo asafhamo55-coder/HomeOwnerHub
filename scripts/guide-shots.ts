@@ -80,7 +80,7 @@ export const GUIDE_SHOTS: GuideShot[] = [
     highlight: '[role=alertdialog] button:has-text("Record payment")',
   },
   // 6. violations-report-and-letter
-  { name: 'guide-violations-new', path: '/violations/new', route: '/violations/new', auth: true, clip: MAIN, highlight: 'button:has-text("Analyze with Covenant Brain")' },
+  { name: 'guide-violations-new', path: '/violations/new', route: '/violations/new', auth: true, clip: MAIN, highlight: 'button:has-text("Write the notice for me")' },
   {
     name: 'guide-violations-approval-queue',
     path: '/violations/approval-queue',
