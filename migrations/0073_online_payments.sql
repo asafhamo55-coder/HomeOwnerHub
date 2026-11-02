@@ -260,7 +260,7 @@ CREATE INDEX IF NOT EXISTS online_payments_charge_idx
   ON public.online_payments (stripe_charge_id) WHERE stripe_charge_id IS NOT NULL;
 
 COMMENT ON TABLE public.online_payments IS
-  '0073 (BL-035): one row per card/ACH attempt, the frozen Georgia-order allocation, fee and Stripe ids. Board reads the association''s rows; a resident reads their home''s. Written only by the server and by record_online_payment_success / reverse_online_payment.';
+  '0073 (BL-035): one row per card/ACH attempt, the frozen Georgia-order allocation, fee and Stripe ids. Board reads the association''s rows; a resident has no direct read (the server reads for them). Written only by the server and by record_online_payment_success / reverse_online_payment.';
 
 -- ── 5. online_payment_adjustments ──────────────────────────────────────
 -- Refunds, disputes and returned-payment fees: the append-only trail. The
@@ -396,12 +396,14 @@ BEGIN
   END LOOP;
 END $pol$;
 
--- a resident reads their own home's payments
+-- A resident has NO direct read of online_payments. The row carries processor
+-- ids (account, PaymentIntent, charge), the idempotency key and the fee split,
+-- and a row policy can neither hide columns nor apply the buyer sale window
+-- (auth_resident_charges_from, 0064): a buyer would read the seller's payments.
+-- The resident screens read through the server (service role), scoped by the
+-- units the signed-in resident owns. The DROP also removes the policy from a
+-- database where an earlier draft of this file was already applied.
 DROP POLICY IF EXISTS online_payments_resident_select ON public.online_payments;
-CREATE POLICY online_payments_resident_select ON public.online_payments
-  FOR SELECT TO authenticated
-  USING (organization_id = ANY (public.auth_org_ids())
-         AND unit_id = ANY ((SELECT public.auth_resident_unit_ids())::uuid[]));
 
 -- a person reads their own enrollment and saved methods; the board does not see methods
 DROP POLICY IF EXISTS autopay_enrollments_own_select ON public.autopay_enrollments;
@@ -499,7 +501,11 @@ BEGIN
   IF v_op.posted_at IS NOT NULL THEN
     RETURN jsonb_build_object('already_posted', true, 'status', v_op.status, 'posted', v_op.posted_result);
   END IF;
-  IF v_op.status NOT IN ('created', 'requires_action', 'processing') THEN
+  -- 'failed' is allowed here: a declined card (or a bounced bank debit) marks the
+  -- attempt failed, and the payer may retry on the SAME PaymentIntent, which then
+  -- succeeds. Only a never-posted attempt reaches this line (posted_at is checked
+  -- above), so a returned payment that WAS posted is never posted twice.
+  IF v_op.status NOT IN ('created', 'requires_action', 'processing', 'failed') THEN
     RAISE EXCEPTION 'record_online_payment_success: attempt is %, cannot post', v_op.status USING errcode = '55000';
   END IF;
 
