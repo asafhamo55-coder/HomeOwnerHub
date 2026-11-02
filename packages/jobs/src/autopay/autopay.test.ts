@@ -80,7 +80,7 @@ function enrollment(over: Partial<AutopayEnrollment> = {}): AutopayEnrollment {
   }
 }
 
-function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Record<string, number> = {}) {
+function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Record<string, number> = {}, sandbox = false) {
   const attempts: AttemptInput[] = []
   const live = new Set<string>()
   const failures: Array<[number, boolean]> = []
@@ -118,7 +118,7 @@ function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Reco
       canceled = true
     },
     boardEmails: async () => ['board@example.test'],
-    orgSandbox: async () => false,
+    orgSandbox: async () => sandbox,
     audit: async (a) => {
       audits.push(a)
     },
@@ -224,6 +224,15 @@ describe('runAutopay', () => {
     x.d.charger = () => null
     const r = await runAutopay(f.store, x.d, { m8Applied: true, logger: quiet })
     expect(r.charged).toBe(0)
+    expect(f.attempts).toHaveLength(0)
+  })
+
+  it('takes no money for an org in sandbox mode (the resident Pay path refuses it too)', async () => {
+    const f = fakeStore(enrollment(), [reg('a', TODAY, 25000)], { a: 25000 }, true)
+    const x = deps({ status: 'succeeded', paymentIntentId: 'pi_1' })
+    const r = await runAutopay(f.store, x.d, { m8Applied: true, logger: quiet })
+    expect(r.charged).toBe(0)
+    expect(x.charge).not.toHaveBeenCalled()
     expect(f.attempts).toHaveLength(0)
   })
 })

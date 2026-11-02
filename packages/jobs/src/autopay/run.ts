@@ -59,6 +59,8 @@ export interface AutopayEnrollment {
   paymentsReady: boolean
   /** The association's own calendar day. */
   today: string
+  /** A buyer's sale window: charges due before this day are the seller's and are never autopaid. Null = whole history. */
+  chargesFrom?: string | null
   method: AutopayMethod
 }
 
@@ -179,6 +181,8 @@ export async function runAutopay(
         continue
       }
       if (!e.paymentsReady || !e.method.isActive) continue
+      // A sandbox org never moves real money (the resident Pay path refuses it the same way).
+      if (await store.orgSandbox(e.orgId)) continue
 
       const charges = await store.openCharges(e)
       const noticed = await store.noticedCharges(e)
