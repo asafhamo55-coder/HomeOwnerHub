@@ -101,6 +101,9 @@ export default async function YearEndPackagePage({ searchParams }: PageProps) {
           variant="primary"
         />
         <p className="text-xs text-muted">Each download is recorded in the activity log.</p>
+        <Link href={`/accounting/reports/year-end/1099?period=${period.id}`} className="text-sm font-medium text-primary underline">
+          Open the 1099 vendor summary (print or spreadsheet)
+        </Link>
       </Card>
 
       <Alert variant="info" title="Not tax advice">
