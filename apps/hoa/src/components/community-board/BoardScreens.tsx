@@ -42,7 +42,7 @@ export async function BoardHomeScreen({
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-semibold">Community board</h1>
-        <p className="mt-1 text-base text-muted-foreground">
+        <p className="mt-1 text-base text-foreground-secondary">
           {c.current.name}. Only residents and the board of this community can read this.
         </p>
       </header>
@@ -68,7 +68,7 @@ export async function BoardHomeScreen({
             {reports.map((r) => (
               <li key={r.id} className="space-y-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
                 <p className="text-base">{r.reason}</p>
-                <p className="text-sm text-muted-foreground">Reported {formatDateTime(r.created_at)}</p>
+                <p className="text-sm text-foreground-secondary">Reported {formatDateTime(r.created_at)}</p>
                 <div className="flex flex-wrap gap-2">
                   <ModerateButton action="resolve_report" target={{ reportId: r.id }} label="Hide the post and close the report" />
                   <ModerateButton action="dismiss_report" target={{ reportId: r.id }} label="Keep the post" />
@@ -91,7 +91,7 @@ export async function BoardHomeScreen({
             <li key={t.id}>
               <Link href={`${basePath}/${t.id}`} className="block min-h-14 px-4 py-3 hover:bg-subtle">
                 <span className="block text-base font-semibold">{t.title}</span>
-                <span className="block text-sm text-muted-foreground">
+                <span className="block text-sm text-foreground-secondary">
                   {t.reply_count} {t.reply_count === 1 ? 'reply' : 'replies'}. Last activity {formatDateTime(t.last_activity_at)}
                   {t.closed_at ? '. Closed' : ''}
                   {t.hidden_at ? '. Hidden from residents' : ''}
@@ -129,7 +129,7 @@ export async function BoardThreadScreen({ basePath, threadId }: { basePath: stri
       </Link>
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold">{thread.title}</h1>
-        {thread.closed_at && <p className="text-base text-muted-foreground">The board closed this topic. You can still read it.</p>}
+        {thread.closed_at && <p className="text-base text-foreground-secondary">The board closed this topic. You can still read it.</p>}
         {c.moderator && (
           <div className="pt-2">
             <ModerateButton
@@ -146,12 +146,12 @@ export async function BoardThreadScreen({ basePath, threadId }: { basePath: stri
           .filter((p) => postVisibleTo(c.role, p))
           .map((p) => (
             <li key={p.id} className="space-y-2 rounded-lg border border-border bg-surface p-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-foreground-secondary">
                 <span className="font-semibold text-foreground">{p.author_label}</span>
                 {p.author_is_board ? ' (board)' : ''}. {formatDateTime(p.created_at)}
               </p>
               {p.hidden_at ? (
-                <p className="text-base italic text-muted-foreground">
+                <p className="text-base italic text-foreground-secondary">
                   Hidden from residents{p.hidden_reason ? `: ${p.hidden_reason}` : ''}.
                 </p>
               ) : null}

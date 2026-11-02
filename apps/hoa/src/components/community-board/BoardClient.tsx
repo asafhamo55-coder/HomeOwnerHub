@@ -61,7 +61,7 @@ export function NewThreadForm({ associationId, basePath }: { associationId: stri
       <Field label="Your message" error={error}>
         <Textarea name="body" rows={4} maxLength={BOARD_BODY_MAX} disabled={pending} />
       </Field>
-      <p className="text-sm text-muted-foreground">Only people in your community and its board can read this.</p>
+      <p className="text-sm text-foreground-secondary">Only people in your community and its board can read this.</p>
       <Button type="submit" loading={pending}>
         Post topic
       </Button>
@@ -108,7 +108,7 @@ export function ReportButton({ postId, already }: { postId: string; already: boo
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  if (already) return <span className="text-sm text-muted-foreground">You reported this. The board will look at it.</span>
+  if (already) return <span className="text-sm text-foreground-secondary">You reported this. The board will look at it.</span>
   if (!open) {
     return (
       <Button type="button" variant="ghost" onClick={() => setOpen(true)}>
