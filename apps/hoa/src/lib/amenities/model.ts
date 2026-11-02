@@ -65,6 +65,8 @@ export interface Reservation {
   decisionNote: string | null
   cancelReason: string | null
   partySize: number | null
+  /** When the request was made; used to hide a seller's bookings from the buyer. */
+  createdAt?: string | null
 }
 
 export interface Busy {
@@ -75,7 +77,7 @@ export interface Busy {
 export const AMENITY_COLUMNS =
   'id, association_id, name, description, rules, requires_approval, open_hour, close_hour, max_hours, advance_days, max_active_per_unit, is_active, capacity, concurrent_limit, min_notice_hours, cancel_cutoff_hours, retired_at'
 export const RESERVATION_COLUMNS =
-  'id, amenity_id, unit_id, kind, starts_at, ends_at, status, purpose, decision_note, cancel_reason, party_size'
+  'id, amenity_id, unit_id, kind, starts_at, ends_at, status, purpose, decision_note, cancel_reason, party_size, created_at'
 
 export function amenityFromRow(r: Record<string, unknown>): Amenity | null {
   if (typeof r.id !== 'string' || typeof r.association_id !== 'string' || typeof r.name !== 'string') return null
@@ -127,7 +129,27 @@ export function reservationFromRow(r: Record<string, unknown>): Reservation | nu
     decisionNote: typeof r.decision_note === 'string' ? r.decision_note : null,
     cancelReason: typeof r.cancel_reason === 'string' ? r.cancel_reason : null,
     partySize: typeof r.party_size === 'number' ? r.party_size : null,
+    createdAt: typeof r.created_at === 'string' ? r.created_at : null,
   }
+}
+
+/**
+ * A home's bookings as its CURRENT owner may see them. Where the ownership
+ * began with a recorded sale (`charges_from`, lib/resident-sale-window.ts),
+ * bookings made before that day were the seller's and stay hidden, with their
+ * purpose and board notes. Other ownerships see the whole history.
+ */
+export function scopeToOwnership<T extends { unitId: string | null; createdAt?: string | null }>(
+  rows: readonly T[],
+  units: ReadonlyArray<{ unit_id: string; charges_from?: string | null }>,
+): T[] {
+  const from = new Map<string, string>()
+  for (const u of units) if (u.charges_from) from.set(u.unit_id, u.charges_from)
+  return rows.filter((r) => {
+    const start = r.unitId ? from.get(r.unitId) : undefined
+    if (!start) return true
+    return typeof r.createdAt === 'string' && r.createdAt.slice(0, 10) >= start
+  })
 }
 
 /** Rows of amenity_hours: { weekday, open_hour, close_hour }. No rows gives null (same hours every day). */

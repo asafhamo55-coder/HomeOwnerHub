@@ -9,6 +9,8 @@ import {
   initialStatus,
   overlaps,
   rulesSummary,
+  reservationFromRow,
+  scopeToOwnership,
   startHours,
   type Amenity,
 } from './model'
@@ -135,5 +137,24 @@ describe('amenityFromRow', () => {
   it('maps a row and refuses a broken one', () => {
     expect(amenityFromRow({ id: 'a', association_id: 'b', name: 'Pool', requires_approval: false })?.requiresApproval).toBe(false)
     expect(amenityFromRow({ id: 'a' })).toBeNull()
+  })
+})
+
+describe('a buyer does not see the seller\'s bookings', () => {
+  const row = (id: string, unit: string, createdAt: string | null) => ({ id, unitId: unit, createdAt })
+  const rows = [row('old', 'u1', '2026-09-01T12:00:00Z'), row('new', 'u1', '2026-11-03T12:00:00Z'), row('other', 'u2', '2026-09-01T12:00:00Z')]
+  it('hides bookings made before the sale on that home only', () => {
+    const kept = scopeToOwnership(rows, [{ unit_id: 'u1', charges_from: '2026-11-02' }, { unit_id: 'u2' }])
+    expect(kept.map((r) => r.id)).toEqual(['new', 'other'])
+  })
+  it('shows everything when no sale started the ownership', () => {
+    expect(scopeToOwnership(rows, [{ unit_id: 'u1', charges_from: null }])).toHaveLength(3)
+  })
+  it('hides a booking with no creation time inside a window rather than guess', () => {
+    expect(scopeToOwnership([row('x', 'u1', null)], [{ unit_id: 'u1', charges_from: '2026-11-02' }])).toHaveLength(0)
+  })
+  it('reads created_at from the row', () => {
+    const r = reservationFromRow({ id: 'r', amenity_id: 'a', unit_id: 'u', starts_at: 's', ends_at: 'e', status: 'pending', created_at: '2026-11-01T00:00:00Z' })
+    expect(r?.createdAt).toBe('2026-11-01T00:00:00Z')
   })
 })
