@@ -82,7 +82,7 @@ describe('1. no double booking', () => {
     expect((await insert(booking(14, 16))).error).toBeNull()
     expect((await insert(booking(8, 10))).error).toBeNull()
 
-    const id = (first.data as { id: string }).id
+    const id = (first.data as unknown as { id: string }).id
     const cancel = await adminDb()
       .from('amenity_reservations' as never)
       .update({ status: 'canceled', canceled_at: new Date().toISOString() } as never)
@@ -93,7 +93,7 @@ describe('1. no double booking', () => {
 
   it('refuses to re-open a canceled booking over a newer one', async () => {
     const first = await insert(booking(10, 14))
-    const id = (first.data as { id: string }).id
+    const id = (first.data as unknown as { id: string }).id
     await adminDb()
       .from('amenity_reservations' as never)
       .update({ status: 'canceled', canceled_at: new Date().toISOString() } as never)

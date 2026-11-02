@@ -52,7 +52,7 @@ beforeEach(async () => {
 describe('public_sites', () => {
   it('starts unpublished', async () => {
     const { data } = await adminDb().from('public_sites' as never).select('published').eq('id' as never, siteId).single()
-    expect((data as { published: boolean }).published).toBe(false)
+    expect((data as unknown as { published: boolean }).published).toBe(false)
   })
 
   it('is readable by the org board and nobody else', async () => {
@@ -76,7 +76,7 @@ describe('public_sites', () => {
     expect(ins.error).not.toBeNull()
     await board.client.from('public_sites' as never).update({ published: true } as never).eq('id' as never, siteId)
     const { data } = await adminDb().from('public_sites' as never).select('published').eq('id' as never, siteId).single()
-    expect((data as { published: boolean }).published).toBe(false)
+    expect((data as unknown as { published: boolean }).published).toBe(false)
   })
 
   it('refuses a bad slug', async () => {
