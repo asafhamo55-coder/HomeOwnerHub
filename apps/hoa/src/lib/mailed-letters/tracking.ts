@@ -19,3 +19,17 @@ export function mailRecordFromProvider(service: MailService, u: MailTrackingUpda
     deliveredOn: u.status === 'delivered' ? u.deliveredOn : null,
   }
 }
+
+/**
+ * The columns to write for a tracking answer. A date or number the provider
+ * did not send this time is left alone, so a thin later answer never erases
+ * what an earlier one saved (and never trips mailed_on <= delivered_on).
+ */
+export function trackingPatch(u: MailTrackingUpdate): Record<string, string> {
+  return {
+    status: u.status,
+    ...(u.trackingNumber ? { tracking_number: u.trackingNumber } : {}),
+    ...(u.mailedOn ? { mailed_on: u.mailedOn } : {}),
+    ...(u.deliveredOn ? { delivered_on: u.deliveredOn } : {}),
+  }
+}
