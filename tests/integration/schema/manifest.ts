@@ -121,6 +121,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // production (M8_APPLIED = false); replayed here like 0072 was, so the
   // integration suite runs "objects present, flag false". One file, one entry.
   '0073_online_payments.sql',
+  // M13: B5 community message board (security/m13-community-board.test.ts).
+  // Unapplied in production (M13_APPLIED = false); replayed here. One file, one entry.
+  '0078_community_board.sql',
 ]
 
 /**

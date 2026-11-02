@@ -33,6 +33,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
+import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { MESSAGES_PREFIXES } from '@/lib/messages/tabs'
 
 /**
@@ -92,6 +93,10 @@ export const HOA_NAV: HoaNavGroup[] = [
         match: MESSAGES_PREFIXES,
         keywords: ['inbox', 'email', 'mail', 'communications', 'announcements', 'broadcast', 'sent', 'drafts', 'replies'],
       },
+      // B5: dark until M13_APPLIED (migration 0078).
+      ...(M13_APPLIED
+        ? [{ href: '/community-board', icon: MessageSquare, label: 'Community board', keywords: ['message board', 'neighbors', 'forum', 'discussion'] }]
+        : []),
       { href: '/properties', icon: Building2, label: 'Properties', keywords: ['units', 'homes', 'residents', 'owners'] },
       { href: '/leases', icon: KeyRound, label: 'Leases', keywords: ['rentals', 'tenants'] },
       { href: '/violations', icon: AlertTriangle, label: 'Violations', basic: true, keywords: ['notices', 'compliance'] },
