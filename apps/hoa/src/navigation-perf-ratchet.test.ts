@@ -149,3 +149,32 @@ describe('long lists do not prefetch every row', () => {
     expect(count).toBeGreaterThanOrEqual(min as number)
   })
 })
+
+describe('in-page action links to form pages do not prefetch', () => {
+  // "Add vendor", "Invite", "Report violation" and the resident-report rows
+  // sit in view on every load of their list page; with the default prefetch
+  // each one requested /vendors/new, /vendors/invitations, /violations/new
+  // or /violations/reports/[id] in the background. They open on click only.
+  // A bare `<Link href=` (no prefetch prop) in these files is the regression.
+  it.each([
+    'app/(dashboard)/vendors/page.tsx',
+    'app/(dashboard)/violations/page.tsx',
+    'app/(dashboard)/violations/approval-queue/page.tsx',
+    'app/(dashboard)/violations/reports/page.tsx',
+    'app/(dashboard)/accounting/invoices/new/page.tsx',
+    'components/dashboard/UnfinishedWorkflowsCard.tsx',
+  ])('%s has no Link without prefetch={false}', (file) => {
+    const text = readFileSync(src(file), 'utf8')
+    const links = text.match(/<Link\b[^>]*>/g) ?? []
+    expect(links.length).toBeGreaterThan(0)
+    expect(links.filter((l) => !l.includes('prefetch={false}'))).toEqual([])
+  })
+})
+
+describe('inbox list does not read every message body', () => {
+  it('listThreads picks the newest inbound id first, then fetches only those bodies', () => {
+    const text = readFileSync(src('lib/inbox/queries.ts'), 'utf8')
+    expect(text).toContain('loadNewestInboundByThread(db, threadIds)')
+    expect(text).toMatch(/\.select\('id, thread_id'\)/)
+  })
+})

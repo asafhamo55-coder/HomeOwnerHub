@@ -63,6 +63,7 @@ export default async function VendorsListPage({
       cell: (v) => (
         <div className="min-w-0">
           <Link
+            prefetch={false}
             href={`/vendors/${v.id}`}
             className="font-medium text-foreground hover:text-primary hover:underline"
           >
@@ -125,10 +126,10 @@ export default async function VendorsListPage({
             <a href={`/vendors/export${search ? `?q=${encodeURIComponent(search)}` : ''}`}>Export CSV</a>
           </Button>
           <Button asChild variant="secondary" icon={<Mail aria-hidden />}>
-            <Link href="/vendors/invitations">Invite</Link>
+            <Link prefetch={false} href="/vendors/invitations">Invite</Link>
           </Button>
           <Button asChild icon={<Plus aria-hidden />}>
-            <Link href="/vendors/new">Add vendor</Link>
+            <Link prefetch={false} href="/vendors/new">Add vendor</Link>
           </Button>
         </>
       }
@@ -143,12 +144,12 @@ export default async function VendorsListPage({
           description="Add your first vendor. Once their COI, W-9 and license are entered, the compliance check grades them against your association’s standards."
           action={
             <Button asChild icon={<Plus aria-hidden />}>
-              <Link href="/vendors/new">Add vendor</Link>
+              <Link prefetch={false} href="/vendors/new">Add vendor</Link>
             </Button>
           }
           secondaryAction={
             <Button asChild variant="ghost">
-              <Link href="/vendors/invitations">Or invite a vendor to fill in their own details</Link>
+              <Link prefetch={false} href="/vendors/invitations">Or invite a vendor to fill in their own details</Link>
             </Button>
           }
         />
@@ -220,7 +221,7 @@ export default async function VendorsListPage({
             </Button>
             {search ? (
               <Button asChild variant="ghost">
-                <Link href={coiHref({ coi, sort: sortKeep })}>Clear</Link>
+                <Link prefetch={false} href={coiHref({ coi, sort: sortKeep })}>Clear</Link>
               </Button>
             ) : null}
           </form>
@@ -248,7 +249,7 @@ export default async function VendorsListPage({
                 description={filtered ? 'Try another filter or a different search term.' : 'Try a shorter or different term.'}
                 action={
                   <Button asChild variant="secondary" size="sm">
-                    <Link href="/vendors">Clear filters</Link>
+                    <Link prefetch={false} href="/vendors">Clear filters</Link>
                   </Button>
                 }
               />

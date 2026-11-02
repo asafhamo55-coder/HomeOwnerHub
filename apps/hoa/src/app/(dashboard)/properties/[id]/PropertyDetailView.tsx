@@ -378,7 +378,7 @@ function ActionBar({
         </Button>
       ) : null}
       <Button asChild variant="secondary">
-        <Link href={scoped('/violations/new')}>
+        <Link prefetch={false} href={scoped('/violations/new')}>
           <Plus aria-hidden />
           New violation
         </Link>
@@ -1080,7 +1080,7 @@ function ViolationsTable({ all, now, violationsHref }: { all: ViolationRow[]; no
           description="This home has a clean record."
           action={
             <Button asChild size="sm" variant="secondary">
-              <Link href={violationsHref.replace('/violations', '/violations/new')}>New violation</Link>
+              <Link prefetch={false} href={violationsHref.replace('/violations', '/violations/new')}>New violation</Link>
             </Button>
           }
         />

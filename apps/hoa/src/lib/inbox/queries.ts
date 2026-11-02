@@ -502,6 +502,50 @@ export async function countThreadsByStatus(
 }
 
 /**
+ * The newest inbound message of each thread, for the list's sender and
+ * snippet. Previously one query pulled the FULL body of every inbound
+ * message in all 50 threads and kept only the first per thread, so the
+ * response grew with mailbox history (the slow `inbox.list` step). Now the
+ * first query reads only ids (served by inbox_messages_thread_idx, no
+ * bodies), picks the newest per thread with the same ordering as before,
+ * and the second fetches bodies for just those rows. Same rows shown, same
+ * RLS-scoped client; thread ids come from an org-filtered thread query.
+ */
+async function loadNewestInboundByThread(
+  db: Db,
+  threadIds: string[],
+): Promise<{
+  data: Array<{
+    thread_id: string
+    from_name: string | null
+    from_email: string | null
+    stripped_text: string | null
+    sent_at: string | null
+  }> | null
+  error: PostgrestError | null
+}> {
+  const index = await db
+    .from('inbox_messages')
+    .select('id, thread_id')
+    .in('thread_id', threadIds)
+    .eq('direction', 'inbound')
+    .order('sent_at', { ascending: false })
+  if (index.error) return { data: null, error: index.error }
+
+  const newestId = new Map<string, string>()
+  for (const row of index.data ?? []) {
+    if (!newestId.has(row.thread_id)) newestId.set(row.thread_id, row.id)
+  }
+  if (newestId.size === 0) return { data: [], error: null }
+
+  const bodies = await db
+    .from('inbox_messages')
+    .select('thread_id, from_name, from_email, stripped_text, sent_at')
+    .in('id', [...newestId.values()])
+  return { data: bodies.data, error: bodies.error }
+}
+
+/**
  * The inbox list itself. The main thread query is list-defining — a
  * swallowed error here would render an empty inbox indistinguishable
  * from a quiet week, so it throws. The three batched lookups below
@@ -556,12 +600,7 @@ export async function listThreads(
   // Batch the lookups rather than querying per row — a 50-thread page
   // would otherwise fire 150 round-trips.
   const [messagesResult, unitsResult, attachmentsResult] = await Promise.all([
-    db
-      .from('inbox_messages')
-      .select('thread_id, from_name, from_email, stripped_text, sent_at')
-      .in('thread_id', threadIds)
-      .eq('direction', 'inbound')
-      .order('sent_at', { ascending: false }),
+    loadNewestInboundByThread(db, threadIds),
     unitIds.length > 0
       ? db
           .from('units')
@@ -598,10 +637,7 @@ export async function listThreads(
     logDbError('listThreads', 'inbox_attachments', { orgId, filter }, attachmentsError)
   }
 
-  const newestByThread = new Map<string, NonNullable<typeof messages>[number]>()
-  for (const message of messages ?? []) {
-    if (!newestByThread.has(message.thread_id)) newestByThread.set(message.thread_id, message)
-  }
+  const newestByThread = new Map((messages ?? []).map((m) => [m.thread_id, m]))
   const addressByUnit = new Map((units ?? []).map((u) => [u.id, u.address_line1]))
   const threadsWithFiles = new Set((attachments ?? []).map((a) => a.thread_id))
 

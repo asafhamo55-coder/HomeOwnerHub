@@ -96,7 +96,7 @@ export default async function ApprovalQueuePage({
       linkAs={Link}
       actions={
         <Button asChild variant="secondary" icon={<ListChecks aria-hidden />}>
-          <Link href="/approvals?type=w3">All approvals</Link>
+          <Link prefetch={false} href="/approvals?type=w3">All approvals</Link>
         </Button>
       }
       tabs={<Tabs items={violationTabs('/violations/approval-queue')} aria-label="Violation sections" linkAs={Link} />}
@@ -110,7 +110,7 @@ export default async function ApprovalQueuePage({
           description="Violation notices the assistant wrote land here until the board reviews them."
           action={
             <Button asChild icon={<Plus aria-hidden />}>
-              <Link href="/violations/new">Draft a violation</Link>
+              <Link prefetch={false} href="/violations/new">Draft a violation</Link>
             </Button>
           }
         />
@@ -224,7 +224,7 @@ function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) 
           {followUp ? (
             <p className="text-sm">
               <Badge variant="neutral">{followUpLabel(followUp)}</Badge>{' '}
-              <Link href={`/violations/${followUp.violationId}`} className="text-primary hover:underline">
+              <Link prefetch={false} href={`/violations/${followUp.violationId}`} className="text-primary hover:underline">
                 For an existing violation
               </Link>
             </p>

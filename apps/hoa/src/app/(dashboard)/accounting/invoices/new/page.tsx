@@ -53,7 +53,7 @@ export default async function NewInvoicePage() {
           description="Bills are entered against a vendor on file."
           action={
             <Button asChild>
-              <Link href="/vendors/new">Add vendor</Link>
+              <Link prefetch={false} href="/vendors/new">Add vendor</Link>
             </Button>
           }
         />
@@ -72,7 +72,7 @@ export default async function NewInvoicePage() {
           description="Every expense account in your chart of accounts is marked inactive. Reactivate one to enter bills against it."
           action={
             <Button asChild variant="secondary">
-              <Link href="/accounting/coa">View chart of accounts</Link>
+              <Link prefetch={false} href="/accounting/coa">View chart of accounts</Link>
             </Button>
           }
         />
