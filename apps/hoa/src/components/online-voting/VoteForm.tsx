@@ -77,7 +77,27 @@ export function VoteForm({
           Thank you. {home ? `${home.label} has voted. ` : ''}Your vote is final and can’t be changed. Nobody can see how you
           voted.
         </Alert>
-        <Button size="lg" className="min-h-14 w-full text-base" onClick={() => router.push('/resident/vote')}>
+        {homes.some((h) => h.propertyId !== propertyId) ? (
+          <Button
+            size="lg"
+            className="min-h-14 w-full text-base"
+            onClick={() => {
+              const other = homes.find((h) => h.propertyId !== propertyId)
+              if (other) setPropertyId(other.propertyId)
+              setPicked([])
+              setError(null)
+              setStep('pick')
+            }}
+          >
+            Vote for my other home
+          </Button>
+        ) : null}
+        <Button
+          variant={homes.some((h) => h.propertyId !== propertyId) ? 'outline' : 'default'}
+          size="lg"
+          className="min-h-14 w-full text-base"
+          onClick={() => router.push('/resident/vote')}
+        >
           Back to ballots
         </Button>
       </div>

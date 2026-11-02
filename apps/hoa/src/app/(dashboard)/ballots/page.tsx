@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation'
 import { Badge, Button, Card, CardContent, LoadFailed, Page } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { formatDateTime } from '@/lib/format-datetime'
+import { currentScopeZones } from '@/lib/association-time-current'
+import { formatBallotTime } from '@/lib/online-voting/time'
 import { listBallots, onlineVotingAvailable, type BallotClient } from '@/lib/online-voting/store'
 
 export const metadata = { title: 'Online voting' }
@@ -16,6 +17,7 @@ export default async function BallotsPage() {
   await requireBoardOrAdmin()
   const supabase = (await getSupabaseServerClient()) as unknown as BallotClient
   const res = await listBallots(supabase)
+  const zoneOf = await currentScopeZones()
 
   return (
     <Page
@@ -45,7 +47,7 @@ export default async function BallotsPage() {
                 <span className="font-medium">{b.title}</span>
                 <span className="flex shrink-0 items-center gap-2 text-sm text-foreground-secondary">
                   <Badge>{STATUS_LABEL[b.status]}</Badge>
-                  {b.closes_at ? `Closes ${formatDateTime(b.closes_at)}` : ''}
+                  {b.closes_at ? `Closes ${formatBallotTime(b.closes_at, zoneOf(b.association_id))}` : ''}
                 </span>
               </Link>
             </li>

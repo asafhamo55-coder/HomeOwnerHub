@@ -47,10 +47,10 @@ export async function myVoterHomes(db: BallotClient, ballotId: string): Promise<
   if (propertyIds.length === 0) return { ok: true, data: [] }
   const [{ data: props }, { data: voted, error: vErr }] = await Promise.all([
     db.from('hoa_properties').select('id, address').in('id', propertyIds),
-    db.from('ballot_voters').select('property_id').eq('ballot_id', ballotId).in('property_id', propertyIds),
+    db.rpc('ballot_homes_voted', { p_ballot: ballotId }),
   ])
   if (vErr) return { ok: false }
-  const done = new Set(((voted ?? []) as { property_id: string }[]).map((r) => r.property_id))
+  const done = new Set((voted ?? []) as string[])
   const addr = new Map(((props ?? []) as { id: string; address: string | null }[]).map((p) => [p.id, p.address]))
   return {
     ok: true,

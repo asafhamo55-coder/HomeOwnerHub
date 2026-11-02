@@ -4,7 +4,8 @@ import { Vote } from 'lucide-react'
 import { Badge, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { formatDateTime } from '@/lib/format-datetime'
+import { currentScopeZones } from '@/lib/association-time-current'
+import { formatBallotTime } from '@/lib/online-voting/time'
 import { listBallots, onlineVotingAvailable, type BallotClient } from '@/lib/online-voting/store'
 import { votingWindow } from '@/lib/online-voting/model'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
@@ -19,6 +20,7 @@ export default async function ResidentVotePage() {
   const supabase = (await getSupabaseServerClient()) as unknown as BallotClient
   const res = await listBallots(supabase, ['open', 'closed'])
   const now = Date.now()
+  const zoneOf = await currentScopeZones()
 
   return (
     <div className="space-y-6">
@@ -45,7 +47,7 @@ export default async function ResidentVotePage() {
                   <span className="font-medium">{b.title}</span>
                   <span className="flex shrink-0 flex-col items-end gap-1 text-sm text-foreground-secondary">
                     <Badge>{w === 'open' ? 'Open now' : w === 'not_yet' ? 'Not open yet' : 'Ended'}</Badge>
-                    {w === 'open' && b.closes_at ? `Closes ${formatDateTime(b.closes_at)}` : ''}
+                    {w === 'open' && b.closes_at ? `Closes ${formatBallotTime(b.closes_at, zoneOf(b.association_id))}` : ''}
                   </span>
                 </Link>
               </li>

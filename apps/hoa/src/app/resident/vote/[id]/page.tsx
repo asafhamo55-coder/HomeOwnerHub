@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { Alert, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { formatDateTime } from '@/lib/format-datetime'
+import { currentScopeZones } from '@/lib/association-time-current'
+import { formatBallotTime } from '@/lib/online-voting/time'
 import { getBallot, myVoterHomes, onlineVotingAvailable, type BallotClient } from '@/lib/online-voting/store'
 import { votingWindow } from '@/lib/online-voting/model'
 import { VoteForm } from '@/components/online-voting/VoteForm'
@@ -21,6 +22,7 @@ export default async function ResidentBallotPage({ params }: { params: Promise<{
   if (!res.ok) return <LoadFailed what="this ballot" retryHref={`/resident/vote/${id}`} />
   if (!res.data || res.data.ballot.status === 'draft') notFound()
   const { ballot, options } = res.data
+  const zone = (await currentScopeZones())(ballot.association_id)
   const w = ballot.opens_at && ballot.closes_at ? votingWindow(ballot.opens_at, ballot.closes_at, Date.now()) : 'ended'
   const homes = w === 'open' ? await myVoterHomes(supabase, id) : null
   const todo = homes?.ok ? homes.data.filter((h) => !h.voted) : []
@@ -30,11 +32,11 @@ export default async function ResidentBallotPage({ params }: { params: Promise<{
       <ScreenHeader
         title={ballot.title}
         back={{ href: '/resident/vote', label: 'All ballots' }}
-        subtitle={ballot.closes_at ? `Voting closes ${formatDateTime(ballot.closes_at)}.` : undefined}
+        subtitle={ballot.closes_at ? `Voting closes ${formatBallotTime(ballot.closes_at, zone)}.` : undefined}
       />
       {w === 'not_yet' ? (
         <Alert variant="info" title="Voting has not started">
-          Voting opens {ballot.opens_at ? formatDateTime(ballot.opens_at) : 'soon'}. Come back then.
+          Voting opens {ballot.opens_at ? formatBallotTime(ballot.opens_at, zone) : 'soon'}. Come back then.
         </Alert>
       ) : w === 'ended' ? (
         <Alert variant="info" title="Voting has ended">

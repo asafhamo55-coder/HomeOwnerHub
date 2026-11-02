@@ -6,6 +6,7 @@ import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { onlineVotingAvailable, type BallotClient } from '@/lib/online-voting/store'
 import { onlineVotingRule } from '@/lib/online-voting/law'
+import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
 import { NewBallotForm } from '@/components/online-voting/NewBallotForm'
 
 export const metadata = { title: 'New ballot' }
@@ -18,10 +19,9 @@ export default async function NewBallotPage() {
   const supabase = (await getSupabaseServerClient()) as unknown as BallotClient
   const { data, error } = await supabase
     .from('associations')
-    .select('id, state')
+    .select(`id, ${ASSOCIATION_ZONE_COLUMNS}`)
     .eq('organization_id', org?.id ?? '')
     .order('created_at')
-    .limit(1)
   const assoc = (data ?? [])[0] as { id: string; state: string | null } | undefined
   const rule = onlineVotingRule(assoc?.state)
 
@@ -46,7 +46,7 @@ export default async function NewBallotPage() {
           </Alert>
           <Card>
             <CardContent className="pt-5">
-              <NewBallotForm associationId={assoc.id} state={assoc.state} />
+              <NewBallotForm associationId={assoc.id} timeZone={associationTimeZone(assoc)} />
             </CardContent>
           </Card>
         </>

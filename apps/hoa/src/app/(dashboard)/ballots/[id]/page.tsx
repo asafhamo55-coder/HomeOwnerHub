@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation'
 import { Alert, Badge, Card, CardContent, LoadFailed, Page } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { formatDateTime } from '@/lib/format-datetime'
+import { currentScopeZones } from '@/lib/association-time-current'
+import { formatBallotTime } from '@/lib/online-voting/time'
 import { getBallot, onlineVotingAvailable, type BallotClient } from '@/lib/online-voting/store'
 import { loadBallotResults } from '@/lib/online-voting/actions'
 import { ACK_STATEMENTS, onlineVotingRule } from '@/lib/online-voting/law'
@@ -25,7 +26,9 @@ export default async function BallotDetailPage({ params }: { params: Promise<{ i
   if (!res.data) notFound()
   const { ballot, options } = res.data
 
-  const { data: assoc } = await supabase.from('associations').select('state').eq('id', ballot.association_id).maybeSingle()
+  const { data: assoc, error: assocErr } = await supabase.from('associations').select('state').eq('id', ballot.association_id).maybeSingle()
+  if (assocErr) return <LoadFailed what="this ballot" retryHref={`/ballots/${id}`} />
+  const zone = (await currentScopeZones())(ballot.association_id)
   const state = ((assoc as { state: string | null } | null)?.state ?? null) as string | null
   const rule = onlineVotingRule(state)
   const window =
@@ -49,7 +52,7 @@ export default async function BallotDetailPage({ params }: { params: Promise<{ i
       </div>
       {ballot.opens_at && ballot.closes_at ? (
         <p className="text-base">
-          Voting runs from {formatDateTime(ballot.opens_at)} to {formatDateTime(ballot.closes_at)}.
+          Voting runs from {formatBallotTime(ballot.opens_at, zone)} to {formatBallotTime(ballot.closes_at, zone)}.
         </p>
       ) : null}
 
@@ -83,7 +86,7 @@ export default async function BallotDetailPage({ params }: { params: Promise<{ i
             ) : null}
             <Card>
               <CardContent className="pt-5">
-                <OpenBallotPanel ballotId={ballot.id} state={state} statements={ACK_STATEMENTS.map((s) => ({ ...s }))} />
+                <OpenBallotPanel ballotId={ballot.id} statements={ACK_STATEMENTS.map((s) => ({ ...s }))} />
               </CardContent>
             </Card>
             <p className="text-sm text-foreground-secondary">
@@ -95,7 +98,7 @@ export default async function BallotDetailPage({ params }: { params: Promise<{ i
 
       {ballot.status === 'open' && !ended ? (
         <Alert variant="info" title="Votes are secret">
-          Nobody, including the board, can see any count until voting ends at {ballot.closes_at ? formatDateTime(ballot.closes_at) : 'the closing time'}.
+          Nobody, including the board, can see any count until voting ends at {ballot.closes_at ? formatBallotTime(ballot.closes_at, zone) : 'the closing time'}.
         </Alert>
       ) : null}
 

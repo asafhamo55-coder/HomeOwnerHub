@@ -10,11 +10,9 @@ type Basis = 'governing_documents' | 'state_law' | 'both'
 /** The required acknowledgement: a basis chosen and every box ticked before Open works. */
 export function OpenBallotPanel({
   ballotId,
-  state,
   statements,
 }: {
   ballotId: string
-  state: string | null
   statements: { id: string; text: string }[]
 }) {
   const router = useRouter()
@@ -28,7 +26,7 @@ export function OpenBallotPanel({
     if (basis === '') return
     setError(null)
     start(async () => {
-      const r = await openBallot(ballotId, state, basis, ticked)
+      const r = await openBallot(ballotId, basis, ticked)
       if (!r.ok) return setError(r.error)
       router.refresh()
     })

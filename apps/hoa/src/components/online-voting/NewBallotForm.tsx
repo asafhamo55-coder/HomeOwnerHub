@@ -6,13 +6,10 @@ import { Alert, Button, Input, Label, Textarea } from '@homeowner-portal/ui'
 import { createBallotDraft } from '@/lib/online-voting/actions'
 import type { BallotKind } from '@/lib/online-voting/model'
 
-/** datetime-local has no zone, so the device's zone is used. */
-const toIso = (local: string) => {
-  const t = Date.parse(local)
-  return Number.isFinite(t) ? new Date(t).toISOString() : ''
-}
+import { formatBallotTime, localInputToInstant, zoneDescription } from '@/lib/online-voting/time'
 
-export function NewBallotForm({ associationId, state }: { associationId: string; state: string | null }) {
+/** The times typed here are on the association's clock. The server converts them with the same helper. */
+export function NewBallotForm({ associationId, timeZone }: { associationId: string; timeZone: string }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -27,13 +24,13 @@ export function NewBallotForm({ associationId, state }: { associationId: string;
     e.preventDefault()
     setError(null)
     start(async () => {
-      const r = await createBallotDraft(associationId, state, null, {
+      const r = await createBallotDraft(associationId, null, {
         kind,
         title,
         maxSelections: kind === 'question' ? 1 : Number(seats),
         options: optionsText.split('\n'),
-        opensAt: toIso(opensAt),
-        closesAt: toIso(closesAt),
+        opensLocal: opensAt,
+        closesLocal: closesAt,
       })
       if (!r.ok) return setError(r.error)
       router.push(`/ballots/${r.ballotId}`)
@@ -94,7 +91,11 @@ export function NewBallotForm({ associationId, state }: { associationId: string;
           <Input id="b-closes" type="datetime-local" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} required />
         </div>
       </div>
-      <p className="text-sm text-foreground-secondary">Times use the time zone of this device.</p>
+      <p className="text-base" aria-live="polite">
+        Times are in <strong>{zoneDescription(timeZone)}</strong>, your association’s time, whatever this device is set to.
+        {opensAt ? <><br />Voting opens: <strong>{formatBallotTime(localInputToInstant(opensAt, timeZone), timeZone) || 'check the date'}</strong></> : null}
+        {closesAt ? <><br />Voting closes: <strong>{formatBallotTime(localInputToInstant(closesAt, timeZone), timeZone) || 'check the date'}</strong></> : null}
+      </p>
       {error ? <Alert variant="error">{error}</Alert> : null}
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? 'Saving...' : 'Save as draft'}
