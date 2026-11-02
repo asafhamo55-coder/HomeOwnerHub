@@ -137,6 +137,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // M13: B5 community message board (security/m13-community-board.test.ts).
   // Unapplied in production (M13_APPLIED = false); replayed here. One file, one entry.
   '0078_community_board.sql',
+  // M14: BL-032 mailed_letters (print-and-mail send log). Unapplied in production
+  // (M14_APPLIED = false); replayed here. One file, one entry.
+  '0079_mailed_letters.sql',
 ]
 
 /**
