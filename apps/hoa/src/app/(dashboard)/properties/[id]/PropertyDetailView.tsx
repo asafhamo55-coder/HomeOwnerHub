@@ -203,7 +203,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
       }
       description={
         <div className="space-y-1">
-          {street !== p.address ? <p className="truncate text-xs">{p.address}</p> : null}
+          {street !== p.address ? <p className="line-clamp-2 break-words text-xs">{p.address}</p> : null}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className={primaryOwner?.name ? 'text-foreground-secondary' : undefined}>
               {primaryOwner?.name ?? p.owner_name ?? 'No owner on file'}

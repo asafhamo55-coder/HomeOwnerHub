@@ -185,7 +185,7 @@ export function PropertyList({
               href={open(row)}
               data-row-link
               title={row.address}
-              className="min-w-0 truncate font-medium text-foreground no-underline after:absolute after:inset-0 hover:text-primary focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+              className="min-w-0 break-words line-clamp-2 font-medium text-foreground no-underline after:absolute after:inset-0 hover:text-primary focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
             >
               {streetOf(row.address)}
               {row.unitNumber ? <span className="font-normal text-muted"> · {row.unitNumber}</span> : null}
@@ -378,7 +378,7 @@ export function PropertyList({
                     href={open(row)}
                     data-row-link
                     title={row.address}
-                    className="min-w-0 truncate text-sm font-semibold text-foreground no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+                    className="min-w-0 break-words line-clamp-2 text-sm font-semibold text-foreground no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
                   >
                     {streetOf(row.address)}
                     {row.unitNumber ? <span className="font-normal text-muted"> · {row.unitNumber}</span> : null}

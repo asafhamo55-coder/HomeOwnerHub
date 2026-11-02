@@ -8,6 +8,19 @@ const shared = createTailwindConfig('hoa')
 
 const config: Config = {
   ...shared,
+  theme: {
+    ...shared.theme,
+    extend: {
+      ...shared.theme?.extend,
+      // Board floor: `text-xs` is 14px here (the preset default is 13px).
+      // Boards are often older volunteers on phones. One change, no
+      // per-screen edits. Marketing keeps the preset default.
+      fontSize: {
+        ...(shared.theme?.extend?.fontSize as Record<string, unknown>),
+        xs: ['0.875rem', { lineHeight: '1.25rem' }],
+      },
+    },
+  },
   content: ['./src/**/*.{ts,tsx}', '../../packages/ui/src/**/*.{ts,tsx}'],
 }
 

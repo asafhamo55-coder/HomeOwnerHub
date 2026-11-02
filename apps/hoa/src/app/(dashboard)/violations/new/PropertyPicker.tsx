@@ -45,7 +45,7 @@ export function PropertyPicker({
   if (selected) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-input bg-surface px-3 py-2 text-sm">
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground">{propertyOptionLabel(selected)}</span>
+        <span className="min-w-0 flex-1 break-words line-clamp-2 font-medium text-foreground">{propertyOptionLabel(selected)}</span>
         <Button
           type="button"
           variant="ghost"

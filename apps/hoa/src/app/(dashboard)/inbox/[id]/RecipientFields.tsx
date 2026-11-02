@@ -95,7 +95,7 @@ function ChipField({
               )}
             >
               {valid ? null : <AlertTriangle className="size-3 shrink-0" aria-hidden />}
-              <span className="truncate">{address}</span>
+              <span className="line-clamp-2 break-words">{address}</span>
               {valid ? null : <span className="sr-only">(not a valid address)</span>}
               <button
                 type="button"
