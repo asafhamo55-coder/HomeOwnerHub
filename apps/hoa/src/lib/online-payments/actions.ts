@@ -40,6 +40,7 @@ export async function createOnlinePayment(input: z.input<typeof Schema>): Promis
   return createOnlinePaymentAttempt(deps, {
     userId: actor.id,
     residentUnitIds: units.map((u) => u.unit_id),
+    chargesFrom: units.find((u) => u.unit_id === parsed.data.unitId)?.charges_from ?? null,
     impersonating: actor.impersonating,
     ...parsed.data,
   })

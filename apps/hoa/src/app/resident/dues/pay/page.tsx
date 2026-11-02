@@ -75,7 +75,8 @@ export default async function ResidentPayPage() {
   const settings = await getResidentZelleSettings([...groups.keys()].filter(Boolean))
   const multiUnit = units.length > 1
   // Online payment is offered for the home with the most urgent charge (v1: one home per payment).
-  const payState = await loadPayScreenState(dues.charges[0]?.unitId ?? units[0]!.unit_id)
+  const payUnitId = dues.charges[0]?.unitId ?? units[0]!.unit_id
+  const payState = await loadPayScreenState(payUnitId, units.find((u) => u.unit_id === payUnitId)?.charges_from ?? null)
   const anyConfigured =
     settings.ok && Object.values(settings.byAssociation).some((r) => r.state === 'configured')
 
