@@ -22,6 +22,8 @@ export interface SetupNext {
 export interface DoNextInput {
   /** State law deadlines already past and not marked done. */
   complianceOverdue: Check<number>
+  /** ARC applications still waiting whose decide-by date has passed. */
+  arcPastDecideBy: Check<number>
   /** Requests waiting for a board decision. */
   approvals: Check<number>
   /** Resident emails still waiting for a reply. */
@@ -34,7 +36,7 @@ export interface DoNextInput {
   setup: Check<SetupNext | null>
 }
 
-export type DoNextKey = 'compliance' | 'approvals' | 'replies' | 'violations' | 'dues' | 'setup'
+export type DoNextKey = 'compliance' | 'arc' | 'approvals' | 'replies' | 'violations' | 'dues' | 'setup'
 
 export type DoNext =
   | { kind: 'item'; key: DoNextKey; message: string; cta: string; href: string }
@@ -57,6 +59,18 @@ export function pickDoNext(input: DoNextInput): DoNext {
       message: `${n(compliance, 'state law deadline has', 'state law deadlines have')} passed.`,
       cta: 'See the deadlines',
       href: '#compliance-deadlines',
+    }
+  }
+  // A missed decide-by date can have consequences under the declaration
+  // (some treat silence as approval), so it outranks the general approvals.
+  const arc = positive(input.arcPastDecideBy)
+  if (arc > 0) {
+    return {
+      kind: 'item',
+      key: 'arc',
+      message: `${n(arc, 'architectural request is', 'architectural requests are')} past the decide-by date.`,
+      cta: 'Review them',
+      href: '/arc',
     }
   }
   const approvals = positive(input.approvals)

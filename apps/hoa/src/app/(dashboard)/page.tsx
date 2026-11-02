@@ -42,6 +42,9 @@ import { SampleCommunityPanel } from '@/components/dashboard/SampleCommunityPane
 import { loadSampleState } from '@/lib/sample-community/core'
 import { DoNextCard } from '@/components/dashboard/DoNextCard'
 import { HealthDisclosure } from '@/components/dashboard/HealthDisclosure'
+import { getArcClockSettings } from '@/lib/arc-review/clock-actions'
+import { countPastDecideBy } from '@/lib/arc-review/summary'
+import { readArcStatusRows } from '@/lib/board-review'
 import { FAILED, NA, ok, pickDoNext, type Check, type SetupNext } from '@/lib/dashboard/do-next'
 import { healthDefaultOpen } from '@/lib/dashboard/health-disclosure'
 import { guidanceFor } from '@/lib/guide/guidance-cards'
@@ -212,12 +215,13 @@ const setupChecklistFor = cache(async (orgId: string) => {
 // "Do this next": built only from reads the cards below already make
 // (memoized per request in lib/dashboard/loaders.ts), so it adds no queries.
 async function DoNextSection({ orgId, isAdmin, dismissed }: { orgId: string; isAdmin: boolean; dismissed: boolean }) {
-  const [approvals, atRisk, triage, compliance, setup] = await Promise.all([
+  const [approvals, atRisk, triage, compliance, setup, arcLate] = await Promise.all([
     load.approvalsInbox(orgId),
     load.atRiskThisWeek(orgId),
     load.triageSnapshot(orgId),
     complianceFor(orgId),
     isAdmin ? setupChecklistFor(orgId) : Promise.resolve(null),
+    arcPastDecideByFor(),
   ])
   const setupCheck: Check<SetupNext | null> = !isAdmin
     ? NA
@@ -233,6 +237,7 @@ async function DoNextSection({ orgId, isAdmin, dismissed }: { orgId: string; isA
         : compliance.items === null
           ? FAILED
           : ok(compliance.items.filter((i) => i.tone === 'overdue').length),
+    arcPastDecideBy: arcLate,
     // A partial list is not "inbox zero", and a partial count of 0 proves nothing.
     approvals: approvals.failed === true && approvals.totalCount === 0 ? FAILED : ok(approvals.totalCount),
     residentReplies: triage.failed ? FAILED : ok(triage.needsReply.count),
@@ -241,6 +246,20 @@ async function DoNextSection({ orgId, isAdmin, dismissed }: { orgId: string; isA
     setup: setupCheck,
   })
   return <DoNextCard next={next} />
+}
+
+/**
+ * ARC applications past their decide-by date, by the same clock and counter
+ * as the /arc summary strip. Residents are not allowed to read this (NA);
+ * a failed read of either source is unknown (FAILED), never zero.
+ */
+async function arcPastDecideByFor(): Promise<Check<number>> {
+  const clockLoad = await getArcClockSettings()
+  if (!clockLoad.ok) return clockLoad.reason === 'forbidden' ? NA : FAILED
+  const rows = await readArcStatusRows()
+  if (!rows) return FAILED
+  const settings = clockLoad.associations.map((a) => ({ associationId: a.association.id, settings: a.settings }))
+  return ok(countPastDecideBy(rows, settings))
 }
 
 /** The first required step that is not done. A step we couldn't check counts as not done. */

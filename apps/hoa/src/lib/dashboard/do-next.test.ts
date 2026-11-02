@@ -3,6 +3,7 @@ import { FAILED, NA, ok, pickDoNext, type DoNextInput } from './do-next'
 
 const quiet: DoNextInput = {
   complianceOverdue: ok(0),
+  arcPastDecideBy: ok(0),
   approvals: ok(0),
   residentReplies: ok(0),
   violationsOverdue: ok(0),
@@ -19,6 +20,7 @@ describe('pickDoNext', () => {
   it('follows the priority order', () => {
     let cur: DoNextInput = {
       complianceOverdue: ok(1),
+      arcPastDecideBy: ok(2),
       approvals: ok(3),
       residentReplies: ok(2),
       violationsOverdue: ok(4),
@@ -27,6 +29,7 @@ describe('pickDoNext', () => {
     }
     const keys: Array<[keyof DoNextInput, string]> = [
       ['complianceOverdue', 'compliance'],
+      ['arcPastDecideBy', 'arc'],
       ['approvals', 'approvals'],
       ['residentReplies', 'replies'],
       ['violationsOverdue', 'violations'],
@@ -52,12 +55,33 @@ describe('pickDoNext', () => {
     expect(pick({ homesBehind: ok(1) })).toMatchObject({ message: '1 home is behind on dues.' })
   })
 
+  it('puts ARC requests past decide-by in the picker, ahead of general approvals', () => {
+    expect(pick({ arcPastDecideBy: ok(1) })).toMatchObject({
+      kind: 'item',
+      key: 'arc',
+      message: '1 architectural request is past the decide-by date.',
+      cta: 'Review them',
+      href: '/arc',
+    })
+    expect(pick({ arcPastDecideBy: ok(4), approvals: ok(2) })).toMatchObject({
+      key: 'arc',
+      message: '4 architectural requests are past the decide-by date.',
+    })
+    expect(pick({ complianceOverdue: ok(1), arcPastDecideBy: ok(4) })).toMatchObject({ key: 'compliance' })
+  })
+
+  it('does not nag about ARC when none are late, or when the board has no access', () => {
+    expect(pick({ arcPastDecideBy: ok(0) }).kind).toBe('caught_up')
+    expect(pick({ arcPastDecideBy: NA }).kind).toBe('caught_up')
+    expect(pick({ arcPastDecideBy: FAILED, approvals: ok(2) })).toMatchObject({ key: 'approvals' })
+  })
+
   it('skips a failed source and still shows a real item from another', () => {
     expect(pick({ approvals: FAILED, residentReplies: ok(2) })).toMatchObject({ kind: 'item', key: 'replies' })
   })
 
   it('never says caught up when a read failed and nothing else is urgent', () => {
-    for (const k of ['complianceOverdue', 'approvals', 'residentReplies', 'violationsOverdue', 'homesBehind', 'setup'] as const) {
+    for (const k of ['complianceOverdue', 'arcPastDecideBy', 'approvals', 'residentReplies', 'violationsOverdue', 'homesBehind', 'setup'] as const) {
       const r = pick({ [k]: FAILED })
       expect(r.kind).toBe('unsure')
       expect(r.message).toBe('We couldn’t check everything. Try again.')
