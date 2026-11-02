@@ -25,6 +25,7 @@ import { TX_BALLOTS } from './guides-u'
 import { GA_POA_APPLY, GA_LOT_OWNER_BOARD } from './guides-v'
 import { FL_ARC, FL_MEDIATION, FL_FLAGS_RAMPS } from './guides-w'
 import { GA_DECLARANT_CONTROL, GA_SALE_ASSESSMENTS, GA_ALLOCATE_EXPENSES } from './guides-x'
+import { GA_ACT_DEFINITIONS, GA_INCORPORATION, GA_DEFECTS_CURE } from './guides-y'
 import type { Guide, GeorgiaLink } from './types'
 
 export type { Guide, GeorgiaLink, GuideSection, HoaDoes } from './types'
@@ -47,7 +48,7 @@ export const GUIDE_LIST: readonly Guide[] = [
 ]
 
 /** Guides that live outside /georgia (BL-172 batches 2 and 4). */
-export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE, TX_VIOLATION_NOTICE, TX_BALLOTS, GA_POA_APPLY, GA_LOT_OWNER_BOARD, FL_ARC, FL_MEDIATION, FL_FLAGS_RAMPS, GA_DECLARANT_CONTROL, GA_SALE_ASSESSMENTS, GA_ALLOCATE_EXPENSES]
+export const GENERAL_GUIDES: readonly Guide[] = [TREASURER_DUTIES, SWITCH_FROM_MANAGER, AI_VIOLATION_LETTERS, AI_MEETING_MINUTES, CPA_ATTORNEY_ACCESS, CERTIFIED_MAIL_COLLECTIONS, OVERPAYMENTS_CREDITS, PAYMENT_ORDER, WRITTEN_BALLOTS, AMEND_COVENANTS, LIEN_RULES, FL_FINE_HEARING, FL_ESTOPPEL, TX_PAYMENT_PLANS, CA_FINE_HEARING, FL_RECORDS, CA_RECORDS, TX_MANAGEMENT_CERT, GA_ESTOPPEL, TX_RESALE, GA_BOARD_POWERS, CA_IDR, TX_COLLECTIONS, CA_COLLECTIONS, GA_BORROW_SUE, TX_FLAGS, FL_BOARD_MEETINGS, FL_ELECTIONS, CA_ELECTIONS, FL_MEMBER_MEETINGS, FL_LIEN_TIMELINE, TX_VIOLATION_NOTICE, TX_BALLOTS, GA_POA_APPLY, GA_LOT_OWNER_BOARD, FL_ARC, FL_MEDIATION, FL_FLAGS_RAMPS, GA_DECLARANT_CONTROL, GA_SALE_ASSESSMENTS, GA_ALLOCATE_EXPENSES, GA_ACT_DEFINITIONS, GA_INCORPORATION, GA_DEFECTS_CURE]
 export const ALL_GUIDES: readonly Guide[] = [...GUIDE_LIST, ...GENERAL_GUIDES]
 
 export const GUIDES: Readonly<Record<string, Guide>> = Object.fromEntries(ALL_GUIDES.map((g) => [g.slug, g]))
@@ -455,6 +456,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     path: pathOf(GA_ALLOCATE_EXPENSES),
     title: 'Can a Georgia HOA charge some lots more than others? (§ 44-3-225(a))',
     blurb: GA_ALLOCATE_EXPENSES.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_ACT_DEFINITIONS.slug,
+    path: pathOf(GA_ACT_DEFINITIONS),
+    title: 'Georgia HOA terms the Act defines: declarant, common area, instrument and more (§ 44-3-221)',
+    blurb: GA_ACT_DEFINITIONS.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_INCORPORATION.slug,
+    path: pathOf(GA_INCORPORATION),
+    title: 'Georgia HOA incorporation, name and bylaws: what § 44-3-227 requires',
+    blurb: GA_INCORPORATION.summary[0]!,
+    kind: 'guide',
+  },
+  {
+    slug: GA_DEFECTS_CURE.slug,
+    path: pathOf(GA_DEFECTS_CURE),
+    title: 'Can a Georgia HOA fix a defect in its declaration? Substantial compliance under § 44-3-233',
+    blurb: GA_DEFECTS_CURE.summary[0]!,
     kind: 'guide',
   },
   {
