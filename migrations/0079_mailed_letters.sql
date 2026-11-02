@@ -9,7 +9,14 @@
 -- provider. It holds the cost the board saw and confirmed, the provider's id
 -- and the tracking facts. Written only by the server (service role); board and
 -- admin read their own organization's rows. No names, addresses or letter text
--- are stored here: the letter body stays in approval_requests.
+-- are stored here: a collections letter's body stays in approval_requests, a
+-- violation notice's stays in hoa_violations.approved_letter.
+--
+-- A letter comes from exactly one source: an approved collections letter
+-- (approval_request_id) or a violation's approved notice (violation_id).
+-- Violation notices have no approval_requests row, so the source is a pair of
+-- nullable columns with a CHECK that exactly one is set, a unique index on
+-- each (one send per source) and a same-org trigger on each.
 --
 -- Idempotent and in one transaction.
 
@@ -19,7 +26,7 @@ DO $pre$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['orgs', 'associations', 'approval_requests', 'collection_cases', 'profiles'] LOOP
+  FOREACH t IN ARRAY ARRAY['orgs', 'associations', 'approval_requests', 'collection_cases', 'hoa_violations', 'profiles'] LOOP
     IF to_regclass('public.' || t) IS NULL THEN
       RAISE EXCEPTION '0079: public.% is missing', t;
     END IF;
@@ -35,8 +42,11 @@ CREATE TABLE IF NOT EXISTS public.mailed_letters (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id       uuid NOT NULL REFERENCES public.orgs(id) ON DELETE CASCADE,
   association_id        uuid NOT NULL REFERENCES public.associations(id) ON DELETE CASCADE,
-  -- The approved letter this send belongs to. One send per approved letter.
-  approval_request_id   uuid NOT NULL REFERENCES public.approval_requests(id) ON DELETE RESTRICT,
+  -- The source of the letter: exactly one of these two is set (mailed_letters_one_source).
+  -- An approved collections letter. One send per approved letter.
+  approval_request_id   uuid REFERENCES public.approval_requests(id) ON DELETE RESTRICT,
+  -- A violation whose notice the board approved. One send per violation.
+  violation_id          uuid REFERENCES public.hoa_violations(id) ON DELETE RESTRICT,
   collection_case_id    uuid REFERENCES public.collection_cases(id) ON DELETE SET NULL,
   provider              text NOT NULL CHECK (provider IN ('lob', 'postgrid', 'fake')),
   provider_letter_id    text CHECK (provider_letter_id IS NULL OR char_length(provider_letter_id) BETWEEN 1 AND 100),
@@ -56,14 +66,16 @@ CREATE TABLE IF NOT EXISTS public.mailed_letters (
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now(),
   CHECK (delivered_on IS NULL OR mailed_on IS NULL OR delivered_on >= mailed_on),
-  UNIQUE (approval_request_id)
+  CONSTRAINT mailed_letters_one_source CHECK ((approval_request_id IS NOT NULL) <> (violation_id IS NOT NULL)),
+  UNIQUE (approval_request_id),
+  UNIQUE (violation_id)
 );
 CREATE INDEX IF NOT EXISTS mailed_letters_org_idx ON public.mailed_letters (organization_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS mailed_letters_provider_id_once
   ON public.mailed_letters (provider, provider_letter_id) WHERE provider_letter_id IS NOT NULL;
 
 COMMENT ON TABLE public.mailed_letters IS
-  '0079 (BL-032): one row per approved letter a board confirmed and sent to a print-and-mail provider. Cost in integer cents. No names, addresses or text. Board/admin read; written only by the server (service role).';
+  '0079 (BL-032): one row per approved letter (collections letter or violation notice) a board confirmed and sent to a print-and-mail provider. Cost in integer cents. No names, addresses or text. Board/admin read; written only by the server (service role).';
 
 CREATE OR REPLACE FUNCTION public.mailed_letters_touch() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -82,18 +94,20 @@ DECLARE
   v_name text;
 BEGIN
   FOR r IN
-    SELECT * FROM (VALUES
-      ('association_id',      'associations'),
-      ('approval_request_id', 'approval_requests'),
-      ('collection_case_id',  'collection_cases')
-    ) v(fk, parent)
+    SELECT v.fk, v.parent, v.parent_org FROM (VALUES
+      ('association_id',      'associations',      'organization_id'),
+      ('approval_request_id', 'approval_requests', 'organization_id'),
+      ('collection_case_id',  'collection_cases',  'organization_id'),
+      -- hoa_violations is the older table: its organization column is org_id.
+      ('violation_id',        'hoa_violations',    'org_id')
+    ) v(fk, parent, parent_org)
   LOOP
     v_name := 'zz_org_fk_mailed_letters_' || r.fk;
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.mailed_letters', v_name);
     EXECUTE format(
       'CREATE TRIGGER %I AFTER INSERT OR UPDATE OF %I, organization_id ON public.mailed_letters
          FOR EACH ROW EXECUTE FUNCTION public.tenant_fk_same_org(%L, %L, %L, %L)',
-      v_name, r.fk, r.fk, r.parent, 'organization_id', 'organization_id');
+      v_name, r.fk, r.fk, r.parent, r.parent_org, 'organization_id');
   END LOOP;
 END $triggers$;
 

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Alert, Button, Checkbox, ChoiceGroup, Field, Fieldset, Input, Radio, useToast } from '@homeowner-portal/ui'
 import { mailApprovedLetter, previewMailedLetter, refreshMailedLetter, type PreviewResult } from '@/lib/mailed-letters/actions'
+import { mailViolationLetter, previewMailedViolationLetter, refreshMailedViolationLetter } from '@/lib/mailed-letters/violation-actions'
 import { formatCents } from '@/lib/mailed-letters/cost'
 import { describeMailedLetter, MAIL_SERVICE_LABELS, type MailedLetterView } from '@/lib/mailed-letters/status'
 import type { MailService, PostalAddress } from '@/lib/mailed-letters/provider'
@@ -17,10 +18,13 @@ import { formatDay } from '@/lib/money/format'
  * one. Addresses go to the mailing service only.
  */
 
+/** Which letter: an approved collections letter on a property, or a violation's approved notice. */
+export type MailTarget = { kind: 'collections'; propertyId: string; approvalRequestId: string } | { kind: 'violation'; violationId: string }
+
 const EMPTY: PostalAddress = { name: '', line1: '', city: '', state: '', zip: '' }
 const SERVICES: MailService[] = ['first_class', 'certified', 'certified_return_receipt']
 
-export function MailLetterPanel({ propertyId, approvalRequestId }: { propertyId: string; approvalRequestId: string }) {
+export function MailLetterPanel({ target }: { target: MailTarget }) {
   const router = useRouter()
   const toast = useToast()
   const [service, setService] = useState<MailService>('first_class')
@@ -36,7 +40,10 @@ export function MailLetterPanel({ propertyId, approvalRequestId }: { propertyId:
     setError(null)
     setConfirmed(false)
     startTransition(async () => {
-      const r = await previewMailedLetter({ propertyId, approvalRequestId, service: nextService, color: nextColor })
+      const r =
+        target.kind === 'violation'
+          ? await previewMailedViolationLetter({ violationId: target.violationId, service: nextService, color: nextColor })
+          : await previewMailedLetter({ propertyId: target.propertyId, approvalRequestId: target.approvalRequestId, service: nextService, color: nextColor })
       if (!r.ok) {
         setError(r.error)
         setPreview(null)
@@ -58,7 +65,11 @@ export function MailLetterPanel({ propertyId, approvalRequestId }: { propertyId:
     if (!preview) return
     setError(null)
     startTransition(async () => {
-      const r = await mailApprovedLetter({ propertyId, approvalRequestId, service, color, to, from, confirmedCents: preview.preview.totalCents, confirmed })
+      const common = { service, color, to, from, confirmedCents: preview.preview.totalCents, confirmed }
+      const r =
+        target.kind === 'violation'
+          ? await mailViolationLetter({ violationId: target.violationId, ...common })
+          : await mailApprovedLetter({ propertyId: target.propertyId, approvalRequestId: target.approvalRequestId, ...common })
       if (!r.ok) {
         setError(r.error)
         return
@@ -174,7 +185,7 @@ export function MailLetterPanel({ propertyId, approvalRequestId }: { propertyId:
 }
 
 /** The status of a letter already mailed from the app, with a check-now button. */
-export function MailedStatus({ propertyId, approvalRequestId, mailed }: { propertyId: string; approvalRequestId: string; mailed: MailedLetterView }) {
+export function MailedStatus({ target, mailed }: { target: MailTarget; mailed: MailedLetterView }) {
   const router = useRouter()
   const toast = useToast()
   const [pending, startTransition] = useTransition()
@@ -195,7 +206,10 @@ export function MailedStatus({ propertyId, approvalRequestId, mailed }: { proper
           loading={pending}
           onClick={() =>
             startTransition(async () => {
-              const r = await refreshMailedLetter({ propertyId, approvalRequestId })
+              const r =
+                target.kind === 'violation'
+                  ? await refreshMailedViolationLetter({ violationId: target.violationId })
+                  : await refreshMailedLetter({ propertyId: target.propertyId, approvalRequestId: target.approvalRequestId })
               toast(r.ok ? { tone: 'success', message: r.message } : { tone: 'error', title: 'Not updated', message: r.error })
               router.refresh()
             })

@@ -80,6 +80,7 @@ describe('addresses', () => {
 describe('status', () => {
   const m: MailedLetterView = {
     approvalRequestId: 'r',
+    violationId: null,
     mailService: 'certified',
     status: 'delivered',
     trackingNumber: 'T1',

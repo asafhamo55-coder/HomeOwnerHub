@@ -7,6 +7,7 @@ import { formatShortDate } from '@/lib/format-datetime'
 import { formatDay, usd } from '@/lib/money/format'
 import { CalendarClock, CheckCircle2, Clock, FileCheck2, Flag, Gavel, Mail, XCircle } from 'lucide-react'
 import {
+  Alert,
   Card,
   CardContent,
   CardDescription,
@@ -22,7 +23,11 @@ import {
   type TimelineItem,
 } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { loadOrFail } from '@/lib/load-or-fail'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { M14_APPLIED } from '@homeowner-portal/db/m14'
+import { MailLetterPanel, MailedStatus } from '@/components/mailed-letters/MailLetterPanel'
+import { loadMailedViolationLetter } from '@/lib/mailed-letters/store'
+import { violationMailBlock } from '@/lib/mailed-letters/violation-letter'
 import { timed } from '@/lib/perf/timing'
 import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-statuses'
 import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
@@ -154,6 +159,12 @@ export default async function ViolationDetailPage({
     cureDeadline = new Date(new Date(v.notice_sent_at).getTime() + v.cure_period_days * 86_400_000)
   }
   const isClosed = CLOSED.has(v.status)
+  // BL-032 (M14_APPLIED): has the approved notice already been handed to the mailing service?
+  const mailedLoad =
+    M14_APPLIED && v.approved_letter
+      ? await tryLoad('mailed notice', () => loadMailedViolationLetter(supabase, org.id, v.id))
+      : null
+  const mailBlock = violationMailBlock({ status: v.status, approved_letter: v.approved_letter, approved_at: v.approved_at })
   const overdue = cureDeadline ? cureDeadline < new Date() && !isClosed : false
   // Defensive: legacy rows may carry a status not yet in the enum.
   // Default to 'open' for the editor — admin can move it forward from there.
@@ -419,6 +430,20 @@ export default async function ViolationDetailPage({
                   approval, have no letter yet.
                 </p>
               )}
+              {mailedLoad && !mailedLoad.ok ? (
+                <Alert variant="warning" title="Couldn’t check the mailing status" className="mt-4 print:hidden">
+                  Reload the page before mailing this notice, so it is not sent twice.
+                </Alert>
+              ) : null}
+              {mailedLoad?.ok && mailedLoad.data ? (
+                <div className="mt-4">
+                  <MailedStatus target={{ kind: 'violation', violationId: v.id }} mailed={mailedLoad.data} />
+                </div>
+              ) : mailedLoad?.ok && !mailBlock ? (
+                <div className="mt-4">
+                  <MailLetterPanel target={{ kind: 'violation', violationId: v.id }} />
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 

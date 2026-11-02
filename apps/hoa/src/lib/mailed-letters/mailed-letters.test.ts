@@ -6,7 +6,7 @@ import { mailRecordFromProvider } from './tracking'
 import { clockStartOf } from '../collections/mail-tracking'
 
 vi.mock('@homeowner-portal/db/m14', () => ({ M14_APPLIED: true }))
-import { sendApprovedLetterByMail, previewCost, type MailedLetterRow, type SendDeps, type SendInput } from './send'
+import { sendApprovedLetterByMail, previewCost, sourceId, type MailedLetterRow, type SendDeps, type SendInput } from './send'
 
 const pricing: MailPricing = { baseCents: 100, colorCents: 20, extraPageCents: 10, certifiedCents: 700, certifiedReturnReceiptCents: 1000 }
 const addr = { name: 'A', line1: '1 Main', city: 'Atlanta', state: 'GA', zip: '30303' }
@@ -18,13 +18,13 @@ function setup(over: Partial<SendDeps> = {}) {
   const deps: SendDeps = {
     provider,
     pricing,
-    alreadySent: async (id) => rows.some((r) => r.approvalRequestId === id),
+    alreadySent: async (src) => rows.some((r) => r.source.kind === src.kind && sourceId(r.source) === sourceId(src)),
     insert: async (r) => (rows.push(r), { ok: true }),
     log: () => {},
     ...over,
   }
   const input: SendInput = {
-    letter: { organizationId: 'o', associationId: 'a', approvalRequestId: 'r1', collectionCaseId: 'c', approvalStatus: 'posted' },
+    letter: { organizationId: 'o', associationId: 'a', source: { kind: 'approval', approvalRequestId: 'r1' }, collectionCaseId: 'c', approved: true },
     request: base,
     confirmedCents: 100 + 10 + 700,
     confirmed: true,
@@ -71,9 +71,26 @@ describe('sendApprovedLetterByMail', () => {
   })
   it('refuses an unapproved letter', async () => {
     const { provider, deps, input } = setup()
-    const r = await sendApprovedLetterByMail(deps, { ...input, letter: { ...input.letter, approvalStatus: 'proposed' } })
+    const r = await sendApprovedLetterByMail(deps, { ...input, letter: { ...input.letter, approved: false } })
     expect(r.ok).toBe(false)
     expect(provider.sent).toHaveLength(0)
+  })
+  it('sends a violation notice under its violation id, with no collections case', async () => {
+    const { provider, rows, deps, input } = setup()
+    const violation = { ...input, letter: { ...input.letter, source: { kind: 'violation' as const, violationId: 'v1' }, collectionCaseId: null } }
+    const r = await sendApprovedLetterByMail(deps, violation)
+    expect(r.ok).toBe(true)
+    expect(provider.sent).toHaveLength(1)
+    expect(provider.sent[0]?.idempotencyKey).toBe('v1')
+    expect(rows[0]).toMatchObject({ source: { kind: 'violation', violationId: 'v1' }, collectionCaseId: null })
+  })
+  it('never sends the same violation notice twice, and an approval id does not block a violation id', async () => {
+    const { provider, deps, input } = setup()
+    const violation = { ...input, letter: { ...input.letter, source: { kind: 'violation' as const, violationId: 'r1' }, collectionCaseId: null } }
+    expect((await sendApprovedLetterByMail(deps, input)).ok).toBe(true)
+    expect((await sendApprovedLetterByMail(deps, violation)).ok).toBe(true)
+    expect((await sendApprovedLetterByMail(deps, violation)).ok).toBe(false)
+    expect(provider.sent).toHaveLength(2)
   })
   it('refuses with no provider or no pricing', async () => {
     const a = setup({ provider: null })

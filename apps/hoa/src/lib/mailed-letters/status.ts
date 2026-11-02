@@ -8,7 +8,9 @@
 import type { MailService, MailStatus } from './provider'
 
 export interface MailedLetterView {
-  approvalRequestId: string
+  /** Exactly one of these two is set: the letter's source. */
+  approvalRequestId: string | null
+  violationId: string | null
   mailService: MailService
   status: MailStatus
   trackingNumber: string | null

@@ -8,13 +8,14 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { M14_APPLIED } from '@homeowner-portal/db/m14'
-import type { MailedLetterRow } from './send'
+import { sourceId, type LetterSource, type MailedLetterRow } from './send'
 import type { MailedLetterView } from './status'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = { from: (t: string) => any }
 type Row = {
-  approval_request_id: string
+  approval_request_id: string | null
+  violation_id: string | null
   mail_method: MailedLetterView['mailService']
   status: MailedLetterView['status']
   tracking_number: string | null
@@ -26,11 +27,15 @@ type Row = {
   pages: number
 }
 
-const COLUMNS = 'approval_request_id, mail_method, status, tracking_number, expected_delivery_on, mailed_on, delivered_on, confirmed_cents, color, pages'
+const COLUMNS = 'approval_request_id, violation_id, mail_method, status, tracking_number, expected_delivery_on, mailed_on, delivered_on, confirmed_cents, color, pages'
 const CHUNK = 100
+
+/** The column that holds this source's id. */
+const sourceColumn = (s: LetterSource) => (s.kind === 'approval' ? 'approval_request_id' : 'violation_id')
 
 const toView = (r: Row): MailedLetterView => ({
   approvalRequestId: r.approval_request_id,
+  violationId: r.violation_id,
   mailService: r.mail_method,
   status: r.status,
   trackingNumber: r.tracking_number,
@@ -54,17 +59,31 @@ export async function loadMailedLetters(supabase: SupabaseClient, orgId: string,
       .eq('organization_id', orgId)
       .in('approval_request_id', requestIds.slice(i, i + CHUNK))) as { data: Row[] | null; error: { code?: string } | null }
     if (error) throw new Error(`mailed letters: read failed (${error.code ?? 'no code'})`)
-    for (const r of data ?? []) out.set(r.approval_request_id, toView(r))
+    for (const r of data ?? []) if (r.approval_request_id) out.set(r.approval_request_id, toView(r))
   }
   return out
 }
 
-export async function mailedLetterExists(admin: SupabaseClient, orgId: string, approvalRequestId: string): Promise<boolean> {
+/** The mailed row for one violation, or null. Empty before M14. Throws on a failed read. */
+export async function loadMailedViolationLetter(supabase: SupabaseClient, orgId: string, violationId: string): Promise<MailedLetterView | null> {
+  if (!M14_APPLIED) return null
+  const { data, error } = (await (supabase as unknown as Loose)
+    .from('mailed_letters')
+    .select(COLUMNS)
+    .eq('organization_id', orgId)
+    .eq('violation_id', violationId)
+    .limit(1)) as { data: Row[] | null; error: { code?: string } | null }
+  if (error) throw new Error(`mailed letters: read failed (${error.code ?? 'no code'})`)
+  const r = data?.[0]
+  return r ? toView(r) : null
+}
+
+export async function mailedLetterExists(admin: SupabaseClient, orgId: string, source: LetterSource): Promise<boolean> {
   const { data, error } = (await (admin as unknown as Loose)
     .from('mailed_letters')
     .select('id')
     .eq('organization_id', orgId)
-    .eq('approval_request_id', approvalRequestId)
+    .eq(sourceColumn(source), sourceId(source))
     .limit(1)) as { data: Array<{ id: string }> | null; error: { code?: string } | null }
   if (error) throw new Error(`mailed letters: lookup failed (${error.code ?? 'no code'})`)
   return (data?.length ?? 0) > 0
@@ -74,7 +93,8 @@ export async function insertMailedLetter(admin: SupabaseClient, row: MailedLette
   const { error } = await (admin as unknown as Loose).from('mailed_letters').insert({
     organization_id: row.organizationId,
     association_id: row.associationId,
-    approval_request_id: row.approvalRequestId,
+    approval_request_id: row.source.kind === 'approval' ? row.source.approvalRequestId : null,
+    violation_id: row.source.kind === 'violation' ? row.source.violationId : null,
     collection_case_id: row.collectionCaseId,
     provider: row.provider,
     provider_letter_id: row.providerLetterId,
@@ -96,12 +116,12 @@ export interface MailedLetterRecord extends MailedLetterView {
   provider: 'lob' | 'postgrid' | 'fake'
 }
 
-export async function loadMailedLetterRecord(admin: SupabaseClient, orgId: string, approvalRequestId: string): Promise<MailedLetterRecord | null> {
+export async function loadMailedLetterRecord(admin: SupabaseClient, orgId: string, source: LetterSource): Promise<MailedLetterRecord | null> {
   const { data, error } = (await (admin as unknown as Loose)
     .from('mailed_letters')
     .select(`${COLUMNS}, provider, provider_letter_id`)
     .eq('organization_id', orgId)
-    .eq('approval_request_id', approvalRequestId)
+    .eq(sourceColumn(source), sourceId(source))
     .limit(1)) as { data: Array<Row & { provider: MailedLetterRecord['provider']; provider_letter_id: string | null }> | null; error: { code?: string } | null }
   if (error) throw new Error(`mailed letters: lookup failed (${error.code ?? 'no code'})`)
   const r = data?.[0]
@@ -111,13 +131,13 @@ export async function loadMailedLetterRecord(admin: SupabaseClient, orgId: strin
 export async function updateMailedLetterTracking(
   admin: SupabaseClient,
   orgId: string,
-  approvalRequestId: string,
+  source: LetterSource,
   u: { status: MailedLetterView['status']; trackingNumber: string | null; mailedOn: string | null; deliveredOn: string | null },
 ): Promise<boolean> {
   const { error } = await (admin as unknown as Loose)
     .from('mailed_letters')
     .update({ status: u.status, tracking_number: u.trackingNumber, mailed_on: u.mailedOn, delivered_on: u.deliveredOn })
     .eq('organization_id', orgId)
-    .eq('approval_request_id', approvalRequestId)
+    .eq(sourceColumn(source), sourceId(source))
   return !error
 }

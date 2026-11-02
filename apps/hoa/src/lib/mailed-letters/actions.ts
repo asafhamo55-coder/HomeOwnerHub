@@ -156,7 +156,7 @@ export async function mailApprovedLetter(input: z.input<typeof SendSchema>): Pro
   const cost = previewCost(pricing, { pages: rendered.pages, color: v.color, service: v.service })
   if (v.confirmedCents !== cost.totalCents) return { ok: false, error: `The price is now ${formatCents(cost.totalCents)}. Look at it again before you confirm.` }
   try {
-    if (await mailedLetterExists(admin, gate.orgId, request.id)) return { ok: false, error: 'This letter was already sent by mail.' }
+    if (await mailedLetterExists(admin, gate.orgId, { kind: 'approval', approvalRequestId: request.id })) return { ok: false, error: 'This letter was already sent by mail.' }
   } catch {
     return { ok: false, error: 'Couldn’t check whether this letter was already mailed. Nothing was sent. Try again.' }
   }
@@ -168,7 +168,7 @@ export async function mailApprovedLetter(input: z.input<typeof SendSchema>): Pro
     {
       provider,
       pricing,
-      alreadySent: (id) => mailedLetterExists(admin, gate.orgId, id),
+      alreadySent: (source) => mailedLetterExists(admin, gate.orgId, source),
       insert: (row) => insertMailedLetter(admin, row),
       log: (msg, fields) => console.error(msg, fields),
     },
@@ -176,9 +176,9 @@ export async function mailApprovedLetter(input: z.input<typeof SendSchema>): Pro
       letter: {
         organizationId: gate.orgId,
         associationId,
-        approvalRequestId: request.id,
+        source: { kind: 'approval', approvalRequestId: request.id },
         collectionCaseId: request.payload.caseId,
-        approvalStatus: request.status,
+        approved: request.status === 'posted',
       },
       request: { to: to.address, from: from.address, pdf: rendered.pdf, pages: rendered.pages, color: v.color, service: v.service },
       confirmedCents: v.confirmedCents,
@@ -221,7 +221,7 @@ export async function refreshMailedLetter(input: z.input<typeof RefreshSchema>):
   const admin = createAdminClient()
   let row
   try {
-    row = await loadMailedLetterRecord(admin, gate.orgId, v.approvalRequestId)
+    row = await loadMailedLetterRecord(admin, gate.orgId, { kind: 'approval', approvalRequestId: v.approvalRequestId })
   } catch {
     return { ok: false, error: 'Couldn’t read the mailing record. Try again.' }
   }
@@ -234,7 +234,7 @@ export async function refreshMailedLetter(input: z.input<typeof RefreshSchema>):
   } catch {
     return { ok: false, error: 'The mailing service didn’t answer. Try again later.' }
   }
-  if (!(await updateMailedLetterTracking(admin, gate.orgId, v.approvalRequestId, update))) {
+  if (!(await updateMailedLetterTracking(admin, gate.orgId, { kind: 'approval', approvalRequestId: v.approvalRequestId }, update))) {
     return { ok: false, error: 'Couldn’t save the new status. Try again.' }
   }
 

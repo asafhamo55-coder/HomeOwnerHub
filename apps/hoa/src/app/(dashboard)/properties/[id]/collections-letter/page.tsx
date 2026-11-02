@@ -29,7 +29,7 @@ import {
 import { CollectionsLetter } from './CollectionsLetter'
 import { MailingForm } from './MailingForm'
 import { MailingNotRecorded } from './MailingEmpty'
-import { MailLetterPanel, MailedStatus } from './MailLetterPanel'
+import { MailLetterPanel, MailedStatus } from '@/components/mailed-letters/MailLetterPanel'
 
 /** BL-166: the Georgia notices whose waiting period runs from delivery. */
 const GA_MAIL_KINDS = ['ga_fee_notice', 'ga_pre_foreclosure', 'ga_condo_pre_foreclosure'] as const
@@ -117,7 +117,7 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
           Reload the page before mailing a letter, so the same letter is not sent twice.
         </Alert>
       ) : null}
-      {M14_APPLIED && mailedLoad?.ok && approved && !mailed.has(approved.id) ? <MailLetterPanel propertyId={id} approvalRequestId={approved.id} /> : null}
+      {M14_APPLIED && mailedLoad?.ok && approved && !mailed.has(approved.id) ? <MailLetterPanel target={{ kind: 'collections', propertyId: id, approvalRequestId: approved.id }} /> : null}
       {printed.length > 0 ? (
         <Card className="print:hidden">
           <CardHeader>
@@ -134,11 +134,11 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
                     </span>
                   </div>
                   {M14_APPLIED && mailed.has(r.id) ? (
-                    <MailedStatus propertyId={id} approvalRequestId={r.id} mailed={mailed.get(r.id)!} />
+                    <MailedStatus target={{ kind: 'collections', propertyId: id, approvalRequestId: r.id }} mailed={mailed.get(r.id)!} />
                   ) : M14_APPLIED && mailedLoad?.ok && r.status === 'posted' ? (
                     <details>
                       <summary className="cursor-pointer text-xs underline">Mail this printed letter</summary>
-                      <MailLetterPanel propertyId={id} approvalRequestId={r.id} />
+                      <MailLetterPanel target={{ kind: 'collections', propertyId: id, approvalRequestId: r.id }} />
                     </details>
                   ) : null}
                   {M7_APPLIED && (GA_MAIL_KINDS as readonly string[]).includes(r.payload.kind) ? (
