@@ -129,12 +129,16 @@ BEGIN
 END $triggers$;
 
 -- ── 6. immutability ────────────────────────────────────────────────────
--- pg_trigger_depth() > 1 means the delete is a cascade from deleting an
--- organization or ballot; a direct DELETE runs the trigger at depth 1.
+-- A cascade runs the trigger at depth > 1, but depth alone is not enough: deleting
+-- an association (or any trigger-driven delete) also cascades to ballots and would
+-- wipe cast votes. The one allowed exception is deleting the whole organization,
+-- so the delete must be nested AND the organization row must already be gone
+-- (the RI cascade fires after the parent row is deleted). Anything else is refused.
 CREATE OR REPLACE FUNCTION public.ballot_append_only()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $f$
 BEGIN
-  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1 THEN
+  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1
+     AND NOT EXISTS (SELECT 1 FROM public.orgs WHERE id = OLD.organization_id) THEN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION '%: votes cannot be changed or removed', TG_TABLE_NAME USING errcode = '55000';
@@ -184,7 +188,9 @@ DECLARE
   v_status text;
   v_ballot uuid := COALESCE(NEW.ballot_id, OLD.ballot_id);
 BEGIN
-  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1 THEN
+  -- Nested delete after the ballot itself is gone (a draft ballot removed, or the org).
+  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1
+     AND NOT EXISTS (SELECT 1 FROM public.ballots WHERE id = OLD.ballot_id) THEN
     RETURN OLD;
   END IF;
   SELECT status INTO v_status FROM public.ballots WHERE id = v_ballot;
@@ -205,7 +211,8 @@ DECLARE
   v_opts int;
 BEGIN
   IF TG_OP = 'DELETE' THEN
-    IF OLD.status <> 'draft' AND pg_trigger_depth() <= 1 THEN
+    IF OLD.status <> 'draft'
+       AND NOT (pg_trigger_depth() > 1 AND NOT EXISTS (SELECT 1 FROM public.orgs WHERE id = OLD.organization_id)) THEN
       RAISE EXCEPTION 'ballots: an opened ballot cannot be deleted' USING errcode = '55000';
     END IF;
     RETURN OLD;
