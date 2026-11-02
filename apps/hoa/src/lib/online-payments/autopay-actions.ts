@@ -14,7 +14,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
 import { M8_APPLIED } from '@homeowner-portal/db/m8'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getResidentActor } from '@/lib/impersonation'
 import { AUTOPAY_AUTHORIZATION_VERSION, AUTOPAY_MAX_CENTS, AUTOPAY_MIN_CENTS } from './autopay'
 
 export type AutopayActionResult = { ok: true } | { ok: false; error: string }
@@ -34,10 +34,14 @@ const EnrollSchema = z.object({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = { from: (t: string) => any }
 
+/**
+ * The signed-in person, or null. An admin impersonating an owner is refused
+ * (null): autopay is the owner's own authorization, never an admin's.
+ */
 async function signedInUser(): Promise<string | null> {
-  const supabase = await getSupabaseServerClient()
-  const { data } = await supabase.auth.getUser()
-  return data.user?.id ?? null
+  const actor = await getResidentActor()
+  if (!actor.id || actor.impersonating) return null
+  return actor.id
 }
 
 async function ownsUnit(db: Db, userId: string, unitId: string): Promise<{ orgId: string; associationId: string } | null> {
