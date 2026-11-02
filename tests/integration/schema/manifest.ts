@@ -121,6 +121,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // production (M8_APPLIED = false); replayed here like 0072 was, so the
   // integration suite runs "objects present, flag false". One file, one entry.
   '0073_online_payments.sql',
+  // M14: BL-032 mailed_letters (print-and-mail send log). Unapplied in production
+  // (M14_APPLIED = false); replayed here. One file, one entry.
+  '0079_mailed_letters.sql',
 ]
 
 /**
