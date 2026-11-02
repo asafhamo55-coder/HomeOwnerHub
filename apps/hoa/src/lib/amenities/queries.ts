@@ -17,7 +17,9 @@ import {
   AMENITY_COLUMNS,
   RESERVATION_COLUMNS,
   amenityFromRow,
+  blackoutsFromRows,
   reservationFromRow,
+  weeklyHoursFromRows,
   type Amenity,
   type Busy,
   type Reservation,
@@ -32,6 +34,8 @@ type Res = { data: Record<string, unknown>[] | null; error: { code?: string } | 
 
 export const AMENITIES_TABLE = 'amenities'
 export const RESERVATIONS_TABLE = 'amenity_reservations'
+export const HOURS_TABLE = 'amenity_hours'
+export const BLACKOUTS_TABLE = 'amenity_blackouts'
 
 /** The org's amenities, by name. [] with the flag off; null on a failed read. */
 export async function loadAmenities(
@@ -47,7 +51,71 @@ export async function loadAmenities(
     console.error('[amenities] amenities read failed', { orgId, code: error.code ?? null })
     return null
   }
-  return (data ?? []).map(amenityFromRow).filter((a): a is Amenity => a !== null)
+  const amenities = (data ?? []).map(amenityFromRow).filter((a): a is Amenity => a !== null)
+  if (amenities.length === 0) return amenities
+
+  // Weekly hours and blackout dates (migration 0076). Only dates that still matter.
+  const ids = amenities.map((a) => a.id)
+  const [hours, blackouts] = (await Promise.all([
+    db.from(HOURS_TABLE).select('amenity_id, weekday, open_hour, close_hour').eq('organization_id', orgId).in('amenity_id', ids).range(0, 999),
+    db
+      .from(BLACKOUTS_TABLE)
+      .select('amenity_id, starts_on, ends_on, reason')
+      .eq('organization_id', orgId)
+      .in('amenity_id', ids)
+      .gte('ends_on', new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10))
+      .order('starts_on', { ascending: true })
+      .range(0, 999),
+  ])) as [Res, Res]
+  if (hours.error || blackouts.error) {
+    console.error('[amenities] hours or blackouts read failed', {
+      orgId,
+      code: hours.error?.code ?? blackouts.error?.code ?? null,
+    })
+    return null
+  }
+  const group = (rows: Record<string, unknown>[] | null) => {
+    const m = new Map<string, Record<string, unknown>[]>()
+    for (const r of rows ?? []) {
+      if (typeof r.amenity_id !== 'string') continue
+      m.set(r.amenity_id, [...(m.get(r.amenity_id) ?? []), r])
+    }
+    return m
+  }
+  const hoursBy = group(hours.data)
+  const blackoutsBy = group(blackouts.data)
+  return amenities.map((a) => ({
+    ...a,
+    weeklyHours: weeklyHoursFromRows(hoursBy.get(a.id) ?? []),
+    blackouts: blackoutsFromRows(blackoutsBy.get(a.id) ?? []),
+  }))
+}
+
+/** Held (pending or approved) bookings of one amenity that end after `fromIso` and start before `toIso`. Org-scoped. */
+export async function loadAmenityReservations(
+  db: LooseDb,
+  orgId: string,
+  amenityId: string,
+  fromIso: string,
+  toIso: string | null,
+  live: boolean = M11_APPLIED,
+): Promise<BoardReservation[] | null> {
+  if (!live) return []
+  let q = db
+    .from(RESERVATIONS_TABLE)
+    .select(RESERVATION_COLUMNS)
+    .eq('organization_id', orgId)
+    .eq('amenity_id', amenityId)
+    .in('status', ['pending', 'approved'])
+    .gt('ends_at', fromIso)
+  if (toIso) q = q.lt('starts_at', toIso)
+  const { data, error } = (await q.order('starts_at', { ascending: true }).range(0, 999)) as Res
+  if (error) {
+    console.error('[amenities] amenity reservations read failed', { orgId, code: error.code ?? null })
+    return null
+  }
+  const rows = (data ?? []).map(reservationFromRow).filter((r): r is Reservation => r !== null)
+  return withHomeLabels(db, orgId, rows)
 }
 
 /** Times that are taken (pending or approved) from `fromIso` on, per amenity. Times only. */
@@ -132,7 +200,11 @@ export async function loadBoardReservations(
     return null
   }
   const rows = (data ?? []).map(reservationFromRow).filter((r): r is Reservation => r !== null)
-  const unitIds = [...new Set(rows.map((r) => r.unitId))]
+  return withHomeLabels(db, orgId, rows)
+}
+
+async function withHomeLabels(db: LooseDb, orgId: string, rows: Reservation[]): Promise<BoardReservation[] | null> {
+  const unitIds = [...new Set(rows.map((r) => r.unitId).filter((id): id is string => id !== null))]
   const labels = new Map<string, string>()
   if (unitIds.length > 0) {
     const units = (await db
@@ -151,5 +223,5 @@ export async function loadBoardReservations(
       labels.set(u.id, [street, num].filter(Boolean).join(', ') || 'A home')
     }
   }
-  return rows.map((r) => ({ ...r, homeLabel: labels.get(r.unitId) ?? 'A home' }))
+  return rows.map((r) => ({ ...r, homeLabel: r.kind === 'hold' ? 'Board hold' : (r.unitId && labels.get(r.unitId)) || 'A home' }))
 }
