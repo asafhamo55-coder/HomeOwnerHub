@@ -23,7 +23,7 @@ export default async function OnlinePaymentsSettingsPage() {
     .select('id, name, state')
     .eq('organization_id', org.id)
     .order('name', { ascending: true })
-    .limit(1)
+    .range(0, 0)
 
   const page = (body: React.ReactNode) => (
     <Page

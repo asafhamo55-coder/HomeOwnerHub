@@ -51,7 +51,7 @@ export default async function ResidentAutopayPage() {
       .eq('assessment_type', 'regular')
       .is('deleted_at', null)
       .order('due_date', { ascending: false })
-      .limit(1),
+      .range(0, 0),
   ])
   if (methodsRes.error || enrollRes.error) {
     return (
