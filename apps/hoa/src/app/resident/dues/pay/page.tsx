@@ -10,6 +10,9 @@ import { Hero, Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/re
 import { TrackOnMount } from '@/components/analytics/ProductAnalytics'
 import { CreditOnAccountCard } from '@/components/resident/CreditOnAccountCard'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
+import { PayNowForm } from '@/components/resident/PayNowForm'
+import { PaymentOnTheWay } from '@/components/resident/PaymentOnTheWay'
+import { loadPayScreenState } from '@/lib/online-payments/pay-state'
 
 export const metadata = { title: 'Pay dues' }
 export const dynamic = 'force-dynamic'
@@ -71,6 +74,8 @@ export default async function ResidentPayPage() {
   }
   const settings = await getResidentZelleSettings([...groups.keys()].filter(Boolean))
   const multiUnit = units.length > 1
+  // Online payment is offered for the home with the most urgent charge (v1: one home per payment).
+  const payState = await loadPayScreenState(dues.charges[0]?.unitId ?? units[0]!.unit_id)
   const anyConfigured =
     settings.ok && Object.values(settings.byAssociation).some((r) => r.state === 'configured')
 
@@ -92,6 +97,19 @@ export default async function ResidentPayPage() {
       />
 
       <CreditOnAccountCard credit={credit} variant="pay" />
+
+      {/* BL-035 online payments: dark until M8_APPLIED (the loader returns nothing). */}
+      <PaymentOnTheWay items={payState.onTheWay} />
+      {payState.offer && payState.publishableKey ? (
+        <Section label="Pay now">
+          <PayNowForm
+            unitId={payState.offer.unitId}
+            duesCents={payState.offer.payableCents}
+            options={payState.offer.methods}
+            publishableKey={payState.publishableKey}
+          />
+        </Section>
+      ) : null}
 
       {!settings.ok ? (
         <LoadFailed what="your board’s payment details" hint="Try again in a minute. Your balance above is correct." />

@@ -35,8 +35,11 @@ export type FeePayer = 'association' | 'homeowner'
 export const CARD_FEE_PERCENT_BPS = 300
 export const CARD_FEE_FIXED_CENTS = 50
 /**
- * Network surcharge ceiling on the PERCENTAGE part, in basis points (Visa's is
- * currently 3%; verify with counsel, OA-48). The configured rate is clamped to it.
+ * Network surcharge ceiling on the WHOLE card fee (percentage plus fixed
+ * amount), in basis points of dues. Treated as 3% today (Visa's cap; verify
+ * with counsel, OA-48). Owner decision 2026-11-01 (3): the $0.50 alone takes
+ * 3.0% over a 3% cap on $250, so the clamp applies to the total fee, not just
+ * the percentage. At a 3% cap there is no platform margin on cards.
  */
 export const CARD_SURCHARGE_NETWORK_CAP_BPS = 300
 /** Hard ceiling on a single card fee, whatever the amount. */
@@ -62,6 +65,12 @@ export const DEFAULT_CARD_FEE_PAYER: FeePayer = 'homeowner'
  * wide; narrow it only on counsel's sign-off (OA-48). Two-letter codes.
  */
 export const SURCHARGE_BLOCKED_STATES: readonly string[] = ['CT', 'MA', 'CO', 'ME', 'OK']
+/**
+ * Owner decision 2026-11-01 (6): in v1 only Georgia associations can pass the
+ * card fee to the homeowner. Every other state, and an unknown state, is
+ * association-pays until counsel clears it (OA-42, OA-48).
+ */
+export const SURCHARGE_ALLOWED_STATES: readonly string[] = ['GA']
 
 /** Stripe's published pricing, used only for the estimate. */
 export const STRIPE_CARD_PERCENT_BPS = 290
@@ -134,14 +143,20 @@ export function baseFeeCents(method: PaymentMethodKind, duesCents: number): numb
     const priced = stripeCostEstimateCents('ach', duesCents) + ACH_FEE_MARGIN_CENTS
     return Math.min(ACH_FEE_CAP_CENTS, Math.max(ACH_FEE_FLOOR_CENTS, priced))
   }
-  const rateBps = Math.min(CARD_FEE_PERCENT_BPS, CARD_SURCHARGE_NETWORK_CAP_BPS)
-  const fee = roundDiv(duesCents * rateBps, 10_000) + CARD_FEE_FIXED_CENTS
-  return Math.min(CARD_FEE_MAX_CENTS, fee)
+  const configured = roundDiv(duesCents * CARD_FEE_PERCENT_BPS, 10_000) + CARD_FEE_FIXED_CENTS
+  // Round the ceiling down: a fee must never sit above the network cap.
+  const networkCeiling = Math.floor((duesCents * CARD_SURCHARGE_NETWORK_CAP_BPS) / 10_000)
+  return Math.min(CARD_FEE_MAX_CENTS, configured, networkCeiling)
 }
 
 export function isSurchargeBlockedState(state: string | null | undefined): boolean {
   if (!state) return false
   return SURCHARGE_BLOCKED_STATES.includes(state.trim().toUpperCase())
+}
+
+export function isSurchargeAllowedState(state: string | null | undefined): boolean {
+  if (!state) return false
+  return SURCHARGE_ALLOWED_STATES.includes(state.trim().toUpperCase())
 }
 
 function assertCents(n: number, name: string): void {
@@ -160,6 +175,7 @@ export function resolveFeePayer(
   // Card, configured to homeowner pays: the guards below can force the association.
   if (isSurchargeBlockedState(policy.state)) return { payer: 'association', reason: 'blocked_state' }
   if (!policy.cardFeeAcknowledged) return { payer: 'association', reason: 'not_acknowledged' }
+  if (!isSurchargeAllowedState(policy.state)) return { payer: 'association', reason: 'blocked_state' }
   if (method === 'debit_card') return { payer: 'homeowner', reason: 'debit_exempt' }
   return { payer: 'homeowner', reason: 'configured' }
 }
