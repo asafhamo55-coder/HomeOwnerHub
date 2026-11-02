@@ -10,6 +10,7 @@ import {
   createWeeklyAnalyticsJob,
   createBillingBandSyncJob,
   createBillingRenewalJob,
+  createAutopayJob,
   hoaLateFeeJob,
   pmLateFeeJob,
   evictionReminderJob,
@@ -34,6 +35,7 @@ import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
 import { dispatchScheduledCommunication } from '@/lib/communications/scheduled-dispatch'
 import { AI_SPEND_ALERT_COST_PER_CALL_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
 import { billingStripePort } from '@/lib/billing-stripe-port'
+import { autopayDeps } from '@/lib/online-payments/autopay-deps'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
 // It takes this app's sendEmail — guarded by BL-004 — because the email
@@ -86,7 +88,11 @@ const weeklyAnalyticsJob = createWeeklyAnalyticsJob({ sendEmail })
 const billingBandSyncJob = createBillingBandSyncJob({ stripe: billingStripePort })
 const billingRenewalJob = createBillingRenewalJob({ stripe: billingStripePort, sendEmail, appUrl })
 
-// Twenty-four functions (crons and event listeners) mount in the HOA app. Inngest is a single
+// BL-036 autopay: ONE daily function (notices, run, breaker), dark behind
+// M8_APPLIED. Inngest Hobby caps executions, so never one job per enrollment.
+const autopayJob = createAutopayJob(autopayDeps)
+
+// Twenty-six functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -127,6 +133,7 @@ export const { GET, POST, PUT } = serve({
     weeklyAnalyticsJob,
     billingBandSyncJob,
     billingRenewalJob,
+    autopayJob,
     hoaLateFeeJob,
     pmLateFeeJob,
     evictionReminderJob,
