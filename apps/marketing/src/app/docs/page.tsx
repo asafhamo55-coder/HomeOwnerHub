@@ -85,9 +85,9 @@ export default function DocsPage() {
             </p>
             <Link
               href="mailto:support@homeownerledger.com?subject=Doc%20request"
-              className="mt-6 btn btn-primary"
+              className="mt-6 btn btn-primary max-w-full"
             >
-              support@homeownerledger.com
+              <span className="min-w-0 [overflow-wrap:anywhere]">support@homeownerledger.com</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

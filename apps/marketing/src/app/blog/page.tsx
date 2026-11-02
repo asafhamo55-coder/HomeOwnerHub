@@ -77,9 +77,9 @@ export default function BlogPage() {
             </div>
             <Link
               href="mailto:support@homeownerledger.com?subject=Add%20me%20to%20the%20blog%20launch%20list"
-              className="mt-6 btn btn-primary"
+              className="mt-6 btn btn-primary max-w-full"
             >
-              support@homeownerledger.com
+              <span className="min-w-0 [overflow-wrap:anywhere]">support@homeownerledger.com</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
