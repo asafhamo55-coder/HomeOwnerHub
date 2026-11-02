@@ -15,7 +15,7 @@ import {
   type PaymentMethodKind,
 } from './fees'
 
-const ack: FeePolicy = { ...DEFAULT_FEE_POLICY, cardFeeAcknowledged: true }
+const ack: FeePolicy = { ...DEFAULT_FEE_POLICY, cardFeeAcknowledged: true, state: 'GA' }
 const METHODS: PaymentMethodKind[] = ['ach', 'credit_card', 'debit_card']
 const PAYERS = ['association', 'homeowner'] as const
 
@@ -33,21 +33,27 @@ describe('defaults (design recommendations, OA-42 undecided)', () => {
   })
 })
 
-describe('card, homeowner pays (3.0% + $0.50)', () => {
-  it('$250.00 dues', () => {
+describe('card, homeowner pays (3.0% + $0.50, whole fee clamped to the 3% network cap)', () => {
+  it('$250.00 dues: the whole fee is clamped to 3% = $7.50, not $8.00', () => {
     const r = computeOnlinePaymentFees('credit_card', 25000, ack)
     expect(r.feePayer).toBe('homeowner')
-    expect(r.feeCents).toBe(800)
-    expect(r.grossCents).toBe(25800)
-    expect(r.stripeCostEstimateCents).toBe(778) // 2.9% of 258.00 = 7.482 -> 7.48, + 0.30
-    expect(r.applicationFeeCents).toBe(22)
-    expect(r.netToHoaCents).toBe(25000)
+    expect(r.feeCents).toBe(750)
+    expect(r.grossCents).toBe(25750)
+    expect(r.stripeCostEstimateCents).toBe(777) // 2.9% of 257.50 = 7.4675 -> 7.47, + 0.30
+    // no margin at a 3% cap: an application fee cannot be negative, the association covers 27 cents
+    expect(r.applicationFeeCents).toBe(0)
+    expect(r.netToHoaCents).toBe(25750 - 777)
   })
-  it('rounds the percentage half up', () => {
-    // 3% of 1,050 cents = 31.5 -> 32, plus 50
-    expect(baseFeeCents('credit_card', 1050)).toBe(82)
-    // 3% of 1,016 = 30.48 -> 30
-    expect(baseFeeCents('credit_card', 1016)).toBe(80)
+  it('the fee never exceeds the network cap of dues, at any amount', () => {
+    for (const dues of [1, 50, 99, 100, 1016, 1050, 2499, 25000, 123457, 99_999_999]) {
+      expect(baseFeeCents('credit_card', dues)).toBeLessThanOrEqual(Math.floor((dues * 300) / 10_000))
+    }
+  })
+  it('clamps the total even for a small payment: $10.50 dues -> 31 cents, not 82', () => {
+    expect(baseFeeCents('credit_card', 1050)).toBe(31)
+  })
+  it('the fixed amount alone cannot push past the cap: $5 dues -> 15 cents', () => {
+    expect(baseFeeCents('credit_card', 500)).toBe(15)
   })
 })
 
@@ -57,10 +63,10 @@ describe('card, association pays', () => {
     const r = computeOnlinePaymentFees('credit_card', 25000, pol)
     expect(r.grossCents).toBe(25000)
     expect(r.feeChargedToPayerCents).toBe(0)
-    expect(r.feeCents).toBe(800)
+    expect(r.feeCents).toBe(750)
     expect(r.stripeCostEstimateCents).toBe(755) // 725 + 30
-    expect(r.applicationFeeCents).toBe(45)
-    expect(r.netToHoaCents).toBe(25000 - 800)
+    expect(r.applicationFeeCents).toBe(0) // Stripe's cost exceeds the capped fee: no margin
+    expect(r.netToHoaCents).toBe(25000 - 755)
   })
 })
 
@@ -76,7 +82,7 @@ describe('debit cards', () => {
   })
   it('are priced like a card when the association pays the card fee', () => {
     const r = computeOnlinePaymentFees('debit_card', 25000, { ...ack, cardFeePayer: 'association' })
-    expect(r.feeCents).toBe(800)
+    expect(r.feeCents).toBe(750)
     expect(r.grossCents).toBe(25000)
   })
 })
@@ -132,9 +138,8 @@ describe('edge cases', () => {
   })
   it('$0.01 card: homeowner pays, nets one cent; association pays, application fee is clamped to 0', () => {
     const h = computeOnlinePaymentFees('credit_card', 1, ack)
-    expect(h.feeCents).toBe(50)
-    expect(h.grossCents).toBe(51)
-    expect(h.netToHoaCents).toBe(1)
+    expect(h.feeCents).toBe(0) // 3% of one cent rounds down to nothing
+    expect(h.grossCents).toBe(1)
     const a = computeOnlinePaymentFees('credit_card', 1, { ...ack, cardFeePayer: 'association' })
     expect(a.applicationFeeCents).toBe(0)
   })
@@ -168,6 +173,14 @@ describe('blocked states', () => {
     expect(r.grossCents).toBe(25000)
     const d = computeOnlinePaymentFees('debit_card', 25000, { ...ack, state })
     expect(d.grossCents).toBe(25000)
+  })
+  it('Georgia only in v1: another state or an unknown state is association-pays', () => {
+    for (const state of ['FL', 'CA', 'TX', null, undefined, '']) {
+      const r = computeOnlinePaymentFees('credit_card', 25000, { ...ack, state })
+      expect(r.feePayer).toBe('association')
+      expect(r.payerReason).toBe('blocked_state')
+    }
+    expect(computeOnlinePaymentFees('credit_card', 25000, { ...ack, state: 'ga' }).feePayer).toBe('homeowner')
   })
   it('does not affect ACH or Georgia', () => {
     expect(computeOnlinePaymentFees('ach', 25000, { ...ack, achFeePayer: 'homeowner', state: 'MA' }).feePayer).toBe('homeowner')
