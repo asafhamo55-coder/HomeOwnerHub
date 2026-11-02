@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
-import { Button } from '@homeowner-portal/ui'
+import { Button, useConfirm } from '@homeowner-portal/ui'
 import { makeDefaultMethod, removeMethod, startAddMethod } from '@/app/resident/dues/methods/actions'
 
 export interface MethodView {
@@ -16,6 +16,7 @@ export interface MethodView {
 
 export function SavedMethodsList({ methods, returnUrl }: { methods: MethodView[]; returnUrl: string }) {
   const router = useRouter()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -84,8 +85,13 @@ export function SavedMethodsList({ methods, returnUrl }: { methods: MethodView[]
                     variant="destructive-ghost"
                     size="lg"
                     disabled={pending}
-                    onClick={() => {
-                      if (window.confirm(`Remove ${m.label}?`)) run(() => removeMethod({ id: m.id }))
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Remove ${m.label}?`,
+                        confirmLabel: 'Remove',
+                        destructive: true,
+                      })
+                      if (ok) run(() => removeMethod({ id: m.id }))
                     }}
                   >
                     Remove

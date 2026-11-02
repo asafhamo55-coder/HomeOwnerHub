@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Alert, Button } from '@homeowner-portal/ui'
+import { Alert, Button, useConfirm } from '@homeowner-portal/ui'
 import { closePollAction, deletePollAction, openPollAction } from '@/lib/polls/actions'
 import type { PollStatus } from '@/lib/polls/rules'
 
 export function PollBoardActions({ id, status }: { id: string; status: PollStatus }) {
   const router = useRouter()
+  const confirm = useConfirm()
   const [pending, start] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -32,8 +33,13 @@ export function PollBoardActions({ id, status }: { id: string; status: PollStatu
               size="lg"
               variant="destructive-ghost"
               disabled={pending}
-              onClick={() => {
-                if (window.confirm('Delete this draft?')) run(deletePollAction, () => router.push('/polls'))
+              onClick={async () => {
+                const ok = await confirm({
+                  title: 'Delete this draft?',
+                  confirmLabel: 'Delete draft',
+                  destructive: true,
+                })
+                if (ok) run(deletePollAction, () => router.push('/polls'))
               }}
             >
               Delete draft
@@ -45,10 +51,13 @@ export function PollBoardActions({ id, status }: { id: string; status: PollStatu
             size="lg"
             variant="secondary"
             disabled={pending}
-            onClick={() => {
-              if (window.confirm('Close this poll? Residents will not be able to answer or change answers.')) {
-                run(closePollAction, () => router.refresh())
-              }
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Close this poll?',
+                description: 'Residents will not be able to answer or change answers.',
+                confirmLabel: 'Close the poll',
+              })
+              if (ok) run(closePollAction, () => router.refresh())
             }}
           >
             Close the poll
