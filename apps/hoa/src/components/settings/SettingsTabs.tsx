@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Tabs } from '@homeowner-portal/ui'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
+import { M12_APPLIED } from '@homeowner-portal/db/m12'
 
 type SettingsPath =
   | '/settings'
@@ -17,6 +18,7 @@ type SettingsPath =
   | '/settings/activity'
   | '/settings/handover'
   | '/settings/professionals'
+  | '/settings/public-site'
 
 /**
  * Sub-navigation across the settings pages. Mirrors the role gating of
@@ -41,10 +43,13 @@ const ITEMS: Array<{ label: string; href: SettingsPath; adminOnly: boolean }> = 
   { label: 'Board handover', href: '/settings/handover', adminOnly: false },
   // BL-168: only once migration 0071 is applied (M6_APPLIED).
   { label: 'Professionals', href: '/settings/professionals', adminOnly: false },
+  // BL-038: only once migration 0077 is applied (M12_APPLIED).
+  { label: 'Public page', href: '/settings/public-site', adminOnly: false },
 ]
 
 export function SettingsTabs({ current, role }: { current: SettingsPath; role: 'admin' | 'board' }) {
   const items = ITEMS.filter((i) => M6_APPLIED || i.href !== '/settings/professionals')
+    .filter((i) => M12_APPLIED || i.href !== '/settings/public-site')
     .filter((i) => role === 'admin' || !i.adminOnly).map((i) => ({
     label: i.label,
     href: i.href,

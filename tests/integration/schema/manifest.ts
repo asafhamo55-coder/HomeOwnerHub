@@ -121,6 +121,9 @@ export const MIGRATION_MANIFEST: string[] = [
   // production (M8_APPLIED = false); replayed here like 0072 was, so the
   // integration suite runs "objects present, flag false". One file, one entry.
   '0073_online_payments.sql',
+  // M12: BL-038 public community page per HOA (public_sites, public_site_items). Unapplied in
+  // production (M12_APPLIED = false); replayed here. One file, one entry.
+  '0077_public_site.sql',
 ]
 
 /**
