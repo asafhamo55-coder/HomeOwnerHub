@@ -953,6 +953,41 @@ export const QUOTES = {
     fixture: "ga-ocga-44-3-art6-2026.txt",
     quote: "any defects in such instrument or want of conformity with this article may be cured by an amendment thereto duly executed by the association and recorded or, upon application of any lot owner, with notice to the declarant, the association, and all other lot owners, by decree of the court.",
   },
+  voteOneOwner: {
+    cite: "O.C.G.A. § 44-3-224(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Since a lot owner may be more than one person, if only one of those persons is present at a meeting of the association, or is voting by proxy, ballot, or written consent, that person shall be entitled to cast the votes pertaining to that lot.",
+  },
+  voteJointUnanimous: {
+    cite: "O.C.G.A. § 44-3-224(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "However, if more than one of those persons is present, or executes a proxy, ballot, or written consent, the vote pertaining to that lot shall be cast only in accordance with their unanimous agreement unless the instrument expressly provides otherwise;",
+  },
+  voteJointPresumed: {
+    cite: "O.C.G.A. § 44-3-224(a)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "and such consent shall be conclusively presumed if any one of them purports to cast the votes pertaining to that lot without protest being made immediately by any of the others to the person presiding over the meeting or vote.",
+  },
+  ownerCallMeeting: {
+    cite: "O.C.G.A. § 44-3-230(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "In the event an association fails to hold an annual meeting on or before the last day of the association’s fiscal year, such meeting may be called by the holders of at least 5 percent of the voting power of the association, or such other amount as the articles of incorporation or bylaws shall specify, provided that such articles or bylaws shall not require more than 25 percent as a minimum of the voting power,",
+  },
+  ownerCallForm: {
+    cite: "O.C.G.A. § 44-3-230(b)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "provided, further, that such call shall be signed by the holders, dated, and delivered to any corporate officer of the association and shall include one or more demands and shall be transmitted in writing or by electronic transmission for the meeting describing the purpose or purposes for which it is to be held.",
+  },
+  complyDuty: {
+    cite: "O.C.G.A. § 44-3-223",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Every lot owner and all those entitled to occupy a lot shall comply with all lawful provisions of the property owners’ association instrument.",
+  },
+  complyRemedies: {
+    cite: "O.C.G.A. § 44-3-223",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Any lack of such compliance shall be grounds for an action to recover sums due, for damages, for injunctive relief, or for any other remedy available at law or in equity, maintainable by the association or, in any proper case, by one or more aggrieved lot owners on their own behalf or as a class action.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES

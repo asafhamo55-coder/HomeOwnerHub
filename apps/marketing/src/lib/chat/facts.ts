@@ -20,7 +20,7 @@ export const FACTS: readonly Fact[] = [
     title: 'Signing in and password help',
     url: `${APP_ORIGIN}/forgot-password`,
     text:
-      'Cannot sign in or log in? Go to the sign in page and use Forgot password. Enter your email and we send a link to set a new password. ' +
+      'Can’t sign in, or cannot log in? Go to the sign in page and use Forgot password. Enter your email and we send a link to set a new password. ' +
       'You can also sign in with an email link instead of a password. If an email link says it expired or was already used, ask for a new one on the sign in page. ' +
       'Check your spam folder if the email does not arrive. Use the same email address your board invited. Sessions end after 24 hours, so signing in again each day is normal. ' +
       'Two-factor sign-in is not available yet. If the email still does not come, choose Talk to a person.',
