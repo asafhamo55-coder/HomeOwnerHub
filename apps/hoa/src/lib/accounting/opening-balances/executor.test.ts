@@ -6,7 +6,7 @@ vi.mock('@homeowner-portal/db/m3', () => ({
     return m.m3
   },
 }))
-vi.mock('@homeowner-portal/db', () => ({ postJournalEntry: m.postJournalEntry }))
+vi.mock('@homeowner-portal/db', () => ({ assertPeriodOpen: async () => ({ ok: true }), postJournalEntry: m.postJournalEntry }))
 vi.mock('@homeowner-portal/workflows', () => ({ memoCodeFor: () => 'OAK-0001-DUES' }))
 
 import { openingExecutor } from './executor'

@@ -10,8 +10,11 @@ vi.mock('./client', () => ({ inngest: { createFunction: () => ({}) } }))
 const db = vi.hoisted(() => ({
   loadAccountingRefs: vi.fn(),
   postJournalEntry: vi.fn(),
+  assertPeriodOpen: vi.fn(async (): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true })),
 }))
 vi.mock('@homeowner-portal/db', () => ({
+  assertPeriodOpen: db.assertPeriodOpen,
+  CLOSED_PERIOD_MESSAGE: 'closed-msg',
   createAdminClient: vi.fn(),
   loadAccountingRefs: db.loadAccountingRefs,
   postJournalEntry: db.postJournalEntry,
@@ -422,5 +425,27 @@ describe('BL-161: Georgia, from Jan 1, 2027, a unit under a Secretary of State c
     expect(r.status).toBe('complaints_unverified')
     expect(fees(f)).toHaveLength(0)
     expect(f.reads).toEqual([])
+  })
+})
+
+describe('closed-period guard', () => {
+  const overdue = () => fakeDb([{ ...base, id: 'dues-1' }])
+
+  it('charges nothing and reports period_closed when today is in a closed period', async () => {
+    db.assertPeriodOpen.mockResolvedValueOnce({ ok: false, error: 'closed-msg' })
+    const f = overdue()
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy()), TODAY, deps)
+    expect(r.status).toBe('period_closed')
+    expect(r.charged).toBe(0)
+    expect(fees(f)).toHaveLength(0)
+    expect(db.postJournalEntry).not.toHaveBeenCalled()
+  })
+
+  it('fails closed (read_failed) when the period lookup itself fails', async () => {
+    db.assertPeriodOpen.mockResolvedValueOnce({ ok: false, error: 'lookup failed' })
+    const f = overdue()
+    const r = await runLateFeesForAssociation(f as never, assocWith(policy()), TODAY, deps)
+    expect(r.status).toBe('read_failed')
+    expect(fees(f)).toHaveLength(0)
   })
 })

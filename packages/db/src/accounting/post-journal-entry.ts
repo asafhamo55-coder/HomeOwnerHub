@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import type { Database } from '../database.types'
 import { M7_APPLIED } from '../m7'
+import { assertPeriodOpen } from './period-guard'
 
 // Spec §13.1: every JE balances overall AND per fund. The DB trigger
 // `validate_je_balances` is the source of truth for that invariant — this
@@ -108,6 +109,16 @@ export async function postJournalEntry(
       error: `fund ${unbalancedFund[0]} unbalanced — inter-fund transfers must be explicit`,
     }
   }
+
+  // Closed-period guard: the one choke point every posting path goes through
+  // (assessments, bills, payments, bank rec, recurring jobs, late fees, reversals).
+  // By entry DATE only: paying last year's dues today posts a today-dated entry
+  // against the old period id, which is legitimate.
+  const open = await assertPeriodOpen(supabase, {
+    associationId: value.associationId,
+    date: value.entryDate,
+  })
+  if (!open.ok) return { ok: false, error: open.error }
 
   // entry_number is UNIQUE per (association, entry_number). The DB has no
   // sequence per association, so we compute the next number ourselves and

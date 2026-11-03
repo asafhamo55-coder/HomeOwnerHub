@@ -1,4 +1,6 @@
 import {
+  assertPeriodOpen,
+  CLOSED_PERIOD_MESSAGE,
   createAdminClient,
   loadAccountingRefs,
   postJournalEntry,
@@ -153,6 +155,8 @@ export type LateFeeRunStatus =
   /** BL-161: Georgia, from 2027-01-01, a complaint record that doesn't verify (a stay can't be ruled out): nothing charged. */
   | 'complaints_unverified'
   | 'no_accounting'
+  /** Today falls in a closed period: nothing charged, reported not thrown. */
+  | 'period_closed'
   | 'read_failed'
   | 'ran'
 
@@ -239,6 +243,14 @@ export async function runLateFeesForAssociation(
   if (!refs) {
     deps.log.warn(`[hoa-late-fees] ${assoc.id}: accounting not seeded, skipping`)
     return { status: 'no_accounting', ...EMPTY }
+  }
+
+  // Closed-period guard: late fees are dated today. A closed period (or a lookup
+  // that fails, which fails closed) charges nothing tonight and is reported.
+  const open = await assertPeriodOpen(db, { associationId: assoc.id, date: today })
+  if (!open.ok) {
+    deps.log.warn(`[hoa-late-fees] ${assoc.id}: ${open.error === CLOSED_PERIOD_MESSAGE ? 'today is in a closed period' : 'period check failed'}; skipping`)
+    return { status: open.error === CLOSED_PERIOD_MESSAGE ? 'period_closed' : 'read_failed', ...EMPTY }
   }
 
   // We never compound: late_fee is never an eligible type, so a late fee

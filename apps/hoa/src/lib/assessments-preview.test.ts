@@ -17,6 +17,7 @@ vi.mock('@homeowner-portal/jobs/fiscal-periods', () => ({
   readCurrentOpenPeriod: async () => ({ data: { id: 'per-1', start_date: '2026-11-01' } }),
 }))
 vi.mock('@homeowner-portal/db', () => ({
+  assertPeriodOpen: async () => ({ ok: true }),
   loadAccountingRefs: async () => ({ acctAR: 'a', acctAssessmentIncome: 'b', fundOperating: 'f' }),
   postJournalEntry: async () => ({ ok: true }),
 }))

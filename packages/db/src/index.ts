@@ -18,6 +18,13 @@ export type {
   JournalEntryLine,
 } from './accounting/post-journal-entry'
 
+export {
+  assertPeriodOpen,
+  CLOSED_PERIOD_MESSAGE,
+  PERIOD_CHECK_FAILED_MESSAGE,
+} from './accounting/period-guard'
+export type { PeriodGuardResult } from './accounting/period-guard'
+
 export { loadAccountingRefs } from './accounting/refs'
 export type { AccountingRefs } from './accounting/refs'
 

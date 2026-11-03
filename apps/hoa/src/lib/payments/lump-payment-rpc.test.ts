@@ -21,7 +21,7 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@homeowner-portal/db/m7', () => ({ M7_APPLIED: true }))
-vi.mock('@homeowner-portal/db', () => ({ loadAccountingRefs: vi.fn(async () => (h.booksOpen ? { fundOperating: 'f' } : null)) }))
+vi.mock('@homeowner-portal/db', () => ({ assertPeriodOpen: async () => ({ ok: true }), loadAccountingRefs: vi.fn(async () => (h.booksOpen ? { fundOperating: 'f' } : null)) }))
 vi.mock('@/lib/auth', () => ({
   getCurrentUserRole: vi.fn(async () =>
     h.role === null ? null : { role: h.role, org: { id: 'org-1', name: 'Test HOA', hub_type: 'hoa', plan: 'pro', doors_count: 1 } },

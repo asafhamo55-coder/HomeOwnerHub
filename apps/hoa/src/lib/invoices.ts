@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -123,6 +123,13 @@ export async function enterBill(input: {
     return { ok: false, error: 'Vendor not found in this organization.' }
   }
 
+  // Closed-period guard: no bill dated inside a closed period.
+  const openBill = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: value.invoiceDate,
+  })
+  if (!openBill.ok) return { ok: false, error: openBill.error }
+
   const invoicePayload: InvoiceInsert = {
     organization_id: assocRow.organization_id,
     association_id: assoc.id,
@@ -202,11 +209,18 @@ export async function deleteInvoice(
   const supabase = await getSupabaseServerClient()
   const { data: invoice } = await supabase
     .from('invoices')
-    .select('id, status')
+    .select('id, status, invoice_date')
     .eq('id', invoiceId)
     .eq('association_id', assoc.id)
     .single()
   if (!invoice) return { ok: false, error: 'Invoice not found.' }
+
+  // Voiding a bill dated inside a closed period would change closed books.
+  const openDel = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: invoice.invoice_date,
+  })
+  if (!openDel.ok) return { ok: false, error: openDel.error }
 
   if (invoice.status === 'paid') {
     return { ok: false, error: 'Cannot delete a paid invoice. Reverse the payment first.' }
@@ -290,6 +304,13 @@ export async function markInvoicePaid(input: {
   // next year, opened early, waits for its first day.
   const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
   if (!period) return booksNotOpen(gate.role)
+
+  // Closed-period guard before anything is claimed or written (bill payment).
+  const openPay = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: value.paidAt ?? todayIn(assoc.timeZone),
+  })
+  if (!openPay.ok) return { ok: false, error: openPay.error }
 
   // Claim the invoice first: a conditional update on the status we just read.
   // Of two payments at once only one matches; the other is refused before it

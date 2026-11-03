@@ -3,11 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, CLOSED_PERIOD_MESSAGE, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { todayIn } from '@/lib/association-time'
+import { readCurrentOpenPeriod } from '@homeowner-portal/jobs/fiscal-periods'
 import { fieldErrorsOf } from '@/lib/field-errors'
 
 type RecurringInsert =
@@ -73,6 +74,21 @@ export async function reverseJournalEntry(input: {
     return { ok: false, error: 'This entry has already been reversed.' }
   }
 
+  // The reversal is booked TODAY. When the original sits in a closed period it
+  // goes into the open period instead (the original stays untouched); either
+  // way the reversal's own date must be open.
+  const today = todayIn(assoc.timeZone) // the association's day (BL-043)
+  const origOpen = await assertPeriodOpen(supabase, { associationId: assoc.id, date: original.entry_date })
+  let reversalPeriodId = original.fiscal_period_id
+  if (!origOpen.ok) {
+    if (origOpen.error !== CLOSED_PERIOD_MESSAGE) return { ok: false, error: origOpen.error }
+    const { data: openPeriod } = await readCurrentOpenPeriod(supabase, assoc.id, today)
+    if (!openPeriod) return { ok: false, error: 'There is no open accounting period to book the reversal in. Open the books first.' }
+    reversalPeriodId = openPeriod.id
+  }
+  const open = await assertPeriodOpen(supabase, { associationId: assoc.id, date: today })
+  if (!open.ok) return { ok: false, error: open.error }
+
   type LineShape = {
     account_id: string
     fund_id: string
@@ -97,8 +113,8 @@ export async function reverseJournalEntry(input: {
   const je = await postJournalEntry(supabase, {
     organizationId: original.organization_id,
     associationId: assoc.id,
-    fiscalPeriodId: original.fiscal_period_id,
-    entryDate: todayIn(assoc.timeZone), // the association's day (BL-043)
+    fiscalPeriodId: reversalPeriodId,
+    entryDate: today,
     memo:
       parsed.data.reason
         ? `Reversal of ${original.memo}: ${parsed.data.reason}`

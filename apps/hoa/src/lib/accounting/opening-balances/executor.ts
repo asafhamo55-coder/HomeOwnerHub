@@ -19,7 +19,7 @@
 // Relative imports only (the approvals inbox composes this and
 // tests/integration loads it).
 
-import { postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, postJournalEntry } from '@homeowner-portal/db'
 import { M3_APPLIED } from '@homeowner-portal/db/m3'
 import { memoCodeFor, type ApprovalExecutor } from '@homeowner-portal/workflows'
 import { entryBalances } from './model'
@@ -128,6 +128,12 @@ export const openingExecutor: ApprovalExecutor = async (db, request) => {
         })()
   if (unitErr || !unitRows) return fail('Couldn’t read the homes. Try again.')
   const unitNumber = new Map(unitRows.map((u) => [u.id, u.unit_number]))
+
+  // Closed-period guard before any charge is written (cutover and due dates).
+  for (const date of new Set([p.cutoverDate, p.chargesDueDate])) {
+    const open = await assertPeriodOpen(db, { associationId: p.associationId, date })
+    if (!open.ok) return fail(open.error)
+  }
 
   // 1. The charges.
   const inserted: string[] = []

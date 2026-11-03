@@ -7,6 +7,7 @@ import { memorySupabase } from '@/lib/test-utils/memory-supabase'
 const h = vi.hoisted(() => ({
   client: null as unknown,
   post: vi.fn(async (): Promise<unknown> => ({ ok: true, journalEntryId: 'je-1' })),
+  guard: vi.fn(async (): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true })),
 }))
 
 vi.mock('@/lib/accounting/guard', () => ({ requireBoardOrAdminForAction: async () => ({ ok: true, role: 'admin', orgId: 'org-1' }) }))
@@ -14,6 +15,7 @@ vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: async () => h
 vi.mock('@/lib/vendors', () => ({ getPrimaryAssociation: async () => ({ id: 'assoc-1', timeZone: 'America/New_York' }) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@homeowner-portal/db', () => ({
+  assertPeriodOpen: h.guard,
   loadAccountingRefs: async () => ({ acctCashOperating: 'a1', acctAR: 'a2', acctAP: 'a3', fundOperating: 'f1' }),
   postJournalEntry: h.post,
 }))
@@ -21,7 +23,7 @@ vi.mock('@homeowner-portal/jobs/fiscal-periods', () => ({ readCurrentOpenPeriod:
 vi.mock('@/lib/accounting/plan-completion', () => ({ completePlansAfterPayment: async () => [] }))
 vi.mock('@/lib/resident-notify/receipt-notify', () => ({ queuePaymentReceiptAfterResponse: vi.fn() }))
 
-import { markAssessmentPaid } from '@/lib/assessments'
+import { deleteAssessment, markAssessmentPaid } from '@/lib/assessments'
 import { markInvoicePaid } from '@/lib/invoices'
 
 const ID = '11111111-1111-4111-8111-111111111111'
@@ -33,7 +35,10 @@ function seed(rows: Record<string, Array<Record<string, unknown>>>) {
   return m
 }
 
-beforeEach(() => h.post.mockResolvedValue({ ok: true, journalEntryId: 'je-1' }))
+beforeEach(() => {
+  h.post.mockResolvedValue({ ok: true, journalEntryId: 'je-1' })
+  h.guard.mockResolvedValue({ ok: true })
+})
 
 describe('markAssessmentPaid', () => {
   it('pays a charge in full and marks it paid', async () => {
@@ -133,5 +138,39 @@ describe('markInvoicePaid', () => {
     expect((await markInvoicePaid({ invoiceId: ID })).ok).toBe(false)
     expect(m.rows('invoices')[0].status).toBe('approved')
     expect(m.rows('payments')).toHaveLength(0)
+  })
+})
+
+describe('closed period: nothing is written', () => {
+  const CLOSED = 'That date is in a closed month. Reopen the month or use today\u2019s date.'
+  const closed = () => h.guard.mockResolvedValue({ ok: false, error: CLOSED })
+
+  it('markAssessmentPaid records no payment and leaves the charge open', async () => {
+    const m = seed({ assessments: [{ ...base }], payments: [] })
+    closed()
+    const r = await markAssessmentPaid({ assessmentId: ID })
+    expect(r).toEqual({ ok: false, error: CLOSED })
+    expect(m.rows('payments')).toHaveLength(0)
+    expect(m.rows('assessments')[0].status).toBe('open')
+    expect(h.post).not.toHaveBeenCalled()
+  })
+
+  it('markInvoicePaid records no payment and leaves the bill unpaid', async () => {
+    const m = seed({
+      invoices: [{ id: ID, organization_id: 'org-1', association_id: 'assoc-1', amount: 250, status: 'approved', invoice_date: '2026-01-01', deleted_at: null }],
+      payments: [],
+    })
+    closed()
+    const r = await markInvoicePaid({ invoiceId: ID })
+    expect(r).toEqual({ ok: false, error: CLOSED })
+    expect(m.rows('payments')).toHaveLength(0)
+    expect(m.rows('invoices')[0].status).toBe('approved')
+    expect(h.post).not.toHaveBeenCalled()
+  })
+
+  it('guards a charge by its due date only, never its stored period id', async () => {
+    seed({ assessments: [{ ...base, due_date: '2026-12-15', fiscal_period_id: 'closed-fp' }], payments: [] })
+    expect((await deleteAssessment(ID)).ok).toBe(true)
+    expect(h.guard).toHaveBeenCalledWith(expect.anything(), { associationId: 'assoc-1', date: '2026-12-15' })
   })
 })

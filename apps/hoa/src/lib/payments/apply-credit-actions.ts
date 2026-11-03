@@ -10,6 +10,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { M7_APPLIED } from '@homeowner-portal/db/m7'
+import { assertPeriodOpen } from '@homeowner-portal/db'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { booksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
 import { todayIn } from '@/lib/association-time'
@@ -39,6 +40,10 @@ export async function applyCreditToCharge(input: { creditId: string; assessmentI
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
   const supabase = await getSupabaseServerClient()
+
+  // Closed-period guard: the payment this posts is dated today.
+  const open = await assertPeriodOpen(supabase, { associationId: assoc.id, date: todayIn(assoc.timeZone) })
+  if (!open.ok) return { ok: false, error: open.error }
 
   const { data, error } = await (supabase as unknown as RpcClient).rpc('apply_unapplied_credit', {
     p_org: gate.orgId,
