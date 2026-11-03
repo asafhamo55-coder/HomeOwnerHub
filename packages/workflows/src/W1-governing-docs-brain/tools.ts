@@ -17,6 +17,12 @@ import type { PromptChunk } from './prompt'
 export interface RetrieveOptions {
   organizationId: string
   associationId?: string | null
+  /**
+   * Search only these associations (a resident with homes in several).
+   * Takes precedence over associationId. An empty list matches nothing:
+   * it never widens to the whole organization.
+   */
+  associationIds?: readonly string[]
   limit?: number
   /**
    * Restrict retrieval to documents a resident may see (F-04). When set,
@@ -98,19 +104,37 @@ export async function retrieveChunks(
     )
   }
 
-  const { data, error } = await db.rpc('search_governing_chunks' as never, {
-    p_organization_id: opts.organizationId,
-    p_association_id: opts.associationId ?? null,
-    p_query: question,
-    p_query_embedding: queryEmbedding,
-    p_limit: opts.allowedDocTypes ? Math.max(limit, FILTERED_FETCH_LIMIT) : limit,
-  } as never)
-
-  if (error) {
-    throw new GoverningDocsRetrievalError('chunks', (error as { code?: string }).code ?? null)
+  const fetchLimit = opts.allowedDocTypes ? Math.max(limit, FILTERED_FETCH_LIMIT) : limit
+  const searchOne = async (associationId: string | null): Promise<RawChunkRow[]> => {
+    const { data, error } = await db.rpc('search_governing_chunks' as never, {
+      p_organization_id: opts.organizationId,
+      p_association_id: associationId,
+      p_query: question,
+      p_query_embedding: queryEmbedding,
+      p_limit: fetchLimit,
+    } as never)
+    if (error) {
+      throw new GoverningDocsRetrievalError('chunks', (error as { code?: string }).code ?? null)
+    }
+    return (data ?? []) as RawChunkRow[]
   }
 
-  const chunks = ((data ?? []) as RawChunkRow[]).map(rowToChunk)
+  let rows: RawChunkRow[]
+  if (opts.associationIds) {
+    const ids = [...new Set(opts.associationIds)]
+    if (ids.length === 0) return []
+    const perAssociation = await Promise.all(ids.map((id) => searchOne(id)))
+    const seen = new Set<string>()
+    rows = perAssociation
+      .flat()
+      .filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)))
+      .sort((a, b) => b.rank - a.rank)
+      .slice(0, fetchLimit)
+  } else {
+    rows = await searchOne(opts.associationId ?? null)
+  }
+
+  const chunks = rows.map(rowToChunk)
   if (!opts.allowedDocTypes) return chunks
   if (chunks.length === 0) return []
 

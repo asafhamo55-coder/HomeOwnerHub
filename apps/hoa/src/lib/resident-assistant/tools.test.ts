@@ -205,6 +205,13 @@ describe('docs, guide and hand-offs', () => {
     })
   })
 
+  it('passes the resident’s own association list to the docs search', async () => {
+    W1.queryGoverningDocs.mockResolvedValue({ answer: 'x', confidence: 'HIGH', citations: [], runId: 'run-1' })
+    await tool('search_governing_docs').execute({ question: 'pets' }, { ...ctx(), associationIds: ['a-1', 'a-2'] })
+    const [, opts] = W1.queryGoverningDocs.mock.calls[0]!
+    expect(opts.associationIds).toEqual(['a-1', 'a-2'])
+  })
+
   it('a citation of a hidden doc type fails the lookup', async () => {
     W1.queryGoverningDocs.mockResolvedValue({
       answer: 'x',

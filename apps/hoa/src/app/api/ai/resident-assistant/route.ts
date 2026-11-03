@@ -62,6 +62,7 @@ export const POST = withRoute('ai.resident-assistant', async (request) => {
     result = await askResident(body.messages, {
       scope: gate.scope,
       associationId: gate.associationIds.length === 1 ? gate.associationIds[0]! : null,
+      associationIds: gate.associationIds,
     })
   } catch (err) {
     logRouteFailure('ai.resident-assistant', err, { orgId, stage: 'agent' })

@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { loadUnappliedCredits } from './resident-ledger'
+import { scopeCredits, type ChargeWindow } from './resident-sale-window'
 
 export interface ResidentCredit {
   /** Total unapplied credit across the resident's own units, in dollars. */
@@ -29,12 +30,14 @@ export async function loadResidentCredit(
   db: SupabaseClient<Database>,
   unitIds: string[],
   orgId: string | null,
+  /** A buyer's window: credit received before the sale is the seller's and is not counted. */
+  window?: ChargeWindow,
 ): Promise<ResidentCredit | null> {
   try {
     const res = await loadUnappliedCredits(db, unitIds, orgId)
     if (!res.ok) return null
     const own = new Set(unitIds)
-    const mine = res.credits.filter((c) => own.has(c.unit_id) && Number.isFinite(c.remaining) && c.remaining > 0)
+    const mine = scopeCredits(res.credits, window ?? new Map()).filter((c) => own.has(c.unit_id) && Number.isFinite(c.remaining) && c.remaining > 0)
     const cents = mine.reduce((sum, c) => sum + Math.round(c.remaining * 100), 0)
     if (cents <= 0) return null
     return { total: cents / 100, unitIds: [...new Set(mine.map((c) => c.unit_id))] }

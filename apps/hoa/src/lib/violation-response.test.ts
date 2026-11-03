@@ -168,6 +168,21 @@ describe('loadOwnViolation (BL-129 gate)', () => {
   })
 })
 
+describe('residentViolationView sale window', () => {
+  it('keeps the case visible to a buyer but hides a seller-era fine', () => {
+    const row = violation({ fine_amount: 25, fine_start_date: '2026-09-20', created_at: '2026-09-10T12:00:00Z' }) as unknown as OwnViolationRow
+    const buyer = residentViolationView(row, '2026-10-15')
+    expect(buyer.description).toBe(row.description)
+    expect(buyer.dailyFine).toBeNull()
+    expect(buyer.finesStartedOn).toBeNull()
+    expect(residentViolationView(row, null).dailyFine).toBe(25)
+  })
+  it('a violation opened after the sale shows its fine', () => {
+    const row = violation({ fine_amount: 25, fine_start_date: '2026-10-25', created_at: '2026-10-20T12:00:00Z' }) as unknown as OwnViolationRow
+    expect(residentViolationView(row, '2026-10-15').dailyFine).toBe(25)
+  })
+})
+
 describe('residentViolationView', () => {
   it('shows the letter, photos and cure-by date once the notice went out', () => {
     const v = residentViolationView(violation() as unknown as OwnViolationRow)

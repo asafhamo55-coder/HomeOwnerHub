@@ -1,3 +1,5 @@
+import { ownAssociationIds } from '@/lib/resident-association-scope'
+import { getResidentUnits } from '@/lib/resident'
 import { NextResponse } from 'next/server'
 import { reportError } from '@homeowner-portal/observability/report'
 import { getCurrentOrg } from '@/lib/orgs'
@@ -60,7 +62,9 @@ export async function GET(
 
   let target
   try {
-    target = await fetchResidentDocumentFile(supabase, org.id, source, id)
+    target = await fetchResidentDocumentFile(supabase, org.id, source, id, {
+      associationIds: ownAssociationIds(await getResidentUnits()),
+    })
   } catch (e) {
     reportError(e instanceof Error ? e : new Error('resident document read failed'), 'resident-documents', {
       source,

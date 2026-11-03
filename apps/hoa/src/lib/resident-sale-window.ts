@@ -68,3 +68,17 @@ export function scopeLedgerRows<
   })
   return { assessments: kept, payments: visible }
 }
+
+/**
+ * Unapplied credit received on or after the unit's window start. A credit
+ * the seller paid in is the seller's money: the buyer never sees its
+ * amount, date or method. received_on is a plain date, so it compares
+ * directly with the window day.
+ */
+export function scopeCredits<T extends { unit_id: string; received_on: string }>(rows: readonly T[], window: ChargeWindow): T[] {
+  if (window.size === 0) return [...rows]
+  return rows.filter((c) => {
+    const from = window.get(c.unit_id)
+    return !from || c.received_on.slice(0, 10) >= from
+  })
+}

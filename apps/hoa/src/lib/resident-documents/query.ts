@@ -41,6 +41,25 @@ export function isUuid(value: string): boolean {
 /** `m1`: read the board-set visible_to_owners flag (0064). Defaults to M1_APPLIED. */
 export interface VisibilityOptions {
   m1?: boolean
+  /**
+   * The resident's own association ids. When set, governing documents
+   * tied to any other association are excluded; documents with no
+   * association (organization-wide) stay. Omit only for board-side
+   * callers. hoa_documents has no association column, so it stays
+   * organization-wide.
+   */
+  associationIds?: readonly string[]
+}
+
+/** Narrow a governing_documents query to the resident's associations. */
+function scopeGoverning<Q extends { or(f: string): Q; is(c: string, v: null): Q }>(
+  q: Q,
+  associationIds: readonly string[] | undefined,
+): Q {
+  if (!associationIds) return q
+  const ids = [...new Set(associationIds)].filter(isUuid)
+  if (ids.length === 0) return q.is('association_id', null)
+  return q.or(`association_id.is.null,association_id.in.(${ids.join(',')})`)
 }
 
 /**
@@ -86,7 +105,10 @@ export async function fetchResidentDocuments(
     .is('superseded_at', null)
   const [hoaRes, govRes] = await Promise.all([
     m1 ? hoaQ.or(residentVisibleOrFilter('hoa')) : hoaQ.in('type', [...RESIDENT_VISIBLE_TYPES.hoa]),
-    m1 ? govQ.or(residentVisibleOrFilter('governing')) : govQ.in('type', [...RESIDENT_VISIBLE_TYPES.governing]),
+    scopeGoverning(
+      m1 ? govQ.or(residentVisibleOrFilter('governing')) : govQ.in('type', [...RESIDENT_VISIBLE_TYPES.governing]),
+      opts.associationIds,
+    ),
   ])
   const hoa = { data: hoaRes.data as unknown as HoaRow[] | null, error: hoaRes.error }
   const gov = { data: govRes.data as unknown as GovRow[] | null, error: govRes.error }
@@ -192,12 +214,14 @@ export async function fetchResidentDocumentFile(
     }
     return { bucket: DOCUMENT_BUCKET.hoa, path: data.storage_path }
   }
-  const res = await client
-    .from('governing_documents')
-    .select(m1 ? 'type, storage_path, ai_generated, superseded_at, visible_to_owners' : 'type, storage_path, ai_generated, superseded_at')
-    .eq('id', id)
-    .eq('organization_id', orgId)
-    .maybeSingle()
+  const res = await scopeGoverning(
+    client
+      .from('governing_documents')
+      .select(m1 ? 'type, storage_path, ai_generated, superseded_at, visible_to_owners' : 'type, storage_path, ai_generated, superseded_at')
+      .eq('id', id)
+      .eq('organization_id', orgId),
+    opts.associationIds,
+  ).maybeSingle()
   if (res.error) throw new Error(`governing_documents: ${res.error.code ?? 'error'}`)
   const data = res.data as unknown as {
     type: string

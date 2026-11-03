@@ -1,3 +1,5 @@
+import { ownAssociationIds } from '@/lib/resident-association-scope'
+import { getResidentUnits } from '@/lib/resident'
 import Link from 'next/link'
 import { ArrowUpRight, FileText, Search } from 'lucide-react'
 import { Alert, Button, LoadFailed, NoOrgSelected, SearchForm } from '@homeowner-portal/ui'
@@ -41,10 +43,11 @@ export default async function ResidentDocumentsPage({
   if (!org) return <NoOrgSelected href="/resident" />
 
   const supabase = await getSupabaseServerClient()
+  const associationIds = ownAssociationIds(await getResidentUnits())
   // BL-164: a Georgia association's owners also get the rights page link.
   // A failed state read only hides the link.
   const [res, rights] = await Promise.all([
-    tryLoad('association documents', () => fetchResidentDocuments(supabase, org.id)),
+    tryLoad('association documents', () => fetchResidentDocuments(supabase, org.id, { associationIds })),
     loadResidentRightsScope(org.id).catch(() => ({ ok: false }) as const),
   ])
   const rightsLink =

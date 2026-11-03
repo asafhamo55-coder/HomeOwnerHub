@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   rpcRows: [] as Array<Record<string, unknown>>,
   rpcArgs: null as Record<string, unknown> | null,
+  rpcCalls: [] as Array<Record<string, unknown>>,
+  rpcByAssociation: null as Record<string, Array<Record<string, unknown>>> | null,
   docs: [] as Array<Record<string, unknown>>,
   docsError: null as { code: string } | null,
   docQueries: [] as Array<[string, unknown]>,
@@ -12,6 +14,8 @@ vi.mock('@homeowner-portal/db', () => ({
   createAdminClient: () => ({
     rpc: async (_name: string, args: Record<string, unknown>) => {
       h.rpcArgs = args
+      h.rpcCalls.push(args)
+      if (h.rpcByAssociation) return { data: h.rpcByAssociation[String(args.p_association_id)] ?? [], error: null }
       return { data: h.rpcRows, error: null }
     },
     from: () => {
@@ -51,6 +55,8 @@ beforeEach(() => {
   h.docsError = null
   h.docQueries = []
   h.rpcArgs = null
+  h.rpcCalls = []
+  h.rpcByAssociation = null
 })
 
 describe('W1 retrieveChunks resident visibility (F-04)', () => {
@@ -82,5 +88,24 @@ describe('W1 retrieveChunks resident visibility (F-04)', () => {
 
   it('an empty allowlist denies everything', () => {
     expect(filterVisibleChunks([{ documentId: 'd-rules' }], h.docs as never, [])).toEqual([])
+  })
+})
+
+describe('W1 retrieveChunks association list', () => {
+  it('searches only the listed associations and merges by score', async () => {
+    h.rpcByAssociation = {
+      'a-1': [{ ...chunk('c1', 'd-rules', 'rules'), rank: 0.4 }],
+      'a-2': [{ ...chunk('c2', 'd-rules', 'rules'), rank: 0.9 }],
+      'a-3': [{ ...chunk('c3', 'd-rules', 'rules'), rank: 1 }],
+    }
+    const out = await retrieveChunks('pets?', { organizationId: 'org-1', associationIds: ['a-1', 'a-2'], limit: 8 })
+    expect(out.map((c) => c.id)).toEqual(['c2', 'c1'])
+    expect(h.rpcCalls.map((c) => c.p_association_id).sort()).toEqual(['a-1', 'a-2'])
+  })
+
+  it('an empty list returns nothing and never searches the whole org', async () => {
+    const out = await retrieveChunks('pets?', { organizationId: 'org-1', associationIds: [], limit: 8 })
+    expect(out).toEqual([])
+    expect(h.rpcCalls).toEqual([])
   })
 })

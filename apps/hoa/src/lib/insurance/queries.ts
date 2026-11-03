@@ -9,6 +9,7 @@
  * Ids and error codes only in logs.
  */
 
+import { inResidentAssociations } from '@/lib/resident-association-scope'
 import { M4_APPLIED } from '@homeowner-portal/db/m4'
 import { INSURANCE_COLUMNS, INSURANCE_TABLE, policyFromRow, type InsurancePolicy } from './model'
 
@@ -81,6 +82,12 @@ export async function loadOwnerInsurancePolicies(
   db: LooseDb,
   orgId: string,
   live: boolean = M4_APPLIED,
+  /**
+   * The resident's own association ids. Policies of any other association
+   * are never returned; policies with no association (organization-wide)
+   * are. Omit only for a caller that is not a resident.
+   */
+  associationIds?: readonly string[],
 ): Promise<OwnerInsuranceRow[] | null> {
   if (!live) return []
   const { data, error } = (await db
@@ -93,7 +100,10 @@ export async function loadOwnerInsurancePolicies(
     console.error('[insurance] owner summary read failed', { orgId, code: error.code ?? null })
     return null
   }
-  return (data ?? []).map(policyFromRow).filter((p): p is OwnerInsuranceRow => p !== null)
+  return (data ?? [])
+    .filter((r) => !associationIds || inResidentAssociations((r.association_id as string | null) ?? null, associationIds))
+    .map(policyFromRow)
+    .filter((p): p is OwnerInsuranceRow => p !== null)
 }
 
 /** A policy read with OWNER_INSURANCE_COLUMNS: premium and policy number are always null. */

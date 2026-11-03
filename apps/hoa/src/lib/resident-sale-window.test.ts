@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildLedger } from './resident-ledger'
 import { summarizeResidentDues } from './resident-dues'
-import { chargeWindow, chargesFromForOwnership, scopeAssessments, scopeLedgerRows } from './resident-sale-window'
+import { chargeWindow, chargesFromForOwnership, scopeAssessments, scopeCredits, scopeLedgerRows } from './resident-sale-window'
 
 // A buyer must not see the seller's charges or payments; everyone else's
 // view is unchanged. Synthetic ids.
@@ -94,5 +94,20 @@ describe('everyone else sees what they saw before', () => {
     expect(scoped.assessments).toEqual(ASSESSMENTS)
     expect(scoped.payments).toEqual(PAYMENTS)
     expect(scopeAssessments(ASSESSMENTS, none)).toEqual(ASSESSMENTS)
+  })
+})
+
+describe('scopeCredits', () => {
+  const credits = [
+    { id: 'seller', unit_id: 'u1', received_on: '2026-09-20' },
+    { id: 'buyer', unit_id: 'u1', received_on: '2026-10-15' },
+    { id: 'other-unit', unit_id: 'u2', received_on: '2026-01-01' },
+  ]
+  it('drops credit received before the sale, keeps the buyer’s and unwindowed units', () => {
+    const w = chargeWindow([{ unit_id: 'u1', charges_from: '2026-10-15' }])
+    expect(scopeCredits(credits, w).map((c) => c.id)).toEqual(['buyer', 'other-unit'])
+  })
+  it('without a window everything is kept', () => {
+    expect(scopeCredits(credits, chargeWindow([]))).toHaveLength(3)
   })
 })

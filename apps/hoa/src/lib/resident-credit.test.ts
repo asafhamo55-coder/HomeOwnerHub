@@ -77,3 +77,18 @@ describe('loadResidentCredit', () => {
     expect(seen.calls).toBe(0)
   })
 })
+
+describe('loadResidentCredit sale window', () => {
+  it('does not count or reveal a credit received before the buyer’s window', async () => {
+    m7.on = true
+    const seen: Seen = { calls: 0 }
+    const rows = [
+      { ...row('u1', 50), received_on: '2026-09-20' },
+      { ...row('u1', 7), received_on: '2026-10-20' },
+    ]
+    const c = await loadResidentCredit(fakeDb({ data: rows }, seen), ['u1'], null, new Map([['u1', '2026-10-15']]))
+    expect(c).toEqual({ total: 7, unitIds: ['u1'] })
+    const none = await loadResidentCredit(fakeDb({ data: [rows[0]!] }, seen), ['u1'], null, new Map([['u1', '2026-10-15']]))
+    expect(none).toBeNull()
+  })
+})

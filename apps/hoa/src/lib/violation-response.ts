@@ -94,7 +94,19 @@ export function cureByDate(noticeSentAt: string | null, curePeriodDays: number |
   return new Date(t + curePeriodDays * 86_400_000).toISOString()
 }
 
-export function residentViolationView(v: OwnViolationRow): ResidentViolationView {
+/**
+ * True when a violation was opened before the viewer's ownership began
+ * with a recorded sale. Violations run with the lot, so the case stays
+ * visible to a buyer; fines are charged to the owner of the time and a
+ * buyer never sees those charges, so the fine figures are hidden too.
+ */
+export function isSellerEra(createdAt: string | null | undefined, chargesFrom: string | null | undefined): boolean {
+  if (!chargesFrom || !createdAt) return false
+  return createdAt.slice(0, 10) < chargesFrom
+}
+
+export function residentViolationView(v: OwnViolationRow, chargesFrom?: string | null): ResidentViolationView {
+  const hideFine = isSellerEra(v.created_at, chargesFrom)
   const sent = Boolean(v.notice_sent_at)
   return {
     id: v.id,
@@ -107,8 +119,8 @@ export function residentViolationView(v: OwnViolationRow): ResidentViolationView
     letter: sent ? v.approved_letter : null,
     cureBy: cureByDate(v.notice_sent_at, v.cure_period_days),
     curePeriodDays: v.cure_period_days,
-    dailyFine: v.fine_amount,
-    finesStartedOn: v.fine_start_date,
+    dailyFine: hideFine ? null : v.fine_amount,
+    finesStartedOn: hideFine ? null : v.fine_start_date,
     photos: sent ? (v.photo_urls ?? []).filter((u) => typeof u === 'string' && /^https:\/\//.test(u)) : [],
     createdAt: v.created_at,
     resolvedAt: v.resolved_at,

@@ -46,7 +46,7 @@ export async function loadMyHomeViolation(violationId: string): Promise<MyHomeVi
     orgId,
   })
   if (!own.ok) return own
-  const violation = residentViolationView(own.violation)
+  const violation = residentViolationView(own.violation, units.find((u) => u.unit_id === own.unitId)?.charges_from ?? null)
   // BL-133: service role for the hearing only, after loadOwnViolation
   // confirmed the home; scoped to this org and violation, limited columns.
   // No query at all while M4_APPLIED is off.

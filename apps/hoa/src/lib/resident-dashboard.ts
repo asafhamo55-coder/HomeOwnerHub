@@ -29,7 +29,8 @@ import { loadOrFail } from '@/lib/load-or-fail'
 import { buildLedger, loadLedgerRows, loadUnappliedCredits, type Ledger } from '@/lib/resident-ledger'
 import { loadResidentCredit, type ResidentCredit } from '@/lib/resident-credit'
 import { todayIn } from '@/lib/association-time'
-import { chargeWindow, scopeAssessments, scopeLedgerRows, type ChargeWindow } from '@/lib/resident-sale-window'
+import { isSellerEra } from '@/lib/violation-response'
+import { chargeWindow, scopeAssessments, scopeCredits, scopeLedgerRows, type ChargeWindow } from '@/lib/resident-sale-window'
 import {
   emptyResidentDues,
   residentTimeZone,
@@ -99,7 +100,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
 
   const [firstName, openViolations, dues, tickets, arc, recentAnnouncements, latest] = await Promise.all([
     resolveFirstName(supabase, actorUser),
-    getOpenViolations(supabase, unitIds, actor.orgId),
+    getOpenViolations(supabase, unitIds, actor.orgId, chargeWindow(units)),
     getDues(supabase, unitIds, actor.orgId, today, chargeWindow(units)),
     loadMyTickets(),
     loadMyArcRequests(),
@@ -161,7 +162,7 @@ export async function getResidentDues(): Promise<{
   // Batched with the dues read: one extra query, no extra round trip.
   const [dues, credit] = await Promise.all([
     getDues(actor.client, unitIds, actor.orgId, today, chargeWindow(units)),
-    loadResidentCredit(actor.client, unitIds, actor.orgId),
+    loadResidentCredit(actor.client, unitIds, actor.orgId, chargeWindow(units)),
   ])
   return { units, dues: dues ?? emptyResidentDues(today), failed: dues === null, credit }
 }
@@ -187,7 +188,7 @@ export async function getResidentLedger(): Promise<{
   if (!credits.ok) return { units, ledger: null, truncated: false }
   return {
     units,
-    ledger: buildLedger(scoped.assessments, scoped.payments, zone, credits.credits),
+    ledger: buildLedger(scoped.assessments, scoped.payments, zone, scopeCredits(credits.credits, chargeWindow(units))),
     truncated: rows.truncated,
   }
 }
@@ -230,15 +231,22 @@ async function getOpenViolations(
   supabase: Supabase,
   unitIds: string[],
   orgId: string | null,
+  /** A buyer's window: violations run with the lot and stay listed, but a seller-era fine is hidden. */
+  window: ChargeWindow = new Map(),
 ): Promise<OpenViolationRow[] | null> {
   if (unitIds.length === 0) return []
 
-  let unitQuery = supabase.from('units' as never).select('legacy_hoa_property_id').in('id' as never, unitIds)
+  let unitQuery = supabase.from('units' as never).select('id, legacy_hoa_property_id').in('id' as never, unitIds)
   if (orgId) unitQuery = unitQuery.eq('organization_id' as never, orgId)
   const unitResult = await loadOrFail('resident unit properties', unitQuery)
   if (!unitResult.ok) return null
   const unitRows = unitResult.data
 
+  const fromByProperty = new Map<string, string>()
+  for (const u of (unitRows ?? []) as unknown as Array<{ id?: string; legacy_hoa_property_id: string | null }>) {
+    const from = u.id ? window.get(u.id) : undefined
+    if (u.legacy_hoa_property_id && from) fromByProperty.set(u.legacy_hoa_property_id, from)
+  }
   const propertyIds = [
     ...new Set(
       ((unitRows ?? []) as unknown as Array<{ legacy_hoa_property_id: string | null }>)
@@ -251,7 +259,7 @@ async function getOpenViolations(
   let violationQuery = supabase
     .from('hoa_violations')
     .select(
-      'id, violation_type, description, status, severity, fine_amount, cure_period_days, notice_sent_at, created_at',
+      'id, property_id, violation_type, description, status, severity, fine_amount, cure_period_days, notice_sent_at, created_at',
     )
     .in('property_id', propertyIds)
     .not('status', 'in', `(${CLOSED_VIOLATION_STATUSES.map((s) => `"${s}"`).join(',')})`)
@@ -261,7 +269,10 @@ async function getOpenViolations(
     violationQuery.order('created_at', { ascending: false }).limit(20),
   )
   if (!result.ok) return null
-  return (result.data ?? []) as unknown as OpenViolationRow[]
+  const rows = (result.data ?? []) as unknown as Array<OpenViolationRow & { property_id?: string | null }>
+  return rows.map(({ property_id, ...v }) =>
+    isSellerEra(v.created_at, property_id ? fromByProperty.get(property_id) : null) ? { ...v, fine_amount: null } : v,
+  )
 }
 
 // Outstanding dues across every owned unit. Sums open/partial

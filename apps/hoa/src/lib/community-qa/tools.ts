@@ -415,7 +415,12 @@ export const searchGoverningDocs: Tool = {
  */
 export async function runDocsSearch(
   args: Record<string, unknown>,
-  ctx: { orgId: string; associationId: string | null; allowedDocTypes?: readonly string[] },
+  ctx: {
+    orgId: string
+    associationId: string | null
+    associationIds?: readonly string[]
+    allowedDocTypes?: readonly string[]
+  },
 ): Promise<DocsToolResult> {
   const question = String(args.question ?? '').trim().slice(0, 1000)
   if (!question) throw new ToolFailure('invalid_args')
@@ -424,6 +429,7 @@ export async function runDocsSearch(
     result = (await queryGoverningDocs(question, {
       organizationId: ctx.orgId,
       associationId: ctx.associationId,
+      ...(ctx.associationIds ? { associationIds: ctx.associationIds } : {}),
       ...(ctx.allowedDocTypes ? { allowedDocTypes: ctx.allowedDocTypes } : {}),
     })) as DocsToolResult
   } catch (err) {

@@ -61,7 +61,18 @@ describe('POST /api/ai/resident-assistant', () => {
       docsUnanswered: false,
     })
     expect(quota.requireAiQuota).toHaveBeenCalledWith('resident_assistant', 'org-1')
-    expect(agent.askResident.mock.calls[0]![1]).toEqual({ scope, associationId: 'assoc-1' })
+    expect(agent.askResident.mock.calls[0]![1]).toEqual({ scope, associationId: 'assoc-1', associationIds: ['assoc-1'] })
+  })
+
+  it('a resident with several associations searches exactly those, never the whole org', async () => {
+    h.gate = { on: true, scope, associationIds: ['assoc-1', 'assoc-2'] }
+    const res = await post(ask)
+    expect(res.status).toBe(200)
+    expect(agent.askResident.mock.calls[0]![1]).toEqual({
+      scope,
+      associationId: null,
+      associationIds: ['assoc-1', 'assoc-2'],
+    })
   })
 
   it('switched off / impersonating → 403 with the reason, no quota drawn, no model call', async () => {
