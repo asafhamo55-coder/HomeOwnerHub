@@ -68,7 +68,8 @@ export type NewAttempt = Omit<AttemptRow, 'id' | 'status' | 'stripe_payment_inte
 }
 
 export interface AttemptStore {
-  loadContext(unitId: string): Promise<PayContext | null>
+  /** `chargesFrom`: the first due date this resident may see (sale window); older charges are not theirs to pay. */
+  loadContext(unitId: string, opts?: { chargesFrom?: string | null }): Promise<PayContext | null>
   findByKey(associationId: string, idempotencyKey: string): Promise<AttemptRow | null>
   /** Inserts; on a unique-key race returns the row that won. */
   insert(row: NewAttempt): Promise<AttemptRow>
@@ -82,6 +83,8 @@ export interface CreateAttemptInput {
   /** An admin impersonating an owner must never move money. */
   impersonating: boolean
   unitId: string
+  /** The buyer's sale window for this home (ResidentUnit.charges_from); null when the whole history is theirs. */
+  chargesFrom?: string | null
   method: PayMethodKind
   /** Whole cents; omitted means everything currently payable. */
   amountCents?: number
@@ -139,7 +142,7 @@ export async function createOnlinePaymentAttempt(
     return fail('bad_input', 'Enter an amount in dollars and cents, more than $0.')
   }
 
-  const ctx = await deps.store.loadContext(input.unitId)
+  const ctx = await deps.store.loadContext(input.unitId, { chargesFrom: input.chargesFrom ?? null })
   if (!ctx || !ctx.account) return fail('not_available', NOT_AVAILABLE)
   const acct = ctx.account
   if (ctx.sandbox || !acct.onlinePaymentsEnabled || !acct.chargesEnabled || !acct.payoutsEnabled) {

@@ -25,9 +25,26 @@ function fail(what: string, error: { code?: string } | null): Error {
 const ATTEMPT_COLS =
   'id, user_id, unit_id, association_id, method_type, status, dues_cents, fee_cents, fee_payer, total_cents, application_fee_cents, stripe_account_id, stripe_payment_intent_id'
 
+/**
+ * Cents per charge that attempts still in flight will post. An ACH debit takes
+ * days to settle and posts only then, so until it does the charge still looks
+ * open: without this the Pay screen offers the same money again.
+ */
+export function inFlightCents(rows: ReadonlyArray<{ allocation: unknown }>): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const r of rows) {
+    if (!Array.isArray(r.allocation)) continue
+    for (const part of r.allocation as Array<{ assessment_id?: unknown; cents?: unknown }>) {
+      if (typeof part.assessment_id !== 'string' || !Number.isSafeInteger(part.cents) || (part.cents as number) <= 0) continue
+      out.set(part.assessment_id, (out.get(part.assessment_id) ?? 0) + (part.cents as number))
+    }
+  }
+  return out
+}
+
 export function supabaseAttemptStore(db: Db): AttemptStore {
   return {
-    async loadContext(unitId): Promise<PayContext | null> {
+    async loadContext(unitId, opts): Promise<PayContext | null> {
       const { data: unit, error: ue } = await db.from('units').select('id, organization_id, association_id').eq('id', unitId).maybeSingle()
       if (ue) throw fail('unit read', ue)
       if (!unit) return null
@@ -56,9 +73,22 @@ export function supabaseAttemptStore(db: Db): AttemptStore {
         .range(0, 999)
       if (ce) throw fail('charges read', ce)
       type R = { id: string; assessment_type: string; due_date: string; amount: number; payments: Array<{ amount: number }> | null }
-      const list = (rows ?? []) as R[]
+      const all = (rows ?? []) as R[]
       // A capped read would split a payment over part of the account: refuse.
-      if (list.length >= 1000) return null
+      if (all.length >= 1000) return null
+      // A buyer never sees, and so is never offered, the seller's charges
+      // (lib/resident-sale-window.ts): the Pay screen must match the Dues screen.
+      const from = opts?.chargesFrom ?? null
+      const list = from ? all.filter((r) => r.due_date.slice(0, 10) >= from) : all
+      // Bank debits already on their way are not owed twice (see inFlightCents).
+      const { data: moving, error: me } = await db
+        .from('online_payments')
+        .select('allocation')
+        .eq('unit_id', unitId)
+        .eq('status', 'processing')
+        .is('posted_at', null)
+      if (me) throw fail('in-flight read', me)
+      const onTheWay = inFlightCents((moving ?? []) as Array<{ allocation: unknown }>)
       // Payment-plan installments are stored as 'special' but rank last and are
       // flagged, exactly as in the board's lump-payment flow, so the same money
       // is applied the same way. A failed read throws; it never guesses.
@@ -72,7 +102,10 @@ export function supabaseAttemptStore(db: Db): AttemptStore {
         id: r.id,
         type: r.assessment_type,
         dueDate: r.due_date,
-        remainingCents: Math.max(0, toCents(r.amount) - (r.payments ?? []).reduce((s, p) => s + toCents(p.amount), 0)),
+        remainingCents: Math.max(
+          0,
+          toCents(r.amount) - (r.payments ?? []).reduce((s, p) => s + toCents(p.amount), 0) - (onTheWay.get(r.id) ?? 0),
+        ),
         planInstallment: installmentIds.has(r.id),
       }))
       const state = ((assoc.governing_law_state ?? assoc.state ?? '') as string).trim().toUpperCase() || null

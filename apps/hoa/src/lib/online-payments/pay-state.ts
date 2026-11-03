@@ -30,11 +30,11 @@ export const EMPTY_PAY_STATE: PayScreenState = { offer: null, publishableKey: nu
  * `unitId` must already be one of the resident's units (the page passes the
  * resident guard's answer). Any read failure hides Pay now rather than guess.
  */
-export async function loadPayScreenState(unitId: string): Promise<PayScreenState> {
+export async function loadPayScreenState(unitId: string, chargesFrom: string | null = null): Promise<PayScreenState> {
   if (!M8_APPLIED) return EMPTY_PAY_STATE
   try {
     const db = adminDb()
-    const ctx = await supabaseAttemptStore(db).loadContext(unitId)
+    const ctx = await supabaseAttemptStore(db).loadContext(unitId, { chargesFrom })
     const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null
     const offer = publishableKey ? previewPayNow(unitId, ctx) : null
 
