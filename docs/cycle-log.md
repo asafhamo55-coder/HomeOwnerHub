@@ -1008,3 +1008,11 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - The decks need a refresh for one plan. The investor deck waits on Madison Park numbers from Asaf; only Madison Park is a real association.
   - The `keytest2` invite never created a user. A fresh invite worked; the cause wasn't established.
   - The pricing page's static HTML doesn't show $249, though the code holds it. Not checked in a browser.
+
+## 2026-11-02 to 2026-11-04
+
+- **Deploys:** 7c24e32f (larger text, faster message list, state pages, SEO batch 25, ARC in "Do this next") and 84f89feb (1099 summary).
+- **Team:** 20 agents, then 6 builder, tester and reviewer teams, covering payments, autopay, polls, voting, amenities, public page, message board, print-and-mail and the 1099 summary. Independent reviews found and fixed real bugs: a cross-association vote, deadlines shown in the wrong time zone, a card retry never posted, autopay double charging by ACH, a buyer seeing seller bookings, and tracking erasing Georgia clock dates.
+- **Security audit:** 53 findings. Fixed: the Next and sharp upgrades, payment-marking races, CSP, pinned Actions and dev-login.
+- **Tenant isolation review:** 62 agents, 24 verified findings. The fixes are merged, plus migration 0081 for live tables.
+- **Open:** see next.md, HANDOFF 2026-11-04.

@@ -8,9 +8,72 @@ this file is the reference it points to.
 
 ## 00. HANDOFF 2026-11-01 ~08:00 UTC (session 37afa776 closed by Asaf: "update next.md… exit and resume with new session"). READ THIS FIRST; it supersedes §0a and §0.
 
-### Update 2026-11-01 ~22:00 UTC (read first; supersedes the state below)
-- **Prod:** `a9309943`. It has one plan at $59 to $249 by size, the compare page covering all competitors, no route skeletons, the redesigned board report and the help chat on. See `docs/cycle-log.md` 2026-11-01 for open items.
-- **Local dev scripts:** the old database keys are retired, so local env files holding them no longer work.
+### HANDOFF 2026-11-04 (read this first; supersedes the 2026-11-01 update below)
+
+**First task for the new session:** CI on `claude/quality-oracle` tip `7091881a` fails ONE unit test: `apps/hoa/src/lib/properties/bridge-ratchet.test.ts` reports "apps/hoa/src/lib/resident-dashboard.ts: 5 direct bridge read(s), allowlist says 3". The sale-window work (credits, recipient scoping) added two direct reads of `units.legacy_hoa_property_id`. Fix by routing them through `lib/properties/resolve.ts`. Never raise the allowlist. Build, typecheck and UI shots are all green on that commit. Once CI is green, deploy it: it holds the security fixes and the tenant-isolation fixes.
+
+**Prod:** `84f89feb`, live since 2026-11-03 ~07:00 UTC. It has the 1099 summary (no flag), larger text (14px), the faster message list, no route skeletons, the redesigned board report, one plan at $59 to $249, and the all-competitor compare page.
+
+**Merged on `claude/quality-oracle`, not deployed:**
+- **Security fixes:** branch `security/fixes-2026-11-03`.
+  - Next 15.5.16 to 15.5.28, sharp 0.35.5, dev dependency bumps in range.
+  - `markAssessmentPaid` and `markInvoicePaid` guards.
+  - CSP `unsafe-eval` only in development; third-party Actions pinned to SHAs; dev-login refuses preview.
+- **Tenant isolation fixes:**
+  - Resident documents, insurance and the assistant are scoped to the resident's own associations.
+  - Buyer sale window applies to credits, messages and violation fines.
+  - Contact lists are no longer stored in `communications.audience_definition`.
+  - The service worker cache and push subscriptions are cleared on sign-out.
+  - Inbox drafts are scoped to the thread's association.
+  - Dark-feature policies fixed in place.
+- **Dark features, all flags false (M8 to M15):** online payments and autopay (M8, 0073), polls (M9, 0074), online voting (M10, 0075), amenities (M11, 0076), public page `/s/[slug]` (M12, 0077), message board (M13, 0078), print-and-mail (M14, 0079). Each was built, then independently reviewed and fixed. All integration tests ran green in CI.
+
+**SQL for Asaf, in order, one step at a time (pbcopy). None is applied yet:**
+1. `0073` to `0080`, each followed by its `verify-00NN-*.sql`.
+2. `0081_tenant_isolation_2.sql`. It tightens LIVE tables: associations and governing-document reads become association-scoped, eviction and pm tables become board-only, submission attachment paths are locked, and stored contact lists are scrubbed with a CHECK added. It needs 0078 first. App code works before and after.
+3. Only after a migration is applied, verified and has `gen:types` re-run (footgun 3): flip its flag in a separate commit.
+4. Still open with Asaf: the read-only `exec_sql` check (does `public.exec_sql(text)` exist, and can anon or authenticated run it?). Send it again if he hasn't answered.
+
+**Launch blockers before M8 (payments) goes live:**
+- Lawyer (OA-48): card surcharge, autopay wording, returned fee, money transmitter, Georgia order for plan installments.
+- Stripe test mode, never run yet.
+- Asaf: OA-40 payout bank, Connect setup, `STRIPE_CONNECT_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+- Known code gaps:
+  - Saved methods use `on_session`, but autopay charges off session.
+  - An autopay timeout can leave an attempt with no PaymentIntent.
+  - A refund failing after the ledger reversal is not undone.
+  - The autopay notice date uses the latest due date, not the first.
+
+**Before M10 (voting):** a lawyer on Georgia § 14-3-708 electronic ballots and secrecy wording. Small ballots can reveal a vote.
+
+**Before M11 (amenities):** the home limit is enforced in the app only.
+
+**Security audit (2026-11-02) left open:**
+- `zod` 4, `vitest` 3+, inngest-pinned OTel and the `@vonage/jwt` `uuid` need major bumps.
+- Posted ledger rows are editable through REST (needs a migration).
+- No closed-period guard or dual control on money out.
+- A buyer can read a seller's unapplied credits through RLS (0072).
+- The real Madison Park balances are in public repo history; purging or making the repo private is Asaf's call.
+- The signing-secret fallback to the service key should fail closed in production; that is an auth change, so ask first.
+
+**Waiting on Asaf:**
+- A phone check of 14px dense tables, the board report and that dark pages 404 when signed in.
+- Madison Park numbers for the investor deck: homes, whether it pays, conversations.
+- Vonage is still blocked.
+- 11 amenity decisions: the defaults were used.
+
+**Decks:** refreshed 2026-11-02 (`~/HomeownerHub-decks/`, investor 26 slides, product 80). Product slides 76 to 78 were never re-rendered after a trim, and the screenshots are stale. Refresh after the next deploy.
+
+**New rules this session (also in memory):**
+- Quality is the top priority. Every task gets a builder, a tester and an independent reviewer, and nothing ships without CI.
+- Asaf said "don't wait for me, use your recommendation", which includes pushing and deploying verified work.
+
+**Tooling lessons:**
+- The 24 GB Mac can't take parallel `next build`s: they EPIPE and retry for over an hour. Agents leave builds to CI. Use the limiter at `/private/tmp/.../scratchpad/heavy.sh`; it is session scoped, so recreate it if needed.
+- Never chain `git push` after a gate with `;`: use `&&`. This bit twice.
+- trivy hung on nested `node_modules`. Use `--skip-dirs '**/node_modules'`. semgrep never ran.
+- Installed this session: plugins `claude-security`, `security-audit-loop-by-ateam` and `shield`; scanners gitleaks, semgrep, osv-scanner and trivy (brew).
+- 20 agents used the weekly limit in about 90 minutes.
 
 ### Owner directives from this session (all still in force)
 - **PayHOA is the target.**
