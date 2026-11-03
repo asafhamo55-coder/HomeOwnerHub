@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation'
 import { Vote } from 'lucide-react'
 import { Badge, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getResidentUnits } from '@/lib/resident'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { currentScopeZones } from '@/lib/association-time-current'
 import { formatBallotTime } from '@/lib/online-voting/time'
 import { listBallots, onlineVotingAvailable, type BallotClient } from '@/lib/online-voting/store'
 import { votingWindow } from '@/lib/online-voting/model'
+import { residentAssociationIds } from '@/lib/online-voting/scope'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
 
 export const metadata = { title: 'Vote' }
@@ -18,7 +20,8 @@ export default async function ResidentVotePage() {
   const org = await getCurrentOrg()
   if (!org) return <NoOrgSelected href="/resident" />
   const supabase = (await getSupabaseServerClient()) as unknown as BallotClient
-  const res = await listBallots(supabase, ['open', 'closed'])
+  const units = await getResidentUnits()
+  const res = await listBallots(supabase, ['open', 'closed'], residentAssociationIds(units))
   const now = Date.now()
   const zoneOf = await currentScopeZones()
 

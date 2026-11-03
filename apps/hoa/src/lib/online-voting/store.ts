@@ -10,9 +10,19 @@ export const onlineVotingAvailable = () => M10_APPLIED
 
 export type Read<T> = { ok: true; data: T } | { ok: false }
 
-export async function listBallots(db: BallotClient, statuses?: string[]): Promise<Read<BallotRow[]>> {
+/**
+ * `associationIds` is the viewer's own associations. A resident screen always passes it
+ * (an empty list shows nothing); the board screens omit it and RLS shows the whole org.
+ */
+export async function listBallots(
+  db: BallotClient,
+  statuses?: string[],
+  associationIds?: string[],
+): Promise<Read<BallotRow[]>> {
+  if (associationIds && associationIds.length === 0) return { ok: true, data: [] }
   let q = db.from('ballots').select('*').order('created_at', { ascending: false }).limit(100)
   if (statuses) q = q.in('status', statuses)
+  if (associationIds) q = q.in('association_id', associationIds)
   const { data, error } = await q
   if (error) {
     console.error('[ballot] list failed', { code: error.code ?? 'unknown' })
@@ -24,8 +34,12 @@ export async function listBallots(db: BallotClient, statuses?: string[]): Promis
 export async function getBallot(
   db: BallotClient,
   id: string,
+  associationIds?: string[],
 ): Promise<Read<{ ballot: BallotRow; options: BallotOptionRow[] } | null>> {
-  const { data: ballot, error } = await db.from('ballots').select('*').eq('id', id).maybeSingle()
+  if (associationIds && associationIds.length === 0) return { ok: true, data: null }
+  let bq = db.from('ballots').select('*').eq('id', id)
+  if (associationIds) bq = bq.in('association_id', associationIds)
+  const { data: ballot, error } = await bq.maybeSingle()
   if (error) return { ok: false }
   if (!ballot) return { ok: true, data: null }
   const { data: options, error: oErr } = await db.from('ballot_options').select('*').eq('ballot_id', id).order('position')
