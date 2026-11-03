@@ -131,6 +131,20 @@ export function supabaseReversalStore(db: Db): ReversalStore {
       }
     },
 
+    async noteRefundPending(args) {
+      const { data: op } = await db.from('online_payments').select('organization_id').eq('id', args.attemptId).maybeSingle()
+      if (!op) return
+      const { error } = await db.from('audit_log').insert({
+        org_id: (op as { organization_id: string }).organization_id,
+        entity_type: 'online_payment',
+        entity_id: args.attemptId,
+        action: 'online_payment.refund_pending',
+        user_id: args.by,
+        metadata: { refund_id: args.ref, cents: args.cents, reason: 'requires_action' },
+      })
+      if (error) throw fail('note refund pending', error)
+    },
+
     async markDisputed(attemptId) {
       const { data, error } = await db
         .from('online_payments')

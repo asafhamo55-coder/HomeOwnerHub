@@ -112,6 +112,8 @@ export interface ReversalStore {
     returnedFeeCents?: number
     by?: string | null
   }): Promise<ReverseOutcome>
+  /** Optional: flag a refund that Stripe has not finished (requires_action) so the board can see it is waiting. No ledger change. */
+  noteRefundPending?(args: { attemptId: string; ref: string; cents: number; by: string }): Promise<void>
   /** succeeded or partially_refunded -> disputed. False when the status did not allow it. */
   markDisputed(attemptId: string): Promise<boolean>
 }

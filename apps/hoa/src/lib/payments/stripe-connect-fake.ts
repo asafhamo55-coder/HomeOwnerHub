@@ -28,6 +28,8 @@ export interface FakeStripeConnect extends StripeConnect {
   payoutLines: Map<string, PayoutBalanceLine[]>
   paymentMethods: Map<string, PaymentMethodSummary>
   offSessionCharges: OffSessionChargeInput[]
+  /** attempt id (metadata.online_payment_id) -> the intent Stripe holds for it. */
+  intentsByAttempt: Map<string, OffSessionChargeResult>
   /** What the next off-session charge returns (default: succeeded). */
   nextOffSession: OffSessionChargeResult | Error | null
   /** Make listChargeRefunds fail, as an unreachable Stripe would. */
@@ -47,6 +49,7 @@ export function createFakeStripeConnect(): FakeStripeConnect {
     payoutLines: new Map(),
     paymentMethods: new Map(),
     offSessionCharges: [],
+    intentsByAttempt: new Map(),
     nextOffSession: null,
     failListRefunds: false,
     accounts,
@@ -127,6 +130,10 @@ export function createFakeStripeConnect(): FakeStripeConnect {
       calls.push('retrievePaymentMethod')
       return fake.paymentMethods.get(pmId) ?? null
     },
+    async findOffSessionCharge(_acct, attemptId) {
+      calls.push('findOffSessionCharge')
+      return fake.intentsByAttempt.get(attemptId) ?? null
+    },
     async chargeOffSession(i) {
       calls.push('chargeOffSession')
       // Same key, same answer: Stripe's idempotency, so a retry never charges twice.
@@ -138,6 +145,7 @@ export function createFakeStripeConnect(): FakeStripeConnect {
       n += 1
       const result: OffSessionChargeResult = next ?? { status: 'succeeded', paymentIntentId: `pi_fake${n}`, failureCode: null }
       offKeys.set(i.idempotencyKey, result)
+      fake.intentsByAttempt.set(i.metadata.online_payment_id ?? '', result)
       return result
     },
   }

@@ -150,6 +150,18 @@ export interface StripeConnect {
    * throws and the daily run counts it as a failed attempt.
    */
   chargeOffSession(input: OffSessionChargeInput): Promise<OffSessionChargeResult>
+  /**
+   * The off-session intent whose metadata names this attempt (metadata.online_payment_id), or null
+   * when Stripe has none. Used to reconcile a charge whose answer was lost; the idempotency key
+   * expires after 24 hours, the metadata does not. Throws when Stripe cannot answer.
+   */
+  findOffSessionCharge(stripeAccount: string, attemptId: string): Promise<OffSessionChargeResult | null>
+}
+
+function offSessionResultFrom(pi: Stripe.PaymentIntent): OffSessionChargeResult {
+  if (pi.status === 'succeeded' || pi.status === 'processing') return { status: pi.status, paymentIntentId: pi.id, failureCode: null }
+  if (pi.status === 'requires_action') return { status: 'requires_action', paymentIntentId: pi.id, failureCode: null }
+  return { status: 'failed', paymentIntentId: pi.id, failureCode: pi.last_payment_error?.code ?? pi.status }
 }
 
 /** Env var holding the Connect endpoint's signing secret (OA-45). */
@@ -284,6 +296,16 @@ export function getStripeConnect(): StripeConnect | null {
         throw err
       }
     },
+    async findOffSessionCharge(acct, attemptId) {
+      // attemptId is a uuid we generated; the guard keeps anything else out of the query.
+      if (!/^[0-9a-f-]{36}$/i.test(attemptId)) throw new Error('findOffSessionCharge: bad attempt id')
+      const res = await stripe.paymentIntents.search(
+        { query: `metadata['online_payment_id']:'${attemptId}'`, limit: 1 },
+        { stripeAccount: acct },
+      )
+      const pi = res.data[0]
+      return pi ? offSessionResultFrom(pi) : null
+    },
     async chargeOffSession(i) {
       try {
         const pi = await stripe.paymentIntents.create(
@@ -299,11 +321,7 @@ export function getStripeConnect(): StripeConnect | null {
           },
           { stripeAccount: i.stripeAccount, idempotencyKey: i.idempotencyKey },
         )
-        if (pi.status === 'succeeded' || pi.status === 'processing') {
-          return { status: pi.status, paymentIntentId: pi.id, failureCode: null }
-        }
-        if (pi.status === 'requires_action') return { status: 'requires_action', paymentIntentId: pi.id, failureCode: null }
-        return { status: 'failed', paymentIntentId: pi.id, failureCode: pi.last_payment_error?.code ?? pi.status }
+        return offSessionResultFrom(pi)
       } catch (err) {
         const e = err as { type?: string; code?: string; payment_intent?: { id?: string } }
         // A declined card (or a bank that needs the owner) is an outcome, not a crash.

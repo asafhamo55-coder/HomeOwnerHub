@@ -93,20 +93,29 @@ export interface AutopayStore {
   /** Record that a notice named these charges. False when the write failed (then nothing is sent). */
   recordNotice(e: AutopayEnrollment, period: string, charges: Array<{ id: string; cents: number }>): Promise<boolean>
   /** First caller for (kind, enrollment, period) gets true. */
-  claim(kind: 'over_max', e: AutopayEnrollment, period: string): Promise<boolean>
+  claim(kind: 'over_max' | 'orphan', e: AutopayEnrollment, period: string): Promise<boolean>
   hasLiveAttempt(enrollmentId: string, period: string): Promise<boolean>
   /**
-   * An attempt for (enrollment, period) that is still `created` with no PaymentIntent:
-   * the charge call never returned a verdict (timeout). It is retried with its own stored
-   * idempotency key, so Stripe hands back the original intent instead of charging twice.
+   * Attempts of ANY recent day for this enrollment that are still `created` with no
+   * PaymentIntent: the charge call never returned a verdict (timeout). They are reconciled
+   * against Stripe before this enrollment is charged again.
    */
-  findOrphanAttempt(
+  findOrphanAttempts(
     enrollmentId: string,
-    period: string,
-  ): Promise<{ id: string; totalCents: number; applicationFeeCents: number; idempotencyKey: string } | null>
+    today: string,
+  ): Promise<Array<{ id: string; period: string; totalCents: number; applicationFeeCents: number; idempotencyKey: string }>>
   /** null when the unique index already holds a live attempt (a double run). */
   createAttempt(e: AutopayEnrollment, input: AttemptInput): Promise<{ id: string } | null>
-  updateAttempt(id: string, patch: { status: string; paymentIntentId?: string | null; failureCode?: string | null }): Promise<void>
+  /**
+   * With `expectStatus`, the write applies only while the row still has that status.
+   * Returns false when it did not apply (another run got there first): the caller then
+   * does nothing further, so a strike or email is never doubled.
+   */
+  updateAttempt(
+    id: string,
+    patch: { status: string; paymentIntentId?: string | null; failureCode?: string | null },
+    expectStatus?: string,
+  ): Promise<boolean>
   setFailures(enrollmentId: string, consecutiveFailures: number, paused: boolean): Promise<void>
   cancel(enrollmentId: string, reason: 'owner_moved'): Promise<void>
   boardEmails(orgId: string): Promise<string[]>
@@ -129,6 +138,12 @@ export interface AutopayChargePort {
     idempotencyKey: string
     metadata: { attempt_id: string; enrollment_id: string }
   }): Promise<ChargeOutcome>
+  /**
+   * Looks the attempt's charge up on Stripe by the attempt id carried in the intent's metadata
+   * (not by idempotency key, which expires after 24 hours). null = Stripe has no such charge.
+   * Throws when Stripe cannot answer.
+   */
+  findCharge(input: { stripeAccountId: string; attemptId: string }): Promise<ChargeOutcome | null>
 }
 
 export interface AutopayDeps {
@@ -155,14 +170,23 @@ export interface AutopayResult {
   errors: number
 }
 
-const INDETERMINATE_TYPES = new Set(['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError', 'StripeIdempotencyError'])
+const INDETERMINATE_TYPES = new Set(['StripeConnectionError', 'StripeRateLimitError', 'StripeIdempotencyError'])
+const NETWORK_CODES = new Set(['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EPIPE', 'ENOTFOUND', 'EAI_AGAIN', 'ESOCKETTIMEDOUT'])
 
-/** True when the error says nothing about whether Stripe took the money. */
+/**
+ * True only for the known cases where Stripe may or may not have taken the money: connection
+ * errors and timeouts, rate limits, Stripe 5xx, and an idempotency clash (needs reconciling,
+ * must not loop). Anything else (auth, permission, invalid request, a TypeError) is a definite failure.
+ */
 function isIndeterminate(err: unknown): boolean {
-  const e = err as { code?: unknown; type?: unknown } | null
-  if (typeof e?.type === 'string' && INDETERMINATE_TYPES.has(e.type)) return true
-  // Node network errors (ECONNRESET, ETIMEDOUT) carry an upper-case E code; no code at all is a timeout too.
-  return typeof e?.code !== 'string' || /^E[A-Z]+$/.test(e.code)
+  const e = err as { code?: unknown; type?: unknown; name?: unknown; statusCode?: unknown } | null
+  if (typeof e?.type === 'string') {
+    if (INDETERMINATE_TYPES.has(e.type)) return true
+    if (e.type === 'StripeAPIError') return typeof e.statusCode === 'number' && e.statusCode >= 500
+    return false
+  }
+  if (typeof e?.code === 'string' && NETWORK_CODES.has(e.code)) return true
+  return e?.name === 'TimeoutError' || e?.name === 'AbortError'
 }
 
 type Logger = Pick<Console, 'info' | 'error'>
@@ -186,11 +210,42 @@ export async function runAutopay(
         if (!to) return
         await deps.sendEmail({ to, ...email }, { orgSandbox: await store.orgSandbox(e.orgId), ref: `autopay:${e.id}` })
       }
-      const mailBoard = async (kind: 'failed' | 'paused' | 'over_max') => {
+      const mailBoard = async (kind: 'failed' | 'paused' | 'over_max' | 'orphan') => {
         const email = buildBoardAlert({ kind, unitLabel: e.unitLabel, link: deps.appUrl('/dues') })
         for (const to of await store.boardEmails(e.orgId)) await mail(to, email)
       }
 
+      /** Applies one verdict to an attempt that is still `created`. A lost race does nothing at all. */
+      const applyOutcome = async (attemptId: string, outcome: ChargeOutcome) => {
+        if (outcome.status === 'succeeded' || outcome.status === 'processing') {
+          if (!(await store.updateAttempt(attemptId, { status: outcome.status, paymentIntentId: outcome.paymentIntentId }, 'created'))) return
+          // Posting to the ledger belongs to the webhook (PR 4/5), not to this job.
+          if (outcome.status === 'succeeded') await store.setFailures(e.id, 0, false)
+          r.charged += 1
+        } else if (outcome.status === 'requires_action') {
+          if (!(await store.updateAttempt(attemptId, { status: 'requires_action', paymentIntentId: outcome.paymentIntentId }, 'created'))) return
+          await mail(e.ownerEmail, buildNeedsAction({ link: deps.appUrl('/resident/dues/autopay') }))
+        } else {
+          const bad = outcome as Extract<ChargeOutcome, { status: 'failed' }>
+          const applied = await store.updateAttempt(
+            attemptId,
+            { status: 'failed', failureCode: bad.failureCode, paymentIntentId: bad.paymentIntentId ?? null },
+            'created',
+          )
+          if (!applied) return
+          const next = afterFailure(e.consecutiveFailures)
+          await store.setFailures(e.id, next.consecutiveFailures, next.paused)
+          // So a later webhook for this same attempt does not count it a second time.
+          await store.audit('autopay.failure_counted', e, { attempt_id: attemptId, consecutive_failures: next.consecutiveFailures })
+          await store.audit(next.paused ? 'autopay.paused' : 'online_payment.failed', e, { period: e.today, code: bad.failureCode })
+          await mail(e.ownerEmail, buildFailed({ paused: next.paused, manageUrl: deps.appUrl('/resident/dues/autopay') }))
+          await mailBoard(next.paused ? 'paused' : 'failed')
+          r.failed += 1
+          if (next.paused) r.paused += 1
+        }
+      }
+
+      /** Charges (or retries with the stored key) and applies the verdict. Throws when Stripe gave none. */
       const settle = async (attemptId: string, totalCents: number, applicationFeeCents: number, idempotencyKey: string, port: AutopayChargePort) => {
         let outcome: ChargeOutcome
         try {
@@ -204,38 +259,44 @@ export async function runAutopay(
             metadata: { attempt_id: attemptId, enrollment_id: e.id },
           })
         } catch (err) {
-          // No verdict from Stripe (timeout, dropped connection, 5xx): the charge may or may not exist.
-          // Leave the attempt `created`; the next run retries it with the same idempotency key.
+          // No verdict from Stripe: the charge may or may not exist. Leave the attempt `created`;
+          // the next run reconciles it against Stripe before anything new is charged.
           if (isIndeterminate(err)) throw err
           const code = (err as { code?: unknown } | null)?.code
           outcome = { status: 'failed', failureCode: typeof code === 'string' ? code : 'charge_error' }
         }
+        await applyOutcome(attemptId, outcome)
+      }
 
-        if (outcome.status === 'succeeded' || outcome.status === 'processing') {
-          await store.updateAttempt(attemptId, { status: outcome.status, paymentIntentId: outcome.paymentIntentId })
-          // Posting to the ledger belongs to the webhook (PR 4/5), not to this job.
-          if (outcome.status === 'succeeded') await store.setFailures(e.id, 0, false)
-          r.charged += 1
-        } else if (outcome.status === 'requires_action') {
-          await store.updateAttempt(attemptId, { status: 'requires_action', paymentIntentId: outcome.paymentIntentId })
-          await mail(e.ownerEmail, buildNeedsAction({ link: deps.appUrl('/resident/dues/autopay') }))
-        } else {
-          const bad = outcome as Extract<ChargeOutcome, { status: 'failed' }>
-          await store.updateAttempt(attemptId, {
-            status: 'failed',
-            failureCode: bad.failureCode,
-            paymentIntentId: bad.paymentIntentId ?? null,
-          })
-          const next = afterFailure(e.consecutiveFailures)
-          await store.setFailures(e.id, next.consecutiveFailures, next.paused)
-          // So a later webhook for this same attempt does not count it a second time.
-          await store.audit('autopay.failure_counted', e, { attempt_id: attemptId, consecutive_failures: next.consecutiveFailures })
-          await store.audit(next.paused ? 'autopay.paused' : 'online_payment.failed', e, { period: e.today, code: bad.failureCode })
-          await mail(e.ownerEmail, buildFailed({ paused: next.paused, manageUrl: deps.appUrl('/resident/dues/autopay') }))
-          await mailBoard(next.paused ? 'paused' : 'failed')
-          r.failed += 1
-          if (next.paused) r.paused += 1
+      /**
+       * Resolves attempts whose charge call never answered, on ANY recent day. True when every one is
+       * resolved; false while one is still unknown (this enrollment is then not charged). Reconciling
+       * anything also pauses new charges for the rest of this run, because a charge that succeeded may not
+       * have posted yet and its dues would look open.
+       */
+      const reconcileOrphans = async (port: AutopayChargePort): Promise<{ clear: boolean; touched: boolean }> => {
+        const orphans = await store.findOrphanAttempts(e.id, e.today)
+        let clear = true
+        let touched = false
+        for (const o of orphans) {
+          try {
+            const found = await port.findCharge({ stripeAccountId: e.method.stripeAccountId, attemptId: o.id })
+            touched = true
+            if (found) await applyOutcome(o.id, found)
+            else if (o.period === e.today) await settle(o.id, o.totalCents, o.applicationFeeCents, o.idempotencyKey, port)
+            else await store.updateAttempt(o.id, { status: 'failed', failureCode: 'no_charge_found' }, 'created')
+          } catch (err) {
+            clear = false
+            r.errors += 1
+            const code = (err as { code?: unknown } | null)?.code
+            log.error('[autopay] orphan attempt unresolved', { enrollmentId: e.id, attemptId: o.id, code: typeof code === 'string' ? code : null })
+          }
         }
+        if (!clear && (await store.claim('orphan', e, e.today))) {
+          await mailBoard('orphan')
+          await store.audit('autopay.orphan_unresolved', e, { period: e.today })
+        }
+        return { clear, touched }
       }
 
       // 1. Moved out: autopay belongs to the owner, not the home.
@@ -289,6 +350,12 @@ export async function runAutopay(
         }
       }
 
+      // 2b. Never charge again while an earlier charge call is unresolved.
+      if (port) {
+        const rec = await reconcileOrphans(port)
+        if (!rec.clear || rec.touched) continue
+      }
+
       // 3. The run takes only charges noticed BEFORE this run: the owner gets a day to react.
       const todays = chargesToTake({
         charges,
@@ -298,13 +365,7 @@ export async function runAutopay(
       })
       const duesCents = todays.reduce((s, c) => s + c.cents, 0)
       if (duesCents <= 0) continue
-      if (await store.hasLiveAttempt(e.id, e.today)) {
-        // A live attempt with no intent is a charge whose answer was lost: finish it, never start a second.
-        const orphan = port ? await store.findOrphanAttempt(e.id, e.today) : null
-        if (orphan && port) await settle(orphan.id, orphan.totalCents, orphan.applicationFeeCents, orphan.idempotencyKey, port)
-        continue
-      }
-
+      if (await store.hasLiveAttempt(e.id, e.today)) continue
       const q = await deps.quote(e, duesCents)
       const totalCents = duesCents + q.feeChargedCents
       const decision = decideRun({ duesCents, totalCents, maxCents: e.maxCents })

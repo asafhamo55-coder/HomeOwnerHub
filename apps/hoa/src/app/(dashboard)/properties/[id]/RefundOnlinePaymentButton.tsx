@@ -5,7 +5,7 @@
 // is for volunteers, not accountants. Imports only pure modules and the action.
 
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { Button, useToast } from '@homeowner-portal/ui'
 import { refundOnlinePayment } from '@/lib/online-payments/refund-action'
 import { usd as formatUsd } from '@/lib/money/format'
@@ -21,6 +21,8 @@ export function RefundOnlinePaymentButton({ paymentId, refundableCents }: { paym
   const [typed, setTyped] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // One id per intent: a double click repeats it, a retry after Stripe closed the refund gets a new one.
+  const requestId = useRef<string>(crypto.randomUUID())
 
   const partCents = part ? parseDollarsToCents(typed) : null
   const problem = part
@@ -38,8 +40,9 @@ export function RefundOnlinePaymentButton({ paymentId, refundableCents }: { paym
     }
     setError(null)
     startTransition(async () => {
-      const res = await refundOnlinePayment({ paymentId, ...(part && partCents ? { cents: partCents } : {}) })
+      const res = await refundOnlinePayment({ paymentId, requestId: requestId.current, ...(part && partCents ? { cents: partCents } : {}) })
       if (!res.ok) {
+        if (res.rotateRequest) requestId.current = crypto.randomUUID()
         setError(res.error)
         return
       }

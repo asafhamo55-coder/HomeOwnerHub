@@ -62,6 +62,13 @@ export function autopayChargePort(stripe: StripeConnect): AutopayChargePort {
       if (!r.paymentIntentId) throw new Error('autopay charge returned no payment intent')
       return { status: r.status, paymentIntentId: r.paymentIntentId }
     },
+    async findCharge(i) {
+      const r = await stripe.findOffSessionCharge(i.stripeAccountId, i.attemptId)
+      if (!r) return null
+      if (r.status === 'failed') return { status: 'failed', failureCode: r.failureCode, paymentIntentId: r.paymentIntentId }
+      if (!r.paymentIntentId) throw new Error('autopay lookup returned no payment intent')
+      return { status: r.status, paymentIntentId: r.paymentIntentId }
+    },
   }
 }
 

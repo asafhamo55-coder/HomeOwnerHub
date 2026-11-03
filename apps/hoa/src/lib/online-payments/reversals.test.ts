@@ -217,14 +217,42 @@ describe('board refund', () => {
     expect(b.g.createRefund).not.toHaveBeenCalled()
   })
 
-  it('GAP 3: a refund Stripe reports as failed or canceled never reaches the ledger', async () => {
-    for (const status of ['failed', 'canceled', 'requires_action']) {
+  it('GAP 3: a refund Stripe reports as failed or canceled never reaches the ledger, and the next try uses a fresh key', async () => {
+    for (const status of ['failed', 'canceled']) {
       const d = make(base)
       const g = { createRefund: vi.fn(async () => ({ id: 're_bad', status })) }
-      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1' })
-      expect(res.ok).toBe(false)
+      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId: 'req-1' })
+      expect(res).toMatchObject({ ok: false, rotateRequest: true })
       expect(d.store.reverse).not.toHaveBeenCalled()
       expect(d.notifier.resident).not.toHaveBeenCalled()
+    }
+  })
+
+  it('MEDIUM: the refund key differs per user attempt but a double click (same request) dedupes', async () => {
+    const keys: string[] = []
+    const run = (requestId: string) => {
+      const g = { createRefund: vi.fn(async (i: { idempotencyKey: string }) => (keys.push(i.idempotencyKey), { id: 're_1', status: 'succeeded' })) }
+      return runBoardRefund(make(base).deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId })
+    }
+    await run('req-1')
+    await run('req-1')
+    await run('req-2')
+    expect(keys[0]).toBe(keys[1])
+    expect(keys[2]).not.toBe(keys[0])
+  })
+
+  it('MEDIUM: requires_action is not "nothing changed": no reversal yet, flagged as waiting on Stripe', async () => {
+    const d = make(base)
+    const noteRefundPending = vi.fn(async () => {})
+    d.deps.store.noteRefundPending = noteRefundPending
+    const g = { createRefund: vi.fn(async () => ({ id: 're_wait', status: 'requires_action' })) }
+    const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId: 'r' })
+    expect(d.store.reverse).not.toHaveBeenCalled()
+    expect(noteRefundPending).toHaveBeenCalledWith(expect.objectContaining({ attemptId: 'att-1', ref: 're_wait', cents: 25000 }))
+    expect(res).toMatchObject({ ok: false, rotateRequest: false })
+    if (!res.ok) {
+      expect(res.error).toMatch(/waiting on Stripe/i)
+      expect(res.error).not.toMatch(/nothing was changed/i)
     }
   })
 
@@ -233,7 +261,7 @@ describe('board refund', () => {
       const order: string[] = []
       const d = make(base, { reverse: async () => (order.push('reverse'), ok()) })
       const g = { createRefund: vi.fn(async () => (order.push('refund'), { id: 're_ok', status })) }
-      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1' })
+      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId: 'r' })
       expect(res.ok).toBe(true)
       expect(order).toEqual(['refund', 'reverse'])
     }

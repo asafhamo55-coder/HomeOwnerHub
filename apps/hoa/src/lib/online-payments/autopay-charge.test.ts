@@ -70,4 +70,13 @@ describe('autopay off-session charge on the connected account', () => {
     fake.nextOffSession = new Error('network')
     await expect(autopayChargePort(fake).chargeOffSession(input)).rejects.toThrow('network')
   })
+
+  it('finds an attempt\'s charge by the attempt id in its metadata, not by idempotency key', async () => {
+    const fake = createFakeStripeConnect()
+    const port = autopayChargePort(fake)
+    expect(await port.findCharge({ stripeAccountId: 'acct_1', attemptId: 'att-1' })).toBeNull()
+    await port.chargeOffSession(input)
+    const found = await port.findCharge({ stripeAccountId: 'acct_1', attemptId: 'att-1' })
+    expect(found).toMatchObject({ status: 'succeeded' })
+  })
 })
