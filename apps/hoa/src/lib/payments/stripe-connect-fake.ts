@@ -30,6 +30,8 @@ export interface FakeStripeConnect extends StripeConnect {
   offSessionCharges: OffSessionChargeInput[]
   /** attempt id (metadata.online_payment_id) -> the intent Stripe holds for it. */
   intentsByAttempt: Map<string, OffSessionChargeResult>
+  /** Simulates a Search index outage: findOffSessionCharge sees nothing, the list endpoint still does. */
+  searchBlind: boolean
   /** What the next off-session charge returns (default: succeeded). */
   nextOffSession: OffSessionChargeResult | Error | null
   /** Make listChargeRefunds fail, as an unreachable Stripe would. */
@@ -50,6 +52,7 @@ export function createFakeStripeConnect(): FakeStripeConnect {
     paymentMethods: new Map(),
     offSessionCharges: [],
     intentsByAttempt: new Map(),
+    searchBlind: false,
     nextOffSession: null,
     failListRefunds: false,
     accounts,
@@ -130,8 +133,13 @@ export function createFakeStripeConnect(): FakeStripeConnect {
       calls.push('retrievePaymentMethod')
       return fake.paymentMethods.get(pmId) ?? null
     },
+    async listOffSessionCharges(_acct, _customer, _since, attemptId) {
+      calls.push('listOffSessionCharges')
+      return fake.intentsByAttempt.get(attemptId) ?? null
+    },
     async findOffSessionCharge(_acct, attemptId) {
       calls.push('findOffSessionCharge')
+      if (fake.searchBlind) return null
       return fake.intentsByAttempt.get(attemptId) ?? null
     },
     async chargeOffSession(i) {

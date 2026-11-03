@@ -63,7 +63,11 @@ export function autopayChargePort(stripe: StripeConnect): AutopayChargePort {
       return { status: r.status, paymentIntentId: r.paymentIntentId }
     },
     async findCharge(i) {
-      const r = await stripe.findOffSessionCharge(i.stripeAccountId, i.attemptId)
+      // Search first (cheap), then the strongly consistent list: only both saying nothing means nothing.
+      const sinceUnix = Math.floor((Date.parse(i.attemptCreatedAt) - 60 * 60 * 1000) / 1000)
+      const r =
+        (await stripe.findOffSessionCharge(i.stripeAccountId, i.attemptId)) ??
+        (await stripe.listOffSessionCharges(i.stripeAccountId, i.customerId, sinceUnix, i.attemptId))
       if (!r) return null
       if (r.status === 'failed') return { status: 'failed', failureCode: r.failureCode, paymentIntentId: r.paymentIntentId }
       if (!r.paymentIntentId) throw new Error('autopay lookup returned no payment intent')

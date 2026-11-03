@@ -156,6 +156,12 @@ export interface StripeConnect {
    * expires after 24 hours, the metadata does not. Throws when Stripe cannot answer.
    */
   findOffSessionCharge(stripeAccount: string, attemptId: string): Promise<OffSessionChargeResult | null>
+  /**
+   * Same lookup through the list endpoint, which is strongly consistent (Search is not: during an
+   * index outage a charge that exists comes back as missing). Lists the customer's intents created at or
+   * after `sinceUnix` and keeps the one whose metadata names the attempt.
+   */
+  listOffSessionCharges(stripeAccount: string, customerId: string, sinceUnix: number, attemptId: string): Promise<OffSessionChargeResult | null>
 }
 
 function offSessionResultFrom(pi: Stripe.PaymentIntent): OffSessionChargeResult {
@@ -295,6 +301,13 @@ export function getStripeConnect(): StripeConnect | null {
         if ((err as { code?: string }).code === 'resource_missing') return null
         throw err
       }
+    },
+    async listOffSessionCharges(acct, customerId, sinceUnix, attemptId) {
+      const rows = await stripe.paymentIntents
+        .list({ customer: customerId, created: { gte: sinceUnix }, limit: 100 }, { stripeAccount: acct })
+        .autoPagingToArray({ limit: 1000 })
+      const pi = rows.find((r) => r.metadata?.online_payment_id === attemptId)
+      return pi ? offSessionResultFrom(pi) : null
     },
     async findOffSessionCharge(acct, attemptId) {
       // attemptId is a uuid we generated; the guard keeps anything else out of the query.

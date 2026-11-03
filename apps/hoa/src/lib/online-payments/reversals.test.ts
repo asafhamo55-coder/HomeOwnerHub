@@ -276,6 +276,43 @@ describe('board refund', () => {
   })
 })
 
+describe('a refund that completes later (refund.updated / charge.refund.updated)', () => {
+  const refundObj = (status: string, over: Record<string, unknown> = {}) => ({ id: 're_wait', object: 'refund', status, amount: 25000, charge: 'ch_1', payment_intent: 'pi_1', ...over })
+
+  for (const type of ['refund.updated', 'charge.refund.updated']) {
+    it(`${type} to succeeded applies the reversal`, async () => {
+      const { deps, store } = make(base)
+      const r = await handleReversalEvent(ev(type, refundObj('succeeded')), deps)
+      expect(r.outcome).toBe('applied')
+      expect(store.reverse).toHaveBeenCalledWith(expect.objectContaining({ kind: 'refund', ref: 're_wait', cents: 25000 }))
+    })
+    it(`${type} that is not a success changes nothing`, async () => {
+      for (const status of ['pending', 'requires_action', 'failed', 'canceled']) {
+        const { deps, store } = make(base)
+        const r = await handleReversalEvent(ev(type, refundObj(status)), deps)
+        expect(r.outcome).toBe('ignored')
+        expect(store.reverse).not.toHaveBeenCalled()
+      }
+    })
+  }
+
+  it('is idempotent per refund id across both events: the second sees alreadyApplied and notifies nobody', async () => {
+    const { deps, store } = make(base, { reverse: vi.fn().mockResolvedValueOnce(ok()).mockResolvedValueOnce(ok({ alreadyApplied: true })) as never })
+    await handleReversalEvent(ev('refund.updated', refundObj('succeeded')), deps)
+    const r2 = await handleReversalEvent(ev('charge.refunded', { id: 'ch_1', payment_intent: 'pi_1', amount_refunded: 25000, refunds: { data: [{ id: 're_wait', amount: 25000, status: 'succeeded' }] } }), deps)
+    expect(store.reverse.mock.calls.map((c) => (c[0] as { ref: string }).ref)).toEqual(['re_wait', 're_wait'])
+    expect(r2.outcome).toBe('already_applied')
+    expect(deps.notifier.resident).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an event from another connected account', async () => {
+    const { deps, store } = make(base)
+    const r = await handleReversalEvent(ev('refund.updated', refundObj('succeeded'), { account: 'acct_other' }), deps)
+    expect(r.outcome).toBe('rejected_account')
+    expect(store.reverse).not.toHaveBeenCalled()
+  })
+})
+
 describe('charge.refunded without a refunds list (Stripe omits Charge.refunds unless expanded)', () => {
   const bare = { id: 'ch_1', payment_intent: 'pi_1', amount_refunded: 25000 }
 

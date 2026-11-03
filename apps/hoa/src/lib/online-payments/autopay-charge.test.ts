@@ -79,4 +79,21 @@ describe('autopay off-session charge on the connected account', () => {
     const found = await port.findCharge({ stripeAccountId: 'acct_1', attemptId: 'att-1' })
     expect(found).toMatchObject({ status: 'succeeded' })
   })
+
+  it('MEDIUM: Search is blind (index outage) but the strongly consistent list still finds the succeeded charge', async () => {
+    const fake = createFakeStripeConnect()
+    const port = autopayChargePort(fake)
+    await port.chargeOffSession(input)
+    fake.searchBlind = true
+    const found = await port.findCharge({ stripeAccountId: 'acct_1', customerId: 'cus_1', attemptId: 'att-1', attemptCreatedAt: '2026-11-01T13:00:00Z' })
+    expect(found).toMatchObject({ status: 'succeeded' })
+    expect(fake.calls).toContain('listOffSessionCharges')
+  })
+
+  it('MEDIUM: null only when both search and list find nothing', async () => {
+    const fake = createFakeStripeConnect()
+    const out = await autopayChargePort(fake).findCharge({ stripeAccountId: 'acct_1', customerId: 'cus_1', attemptId: 'att-x', attemptCreatedAt: '2026-11-01T13:00:00Z' })
+    expect(out).toBeNull()
+    expect(fake.calls).toEqual(expect.arrayContaining(['findOffSessionCharge', 'listOffSessionCharges']))
+  })
 })

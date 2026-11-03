@@ -90,7 +90,7 @@ function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Reco
   let canceled = false
   let rejectUpdates = false
   const updates: Array<{ id: string; status: string; paymentIntentId?: string | null; failureCode?: string | null }> = []
-  const orphans = new Map<string, { key: string; attempt: { id: string; period: string; totalCents: number; applicationFeeCents: number; idempotencyKey: string } }>()
+  const orphans = new Map<string, { key: string; attempt: { id: string; period: string; createdAt: string; totalCents: number; applicationFeeCents: number; idempotencyKey: string } }>()
   const store: AutopayStore = {
     listActive: async () => [e],
     openCharges: async () => charges,
@@ -112,7 +112,7 @@ function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Reco
       live.add(key)
       attempts.push(a)
       const id = `att-${attempts.length}`
-      orphans.set(id, { key, attempt: { id, period: a.period, totalCents: a.totalCents, applicationFeeCents: a.applicationFeeCents, idempotencyKey: a.idempotencyKey } })
+      orphans.set(id, { key, attempt: { id, period: a.period, createdAt: `${a.period}T12:00:00Z`, totalCents: a.totalCents, applicationFeeCents: a.applicationFeeCents, idempotencyKey: a.idempotencyKey } })
       return { id }
     },
     updateAttempt: async (id, patch, expectStatus) => {
@@ -295,10 +295,34 @@ describe('runAutopay', () => {
     expect(f.updates.some((u) => u.status === 'failed')).toBe(false)
   })
 
-  it('GAP 2: Stripe confirming there is no charge closes the old attempt without a strike', async () => {
+  it('MEDIUM: a "no charge" answer on a young attempt (under 48h) is not trusted: the enrollment stays blocked', async () => {
     const f = fakeStore(enrollment(), [reg('a', TODAY, 25000)], { a: 25000 })
     await runAutopay(f.store, deps(() => { throw connErr() }).d, { m8Applied: true, logger: quiet })
     const e2 = enrollment({ today: DAY2 })
+    const f2 = { ...f.store, listActive: async () => [e2], openCharges: async () => [reg('b', DAY2, 25000)], noticedCharges: async () => new Map([['b', 25000]]) } as AutopayStore
+    const x2 = deps({ status: 'succeeded', paymentIntentId: 'pi' })
+    await runAutopay(f2, x2.d, { m8Applied: true, logger: quiet })
+    expect(f.updates.some((u) => u.status === 'failed')).toBe(false)
+    expect(x2.charge).not.toHaveBeenCalled()
+    expect(x2.sent.map((s) => s.to)).toContain('board@example.test')
+  })
+
+  it('MEDIUM: an orphan of any age (even 30 days) still blocks new charges', async () => {
+    const f = fakeStore(enrollment(), [reg('a', TODAY, 25000)], { a: 25000 })
+    await runAutopay(f.store, deps(() => { throw connErr() }).d, { m8Applied: true, logger: quiet })
+    const e2 = enrollment({ today: '2027-01-15' })
+    const f2 = { ...f.store, listActive: async () => [e2], openCharges: async () => [reg('b', '2027-01-15', 25000)], noticedCharges: async () => new Map([['b', 25000]]) } as AutopayStore
+    const x2 = deps({ status: 'succeeded', paymentIntentId: 'pi' }, 0, async () => {
+      throw new Error('stripe down')
+    })
+    await runAutopay(f2, x2.d, { m8Applied: true, logger: quiet })
+    expect(x2.charge).not.toHaveBeenCalled()
+  })
+
+  it('GAP 2: Stripe confirming (search and list) there is no charge on an attempt over 48h old closes it without a strike', async () => {
+    const f = fakeStore(enrollment(), [reg('a', TODAY, 25000)], { a: 25000 })
+    await runAutopay(f.store, deps(() => { throw connErr() }).d, { m8Applied: true, logger: quiet })
+    const e2 = enrollment({ today: '2026-12-04' })
     const f2 = { ...f.store, listActive: async () => [e2], openCharges: async () => [], noticedCharges: async () => new Map() } as AutopayStore
     await runAutopay(f2, deps({ status: 'succeeded', paymentIntentId: 'pi' }).d, { m8Applied: true, logger: quiet })
     expect(f.updates.at(-1)).toMatchObject({ id: 'att-1', status: 'failed', failureCode: 'no_charge_found' })

@@ -102,8 +102,7 @@ export interface AutopayStore {
    */
   findOrphanAttempts(
     enrollmentId: string,
-    today: string,
-  ): Promise<Array<{ id: string; period: string; totalCents: number; applicationFeeCents: number; idempotencyKey: string }>>
+  ): Promise<Array<{ id: string; period: string; createdAt: string; totalCents: number; applicationFeeCents: number; idempotencyKey: string }>>
   /** null when the unique index already holds a live attempt (a double run). */
   createAttempt(e: AutopayEnrollment, input: AttemptInput): Promise<{ id: string } | null>
   /**
@@ -140,10 +139,11 @@ export interface AutopayChargePort {
   }): Promise<ChargeOutcome>
   /**
    * Looks the attempt's charge up on Stripe by the attempt id carried in the intent's metadata
-   * (not by idempotency key, which expires after 24 hours). null = Stripe has no such charge.
+   * (not by idempotency key, which expires after 24 hours), through Search AND the strongly consistent list.
+   * null = neither found one (still not proof on a young attempt: see NO_CHARGE_PROOF_MS).
    * Throws when Stripe cannot answer.
    */
-  findCharge(input: { stripeAccountId: string; attemptId: string }): Promise<ChargeOutcome | null>
+  findCharge(input: { stripeAccountId: string; customerId: string; attemptId: string; attemptCreatedAt: string }): Promise<ChargeOutcome | null>
 }
 
 export interface AutopayDeps {
@@ -169,6 +169,9 @@ export interface AutopayResult {
   paused: number
   errors: number
 }
+
+/** A "no charge" answer is final only for an attempt at least this old (index lag and outages are over by then). */
+const NO_CHARGE_PROOF_MS = 48 * 60 * 60 * 1000
 
 const INDETERMINATE_TYPES = new Set(['StripeConnectionError', 'StripeRateLimitError', 'StripeIdempotencyError'])
 const NETWORK_CODES = new Set(['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EPIPE', 'ENOTFOUND', 'EAI_AGAIN', 'ESOCKETTIMEDOUT'])
@@ -275,16 +278,21 @@ export async function runAutopay(
        * have posted yet and its dues would look open.
        */
       const reconcileOrphans = async (port: AutopayChargePort): Promise<{ clear: boolean; touched: boolean }> => {
-        const orphans = await store.findOrphanAttempts(e.id, e.today)
+        const orphans = await store.findOrphanAttempts(e.id)
         let clear = true
         let touched = false
         for (const o of orphans) {
           try {
-            const found = await port.findCharge({ stripeAccountId: e.method.stripeAccountId, attemptId: o.id })
+            const found = await port.findCharge({ stripeAccountId: e.method.stripeAccountId, customerId: e.method.stripeCustomerId, attemptId: o.id, attemptCreatedAt: o.createdAt })
             touched = true
             if (found) await applyOutcome(o.id, found)
             else if (o.period === e.today) await settle(o.id, o.totalCents, o.applicationFeeCents, o.idempotencyKey, port)
-            else await store.updateAttempt(o.id, { status: 'failed', failureCode: 'no_charge_found' }, 'created')
+            else if (Date.parse(`${e.today}T00:00:00Z`) - Date.parse(o.createdAt) >= NO_CHARGE_PROOF_MS) {
+              await store.updateAttempt(o.id, { status: 'failed', failureCode: 'no_charge_found' }, 'created')
+            } else {
+              // Too young to trust a "nothing found": keep the enrollment blocked and tell the board.
+              throw new Error('autopay_orphan_not_provable_yet')
+            }
           } catch (err) {
             clear = false
             r.errors += 1
