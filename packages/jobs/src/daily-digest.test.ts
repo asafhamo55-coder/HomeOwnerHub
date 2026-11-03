@@ -463,7 +463,9 @@ describe('runDailyDigest — ARC decision deadlines', () => {
     // window would otherwise add an email; this test is about ARC only.
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-10-20T11:00:00Z'))
-    onTestFinished(() => vi.useRealTimers())
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const { db } = fakeDb({
       arcRequests: { data: [{ id: 'a', association_id: 'as-1', status: 'submitted', submitted_at: daysAgo(2) }], error: null },
       associations: ASSOC,
