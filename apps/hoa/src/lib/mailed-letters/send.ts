@@ -117,6 +117,16 @@ export async function sendApprovedLetterByMail(deps: SendDeps, input: SendInput)
     return { ok: false, error: 'The mailing service did not accept the letter. Nothing was sent or charged. Try again later.' }
   }
 
+  if (sent.chargedCents !== cost) {
+    // Ids and cents only. The board confirmed `cost`; the provider says it charged something else.
+    deps.log('[mailed-letters] charge differs from the confirmed price', {
+      [input.letter.source.kind]: sourceId(input.letter.source),
+      providerLetterId: sent.providerLetterId,
+      confirmedCents: cost,
+      chargedCents: sent.chargedCents,
+    })
+  }
+
   const stored = await deps.insert({
     organizationId: input.letter.organizationId,
     associationId: input.letter.associationId,

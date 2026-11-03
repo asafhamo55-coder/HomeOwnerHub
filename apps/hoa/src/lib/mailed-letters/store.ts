@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { M14_APPLIED } from '@homeowner-portal/db/m14'
 import { sourceId, type LetterSource, type MailedLetterRow } from './send'
 import type { MailedLetterView } from './status'
+import { trackingPatch } from './tracking'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = { from: (t: string) => any }
@@ -136,7 +137,7 @@ export async function updateMailedLetterTracking(
 ): Promise<boolean> {
   const { error } = await (admin as unknown as Loose)
     .from('mailed_letters')
-    .update({ status: u.status, tracking_number: u.trackingNumber, mailed_on: u.mailedOn, delivered_on: u.deliveredOn })
+    .update(trackingPatch(u))
     .eq('organization_id', orgId)
     .eq(sourceColumn(source), sourceId(source))
   return !error

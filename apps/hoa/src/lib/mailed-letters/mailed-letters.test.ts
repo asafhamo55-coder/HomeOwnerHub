@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createFakeMailProvider } from './fake-provider'
 import { letterCostCents, formatCents, type MailPricing } from './cost'
 import { toLobLetterBody, type MailLetterRequest } from './provider'
-import { mailRecordFromProvider } from './tracking'
+import { mailRecordFromProvider, trackingPatch } from './tracking'
 import { clockStartOf } from '../collections/mail-tracking'
 
 vi.mock('@homeowner-portal/db/m14', () => ({ M14_APPLIED: true }))
@@ -120,7 +120,39 @@ describe('sendApprovedLetterByMail', () => {
   })
 })
 
+describe('retries and charges', () => {
+  it('a retry after a failed save records the same provider letter and charges once', async () => {
+    let saveWorks = false
+    const { provider, rows, deps, input } = setup({ insert: async (r) => (saveWorks ? (rows.push(r), { ok: true }) : { ok: false }) })
+    expect((await sendApprovedLetterByMail(deps, input)).ok).toBe(false)
+    saveWorks = true
+    expect((await sendApprovedLetterByMail(deps, input)).ok).toBe(true)
+    expect(provider.sent).toHaveLength(1)
+    expect(rows).toHaveLength(1)
+  })
+  it('logs, by id only, when the provider charged a different amount than the board confirmed', async () => {
+    const log = vi.fn()
+    const { provider, deps, input } = setup({ log })
+    const real = provider.send.bind(provider)
+    provider.send = async (req) => ({ ...(await real(req)), chargedCents: 999 })
+    const r = await sendApprovedLetterByMail(deps, input)
+    expect(r.ok).toBe(true)
+    const call = log.mock.calls.find(([m]) => String(m).includes('charge differs'))
+    expect(call).toBeTruthy()
+    expect(JSON.stringify(call)).not.toContain('Main')
+  })
+})
+
 describe('tracking and Lob shape', () => {
+  it('a later answer with no date never erases a date already saved', () => {
+    expect(trackingPatch({ status: 'in_transit', trackingNumber: null, mailedOn: null, deliveredOn: null })).toEqual({ status: 'in_transit' })
+    expect(trackingPatch({ status: 'delivered', trackingNumber: 'T1', mailedOn: '2026-11-02', deliveredOn: '2026-11-06' })).toEqual({
+      status: 'delivered',
+      tracking_number: 'T1',
+      mailed_on: '2026-11-02',
+      delivered_on: '2026-11-06',
+    })
+  })
   it('delivered certified mail starts the statutory clock, first class does not', () => {
     const u = { status: 'delivered' as const, trackingNumber: 'T1', mailedOn: '2026-11-02', deliveredOn: '2026-11-06' }
     expect(clockStartOf(mailRecordFromProvider('certified', u))).toBe('2026-11-06')
