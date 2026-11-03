@@ -87,6 +87,27 @@ describe('stripAudienceForPersist', () => {
     expect(serialized).not.toContain('unit-a')
   })
 
+  it('persists only kind and a count for a manual list, no addresses, names or phones', () => {
+    const result = stripAudienceForPersist({
+      kind: 'manual_emails',
+      emails: ['a@example.com', 'b@example.com'],
+      emailNames: ['Ann', 'Bo'],
+      phones: ['5551234567', ''],
+    })
+
+    expect(result).toEqual({ kind: 'manual_emails', extra: { count: 2 } })
+    const serialized = JSON.stringify(result)
+    for (const secret of ['example.com', 'Ann', 'Bo', '5551234567']) {
+      expect(serialized).not.toContain(secret)
+    }
+  })
+
+  it('counts a phone-only manual list by its longest column', () => {
+    expect(
+      stripAudienceForPersist({ kind: 'manual_emails', phones: ['5551234567', '5557654321', '5550001111'] }),
+    ).toEqual({ kind: 'manual_emails', extra: { count: 3 } })
+  })
+
   it('passes a non-precomputed kind through unchanged', () => {
     const audience = { kind: 'late_on_dues' as const, unitIds: ['unit-a'] }
 

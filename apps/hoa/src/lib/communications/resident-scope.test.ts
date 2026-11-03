@@ -23,6 +23,33 @@ describe('buildRecipientIdentityFilters', () => {
     ])
   })
 
+  it('ignores unit-matched rows sent before that unit charges_from, keeps other matches', () => {
+    expect(
+      buildRecipientIdentityFilters({
+        unitIds: ['unit-a', 'unit-b'],
+        unitChargesFrom: { 'unit-a': '2026-05-01', 'unit-b': null },
+        userId: 'user-1',
+        email: 'dana@example.com',
+      }),
+    ).toEqual([
+      'unit_id.in.(unit-b)',
+      'and(unit_id.eq.unit-a,sent_at.gte.2026-05-01)',
+      'user_id.eq.user-1',
+      'email.eq."dana@example.com"',
+    ])
+  })
+
+  it('drops a unit whose cutoff is not a plain date rather than matching everything', () => {
+    expect(
+      buildRecipientIdentityFilters({
+        unitIds: ['unit-a'],
+        unitChargesFrom: { 'unit-a': 'x),unit_id.neq.0' },
+        userId: null,
+        email: null,
+      }),
+    ).toEqual([])
+  })
+
   it('returns nothing when there is no identity to match on', () => {
     // The caller MUST skip the query on this. An empty or() matches rows.
     expect(buildRecipientIdentityFilters({ unitIds: [], userId: null, email: null })).toEqual([])
