@@ -33,6 +33,8 @@ export interface ResidentToolContext {
   scope: ResidentScope
   /** The association docs search narrows to, when the resident has exactly one. */
   associationId: string | null
+  /** Every association the resident lives in: the docs search never leaves these. */
+  associationIds?: readonly string[]
 }
 
 export type ResidentTool = LoopTool<ResidentToolContext>
@@ -68,13 +70,18 @@ const searchGoverningDocs: ResidentTool = {
       required: ['question'],
     },
   },
-  async execute(args, { scope, associationId }) {
+  async execute(args, { scope, associationId, associationIds }) {
     // W1 records its query in ai_runs: strip any contact detail the model
     // copied in, so that row holds a rules topic, not a person.
     const question = redactContactPII(String(args.question ?? ''))
     const out = await runDocsSearch(
       { question },
-      { orgId: scope.orgId, associationId, allowedDocTypes: RESIDENT_VISIBLE_TYPES.governing },
+      {
+        orgId: scope.orgId,
+        associationId,
+        ...(associationIds ? { associationIds } : {}),
+        allowedDocTypes: RESIDENT_VISIBLE_TYPES.governing,
+      },
     )
     // Belt and braces (as /api/ai/ask-docs): never cite a hidden doc type.
     const allowed = RESIDENT_VISIBLE_TYPES.governing

@@ -1,3 +1,5 @@
+import { ownAssociationIds } from '@/lib/resident-association-scope'
+import { getResidentUnits } from '@/lib/resident'
 import Link from 'next/link'
 import { ShieldCheck } from 'lucide-react'
 import { Button, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
@@ -77,7 +79,7 @@ export default async function ResidentInsurancePage() {
   }
 
   const [rows, timeZone] = await Promise.all([
-    loadOwnerInsurancePolicies(createAdminClient() as unknown as LooseDb, org.id),
+    loadOwnerInsurancePolicies(createAdminClient() as unknown as LooseDb, org.id, undefined, ownAssociationIds(await getResidentUnits())),
     currentTimeZone(),
   ])
   if (rows === null) {

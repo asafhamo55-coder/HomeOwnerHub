@@ -193,3 +193,47 @@ describe('M1 (BL-052): the board-set visible_to_owners flag', () => {
     })
   })
 })
+
+describe('association scope: a resident never reads another association governing documents', () => {
+  const A = '1c0a8d3e-0000-4000-8000-00000000000a'
+  const B = '1c0a8d3e-0000-4000-8000-00000000000b'
+  const scope = `association_id.is.null,association_id.in.(${A},${B})`
+
+  it('scopes the governing list to the resident’s associations, keeping org-wide rows', async () => {
+    const { client, calls } = fakeClient({
+      hoa_documents: { data: [], error: null },
+      governing_documents: { data: [], error: null },
+    })
+    await fetchResidentDocuments(client, ORG, { m1: false, associationIds: [A, B] })
+    expect(calls).toContainEqual({ table: 'governing_documents', op: 'or', args: [scope] })
+  })
+
+  it('a resident with no association sees only org-wide governing documents', async () => {
+    const { client, calls } = fakeClient({
+      hoa_documents: { data: [], error: null },
+      governing_documents: { data: [], error: null },
+    })
+    await fetchResidentDocuments(client, ORG, { m1: false, associationIds: [] })
+    expect(calls).toContainEqual({ table: 'governing_documents', op: 'is', args: ['association_id', null] })
+  })
+
+  it('the open route applies the same scope to a governing document', async () => {
+    const { client, calls } = fakeClient({
+      governing_documents: { data: null, error: null },
+    })
+    await expect(
+      fetchResidentDocumentFile(client, ORG, 'governing', ID, { m1: false, associationIds: [A, B] }),
+    ).resolves.toBeNull()
+    expect(calls).toContainEqual({ table: 'governing_documents', op: 'or', args: [scope] })
+  })
+
+  it('drops anything that is not a uuid from the filter', async () => {
+    const { client, calls } = fakeClient({ governing_documents: { data: null, error: null } })
+    await fetchResidentDocumentFile(client, ORG, 'governing', ID, { m1: false, associationIds: [A, 'x),org_id.not.is.null'] })
+    expect(calls).toContainEqual({
+      table: 'governing_documents',
+      op: 'or',
+      args: [`association_id.is.null,association_id.in.(${A})`],
+    })
+  })
+})

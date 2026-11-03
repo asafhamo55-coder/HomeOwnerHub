@@ -22,6 +22,9 @@ export { GoverningDocsRetrievalError } from './tools'
 export const GoverningDocsBrainInputSchema = z.object({
   question: z.string().min(3).max(2000),
   associationId: z.string().uuid().nullable().optional(),
+  // Several associations at once (a resident with more than one home).
+  // Takes precedence over associationId; an empty list matches nothing.
+  associationIds: z.array(z.string().uuid()).max(50).optional(),
   // Resident callers: only these governing_documents types (current, not
   // AI-generated) may ground the answer. Omitted = every document (board
   // and server-side callers). See RetrieveOptions.allowedDocTypes (F-04).
@@ -107,6 +110,7 @@ export const governingDocsBrain = defineWorkflow({
     const retrieved = await retrieveChunks(input.question, {
       organizationId: ctx.organizationId,
       associationId: input.associationId ?? null,
+      ...(input.associationIds ? { associationIds: input.associationIds } : {}),
       limit: 8,
       allowedDocTypes: input.allowedDocTypes,
     })
@@ -122,6 +126,7 @@ export const governingDocsBrain = defineWorkflow({
         ctx.organizationId,
         input.associationId ?? null,
         input.allowedDocTypes,
+        input.associationIds,
       )
       const answer = hasDocs
         ? "I couldn't find anything in the governing documents that addresses that directly. " +
@@ -203,6 +208,8 @@ export async function queryGoverningDocs(
   ctx: {
     organizationId: string
     associationId?: string | null
+    /** Several associations; see GoverningDocsBrainInputSchema. */
+    associationIds?: readonly string[]
     /** Set for resident callers; see GoverningDocsBrainInputSchema. */
     allowedDocTypes?: readonly string[]
   },
@@ -211,6 +218,7 @@ export async function queryGoverningDocs(
     {
       question,
       associationId: ctx.associationId ?? null,
+      ...(ctx.associationIds ? { associationIds: [...ctx.associationIds] } : {}),
       ...(ctx.allowedDocTypes ? { allowedDocTypes: [...ctx.allowedDocTypes] } : {}),
     },
     { organizationId: ctx.organizationId },
@@ -295,8 +303,10 @@ async function hasGoverningDocs(
   organizationId: string,
   associationId: string | null,
   allowedDocTypes?: readonly string[],
+  associationIds?: readonly string[],
 ): Promise<boolean> {
   try {
+    if (associationIds && associationIds.length === 0) return false
     const db = createAdminClient()
     if (allowedDocTypes) {
       // Resident: only count documents they could be answered from.
@@ -307,7 +317,8 @@ async function hasGoverningDocs(
         .in('type', [...allowedDocTypes])
         .is('superseded_at', null)
         .not('ai_generated', 'is', true)
-      if (associationId) visible = visible.eq('association_id', associationId)
+      if (associationIds) visible = visible.in('association_id', [...associationIds])
+      else if (associationId) visible = visible.eq('association_id', associationId)
       const { count } = await visible
       return (count ?? 0) > 0
     }
@@ -316,6 +327,14 @@ async function hasGoverningDocs(
       .select('id', { head: true, count: 'exact' })
       .eq('organization_id', organizationId)
       .limit(1)
+    if (associationIds) {
+      const { count } = await db
+        .from('governing_documents')
+        .select('id', { head: true, count: 'exact' })
+        .eq('organization_id', organizationId)
+        .in('association_id', [...associationIds])
+      return (count ?? 0) > 0
+    }
     if (associationId) {
       // chunks are joined to docs for association_id; do a join via
       // document_id. We can't `eq` here directly without a JOIN — use a
