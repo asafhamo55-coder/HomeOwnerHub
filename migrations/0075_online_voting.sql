@@ -273,13 +273,17 @@ ALTER TABLE public.ballot_box     ENABLE ROW LEVEL SECURITY;   -- and no policy:
 DROP POLICY IF EXISTS ballots_select ON public.ballots;
 CREATE POLICY ballots_select ON public.ballots FOR SELECT TO authenticated
   USING (organization_id = ANY (public.auth_org_ids())
-         AND (status <> 'draft' OR public.auth_is_board_or_admin(organization_id)));
+         AND (public.auth_is_board_or_admin(organization_id)
+              OR (status <> 'draft'
+                  AND association_id = ANY ((SELECT public.poll_resident_association_ids())::uuid[]))));
 
 DROP POLICY IF EXISTS ballot_options_select ON public.ballot_options;
 CREATE POLICY ballot_options_select ON public.ballot_options FOR SELECT TO authenticated
   USING (organization_id = ANY (public.auth_org_ids())
          AND (public.auth_is_board_or_admin(organization_id)
-              OR EXISTS (SELECT 1 FROM public.ballots b WHERE b.id = ballot_id AND b.status <> 'draft')));
+              OR EXISTS (SELECT 1 FROM public.ballots b
+                          WHERE b.id = ballot_id AND b.status <> 'draft'
+                            AND b.association_id = ANY ((SELECT public.poll_resident_association_ids())::uuid[]))));
 
 -- The board sees which homes voted; a voter sees their own row.
 DROP POLICY IF EXISTS ballot_voters_select ON public.ballot_voters;
@@ -314,6 +318,8 @@ AS $fn$
       JOIN public.orgs g ON g.id = hp.org_id
      WHERE auth.uid() IS NOT NULL AND pr.role = 'owner' AND pr.moved_out_at IS NULL
        AND NULLIF(pr.email, '') IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.units uu
+                    WHERE uu.legacy_hoa_property_id = hp.id AND uu.organization_id = hp.org_id)
        AND hp.deleted_at IS NULL AND g.suspended_at IS NULL AND g.archived_at IS NULL
        AND lower(pr.email) = (SELECT lower(NULLIF(au.email, '')) FROM auth.users au
                                WHERE au.id = auth.uid() AND au.email_confirmed_at IS NOT NULL)
@@ -381,12 +387,10 @@ BEGIN
   IF p_property IS NULL OR NOT (p_property = ANY (public.ballot_voter_property_ids())) THEN
     RAISE EXCEPTION 'cast_ballot: not_an_owner_of_this_home' USING errcode = '42501';
   END IF;
-  -- A home belongs to one association. In an organization with several, an owner votes
-  -- only on their own association's ballot. A home with no unit record (older data) is
-  -- not tied to any association, so only the organization check above applies to it.
-  IF EXISTS (SELECT 1 FROM public.units u WHERE u.legacy_hoa_property_id = p_property AND u.organization_id = b.organization_id)
-     AND NOT EXISTS (SELECT 1 FROM public.units u WHERE u.legacy_hoa_property_id = p_property
-                        AND u.organization_id = b.organization_id AND u.association_id = b.association_id) THEN
+  -- A home belongs to one association, and an owner votes only on their own
+  -- association's ballot. A home must have a unit record in this ballot's association.
+  IF NOT EXISTS (SELECT 1 FROM public.units u WHERE u.legacy_hoa_property_id = p_property
+                    AND u.organization_id = b.organization_id AND u.association_id = b.association_id) THEN
     RAISE EXCEPTION 'cast_ballot: not_an_owner_of_this_home' USING errcode = '42501';
   END IF;
   IF p_selections IS NULL OR cardinality(p_selections) NOT BETWEEN 1 AND b.max_selections THEN

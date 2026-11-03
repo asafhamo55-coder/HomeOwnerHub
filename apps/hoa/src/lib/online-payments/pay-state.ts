@@ -30,7 +30,12 @@ export const EMPTY_PAY_STATE: PayScreenState = { offer: null, publishableKey: nu
  * `unitId` must already be one of the resident's units (the page passes the
  * resident guard's answer). Any read failure hides Pay now rather than guess.
  */
-export async function loadPayScreenState(unitId: string, chargesFrom: string | null = null): Promise<PayScreenState> {
+export async function loadPayScreenState(
+  unitId: string,
+  chargesFrom: string | null = null,
+  /** The person looking at the screen. Payments on the way are theirs only; null shows none. */
+  userId: string | null = null,
+): Promise<PayScreenState> {
   if (!M8_APPLIED) return EMPTY_PAY_STATE
   try {
     const db = adminDb()
@@ -38,13 +43,16 @@ export async function loadPayScreenState(unitId: string, chargesFrom: string | n
     const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null
     const offer = publishableKey ? previewPayNow(unitId, ctx) : null
 
-    const { data, error } = await db
+    // Only the viewer's own payments, and for a buyer only those started after they took over.
+    if (!userId) return { offer, publishableKey, onTheWay: [] }
+    let q = db
       .from('online_payments')
       .select('id, method_type, total_cents, status, stripe_account_id, stripe_payment_intent_id')
       .eq('unit_id', unitId)
+      .eq('user_id', userId)
       .in('status', ['requires_action', 'processing'])
-      .order('created_at', { ascending: false })
-      .limit(5)
+    if (chargesFrom) q = q.gte('created_at', chargesFrom)
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(5)
     if (error) throw new Error(`pay-state: read failed (${error.code ?? 'unknown'})`)
     const stripe = getLivePort()
     const onTheWay: PaymentOnTheWay[] = []

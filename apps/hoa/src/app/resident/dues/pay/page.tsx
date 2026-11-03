@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { CheckCircle2, Landmark, ShieldCheck, Wallet } from 'lucide-react'
 import { Button, LoadFailed } from '@homeowner-portal/ui'
+import { getResidentActor } from '@/lib/impersonation'
 import { getResidentDues } from '@/lib/resident-dashboard'
 import { getResidentZelleSettings } from '@/lib/pay-settings'
 import { payLinesFor, type ZelleReadResult } from '@/lib/pay-by-zelle'
@@ -76,7 +77,12 @@ export default async function ResidentPayPage() {
   const multiUnit = units.length > 1
   // Online payment is offered for the home with the most urgent charge (v1: one home per payment).
   const payUnitId = dues.charges[0]?.unitId ?? units[0]!.unit_id
-  const payState = await loadPayScreenState(payUnitId, units.find((u) => u.unit_id === payUnitId)?.charges_from ?? null)
+  const actor = await getResidentActor()
+  const payState = await loadPayScreenState(
+    payUnitId,
+    units.find((u) => u.unit_id === payUnitId)?.charges_from ?? null,
+    actor.id,
+  )
   const anyConfigured =
     settings.ok && Object.values(settings.byAssociation).some((r) => r.state === 'configured')
 

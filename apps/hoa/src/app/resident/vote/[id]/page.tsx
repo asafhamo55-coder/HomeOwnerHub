@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation'
 import { Alert, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
 import { getCurrentOrg } from '@/lib/orgs'
+import { getResidentUnits } from '@/lib/resident'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { currentScopeZones } from '@/lib/association-time-current'
 import { formatBallotTime } from '@/lib/online-voting/time'
 import { getBallot, myVoterHomes, onlineVotingAvailable, type BallotClient } from '@/lib/online-voting/store'
 import { votingWindow } from '@/lib/online-voting/model'
 import { VoteForm } from '@/components/online-voting/VoteForm'
+import { residentAssociationIds } from '@/lib/online-voting/scope'
 import { Panel, ScreenHeader } from '@/components/resident/screen'
 
 export const metadata = { title: 'Vote' }
@@ -18,7 +20,8 @@ export default async function ResidentBallotPage({ params }: { params: Promise<{
   if (!org) return <NoOrgSelected href="/resident" />
   const { id } = await params
   const supabase = (await getSupabaseServerClient()) as unknown as BallotClient
-  const res = await getBallot(supabase, id)
+  const units = await getResidentUnits()
+  const res = await getBallot(supabase, id, residentAssociationIds(units))
   if (!res.ok) return <LoadFailed what="this ballot" retryHref={`/resident/vote/${id}`} />
   if (!res.data || res.data.ballot.status === 'draft') notFound()
   const { ballot, options } = res.data

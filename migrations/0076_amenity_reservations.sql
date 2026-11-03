@@ -5,6 +5,8 @@
 -- confirmation), then a one-line PR flips M11_APPLIED in packages/db/src/m11.ts.
 -- Until then nothing in the app reads or writes these objects.
 --
+-- Needs 0074 first: the member read policies use poll_resident_association_ids().
+--
 -- Idempotent (IF NOT EXISTS / DROP IF EXISTS / OR REPLACE), one transaction.
 --
 -- What it adds:
@@ -305,22 +307,32 @@ ALTER TABLE public.amenity_reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.amenity_hours        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.amenity_blackouts    ENABLE ROW LEVEL SECURITY;
 
--- any member of the org reads the amenities (a resident needs them to book)
+-- the board reads every amenity of the org; a resident reads their own association's
 DROP POLICY IF EXISTS amenities_member_select ON public.amenities;
 CREATE POLICY amenities_member_select ON public.amenities
   FOR SELECT TO authenticated
-  USING (organization_id = ANY (public.auth_org_ids()));
+  USING (organization_id = ANY (public.auth_org_ids())
+         AND (public.auth_is_board_or_admin(organization_id)
+              OR association_id = ANY ((SELECT public.poll_resident_association_ids())::uuid[])));
 
--- weekly hours and blackout dates: any member of the org reads them
+-- weekly hours and blackout dates follow the amenity they belong to
 DROP POLICY IF EXISTS amenity_hours_member_select ON public.amenity_hours;
 CREATE POLICY amenity_hours_member_select ON public.amenity_hours
   FOR SELECT TO authenticated
-  USING (organization_id = ANY (public.auth_org_ids()));
+  USING (organization_id = ANY (public.auth_org_ids())
+         AND (public.auth_is_board_or_admin(organization_id)
+              OR EXISTS (SELECT 1 FROM public.amenities a
+                          WHERE a.id = amenity_id
+                            AND a.association_id = ANY ((SELECT public.poll_resident_association_ids())::uuid[]))));
 
 DROP POLICY IF EXISTS amenity_blackouts_member_select ON public.amenity_blackouts;
 CREATE POLICY amenity_blackouts_member_select ON public.amenity_blackouts
   FOR SELECT TO authenticated
-  USING (organization_id = ANY (public.auth_org_ids()));
+  USING (organization_id = ANY (public.auth_org_ids())
+         AND (public.auth_is_board_or_admin(organization_id)
+              OR EXISTS (SELECT 1 FROM public.amenities a
+                          WHERE a.id = amenity_id
+                            AND a.association_id = ANY ((SELECT public.poll_resident_association_ids())::uuid[]))));
 
 -- board / admin read every booking of their org
 DROP POLICY IF EXISTS amenity_reservations_board_select ON public.amenity_reservations;
