@@ -33,7 +33,7 @@ function stripeGateway(): RefundGateway {
         refundApplicationFee: i.refundApplicationFee,
         idempotencyKey: i.idempotencyKey,
       })
-      return { id: r.id }
+      return { id: r.id, status: r.status }
     },
   }
 }

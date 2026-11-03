@@ -217,6 +217,28 @@ describe('board refund', () => {
     expect(b.g.createRefund).not.toHaveBeenCalled()
   })
 
+  it('GAP 3: a refund Stripe reports as failed or canceled never reaches the ledger', async () => {
+    for (const status of ['failed', 'canceled', 'requires_action']) {
+      const d = make(base)
+      const g = { createRefund: vi.fn(async () => ({ id: 're_bad', status })) }
+      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1' })
+      expect(res.ok).toBe(false)
+      expect(d.store.reverse).not.toHaveBeenCalled()
+      expect(d.notifier.resident).not.toHaveBeenCalled()
+    }
+  })
+
+  it('GAP 3: a pending or succeeded refund is reversed after Stripe accepted it, never before', async () => {
+    for (const status of ['pending', 'succeeded']) {
+      const order: string[] = []
+      const d = make(base, { reverse: async () => (order.push('reverse'), ok()) })
+      const g = { createRefund: vi.fn(async () => (order.push('refund'), { id: 're_ok', status })) }
+      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1' })
+      expect(res.ok).toBe(true)
+      expect(order).toEqual(['refund', 'reverse'])
+    }
+  })
+
   it('a Stripe failure changes nothing', async () => {
     const d = make(base)
     const g = { createRefund: vi.fn(async () => { throw new Error('x') }) }

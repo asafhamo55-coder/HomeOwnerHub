@@ -22,7 +22,7 @@ export interface RefundGateway {
     amountCents: number
     refundApplicationFee: boolean
     idempotencyKey: string
-  }): Promise<{ id: string }>
+  }): Promise<{ id: string; status?: string | null }>
 }
 
 export type RefundResult =
@@ -45,7 +45,7 @@ export async function runBoardRefund(
 
   const shape: RefundShape = { refundCents: cents, postedCents: attempt.postedCents, reversedCents: attempt.reversedCents }
   const full = isFullRefund(shape)
-  let refund: { id: string }
+  let refund: { id: string; status?: string | null }
   try {
     refund = await gateway.createRefund({
       stripeAccountId: attempt.stripeAccountId,
@@ -56,6 +56,13 @@ export async function runBoardRefund(
     })
   } catch {
     return { ok: false, error: 'Stripe did not accept the refund. Nothing was changed. Try again.' }
+  }
+
+  // Stripe can accept the call and still report the refund as failed or canceled (a closed bank
+  // account, a card that cannot take it). The books must never show a reversal for money that
+  // did not go back, so only a pending or succeeded refund reaches the ledger.
+  if (refund.status && ['failed', 'canceled', 'requires_action'].includes(refund.status)) {
+    return { ok: false, error: 'Stripe could not complete the refund. Nothing was changed. Check the payment in Stripe and try again.' }
   }
 
   try {
