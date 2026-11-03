@@ -263,7 +263,7 @@ export const GA_OWNER_COMPLIANCE: Guide = {
       heading: 'What this page does not tell you',
       body: [
         'This guide applies only if your association is under the Georgia Property Owners’ Association Act, which an older declaration reaches only if it elects the Act. Our guide on whether the Act applies explains how to check.',
-        'We do not say which remedy to use, how large a fine can be, or whether your instrument allows fines or suspensions. Georgia’s SB 406 adds a separate limit: its registration provisions take effect January 1, 2027, and under them an association that is not registered may not collect fines or fees. We cover that in a separate guide. We do not give legal advice on a particular violation.',
+        'We do not say which remedy to use, how large a fine can be, or whether your instrument allows fines or suspensions. Georgia’s SB 406 adds a separate limit: its registration provisions take effect January 1, 2027, and under them, with limited exceptions, an association that is not registered may not collect fines or fees. We cover that in a separate guide. We do not give legal advice on a particular violation.',
       ],
     },
   ],
