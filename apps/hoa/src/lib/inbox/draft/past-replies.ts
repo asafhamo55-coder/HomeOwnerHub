@@ -13,6 +13,15 @@ export interface SimilarReply {
 
 const DEFAULT_LIMIT = 5
 
+/** The search function caps its own page at this many rows. */
+const SEARCH_PAGE = 20
+
+/**
+ * Examples below this cosine similarity are not close enough to teach voice
+ * and are more likely to carry unrelated specifics, so they are dropped.
+ */
+export const MIN_REPLY_SIMILARITY = 0.5
+
 /**
  * Retrieve the HOA's most similar past replies, as voice and precedent
  * examples for W32.
@@ -26,10 +35,14 @@ const DEFAULT_LIMIT = 5
 export async function findSimilarReplies(
   db: SupabaseClient<Database>,
   orgId: string,
+  associationId: string | null,
   queryText: string,
   excludeThreadId: string,
   limit: number = DEFAULT_LIMIT,
 ): Promise<{ replies: SimilarReply[]; degraded: string[] }> {
+  // No association means no safe corpus: never fall back to the whole org.
+  if (!associationId) return { replies: [], degraded: ['past_replies'] }
+
   let embedding: number[] | undefined
   try {
     const [vector] = await embedTexts([queryText])
@@ -47,7 +60,9 @@ export async function findSimilarReplies(
     p_org_id: orgId,
     p_query_embedding: toPgVector(embedding),
     p_exclude_thread_id: excludeThreadId,
-    p_limit: limit,
+    // Fetch a full page: rows from other associations are discarded below,
+    // so the requested number must survive that filter.
+    p_limit: SEARCH_PAGE,
   })
 
   if (error) {
@@ -67,9 +82,26 @@ export async function findSimilarReplies(
     similarity: number
   }>
 
+  const close = rows.filter(
+    (r) => (r.body ?? '').trim().length > 0 && r.similarity >= MIN_REPLY_SIMILARITY,
+  )
+  if (close.length === 0) return { replies: [], degraded: [] }
+
+  // The search function filters by organization only, so the association
+  // boundary is applied here: keep a reply only when its thread belongs to a
+  // unit of this association. Threads with no unit are dropped.
+  const inAssociation = await threadsInAssociation(
+    db,
+    orgId,
+    associationId,
+    close.map((r) => r.thread_id),
+  )
+  if (!inAssociation) return { replies: [], degraded: ['past_replies'] }
+
   return {
-    replies: rows
-      .filter((r) => (r.body ?? '').trim().length > 0)
+    replies: close
+      .filter((r) => inAssociation.has(r.thread_id))
+      .slice(0, Math.max(limit, 1))
       .map((r) => ({
         messageId: r.message_id,
         threadId: r.thread_id,
@@ -80,4 +112,42 @@ export async function findSimilarReplies(
       })),
     degraded: [],
   }
+}
+
+/** Thread ids (of those given) whose unit belongs to the association; null on a failed read. */
+async function threadsInAssociation(
+  db: SupabaseClient<Database>,
+  orgId: string,
+  associationId: string,
+  threadIds: string[],
+): Promise<Set<string> | null> {
+  const ids = [...new Set(threadIds)]
+  const threads = await db
+    .from('inbox_threads')
+    .select('id, unit_id')
+    .eq('organization_id', orgId)
+    .in('id', ids)
+  if (threads.error) {
+    console.error(`findSimilarReplies: thread lookup failed: ${threads.error.code}`)
+    return null
+  }
+  const unitIds = [
+    ...new Set((threads.data ?? []).map((t) => t.unit_id).filter((u): u is string => !!u)),
+  ]
+  if (unitIds.length === 0) return new Set()
+
+  const units = await db
+    .from('units')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('association_id', associationId)
+    .in('id', unitIds)
+  if (units.error) {
+    console.error(`findSimilarReplies: unit lookup failed: ${units.error.code}`)
+    return null
+  }
+  const ok = new Set((units.data ?? []).map((u) => u.id))
+  return new Set(
+    (threads.data ?? []).filter((t) => t.unit_id && ok.has(t.unit_id)).map((t) => t.id),
+  )
 }

@@ -203,36 +203,58 @@ const SUPPORTED_STATES: readonly SupportedState[] = ['GA', 'FL', 'CA', 'TX']
  * here — it depends on `getSupabaseServerClient()`/cookies, but
  * `retrieveForThread` takes an explicit `db` client so it can run from a
  * service-role/background context. This mirrors `getPrimaryAssociation()`'s
- * selection (apps/hoa/src/lib/vendors.ts:79: order by name, take the first)
- * against the passed-in `db`/`orgId` instead.
+ * behaviour against the passed-in `db`/`orgId`, but resolves the thread's own
+ * association through its unit instead of guessing one for the org.
  *
  * A lookup failure or an unsupported/unset state both mean "no statute
  * grounding available for this org" — soft-degrade to null rather than
  * throwing, the same posture W1's `hasGoverningDocs` takes for its own
  * existence check.
  */
-async function resolveAssociationState(
+async function resolveThreadAssociation(
   db: SupabaseClient<Database>,
   orgId: string,
-): Promise<SupportedState | null> {
+  unitId: string | null,
+): Promise<{ associationId: string | null; state: SupportedState | null }> {
+  const none = { associationId: null, state: null }
+  if (!unitId) return none
+
+  const unit = await db
+    .from('units')
+    .select('association_id')
+    .eq('organization_id', orgId)
+    .eq('id', unitId)
+    .maybeSingle()
+  if (unit.error) {
+    console.error(
+      `retrieveForThread: thread association lookup failed: ${unit.error.code} ${unit.error.message}`,
+    )
+    return none
+  }
+  const associationId = unit.data?.association_id ?? null
+  if (!associationId) return none
+
   const { data, error } = await db
     .from('associations')
     .select('state')
     .eq('organization_id', orgId)
-    .order('name', { ascending: true })
-    .limit(1)
+    .eq('id', associationId)
     .maybeSingle()
 
   if (error) {
     console.error(
       `retrieveForThread: association state lookup failed: ${error.code} ${error.message}`,
     )
-    return null
+    return { associationId, state: null }
   }
   const state = data?.state
-  return state && (SUPPORTED_STATES as readonly string[]).includes(state)
-    ? (state as SupportedState)
-    : null
+  return {
+    associationId,
+    state:
+      state && (SUPPORTED_STATES as readonly string[]).includes(state)
+        ? (state as SupportedState)
+        : null,
+  }
 }
 
 /**
@@ -332,13 +354,13 @@ async function fetchStatuteCitations(
   db: SupabaseClient<Database>,
   orgId: string,
   question: string,
+  state: SupportedState | null,
 ): Promise<{
   citations: SourceResults['statutes']['citations']
   unavailable: boolean
   degraded: string[]
   answer: string | null
 }> {
-  const state = await resolveAssociationState(db, orgId)
   if (!state) return { citations: [], unavailable: true, degraded: [], answer: null }
 
   const out = await askStateLaw(question, state, { organizationId: orgId })
@@ -517,12 +539,20 @@ export async function retrieveForThread(
       : null,
   )
 
+  // The thread's association comes from its unit. Without one there is no
+  // safe scope for governing documents, state law or voice examples, so they
+  // are skipped and reported as missing instead of searched org-wide.
+  const { associationId, state } = await resolveThreadAssociation(db, orgId, thread.unitId)
+  const skipped = Promise.resolve(null)
+
   const [docsResult, statutesResult, propertyResult, repliesResult, accountResult, attachmentsResult] =
     await Promise.allSettled([
-      queryGoverningDocs(policyQuestion, { organizationId: orgId }),
-      fetchStatuteCitations(db, orgId, policyQuestion),
+      associationId
+        ? queryGoverningDocs(policyQuestion, { organizationId: orgId, associationId })
+        : skipped,
+      associationId ? fetchStatuteCitations(db, orgId, policyQuestion, state) : skipped,
       thread.unitId ? getPropertyContext(db, orgId, thread.unitId) : Promise.resolve(null),
-      findSimilarReplies(db, orgId, latestInbound, threadId),
+      associationId ? findSimilarReplies(db, orgId, associationId, latestInbound, threadId) : skipped,
       accountPromise,
       attachmentsPromise,
     ])
@@ -531,6 +561,8 @@ export async function retrieveForThread(
   let governingDocsContext: string | null = null
   if (docsResult.status === 'rejected') {
     console.error(`retrieveForThread: governing docs failed: ${String(docsResult.reason)}`)
+    degraded.push('governing_documents')
+  } else if (!docsResult.value) {
     degraded.push('governing_documents')
   } else {
     const out = docsResult.value
@@ -574,6 +606,8 @@ export async function retrieveForThread(
   let stateLawContext: string | null = null
   if (statutesResult.status === 'rejected') {
     console.error(`retrieveForThread: state law failed: ${String(statutesResult.reason)}`)
+    degraded.push('state_law')
+  } else if (!statutesResult.value) {
     degraded.push('state_law')
   } else {
     statutes = { citations: statutesResult.value.citations }
@@ -634,12 +668,14 @@ export async function retrieveForThread(
 
   let pastReplies: SourceResults['pastReplies'] = []
   if (repliesResult.status === 'fulfilled') {
-    pastReplies = repliesResult.value.replies.map((r) => ({
+    const found = repliesResult.value
+    if (!found) degraded.push('past_replies')
+    pastReplies = (found?.replies ?? []).map((r) => ({
       messageId: r.messageId,
       subject: r.subject,
       body: r.body,
     }))
-    degraded.push(...repliesResult.value.degraded)
+    degraded.push(...(found?.degraded ?? []))
   } else {
     console.error(`retrieveForThread: past replies failed: ${String(repliesResult.reason)}`)
     degraded.push('past_replies')
