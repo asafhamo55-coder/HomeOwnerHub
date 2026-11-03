@@ -79,11 +79,6 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     description:
       'Ask a rule question in plain English and get an answer that cites your CC&R section or the state statute, and says so when it is not covered.',
   },
-  '/compare': {
-    title: 'Compare HOA software for a self-managed board',
-    description:
-      'A fair look at HomeownerHub, PayHOA, HOA Express, Buildium, AppFolio, Vantaca and others for a volunteer board. Prices as of November 1, 2026.',
-  },
   '/demo': {
     title: 'Book a demo: 20 minutes for your board',
     description:

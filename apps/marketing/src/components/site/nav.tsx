@@ -63,7 +63,6 @@ const MORE_LINKS = [
 const links = [
   { href: '/georgia', label: 'Georgia' },
   { href: '/pricing', label: 'Pricing' },
-  { href: '/compare', label: 'Compare' },
   { href: '/about', label: 'About' },
 ]
 
