@@ -74,9 +74,9 @@ describe('autopay off-session charge on the connected account', () => {
   it('finds an attempt\'s charge by the attempt id in its metadata, not by idempotency key', async () => {
     const fake = createFakeStripeConnect()
     const port = autopayChargePort(fake)
-    expect(await port.findCharge({ stripeAccountId: 'acct_1', attemptId: 'att-1' })).toBeNull()
+    expect(await port.findCharge({ stripeAccountId: 'acct_1', customerId: 'cus_1', attemptId: 'att-1', attemptCreatedAt: '2026-11-01T13:00:00Z' })).toBeNull()
     await port.chargeOffSession(input)
-    const found = await port.findCharge({ stripeAccountId: 'acct_1', attemptId: 'att-1' })
+    const found = await port.findCharge({ stripeAccountId: 'acct_1', customerId: 'cus_1', attemptId: 'att-1', attemptCreatedAt: '2026-11-01T13:00:00Z' })
     expect(found).toMatchObject({ status: 'succeeded' })
   })
 
