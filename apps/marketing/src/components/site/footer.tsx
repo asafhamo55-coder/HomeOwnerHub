@@ -12,7 +12,6 @@ const allProduct = [
   { label: 'Eviction Hub', href: '/eviction' },
   { label: 'All features', href: '/features' },
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Compare', href: '/compare' },
   { label: 'For attorneys and CPAs', href: '/professionals' },
   { label: 'Sign in', href: SIGN_IN_URL },
 ]

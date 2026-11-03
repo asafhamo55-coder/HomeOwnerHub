@@ -146,7 +146,6 @@ describe('every page that shows an HOA price derives it from hoa-pricing', () =>
   const pages = {
     teaser: 'components/site/pricing-teaser.tsx',
     pricing: 'app/pricing/page.tsx',
-    compare: 'app/compare/page.tsx',
     roi: 'components/site/roi-calculator.tsx',
     demo: 'app/demo/page.tsx',
   }

@@ -1,5 +1,5 @@
 // HomeownerHub HOA pricing as the marketing site shows it. ONE source for /pricing,
-// the homepage pricing teaser, /compare, the ROI calculator and the demo FAQ.
+// the homepage pricing teaser, the ROI calculator and the demo FAQ.
 //
 // It mirrors what Stripe checkout charges TODAY:
 //   - packages/billing/src/pricing.ts (door count, minimum, discount, term)
@@ -14,7 +14,7 @@
 // (docs/decisions/2026-11-01-one-plan.md). Which table it is priced from is
 // ONE_PLAN_NEW_PRICES: false = the existing Essentials Prices (what checkout
 // charges today), true = the new HomeownerHub Prices. The Essentials and
-// Complete tables stay below because the /compare pages still call
+// Complete tables stay below because older callers still use
 // bandMonthlyUsd('essentials' | 'complete', ...); no page here sells Complete.
 // The flag MIRRORS packages/billing/src/pricing-flag.ts (the test fails if
 // they differ), so the site switches in the same commit as checkout — the
@@ -142,8 +142,6 @@ export interface HoaPricingView {
     headline: string
     /** The /pricing "Is there a contract?" answer. */
     contract: string
-    /** /compare "Contract term" cell. */
-    contractShort: string
     /** The /demo FAQ lead-in before `summary`. */
     model: string
   }
@@ -188,7 +186,6 @@ function legacyView(): HoaPricingView {
       metaSummary: `${perDoor} per door per month, ${minimum}. ${HOA_PRICING.ANNUAL_DISCOUNT_PCT}% off when you pay for the year.`,
       headline: 'One price per door. No tiers, no add-ons.',
       contract: `Both plans start with a ${HOA_PRICING.COMMIT_MONTHS}-month first year that can't be cancelled. From month ${HOA_PRICING.COMMIT_MONTHS + 1} you can cancel any time from Settings → Billing. The six-month pilot comes before that and never converts on its own.`,
-      contractShort: `First ${HOA_PRICING.COMMIT_MONTHS} months, after the pilot`,
       model: 'Pricing is per door with no per-feature add-ons:',
     },
     monthlyBillUsd: legacyMonthlyBillUsd,
@@ -221,7 +218,6 @@ function v2View(sold: HoaBandPlan): HoaPricingView {
       metaSummary: `One plan, everything included, from ${from} a month, by community size. ${TRIAL_DAYS}-day free trial.`,
       headline: 'One plan, everything included. Priced by the size of your community.',
       contract: `No. It is month to month and you can cancel any time from Settings → Billing. Paying for the year gets you 2 months free. Every new account starts with a ${TRIAL_DAYS}-day free trial, no card needed.`,
-      contractShort: 'Month to month',
       model: 'Pricing is one plan in size bands, with no per-feature add-ons:',
     },
     monthlyBillUsd: (doors) => bandMonthlyUsd(sold, doors),

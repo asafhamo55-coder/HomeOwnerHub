@@ -23,8 +23,11 @@ const config: NextConfig = {
   transpilePackages: ['@homeowner-portal/ui', '@homeowner-portal/observability', '@homeowner-portal/ai'],
   poweredByHeader: false,
   async redirects() {
-    // One comparison page for every competitor. PayHOA is a row on /compare.
-    return [{ source: '/compare/payhoa', destination: '/compare', permanent: true }]
+    // The comparison page is gone; inbound links land on pricing.
+    return [
+      { source: '/compare', destination: '/pricing', permanent: true },
+      { source: '/compare/:path*', destination: '/pricing', permanent: true },
+    ]
   },
   async headers() {
     return [

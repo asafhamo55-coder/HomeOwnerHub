@@ -650,7 +650,7 @@ describe('Georgia growth pages (BL-171)', () => {
 
   it('"Book a demo" is in the header and every main page closer', () => {
     expect(read('components/site/nav.tsx')).toMatch(/position="mobile_menu"[\s\S]*Book a demo/)
-    for (const rel of ['components/site/cta-closer.tsx', 'app/pricing/page.tsx', 'app/compare/page.tsx', 'app/about/page.tsx']) {
+    for (const rel of ['components/site/cta-closer.tsx', 'app/pricing/page.tsx', 'app/about/page.tsx']) {
       expect(read(rel), rel).toMatch(/Book a demo/)
     }
     expect(read('app/hoa/page.tsx')).toMatch(/'Book a demo'/)
