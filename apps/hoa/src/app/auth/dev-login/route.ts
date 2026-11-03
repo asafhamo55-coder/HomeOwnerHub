@@ -12,8 +12,13 @@ import { safeReturnPath } from '@/lib/auth-redirect'
 export async function GET(request: NextRequest) {
   // Belt and braces: even if DEV_AUTOLOGIN leaks into a production env this
   // route mints a session with the service-role key, so it must never run
-  // on Vercel production regardless of the flag.
-  if (process.env.DEV_AUTOLOGIN !== '1' || process.env.VERCEL_ENV === 'production') {
+  // on a Vercel production or preview deployment regardless of the flag.
+  const vercelEnv = process.env.VERCEL_ENV
+  if (
+    process.env.DEV_AUTOLOGIN !== '1' ||
+    vercelEnv === 'production' ||
+    vercelEnv === 'preview'
+  ) {
     return new NextResponse('Not Found', { status: 404 })
   }
 

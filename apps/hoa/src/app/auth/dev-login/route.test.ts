@@ -31,9 +31,18 @@ describe('GET /auth/dev-login', () => {
     expect(generateLink).not.toHaveBeenCalled()
   })
 
-  it('still runs in a non-production environment with the flag on', async () => {
+  it('404s on a Vercel preview even when DEV_AUTOLOGIN=1, without touching Supabase', async () => {
     vi.stubEnv('DEV_AUTOLOGIN', '1')
     vi.stubEnv('VERCEL_ENV', 'preview')
+    vi.stubEnv('DEV_AUTOLOGIN_EMAIL', 'a@example.com')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k')
+    expect((await call()).status).toBe(404)
+    expect(generateLink).not.toHaveBeenCalled()
+  })
+
+  it('still runs in local development with the flag on', async () => {
+    vi.stubEnv('DEV_AUTOLOGIN', '1')
+    vi.stubEnv('VERCEL_ENV', 'development')
     vi.stubEnv('DEV_AUTOLOGIN_EMAIL', 'a@example.com')
     vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://x.supabase.co')
     vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'k')

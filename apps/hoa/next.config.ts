@@ -10,9 +10,15 @@ import bundleAnalyzer from '@next/bundle-analyzer'
 // the domain accumulates traffic history and we're ready, we can also
 // submit hstspreload.org so Chrome/Safari hard-code HTTPS for the
 // domain at the browser level.
+//
+// 'unsafe-eval' is allowed only under `next dev` (React/webpack dev tooling
+// evaluates strings there). Production source has no eval/new Function, and
+// Stripe.js, Plaid Link, Sentry and Vercel analytics do not need it, so the
+// shipped policy omits it. The header is still report-only either way.
+const SCRIPT_EVAL = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.plaid.com https://js.stripe.com https://va.vercel-scripts.com https://vercel.live",
+  `script-src 'self' 'unsafe-inline'${SCRIPT_EVAL} https://cdn.plaid.com https://js.stripe.com https://va.vercel-scripts.com https://vercel.live`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://*.supabase.co",
   "font-src 'self' data: https://fonts.gstatic.com",
