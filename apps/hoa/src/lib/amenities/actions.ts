@@ -39,6 +39,7 @@ import {
   isRealDay,
   reservationFromRow,
   residentMustAskBoard,
+  scopeToOwnership,
   type Amenity,
 } from './model'
 import {
@@ -513,7 +514,7 @@ export async function requestReservation(input: z.input<typeof RequestSchema>): 
   const held = await loadHeldSlots(db, org.id, [amenity.id], now.toISOString())
   const mine = await loadHomeReservations(db, org.id, [unit.unit_id], now.toISOString())
   if (held === null || mine === null) return { ok: false, error: SOMETHING_WRONG }
-  const homeActiveCount = mine.filter((r) => r.amenityId === amenity.id && countsAgainstHome(r, now)).length
+  const homeActiveCount = scopeToOwnership(mine, units).filter((r) => r.amenityId === amenity.id && countsAgainstHome(r, now)).length
 
   const timeZone = unit.association_time_zone ?? DEFAULT_ASSOCIATION_TIME_ZONE
   const check = checkRequest({
@@ -610,7 +611,8 @@ export async function cancelReservation(reservationId: string, reason?: string):
   const asBoard = boardGate.ok
   if (!asBoard) {
     const units = await getResidentUnits()
-    if (!row.unitId || !units.some((u) => u.unit_id === row.unitId)) return { ok: false, error: 'That booking was not found.' }
+    // A buyer cannot see or cancel a booking the seller made before the sale.
+    if (!row.unitId || scopeToOwnership([row], units).length === 0 || !units.some((u) => u.unit_id === row.unitId)) return { ok: false, error: 'That booking was not found.' }
   } else if (row.kind === 'booking' && !note) {
     return { ok: false, error: 'Add a short reason so the resident knows why.', fieldErrors: { note: 'Add a short reason.' } }
   }

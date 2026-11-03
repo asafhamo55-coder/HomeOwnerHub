@@ -14,6 +14,7 @@ import {
   formatSlot,
   residentMustAskBoard,
   rulesSummary,
+  scopeToOwnership,
   type Reservation,
 } from '@/lib/amenities/model'
 import { loadAmenities, loadHeldSlots, loadHomeReservations, type LooseDb } from '@/lib/amenities/queries'
@@ -54,7 +55,7 @@ export default async function ResidentAmenitiesPage() {
   const units = await getResidentUnits()
   const db = createAdminClient() as unknown as LooseDb
   const now = new Date()
-  const [allAmenities, mine] = await Promise.all([
+  const [allAmenities, allMine] = await Promise.all([
     loadAmenities(db, org.id, { activeOnly: true }),
     loadHomeReservations(
       db,
@@ -63,7 +64,7 @@ export default async function ResidentAmenitiesPage() {
       new Date(now.getTime() - 30 * 86_400_000).toISOString(),
     ),
   ])
-  if (allAmenities === null || mine === null) {
+  if (allAmenities === null || allMine === null) {
     return (
       <div className="space-y-6">
         {header}
@@ -72,6 +73,7 @@ export default async function ResidentAmenitiesPage() {
     )
   }
 
+  const mine = scopeToOwnership(allMine, units)
   const associationIds = new Set(units.map((u) => u.association_id))
   const amenities = allAmenities.filter((a) => associationIds.has(a.associationId) && !a.retiredAt)
   const held = await loadHeldSlots(db, org.id, amenities.map((a) => a.id), now.toISOString())

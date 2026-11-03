@@ -43,7 +43,7 @@ export async function emailResidentOfAnswer(args: {
   try {
     if (!args.residentId) return 'skipped'
     const db: Db = createAdminClient()
-    const [profile, pref, assoc, consent] = await Promise.all([
+    const [profile, pref, assoc, consent, member] = await Promise.all([
       db.from('profiles').select('email').eq('id', args.residentId).maybeSingle(),
       db
         .from('resident_communication_preferences')
@@ -53,11 +53,14 @@ export async function emailResidentOfAnswer(args: {
         .maybeSingle(),
       db.from('associations').select('state').eq('id', args.associationId).eq('organization_id', args.organizationId).maybeSingle(),
       loadEmailConsent(db, args.organizationId),
+      db.from('org_members').select('user_id').eq('org_id', args.organizationId).eq('user_id', args.residentId).maybeSingle(),
     ])
-    if (profile.error || pref.error || assoc.error || !consent.ok) {
+    if (profile.error || pref.error || assoc.error || member.error || !consent.ok) {
       console.error('[amenities] notice lookup failed', { reservationId: args.reservationId })
       return 'failed'
     }
+    // Someone who has left the community (a sold home) is not written to.
+    if (!member.data) return 'skipped'
     const to = (profile.data as { email: string | null } | null)?.email?.trim()
     if (!to) return 'skipped'
     const allowed = mayEmailMember({
