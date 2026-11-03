@@ -25,6 +25,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { M7_APPLIED } from '@homeowner-portal/db/m7'
+import { assertPeriodOpen } from '@homeowner-portal/db'
 import { loadInstallments } from '@homeowner-portal/workflows/payment-plans'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { booksNotOpen, isBooksNotOpen, type BooksNotOpenFailure } from '@/lib/accounting/books-not-open'
@@ -336,6 +337,10 @@ async function recordViaRpc(args: {
   // The books must be open; the same answer markAssessmentPaid gives.
   const { loadAccountingRefs } = await import('@homeowner-portal/db')
   if (!(await loadAccountingRefs(supabase, home.associationId))) return booksNotOpen(gate.role)
+
+  // Closed-period guard: the payment date can be backdated, so check it.
+  const openPaid = await assertPeriodOpen(supabase, { associationId: home.associationId, date: paidOn })
+  if (!openPaid.ok) return { ok: false, error: openPaid.error }
 
   const parts: Array<Record<string, unknown>> = preview.lines.map((l) => ({ assessment_id: l.chargeId, cents: l.appliedCents }))
   if (preview.unappliedCents > 0) parts.push({ kind: 'credit', cents: preview.unappliedCents })

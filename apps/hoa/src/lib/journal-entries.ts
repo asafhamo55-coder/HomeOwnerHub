@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -72,6 +72,14 @@ export async function reverseJournalEntry(input: {
   if (original.reversed_by_id) {
     return { ok: false, error: 'This entry has already been reversed.' }
   }
+
+  // A reversal edits the original: refuse when the original sits in a closed period.
+  const open = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: original.entry_date,
+    fiscalPeriodId: original.fiscal_period_id,
+  })
+  if (!open.ok) return { ok: false, error: open.error }
 
   type LineShape = {
     account_id: string

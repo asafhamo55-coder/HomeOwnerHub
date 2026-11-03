@@ -27,7 +27,7 @@
  * No PII: errors carry ids and counts only.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, postJournalEntry } from '@homeowner-portal/db'
 import type { Database } from '@homeowner-portal/db/types'
 import { planLedger, REPLACED_STATUS, REPLACEABLE_STATUSES, type PlanCharge, type PlanLedgerRefs, type PlanLine } from './ledger'
 
@@ -219,6 +219,16 @@ export function supabasePlanStore(db: SupabaseClient<Database>, ctx: PlanStoreCo
       return data.id
     },
     async claimCharge(chargeId, fromStatus) {
+      // Closed-period guard: replacing a charge edits it. Throwing rolls the plan back.
+      const { data: due, error: dueErr } = await db
+        .from('assessments')
+        .select('due_date')
+        .eq('id', chargeId)
+        .eq('association_id', ctx.associationId)
+        .maybeSingle()
+      if (dueErr || !due) throw fail('charge read failed', dueErr)
+      const open = await assertPeriodOpen(db, { associationId: ctx.associationId, date: due.due_date })
+      if (!open.ok) throw new Error(open.error)
       const { data, error } = await db
         .from('assessments')
         .update({ status: REPLACED_STATUS })
@@ -240,6 +250,8 @@ export function supabasePlanStore(db: SupabaseClient<Database>, ctx: PlanStoreCo
       if (error) throw fail('charge re-open failed', error)
     },
     async insertInstallment(row) {
+      const open = await assertPeriodOpen(db, { associationId: ctx.associationId, date: row.dueDate })
+      if (!open.ok) throw new Error(open.error)
       const { data, error } = await db
         .from('assessments')
         .insert({

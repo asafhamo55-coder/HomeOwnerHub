@@ -9,6 +9,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
+import { assertPeriodOpen } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -265,6 +266,13 @@ export async function updateRecurringEntry(input: {
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, error: 'Check the highlighted fields.', fieldErrors }
   }
+
+  // The next run (and the new template) can't be dated inside a closed period.
+  const open = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: value.nextRunDate,
+  })
+  if (!open.ok) return { ok: false, error: open.error }
 
   const memo = value.memo.trim()
   const beforeLines: (EditLine & { memo: string | null })[] = sortLines(

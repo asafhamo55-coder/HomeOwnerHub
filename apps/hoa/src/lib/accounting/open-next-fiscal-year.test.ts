@@ -23,6 +23,7 @@ vi.mock('@/lib/orgs', () => ({ getCurrentOrg: async () => ({ id: 'org-1', name: 
 vi.mock('@/lib/primary-association', () => ({ getPrimaryAssociationResult: async () => ({ ok: true, data: h.assoc, count: null }) }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@homeowner-portal/db', () => ({
+  assertPeriodOpen: async () => ({ ok: true }),
   loadAccountingRefs: async () => ({ acctAR: 'ar', acctAssessmentIncome: 'inc', fundOperating: 'op' }),
   postJournalEntry: vi.fn(async (_db: unknown, v: { fiscalPeriodId: string; entryDate: string }) => {
     h.posted.push({ fiscalPeriodId: v.fiscalPeriodId, entryDate: v.entryDate })

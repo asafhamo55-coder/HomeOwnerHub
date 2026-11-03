@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, loadAccountingRefs, postJournalEntry } from '@homeowner-portal/db'
 import { memoCodeFor } from '@homeowner-portal/workflows'
 import { addMonthsClamped } from '@homeowner-portal/workflows/payment-plans/schedule'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -135,6 +135,14 @@ export async function materializeCurrentPeriodAssessments(input: {
   // Pick a due date — first day of the period's month grouping doesn't
   // generalize; default to the 15th of the period's start month.
   const dueDate = materializeDueDate(period.start_date)
+
+  // Closed-period guard: no dues dated inside a closed period.
+  const openDue = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: dueDate,
+    fiscalPeriodId: period.id,
+  })
+  if (!openDue.ok) return { ok: false, error: openDue.error }
 
   // One assessment + one JE per unit. Sequential — the entry_number
   // generator queries max+1 each time and would race itself otherwise.
@@ -445,6 +453,16 @@ export async function createDues(
   // Build due dates from frequency.
   const dueDates = generateDueDates(parsed.data.firstDueDate, parsed.data.frequency)
 
+  // Closed-period guard: no assessment may be due inside a closed period.
+  for (const due of dueDates) {
+    const openDue = await assertPeriodOpen(supabase, {
+      associationId: assoc.id,
+      date: due,
+      fiscalPeriodId: period.id,
+    })
+    if (!openDue.ok) return { ok: false, error: openDue.error }
+  }
+
   // Generate one assessment + JE per (unit × dueDate).
   let created = 0
   for (const u of units) {
@@ -588,11 +606,19 @@ export async function deleteAssessment(
   const supabase = await getSupabaseServerClient()
   const { data: assessment } = await supabase
     .from('assessments')
-    .select('id, status')
+    .select('id, status, due_date, fiscal_period_id')
     .eq('id', assessmentId)
     .eq('association_id', assoc.id)
     .single()
   if (!assessment) return { ok: false, error: 'Assessment not found.' }
+
+  // Voiding a bill dated inside a closed period would change closed books.
+  const openDel = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: assessment.due_date,
+    fiscalPeriodId: assessment.fiscal_period_id,
+  })
+  if (!openDel.ok) return { ok: false, error: openDel.error }
 
   if (assessment.status === 'paid') {
     return { ok: false, error: 'Cannot delete a paid assessment. Reverse the payment first.' }
@@ -698,6 +724,13 @@ export async function markAssessmentPaid(input: {
   }
   const newStatus = paidBeforeCents + payCents >= totalCents ? 'paid' : 'partial'
   const paidAt = new Date().toISOString()
+
+  // Closed-period guard before any row is written (the payment is dated today).
+  const openPay = await assertPeriodOpen(supabase, {
+    associationId: assoc.id,
+    date: todayIn(assoc.timeZone, new Date(paidAt)),
+  })
+  if (!openPay.ok) return { ok: false, error: openPay.error }
 
   // Payments row first — JE will link back via update.
   const paymentInsert: PaymentInsert = {

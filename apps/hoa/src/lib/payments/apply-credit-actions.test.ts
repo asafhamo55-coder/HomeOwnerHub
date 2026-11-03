@@ -34,7 +34,8 @@ vi.mock('@/lib/supabase/server', () => ({
     },
     from() {
       const q: Record<string, unknown> = {}
-      for (const m of ['select', 'eq']) q[m] = () => q
+      for (const m of ['select', 'eq', 'lte', 'gte', 'or']) q[m] = () => q
+      q.limit = async () => ({ data: [], error: null })
       q.maybeSingle = async () => ({ data: { unit_id: 'unit-1' }, error: null })
       return q
     },

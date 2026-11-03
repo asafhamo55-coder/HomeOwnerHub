@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, CLOSED_PERIOD_MESSAGE, postJournalEntry } from '@homeowner-portal/db'
 import { dueRulesForAssociationDay, LATEST_TODAY_ZONE, runRecurringJes } from './recurring-jes'
 
 vi.mock('@homeowner-portal/db', async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   postJournalEntry: vi.fn(async () => ({ ok: true, journalEntryId: 'je-new' })),
+  assertPeriodOpen: vi.fn(async (): Promise<{ ok: true } | { ok: false; error: string }> => ({ ok: true })),
 }))
 vi.mock('./fiscal-periods', () => ({
   readCurrentOpenPeriod: vi.fn(async () => ({ data: { id: 'fp-1' }, error: null })),
@@ -155,5 +156,29 @@ describe('runRecurringJes template scoping', () => {
     expect(r.posted).toBe(0)
     expect(r.failed).toBe(1)
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('outside'))
+  })
+})
+
+describe('runRecurringJes closed-period guard', () => {
+  it('skips (does not fail or throw) a rule whose day is in a closed period, and posts nothing', async () => {
+    vi.mocked(postJournalEntry).mockClear()
+    vi.mocked(assertPeriodOpen).mockResolvedValueOnce({ ok: false, error: CLOSED_PERIOD_MESSAGE })
+    const { db } = recurringDb(goodTemplate)
+    const logger = { warn: vi.fn(), error: vi.fn() }
+    const r = await runRecurringJes(db, step, logger, NOW15)
+    expect(postJournalEntry).not.toHaveBeenCalled()
+    expect(r.posted).toBe(0)
+    expect(r.skipped).toBe(1)
+    expect(r.failed).toBe(0)
+  })
+
+  it('reports a failure (not a pass) when the period lookup fails', async () => {
+    vi.mocked(postJournalEntry).mockClear()
+    vi.mocked(assertPeriodOpen).mockResolvedValueOnce({ ok: false, error: 'lookup failed' })
+    const { db } = recurringDb(goodTemplate)
+    const logger = { warn: vi.fn(), error: vi.fn() }
+    const r = await runRecurringJes(db, step, logger, NOW15)
+    expect(postJournalEntry).not.toHaveBeenCalled()
+    expect(r.failed).toBe(1)
   })
 })

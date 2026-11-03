@@ -1,4 +1,4 @@
-import { createAdminClient, postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, CLOSED_PERIOD_MESSAGE, createAdminClient, postJournalEntry } from '@homeowner-portal/db'
 import { inngest } from './client'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone, todayIn, type AssociationZoneSource } from './association-time'
 import { readCurrentOpenPeriod } from './fiscal-periods'
@@ -221,6 +221,16 @@ export async function runRecurringJes(
       if (!period) {
         logger.warn(`[recurring-jes] rule ${rule.id}: no open period`)
         return { posted: 0, skipped: 1, failed: 0 } satisfies RuleStepResult
+      }
+
+      // Closed-period guard: a closed period skips this rule and reports; the
+      // rest of the batch still runs. A failed lookup fails closed as a failure.
+      const open = await assertPeriodOpen(db, { associationId: rule.association_id, date: today })
+      if (!open.ok) {
+        logger.warn(`[recurring-jes] rule ${rule.id}: ${open.error === CLOSED_PERIOD_MESSAGE ? 'today is in a closed period' : 'period check failed'}`)
+        return open.error === CLOSED_PERIOD_MESSAGE
+          ? ({ posted: 0, skipped: 1, failed: 0 } satisfies RuleStepResult)
+          : ({ posted: 0, skipped: 0, failed: 1 } satisfies RuleStepResult)
       }
 
       type LineShape = {
