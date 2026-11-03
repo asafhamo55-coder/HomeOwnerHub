@@ -23,7 +23,7 @@ import {
   fetchResidentDocumentFile,
   fetchResidentDocuments,
 } from '../../../apps/hoa/src/lib/resident-documents/query'
-import { adminDb, makeOrg, mintUser, type OrgFixture, type TestUser } from '../fixtures/factory'
+import { adminDb, makeOrg, makeUnit, mintUser, type OrgFixture, type TestUser } from '../fixtures/factory'
 import { truncateAll } from '../fixtures/truncate'
 
 interface Seeded {
@@ -47,6 +47,12 @@ async function seed(): Promise<Seeded> {
   const board = await mintUser(org, 'board')
   const resident = await mintUser(org, 'resident')
   const db = adminDb()
+  // The resident lives in the association (0081 scopes association documents to residents of it).
+  const unit = await makeUnit(org)
+  const own = await db
+    .from('ownerships')
+    .insert({ organization_id: org.orgId, unit_id: unit, owner_user_id: resident.id, valid_from: '2024-01-01' })
+  if (own.error) throw new Error(`seed ownership: ${own.error.code}`)
 
   const bylawsPath = `${org.orgId}/bylaws-${Date.now()}.txt`
   const up = await board.client.storage.from('hoa-documents').upload(bylawsPath, new Blob(['bylaws']), { upsert: true })
