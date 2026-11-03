@@ -271,6 +271,7 @@ export async function markInvoicePaid(input: {
     .select('id, organization_id, association_id, amount, status, invoice_date')
     .eq('id', value.invoiceId)
     .eq('association_id', assoc.id)
+    .is('deleted_at', null)
     .single()
   if (iErr) return accountingActionFailed('recordPayment.read', iErr)
   if (!invoice) return { ok: false, error: 'Invoice not found.' }
@@ -289,6 +290,23 @@ export async function markInvoicePaid(input: {
   // next year, opened early, waits for its first day.
   const { data: period } = await readCurrentOpenPeriod(supabase, assoc.id, todayIn(assoc.timeZone))
   if (!period) return booksNotOpen(gate.role)
+
+  // Claim the invoice first: a conditional update on the status we just read.
+  // Of two payments at once only one matches; the other is refused before it
+  // writes a payment row.
+  const { data: claimed, error: claimErr } = await supabase
+    .from('invoices')
+    .update({ status: 'paid' })
+    .eq('id', invoice.id)
+    .eq('status', invoice.status)
+    .is('deleted_at', null)
+    .select('id')
+  if (claimErr) return accountingActionFailed('recordPayment.claim', claimErr)
+  if (!claimed || claimed.length === 0) {
+    return { ok: false, error: 'invoice already paid' }
+  }
+  const releaseClaim = () =>
+    supabase.from('invoices').update({ status: invoice.status }).eq('id', invoice.id).eq('status', 'paid')
 
   // Noon UTC: the same calendar day in every US zone; default is the
   // association's today, not the UTC day (BL-043).
@@ -311,7 +329,10 @@ export async function markInvoicePaid(input: {
     .insert(paymentPayload)
     .select('id')
     .single()
-  if (pErr || !payment) return accountingActionFailed('recordPayment.insert', pErr)
+  if (pErr || !payment) {
+    await releaseClaim()
+    return accountingActionFailed('recordPayment.insert', pErr)
+  }
 
   const je = await postJournalEntry(supabase, {
     organizationId: invoice.organization_id,
@@ -339,19 +360,14 @@ export async function markInvoicePaid(input: {
 
   if (!je.ok) {
     await supabase.from('payments').delete().eq('id', payment.id)
+    await releaseClaim()
     return { ok: false, error: `JE failed: ${je.error}` }
   }
 
-  await Promise.all([
-    supabase
-      .from('payments')
-      .update({ journal_entry_id: je.journalEntryId })
-      .eq('id', payment.id),
-    supabase
-      .from('invoices')
-      .update({ status: 'paid' })
-      .eq('id', invoice.id),
-  ])
+  await supabase
+    .from('payments')
+    .update({ journal_entry_id: je.journalEntryId })
+    .eq('id', payment.id)
 
   revalidatePath('/accounting/invoices')
   revalidatePath(`/accounting/invoices/${invoice.id}`)

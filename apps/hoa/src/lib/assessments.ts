@@ -623,6 +623,16 @@ const MarkPaidSchema = z.object({
   externalRef: z.string().max(120).optional(),
 })
 
+/** Sum of payments on an assessment in cents, or null if unreadable. */
+async function sumPaymentCents(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  assessmentId: string,
+): Promise<number | null> {
+  const { data, error } = await supabase.from('payments').select('amount').eq('assessment_id', assessmentId)
+  if (error) return null
+  return (data ?? []).reduce((s: number, p: { amount: number | string }) => s + Math.round(Number(p.amount) * 100), 0)
+}
+
 /**
  * Record a payment against an assessment. Posts the cash-receipt JE
  * (Dr Cash / Cr AR) and links it back to the payments row. The
@@ -659,6 +669,7 @@ export async function markAssessmentPaid(input: {
     .select('id, organization_id, association_id, unit_id, fiscal_period_id, amount, status')
     .eq('id', parsed.data.assessmentId)
     .eq('association_id', assoc.id)
+    .is('deleted_at', null)
     .single()
   if (aerr || !assessment) {
     return { ok: false, error: aerr?.message ?? 'assessment not found' }
@@ -672,8 +683,20 @@ export async function markAssessmentPaid(input: {
     return booksNotOpen(gate.role)
   }
 
-  const amountToPay = parsed.data.amountPaid ?? Number(assessment.amount)
-  const newStatus = amountToPay >= Number(assessment.amount) ? 'paid' : 'partial'
+  // What is already paid, in cents. The amount to record is capped at what
+  // is still owed, and the status follows the running total, not this one
+  // payment (paying the remaining balance closes the charge).
+  const totalCents = Math.round(Number(assessment.amount) * 100)
+  const paidBeforeCents = await sumPaymentCents(supabase, assessment.id)
+  if (paidBeforeCents === null) return { ok: false, error: 'Couldn’t read the payments on this charge.' }
+  const balanceCents = totalCents - paidBeforeCents
+  if (balanceCents <= 0) return { ok: false, error: 'assessment already paid' }
+  const amountToPay = parsed.data.amountPaid ?? balanceCents / 100
+  const payCents = Math.round(amountToPay * 100)
+  if (payCents > balanceCents) {
+    return { ok: false, error: `That is more than the balance of ${(balanceCents / 100).toFixed(2)}.` }
+  }
+  const newStatus = paidBeforeCents + payCents >= totalCents ? 'paid' : 'partial'
   const paidAt = new Date().toISOString()
 
   // Payments row first — JE will link back via update.
@@ -693,6 +716,19 @@ export async function markAssessmentPaid(input: {
     .single()
   if (perr || !payment) {
     return { ok: false, error: `payment insert: ${perr?.message}` }
+  }
+
+  // Two payments recorded at once can each pass the check above. Re-read the
+  // total now that ours is in; if it overshoots, take ours back.
+  const afterCents = await sumPaymentCents(supabase, assessment.id)
+  if (afterCents === null || afterCents > totalCents) {
+    await supabase.from('payments').delete().eq('id', payment.id)
+    return {
+      ok: false,
+      error: afterCents === null
+        ? 'Couldn’t confirm the payment. Nothing was recorded.'
+        : 'This charge was just paid by someone else. Nothing was recorded.',
+    }
   }
 
   const je = await postJournalEntry(supabase, {
@@ -735,6 +771,7 @@ export async function markAssessmentPaid(input: {
     .from('assessments')
     .update({ status: newStatus })
     .eq('id', assessment.id)
+    .in('status', ['open', 'partial'])
 
   // BL-080: this payment may have paid off the unit's payment plan.
   const completed = await completePlansAfterPayment(supabase, {
