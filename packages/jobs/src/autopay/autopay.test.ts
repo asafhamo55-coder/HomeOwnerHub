@@ -88,6 +88,8 @@ function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Reco
   const claims = new Set<string>()
   const noticedMap = new Map(Object.entries(noticed))
   let canceled = false
+  const updates: Array<{ id: string; status: string; paymentIntentId?: string | null; failureCode?: string | null }> = []
+  const orphans = new Map<string, { key: string; attempt: { id: string; totalCents: number; applicationFeeCents: number; idempotencyKey: string } }>()
   const store: AutopayStore = {
     listActive: async () => [e],
     openCharges: async () => charges,
@@ -108,9 +110,18 @@ function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Reco
       if (live.has(key)) return null
       live.add(key)
       attempts.push(a)
-      return { id: `att-${attempts.length}` }
+      const id = `att-${attempts.length}`
+      orphans.set(id, { key, attempt: { id, totalCents: a.totalCents, applicationFeeCents: a.applicationFeeCents, idempotencyKey: a.idempotencyKey } })
+      return { id }
     },
-    updateAttempt: async () => {},
+    updateAttempt: async (id, patch) => {
+      updates.push({ id, ...patch })
+      if (patch.paymentIntentId || patch.status === 'failed') orphans.delete(id)
+    },
+    findOrphanAttempt: async (id, p) => {
+      for (const o of orphans.values()) if (o.key === `${id}:${p}`) return o.attempt
+      return null
+    },
     setFailures: async (_id, n, paused) => {
       failures.push([n, paused])
     },
@@ -123,18 +134,18 @@ function fakeStore(e: AutopayEnrollment, charges: AutopayCharge[], noticed: Reco
       audits.push(a)
     },
   }
-  return { store, attempts, failures, audits, isCanceled: () => canceled }
+  return { store, attempts, updates, failures, audits, isCanceled: () => canceled }
 }
 
 function deps(outcome: ChargeOutcome | (() => ChargeOutcome), feeCharged = 0) {
   const charge = vi.fn(async () => (typeof outcome === 'function' ? outcome() : outcome))
   const port: AutopayChargePort = { chargeOffSession: charge as never }
-  const sent: Array<{ to: string; subject: string }> = []
+  const sent: Array<{ to: string; subject: string; text: string }> = []
   const d: AutopayDeps = {
     charger: () => port,
     quote: async () => ({ feeCents: feeCharged, feeChargedCents: feeCharged, applicationFeeCents: 0, allocationMode: 'oldest_first' }),
     sendEmail: async (i) => {
-      sent.push({ to: i.to, subject: i.subject })
+      sent.push({ to: i.to, subject: i.subject, text: i.text })
       return { ok: true }
     },
     appUrl: (p) => `https://app.test${p}`,
@@ -207,6 +218,43 @@ describe('runAutopay', () => {
     const r = await runAutopay(f.store, x.d, { m8Applied: true, logger: quiet })
     expect(r.failed).toBe(1)
     expect(r.errors).toBe(0)
+  })
+
+  it('GAP 2: a timeout (no Stripe verdict) leaves the attempt recoverable and counts no failure', async () => {
+    const f = fakeStore(enrollment(), [reg('a', TODAY, 25000)], { a: 25000 })
+    const x = deps(() => {
+      throw new Error('socket hang up')
+    })
+    const r = await runAutopay(f.store, x.d, { m8Applied: true, logger: quiet })
+    expect(r.failed).toBe(0)
+    expect(r.errors).toBe(1)
+    expect(f.failures).toEqual([])
+    expect(f.updates.some((u) => u.status === 'failed')).toBe(false)
+  })
+
+  it('GAP 2: the next run retries the orphaned attempt with the SAME idempotency key and records the intent', async () => {
+    const f = fakeStore(enrollment(), [reg('a', TODAY, 25000)], { a: 25000 })
+    let calls = 0
+    const x = deps(() => {
+      calls += 1
+      if (calls === 1) throw new Error('socket hang up')
+      return { status: 'succeeded', paymentIntentId: 'pi_9' }
+    })
+    await runAutopay(f.store, x.d, { m8Applied: true, logger: quiet })
+    const r2 = await runAutopay(f.store, x.d, { m8Applied: true, logger: quiet })
+    expect(r2.charged).toBe(1)
+    expect(f.attempts).toHaveLength(1) // no second attempt row
+    const keys = x.charge.mock.calls.map((c) => (c as unknown as [{ idempotencyKey: string }])[0].idempotencyKey)
+    expect(keys).toEqual([`autopay:enr-1:${TODAY}`, `autopay:enr-1:${TODAY}`])
+    expect(f.updates.at(-1)).toMatchObject({ id: 'att-1', status: 'succeeded', paymentIntentId: 'pi_9' })
+  })
+
+  it('GAP 4: the notice names the EARLIEST due date, not the latest', async () => {
+    const f = fakeStore(enrollment(), [reg('a', '2026-12-03', 100), reg('b', '2026-12-02', 200)])
+    const x = deps({ status: 'succeeded', paymentIntentId: 'pi_1' })
+    await runAutopay(f.store, x.d, { m8Applied: true, logger: quiet })
+    expect(x.sent).toHaveLength(1)
+    expect(x.sent[0]!.subject + x.sent[0]!.text).toContain('December 2, 2026')
   })
 
   it('cancels when the owner no longer owns the home, and charges nothing', async () => {

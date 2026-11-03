@@ -232,6 +232,21 @@ export function createAutopayStore(db: Db, cap = 2000): AutopayStore {
       return Array.isArray(data) && data.length > 0
     },
 
+    async findOrphanAttempt(enrollmentId, period) {
+      const { data, error } = await db
+        .from('online_payments')
+        .select('id, total_cents, application_fee_cents, idempotency_key')
+        .eq('autopay_enrollment_id', enrollmentId)
+        .eq('autopay_period', period)
+        .eq('status', 'created')
+        .is('stripe_payment_intent_id', null)
+        .limit(1)
+      if (error) fail('orphan_read', error)
+      const row = (data as Array<{ id: string; total_cents: number; application_fee_cents: number; idempotency_key: string }> | null)?.[0]
+      if (!row) return null
+      return { id: row.id, totalCents: row.total_cents, applicationFeeCents: row.application_fee_cents, idempotencyKey: row.idempotency_key }
+    },
+
     async createAttempt(e, a: AttemptInput) {
       const { data, error } = await db
         .from('online_payments')
