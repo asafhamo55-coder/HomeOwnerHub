@@ -217,12 +217,99 @@ describe('board refund', () => {
     expect(b.g.createRefund).not.toHaveBeenCalled()
   })
 
+  it('GAP 3: a refund Stripe reports as failed or canceled never reaches the ledger, and the next try uses a fresh key', async () => {
+    for (const status of ['failed', 'canceled']) {
+      const d = make(base)
+      const g = { createRefund: vi.fn(async () => ({ id: 're_bad', status })) }
+      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId: 'req-1' })
+      expect(res).toMatchObject({ ok: false, rotateRequest: true })
+      expect(d.store.reverse).not.toHaveBeenCalled()
+      expect(d.notifier.resident).not.toHaveBeenCalled()
+    }
+  })
+
+  it('MEDIUM: the refund key differs per user attempt but a double click (same request) dedupes', async () => {
+    const keys: string[] = []
+    const run = (requestId: string) => {
+      const g = { createRefund: vi.fn(async (i: { idempotencyKey: string }) => (keys.push(i.idempotencyKey), { id: 're_1', status: 'succeeded' })) }
+      return runBoardRefund(make(base).deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId })
+    }
+    await run('req-1')
+    await run('req-1')
+    await run('req-2')
+    expect(keys[0]).toBe(keys[1])
+    expect(keys[2]).not.toBe(keys[0])
+  })
+
+  it('MEDIUM: requires_action is not "nothing changed": no reversal yet, flagged as waiting on Stripe', async () => {
+    const d = make(base)
+    const noteRefundPending = vi.fn(async () => {})
+    d.deps.store.noteRefundPending = noteRefundPending
+    const g = { createRefund: vi.fn(async () => ({ id: 're_wait', status: 'requires_action' })) }
+    const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId: 'r' })
+    expect(d.store.reverse).not.toHaveBeenCalled()
+    expect(noteRefundPending).toHaveBeenCalledWith(expect.objectContaining({ attemptId: 'att-1', ref: 're_wait', cents: 25000 }))
+    expect(res).toMatchObject({ ok: false, rotateRequest: false })
+    if (!res.ok) {
+      expect(res.error).toMatch(/waiting on Stripe/i)
+      expect(res.error).not.toMatch(/nothing was changed/i)
+    }
+  })
+
+  it('GAP 3: a pending or succeeded refund is reversed after Stripe accepted it, never before', async () => {
+    for (const status of ['pending', 'succeeded']) {
+      const order: string[] = []
+      const d = make(base, { reverse: async () => (order.push('reverse'), ok()) })
+      const g = { createRefund: vi.fn(async () => (order.push('refund'), { id: 're_ok', status })) }
+      const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1', requestId: 'r' })
+      expect(res.ok).toBe(true)
+      expect(order).toEqual(['refund', 'reverse'])
+    }
+  })
+
   it('a Stripe failure changes nothing', async () => {
     const d = make(base)
     const g = { createRefund: vi.fn(async () => { throw new Error('x') }) }
     const res = await runBoardRefund(d.deps, g, { attempt: base, paymentIntentId: 'pi_1', cents: null, userId: 'u1' })
     expect(res.ok).toBe(false)
     expect(d.store.reverse).not.toHaveBeenCalled()
+  })
+})
+
+describe('a refund that completes later (refund.updated / charge.refund.updated)', () => {
+  const refundObj = (status: string, over: Record<string, unknown> = {}) => ({ id: 're_wait', object: 'refund', status, amount: 25000, charge: 'ch_1', payment_intent: 'pi_1', ...over })
+
+  for (const type of ['refund.updated', 'charge.refund.updated']) {
+    it(`${type} to succeeded applies the reversal`, async () => {
+      const { deps, store } = make(base)
+      const r = await handleReversalEvent(ev(type, refundObj('succeeded')), deps)
+      expect(r.outcome).toBe('applied')
+      expect(store.reverse).toHaveBeenCalledWith(expect.objectContaining({ kind: 'refund', ref: 're_wait', cents: 25000 }))
+    })
+    it(`${type} that is not a success changes nothing`, async () => {
+      for (const status of ['pending', 'requires_action', 'failed', 'canceled']) {
+        const { deps, store } = make(base)
+        const r = await handleReversalEvent(ev(type, refundObj(status)), deps)
+        expect(r.outcome).toBe('ignored')
+        expect(store.reverse).not.toHaveBeenCalled()
+      }
+    })
+  }
+
+  it('is idempotent per refund id across both events: the second sees alreadyApplied and notifies nobody', async () => {
+    const { deps, store } = make(base, { reverse: vi.fn().mockResolvedValueOnce(ok()).mockResolvedValueOnce(ok({ alreadyApplied: true })) as never })
+    await handleReversalEvent(ev('refund.updated', refundObj('succeeded')), deps)
+    const r2 = await handleReversalEvent(ev('charge.refunded', { id: 'ch_1', payment_intent: 'pi_1', amount_refunded: 25000, refunds: { data: [{ id: 're_wait', amount: 25000, status: 'succeeded' }] } }), deps)
+    expect((store.reverse as unknown as { mock: { calls: Array<[{ ref: string }]> } }).mock.calls.map((c) => c[0].ref)).toEqual(['re_wait', 're_wait'])
+    expect(r2.outcome).toBe('already_applied')
+    expect(deps.notifier.resident).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an event from another connected account', async () => {
+    const { deps, store } = make(base)
+    const r = await handleReversalEvent(ev('refund.updated', refundObj('succeeded'), { account: 'acct_other' }), deps)
+    expect(r.outcome).toBe('rejected_account')
+    expect(store.reverse).not.toHaveBeenCalled()
   })
 })
 

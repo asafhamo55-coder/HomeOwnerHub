@@ -18,6 +18,8 @@ const Schema = z.object({
   paymentId: z.string().uuid(),
   /** Cents of dues to give back; omit for the whole payment. */
   cents: z.number().int().positive().max(100_000_000).optional(),
+  /** Minted once per board-member intent; see runBoardRefund. */
+  requestId: z.string().uuid().optional(),
 })
 
 function stripeGateway(): RefundGateway {
@@ -33,12 +35,12 @@ function stripeGateway(): RefundGateway {
         refundApplicationFee: i.refundApplicationFee,
         idempotencyKey: i.idempotencyKey,
       })
-      return { id: r.id }
+      return { id: r.id, status: r.status }
     },
   }
 }
 
-export async function refundOnlinePayment(input: { paymentId: string; cents?: number }): Promise<RefundResult> {
+export async function refundOnlinePayment(input: { paymentId: string; cents?: number; requestId?: string }): Promise<RefundResult> {
   if (!M8_APPLIED) return { ok: false, error: 'Online payments aren’t available yet.' }
   const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
   if (!gate.ok) return { ok: false, error: gate.error }
@@ -72,6 +74,7 @@ export async function refundOnlinePayment(input: { paymentId: string; cents?: nu
     attempt,
     paymentIntentId: row.stripe_payment_intent_id,
     cents: parsed.data.cents ?? null,
+    requestId: parsed.data.requestId,
     userId: auth.user.id,
   })
   if (result.ok) {

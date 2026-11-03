@@ -85,6 +85,8 @@ describe('registration', () => {
       'payment_intent.payment_failed',
       'payment_intent.canceled',
       'charge.refunded',
+      'refund.updated',
+      'charge.refund.updated',
       'charge.dispute.created',
       'charge.dispute.closed',
       'payout.paid',

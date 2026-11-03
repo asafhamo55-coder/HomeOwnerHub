@@ -15,6 +15,7 @@ import type { AttemptInput, AutopayEnrollment, AutopayStore } from './run'
 type Db = { from: (table: string) => any }
 
 export const AUTOPAY_NOTICE_AUDIT = 'autopay.notice'
+export const AUTOPAY_ORPHAN_AUDIT = 'autopay.orphan_notice'
 export const AUTOPAY_OVER_MAX_AUDIT = 'autopay.over_max_notice'
 /** Notices older than this no longer count as "named"; a charge unpaid that long is noticed again. */
 const NOTICE_LOOKBACK_DAYS = 90
@@ -199,7 +200,7 @@ export function createAutopayStore(db: Db, cap = 2000): AutopayStore {
     },
 
     async claim(kind, e, period) {
-      const action = AUTOPAY_OVER_MAX_AUDIT
+      const action = kind === 'orphan' ? AUTOPAY_ORPHAN_AUDIT : AUTOPAY_OVER_MAX_AUDIT
       const { data, error } = await db
         .from('audit_log')
         .select('id')
@@ -230,6 +231,29 @@ export function createAutopayStore(db: Db, cap = 2000): AutopayStore {
         .limit(1)
       if (error) fail('attempt_read', error)
       return Array.isArray(data) && data.length > 0
+    },
+
+    async findOrphanAttempts(enrollmentId) {
+      // No age cutoff: an unresolved attempt blocks new charges however old it is.
+      const { data, error } = await db
+        .from('online_payments')
+        .select('id, autopay_period, created_at, total_cents, application_fee_cents, idempotency_key')
+        .eq('autopay_enrollment_id', enrollmentId)
+        .eq('status', 'created')
+        .is('stripe_payment_intent_id', null)
+        .order('created_at', { ascending: true })
+        .limit(50)
+      if (error) fail('orphan_read', error)
+      return (
+        (data ?? []) as Array<{ id: string; autopay_period: string; created_at: string; total_cents: number; application_fee_cents: number; idempotency_key: string }>
+      ).map((row) => ({
+        id: row.id,
+        period: row.autopay_period,
+        createdAt: row.created_at,
+        totalCents: row.total_cents,
+        applicationFeeCents: row.application_fee_cents,
+        idempotencyKey: row.idempotency_key,
+      }))
     },
 
     async createAttempt(e, a: AttemptInput) {
@@ -265,8 +289,8 @@ export function createAutopayStore(db: Db, cap = 2000): AutopayStore {
       return { id: (data as { id: string }).id }
     },
 
-    async updateAttempt(id, patch) {
-      const { error } = await db
+    async updateAttempt(id, patch, expectStatus) {
+      let q = db
         .from('online_payments')
         .update({
           status: patch.status,
@@ -275,7 +299,10 @@ export function createAutopayStore(db: Db, cap = 2000): AutopayStore {
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
+      if (expectStatus) q = q.eq('status', expectStatus)
+      const { data, error } = await q.select('id')
       if (error) fail('attempt_update', error)
+      return !expectStatus || (Array.isArray(data) && data.length > 0)
     },
 
     async setFailures(enrollmentId, consecutiveFailures, paused) {

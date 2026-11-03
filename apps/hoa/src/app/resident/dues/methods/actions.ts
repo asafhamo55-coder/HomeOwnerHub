@@ -68,7 +68,7 @@ export async function startAddMethod(): Promise<AddMethodResult> {
       .maybeSingle()) as { data: { stripe_customer_id: string } | null }
     const meta = { organization_id: acct.organization_id, association_id: assocId, user_id: who.userId }
     const customerId = prior?.stripe_customer_id ?? (await port.createCustomer(acct.stripe_account_id, { metadata: meta })).id
-    const si = await port.createSetupIntent(acct.stripe_account_id, { customerId, usage: 'on_session', metadata: meta })
+    const si = await port.createSetupIntent(acct.stripe_account_id, { customerId, usage: 'off_session', metadata: meta })
     return { ok: true, clientSecret: si.clientSecret, stripeAccount: acct.stripe_account_id }
   } catch (err) {
     console.error('[saved-methods] start failed', { error: err instanceof Error ? err.name : 'unknown' })

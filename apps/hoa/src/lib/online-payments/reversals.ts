@@ -34,6 +34,9 @@ import {
 export const REVERSAL_EVENT_TYPES = [
   'payment_intent.payment_failed',
   'charge.refunded',
+  // A refund that was waiting on Stripe (requires_action, or a pending bank refund) finishes later.
+  'refund.updated',
+  'charge.refund.updated',
   'charge.dispute.created',
   'charge.dispute.closed',
 ] as const
@@ -112,6 +115,8 @@ export interface ReversalStore {
     returnedFeeCents?: number
     by?: string | null
   }): Promise<ReverseOutcome>
+  /** Optional: flag a refund that Stripe has not finished (requires_action) so the board can see it is waiting. No ledger change. */
+  noteRefundPending?(args: { attemptId: string; ref: string; cents: number; by: string }): Promise<void>
   /** succeeded or partially_refunded -> disputed. False when the status did not allow it. */
   markDisputed(attemptId: string): Promise<boolean>
 }
@@ -171,6 +176,9 @@ export async function handleReversalEvent(event: ConnectEventLike, deps: Reversa
       return onPaymentFailed(event, deps)
     case 'charge.refunded':
       return onChargeRefunded(event, deps)
+    case 'refund.updated':
+    case 'charge.refund.updated':
+      return onRefundUpdated(event, deps)
     case 'charge.dispute.created':
       return onDisputeCreated(event, deps)
     case 'charge.dispute.closed':
@@ -297,6 +305,35 @@ async function onChargeRefunded(event: ConnectEventLike, deps: ReversalDeps): Pr
     await notifyRefund(deps, attempt, out.result.reversedCents, full, out.result.shortCents)
   }
   return { outcome: applied ? 'applied' : 'already_applied' }
+}
+
+/**
+ * One refund object changed state. Only a move to `succeeded` reaches the books, through the same
+ * reverse call (and so the same per-refund-id idempotency) as charge.refunded and the board's own
+ * refund. TODO(migration): a `failed` transition after the books took a pending refund needs a
+ * refund_failed kind in reverse_online_payment; until then it is only ignored here.
+ */
+async function onRefundUpdated(event: ConnectEventLike, deps: ReversalDeps): Promise<ReversalResult> {
+  const refund = rec(event.data.object)
+  const refundId = str(refund.id)
+  const amount = int(refund.amount)
+  const piId = idOf(refund.payment_intent)
+  const chargeId = idOf(refund.charge)
+  if (!refundId || amount === null || amount <= 0 || (!piId && !chargeId)) return { outcome: 'ignored' }
+  if (str(refund.status) !== 'succeeded') return { outcome: 'ignored' }
+  const attempt = await deps.store.findAttempt({ paymentIntentId: piId ?? undefined, chargeId: chargeId ?? undefined })
+  if (!attempt) return { outcome: 'retry' }
+  if (!accountMatches(event, attempt)) return { outcome: 'rejected_account' }
+  if (attempt.postedAt === null) return { outcome: 'ignored' }
+
+  const cents = ledgerCentsForStripeRefund(amount, attempt.postedCents, attempt.reversedCents)
+  if (cents <= 0) return { outcome: 'already_applied' }
+  const out = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'refund', ref: refundId, cents, reason: 'Refund' })
+  if (out.kind !== 'done') return { outcome: out.kind }
+  if (out.result.alreadyApplied) return { outcome: 'already_applied' }
+  const full = isFullRefund({ refundCents: cents, postedCents: attempt.postedCents, reversedCents: attempt.reversedCents })
+  await notifyRefund(deps, attempt, out.result.reversedCents, full, out.result.shortCents)
+  return { outcome: 'applied' }
 }
 
 /** Both notices for a refund that just reached the books. Shared with the board's own refund action. */

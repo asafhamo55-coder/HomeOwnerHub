@@ -99,7 +99,12 @@ export function buildCanceledMoved(a: { orgName: string }): AutopayEmail {
 }
 
 /** Board alert. Names the home by its label only, never the owner or the method. */
-export function buildBoardAlert(a: { kind: 'failed' | 'paused' | 'over_max'; unitLabel: string; link: string }): AutopayEmail {
+export function buildBoardAlert(a: { kind: 'failed' | 'paused' | 'over_max' | 'orphan'; unitLabel: string; link: string }): AutopayEmail {
+  if (a.kind === 'orphan') {
+    return wrap(`Autopay for ${a.unitLabel}: on hold`, [
+      `An autopay charge for ${a.unitLabel} could not be confirmed with Stripe. Autopay is on hold for this home and nothing more will be charged until it is sorted out. We will keep checking each day. If it is still on hold in a few days, look for the payment in Stripe.`,
+    ], { href: a.link, label: 'See autopay' })
+  }
   const what =
     a.kind === 'over_max'
       ? 'was not charged because the bill is over the homeowner\'s autopay limit'
