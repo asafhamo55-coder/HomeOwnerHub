@@ -140,7 +140,6 @@ export async function materializeCurrentPeriodAssessments(input: {
   const openDue = await assertPeriodOpen(supabase, {
     associationId: assoc.id,
     date: dueDate,
-    fiscalPeriodId: period.id,
   })
   if (!openDue.ok) return { ok: false, error: openDue.error }
 
@@ -458,7 +457,6 @@ export async function createDues(
     const openDue = await assertPeriodOpen(supabase, {
       associationId: assoc.id,
       date: due,
-      fiscalPeriodId: period.id,
     })
     if (!openDue.ok) return { ok: false, error: openDue.error }
   }
@@ -616,7 +614,6 @@ export async function deleteAssessment(
   const openDel = await assertPeriodOpen(supabase, {
     associationId: assoc.id,
     date: assessment.due_date,
-    fiscalPeriodId: assessment.fiscal_period_id,
   })
   if (!openDel.ok) return { ok: false, error: openDel.error }
 

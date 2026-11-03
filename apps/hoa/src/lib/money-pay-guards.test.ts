@@ -23,7 +23,7 @@ vi.mock('@homeowner-portal/jobs/fiscal-periods', () => ({ readCurrentOpenPeriod:
 vi.mock('@/lib/accounting/plan-completion', () => ({ completePlansAfterPayment: async () => [] }))
 vi.mock('@/lib/resident-notify/receipt-notify', () => ({ queuePaymentReceiptAfterResponse: vi.fn() }))
 
-import { markAssessmentPaid } from '@/lib/assessments'
+import { deleteAssessment, markAssessmentPaid } from '@/lib/assessments'
 import { markInvoicePaid } from '@/lib/invoices'
 
 const ID = '11111111-1111-4111-8111-111111111111'
@@ -166,5 +166,11 @@ describe('closed period: nothing is written', () => {
     expect(m.rows('payments')).toHaveLength(0)
     expect(m.rows('invoices')[0].status).toBe('approved')
     expect(h.post).not.toHaveBeenCalled()
+  })
+
+  it('guards a charge by its due date only, never its stored period id', async () => {
+    seed({ assessments: [{ ...base, due_date: '2026-12-15', fiscal_period_id: 'closed-fp' }], payments: [] })
+    expect((await deleteAssessment(ID)).ok).toBe(true)
+    expect(h.guard).toHaveBeenCalledWith(expect.anything(), { associationId: 'assoc-1', date: '2026-12-15' })
   })
 })

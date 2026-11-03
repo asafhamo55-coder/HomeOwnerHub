@@ -49,3 +49,27 @@ describe('postJournalEntry closed-period guard', () => {
     expect(d.touched).toEqual(['fiscal_periods'])
   })
 })
+
+describe('postJournalEntry rollback', () => {
+  it('deletes its draft header when the line insert fails', async () => {
+    const ops: string[] = []
+    const mk = (t: string) => {
+      const q: Record<string, unknown> = {}
+      for (const m of ['select', 'eq', 'lte', 'gte', 'or']) q[m] = () => q
+      q.limit = async () => ({ data: [], error: null })
+      q.insert = () => {
+        ops.push(`insert:${t}`)
+        if (t === 'ledger_entries') return Promise.resolve({ error: { message: 'bad line' } })
+        return q
+      }
+      q.single = async () => ({ data: { id: 'je-x' }, error: null })
+      q.delete = () => { ops.push(`delete:${t}`); return q }
+      q.then = (r: (v: unknown) => unknown) => r({ error: null })
+      return q
+    }
+    const client = { from: mk, rpc: async () => ({ data: 'JE-2026-1', error: null }) } as never
+    const r = await postJournalEntry(client, { ...input, entryDate: '2026-03-01' })
+    expect(r.ok).toBe(false)
+    expect(ops).toContain('delete:journal_entries')
+  })
+})
