@@ -38,3 +38,11 @@ select (select count(*) from public.amenities) as amenities,
        (select count(*) from public.amenity_reservations) as reservations,
        (select count(*) from public.amenity_hours) as hours,
        (select count(*) from public.amenity_blackouts) as blackouts;   -- all 0 on a fresh apply
+
+-- The three member read policies are scoped to the resident's own association.
+select policyname,
+       case when qual like '%poll_resident_association_ids%' then 'PASS' else 'FAIL' end as result
+  from pg_policies
+ where schemaname = 'public'
+   and policyname in ('amenities_member_select', 'amenity_hours_member_select', 'amenity_blackouts_member_select')
+ order by 1;   -- 3 rows, all PASS

@@ -71,6 +71,9 @@ beforeEach(async () => {
   otherUnitId = await makeUnit(other)
   board = await mintUser(org, 'board')
   resident = await mintUser(org, 'resident')
+  await adminDb()
+    .from('ownerships')
+    .insert({ organization_id: org.orgId, unit_id: unitId, owner_user_id: resident.id, valid_from: '2020-01-01' } as never)
   outsider = await mintUser(other, 'resident')
   amenityId = await makeAmenity(org)
 })
@@ -160,6 +163,34 @@ describe('3. who can read and write', () => {
     await insert(booking(10, 14))
     const mine = await resident.client.from('amenity_reservations' as never).select('id')
     expect(mine.data ?? []).toHaveLength(0)
+  })
+})
+
+describe('3b. association boundary inside one organization', () => {
+  it('a resident of another association sees no amenity, hours or blackout of this one; the board sees all', async () => {
+    const { data: second } = await adminDb()
+      .from('associations')
+      .insert({ organization_id: org.orgId, name: 'Second', state: 'FL', slug: `SECOND${Math.random().toString(36).slice(2, 8).toUpperCase()}` } as never)
+      .select('id')
+      .single()
+    const secondId = (second as unknown as { id: string }).id
+    const { data: otherUnit } = await adminDb()
+      .from('units')
+      .insert({ organization_id: org.orgId, association_id: secondId, address_line1: '9 Other Lane' } as never)
+      .select('id')
+      .single()
+    const neighbour = await mintUser(org, 'resident')
+    await adminDb()
+      .from('ownerships')
+      .insert({ organization_id: org.orgId, unit_id: (otherUnit as unknown as { id: string }).id, owner_user_id: neighbour.id, valid_from: '2020-01-01' } as never)
+    await adminDb().from('amenity_hours' as never).insert({ organization_id: org.orgId, amenity_id: amenityId, weekday: 6, open_hour: 10, close_hour: 18 } as never)
+    await adminDb().from('amenity_blackouts' as never).insert({ organization_id: org.orgId, amenity_id: amenityId, starts_on: '2030-12-24', ends_on: '2030-12-26', reason: 'Closed' } as never)
+
+    for (const t of ['amenities', 'amenity_hours', 'amenity_blackouts']) {
+      expect(((await neighbour.client.from(t as never).select('id')).data ?? []), t).toHaveLength(0)
+      expect(((await resident.client.from(t as never).select('id')).data ?? []), t).toHaveLength(1)
+      expect(((await board.client.from(t as never).select('id')).data ?? []), t).toHaveLength(1)
+    }
   })
 })
 

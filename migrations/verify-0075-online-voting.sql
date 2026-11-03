@@ -43,3 +43,16 @@ SELECT 'append-only cascade exception is org-scoped' AS check,
        CASE WHEN pg_get_functiondef('public.ballot_append_only()'::regprocedure) LIKE '%public.orgs%'
              AND pg_get_functiondef('public.ballots_guard()'::regprocedure) LIKE '%public.orgs%'
             THEN 'PASS' ELSE 'FAIL' END AS result;
+
+-- Residents read only their own association's ballots and options; a home needs a unit
+-- record in the ballot's association to vote.
+SELECT 'ballot read policies are association-scoped' AS check,
+       CASE WHEN (SELECT count(*) FROM pg_policies
+                   WHERE tablename IN ('ballots', 'ballot_options')
+                     AND policyname IN ('ballots_select', 'ballot_options_select')
+                     AND qual LIKE '%poll_resident_association_ids%') = 2
+            THEN 'PASS' ELSE 'FAIL' END AS result;
+
+SELECT 'cast_ballot requires a unit record in the ballot association' AS check,
+       CASE WHEN pg_get_functiondef('public.cast_ballot(uuid,uuid,uuid[])'::regprocedure) LIKE '%IF NOT EXISTS (SELECT 1 FROM public.units u WHERE u.legacy_hoa_property_id = p_property%'
+            THEN 'PASS' ELSE 'FAIL' END AS result;

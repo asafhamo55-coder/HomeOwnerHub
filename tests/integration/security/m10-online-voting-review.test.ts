@@ -203,6 +203,48 @@ describe('0075 review: who may vote, and when', () => {
   })
 })
 
+describe('0075 review: association boundaries', () => {
+  async function secondAssociation(): Promise<string> {
+    const { data: other } = await loose(adminDb())
+      .from('associations')
+      .insert({ organization_id: org.orgId, name: 'Second', state: 'FL', slug: `SECOND${randomUUID().slice(0, 6).toUpperCase()}` })
+      .select('id')
+      .single()
+    return other.id as string
+  }
+
+  it('a resident of another association of the same organization sees neither the ballot nor its options', async () => {
+    const otherAssoc = await secondAssociation()
+    const neighbour = await mintUser(org, 'resident')
+    await addHome(otherAssoc, '9 Other Lane', neighbour.id)
+    await seedBallot(seconds(-60), seconds(86_400))
+    await open()
+    expect((await loose(neighbour.client).from('ballots').select('id').eq('id', ballotId)).data ?? []).toHaveLength(0)
+    expect((await loose(neighbour.client).from('ballot_options').select('id').eq('ballot_id', ballotId)).data ?? []).toHaveLength(0)
+    // the owner in the ballot's own association still sees both, and so does the board
+    expect((await loose(owner.client).from('ballots').select('id').eq('id', ballotId)).data ?? []).toHaveLength(1)
+    expect((await loose(owner.client).from('ballot_options').select('id').eq('ballot_id', ballotId)).data ?? []).toHaveLength(3)
+    expect((await loose(board.client).from('ballots').select('id').eq('id', ballotId)).data ?? []).toHaveLength(1)
+  })
+
+  it('an owner of a legacy home with no unit record cannot vote, and is not offered the home', async () => {
+    const { data: hp } = await loose(adminDb())
+      .from('hoa_properties')
+      .insert({ org_id: org.orgId, address: '7 Legacy Road' })
+      .select('id')
+      .single()
+    const legacy = await mintUser(org, 'resident')
+    await loose(adminDb()).from('property_residents').insert({
+      organization_id: org.orgId, property_id: hp.id, full_name: 'L', email: legacy.email, role: 'owner',
+    })
+    await seedBallot(seconds(-60), seconds(86_400))
+    await open()
+    expect((await cast(legacy, [optionIds[0]!], hp.id)).error).not.toBeNull()
+    expect((await loose(legacy.client).rpc('ballot_voter_property_ids')).data).toEqual([])
+    expect(await ballotBoxCount()).toBe(0)
+  })
+})
+
 describe('0075 review: the choice cannot be traced to a person', () => {
   const cols = (t: string) =>
     psqlRows<{ column_name: string }>(
