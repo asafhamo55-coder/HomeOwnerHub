@@ -445,17 +445,36 @@ export async function propertyIdsForUnits(
   orgId: string,
   unitIds: readonly string[],
 ): Promise<Map<UnitId, PropertyId>> {
+  return bulkUnitProperties(db, orgId, unitIds, 'propertyIdsForUnits')
+}
+
+/**
+ * The same lookup for an RLS-bound client (a signed-in resident), which
+ * may span several orgs and has no org to filter on: RLS is what confines
+ * the rows. Never pass a service-role client here; use propertyIdsForUnits.
+ */
+export async function propertyIdsForOwnUnits(
+  db: Db,
+  unitIds: readonly string[],
+): Promise<Map<UnitId, PropertyId>> {
+  return bulkUnitProperties(db, null, unitIds, 'propertyIdsForOwnUnits')
+}
+
+async function bulkUnitProperties(
+  db: Db,
+  orgId: string | null,
+  unitIds: readonly string[],
+  caller: string,
+): Promise<Map<UnitId, PropertyId>> {
   const out = new Map<UnitId, PropertyId>()
   const ids = [...new Set(unitIds)]
   for (let i = 0; i < ids.length; i += IN_CHUNK) {
-    const { data, error } = await db
-      .from('units')
-      .select('id, legacy_hoa_property_id')
-      .eq('organization_id', orgId)
-      .in('id', ids.slice(i, i + IN_CHUNK))
+    let query = db.from('units').select('id, legacy_hoa_property_id').in('id', ids.slice(i, i + IN_CHUNK))
+    if (orgId) query = query.eq('organization_id', orgId)
+    const { data, error } = await query
 
     if (error) {
-      console.error(`propertyIdsForUnits: query on "units" failed (org ${orgId}): ${error.message}`)
+      console.error(`${caller}: query on "units" failed (org ${orgId ?? 'rls'}): ${error.message}`)
       throw error
     }
     for (const row of (data ?? []) as Array<{ id: string; legacy_hoa_property_id: string | null }>) {

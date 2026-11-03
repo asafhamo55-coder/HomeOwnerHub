@@ -26,7 +26,8 @@ import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
 import { loadLatestAnnouncement, type LatestAnnouncement } from '@/lib/resident-latest-announcement'
 import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
 import { loadMyArcRequests, type ArcRequestRow } from '@/lib/resident-submissions'
-import { loadOrFail } from '@/lib/load-or-fail'
+import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { propertyIdsForOwnUnits, propertyIdsForUnits } from '@/lib/properties/resolve'
 import { buildLedger, loadLedgerRows, loadUnappliedCredits, type Ledger } from '@/lib/resident-ledger'
 import { loadResidentCredit, type ResidentCredit } from '@/lib/resident-credit'
 import { todayIn } from '@/lib/association-time'
@@ -224,8 +225,8 @@ async function resolveFirstName(
 }
 
 // Violations are keyed by hoa_properties.id; a resident's units link to
-// that legacy id via units.legacy_hoa_property_id. Resolve the property
-// ids first, then pull unresolved violations for them.
+// it through the property bridge (lib/properties/resolve.ts). Resolve the
+// property ids first, then pull unresolved violations for them.
 // Null means a read failed — the violations are UNKNOWN, not none.
 // `orgId` is the impersonation org (service-role client, no RLS): when set,
 // every read here is confined to it. Null = RLS-bound client.
@@ -238,24 +239,18 @@ async function getOpenViolations(
 ): Promise<OpenViolationRow[] | null> {
   if (unitIds.length === 0) return []
 
-  let unitQuery = supabase.from('units' as never).select('id, legacy_hoa_property_id').in('id' as never, unitIds)
-  if (orgId) unitQuery = unitQuery.eq('organization_id' as never, orgId)
-  const unitResult = await loadOrFail('resident unit properties', unitQuery)
-  if (!unitResult.ok) return null
-  const unitRows = unitResult.data
+  const bridgeResult = await tryLoad('resident unit properties', () =>
+    orgId ? propertyIdsForUnits(supabase, orgId, unitIds) : propertyIdsForOwnUnits(supabase, unitIds),
+  )
+  if (!bridgeResult.ok) return null
+  const bridge = bridgeResult.data
 
   const fromByProperty = new Map<string, string>()
-  for (const u of (unitRows ?? []) as unknown as Array<{ id?: string; legacy_hoa_property_id: string | null }>) {
-    const from = u.id ? window.get(u.id) : undefined
-    if (u.legacy_hoa_property_id && from) fromByProperty.set(u.legacy_hoa_property_id, from)
+  for (const [unitId, propertyId] of bridge) {
+    const from = window.get(unitId)
+    if (from) fromByProperty.set(propertyId, from)
   }
-  const propertyIds = [
-    ...new Set(
-      ((unitRows ?? []) as unknown as Array<{ legacy_hoa_property_id: string | null }>)
-        .map((u) => u.legacy_hoa_property_id)
-        .filter((id): id is string => id != null),
-    ),
-  ]
+  const propertyIds = [...new Set(bridge.values())]
   if (propertyIds.length === 0) return []
 
   let violationQuery = supabase

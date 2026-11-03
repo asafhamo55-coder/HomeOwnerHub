@@ -4,6 +4,7 @@ import {
   asPropertyId,
   asUnitId,
   pickCanonicalUnit,
+  propertyIdsForOwnUnits,
   propertyIdsForUnits,
   resolvePropertyForUnit,
   resolveUnitForProperty,
@@ -93,6 +94,22 @@ describe('reverse and bulk lookups', () => {
     expect(await resolvePropertyForUnit(db(m), ORG, asUnitId('u-free'))).toBeNull()
     expect([...(await propertyIdsForUnits(db(m), ORG, [U1, 'u-free']))]).toEqual([[U1, P1]])
     expect([...(await unitIdsForProperties(db(m), ORG, [P1]))]).toEqual([[P1, U1]])
+  })
+
+  it('the org-scoped bulk lookup drops another org\'s unit; the RLS-bound one leaves that to RLS', async () => {
+    const m = memorySupabase({
+      units: [unit(U1, P1, null), unit(U2, '33333333-3333-4333-8333-333333333333', null, 'org-2')],
+    })
+    expect([...(await propertyIdsForUnits(db(m), ORG, [U1, U2]))]).toEqual([[U1, P1]])
+    expect([...(await propertyIdsForOwnUnits(db(m), [U1, U2]))]).toEqual([
+      [U1, P1],
+      [U2, '33333333-3333-4333-8333-333333333333'],
+    ])
+  })
+
+  it('a failed bulk read throws (never reads as "not linked")', async () => {
+    const m = memorySupabase({ units: [unit(U1, P1, null)] }, { failOn: () => ({ code: 'XX000', message: 'boom' }) })
+    await expect(propertyIdsForOwnUnits(db(m), [U1])).rejects.toMatchObject({ code: 'XX000' })
   })
 })
 

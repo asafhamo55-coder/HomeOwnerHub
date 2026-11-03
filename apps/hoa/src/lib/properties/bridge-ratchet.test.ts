@@ -40,7 +40,6 @@ const LEGACY_COLUMN_ALLOWLIST: Record<string, number> = {
   'apps/hoa/src/lib/inbox/match.ts': 3,
   'apps/hoa/src/lib/inbox/queries.ts': 2,
   'apps/hoa/src/lib/leases.ts': 8,
-  'apps/hoa/src/lib/resident-dashboard.ts': 3,
   'apps/hoa/src/lib/resident.ts': 4,
 }
 
