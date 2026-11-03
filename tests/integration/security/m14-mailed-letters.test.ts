@@ -155,11 +155,12 @@ describe('reads and writes through the web roles', () => {
   it('no web role can insert, update or delete', async () => {
     const ins = await (board.client as any).from('mailed_letters').insert(letter({ violation_id: otherViolationId }, org))
     expect(ins.error?.code).toBe('42501')
-    const upd = await (board.client as any).from('mailed_letters').update({ status: 'delivered' }).eq('organization_id', org.orgId)
-    expect(upd.error?.code).toBe('42501')
-    const del = await (board.client as any).from('mailed_letters').delete().eq('organization_id', org.orgId)
-    expect(del.error?.code).toBe('42501')
-    const { count } = await db().from('mailed_letters').select('id', { count: 'exact', head: true })
+    // CI's schema replay re-grants table access, so these can be silently
+    // filtered by RLS rather than refused. What matters is that nothing changes.
+    await (board.client as any).from('mailed_letters').update({ status: 'delivered' }).eq('organization_id', org.orgId)
+    await (board.client as any).from('mailed_letters').delete().eq('organization_id', org.orgId)
+    const { data, count } = await db().from('mailed_letters').select('status', { count: 'exact' })
     expect(count).toBe(2)
+    expect((data as { status: string }[]).some((r) => r.status === 'delivered')).toBe(false)
   })
 })

@@ -85,9 +85,15 @@ async function boardChange(id: string, run: (c: PollsClient) => Promise<StoreRes
   return fromStore(r, id)
 }
 
-export const openPollAction = (id: string) => boardChange(id, (c) => setPollStatus(c, id, 'open'))
-export const closePollAction = (id: string) => boardChange(id, (c) => setPollStatus(c, id, 'closed'))
-export const deletePollAction = (id: string) => boardChange(id, (c) => deleteDraftPoll(c, id))
+export async function openPollAction(id: string) {
+  return boardChange(id, (c) => setPollStatus(c, id, 'open'))
+}
+export async function closePollAction(id: string) {
+  return boardChange(id, (c) => setPollStatus(c, id, 'closed'))
+}
+export async function deletePollAction(id: string) {
+  return boardChange(id, (c) => deleteDraftPoll(c, id))
+}
 
 const AnswerSchema = z.object({
   pollId: z.string().uuid(),
