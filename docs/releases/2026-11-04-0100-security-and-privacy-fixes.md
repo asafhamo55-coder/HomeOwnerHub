@@ -20,6 +20,9 @@ This release has no new screens. It tightens who can see what, closes several se
 - Reply drafts in the shared inbox use only the documents and records of the thread's own association.
 - Mailing lists typed in by hand are no longer stored on the message record.
 
+### Website
+- The competitor comparison page is off the public website. Old links to it now open the pricing page. The comparison now lives in the investor deck.
+
 ## Under the hood
 
 - The web framework and image library were updated to versions with security fixes.
