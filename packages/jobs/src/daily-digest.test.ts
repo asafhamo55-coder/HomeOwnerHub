@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { signArcClockSettings, withArcClockSettings } from '../../../apps/hoa/src/lib/arc-review/clock'
 import { signComplianceAck, withComplianceAck } from '../../../apps/hoa/src/lib/compliance/deadlines'
 const recordsFlag = vi.hoisted(() => ({ live: false }))
@@ -459,6 +459,11 @@ describe('runDailyDigest — ARC decision deadlines', () => {
   })
 
   it('sends nothing when no application is overdue or due soon', async () => {
+    // A real statutory deadline (such as the Feb 1 1099 date) in the 90-day
+    // window would otherwise add an email; this test is about ARC only.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T11:00:00Z'))
+    onTestFinished(() => vi.useRealTimers())
     const { db } = fakeDb({
       arcRequests: { data: [{ id: 'a', association_id: 'as-1', status: 'submitted', submitted_at: daysAgo(2) }], error: null },
       associations: ASSOC,
@@ -676,6 +681,15 @@ describe('runDailyDigest — owner records requests (BL-123)', () => {
 })
 
 describe('runDailyDigest — statutory deadlines (BL-131)', () => {
+  // Freeze the clock: otherwise a real statutory deadline (such as the Feb 1
+  // 1099 date) entering the 90-day window turns "nothing due" into an email.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-20T11:00:00Z'))
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
   const GA = '11111111-1111-4111-8111-111111111111'
   const SECRET = 'digest-test-secret'
   const gaRow = (compliance_settings: unknown = {}) => ({
