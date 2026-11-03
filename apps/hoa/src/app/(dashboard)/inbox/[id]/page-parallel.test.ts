@@ -76,6 +76,11 @@ vi.mock('@/lib/inbox/queries', () => ({
   listDraftAttachments: h.track('listDraftAttachments', () => []),
   listAttachableDocuments: h.track('listAttachableDocuments', () => []),
 }))
+vi.mock('@/lib/inbox/draft/association-scope', () => ({
+  resolveOrgAssociationScope: h.track('resolveOrgAssociationScope', () => ({ status: 'one', associationId: 'a1', state: null })),
+  needsHomeLink: () => false,
+  LINK_HOME_NOTE: 'Link this message to a home for better drafts',
+}))
 vi.mock('@/lib/inbox/thread-context', () => ({
   getThreadRailContext: h.track('getThreadRailContext', async (...args: unknown[]) => {
     h.state.railResidents = await args[3]

@@ -27,6 +27,8 @@ import { ThreadList } from '../ThreadList'
 import { INBOX_FILTERS, INBOX_FILTER_LABEL } from '../InboxChrome'
 import { DraftPanel } from './DraftPanel'
 import { ForwardButton } from './ForwardButton'
+import { LinkHomeNote } from './LinkHomeNote'
+import { needsHomeLink, resolveOrgAssociationScope } from '@/lib/inbox/draft/association-scope'
 import { MessageThread } from './MessageThread'
 import { PropertyRail } from './PropertyRail'
 import { ThreadConnections } from './ContextSections'
@@ -247,7 +249,13 @@ export default async function ThreadPage({
     return null
   })
 
-  const [threads, contextOutcome, suggestedProperty, draft] = await Promise.all([
+  // An unfiled thread in an org with several associations drafts without
+  // governing documents, state law or examples: tell the board how to fix it.
+  const orgScopeP = thread.unitId
+    ? Promise.resolve(null)
+    : resolveOrgAssociationScope(supabase, org.id).catch(() => null)
+
+  const [threads, contextOutcome, suggestedProperty, draft, orgScope] = await Promise.all([
     timed(R, 'inbox.list', () => listThreads(supabase, org.id, filter, INBOX_PAGE_SIZE, offset, ownerScope, snooze)),
     contextOutcomeP,
     !thread.unitId && suggestedUnitId
@@ -258,6 +266,7 @@ export default async function ThreadPage({
     // send (see getLatestDraft's docstring), so this is not wrapped in a
     // `.catch` the way the enrichment-only lookups above are.
     timed(R, 'inbox.draft', () => getLatestDraft(supabase, org.id, id)),
+    orgScopeP,
   ])
 
   // BL-101 A3/A6 — the queue around this thread. All enrichment: a failure
@@ -556,6 +565,7 @@ export default async function ThreadPage({
             <MessageThread messages={thread.messages} filedDocuments={filedDocuments} />
 
             <div id={REPLY_ANCHOR} className="scroll-mt-4">
+            {orgScope && draft?.status !== 'sent' && needsHomeLink(orgScope, false) ? <LinkHomeNote /> : null}
             <DraftPanel
               threadId={thread.id}
               draft={draft}

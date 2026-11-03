@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveOrgAssociationScope } from './association-scope'
 import type { Database } from '@homeowner-portal/db/types'
 import { queryGoverningDocs, askStateLaw } from '@homeowner-portal/workflows'
 import { getThreadDetail, getPropertyContext, type PropertyContext } from '@/lib/inbox/queries'
@@ -217,7 +218,19 @@ async function resolveThreadAssociation(
   unitId: string | null,
 ): Promise<{ associationId: string | null; state: SupportedState | null }> {
   const none = { associationId: null, state: null }
-  if (!unitId) return none
+  if (!unitId) {
+    // Not filed under a home: an org with a single association has only one
+    // possible scope. With several, stay degraded (no org-wide search).
+    const scope = await resolveOrgAssociationScope(db, orgId)
+    if (scope.status !== 'one') return none
+    return {
+      associationId: scope.associationId,
+      state:
+        scope.state && (SUPPORTED_STATES as readonly string[]).includes(scope.state)
+          ? (scope.state as SupportedState)
+          : null,
+    }
+  }
 
   const unit = await db
     .from('units')
@@ -539,9 +552,10 @@ export async function retrieveForThread(
       : null,
   )
 
-  // The thread's association comes from its unit. Without one there is no
-  // safe scope for governing documents, state law or voice examples, so they
-  // are skipped and reported as missing instead of searched org-wide.
+  // The thread's association comes from its unit, or from the org's only
+  // association when the thread has no unit. Otherwise there is no safe scope
+  // for governing documents, state law or voice examples, so they are skipped
+  // and reported as missing instead of searched org-wide.
   const { associationId, state } = await resolveThreadAssociation(db, orgId, thread.unitId)
   const skipped = Promise.resolve(null)
 
