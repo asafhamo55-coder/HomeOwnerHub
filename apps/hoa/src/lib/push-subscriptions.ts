@@ -27,6 +27,7 @@
 // for whoever next touches it.
 
 import { z } from 'zod'
+import { createAdminClient } from '@homeowner-portal/db'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 
@@ -67,6 +68,40 @@ function describeDbError(error: { code?: string; message: string }): string {
   return error.message
 }
 
+type TakeoverResult = 'none' | 'done' | 'refused'
+
+// Moves an endpoint held by a different user to the caller, service role,
+// only when the presented keys match the stored ones. 'none' means the
+// endpoint is free or already the caller's, so the normal path applies.
+async function takeOverEndpoint(
+  userId: string,
+  orgId: string,
+  sub: z.infer<typeof SaveSchema>,
+): Promise<TakeoverResult> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('push_subscriptions' as never)
+    .select('id, user_id, p256dh, auth')
+    .eq('endpoint', sub.endpoint)
+    .maybeSingle()
+  const row = data as { id: string; user_id: string; p256dh: string; auth: string } | null
+  if (!row || row.user_id === userId) return 'none'
+  if (row.p256dh !== sub.p256dh || row.auth !== sub.auth) return 'refused'
+
+  const { error } = await admin
+    .from('push_subscriptions' as never)
+    .update({
+      user_id: userId,
+      organization_id: orgId,
+      user_agent: sub.userAgent ?? null,
+      last_used_at: null,
+    } as never)
+    .eq('id', row.id)
+    .eq('user_id', row.user_id)
+  if (error) throw new Error(error.message)
+  return 'done'
+}
+
 /**
  * Upserts one (browser, device) subscription for the signed-in board
  * member.
@@ -77,11 +112,14 @@ function describeDbError(error: { code?: string; message: string }): string {
  * one laptop accumulating a row per login. One user legitimately holds
  * several rows — phone and laptop are different endpoints.
  *
- * user_id is included in the update payload deliberately: if two people
- * share a device and the second signs in, the endpoint moves to whoever
- * subscribed last. The alternative — leaving it pointed at the first
- * user — would push one person's ticket alerts to another person's
- * session.
+ * A row owned by someone else cannot be updated through RLS, so a device
+ * that changes hands is handled separately: sign-out deletes the leaving
+ * user's row, and if one is still there (sign-out never ran) the new
+ * user takes it over through the service role, but only when the browser
+ * presents the same p256dh and auth secrets the row holds. Those secrets
+ * are only known to the browser that owns the subscription, so possession
+ * of the device is proven and a guessed endpoint is not enough. The
+ * caller's session and org are verified first.
  */
 export async function savePushSubscription(
   input: SavePushSubscriptionInput,
@@ -102,6 +140,12 @@ export async function savePushSubscription(
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return { ok: false, error: 'Not signed in.' }
+
+    const takeover = await takeOverEndpoint(user.id, org.id, parsed.data)
+    if (takeover === 'refused') {
+      return { ok: false, error: 'This device is registered to another account.' }
+    }
+    if (takeover === 'done') return { ok: true }
 
     const { error } = await supabase
       .from('push_subscriptions' as never)
