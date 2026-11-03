@@ -26,10 +26,20 @@
  * for emergency.
  */
 
-const VERSION = 'v1.1.0'
+const VERSION = 'v1.2.0'
 const STATIC_CACHE = `hoa-static-${VERSION}`
 const RUNTIME_CACHE = `hoa-runtime-${VERSION}`
 const OFFLINE_URL = '/offline'
+const RUNTIME_PREFIX = 'hoa-runtime-'
+
+// Drops every runtime-cached page (signed-in HTML and RSC payloads).
+// Static assets and the offline page are not user specific and stay.
+async function clearRuntimeCaches() {
+  const keys = await caches.keys()
+  await Promise.all(
+    keys.filter((k) => k.startsWith(RUNTIME_PREFIX)).map((k) => caches.delete(k)),
+  )
+}
 
 // Files we ALWAYS want available offline. The offline page itself goes
 // here so an offline first-load can still render it.
@@ -64,6 +74,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()
+  }
+  // Sent by the page on sign-out: the next person at this browser must
+  // not be answered from the previous person's cached pages.
+  if (event.data && event.data.type === 'CLEAR_RUNTIME_CACHE') {
+    event.waitUntil(clearRuntimeCaches().catch(() => {}))
   }
 })
 
@@ -197,6 +212,16 @@ self.addEventListener('fetch', (event) => {
   // image URLs, etc. — let the browser handle them normally.
   if (url.origin !== self.location.origin) return
 
+  // Sign-in and sign-out entry points end the previous session's cached
+  // pages. A new sign-in always loads one of these first.
+  if (
+    url.pathname.startsWith('/login') ||
+    url.pathname.startsWith('/logout') ||
+    url.pathname.startsWith('/auth/')
+  ) {
+    event.waitUntil(clearRuntimeCaches().catch(() => {}))
+  }
+
   // Skip API + auth routes — they must always be fresh and may set
   // cookies that the cache would obliterate.
   if (
@@ -253,10 +278,20 @@ async function cacheFirst(request) {
   }
 }
 
+// Pages and RSC payloads are kept as an offline fallback (and are wiped
+// at sign-in and sign-out). Anything else the server marked no-store or
+// private, such as exports and documents, is never written to disk.
+function isCacheableRuntime(response) {
+  const control = (response.headers.get('Cache-Control') || '').toLowerCase()
+  if (!/no-store|private/.test(control)) return true
+  const type = (response.headers.get('Content-Type') || '').toLowerCase()
+  return type.includes('text/html') || type.includes('text/x-component')
+}
+
 async function networkFirst(request) {
   try {
     const response = await fetch(request)
-    if (response.ok) {
+    if (response.ok && isCacheableRuntime(response)) {
       const cache = await caches.open(RUNTIME_CACHE)
       // Don't cache opaque or redirect responses — they're not useful
       // as fallback data.

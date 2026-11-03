@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { cn } from '@homeowner-portal/ui'
-import { clearSessionCookiesOnSignOut } from '@/app/actions/sign-out'
+import { clearDeviceStateOnSignOut } from '@/lib/sign-out-cleanup'
 
 export function SignOutButton({ className }: { className?: string }) {
   const [busy, setBusy] = useState(false)
@@ -13,8 +13,8 @@ export function SignOutButton({ className }: { className?: string }) {
     // Lazy: keeps @supabase/ssr + auth-js (~150 kB) out of every page's shared JS.
     const { getSupabaseBrowserClient } = await import('@/lib/supabase/browser')
     const supabase = getSupabaseBrowserClient()
-    // Impersonation / role-override cookies are HTTPOnly: clear server-side.
-    await clearSessionCookiesOnSignOut().catch(() => {})
+    // Cookies, push registration and cached pages belong to this session only.
+    await clearDeviceStateOnSignOut()
     await supabase.auth.signOut()
     window.location.href = '/login'
   }
