@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   updates: [] as Array<{ table: string; patch: Record<string, unknown>; filters: Array<[string, unknown]> }>,
   rows: {} as Record<string, Record<string, unknown> | null>,
   detached: [] as string[],
+  setupInputs: [] as Array<{ usage?: string }>,
   auditRows: [] as Array<{ created_at: string }>,
 }))
 
@@ -17,7 +18,7 @@ vi.mock('@/lib/online-payments/saved-methods-deps', () => ({
   deps: {
     port: () => ({
       createCustomer: vi.fn(async () => ({ id: 'cus_new' })),
-      createSetupIntent: vi.fn(async () => ({ id: 'seti_1', clientSecret: 'secret' })),
+      createSetupIntent: vi.fn(async (_a: string, input: { usage?: string }) => (h.setupInputs.push(input), { id: 'seti_1', clientSecret: 'secret' })),
       retrievePaymentMethod: vi.fn(),
       detachPaymentMethod: vi.fn(async (_a: string, pm: string) => void h.detached.push(pm)),
     }),
@@ -55,6 +56,7 @@ beforeEach(() => {
   h.updates = []
   h.rows = {}
   h.detached = []
+  h.setupInputs = []
   h.auditRows = []
 })
 
@@ -108,6 +110,13 @@ describe('saved method actions', () => {
     expect((await startAddMethod()).ok).toBe(false)
     h.rows.association_stripe_accounts = { organization_id: 'org-1', stripe_account_id: 'acct_x', online_payments_enabled: true, charges_enabled: true }
     expect(await startAddMethod()).toEqual({ ok: true, clientSecret: 'secret', stripeAccount: 'acct_x' })
+  })
+
+  it('GAP 1: a saved method is set up for off-session use, because autopay charges it without the owner present', async () => {
+    h.rows.association_stripe_accounts = { organization_id: 'org-1', stripe_account_id: 'acct_x', online_payments_enabled: true, charges_enabled: true }
+    expect((await startAddMethod()).ok).toBe(true)
+    expect(h.setupInputs).toHaveLength(1)
+    expect(h.setupInputs[0]!.usage).toBe('off_session')
   })
 
   it('start stops a person who keeps trying (card-testing guard) before Stripe is called', async () => {
