@@ -82,7 +82,8 @@ export async function reverseJournalEntry(input: {
   let reversalPeriodId = original.fiscal_period_id
   if (!origOpen.ok) {
     if (origOpen.error !== CLOSED_PERIOD_MESSAGE) return { ok: false, error: origOpen.error }
-    const { data: openPeriod } = await readCurrentOpenPeriod(supabase, assoc.id, today)
+    const { data: openPeriod, error: openPeriodError } = await readCurrentOpenPeriod(supabase, assoc.id, today)
+    if (openPeriodError) return { ok: false, error: "We couldn't check your accounting periods. Try again in a moment." }
     if (!openPeriod) return { ok: false, error: 'There is no open accounting period to book the reversal in. Open the books first.' }
     reversalPeriodId = openPeriod.id
   }
