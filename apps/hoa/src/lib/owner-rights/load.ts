@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { createAdminClient } from '@homeowner-portal/db'
 import { associationTimeZone, todayIn } from '@/lib/association-time'
 import { getResidentActor } from '@/lib/impersonation'
 import { getResidentUnits } from '@/lib/resident'
@@ -20,7 +21,12 @@ export type ResidentRightsScope = { ok: true; georgia: boolean; today: string } 
 
 export async function loadResidentRightsScope(orgId: string): Promise<ResidentRightsScope> {
   const [actor, units] = await Promise.all([getResidentActor(), getResidentUnits()])
-  const { data, error } = await actor.client
+  const ids = units.map((u) => u.association_id).filter((id): id is string => !!id)
+  // The RLS-bound client only returns the resident's own associations. With no
+  // home on record the page falls back to the org's associations, so that one
+  // narrow read (id and state only) goes through the service role, org-scoped.
+  const client = ids.length === 0 && !actor.impersonating ? createAdminClient() : actor.client
+  const { data, error } = await client
     .from('associations' as never)
     .select('id, state, governing_law_state')
     .eq('organization_id' as never, actor.orgId ?? orgId)
@@ -29,6 +35,5 @@ export async function loadResidentRightsScope(orgId: string): Promise<ResidentRi
     return { ok: false }
   }
   const rows = (data ?? []) as unknown as RightsAssociationRow[]
-  const ids = units.map((u) => u.association_id).filter((id): id is string => !!id)
   return { ok: true, georgia: georgiaScope(rows, ids).length > 0, today: todayIn(associationTimeZone({ state: 'GA' })) }
 }

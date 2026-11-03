@@ -140,6 +140,8 @@ export const MIGRATION_MANIFEST: string[] = [
   // M14: BL-032 mailed_letters (print-and-mail send log). Unapplied in production
   // (M14_APPLIED = false); replayed here. One file, one entry.
   '0079_mailed_letters.sql',
+  // Tenant isolation pass 2 (security/tenant-isolation-2.test.ts). Applies to live tables.
+  '0081_tenant_isolation_2.sql',
 ]
 
 /**
