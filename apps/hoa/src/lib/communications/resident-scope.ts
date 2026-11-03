@@ -19,6 +19,12 @@
 export interface ResidentIdentity {
   /** Units the reader currently owns. */
   unitIds: string[]
+  /**
+   * Per-unit first day the reader may see (ResidentUnit.charges_from).
+   * Unit-matched rows sent before it belong to the previous owner and are
+   * ignored; user and email matches are unaffected.
+   */
+  unitChargesFrom?: Record<string, string | null | undefined>
   /** Effective auth user id, null for an impersonated account-less owner. */
   userId: string | null
   email: string | null
@@ -37,11 +43,27 @@ export interface ResidentIdentity {
  */
 export function buildRecipientIdentityFilters({
   unitIds,
+  unitChargesFrom,
   userId,
   email,
 }: ResidentIdentity): string[] {
   const filters: string[] = []
-  if (unitIds.length > 0) filters.push(`unit_id.in.(${unitIds.join(',')})`)
+  const open: string[] = []
+  const bounded: string[] = []
+  for (const id of unitIds) {
+    const from = unitChargesFrom?.[id]
+    if (!from) {
+      open.push(id)
+      continue
+    }
+    // Only a plain date or ISO timestamp goes into the clause. Anything else
+    // drops the unit: failing closed beats widening the match.
+    if (/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z)?$/.test(from)) {
+      bounded.push(`and(unit_id.eq.${id},sent_at.gte.${from})`)
+    }
+  }
+  if (open.length > 0) filters.push(`unit_id.in.(${open.join(',')})`)
+  filters.push(...bounded)
   if (userId) filters.push(`user_id.eq.${userId}`)
   // Quoted because or() splits on commas: an unquoted address carrying
   // one would silently become two filters, the second of them garbage.

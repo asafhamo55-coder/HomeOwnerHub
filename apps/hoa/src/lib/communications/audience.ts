@@ -118,8 +118,14 @@ export interface ResolvedAudience {
  * Every other audience kind passes through unchanged.
  */
 export function stripAudienceForPersist(audience: AudienceDefinition): AudienceDefinition {
-  if (audience.kind !== 'precomputed') return audience
-  return { kind: 'precomputed', summary: audience.summary }
+  if (audience.kind === 'precomputed') return { kind: 'precomputed', summary: audience.summary }
+  // A typed or pasted list is personal contact data. Delivery reads the
+  // per-recipient rows, so the campaign row keeps only the kind and a count.
+  if (audience.kind === 'manual_emails') {
+    const count = Math.max(audience.emails?.length ?? 0, audience.phones?.length ?? 0)
+    return { kind: 'manual_emails', extra: { count } }
+  }
+  return audience
 }
 
 type Db = SupabaseClient<Database>
