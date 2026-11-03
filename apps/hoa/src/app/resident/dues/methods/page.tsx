@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { LoadFailed } from '@homeowner-portal/ui'
+import { Alert, LoadFailed } from '@homeowner-portal/ui'
 import { M8_APPLIED } from '@homeowner-portal/db/m8'
 import { getResidentActor } from '@/lib/impersonation'
 import { isExpired, methodExpiry, methodLabel, type StoredMethod } from '@/lib/online-payments/saved-methods'
@@ -20,6 +20,19 @@ export default async function ResidentPaymentMethodsPage() {
 
   const actor = await getResidentActor()
   if (!actor.id) notFound()
+
+  // An admin viewing as the owner uses a service-role client that no policy bounds, and a
+  // saved method belongs to the person alone. Show none rather than read across orgs.
+  if (actor.impersonating) {
+    return (
+      <div className="space-y-6">
+        <ScreenHeader title="Payment methods" back={BACK} />
+        <Alert variant="info" title="Not shown while viewing as the owner">
+          Saved cards and bank accounts belong to the owner. Only they can see them.
+        </Alert>
+      </div>
+    )
+  }
 
   type Q = { eq(c: string, v: unknown): Q; order(c: string, o?: { ascending: boolean }): PromiseLike<{ data: unknown; error: unknown }> }
   const { data, error } = await (
