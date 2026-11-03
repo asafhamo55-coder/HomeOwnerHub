@@ -272,7 +272,17 @@ function buildCallerDb(opts: {
   state?: string | null
   docChunks?: Array<{ id: string; text: string }>
   statuteChunks?: Array<{ id: string; content: string }>
+  /** The unit's association; null models a unit with none. */
+  associationId?: string | null
 }) {
+  const units = {
+    select: vi.fn(() => units),
+    eq: vi.fn(() => units),
+    maybeSingle: vi.fn(async () => ({
+      data: { association_id: opts.associationId === undefined ? 'assoc-1' : opts.associationId },
+      error: null,
+    })),
+  }
   const associations = {
     select: vi.fn(() => associations),
     eq: vi.fn(() => associations),
@@ -296,6 +306,7 @@ function buildCallerDb(opts: {
   return {
     from: vi.fn((table: string) => {
       if (table === 'associations') return associations
+      if (table === 'units') return units
       if (table === 'governing_document_chunks') return governingDocChunks
       if (table === 'state_statute_chunks') return statuteChunks
       throw new Error(`buildCallerDb: unexpected table "${table}"`)
@@ -311,7 +322,7 @@ function threadWithInboundMessage() {
     id: 'thread-1',
     subject: 'Synthetic test subject — fence question',
     status: 'open',
-    unitId: null,
+    unitId: 'unit-1' as string | null,
     vendorId: null,
     matchConfidence: 'none',
     matchReason: null,
@@ -514,7 +525,7 @@ describe('retrieveForThread — contact PII stays out of AI inputs (BL-062)', ()
     const sentToAi = JSON.stringify({
       w1: vi.mocked(queryGoverningDocs).mock.calls.at(-1)![0],
       w30: vi.mocked(askStateLaw).mock.calls.at(-1)![0],
-      embed: vi.mocked(findSimilarReplies).mock.calls.at(-1)![2],
+      embed: vi.mocked(findSimilarReplies).mock.calls.at(-1)![3],
       // Everything retrieveForThread hands W32 (actions.ts createDraft).
       w32: { messages: result.messages, fragments: result.fragments, voiceExamples: result.voiceExamples },
     })
@@ -534,6 +545,57 @@ describe('retrieveForThread — contact PII stays out of AI inputs (BL-062)', ()
     await retrieveForThread(buildCallerDb({ state: 'GA' }) as never, 'org-1', 'thread-1')
     expect(vi.mocked(queryGoverningDocs).mock.calls.at(-1)![0].length).toBeLessThanOrEqual(2000)
     expect(vi.mocked(askStateLaw).mock.calls.at(-1)![0].length).toBeLessThanOrEqual(2000)
+  })
+})
+
+describe('retrieveForThread — retrieval is scoped to the thread association', () => {
+  function emptySources() {
+    vi.mocked(getPropertyContext).mockResolvedValue(null)
+    vi.mocked(queryGoverningDocs).mockClear()
+    vi.mocked(askStateLaw).mockClear()
+    vi.mocked(findSimilarReplies).mockClear()
+    vi.mocked(queryGoverningDocs).mockResolvedValue({
+      answer: '', confidence: 'LOW', citations: [], clarification: null, recommendation: null, runId: 'r1',
+    })
+    vi.mocked(askStateLaw).mockResolvedValue({ answer: '', confidence: 'LOW', citations: [], disclaimer: '', runId: 'r2' })
+  }
+
+  it('passes the unit association to governing docs and to the voice search, and uses its state', async () => {
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithInboundMessage())
+    emptySources()
+    await retrieveForThread(buildCallerDb({ state: 'FL', associationId: 'assoc-7' }) as never, 'org-1', 'thread-1')
+    expect(vi.mocked(queryGoverningDocs).mock.calls[0]![1]).toEqual(
+      expect.objectContaining({ organizationId: 'org-1', associationId: 'assoc-7' }),
+    )
+    expect(vi.mocked(findSimilarReplies).mock.calls[0]![2]).toBe('assoc-7')
+    expect(vi.mocked(askStateLaw).mock.calls[0]![1]).toBe('FL')
+  })
+
+  it('searches nothing org-wide and marks the draft degraded when the thread has no unit', async () => {
+    const thread = threadWithInboundMessage()
+    thread.unitId = null
+    vi.mocked(getThreadDetail).mockResolvedValue(thread)
+    emptySources()
+    const result = await retrieveForThread(buildCallerDb({ state: 'GA' }) as never, 'org-1', 'thread-1')
+    expect(queryGoverningDocs).not.toHaveBeenCalled()
+    expect(askStateLaw).not.toHaveBeenCalled()
+    expect(findSimilarReplies).not.toHaveBeenCalled()
+    expect(result.degraded).toEqual(
+      expect.arrayContaining(['governing_documents', 'state_law', 'past_replies']),
+    )
+  })
+
+  it('does the same when the unit has no association', async () => {
+    vi.mocked(getThreadDetail).mockResolvedValue(threadWithInboundMessage())
+    emptySources()
+    const result = await retrieveForThread(
+      buildCallerDb({ state: 'GA', associationId: null }) as never,
+      'org-1',
+      'thread-1',
+    )
+    expect(queryGoverningDocs).not.toHaveBeenCalled()
+    expect(findSimilarReplies).not.toHaveBeenCalled()
+    expect(result.degraded).toContain('governing_documents')
   })
 })
 
@@ -646,7 +708,7 @@ describe('retrieveForThread — account facts only for a verified resident of th
   })
 
   it('an unfiled thread carries the not-filed reason and no account read', async () => {
-    vi.mocked(getThreadDetail).mockResolvedValue(threadWithInboundMessage())
+    vi.mocked(getThreadDetail).mockResolvedValue({ ...threadWithInboundMessage(), unitId: null })
     mockSources()
     vi.mocked(getPropertyContext).mockResolvedValue(null)
 
