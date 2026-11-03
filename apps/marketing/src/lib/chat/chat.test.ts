@@ -29,6 +29,10 @@ describe('retrieval for the suggested questions', () => {
     expect(ids("I can't sign in", 2)).toContain('fact:sign-in')
   })
 
+  it.each(["I can't sign in", "can't log in", 'forgot password', 'reset my password'])('%s -> a sign-in help answer in the top 2', (q) => {
+    expect(ids(q, 2).some((i) => i === 'fact:sign-in' || /^help:.*(sign|password|login)/.test(i))).toBe(true)
+  })
+
   it('gibberish finds nothing', () => {
     expect(retrieve('zxqv blorptastic', 3)).toEqual([])
   })

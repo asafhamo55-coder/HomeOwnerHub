@@ -1,4 +1,4 @@
-// Everything the chat may answer from: marketing pages, the 50 guides, the
+// Everything the chat may answer from: marketing pages, the guides, the
 // in-app help articles, and a few hand-written support facts. Nothing else is
 // ever sent to the model. Relative imports only: tests import this module.
 
