@@ -23,7 +23,7 @@ export const GA_JOINT_OWNER_VOTES: Guide = {
   dateModified: PUBLISHED,
   howTo: true,
   summary: [
-    'Some lots have more than one owner, such as a couple, siblings or several people in a trust. Section 44-3-224(a) of the Georgia Property Owners’ Association Act says who casts them.',
+    'Some lots have more than one owner, such as a couple, siblings or other co-owners. Section 44-3-224(a) of the Georgia Property Owners’ Association Act says who casts them.',
     'If only one of the owners is present, or is voting by proxy, ballot or written consent, that person casts the votes for the lot.',
     'If more than one owner is present or executes a proxy, ballot or written consent, the vote must follow their unanimous agreement, unless the instrument expressly says otherwise.',
     'Consent is conclusively presumed if one owner purports to cast the vote and no other owner protests right away to the person presiding. This is a plain-language guide to the text we hold, not legal advice.',
@@ -63,6 +63,7 @@ export const GA_JOINT_OWNER_VOTES: Guide = {
     {
       heading: 'What this page does not tell you',
       body: [
+        'This guide applies only if your association is under the Georgia Property Owners’ Association Act, which an older declaration reaches only if it elects the Act. Our guide on whether the Act applies explains how to check.',
         'We do not say what your declaration or bylaws provide about co-owners, and we do not say how a court would treat a disputed vote. We also do not cover how the Act counts votes for a lot owned by a company or a trust.',
       ],
     },
@@ -71,7 +72,7 @@ export const GA_JOINT_OWNER_VOTES: Guide = {
     'Check your declaration and bylaws for any wording on how co-owners vote.',
     'Write down, on your attendance sheet or ballot, the name of every owner of record for each lot.',
     'Make sure the person presiding knows that a co-owner’s protest should be heard when the vote is cast.',
-    'If two co-owners disagree in the room, do not count that lot’s votes until your attorney tells you how your documents handle it.',
+    'If two co-owners are present and disagree, remember that the text says the vote is cast only by their unanimous agreement unless the instrument expressly provides otherwise, and ask your attorney how your documents handle a split.',
     'Record in the minutes which owner cast the votes for a lot and whether anyone protested.',
     'Ask your attorney before you rely on this page in a close or disputed vote.',
   ],
@@ -94,10 +95,11 @@ export const GA_JOINT_OWNER_VOTES: Guide = {
     },
     {
       q: 'Does a lot with two owners get two votes?',
-      a: 'The text speaks of “the votes pertaining to that lot.” How many votes a lot carries comes from your instrument.',
+      a: 'The text speaks of “the votes pertaining to that lot.” Check your declaration for how many votes each lot carries.',
     },
   ],
   related: [
+    'georgia-hoa-does-poa-act-apply-44-3-222',
     'annual-meeting-quorum-proxies',
     'georgia-hoa-written-ballots-without-a-meeting',
     'georgia-hoa-who-can-serve-on-the-board-44-3-229',
@@ -136,7 +138,7 @@ export const GA_OWNERS_CALL_MEETING: Guide = {
     {
       heading: 'When owners can step in',
       body: [
-        'The trigger is a missed deadline. The association has not held the annual meeting on or before the last day of its fiscal year. Until then, owners cannot use this subsection.',
+        'The statute’s condition is a missed deadline: the association has failed to hold the annual meeting on or before the last day of its fiscal year. Until that condition is met, this subsection does not give owners the right to call the meeting.',
         'After that date, the holders of at least 5 percent of the voting power may call the meeting. The articles or bylaws can set a different amount, but not more than 25 percent as a minimum.',
         'So the number to look up is in your own articles and bylaws. If they are silent, the text gives 5 percent.',
       ],
@@ -153,6 +155,7 @@ export const GA_OWNERS_CALL_MEETING: Guide = {
     {
       heading: 'What this page does not tell you',
       body: [
+        'This guide applies only if your association is under the Georgia Property Owners’ Association Act, which an older declaration reaches only if it elects the Act. Our guide on whether the Act applies explains how to check.',
         'The subsection does not say how many days the board has to schedule the meeting after the call arrives, and we do not say. It does not say who runs the meeting. For notice to members once a meeting is set, see our guide on annual meetings, quorum and proxies, and ask your attorney which rules apply to a meeting called this way.',
       ],
     },
@@ -188,6 +191,7 @@ export const GA_OWNERS_CALL_MEETING: Guide = {
     },
   ],
   related: [
+    'georgia-hoa-does-poa-act-apply-44-3-222',
     'annual-meeting-quorum-proxies',
     'georgia-hoa-owners-take-control-from-declarant-44-3-232-1',
     'georgia-hoa-joint-owners-voting-44-3-224',
@@ -258,7 +262,8 @@ export const GA_OWNER_COMPLIANCE: Guide = {
     {
       heading: 'What this page does not tell you',
       body: [
-        'We do not say which remedy to use, how large a fine can be, or whether your instrument allows fines or suspensions. Other Georgia law, including the 2026 association registration act, may add limits on collecting fines, and we cover that in a separate guide. We do not give legal advice on a particular violation.',
+        'This guide applies only if your association is under the Georgia Property Owners’ Association Act, which an older declaration reaches only if it elects the Act. Our guide on whether the Act applies explains how to check.',
+        'We do not say which remedy to use, how large a fine can be, or whether your instrument allows fines or suspensions. Georgia’s SB 406 adds a separate limit: its registration provisions take effect January 1, 2027, and under them an association that is not registered may not collect fines or fees. We cover that in a separate guide. We do not give legal advice on a particular violation.',
       ],
     },
   ],
@@ -293,6 +298,7 @@ export const GA_OWNER_COMPLIANCE: Guide = {
     },
   ],
   related: [
+    'georgia-hoa-does-poa-act-apply-44-3-222',
     'fines-and-violation-hearings',
     'late-fee-limits',
     'georgia-hoa-assessment-lien-rules',
