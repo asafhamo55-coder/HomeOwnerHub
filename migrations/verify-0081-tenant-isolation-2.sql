@@ -34,6 +34,15 @@ FROM pg_policies
 WHERE schemaname = 'public'
   AND tablename IN ('eviction_cases', 'pm_properties', 'pm_rent_ledger');
 
+SELECT 'communications.audience_definition holds no contact lists' AS check,
+       CASE WHEN EXISTS (SELECT 1 FROM pg_constraint
+                          WHERE conrelid = 'public.communications'::regclass
+                            AND conname = 'communications_audience_no_contacts'
+                            AND convalidated)
+             AND NOT EXISTS (SELECT 1 FROM public.communications
+                              WHERE audience_definition ?| ARRAY['emails', 'phones', 'emailNames', 'recipients'])
+            THEN 'PASS' ELSE 'FAIL' END AS result;
+
 -- Existing attachment rows whose path does not match their own parent. A count above
 -- zero is not a failure of the migration; it lists rows to review.
 SELECT 'attachment rows with a mismatched path' AS check,

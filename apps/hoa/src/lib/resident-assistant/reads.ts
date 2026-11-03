@@ -30,7 +30,7 @@ import { loadLedgerRows } from '../resident-ledger'
 import { chargeWindow, scopeLedgerRows } from '../resident-sale-window'
 import { residentTimeZone, summarizeResidentDues } from '../resident-dues'
 import { chargeTypeLabel } from '../assessment-labels'
-import { buildRecipientIdentityFilters, pickRowPerCommunication, type RecipientRow } from '../communications/resident-scope'
+import { buildRecipientIdentityFilters, chargesFromByUnit, pickRowPerCommunication, type RecipientRow } from '../communications/resident-scope'
 import { resolveForDisplay } from '../communications/display'
 import { fetchResidentMeetings, ResidentMeetingsLoadError, type MeetingsClient } from '../resident-meetings/query'
 import { todayIn } from '../association-time'
@@ -482,7 +482,12 @@ export async function readCommunityUpdates(scope: ResidentScope, now: Date = new
 
 async function readMyAnnouncements(scope: ResidentScope): Promise<CommunityUpdates['announcements']> {
   const unitIds = unitIdsOf(scope)
-  const identity = { unitIds, userId: scope.userId, email: scope.email }
+  const identity = {
+    unitIds,
+    unitChargesFrom: chargesFromByUnit(scope.units),
+    userId: scope.userId,
+    email: scope.email,
+  }
   const filters = buildRecipientIdentityFilters(identity)
   // An empty or() matches every row (resident-scope.ts): skip the read.
   if (filters.length === 0) return []

@@ -108,6 +108,18 @@ describe('stripAudienceForPersist', () => {
     ).toEqual({ kind: 'manual_emails', extra: { count: 3 } })
   })
 
+  it('drops contact-list keys from any other kind, since the column rejects them', () => {
+    const result = stripAudienceForPersist({
+      kind: 'late_on_dues',
+      unitIds: ['unit-a'],
+      emails: ['a@example.com'],
+      emailNames: ['Ann'],
+      phones: ['5551234567'],
+      recipients: RECIPIENTS,
+    })
+    expect(result).toEqual({ kind: 'late_on_dues', unitIds: ['unit-a'] })
+  })
+
   it('passes a non-precomputed kind through unchanged', () => {
     const audience = { kind: 'late_on_dues' as const, unitIds: ['unit-a'] }
 

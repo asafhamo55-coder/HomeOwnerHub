@@ -30,6 +30,26 @@ export interface ResidentIdentity {
   email: string | null
 }
 
+const CUTOFF_SHAPE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:?\d{2})?)?$/
+
+/** A date or ISO timestamp that is safe to put in a PostgREST filter value. */
+function isSafeCutoff(value: string): boolean {
+  return CUTOFF_SHAPE.test(value) && !Number.isNaN(Date.parse(value))
+}
+
+/**
+ * The `unitChargesFrom` map for a resident's units (ResidentUnit.charges_from):
+ * a buyer's window opens on the sale date, so the seller's mail stays hidden.
+ * Units with no window are left out and see their whole history.
+ */
+export function chargesFromByUnit(
+  units: ReadonlyArray<{ unit_id: string; charges_from?: string | null }>,
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const u of units) if (u.unit_id && u.charges_from) out[u.unit_id] = u.charges_from
+  return out
+}
+
 /**
  * PostgREST `or()` clauses matching delivery rows belonging to this
  * reader. Three independent ways a row can be theirs: their unit was in
@@ -56,9 +76,10 @@ export function buildRecipientIdentityFilters({
       open.push(id)
       continue
     }
-    // Only a plain date or ISO timestamp goes into the clause. Anything else
-    // drops the unit: failing closed beats widening the match.
-    if (/^\d{4}-\d{2}-\d{2}(T[\d:.]+Z)?$/.test(from)) {
+    // Only a plain date or an ISO timestamp (Z or an offset) goes into the
+    // clause. Anything else drops the unit: failing closed beats widening
+    // the match.
+    if (isSafeCutoff(from)) {
       bounded.push(`and(unit_id.eq.${id},sent_at.gte.${from})`)
     }
   }

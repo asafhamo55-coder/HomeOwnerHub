@@ -49,6 +49,8 @@ export function countNewAnnouncements(
 
 export interface ReaderIdentity {
   unitIds: string[]
+  /** First day each unit's mail is visible (a buyer's sale date); see chargesFromByUnit. */
+  unitChargesFrom?: Record<string, string | null | undefined>
   userId: string | null
   email: string | null
 }

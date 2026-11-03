@@ -455,7 +455,9 @@ const MATRIX: Entry[] = [
     patch: { compliance_settings: { pay_by_zelle: { recipient: 'attacker@example.test' } } },
     col: 'compliance_settings',
     writer: 'admin',
-    residentReadsOrgWide: true,
+    // 0081: a resident reads only the associations they live in, so the spare
+    // association (no home of theirs) is invisible. See the associations test below.
+    residentReadsOrgWide: false,
   },
   {
     table: 'units',
@@ -852,6 +854,16 @@ describe('resident reads are scoped to what is theirs', () => {
       .maybeSingle()
     expect(error).toBeNull()
     expect(data?.id).toBe(w.org.associationId)
+  })
+
+  it('associations: a resident cannot read an association they have no home in (0081)', async () => {
+    const spare = w.ids['m:associations']
+    expect(spare, 'fixture: spare association missing').toBeTruthy()
+    expect(await visible(w.resident.client, 'associations', [spare])).toEqual([])
+    const { data } = await w.resident.client.from('associations').select('id').eq('organization_id', w.org.orgId)
+    const ids = ((data ?? []) as Array<{ id: string }>).map((r) => r.id)
+    expect(ids).not.toContain(spare)
+    expect(ids).toEqual([w.org.associationId])
   })
 
   it('org-wide reference tables stay readable', async () => {

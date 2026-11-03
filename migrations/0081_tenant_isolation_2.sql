@@ -20,9 +20,16 @@
 --   4. eviction_cases, pm_properties, pm_rent_ledger: the FOR ALL org_access
 --      policy is replaced by a board or admin policy.
 --
--- NOT HERE: communications.audience_definition. The board reads it through the
--- same database role as residents, so a column privilege cannot separate them.
--- That fix is in the application (stop storing contact lists in it).
+--   5. communications.audience_definition: the board reads it through the same
+--      database role as residents, so a column privilege cannot separate them.
+--      The application no longer stores contact lists in it (stripAudienceForPersist).
+--      This file scrubs the rows written before that fix, keeping only kind, the
+--      count (extra.count) and official_notice, then adds a CHECK constraint so
+--      the keys emails, phones, emailNames and recipients cannot come back.
+--      Nothing reads those keys back: the dispatcher reads kind and official_notice,
+--      the detail page reads kind (and ownersOnly) via followUpAudience, and
+--      delivery reads communication_recipients. A draft keeps its composer state
+--      under the 'composer' key, which the constraint does not touch.
 
 BEGIN;
 
@@ -121,6 +128,32 @@ CREATE POLICY pm_rent_ledger_board_all ON public.pm_rent_ledger FOR ALL TO authe
   USING (public.auth_is_board_or_admin(org_id))
   WITH CHECK (public.auth_is_board_or_admin(org_id));
 
+-- 5. audience_definition holds no contact lists ------------------------------
+-- One-time scrub. A manual_emails row is rebuilt from kind, its count and
+-- official_notice; any other row with a contact key just loses those keys.
+UPDATE public.communications c
+   SET audience_definition = CASE
+     WHEN audience_definition ->> 'kind' = 'manual_emails' THEN
+       jsonb_strip_nulls(jsonb_build_object(
+         'kind', 'manual_emails',
+         'extra', jsonb_build_object('count', coalesce(
+            CASE WHEN jsonb_typeof(audience_definition -> 'extra' -> 'count') = 'number'
+                 THEN (audience_definition -> 'extra' ->> 'count')::int END,
+            greatest(
+              CASE WHEN jsonb_typeof(audience_definition -> 'emails') = 'array'
+                   THEN jsonb_array_length(audience_definition -> 'emails') ELSE 0 END,
+              CASE WHEN jsonb_typeof(audience_definition -> 'phones') = 'array'
+                   THEN jsonb_array_length(audience_definition -> 'phones') ELSE 0 END))),
+         'official_notice', audience_definition -> 'official_notice'))
+     ELSE audience_definition - 'emails' - 'phones' - 'emailNames' - 'recipients'
+   END
+ WHERE audience_definition ->> 'kind' = 'manual_emails'
+    OR audience_definition ?| ARRAY['emails', 'phones', 'emailNames', 'recipients'];
+
+ALTER TABLE public.communications DROP CONSTRAINT IF EXISTS communications_audience_no_contacts;
+ALTER TABLE public.communications ADD CONSTRAINT communications_audience_no_contacts
+  CHECK (NOT (audience_definition ?| ARRAY['emails', 'phones', 'emailNames', 'recipients']));
+
 -- post-checks ---------------------------------------------------------------
 DO $post$
 BEGIN
@@ -136,6 +169,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'governing_documents'
                   AND policyname = 'governing_documents_select' AND qual LIKE '%community_board_association_ids%') THEN
     RAISE EXCEPTION '0081: governing_documents_select not rewritten';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                  WHERE conrelid = 'public.communications'::regclass
+                    AND conname = 'communications_audience_no_contacts') THEN
+    RAISE EXCEPTION '0081: audience_definition contact-key constraint missing';
   END IF;
   RAISE NOTICE '0081 ok: tenant isolation pass 2 applied.';
 END $post$;

@@ -5,7 +5,7 @@ vi.mock('@/lib/properties/resolve', async (importActual) => ({
   propertyIdsForUnits: vi.fn(async () => new Map([['unit-12', 'prop-12']])),
 }))
 
-import { readMyRequests, unitScope } from './reads'
+import { readCommunityUpdates, readMyRequests, unitScope } from './reads'
 
 // BL-101 A2 — the board-side, one-home scope. The fake client IGNORES every
 // filter and returns a neighbour's and another org's rows too, so these
@@ -69,5 +69,31 @@ describe('readMyRequests with unitScope (board side)', () => {
   it('a scope with no user id stays a board scope (no resident-side reads)', () => {
     expect(scope.userId).toBeNull()
     expect(scope.requestsBy).toBe('unit')
+  })
+})
+
+describe('readCommunityUpdates (sale window)', () => {
+  it('bounds a bought unit by its sale date and leaves an owned unit open', async () => {
+    let or = ''
+    const result = { data: [], error: null, count: 0 }
+    const q: unknown = new Proxy(() => undefined, {
+      get: (_t, prop) => {
+        if (prop === 'then') return (resolve: (v: unknown) => void) => resolve(result)
+        if (prop === 'or') return (f: string) => ((or = f), q)
+        return () => q
+      },
+    })
+    const db = { from: () => q, rpc: () => q }
+    await readCommunityUpdates({
+      db: db as never,
+      orgId: 'org-1',
+      userId: null,
+      email: null,
+      units: [
+        { unit_id: 'bought', association_id: 'a1', charges_from: '2026-05-01' },
+        { unit_id: 'owned', association_id: 'a1', charges_from: null },
+      ],
+    })
+    expect(or).toBe('unit_id.in.(owned),and(unit_id.eq.bought,sent_at.gte.2026-05-01)')
   })
 })

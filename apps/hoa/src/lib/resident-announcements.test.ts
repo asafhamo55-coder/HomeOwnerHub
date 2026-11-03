@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { countNewAnnouncements } from './resident-announcements'
+import { countNewAnnouncements, fetchMyAnnouncementRows } from './resident-announcements'
 
 /**
  * The portal badge read "15 new" while the list showed 3. It counted every
@@ -56,5 +56,24 @@ describe('countNewAnnouncements', () => {
 
   it('returns zero for a reader with no recipient rows at all', () => {
     expect(countNewAnnouncements([], null)).toBe(0)
+  })
+})
+
+describe('fetchMyAnnouncementRows (sale window)', () => {
+  it('bounds a bought unit by its sale date and leaves an owned unit open', async () => {
+    let or = ''
+    const q: Record<string, unknown> = {}
+    q.select = () => q
+    q.eq = () => q
+    q.or = (f: string) => ((or = f), q)
+    q.order = () => q
+    q.limit = () => Promise.resolve({ data: [], error: null })
+    await fetchMyAnnouncementRows({ from: () => q }, 'org-1', {
+      unitIds: ['bought', 'owned'],
+      unitChargesFrom: { bought: '2026-05-01' },
+      userId: null,
+      email: null,
+    })
+    expect(or).toBe('unit_id.in.(owned),and(unit_id.eq.bought,sent_at.gte.2026-05-01)')
   })
 })

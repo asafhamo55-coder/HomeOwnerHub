@@ -77,6 +77,17 @@ describe('loadLatestAnnouncement', () => {
     expect(comm.eq).toContainEqual(['status', 'sent'])
   })
 
+  it('bounds a buyer unit by the sale date and leaves a long-time owner unbounded', async () => {
+    const units = [
+      { unit_id: 'bought', association_name: 'Maple Grove', charges_from: '2026-05-01' },
+      { unit_id: 'owned', association_name: 'Maple Grove', charges_from: null },
+    ]
+    const db = fakeDb({})
+    await loadLatestAnnouncement(db, ORG, { unitIds: ['bought', 'owned'], userId: null, email: null }, units)
+    const rec = db.calls.find((c) => c.table === 'communication_recipients')!
+    expect(rec.or).toBe('unit_id.in.(owned),and(unit_id.eq.bought,sent_at.gte.2026-05-01)')
+  })
+
   it('reads nothing when the reader has no identity or org', async () => {
     const db = fakeDb({})
     expect(await loadLatestAnnouncement(db, ORG, { unitIds: [], userId: null, email: null }, [])).toEqual({ ok: true, announcement: null })

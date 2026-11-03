@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import {
   buildRecipientIdentityFilters,
+  chargesFromByUnit,
   pickRowPerCommunication,
   type RecipientRow,
   type ResidentIdentity,
@@ -96,10 +97,13 @@ export async function loadLatestAnnouncement(
   supabase: { from: (table: string) => any },
   orgId: string | null,
   identity: ResidentIdentity,
-  units: Array<{ unit_id: string; association_name: string | null }>,
+  units: Array<{ unit_id: string; association_name: string | null; charges_from?: string | null }>,
 ): Promise<LatestAnnouncementResult> {
   if (!orgId) return { ok: true, announcement: null }
-  const filters = buildRecipientIdentityFilters(identity)
+  const filters = buildRecipientIdentityFilters({
+    ...identity,
+    unitChargesFrom: { ...chargesFromByUnit(units), ...identity.unitChargesFrom },
+  })
   // No identity: nothing was ever addressed to this reader. An empty or()
   // would match every row, so the query is skipped.
   if (filters.length === 0) return { ok: true, announcement: null }

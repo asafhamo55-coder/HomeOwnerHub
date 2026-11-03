@@ -23,6 +23,7 @@ import { getResidentUnits } from '@/lib/resident'
 import { resolveForDisplay } from '@/lib/communications/display'
 import {
   buildRecipientIdentityFilters,
+  chargesFromByUnit,
   pickRowPerCommunication,
   type RecipientRow,
 } from '@/lib/communications/resident-scope'
@@ -118,6 +119,7 @@ export default async function ResidentAnnouncementsPage({
 
   const identityFilters = buildRecipientIdentityFilters({
     unitIds: units.map((u) => u.unit_id).filter(Boolean),
+    unitChargesFrom: chargesFromByUnit(units),
     userId: actor.id,
     email: actor.email,
   })

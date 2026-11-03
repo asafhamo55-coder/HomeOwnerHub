@@ -217,3 +217,57 @@ describe('pm and eviction tables', () => {
     expect(still.data).toHaveLength(1)
   })
 })
+
+describe('communications.audience_definition holds no contact lists', () => {
+  const comm = (audience_definition: unknown) => ({
+    organization_id: org.orgId,
+    association_id: org.associationId,
+    category: 'announcement',
+    subject: 'Notice',
+    body_html: '<p>hi</p>',
+    audience_definition,
+    status: 'sent',
+    sent_at: new Date().toISOString(),
+  })
+
+  for (const key of ['emails', 'phones', 'emailNames', 'recipients']) {
+    it(`rejects a row carrying ${key}`, async () => {
+      const r = await db()
+        .from('communications')
+        .insert(comm({ kind: 'manual_emails', extra: { count: 1 }, [key]: ['x'] }))
+      expect(r.error, `${key} was accepted`).not.toBeNull()
+      expect(r.error.code).toBe('23514')
+    })
+  }
+
+  it('accepts kind, count, official_notice and a draft composer state', async () => {
+    for (const def of [
+      { kind: 'manual_emails', extra: { count: 3 }, official_notice: true },
+      { kind: 'draft', composer: { manualContacts: [{ email: 'x', phone: '', name: '' }] } },
+      { kind: 'everyone' },
+    ]) {
+      const r = await db().from('communications').insert(comm(def))
+      expect(r.error, JSON.stringify(def)).toBeNull()
+    }
+  })
+
+  it('a resident who can read a manual list message sees no contact keys', async () => {
+    const ins = await db()
+      .from('communications')
+      .insert(comm({ kind: 'manual_emails', extra: { count: 2 } }))
+      .select('id')
+      .single()
+    expect(ins.error).toBeNull()
+    const rec = await db().from('communication_recipients').insert({
+      organization_id: org.orgId,
+      communication_id: ins.data.id,
+      user_id: resident.id,
+      channel: 'portal',
+      delivery_status: 'delivered',
+    })
+    expect(rec.error).toBeNull()
+    const r = await c(resident).from('communications').select('audience_definition').eq('id', ins.data.id)
+    expect(r.data).toHaveLength(1)
+    expect(Object.keys(r.data[0].audience_definition).sort()).toEqual(['extra', 'kind'])
+  })
+})

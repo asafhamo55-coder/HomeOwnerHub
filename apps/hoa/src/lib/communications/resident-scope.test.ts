@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { buildRecipientIdentityFilters, pickRowPerCommunication } from './resident-scope'
+import { buildRecipientIdentityFilters, chargesFromByUnit, pickRowPerCommunication } from './resident-scope'
 
 describe('buildRecipientIdentityFilters', () => {
   it('matches on every identity the reader has', () => {
@@ -48,6 +48,41 @@ describe('buildRecipientIdentityFilters', () => {
         email: null,
       }),
     ).toEqual([])
+  })
+
+  it('accepts ISO timestamps with Z, fractional seconds and offsets', () => {
+    for (const from of ['2026-05-01T00:00:00Z', '2026-05-01T00:00:00.123Z', '2026-05-01T00:00:00+00:00', '2026-05-01T09:30:00-05:00', '2026-05-01T09:30:00+0530']) {
+      expect(
+        buildRecipientIdentityFilters({ unitIds: ['u'], unitChargesFrom: { u: from }, userId: null, email: null }),
+        from,
+      ).toEqual([`and(unit_id.eq.u,sent_at.gte.${from})`])
+    }
+  })
+
+  it('fails closed on input that is not a real date or timestamp', () => {
+    for (const from of ['2026-13-45', 'yesterday', '2026-05-01T00:00:00Z),unit_id.neq.0', '2026-05-01 00:00:00', '2026-05-01T25:00:00Z']) {
+      expect(
+        buildRecipientIdentityFilters({ unitIds: ['u'], unitChargesFrom: { u: from }, userId: null, email: null }),
+        from,
+      ).toEqual([])
+    }
+  })
+
+  it('a buyer is bounded by the sale date and a long-time owner is not', () => {
+    const units = [
+      { unit_id: 'bought', charges_from: '2026-05-01' },
+      { unit_id: 'owned', charges_from: null },
+      { unit_id: 'imported' },
+    ]
+    expect(chargesFromByUnit(units)).toEqual({ bought: '2026-05-01' })
+    expect(
+      buildRecipientIdentityFilters({
+        unitIds: units.map((u) => u.unit_id),
+        unitChargesFrom: chargesFromByUnit(units),
+        userId: null,
+        email: null,
+      }),
+    ).toEqual(['unit_id.in.(owned,imported)', 'and(unit_id.eq.bought,sent_at.gte.2026-05-01)'])
   })
 
   it('returns nothing when there is no identity to match on', () => {

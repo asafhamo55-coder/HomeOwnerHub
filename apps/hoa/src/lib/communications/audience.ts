@@ -125,7 +125,9 @@ export function stripAudienceForPersist(audience: AudienceDefinition): AudienceD
     const count = Math.max(audience.emails?.length ?? 0, audience.phones?.length ?? 0)
     return { kind: 'manual_emails', extra: { count } }
   }
-  return audience
+  // communications_audience_no_contacts (0081) rejects these keys on every kind.
+  const { emails: _e, emailNames: _n, phones: _p, recipients: _r, ...rest } = audience
+  return rest
 }
 
 type Db = SupabaseClient<Database>

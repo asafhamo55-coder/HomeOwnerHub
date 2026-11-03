@@ -16,6 +16,7 @@ import { ResidentUnitsLoadError } from '@/lib/resident-units-error'
 import { exactIlike } from '@/lib/impersonation-target'
 import { chargesFromForOwnership } from '@/lib/resident-sale-window'
 import { ASSOCIATION_ZONE_COLUMNS, associationTimeZone } from '@/lib/association-time'
+import { chargesFromByUnit } from '@/lib/communications/resident-scope'
 import {
   countNewAnnouncements,
   fetchMyAnnouncementRows,
@@ -255,6 +256,7 @@ export async function getResidentSummary(): Promise<ResidentSummary> {
   if (org) {
     const identity = {
       unitIds: units.map((u) => u.unit_id).filter(Boolean),
+      unitChargesFrom: chargesFromByUnit(units),
       userId: actor.id,
       email: actor.email,
     }

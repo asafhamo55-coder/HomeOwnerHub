@@ -21,6 +21,7 @@ import {
   getAnnouncementsLastViewedAt,
   type ReaderIdentity,
 } from '@/lib/resident-announcements'
+import { chargesFromByUnit } from '@/lib/communications/resident-scope'
 import { getResidentUnits, type ResidentUnit } from '@/lib/resident'
 import { loadLatestAnnouncement, type LatestAnnouncement } from '@/lib/resident-latest-announcement'
 import { loadMyTickets, type TicketRow } from '@/lib/resident-tickets'
@@ -106,6 +107,7 @@ export async function getResidentDashboard(): Promise<ResidentDashboard> {
     loadMyArcRequests(),
     getRecentAnnouncements(supabase, org?.id ?? null, {
       unitIds,
+      unitChargesFrom: chargesFromByUnit(units),
       userId: actor.id,
       email: actor.email,
     }),
