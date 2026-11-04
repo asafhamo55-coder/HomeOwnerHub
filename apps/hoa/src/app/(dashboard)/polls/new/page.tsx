@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Card, CardContent, Page } from '@homeowner-portal/ui'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { pollsAvailable } from '@/lib/polls/store'
+import { getPrimaryAssociation } from '@/lib/vendors'
 import { NewPollForm } from '@/components/polls/NewPollForm'
 import { PollNotice } from '@/components/polls/PollNotice'
 
@@ -11,11 +12,16 @@ export const metadata = { title: 'New poll' }
 export default async function NewPollPage() {
   if (!pollsAvailable()) notFound()
   await requireBoardOrAdmin()
+  const assoc = await getPrimaryAssociation()
   return (
     <Page
       width="narrow"
       title="New poll"
-      description="Residents answer in their portal. You see the totals."
+      description={
+        assoc
+          ? `This poll goes to ${assoc.name}. Residents answer in their portal. You see the totals.`
+          : 'Residents answer in their portal. You see the totals.'
+      }
       breadcrumbs={[{ label: 'Polls', href: '/polls' }, { label: 'New poll' }]}
       linkAs={Link}
     >

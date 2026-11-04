@@ -30,6 +30,7 @@ import { loadPublicDocument, loadPublicPage } from './load'
 const SITE = {
   id: 's1',
   organization_id: 'org1',
+  association_id: 'assoc1',
   slug: 'oak-hollow',
   published: true,
   title: 'Oak Hollow',
@@ -37,6 +38,7 @@ const SITE = {
   contact_email: null,
   contact_phone: null,
 }
+const GOV = { storage_path: 'o/f.pdf', type: 'bylaws', ai_generated: false, superseded_at: null, visible_to_owners: false, association_id: null }
 const ITEM = '11111111-1111-4111-8111-111111111111'
 
 beforeEach(() => {
@@ -70,6 +72,15 @@ describe('public page loader with the flag on', () => {
     expect(calls).toHaveLength(0)
   })
 
+  it('refuses an other-type hoa document and one the board never posted', async () => {
+    results.set('public_sites', { data: SITE, error: null })
+    results.set('public_site_items', { data: { hoa_document_id: 'h1', governing_document_id: null }, error: null })
+    results.set('hoa_documents', { data: { storage_path: 'o/h.pdf', type: 'other', visible_to_owners: false }, error: null })
+    expect(await loadPublicDocument('oak-hollow', ITEM)).toBeNull()
+    results.set('hoa_documents', { data: { storage_path: 'o/h.pdf', type: 'ccr', visible_to_owners: false }, error: null })
+    expect(await loadPublicDocument('oak-hollow', ITEM)).toMatchObject({ path: 'o/h.pdf' })
+  })
+
   it('does not serve a document whose id is not a uuid', async () => {
     expect(await loadPublicDocument('oak-hollow', 'not-a-uuid')).toBeNull()
     expect(calls).toHaveLength(0)
@@ -87,11 +98,20 @@ describe('public page loader with the flag on', () => {
   it('refuses an AI-generated or replaced governing document, and scopes the file to the org', async () => {
     results.set('public_sites', { data: SITE, error: null })
     results.set('public_site_items', { data: { hoa_document_id: null, governing_document_id: 'g1' }, error: null })
-    results.set('governing_documents', { data: { storage_path: 'o/f.pdf', ai_generated: true, superseded_at: null }, error: null })
+    results.set('governing_documents', { data: { ...GOV, ai_generated: true }, error: null })
     expect(await loadPublicDocument('oak-hollow', ITEM)).toBeNull()
-    results.set('governing_documents', { data: { storage_path: 'o/f.pdf', ai_generated: false, superseded_at: '2026-01-01' }, error: null })
+    results.set('governing_documents', { data: { ...GOV, superseded_at: '2026-01-01' }, error: null })
     expect(await loadPublicDocument('oak-hollow', ITEM)).toBeNull()
-    results.set('governing_documents', { data: { storage_path: 'o/f.pdf', ai_generated: false, superseded_at: null }, error: null })
+    results.set('governing_documents', { data: GOV, error: null })
+    expect(await loadPublicDocument('oak-hollow', ITEM)).toMatchObject({ path: 'o/f.pdf' })
+    // Another association's document, or a type residents cannot see, never goes out.
+    results.set('governing_documents', { data: { ...GOV, association_id: 'assoc2' }, error: null })
+    expect(await loadPublicDocument('oak-hollow', ITEM)).toBeNull()
+    results.set('governing_documents', { data: { ...GOV, type: 'legal_opinion' }, error: null })
+    expect(await loadPublicDocument('oak-hollow', ITEM)).toBeNull()
+    results.set('governing_documents', { data: { ...GOV, type: 'legal_opinion', visible_to_owners: true }, error: null })
+    expect(await loadPublicDocument('oak-hollow', ITEM)).toMatchObject({ path: 'o/f.pdf' })
+    results.set('governing_documents', { data: { ...GOV, association_id: 'assoc1' }, error: null })
     expect(await loadPublicDocument('oak-hollow', ITEM)).toMatchObject({ path: 'o/f.pdf' })
     const gov = calls.filter((c) => c.table === 'governing_documents').at(-1)!
     expect(gov.filters).toContainEqual(['organization_id', 'org1'])

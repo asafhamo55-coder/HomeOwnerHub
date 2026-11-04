@@ -1,3 +1,4 @@
+import { enforceBoardRate } from '@/lib/community-board/rate-limit'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { withRoute } from '@/lib/api/handler'
@@ -38,6 +39,7 @@ export const POST = withRoute('community-board.thread-create', async (request) =
   requireAssociationAccess(actor, input.associationId)
 
   const admin = looseAdmin()
+  await enforceBoardRate(admin, 'thread', { orgId: actor.orgId, userId: actor.userId })
   const label = await displayLabel(admin, actor.userId)
   const now = new Date().toISOString()
 

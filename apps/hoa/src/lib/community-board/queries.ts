@@ -112,7 +112,8 @@ export async function loadOpenReports(c: BoardPageContext): Promise<OpenReport[]
 export async function loadThreadDetail(
   c: BoardPageContext,
   threadId: string,
-): Promise<{ thread: ThreadRow; posts: PostRow[]; reports: OpenReport[]; reportedByMe: string[] } | null> {
+  postLimit: number = BOARD_POST_CAP,
+): Promise<{ thread: ThreadRow; posts: PostRow[]; reports: OpenReport[]; reportedByMe: string[]; hasMorePosts: boolean } | null> {
   const t = await c.db
     .from('board_threads')
     .select('id, organization_id, association_id, title, created_by, closed_at, hidden_at, last_activity_at, created_at')
@@ -127,10 +128,12 @@ export async function loadThreadDetail(
       .select('id, organization_id, association_id, thread_id, author_id, author_label, author_is_board, is_opening, body, hidden_at, hidden_reason, created_at')
       .eq('thread_id', threadId)
       .order('created_at', { ascending: true })
-      .limit(BOARD_POST_CAP),
+      .limit(postLimit + 1),
   )
   if (!p.ok) return null
-  const posts = (p.data ?? []) as PostRow[]
+  const fetched = (p.data ?? []) as PostRow[]
+  const hasMorePosts = fetched.length > postLimit
+  const posts = fetched.slice(0, postLimit)
   const postIds = posts.map((x) => x.id)
   let reports: OpenReport[] = []
   let reportedByMe: string[] = []
@@ -146,5 +149,5 @@ export async function loadThreadDetail(
       reportedByMe = rows.map((x) => x.post_id)
     }
   }
-  return { thread, posts, reports, reportedByMe }
+  return { thread, posts, reports, reportedByMe, hasMorePosts }
 }

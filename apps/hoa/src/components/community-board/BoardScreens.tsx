@@ -6,7 +6,7 @@ import {
   loadThreadDetail,
   loadThreadList,
 } from '@/lib/community-board/queries'
-import { postVisibleTo } from '@/lib/community-board/rules'
+import { BOARD_POST_CAP, postVisibleTo } from '@/lib/community-board/rules'
 import { formatDateTime } from '@/lib/format-datetime'
 import { ModerateButton, NewThreadForm, ReplyForm, ReportButton } from './BoardClient'
 
@@ -112,13 +112,21 @@ export async function BoardHomeScreen({
   )
 }
 
-export async function BoardThreadScreen({ basePath, threadId }: { basePath: string; threadId: string }) {
+export async function BoardThreadScreen({
+  basePath,
+  threadId,
+  postLimit = BOARD_POST_CAP,
+}: {
+  basePath: string
+  threadId: string
+  postLimit?: number
+}) {
   const c = await loadBoardPageContext()
-  const detail = await loadThreadDetail(c, threadId)
+  const detail = await loadThreadDetail(c, threadId, postLimit)
   if (!detail) {
     return <Notice>We could not find this topic. It may have been removed.</Notice>
   }
-  const { thread, posts, reports, reportedByMe } = detail
+  const { thread, posts, reports, reportedByMe, hasMorePosts } = detail
   const canReply = !thread.closed_at || c.moderator
   const openReportByPost = new Map(reports.map((r) => [r.post_id, r]))
 
@@ -179,6 +187,18 @@ export async function BoardThreadScreen({ basePath, threadId }: { basePath: stri
             </li>
           ))}
       </ul>
+
+      {hasMorePosts && (
+        <div className="space-y-2 rounded-lg border border-border bg-subtle p-4">
+          <p className="text-base">This topic has more replies than fit on one screen.</p>
+          <Link
+            href={`${basePath}/${thread.id}?replies=${postLimit + BOARD_POST_CAP}`}
+            className="inline-flex min-h-11 items-center text-base font-semibold"
+          >
+            Show more replies
+          </Link>
+        </div>
+      )}
 
       {canReply ? <ReplyForm threadId={thread.id} /> : <Notice>This topic is closed, so new replies are off.</Notice>}
     </div>

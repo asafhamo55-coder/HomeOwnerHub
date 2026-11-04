@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canPublishDocument,
+  canPublishDocumentToSite,
   htmlToPlainText,
   sensitiveHints,
   slugify,
@@ -82,6 +83,22 @@ describe('document eligibility', () => {
     expect(canPublishDocument({ storagePath: null })).toBe(false)
     expect(canPublishDocument({ storagePath: 'a/b.pdf', aiGenerated: true })).toBe(false)
     expect(canPublishDocument({ storagePath: 'a/b.pdf', superseded: true })).toBe(false)
+  })
+})
+
+describe('documents allowed on a public page', () => {
+  const base = { source: 'governing' as const, type: 'bylaws', storagePath: 'a/b.pdf' }
+  it('uses the resident visibility rule', () => {
+    expect(canPublishDocumentToSite(base, 'a1')).toBe(true)
+    expect(canPublishDocumentToSite({ ...base, type: 'contract' }, 'a1')).toBe(false)
+    expect(canPublishDocumentToSite({ ...base, source: 'hoa', type: 'other' }, 'a1')).toBe(false)
+    expect(canPublishDocumentToSite({ ...base, source: 'hoa', type: 'other', visibleToOwners: true }, 'a1')).toBe(true)
+    expect(canPublishDocumentToSite({ ...base, visibleToOwners: true, aiGenerated: true }, 'a1')).toBe(false)
+  })
+  it('keeps to the page association, while organization-wide documents stay', () => {
+    expect(canPublishDocumentToSite({ ...base, associationId: 'a1' }, 'a1')).toBe(true)
+    expect(canPublishDocumentToSite({ ...base, associationId: 'a2' }, 'a1')).toBe(false)
+    expect(canPublishDocumentToSite({ ...base, associationId: null }, 'a1')).toBe(true)
   })
 })
 

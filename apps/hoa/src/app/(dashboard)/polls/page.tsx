@@ -4,6 +4,7 @@ import { Badge, Button, Card, CardContent, LoadFailed, Page } from '@homeowner-p
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { formatShortDate } from '@/lib/format-datetime'
+import { getPrimaryAssociation } from '@/lib/vendors'
 import { listPolls, pollsAvailable, type PollsClient } from '@/lib/polls/store'
 import { effectiveStatus } from '@/lib/polls/rules'
 import { PollNotice } from '@/components/polls/PollNotice'
@@ -16,6 +17,7 @@ const STATUS_LABEL = { draft: 'Draft', open: 'Open', closed: 'Closed' } as const
 export default async function PollsPage() {
   if (!pollsAvailable()) notFound()
   await requireBoardOrAdmin()
+  const assoc = await getPrimaryAssociation()
   const supabase = await getSupabaseServerClient()
   const res = await listPolls(supabase as unknown as PollsClient)
   const now = new Date()
@@ -23,7 +25,11 @@ export default async function PollsPage() {
   return (
     <Page
       title="Polls"
-      description="Ask residents a quick question and see how homes answered."
+      description={
+        assoc
+          ? `Ask residents of ${assoc.name} a quick question and see how homes answered.`
+          : 'Ask residents a quick question and see how homes answered.'
+      }
       actions={
         <Button asChild size="lg">
           <Link href="/polls/new">New poll</Link>

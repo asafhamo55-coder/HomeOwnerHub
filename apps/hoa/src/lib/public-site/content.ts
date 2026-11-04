@@ -15,6 +15,8 @@
  * announcement.
  */
 
+import { canResidentOpen, type DocSource } from '../resident-documents/visibility'
+
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]$/
 
 /** Words that would collide with the app or read as official. */
@@ -153,4 +155,35 @@ export function canPublishDocument(doc: {
   if (doc.aiGenerated === true) return false
   if (doc.superseded === true) return false
   return true
+}
+
+/**
+ * Which stored documents may go on a public page: the same rule the resident
+ * documents page uses (type allowlist, board-posted flag, current, not AI
+ * drafts, file present), plus the page's own association. A governing
+ * document tied to another association is out; one with no association
+ * (organization-wide) stays. hoa_documents has no association column, so it
+ * is organization-wide.
+ */
+export function canPublishDocumentToSite(
+  doc: {
+    source: DocSource
+    type: string
+    storagePath: string | null | undefined
+    aiGenerated?: boolean | null
+    superseded?: boolean
+    visibleToOwners?: boolean | null
+    associationId?: string | null
+  },
+  siteAssociationId: string,
+): boolean {
+  if (doc.associationId != null && doc.associationId !== siteAssociationId) return false
+  return canResidentOpen({
+    source: doc.source,
+    type: doc.type,
+    storagePath: doc.storagePath,
+    aiGenerated: doc.aiGenerated,
+    superseded: doc.superseded,
+    visibleToOwners: doc.visibleToOwners,
+  })
 }

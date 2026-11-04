@@ -24,22 +24,19 @@ describe('QuickActions', () => {
     expect(html).toContain('Announcements')
   })
 
-  it('links polls (M9) in plain words', () => {
+  it('has one Community tile instead of three, linking the simple Community page', () => {
     const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} />)
-    expect(html).toContain('href="/resident/polls"')
-    expect(html).toContain('Quick questions')
+    expect(html).toContain('href="/resident/community"')
+    expect(html).toContain('>Community<')
+    expect(html).toContain('Polls, book a space, talk with neighbors')
+    for (const href of ['/resident/polls', '/resident/amenities', '/resident/board']) {
+      expect(html).not.toContain(`href="${href}"`)
+    }
   })
 
-  it('links amenity booking (M11) in plain words', () => {
+  it('keeps the home to a short list of tiles', () => {
     const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} />)
-    expect(html).toContain('href="/resident/amenities"')
-    expect(html).toContain('Book a space')
-  })
-
-  it('links the community board (M13) in plain words', () => {
-    const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} />)
-    expect(html).toContain('href="/resident/board"')
-    expect(html).toContain('Talk with neighbors')
+    expect((html.match(/<a /g) ?? []).length).toBeLessThanOrEqual(10)
   })
 
   it('shows the new count when above 0 and hides it at 0', () => {

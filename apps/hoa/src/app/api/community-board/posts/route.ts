@@ -6,6 +6,7 @@ import { parseJson } from '@/lib/api/parse'
 import { zText, zUuid } from '@/lib/api/schemas'
 import { checkWrite } from '@/lib/api/db'
 import { logRouteFailure } from '@/lib/api/log'
+import { enforceBoardRate } from '@/lib/community-board/rate-limit'
 import { displayLabel, loadThreadForActor, looseAdmin, requireBoardActor } from '@/lib/community-board/server'
 import { BOARD_BODY_MAX, cleanBoardText, isBoardModerator, replyRefusal } from '@/lib/community-board/rules'
 
@@ -28,6 +29,7 @@ export const POST = withRoute('community-board.reply', async (request) => {
   }
   if (refusal) throw new ApiRouteError('not_found')
 
+  await enforceBoardRate(admin, 'reply', { orgId: actor.orgId, userId: actor.userId })
   const label = await displayLabel(admin, actor.userId)
   const inserted = await admin
     .from('board_posts')

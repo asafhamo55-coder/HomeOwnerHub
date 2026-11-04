@@ -17,10 +17,11 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@homeowner-portal/db'
+import { residentVisibleOrFilter } from '@/lib/resident-documents/query'
 import { M12_APPLIED } from '@homeowner-portal/db/m12'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { canPublishDocument, htmlToPlainText, sensitiveMessage, slugify, validateSlug, type SiteRow } from './content'
+import { canPublishDocumentToSite, htmlToPlainText, sensitiveMessage, slugify, validateSlug, type SiteRow } from './content'
 
 type ActionErr = { ok: false; error: string; fieldErrors?: Record<string, string> }
 export type SiteResult<T = void> = (T extends void ? { ok: true } : { ok: true; data: T }) | ActionErr
@@ -115,15 +116,18 @@ export async function getBoardPublicSite(): Promise<BoardPublicSiteLoad> {
       .maybeSingle(),
     supabase
       .from('hoa_documents')
-      .select('id, name, storage_path')
+      .select('id, name, type, storage_path, visible_to_owners')
       .eq('org_id', g.orgId)
+      .or(residentVisibleOrFilter('hoa'))
       .order('created_at', { ascending: false })
       .limit(100),
     supabase
       .from('governing_documents')
-      .select('id, title, storage_path, ai_generated, superseded_at')
+      .select('id, title, type, storage_path, ai_generated, superseded_at, visible_to_owners, association_id')
       .eq('organization_id', g.orgId)
-      .eq('association_id', assoc.id)
+      .is('superseded_at', null)
+      .or(`association_id.is.null,association_id.eq.${assoc.id}`)
+      .or(residentVisibleOrFilter('governing'))
       .order('created_at', { ascending: false })
       .limit(100),
     supabase
@@ -175,11 +179,24 @@ export async function getBoardPublicSite(): Promise<BoardPublicSiteLoad> {
 
   const documents: DocumentChoice[] = [
     ...(hoaRes.data ?? [])
-      .filter((d) => canPublishDocument({ storagePath: d.storage_path }))
+      .filter((d) =>
+        canPublishDocumentToSite({ source: 'hoa', type: d.type, storagePath: d.storage_path, visibleToOwners: d.visible_to_owners }, assoc.id),
+      )
       .map((d) => ({ source: 'hoa' as const, id: d.id, title: d.name, added: addedHoa.has(d.id) })),
     ...(govRes.data ?? [])
       .filter((d) =>
-        canPublishDocument({ storagePath: d.storage_path, aiGenerated: d.ai_generated, superseded: d.superseded_at != null }),
+        canPublishDocumentToSite(
+          {
+            source: 'governing',
+            type: d.type,
+            storagePath: d.storage_path,
+            aiGenerated: d.ai_generated,
+            superseded: d.superseded_at != null,
+            visibleToOwners: d.visible_to_owners,
+            associationId: d.association_id,
+          },
+          assoc.id,
+        ),
       )
       .map((d) => ({ source: 'governing' as const, id: d.id, title: d.title, added: addedGov.has(d.id) })),
   ]
@@ -267,12 +284,12 @@ export async function saveSite(input: SaveSiteInput): Promise<SiteResult> {
   return { ok: true }
 }
 
-async function ownSite(orgId: string): Promise<{ id: string; slug: string } | null> {
+async function ownSite(orgId: string): Promise<{ id: string; slug: string; association_id: string } | null> {
   const assoc = await primaryAssociation(orgId)
   if (!assoc || assoc === 'failed') return null
   const { data, error } = await createAdminClient()
     .from('public_sites' as never)
-    .select('id, slug')
+    .select('id, slug, association_id')
     .eq('association_id' as never, assoc.id)
     .eq('organization_id' as never, orgId)
     .maybeSingle()
@@ -280,7 +297,7 @@ async function ownSite(orgId: string): Promise<{ id: string; slug: string } | nu
     console.error('[public-site] site read failed', { code: error.code ?? null })
     return null
   }
-  return (data as { id: string; slug: string } | null) ?? null
+  return (data as { id: string; slug: string; association_id: string } | null) ?? null
 }
 
 /** The one switch that makes the page visible to everyone. */
@@ -322,10 +339,10 @@ export async function addDocumentToSite(input: z.input<typeof DocSchema>): Promi
   const db = createAdminClient()
   const doc =
     v.source === 'hoa'
-      ? await db.from('hoa_documents').select('storage_path').eq('id', v.id).eq('org_id', g.orgId).maybeSingle()
+      ? await db.from('hoa_documents').select('storage_path, type, visible_to_owners').eq('id', v.id).eq('org_id', g.orgId).maybeSingle()
       : await db
           .from('governing_documents')
-          .select('storage_path, ai_generated, superseded_at')
+          .select('storage_path, type, ai_generated, superseded_at, visible_to_owners, association_id')
           .eq('id', v.id)
           .eq('organization_id', g.orgId)
           .maybeSingle()
@@ -333,8 +350,29 @@ export async function addDocumentToSite(input: z.input<typeof DocSchema>): Promi
     console.error('[public-site] doc read failed', { code: doc.error.code ?? null })
     return { ok: false, error: GENERIC }
   }
-  const row = doc.data as { storage_path: string | null; ai_generated?: boolean | null; superseded_at?: string | null } | null
-  if (!row || !canPublishDocument({ storagePath: row.storage_path, aiGenerated: row.ai_generated, superseded: row.superseded_at != null })) {
+  const row = doc.data as {
+    storage_path: string | null
+    type: string
+    visible_to_owners?: boolean | null
+    association_id?: string | null
+    ai_generated?: boolean | null
+    superseded_at?: string | null
+  } | null
+  if (
+    !row ||
+    !canPublishDocumentToSite(
+      {
+        source: v.source,
+        type: row.type,
+        storagePath: row.storage_path,
+        aiGenerated: row.ai_generated,
+        superseded: row.superseded_at != null,
+        visibleToOwners: row.visible_to_owners,
+        associationId: row.association_id,
+      },
+      site.association_id,
+    )
+  ) {
     return { ok: false, error: 'That document can’t go on the public page.' }
   }
 

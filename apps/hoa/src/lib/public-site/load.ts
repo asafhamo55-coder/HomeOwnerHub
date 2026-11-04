@@ -15,9 +15,9 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { M12_APPLIED } from '@homeowner-portal/db/m12'
 import { DOCUMENT_BUCKET } from '@/lib/resident-documents/visibility'
-import { canPublishDocument, toPublicView, validateSlug, type ItemRow, type PublicView, type SiteRow } from './content'
+import { canPublishDocumentToSite, toPublicView, validateSlug, type ItemRow, type PublicView, type SiteRow } from './content'
 
-type SiteWithIds = SiteRow & { id: string; organization_id: string }
+type SiteWithIds = SiteRow & { id: string; organization_id: string; association_id: string }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -26,7 +26,7 @@ async function loadPublishedSite(slug: string): Promise<SiteWithIds | null> {
   if (validateSlug(slug) !== null) return null
   const { data, error } = await createAdminClient()
     .from('public_sites' as never)
-    .select('id, organization_id, slug, published, title, about, contact_email, contact_phone')
+    .select('id, organization_id, association_id, slug, published, title, about, contact_email, contact_phone')
     .eq('slug' as never, slug)
     .eq('published' as never, true)
     .maybeSingle()
@@ -82,7 +82,7 @@ export async function loadPublicDocument(slug: string, itemId: string): Promise<
   if (row.hoa_document_id) {
     const { data: doc, error: e } = await db
       .from('hoa_documents')
-      .select('storage_path')
+      .select('storage_path, type, visible_to_owners')
       .eq('id', row.hoa_document_id)
       .eq('org_id', site.organization_id)
       .maybeSingle()
@@ -90,14 +90,22 @@ export async function loadPublicDocument(slug: string, itemId: string): Promise<
       console.error('[public-site] document read failed', { code: e.code ?? null })
       return null
     }
-    if (!doc || !canPublishDocument({ storagePath: doc.storage_path })) return null
+    if (
+      !doc ||
+      !canPublishDocumentToSite(
+        { source: 'hoa', type: doc.type, storagePath: doc.storage_path, visibleToOwners: doc.visible_to_owners },
+        site.association_id,
+      )
+    ) {
+      return null
+    }
     return { bucket: DOCUMENT_BUCKET.hoa, path: doc.storage_path }
   }
 
   if (row.governing_document_id) {
     const { data: doc, error: e } = await db
       .from('governing_documents')
-      .select('storage_path, ai_generated, superseded_at')
+      .select('storage_path, type, ai_generated, superseded_at, visible_to_owners, association_id')
       .eq('id', row.governing_document_id)
       .eq('organization_id', site.organization_id)
       .maybeSingle()
@@ -107,7 +115,18 @@ export async function loadPublicDocument(slug: string, itemId: string): Promise<
     }
     if (
       !doc ||
-      !canPublishDocument({ storagePath: doc.storage_path, aiGenerated: doc.ai_generated, superseded: doc.superseded_at != null })
+      !canPublishDocumentToSite(
+        {
+          source: 'governing',
+          type: doc.type,
+          storagePath: doc.storage_path,
+          aiGenerated: doc.ai_generated,
+          superseded: doc.superseded_at != null,
+          visibleToOwners: doc.visible_to_owners,
+          associationId: doc.association_id,
+        },
+        site.association_id,
+      )
     ) {
       return null
     }

@@ -85,6 +85,16 @@ export const BOARD_ACTION_LABEL: Record<BoardAction, string> = {
   resolve_report: 'Hide the post and close the report',
 }
 
+/**
+ * How many posts of a thread to show. A page shows BOARD_POST_CAP; each
+ * "Show more replies" step adds another BOARD_POST_CAP, up to 2000 in all.
+ */
+export function postLimitFromParam(raw: string | undefined): number {
+  const n = Number.parseInt(raw ?? '', 10)
+  if (!Number.isFinite(n) || n < BOARD_POST_CAP) return BOARD_POST_CAP
+  return Math.min(2000, Math.ceil(n / BOARD_POST_CAP) * BOARD_POST_CAP)
+}
+
 /** Text a person typed: trimmed, with runs of blank lines collapsed. */
 export function cleanBoardText(raw: string): string {
   return raw.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()

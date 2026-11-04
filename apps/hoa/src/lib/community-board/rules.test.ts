@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BOARD_POST_CAP,
+  postLimitFromParam,
   authorLabel,
   canUseAssociationBoard,
   cleanBoardText,
@@ -47,6 +49,14 @@ describe('community board rules', () => {
     expect(authorLabel('jo@example.test')).toBe('A neighbor')
     expect(authorLabel(null)).toBe('A neighbor')
     expect(authorLabel('')).toBe('A neighbor')
+  })
+
+  it('grows the visible replies in steps and never below one page', () => {
+    expect(postLimitFromParam(undefined)).toBe(BOARD_POST_CAP)
+    expect(postLimitFromParam('junk')).toBe(BOARD_POST_CAP)
+    expect(postLimitFromParam('-5')).toBe(BOARD_POST_CAP)
+    expect(postLimitFromParam(String(BOARD_POST_CAP + 1))).toBe(BOARD_POST_CAP * 2)
+    expect(postLimitFromParam('999999')).toBe(2000)
   })
 
   it('cleans typed text', () => {

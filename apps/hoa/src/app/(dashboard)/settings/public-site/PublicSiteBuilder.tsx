@@ -68,8 +68,9 @@ export function PublicSiteBuilder({ data }: { data: BoardPublicSite }) {
   return (
     <div className="space-y-6">
       <Alert variant="info" title="Private until you turn it on">
-        Anyone with the link can read this page, with no sign in. Only add things you are happy to show the whole world. Never
-        add names, addresses, balances or private documents.
+        This page is for {data.association.name}. Once you publish it, anyone on the internet can see this page, including
+        search engines. Only add things you are happy to show the whole world. Never add names, addresses, balances or
+        private documents.
       </Alert>
 
       <Card>
@@ -94,10 +95,10 @@ export function PublicSiteBuilder({ data }: { data: BoardPublicSite }) {
             <Field label="About" hint="A few sentences for visitors. No names, phone numbers or emails here." error={errors.about}>
               <Textarea value={values.about} onChange={set('about')} rows={5} maxLength={4000} />
             </Field>
-            <Field label="Contact email (optional)" error={errors.contactEmail}>
+            <Field label="Contact email (optional). Shown publicly" error={errors.contactEmail}>
               <Input type="email" value={values.contactEmail} onChange={set('contactEmail')} maxLength={200} />
             </Field>
-            <Field label="Contact phone (optional)" error={errors.contactPhone}>
+            <Field label="Contact phone (optional). Shown publicly" error={errors.contactPhone}>
               <Input value={values.contactPhone} onChange={set('contactPhone')} maxLength={40} />
             </Field>
             <Button type="submit" loading={pending}>

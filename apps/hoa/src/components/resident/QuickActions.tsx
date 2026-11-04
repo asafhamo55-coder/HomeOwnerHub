@@ -6,9 +6,9 @@ import {
   FileText,
   Megaphone,
   MessageSquarePlus,
-  MessagesSquare,
   ShieldAlert,
   Sparkles,
+  UsersRound,
   Vote,
 } from 'lucide-react'
 import { M9_APPLIED } from '@homeowner-portal/db/m9'
@@ -16,6 +16,7 @@ import { M10_APPLIED } from '@homeowner-portal/db/m10'
 import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { Badge } from '@homeowner-portal/ui'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
+import { communityLinks } from '@/lib/resident-community'
 import { IconTile, type Tone } from '@/components/resident/screen'
 
 /**
@@ -24,8 +25,8 @@ import { IconTile, type Tone } from '@/components/resident/screen'
  */
 export function QuickActions({ newAnnouncements }: { newAnnouncements: number }) {
   return (
-    // Eight tiles today. The span classes keep a lone last tile from sitting
-    // by itself if the count ever becomes odd again.
+    // Nine tiles today (ten with online voting). The span classes keep a lone
+    // last tile from sitting by itself when the count is odd.
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-sm:[&>:last-child:nth-child(odd)]:col-span-2 sm:[&>:last-child:nth-child(3n+1)]:col-span-3">
       <ActionTile
         icon={<MessageSquarePlus />}
@@ -51,10 +52,6 @@ export function QuickActions({ newAnnouncements }: { newAnnouncements: number })
       />
       <ActionTile icon={<CreditCard />} tone="slate" label="Dues" hint="Balance & charges" href="/resident/dues" />
       <ActionTile icon={<CalendarDays />} tone="slate" label="Meetings" hint="Dates and agendas" href="/resident/meetings" />
-      {/* BL-034: only once migration 0076 is applied (M11_APPLIED). */}
-      {M11_APPLIED ? (
-        <ActionTile icon={<CalendarDays />} tone="slate" label="Book a space" hint="Clubhouse, pool, courts" href="/resident/amenities" />
-      ) : null}
       <ActionTile
         icon={<Megaphone />}
         tone="slate"
@@ -63,17 +60,14 @@ export function QuickActions({ newAnnouncements }: { newAnnouncements: number })
         href="/resident/announcements"
         badge={newAnnouncements > 0 ? `${newAnnouncements} new` : null}
       />
-      {M9_APPLIED ? (
-        <ActionTile icon={<Vote />} tone="slate" label="Polls" hint="Quick questions" href="/resident/polls" />
-      ) : null}
       {/* BL-156: dark until M10_APPLIED (migration 0075). */}
       {M10_APPLIED ? (
         <ActionTile icon={<Vote />} tone="slate" label="Vote" hint="Board elections and ballots" href="/resident/vote" />
       ) : null}
-      {/* B5: dark until M13_APPLIED (migration 0078). */}
-      {M13_APPLIED && (
-        <ActionTile icon={<MessagesSquare />} tone="slate" label="Community board" hint="Talk with neighbors" href="/resident/board" />
-      )}
+      {/* One tile instead of three: polls, booking and the neighbors board live on /resident/community. */}
+      {communityLinks({ polls: M9_APPLIED, amenities: M11_APPLIED, board: M13_APPLIED }).length > 0 ? (
+        <ActionTile icon={<UsersRound />} tone="slate" label="Community" hint="Polls, book a space, talk with neighbors" href="/resident/community" />
+      ) : null}
     </div>
   )
 }

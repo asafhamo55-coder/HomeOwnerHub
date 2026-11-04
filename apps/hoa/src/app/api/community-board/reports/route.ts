@@ -4,6 +4,7 @@ import { withRoute } from '@/lib/api/handler'
 import { parseJson } from '@/lib/api/parse'
 import { zText, zUuid } from '@/lib/api/schemas'
 import { checkWrite } from '@/lib/api/db'
+import { enforceBoardRate } from '@/lib/community-board/rate-limit'
 import { loadPostForActor, looseAdmin, requireBoardActor } from '@/lib/community-board/server'
 import { BOARD_REPORT_MAX, cleanBoardText } from '@/lib/community-board/rules'
 
@@ -21,6 +22,7 @@ export const POST = withRoute('community-board.report', async (request) => {
   const admin = looseAdmin()
   const post = await loadPostForActor(admin, actor, input.postId)
 
+  await enforceBoardRate(admin, 'report', { orgId: actor.orgId, userId: actor.userId })
   const inserted = await admin.from('board_post_reports').insert({
     organization_id: actor.orgId,
     association_id: post.association_id,
