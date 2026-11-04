@@ -27,7 +27,7 @@
  * No PII: errors carry ids and counts only.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { assertPeriodOpen, postJournalEntry } from '@homeowner-portal/db'
+import { assertPeriodOpen, markOriginalReversed, postJournalEntry } from '@homeowner-portal/db'
 import type { Database } from '@homeowner-portal/db/types'
 import { planLedger, REPLACED_STATUS, REPLACEABLE_STATUSES, type PlanCharge, type PlanLedgerRefs, type PlanLine } from './ledger'
 
@@ -285,22 +285,24 @@ export function supabasePlanStore(db: SupabaseClient<Database>, ctx: PlanStoreCo
       return je.ok ? { ok: true, id: je.journalEntryId } : { ok: false, error: je.error }
     },
     async reverseEntry(id, entry, reason) {
-      const je = await postJournalEntry(db, {
-        organizationId: ctx.organizationId,
-        associationId: ctx.associationId,
-        fiscalPeriodId: ctx.fiscalPeriodId,
-        entryDate: ctx.entryDate,
-        memo: `Reversal of ${entry.memo}: ${reason}`,
-        source: 'reversing',
-        sourceId: id,
-        lines: entry.lines.map((l) => ({ accountId: l.accountId, fundId: l.fundId, debit: l.credit, credit: l.debit })),
-      })
+      const je = await postJournalEntry(
+        db,
+        {
+          organizationId: ctx.organizationId,
+          associationId: ctx.associationId,
+          fiscalPeriodId: ctx.fiscalPeriodId,
+          entryDate: ctx.entryDate,
+          memo: `Reversal of ${entry.memo}: ${reason}`,
+          source: 'reversing',
+          sourceId: id,
+          reversesId: id,
+          lines: entry.lines.map((l) => ({ accountId: l.accountId, fundId: l.fundId, debit: l.credit, credit: l.debit })),
+        },
+        // The original is marked reversed just before the reversal posts, conditionally, so a
+        // second reversal of the same entry cannot also post.
+        { beforePost: markOriginalReversed(db, id) },
+      )
       if (!je.ok) throw new Error(`reversal failed: ${je.error}`)
-      const [a, b] = await Promise.all([
-        db.from('journal_entries').update({ reverses_id: id }).eq('id', je.journalEntryId),
-        db.from('journal_entries').update({ reversed_by_id: je.journalEntryId, status: 'reversed' }).eq('id', id),
-      ])
-      if (a.error || b.error) throw fail('reversal link failed', a.error ?? b.error)
     },
     async deleteInstallments(ids) {
       const { error } = await db.from('assessments').delete().in('id', ids)

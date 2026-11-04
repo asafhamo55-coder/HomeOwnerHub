@@ -4,8 +4,8 @@
  * the same refund id. If the books step fails after Stripe succeeded, the
  * charge.refunded webhook applies the same re_ id, so nothing is lost or
  * doubled. A refund Stripe closes as failed/canceled never reaches the books.
- * TODO(migration): a refund accepted as `pending` that fails days later is still reversed; undoing
- * that needs a `refund_failed` kind in reverse_online_payment (SQL in the PR report). Not a 'use server' file; refund-action.ts is the entry point.
+ * A refund accepted as `pending` that fails days later is booked back by the refund.updated webhook
+ * (kind refund_failed, migration 0082, behind M16_APPLIED in reversals.ts). Not a 'use server' file; refund-action.ts is the entry point.
  */
 
 import {

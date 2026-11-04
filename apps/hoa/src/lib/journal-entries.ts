@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { assertPeriodOpen, CLOSED_PERIOD_MESSAGE, postJournalEntry } from '@homeowner-portal/db'
+import { ALREADY_REVERSED_MESSAGE, assertPeriodOpen, CLOSED_PERIOD_MESSAGE, markOriginalReversed, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -111,36 +111,29 @@ export async function reverseJournalEntry(input: {
     memo: l.memo ?? undefined,
   }))
 
-  const je = await postJournalEntry(supabase, {
-    organizationId: original.organization_id,
-    associationId: assoc.id,
-    fiscalPeriodId: reversalPeriodId,
-    entryDate: today,
-    memo:
-      parsed.data.reason
-        ? `Reversal of ${original.memo}: ${parsed.data.reason}`
-        : `Reversal of ${original.memo}`,
-    source: 'reversing',
-    sourceId: original.id,
-    lines: reversed,
-  })
+  // The reversal is a draft that already points back at the original (reversesId); just before it
+  // posts, the original is marked reversed with a conditional update. Of two concurrent reversals
+  // exactly one gets that row; the other's draft is deleted and it gets a plain error.
+  const je = await postJournalEntry(
+    supabase,
+    {
+      organizationId: original.organization_id,
+      associationId: assoc.id,
+      fiscalPeriodId: reversalPeriodId,
+      entryDate: today,
+      memo:
+        parsed.data.reason
+          ? `Reversal of ${original.memo}: ${parsed.data.reason}`
+          : `Reversal of ${original.memo}`,
+      source: 'reversing',
+      sourceId: original.id,
+      reversesId: original.id,
+      lines: reversed,
+    },
+    { beforePost: markOriginalReversed(supabase, original.id) },
+  )
 
-  if (!je.ok) return { ok: false, error: `reversal JE failed: ${je.error}` }
-
-  // Cross-link the two and flip original to reversed. Done in parallel
-  // — neither write can fail without the other being meaningless, and
-  // we already have the new JE committed so the worst case is an audit
-  // row pair where the link is one-sided (recoverable by SQL).
-  await Promise.all([
-    supabase
-      .from('journal_entries')
-      .update({ reverses_id: original.id })
-      .eq('id', je.journalEntryId),
-    supabase
-      .from('journal_entries')
-      .update({ reversed_by_id: je.journalEntryId, status: 'reversed' })
-      .eq('id', original.id),
-  ])
+  if (!je.ok) return { ok: false, error: je.error === ALREADY_REVERSED_MESSAGE || je.error.startsWith("We couldn't") ? je.error : `reversal JE failed: ${je.error}` }
 
   revalidatePath('/')  // dashboard rollup
   revalidatePath(`/accounting/ledger/${original.id}`)
