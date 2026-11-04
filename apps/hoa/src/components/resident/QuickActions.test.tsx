@@ -36,6 +36,12 @@ describe('QuickActions', () => {
     expect(html).toContain('Book a space')
   })
 
+  it('links the community board (M13) in plain words', () => {
+    const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} />)
+    expect(html).toContain('href="/resident/board"')
+    expect(html).toContain('Talk with neighbors')
+  })
+
   it('shows the new count when above 0 and hides it at 0', () => {
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={3} />)).toContain('3 new')
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={0} />)).not.toContain(' new')

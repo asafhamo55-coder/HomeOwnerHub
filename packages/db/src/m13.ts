@@ -1,14 +1,11 @@
 /**
  * Migration batch M13 (migrations/0078_community_board.sql) switch.
  *
- * false: 0078 is a draft the owner has not applied in production yet. Every
+ * true: 0078 was applied in production on 2026-11-05. Every
  * code path that reads or writes an M13 table or function checks this first,
- * and with it false the app behaves exactly as before M13 and keeps working
- * when the objects already exist (CI replays 0078, so the integration suite
- * runs "objects present, flag false").
+ * and with it false the app behaves as it did before M13.
  *
- * Flipping it to true is the one-line follow-up after the owner confirms the
- * apply. Covers:
+ * Flipped to true after the owner confirmed the apply. Covers:
  *   B5 community message board, private to one association
  *      board_threads, board_posts, board_post_reports,
  *      community_board_association_ids():
@@ -17,4 +14,4 @@
  * No imports: pure modules, client components and the integration suite
  * import this.
  */
-export const M13_APPLIED: boolean = false
+export const M13_APPLIED: boolean = true
