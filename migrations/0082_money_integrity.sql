@@ -17,10 +17,11 @@
 --          posts its source = 'closing' entries into it, so they pass (only
 --          'closed' blocks), exactly like the app guard.
 --        * Money that already moved: record_online_payment_success and
---          reverse_online_payment carry the function-level setting
---          app.money_already_moved = 'on' (ALTER FUNCTION ... SET, below). The
---          triggers skip the check only when that setting is on AND the JWT role
---          is service_role. Nothing a web client sends can set it.
+--          reverse_online_payment (both re-created here, bodies unchanged apart from
+--          refund_failed) set the transaction-local setting app.money_already_moved
+--          to 'on' around their writes and back to 'off' before returning. The
+--          triggers skip the check only when it is on AND the JWT role is
+--          service_role. Nothing a web client sends can set it.
 --   2. Posted ledger rows are immutable through the REST API. For the roles
 --      authenticated and anon (current_user, so SECURITY DEFINER functions such
 --      as record_lump_payment and the service role are untouched):
@@ -380,6 +381,7 @@ BEGIN
       RAISE EXCEPTION 'reverse_online_payment: books_not_open' USING errcode = '55000';
     END IF;
 
+    PERFORM set_config('app.money_already_moved', 'on', true);
     FOREACH v_old_je IN ARRAY v_orig.journal_entry_ids LOOP
       SELECT je.source_id INTO v_old_src FROM public.journal_entries je WHERE je.id = v_old_je;
       SELECT COALESCE(sum(l.debit_amount), 0) INTO v_amt FROM public.ledger_entries l WHERE l.journal_entry_id = v_old_je;
@@ -454,6 +456,7 @@ BEGIN
     VALUES (v_op.organization_id, p_by, 'online_payment.refund_failed', 'online_payment', v_op.id,
             jsonb_build_object('method', v_op.method_type, 'restored_cents', v_restored));
 
+    PERFORM set_config('app.money_already_moved', 'off', true);
     RETURN jsonb_build_object('already_applied', false, 'status', COALESCE((SELECT status FROM public.online_payments WHERE id = p_attempt), v_new_status),
                               'restored_cents', v_restored, 'reversed_cents', 0, 'adjustment_id', v_adj_id);
   END IF;
@@ -475,6 +478,7 @@ BEGIN
     RAISE EXCEPTION 'reverse_online_payment: amount is more than what is left to reverse' USING errcode = '23514';
   END IF;
 
+  PERFORM set_config('app.money_already_moved', 'on', true);
   SELECT f.id INTO v_fund FROM public.funds f WHERE f.association_id = v_op.association_id AND f.code = 'OPERATING';
   SELECT c.id INTO v_cash FROM public.chart_of_accounts c WHERE c.association_id = v_op.association_id AND c.account_number = '1010';
   SELECT c.id INTO v_clearing FROM public.chart_of_accounts c WHERE c.association_id = v_op.association_id AND c.account_number = '1015' AND c.is_active;
@@ -616,19 +620,192 @@ BEGIN
           jsonb_build_object('method', v_op.method_type, 'reversed_cents', v_done, 'short_cents', v_short,
                              'returned_fee_cents', CASE WHEN v_fee_id IS NULL THEN 0 ELSE p_returned_fee_cents END));
 
+  PERFORM set_config('app.money_already_moved', 'off', true);
   RETURN jsonb_build_object('already_applied', false, 'status', v_new_status, 'reversed_cents', v_done,
                             'short_cents', v_short, 'adjustment_id', v_adj_id, 'returned_fee_id', v_fee_id);
 END;
 $fn$;
 
+-- 5. money that already moved is not blocked by the closed-period triggers ----------------
+-- record_online_payment_success is re-created with the same body plus a transaction-local
+-- setting around its writes (also done in reverse_online_payment above); the triggers skip
+-- only when it is on AND the JWT role is service_role, see money_already_moved().
+CREATE OR REPLACE FUNCTION public.record_online_payment_success(
+  p_attempt uuid,
+  p_paid_on date,
+  p_charge  text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+  v_op         public.online_payments%ROWTYPE;
+  v_part       jsonb;
+  v_kind       text;
+  v_aid        uuid;
+  v_cents      bigint;
+  v_apply      bigint;
+  v_over       bigint := 0;
+  v_ass        public.assessments%ROWTYPE;
+  v_paid       numeric;
+  v_left_cents bigint;
+  v_fund       uuid;
+  v_cash       uuid;
+  v_clearing   uuid;
+  v_ar         uuid;
+  v_prepaid    uuid;
+  v_period     uuid;
+  v_pay_id     uuid;
+  v_credit_id  uuid;
+  v_je_id      uuid;
+  v_num        text;
+  v_memo       text;
+  v_paid_at    timestamptz;
+  v_result     jsonb := '[]'::jsonb;
+  v_applied    bigint := 0;
+BEGIN
+  IF COALESCE(auth.role(), '') <> 'service_role' THEN
+    RAISE EXCEPTION 'record_online_payment_success: service role only' USING errcode = '42501';
+  END IF;
+  IF p_paid_on IS NULL OR p_paid_on < DATE '2000-01-01' OR p_paid_on > (now() AT TIME ZONE 'UTC')::date + 1 THEN
+    RAISE EXCEPTION 'record_online_payment_success: bad payment date' USING errcode = '22023';
+  END IF;
+
+  SELECT * INTO v_op FROM public.online_payments WHERE id = p_attempt FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'record_online_payment_success: unknown attempt' USING errcode = '23503';
+  END IF;
+
+  -- Replay: already posted. Same answer, no writes.
+  IF v_op.posted_at IS NOT NULL THEN
+    RETURN jsonb_build_object('already_posted', true, 'status', v_op.status, 'posted', v_op.posted_result);
+  END IF;
+  -- 'failed' is allowed here: a declined card (or a bounced bank debit) marks the
+  -- attempt failed, and the payer may retry on the SAME PaymentIntent, which then
+  -- succeeds. Only a never-posted attempt reaches this line (posted_at is checked
+  -- above), so a returned payment that WAS posted is never posted twice.
+  IF v_op.status NOT IN ('created', 'requires_action', 'processing', 'failed') THEN
+    RAISE EXCEPTION 'record_online_payment_success: attempt is %, cannot post', v_op.status USING errcode = '55000';
+  END IF;
+
+  PERFORM set_config('app.money_already_moved', 'on', true);
+  SELECT f.id INTO v_fund FROM public.funds f WHERE f.association_id = v_op.association_id AND f.code = 'OPERATING';
+  SELECT c.id INTO v_cash FROM public.chart_of_accounts c WHERE c.association_id = v_op.association_id AND c.account_number = '1010';
+  SELECT c.id INTO v_clearing FROM public.chart_of_accounts c WHERE c.association_id = v_op.association_id AND c.account_number = '1015' AND c.is_active;
+  SELECT c.id INTO v_ar FROM public.chart_of_accounts c WHERE c.association_id = v_op.association_id AND c.account_number = '1100';
+  SELECT c.id INTO v_prepaid FROM public.chart_of_accounts c WHERE c.association_id = v_op.association_id AND c.account_number = '2100';
+  IF v_fund IS NULL OR COALESCE(v_clearing, v_cash) IS NULL OR v_ar IS NULL THEN
+    RAISE EXCEPTION 'record_online_payment_success: books_not_open' USING errcode = '55000';
+  END IF;
+  v_clearing := COALESCE(v_clearing, v_cash);
+
+  v_paid_at := (p_paid_on::timestamp + interval '12 hours') AT TIME ZONE 'UTC';
+  v_memo := 'Online payment (' || v_op.method_type || ')';
+
+  FOR v_part IN SELECT * FROM jsonb_array_elements(v_op.allocation) LOOP
+    v_cents := (v_part ->> 'cents')::bigint;
+    v_kind := COALESCE(v_part ->> 'kind', 'charge');
+    IF v_cents IS NULL OR v_cents <= 0 THEN
+      RAISE EXCEPTION 'record_online_payment_success: bad allocation part' USING errcode = '22023';
+    END IF;
+
+    IF v_kind = 'credit' THEN
+      v_over := v_over + v_cents;
+      CONTINUE;
+    ELSIF v_kind <> 'charge' THEN
+      RAISE EXCEPTION 'record_online_payment_success: unknown part kind' USING errcode = '22023';
+    END IF;
+
+    v_aid := (v_part ->> 'assessment_id')::uuid;
+    SELECT a.* INTO v_ass FROM public.assessments a WHERE a.id = v_aid FOR UPDATE;
+    IF NOT FOUND OR v_ass.organization_id <> v_op.organization_id OR v_ass.unit_id <> v_op.unit_id
+       OR v_ass.deleted_at IS NOT NULL OR v_ass.status NOT IN ('open', 'partial') THEN
+      v_over := v_over + v_cents;          -- charge gone or settled meanwhile: all of it overflows
+      CONTINUE;
+    END IF;
+    SELECT COALESCE(sum(pm.amount), 0) INTO v_paid FROM public.payments pm WHERE pm.assessment_id = v_aid;
+    v_left_cents := round((v_ass.amount - v_paid) * 100)::bigint;
+    v_apply := LEAST(v_cents, GREATEST(v_left_cents, 0));
+    v_over := v_over + (v_cents - v_apply);
+    IF v_apply = 0 THEN CONTINUE; END IF;
+
+    INSERT INTO public.payments (organization_id, unit_id, assessment_id, amount, payment_method, external_ref, paid_at)
+    VALUES (v_op.organization_id, v_op.unit_id, v_aid, v_apply / 100.0, v_op.method_type,
+            COALESCE(p_charge, v_op.stripe_payment_intent_id), v_paid_at)
+    RETURNING id INTO v_pay_id;
+
+    v_num := public.next_journal_entry_number(v_ass.association_id, to_char(p_paid_on, 'YYYY'));
+    INSERT INTO public.journal_entries
+      (organization_id, association_id, fiscal_period_id, entry_number, entry_date, memo, source, source_id, status)
+    VALUES
+      (v_op.organization_id, v_ass.association_id, v_ass.fiscal_period_id, v_num, p_paid_on, v_memo, 'ar_payment', v_pay_id, 'draft')
+    RETURNING id INTO v_je_id;
+    INSERT INTO public.ledger_entries (organization_id, journal_entry_id, account_id, fund_id, debit_amount, credit_amount)
+    VALUES (v_op.organization_id, v_je_id, v_clearing, v_fund, v_apply / 100.0, 0),
+           (v_op.organization_id, v_je_id, v_ar,       v_fund, 0, v_apply / 100.0);
+    UPDATE public.journal_entries SET status = 'posted', posted_at = now() WHERE id = v_je_id;
+    UPDATE public.payments SET journal_entry_id = v_je_id WHERE id = v_pay_id;
+
+    UPDATE public.assessments
+       SET status = CASE WHEN round((v_paid + v_apply / 100.0) * 100) >= round(v_ass.amount * 100) THEN 'paid' ELSE 'partial' END
+     WHERE id = v_aid;
+
+    v_result := v_result || jsonb_build_object('payment_id', v_pay_id, 'assessment_id', v_aid,
+                                               'journal_entry_id', v_je_id, 'cents', v_apply);
+    v_applied := v_applied + v_apply;
+  END LOOP;
+
+  -- Overflow (an explicit credit part, or a charge that filled up meanwhile).
+  IF v_over > 0 THEN
+    SELECT p.id INTO v_period FROM public.fiscal_periods p
+     WHERE p.association_id = v_op.association_id AND p.status = 'open'
+       AND p_paid_on BETWEEN p.start_date AND p.end_date
+     ORDER BY p.start_date DESC LIMIT 1;
+    IF v_period IS NULL THEN
+      RAISE EXCEPTION 'record_online_payment_success: books_not_open' USING errcode = '55000';
+    END IF;
+    INSERT INTO public.unapplied_credits
+      (organization_id, association_id, unit_id, amount, remaining, payment_method, received_on, note, created_by)
+    VALUES
+      (v_op.organization_id, v_op.association_id, v_op.unit_id, v_over / 100.0, v_over / 100.0,
+       v_op.method_type, p_paid_on, 'Online payment', v_op.user_id)
+    RETURNING id INTO v_credit_id;
+    v_num := public.next_journal_entry_number(v_op.association_id, to_char(p_paid_on, 'YYYY'));
+    INSERT INTO public.journal_entries
+      (organization_id, association_id, fiscal_period_id, entry_number, entry_date, memo, source, source_id, status)
+    VALUES
+      (v_op.organization_id, v_op.association_id, v_period, v_num, p_paid_on, v_memo || ' (unapplied credit)', 'ar_payment', v_credit_id, 'draft')
+    RETURNING id INTO v_je_id;
+    INSERT INTO public.ledger_entries (organization_id, journal_entry_id, account_id, fund_id, debit_amount, credit_amount)
+    VALUES (v_op.organization_id, v_je_id, v_clearing, v_fund, v_over / 100.0, 0),
+           (v_op.organization_id, v_je_id, COALESCE(v_prepaid, v_ar), v_fund, 0, v_over / 100.0);
+    UPDATE public.journal_entries SET status = 'posted', posted_at = now() WHERE id = v_je_id;
+    UPDATE public.unapplied_credits SET journal_entry_id = v_je_id WHERE id = v_credit_id;
+    v_result := v_result || jsonb_build_object('credit_id', v_credit_id, 'journal_entry_id', v_je_id, 'cents', v_over);
+  END IF;
+
+  UPDATE public.online_payments
+     SET status = 'succeeded', posted_at = now(), settled_on = p_paid_on, posted_result = v_result,
+         stripe_charge_id = COALESCE(p_charge, stripe_charge_id), failure_code = NULL
+   WHERE id = p_attempt;
+
+  -- Ids and cents only: no names, addresses, bank or card details.
+  INSERT INTO public.audit_log (org_id, user_id, action, entity_type, entity_id, metadata)
+  VALUES (v_op.organization_id, v_op.user_id, 'online_payment.posted', 'online_payment', v_op.id,
+          jsonb_build_object('method', v_op.method_type, 'dues_cents', v_op.dues_cents,
+                             'applied_cents', v_applied, 'credit_cents', v_over, 'source', v_op.source));
+
+  PERFORM set_config('app.money_already_moved', 'off', true);
+  RETURN jsonb_build_object('already_posted', false, 'status', 'succeeded', 'posted', v_result);
+END;
+$fn$;
+
+REVOKE ALL ON FUNCTION public.record_online_payment_success(uuid, date, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_online_payment_success(uuid, date, text) TO service_role;
 REVOKE ALL ON FUNCTION public.reverse_online_payment(uuid, text, text, bigint, text, date, integer, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reverse_online_payment(uuid, text, text, bigint, text, date, integer, uuid) TO service_role;
-
--- 5. money that already moved is not blocked by the closed-period triggers -----------------
--- A function-level setting lasts only while the function runs (and the triggers it
--- fires). The triggers also require the service_role JWT, see money_already_moved().
-ALTER FUNCTION public.record_online_payment_success(uuid, date, text) SET app.money_already_moved = 'on';
-ALTER FUNCTION public.reverse_online_payment(uuid, text, text, bigint, text, date, integer, uuid) SET app.money_already_moved = 'on';
 
 -- post-checks ---------------------------------------------------------------
 DO $post$
@@ -651,8 +828,8 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid = 'public.reverse_online_payment(uuid,text,text,bigint,text,date,integer,uuid)'::regprocedure
                   AND prosrc LIKE '%refund_failed%'
-                  AND 'app.money_already_moved=on' = ANY (proconfig)) THEN
-    RAISE EXCEPTION '0082: reverse_online_payment not replaced or flag missing';
+                  AND prosrc LIKE '%app.money_already_moved%') THEN
+    RAISE EXCEPTION '0082: reverse_online_payment not replaced';
   END IF;
   RAISE NOTICE '0082 ok: money integrity applied.';
 END $post$;

@@ -20,7 +20,7 @@ SELECT 'the two online payment functions are exempt from the closed-period trigg
 FROM pg_proc
 WHERE pronamespace = 'public'::regnamespace
   AND proname IN ('record_online_payment_success', 'reverse_online_payment')
-  AND 'app.money_already_moved=on' = ANY (proconfig);
+  AND prosrc LIKE '%app.money_already_moved%';
 
 SELECT 'unapplied_credits resident read is bounded by the ownership window' AS check,
        CASE WHEN count(*) = 1 THEN 'PASS' ELSE 'FAIL' END AS result
