@@ -160,9 +160,15 @@ describe('3. who can read and write', () => {
   })
 
   it('shows a resident no booking of a home they are not linked to', async () => {
-    await insert(booking(10, 14))
-    const mine = await resident.client.from('amenity_reservations' as never).select('id')
-    expect(mine.data ?? []).toHaveLength(0)
+    // a neighbouring home in the same association and org: the resident owns unitId, not this one
+    const neighbourUnit = await makeUnit(org)
+    await insert(booking(10, 14, { unit_id: neighbourUnit }))
+    const none = await resident.client.from('amenity_reservations' as never).select('id')
+    expect(none.data ?? []).toHaveLength(0)
+    // and their own home's booking is visible, so the empty result above is the policy and not a broken read
+    await insert(booking(15, 17))
+    const mine = await resident.client.from('amenity_reservations' as never).select('id, unit_id')
+    expect((mine.data ?? []).map((r) => (r as unknown as { unit_id: string }).unit_id)).toEqual([unitId])
   })
 })
 
