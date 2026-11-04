@@ -24,6 +24,12 @@ describe('QuickActions', () => {
     expect(html).toContain('Announcements')
   })
 
+  it('links polls (M9) in plain words', () => {
+    const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} />)
+    expect(html).toContain('href="/resident/polls"')
+    expect(html).toContain('Quick questions')
+  })
+
   it('shows the new count when above 0 and hides it at 0', () => {
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={3} />)).toContain('3 new')
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={0} />)).not.toContain(' new')

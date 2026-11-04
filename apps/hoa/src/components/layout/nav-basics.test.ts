@@ -35,6 +35,17 @@ describe('basics menu', () => {
   })
 })
 
+describe('newly switched-on features stay out of the basics menu', () => {
+  const byHref = Object.fromEntries(all.map((l) => [l.href, l]))
+  it.each([
+    ['/polls', 'Polls'],
+  ])('%s is in the full menu as %s and is not a basic', (href, label) => {
+    expect(byHref[href]?.label).toBe(label)
+    expect(byHref[href]?.basic).toBeFalsy()
+    expect(visibleNavLinks(all, 'basics', null).map((l) => l.href)).not.toContain(href)
+  })
+})
+
 describe('resolveNavMode', () => {
   const now = Date.UTC(2026, 9, 31)
   it('a stored choice wins', () => {
