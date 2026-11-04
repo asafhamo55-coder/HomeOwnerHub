@@ -1016,3 +1016,24 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Security audit:** 53 findings. Fixed: the Next and sharp upgrades, payment-marking races, CSP, pinned Actions and dev-login.
 - **Tenant isolation review:** 62 agents, 24 verified findings. The fixes are merged, plus migration 0081 for live tables.
 - **Open:** see next.md, HANDOFF 2026-11-04.
+
+## 2026-11-04
+
+- **Deploy:** 0dc21540, live 2026-11-04 (fast-forward of 84f89feb, CI green). Contents:
+  - the security fixes (Next 15.5.28, sharp, payment-marking caps, CSP, pinned Actions, dev-login);
+  - the tenant-isolation fixes;
+  - the bridge-ratchet fix (resident open violations go through `propertyIdsForUnits` / the new `propertyIdsForOwnUnits`);
+  - the closed-month guard on every money write (`assertPeriodOpen`, with a ratchet);
+  - the M8 payment gaps (flag off: off-session setup, orphaned autopay reconciled across days through Search plus the strongly consistent list, a 48h proof before "no charge", refunds rotate keys, `requires_action` is not "nothing changed", and `refund.updated` is handled);
+  - SEO batch 26 (three GA POA Act guides) and help-chat sign-in synonyms;
+  - /compare removed, with a 308 to /pricing.
+- **CI lesson:** integration had never run on the tenant-isolation work, because a unit failure stopped the job first. The first real run found 3 failures, all wrong fixtures (no RLS bug). Treat "integration green" as unknown until that step has actually run.
+- **Reviews caught real bugs before merge:**
+  - autopay orphans stranded by the daily cron, and a double charge after a false "not found" (two rounds);
+  - the refund key replaying failed refunds;
+  - closed-period over-blocking of future-due charge deletes and closed-month reversals;
+  - SEO legal overstatements, and test-stuffing in chat facts.
+- **Owner directive:** the competitor comparison lives only in the investor deck (slides 16-18 and 29); the website must not carry it.
+- **Built, not applied:** migration 0082 money integrity (closed-period triggers, posted rows immutable, the buyer credit window, refund_failed, M16 flag), on branch claude/migration-0082, in independent review.
+- **New gap:** a buyer can still read the seller's assessments and payments through RLS.
+- **Agents used:** 14 (builders, testers, reviewers), at most about 5 at once. I declined the 100-agent request because of the weekly limit and the machine.
