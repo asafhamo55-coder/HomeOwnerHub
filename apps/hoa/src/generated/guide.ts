@@ -52918,6 +52918,94 @@ export const GUIDE_SEARCH_INDEX: GuideSearchIndex = {"articles":{"ids":["members
 /** What's new entries from docs/releases `whats_new:` blocks, newest first. */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    "id": "2026-11-05-0100-polls-amenities-community-page-message-board#1",
+    "note": "2026-11-05-0100-polls-amenities-community-page-message-board",
+    "date": "2026-11-05",
+    "title": "Ask your community a quick question",
+    "body": "Boards can now send a short poll to all homes. Pick the answers, set a close date and see the results. A poll is for opinions only. It is not a legal vote.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-11-05-0100-polls-amenities-community-page-message-board#2",
+    "note": "2026-11-05-0100-polls-amenities-community-page-message-board",
+    "date": "2026-11-05",
+    "title": "Book the clubhouse, pool or courts",
+    "body": "Add your shared spaces, set the hours and blackout dates, and approve or decline requests. Residents pick a time themselves and see which times are taken.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-11-05-0100-polls-amenities-community-page-message-board#3",
+    "note": "2026-11-05-0100-polls-amenities-community-page-message-board",
+    "date": "2026-11-05",
+    "title": "Put a public page on the web for your community",
+    "body": "In Settings, open Public page. Add a short welcome, a contact and the documents or notices you choose to share. Nothing shows until you press Publish.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-11-05-0100-polls-amenities-community-page-message-board#4",
+    "note": "2026-11-05-0100-polls-amenities-community-page-message-board",
+    "date": "2026-11-05",
+    "title": "A message board for your neighbors",
+    "body": "Residents of one community can start topics and reply. The board can hide a post, close a topic and handle reports. Neighbors from other communities never see it.",
+    "roles": [
+      "admin",
+      "board"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-11-05-0100-polls-amenities-community-page-message-board#5",
+    "note": "2026-11-05-0100-polls-amenities-community-page-message-board",
+    "date": "2026-11-05",
+    "title": "Answer a poll from your phone",
+    "body": "When your board asks a question, open Polls on your home screen, pick an answer and press Send.",
+    "roles": [
+      "resident"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-11-05-0100-polls-amenities-community-page-message-board#6",
+    "note": "2026-11-05-0100-polls-amenities-community-page-message-board",
+    "date": "2026-11-05",
+    "title": "Book a space",
+    "body": "Use Book a space on your home screen to reserve the clubhouse, pool or courts. You can see which times are already taken, but not who has them.",
+    "roles": [
+      "resident"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
+    "id": "2026-11-05-0100-polls-amenities-community-page-message-board#7",
+    "note": "2026-11-05-0100-polls-amenities-community-page-message-board",
+    "date": "2026-11-05",
+    "title": "Talk with neighbors",
+    "body": "Community board on your home screen is a place to start a topic or reply to one. Only people in your community can see it. If something looks wrong, use Report this post.",
+    "roles": [
+      "resident"
+    ],
+    "article": null,
+    "label": "new"
+  },
+  {
     "id": "2026-11-01-1345-new-prices-all-competitors#1",
     "note": "2026-11-01-1345-new-prices-all-competitors",
     "date": "2026-11-01",
