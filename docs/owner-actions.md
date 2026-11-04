@@ -41,6 +41,20 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-44 · Add three refund events to the Stripe Connect webhook
+
+**Urgency:** Whenever
+
+**Why it matters:** only needed before online payments go live (OA-42). When a refund is waiting on the homeowner and finishes later, Stripe reports it with these events. Without them, the money goes back to the homeowner but the HOA's books never show the refund. The app now handles them, and each refund is recorded only once even if several events arrive.
+
+**Steps:**
+
+1. Stripe dashboard → Developers → Webhooks → the Connect endpoint (events from connected accounts) that you add in OA-42.
+2. Add the events `refund.updated`, `charge.refund.updated` and `refund.failed`, next to the ones already listed for that endpoint.
+3. Tell Claude when it's done.
+
+**Files:** `apps/hoa/src/lib/online-payments/reversals.ts`
+
 ### OA-42 · Online dues payments: five decisions, then Stripe Connect
 
 **Urgency:** Soon
