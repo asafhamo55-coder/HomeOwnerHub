@@ -39,8 +39,7 @@ describe('newly switched-on features stay out of the basics menu', () => {
   const byHref = Object.fromEntries(all.map((l) => [l.href, l]))
   it.each([
     ['/polls', 'Polls'],
-    ['/amenities', 'Amenities'],
-  ])('%s is in the full menu as %s and is not a basic', (href, label) => {
+    ['/amenities', 'Amenities'],  ])('%s is in the full menu as %s and is not a basic', (href, label) => {
     expect(byHref[href]?.label).toBe(label)
     expect(byHref[href]?.basic).toBeFalsy()
     expect(visibleNavLinks(all, 'basics', null).map((l) => l.href)).not.toContain(href)
