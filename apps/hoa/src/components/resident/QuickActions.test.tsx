@@ -30,6 +30,12 @@ describe('QuickActions', () => {
     expect(html).toContain('Quick questions')
   })
 
+  it('links amenity booking (M11) in plain words', () => {
+    const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} />)
+    expect(html).toContain('href="/resident/amenities"')
+    expect(html).toContain('Book a space')
+  })
+
   it('shows the new count when above 0 and hides it at 0', () => {
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={3} />)).toContain('3 new')
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={0} />)).not.toContain(' new')
