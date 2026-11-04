@@ -127,20 +127,22 @@ export async function reverseJournalEntry(input: {
 
   if (!je.ok) return { ok: false, error: `reversal JE failed: ${je.error}` }
 
-  // Cross-link the two and flip original to reversed. Done in parallel
-  // — neither write can fail without the other being meaningless, and
-  // we already have the new JE committed so the worst case is an audit
-  // row pair where the link is one-sided (recoverable by SQL).
-  await Promise.all([
-    supabase
-      .from('journal_entries')
-      .update({ reverses_id: original.id })
-      .eq('id', je.journalEntryId),
-    supabase
-      .from('journal_entries')
-      .update({ reversed_by_id: je.journalEntryId, status: 'reversed' })
-      .eq('id', original.id),
-  ])
+  // Mark the original reversed first: that is the write the "already reversed" guard reads, so
+  // it must not be lost. If it fails, take the reversal back out (best effort: a database that
+  // enforces immutable posted rows may refuse the delete) and say so, rather than leaving a
+  // reversal that the original does not know about.
+  const mark = await supabase
+    .from('journal_entries')
+    .update({ reversed_by_id: je.journalEntryId, status: 'reversed' })
+    .eq('id', original.id)
+  if (mark.error) {
+    await supabase.from('journal_entries').delete().eq('id', je.journalEntryId)
+    console.error('reverseJournalEntry: could not mark the original reversed', { code: mark.error.code })
+    return { ok: false, error: "We couldn't finish reversing this entry, so it was not reversed. Please try again." }
+  }
+  // The back-link is bookkeeping only; the guard reads the original, which is already marked.
+  const link = await supabase.from('journal_entries').update({ reverses_id: original.id }).eq('id', je.journalEntryId)
+  if (link.error) console.error('reverseJournalEntry: back-link failed', { code: link.error.code })
 
   revalidatePath('/')  // dashboard rollup
   revalidatePath(`/accounting/ledger/${original.id}`)

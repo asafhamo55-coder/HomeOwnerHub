@@ -7,6 +7,8 @@ const h = vi.hoisted(() => ({
   original: null as Record<string, unknown> | null,
   guard: vi.fn(),
   post: vi.fn(),
+  markError: null as { code: string } | null,
+  deletes: [] as string[],
 }))
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -23,9 +25,14 @@ vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: async () => ({
     from: () => {
       const q: Record<string, unknown> = {}
-      for (const m of ['select', 'eq', 'update']) q[m] = () => q
+      let op = 'select'
+      let body: Record<string, unknown> = {}
+      for (const m of ['select', 'eq']) q[m] = () => q
+      q.update = (b: Record<string, unknown>) => { op = 'update'; body = b; return q }
+      q.delete = () => { op = 'delete'; return q }
+      q.eq = (_c: string, v: string) => { if (op === 'delete') h.deletes.push(v); return q }
       q.single = async () => ({ data: h.original, error: null })
-      q.then = (r: (v: unknown) => unknown) => r({ error: null })
+      q.then = (r: (v: unknown) => unknown) => r({ error: op === 'update' && body.status === 'reversed' ? h.markError : null })
       return q
     },
   }),
@@ -41,6 +48,8 @@ const original = {
 }
 
 beforeEach(() => {
+  h.markError = null
+  h.deletes = []
   h.original = { ...original }
   h.post.mockReset().mockResolvedValue({ ok: true, journalEntryId: 'je-2', entryNumber: 'JE-1' })
   h.guard.mockReset().mockImplementation(async (_db: unknown, i: { date: string }) =>
@@ -65,5 +74,13 @@ describe('reverseJournalEntry and closed periods', () => {
     const r = await reverseJournalEntry({ journalEntryId: ID })
     expect(r).toEqual({ ok: false, error: 'closed-msg' })
     expect(h.post).not.toHaveBeenCalled()
+  })
+
+  it('when marking the original fails, it takes the reversal back out and reports a plain error', async () => {
+    h.markError = { code: '55000' }
+    const r = await reverseJournalEntry({ journalEntryId: ID })
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.error).toMatch(/not reversed/)
+    expect(h.deletes).toContain('je-2')
   })
 })
