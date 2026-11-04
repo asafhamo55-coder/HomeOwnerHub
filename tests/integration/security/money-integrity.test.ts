@@ -380,3 +380,49 @@ describe('0082 refund_failed', () => {
     expect(await balanceCents(s.b, s.clearing)).toBe(25000)
   })
 })
+
+describe('0082 reversing an entry that sits in a closed month', () => {
+  it('a board user marks the original reversed once; the reversal posts in the open month; a second mark is refused', async () => {
+    const b = await books()
+    const board = await mintUser(b.org, 'board')
+    const c = board.client as unknown as Loose
+
+    // An entry in 2019, then that month closes.
+    const p19 = await period(b.org, '2019-01-01', '2019-12-31', 'open')
+    const h = await draftEntry(b, { periodId: p19, date: '2019-06-15' })
+    expect(h.error).toBeNull()
+    expect((await addLines(b, h.data!.id)).error).toBeNull()
+    expect((await admin().from('journal_entries').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', h.data!.id)).error).toBeNull()
+    await admin().from('fiscal_periods').update({ status: 'closed' }).eq('id', p19)
+
+    // What reverseJournalEntry does: the reversal is booked today in the open period ...
+    const reversal = await postedEntry(b, c)
+    // ... then the original is marked and the two are linked.
+    const mark = await c.from('journal_entries').update({ reversed_by_id: reversal, status: 'reversed' }).eq('id', h.data!.id)
+    expect(mark.error).toBeNull()
+    expect((await c.from('journal_entries').update({ reverses_id: h.data!.id }).eq('id', reversal)).error).toBeNull()
+
+    const orig = await one<{ status: string; reversed_by_id: string }>(admin().from('journal_entries').select('status, reversed_by_id').eq('id', h.data!.id).single(), 'original')
+    expect(orig).toEqual({ status: 'reversed', reversed_by_id: reversal })
+
+    // A second reversal cannot re-mark it.
+    const second = await postedEntry(b, c)
+    const again = await c.from('journal_entries').update({ reversed_by_id: second, status: 'reversed' }).eq('id', h.data!.id)
+    expect(again.error).not.toBeNull()
+    // Nothing else about a closed-month entry may change.
+    expect(isClosedPeriod((await c.from('journal_entries').update({ memo: 'x' }).eq('id', h.data!.id)).error) || isImmutable((await c.from('journal_entries').update({ memo: 'x' }).eq('id', h.data!.id)).error)).toBe(true)
+  })
+
+  it('a closed-month entry that is still posted cannot have its memo or date edited', async () => {
+    const b = await books()
+    const board = await mintUser(b.org, 'board')
+    const c = board.client as unknown as Loose
+    const p19 = await period(b.org, '2019-01-01', '2019-12-31', 'open')
+    const h = await draftEntry(b, { periodId: p19, date: '2019-06-15' })
+    await addLines(b, h.data!.id)
+    await admin().from('journal_entries').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', h.data!.id)
+    await admin().from('fiscal_periods').update({ status: 'closed' }).eq('id', p19)
+    const e = await c.from('journal_entries').update({ memo: 'x' }).eq('id', h.data!.id)
+    expect(e.error?.code).toBe('55000')
+  })
+})
