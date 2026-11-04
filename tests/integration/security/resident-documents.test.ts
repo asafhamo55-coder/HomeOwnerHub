@@ -165,6 +165,12 @@ describe('M1: document visibility and storage enforced by the database', () => {
     const board = await mintUser(org, 'board')
     const resident = await mintUser(org, 'resident')
     const db = adminDb()
+    // 0081 scopes association documents to residents of that association, so the resident must live in it.
+    const unit = await makeUnit(org)
+    const own = await db
+      .from('ownerships')
+      .insert({ organization_id: org.orgId, unit_id: unit, owner_user_id: resident.id, valid_from: '2024-01-01' })
+    if (own.error) throw new Error(`seed ownership: ${own.error.code}`)
     const put = async (path: string) => {
       const up = await board.client.storage.from('hoa-documents').upload(path, new Blob(['x']), { upsert: true })
       expect(up.error, `board could not upload ${path} — fixture is broken`).toBeNull()

@@ -198,7 +198,7 @@ describe('pm and eviction tables', () => {
     if (ledger.error) throw new Error(`seed pm_rent_ledger: ${ledger.error.code}`)
     const ev = await db()
       .from('eviction_cases')
-      .insert({ org_id: org.orgId, user_id: board.id, property_address: '1 Main St', county: 'X', state: 'GA' })
+      .insert({ org_id: org.orgId, user_id: board.id, property_address: '1 Main St', county: 'harris_tx', state: 'TX' })
     if (ev.error) throw new Error(`seed eviction_cases: ${ev.error.code}`)
 
     for (const table of ['pm_properties', 'pm_rent_ledger', 'eviction_cases']) {
