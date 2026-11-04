@@ -64,11 +64,15 @@ export function supabaseReversalStore(db: Db): ReversalStore {
 
       const { data: adj, error: adjErr } = await db
         .from('online_payment_adjustments')
-        .select('amount_cents')
+        .select('kind, amount_cents')
         .eq('online_payment_id', row.id)
-        .in('kind', ['failed', 'refund', 'dispute_lost'])
+        .in('kind', ['failed', 'refund', 'dispute_lost', 'refund_failed'])
       if (adjErr) throw fail('read adjustments', adjErr)
-      const reversed = ((adj ?? []) as Array<{ amount_cents: number }>).reduce((n, a) => n + a.amount_cents, 0)
+      // A refund_failed row (0082) gives back what a refund took, so it counts against the total.
+      const reversed = ((adj ?? []) as Array<{ kind?: string; amount_cents: number }>).reduce(
+        (n, a) => n + (a.kind === 'refund_failed' ? -a.amount_cents : a.amount_cents),
+        0,
+      )
       const posted = (row.posted_result ?? []).reduce((n, p) => n + (p.cents ?? 0), 0)
 
       return {

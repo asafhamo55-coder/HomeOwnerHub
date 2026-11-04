@@ -19,6 +19,7 @@
  *    the guarded sender in the real notifier.
  */
 
+import { M16_APPLIED } from '@homeowner-portal/db/m16'
 import { effectiveReturnedFeeCents, isFullRefund, ledgerCentsForStripeRefund } from './reversal-rules'
 import {
   boardBankPaymentReturned,
@@ -79,11 +80,11 @@ export interface AttemptView {
   postedAt: string | null
   /** Dues posted by this attempt. */
   postedCents: number
-  /** Dues already reversed (failed, refund, dispute_lost adjustments). */
+  /** Dues already reversed (failed, refund, dispute_lost adjustments, less any refund_failed given back). */
   reversedCents: number
 }
 
-export type ReverseKind = 'failed' | 'refund' | 'dispute_lost' | 'dispute_won'
+export type ReverseKind = 'failed' | 'refund' | 'dispute_lost' | 'dispute_won' | 'refund_failed'
 
 export interface ReverseOutcome {
   alreadyApplied: boolean
@@ -308,10 +309,12 @@ async function onChargeRefunded(event: ConnectEventLike, deps: ReversalDeps): Pr
 }
 
 /**
- * One refund object changed state. Only a move to `succeeded` reaches the books, through the same
+ * One refund object changed state. A move to `succeeded` reaches the books through the same
  * reverse call (and so the same per-refund-id idempotency) as charge.refunded and the board's own
- * refund. TODO(migration): a `failed` transition after the books took a pending refund needs a
- * refund_failed kind in reverse_online_payment; until then it is only ignored here.
+ * refund. A move to `failed` or `canceled` after the books took the refund (a pending refund that
+ * dies days later) books it back as kind refund_failed, only once M16_APPLIED (migration 0082) is
+ * true; until then it is ignored as before. A refund the books never took is refused by the
+ * database (55000) and ignored here.
  */
 async function onRefundUpdated(event: ConnectEventLike, deps: ReversalDeps): Promise<ReversalResult> {
   const refund = rec(event.data.object)
@@ -320,11 +323,19 @@ async function onRefundUpdated(event: ConnectEventLike, deps: ReversalDeps): Pro
   const piId = idOf(refund.payment_intent)
   const chargeId = idOf(refund.charge)
   if (!refundId || amount === null || amount <= 0 || (!piId && !chargeId)) return { outcome: 'ignored' }
-  if (str(refund.status) !== 'succeeded') return { outcome: 'ignored' }
+  const refundStatus = str(refund.status)
+  const failedLate = refundStatus === 'failed' || refundStatus === 'canceled'
+  if (refundStatus !== 'succeeded' && !(failedLate && M16_APPLIED)) return { outcome: 'ignored' }
   const attempt = await deps.store.findAttempt({ paymentIntentId: piId ?? undefined, chargeId: chargeId ?? undefined })
   if (!attempt) return { outcome: 'retry' }
   if (!accountMatches(event, attempt)) return { outcome: 'rejected_account' }
   if (attempt.postedAt === null) return { outcome: 'ignored' }
+
+  if (failedLate) {
+    const undone = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'refund_failed', ref: refundId, reason: 'Refund failed' })
+    if (undone.kind !== 'done') return { outcome: undone.kind }
+    return { outcome: undone.result.alreadyApplied ? 'already_applied' : 'applied' }
+  }
 
   const cents = ledgerCentsForStripeRefund(amount, attempt.postedCents, attempt.reversedCents)
   if (cents <= 0) return { outcome: 'already_applied' }

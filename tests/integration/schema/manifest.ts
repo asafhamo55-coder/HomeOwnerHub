@@ -142,6 +142,9 @@ export const MIGRATION_MANIFEST: string[] = [
   '0079_mailed_letters.sql',
   // Tenant isolation pass 2 (security/tenant-isolation-2.test.ts). Applies to live tables.
   '0081_tenant_isolation_2.sql',
+  // Money integrity backstops (security/money-integrity.test.ts): closed-period triggers, posted-row
+  // immutability, buyer credit window, refund_failed. Applies to live tables.
+  '0082_money_integrity.sql',
 ]
 
 /**
