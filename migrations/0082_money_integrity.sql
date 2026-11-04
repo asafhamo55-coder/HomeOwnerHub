@@ -25,11 +25,13 @@
 --   2. Posted ledger rows are immutable through the REST API. For the roles
 --      authenticated and anon (current_user, so SECURITY DEFINER functions such
 --      as record_lump_payment and the service role are untouched):
---        * journal_entries: INSERT only as 'draft'; DELETE only a draft; UPDATE of
---          a posted or reversed row may change exactly status (posted -> reversed),
---          reversed_by_id and reverses_id (each only from NULL). That is what the
---          app does (journal-entries.ts, payment-plans/create.ts). A draft can be
---          edited and flipped to 'posted'.
+--        * journal_entries: INSERT only as 'draft'; DELETE only a draft; a posted or
+--          reversed row cannot change except for one move: status posted -> reversed
+--          while reversed_by_id goes from NULL to an entry in the same association
+--          whose reverses_id already points back (journal_entry_is_reversal_mark).
+--          Status and reversed_by_id move only together; reverses_id is set at
+--          insert (postJournalEntry reversesId), never changed on a posted row. A
+--          draft can be edited and flipped to 'posted'.
 --        * ledger_entries (the lines): no INSERT, UPDATE or DELETE once the parent
 --          entry is not a draft.
 --   3. Buyer reads the seller's credits. unapplied_credits_resident_select (0072)
@@ -93,6 +95,25 @@ AS $fn$
   );
 $fn$;
 
+-- The one legitimate change to a posted entry: status posted -> reversed while reversed_by_id goes
+-- from NULL to an entry in the same association that already points back (reverses_id = this
+-- entry), with every other column unchanged. Both the closed-period and the immutability trigger
+-- ask this, so status and reversed_by_id can only move together, towards a real reversal.
+CREATE OR REPLACE FUNCTION public.journal_entry_is_reversal_mark(p_old public.journal_entries, p_new public.journal_entries)
+RETURNS boolean
+LANGUAGE sql STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+  SELECT (to_jsonb(p_new) - 'status' - 'reversed_by_id') IS NOT DISTINCT FROM (to_jsonb(p_old) - 'status' - 'reversed_by_id')
+     AND p_old.status = 'posted' AND p_old.reversed_by_id IS NULL
+     AND p_new.status = 'reversed' AND p_new.reversed_by_id IS NOT NULL
+     AND EXISTS (SELECT 1 FROM public.journal_entries t
+                  WHERE t.id = p_new.reversed_by_id
+                    AND t.association_id = p_old.association_id
+                    AND t.reverses_id = p_old.id);
+$fn$;
+
 CREATE OR REPLACE FUNCTION public.journal_entries_closed_period_guard()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -102,13 +123,10 @@ BEGIN
   IF public.money_already_moved() THEN
     RETURN NEW;
   END IF;
-  -- Marking an entry reversed (status posted -> reversed, plus the two link columns) is how a
-  -- closed-month entry is reversed: the reversal itself is booked in the open month, and this
-  -- touches no amount, date or memo. Same column set journal_entries_posted_immutable allows.
-  IF TG_OP = 'UPDATE'
-     AND (to_jsonb(NEW) - 'status' - 'reversed_by_id' - 'reverses_id')
-         IS NOT DISTINCT FROM (to_jsonb(OLD) - 'status' - 'reversed_by_id' - 'reverses_id')
-     AND (NEW.status = OLD.status OR (OLD.status = 'posted' AND NEW.status = 'reversed')) THEN
+  -- Marking an entry reversed is how a closed-month entry is reversed: the reversal itself is
+  -- booked in the open month, and the mark touches no amount, date or memo. Only the exact
+  -- shape journal_entry_is_reversal_mark accepts gets through.
+  IF TG_OP = 'UPDATE' AND public.journal_entry_is_reversal_mark(OLD, NEW) THEN
     RETURN NEW;
   END IF;
   IF public.money_period_is_closed(NEW.association_id, NEW.fiscal_period_id, NEW.entry_date)
@@ -188,15 +206,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF (to_jsonb(NEW) - 'status' - 'reversed_by_id' - 'reverses_id')
-     IS DISTINCT FROM (to_jsonb(OLD) - 'status' - 'reversed_by_id' - 'reverses_id')
-     OR (NEW.status IS DISTINCT FROM OLD.status AND NOT (OLD.status = 'posted' AND NEW.status = 'reversed'))
-     OR (OLD.reversed_by_id IS NOT NULL AND NEW.reversed_by_id IS DISTINCT FROM OLD.reversed_by_id)
-     OR (OLD.reverses_id IS NOT NULL AND NEW.reverses_id IS DISTINCT FROM OLD.reverses_id) THEN
-    RAISE EXCEPTION 'posted_immutable' USING ERRCODE = '55000',
-      DETAIL = 'A posted entry cannot be edited. Reverse it instead.';
+  IF to_jsonb(NEW) IS NOT DISTINCT FROM to_jsonb(OLD) OR public.journal_entry_is_reversal_mark(OLD, NEW) THEN
+    RETURN NEW;
   END IF;
-  RETURN NEW;
+  RAISE EXCEPTION 'posted_immutable' USING ERRCODE = '55000',
+    DETAIL = 'A posted entry cannot be edited. Reverse it instead.';
 END;
 $fn$;
 

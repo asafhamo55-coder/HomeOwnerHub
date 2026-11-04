@@ -15,6 +15,14 @@ FROM pg_trigger
 WHERE NOT tgisinternal
   AND tgname IN ('journal_entries_posted_immutable', 'ledger_entries_posted_immutable');
 
+SELECT 'a posted entry can only be marked reversed together with a real reversal' AS check,
+       CASE WHEN to_regprocedure('public.journal_entry_is_reversal_mark(public.journal_entries,public.journal_entries)') IS NOT NULL
+             AND (SELECT prosrc FROM pg_proc WHERE proname = 'journal_entries_posted_immutable' AND pronamespace = 'public'::regnamespace)
+                 LIKE '%journal_entry_is_reversal_mark%'
+             AND (SELECT prosrc FROM pg_proc WHERE proname = 'journal_entries_closed_period_guard' AND pronamespace = 'public'::regnamespace)
+                 LIKE '%journal_entry_is_reversal_mark%'
+            THEN 'PASS' ELSE 'FAIL' END AS result;
+
 SELECT 'the two online payment functions are exempt from the closed-period triggers' AS check,
        CASE WHEN count(*) = 2 THEN 'PASS' ELSE 'FAIL: expected 2, got ' || count(*) END AS result
 FROM pg_proc
