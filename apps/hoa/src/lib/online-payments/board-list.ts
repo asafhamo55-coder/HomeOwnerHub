@@ -52,13 +52,14 @@ export async function loadBoardOnlinePayments(db: Db, unitId: string): Promise<B
 
   const { data: adj, error: aerr } = await db
     .from('online_payment_adjustments')
-    .select('online_payment_id, amount_cents')
+    .select('online_payment_id, kind, amount_cents')
     .in('online_payment_id', rows.map((r) => r.id))
-    .in('kind', ['failed', 'refund', 'dispute_lost'])
+    .in('kind', ['failed', 'refund', 'dispute_lost', 'refund_failed'])
   if (aerr) throw fail('adjustments read', aerr)
   const reversed = new Map<string, number>()
-  for (const a of (adj ?? []) as Array<{ online_payment_id: string; amount_cents: number }>) {
-    reversed.set(a.online_payment_id, (reversed.get(a.online_payment_id) ?? 0) + Number(a.amount_cents))
+  for (const a of (adj ?? []) as Array<{ online_payment_id: string; kind?: string; amount_cents: number }>) {
+    const signed = a.kind === 'refund_failed' ? -Number(a.amount_cents) : Number(a.amount_cents)
+    reversed.set(a.online_payment_id, (reversed.get(a.online_payment_id) ?? 0) + signed)
   }
 
   return rows.map((r) => {
