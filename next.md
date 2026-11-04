@@ -8,6 +8,14 @@ this file is the reference it points to.
 
 ## 00. HANDOFF 2026-11-01 ~08:00 UTC (session 37afa776 closed by Asaf: "update next.md… exit and resume with new session"). READ THIS FIRST; it supersedes §0a and §0.
 
+### UPDATE 2026-11-05 (supersedes the SQL queue below)
+
+- **Asaf applied 0073, 0074, 0075, 0076, 0077, 0078, 0079 and 0081 to prod on 2026-11-05**, one at a time, each followed by its verify query. Every check passed. There is no 0080. 0073 had no verify file; an ad hoc check confirmed 6 tables with RLS on and 3 functions.
+- verify-0078 expected 5 SELECT policies, but 0078 creates 6 (3 `*_board_select` plus 3 resident or own policies). Asaf confirmed the 6 in prod; the check file is fixed.
+- 0081 scrubbed contact lists from 6 old communications rows. None was scheduled or sending.
+- **Next:** run `gen:types` now that every migration is applied, diff the columns, then flip the M8 to M14 `*_APPLIED` flags in separate commits. The launch blockers below still gate turning features on for users.
+- Still open: the read-only `exec_sql` check.
+
 ### UPDATE 2026-11-04 late (supersedes the HANDOFF 2026-11-04 "First task" below)
 
 - **Prod is 0dc21540.** The bridge-ratchet fix is deployed, and so are the security and tenant-isolation fixes, the closed-month guard, the M8 gap fixes (flag off), SEO batch 26 and the /compare removal. Details are in docs/cycle-log.md, 2026-11-04.

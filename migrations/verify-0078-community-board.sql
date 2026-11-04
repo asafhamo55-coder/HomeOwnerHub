@@ -18,8 +18,8 @@ WHERE n.nspname = 'public'
 
 -- The web roles may only read: a write policy here means a resident could edit the board.
 SELECT 'select policies only' AS check,
-       CASE WHEN count(*) FILTER (WHERE cmd <> 'SELECT') = 0 AND count(*) = 5
-            THEN 'PASS' ELSE 'FAIL: expected 5 SELECT policies and no others' END AS result
+       CASE WHEN count(*) FILTER (WHERE cmd <> 'SELECT') = 0 AND count(*) = 6
+            THEN 'PASS' ELSE 'FAIL: expected 6 SELECT policies and no others' END AS result
 FROM pg_policies
 WHERE schemaname = 'public'
   AND tablename IN ('board_threads', 'board_posts', 'board_post_reports');
