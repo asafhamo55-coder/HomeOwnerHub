@@ -11,10 +11,13 @@ export {
   postJournalEntry,
   PostJournalEntryInputSchema,
   JournalEntryLineSchema,
+  markOriginalReversed,
+  ALREADY_REVERSED_MESSAGE,
 } from './accounting/post-journal-entry'
 export type {
   PostJournalEntryInput,
   PostJournalEntryResult,
+  PostJournalEntryOptions,
   JournalEntryLine,
 } from './accounting/post-journal-entry'
 

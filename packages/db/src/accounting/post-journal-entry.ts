@@ -48,6 +48,8 @@ export const PostJournalEntryInputSchema = z.object({
     'reversing',
   ]),
   sourceId: z.string().uuid().optional(),
+  /** Set at insert on a reversing entry: the entry it reverses. Migration 0082 only lets an entry be marked reversed by a draft that already points back at it. */
+  reversesId: z.string().uuid().optional(),
   aiGenerated: z.boolean().optional(),
   aiWorkflowId: z.string().optional(),
   createdBy: z.string().uuid().optional(),
@@ -55,6 +57,42 @@ export const PostJournalEntryInputSchema = z.object({
 })
 
 export type PostJournalEntryInput = z.infer<typeof PostJournalEntryInputSchema>
+
+/**
+ * Runs after the lines are in and before the draft flips to posted. A failure
+ * deletes the draft and is returned as the error, so the caller can make a
+ * conditional write (e.g. mark the original reversed) part of the posting.
+ */
+export interface PostJournalEntryOptions {
+  beforePost?: (journalEntryId: string) => Promise<{ ok: true } | { ok: false; error: string }>
+}
+
+export const ALREADY_REVERSED_MESSAGE = 'This entry was already reversed.'
+
+/**
+ * The beforePost hook for a reversal: marks the original reversed with a conditional update, so
+ * of two concurrent reversals exactly one gets a row back. Zero rows means someone else reversed
+ * it (or it is no longer posted); the draft reversal is then deleted by postJournalEntry.
+ * Migration 0082 accepts the mark only when the draft already points back at the original
+ * (pass the original's id as `reversesId` when posting).
+ */
+export function markOriginalReversed(
+  supabase: SupabaseClient<Database>,
+  originalId: string,
+): NonNullable<PostJournalEntryOptions['beforePost']> {
+  return async (reversalId) => {
+    const { data, error } = await supabase
+      .from('journal_entries')
+      .update({ reversed_by_id: reversalId, status: 'reversed' })
+      .eq('id', originalId)
+      .eq('status', 'posted')
+      .is('reversed_by_id', null)
+      .select('id')
+    if (error) return { ok: false, error: "We couldn't finish reversing this entry, so it was not reversed. Please try again." }
+    if (!data || data.length !== 1) return { ok: false, error: ALREADY_REVERSED_MESSAGE }
+    return { ok: true }
+  }
+}
 
 export type PostJournalEntryResult =
   | { ok: true; journalEntryId: string; entryNumber: string }
@@ -76,6 +114,7 @@ const ENTRY_NUMBER_RETRIES = 3
 export async function postJournalEntry(
   supabase: SupabaseClient<Database>,
   input: PostJournalEntryInput,
+  options: PostJournalEntryOptions = {},
 ): Promise<PostJournalEntryResult> {
   const parsed = PostJournalEntryInputSchema.safeParse(input)
   if (!parsed.success) {
@@ -150,6 +189,7 @@ export async function postJournalEntry(
       memo: value.memo,
       source: value.source,
       source_id: value.sourceId ?? null,
+      reverses_id: value.reversesId ?? null,
       ai_generated: value.aiGenerated ?? false,
       ai_workflow_id: value.aiWorkflowId ?? null,
       created_by: value.createdBy ?? null,
@@ -191,6 +231,19 @@ export async function postJournalEntry(
       // Roll back the orphan header so we don't leak draft JEs.
       await supabase.from('journal_entries').delete().eq('id', journalEntryId)
       return { ok: false, error: linesErr.message }
+    }
+
+    if (options.beforePost) {
+      let gate: { ok: true } | { ok: false; error: string }
+      try {
+        gate = await options.beforePost(journalEntryId)
+      } catch {
+        gate = { ok: false, error: 'beforePost failed' }
+      }
+      if (!gate.ok) {
+        await supabase.from('journal_entries').delete().eq('id', journalEntryId)
+        return { ok: false, error: gate.error }
+      }
     }
 
     // Flip to posted — this is what fires validate_je_balances. If the

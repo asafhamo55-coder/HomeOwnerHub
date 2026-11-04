@@ -48,7 +48,7 @@ async function books(): Promise<Books> {
 }
 
 /** A draft header, with balanced lines unless told otherwise. Not posted. */
-async function draftEntry(b: Books, over: { date?: string; periodId?: string; source?: string; client?: Loose } = {}) {
+async function draftEntry(b: Books, over: { date?: string; periodId?: string; source?: string; client?: Loose; reversesId?: string } = {}) {
   const db = over.client ?? admin()
   const header = await db
     .from('journal_entries')
@@ -60,6 +60,7 @@ async function draftEntry(b: Books, over: { date?: string; periodId?: string; so
       entry_date: over.date ?? today(),
       memo: 'money integrity test',
       source: over.source ?? 'manual',
+      ...(over.reversesId ? { reverses_id: over.reversesId } : {}),
       status: 'draft',
     })
     .select('id')
@@ -99,6 +100,19 @@ async function assessment(b: Books, unitId: string, over: { periodId?: string; d
     })
     .select('id')
     .single()
+}
+
+/** What reverseJournalEntry does: a draft pointing back at the original, the original marked, then the draft posts. */
+async function reverseVia(b: Books, c: Loose, originalId: string): Promise<{ id: string | null; error: { message: string; code?: string } | null }> {
+  const d = await draftEntry(b, { client: c, source: 'reversing', reversesId: originalId })
+  if (d.error || !d.data) return { id: null, error: d.error }
+  const lines = await addLines(b, d.data.id, c)
+  if (lines.error) return { id: d.data.id, error: lines.error }
+  const mark = await c.from('journal_entries').update({ reversed_by_id: d.data.id, status: 'reversed' }).eq('id', originalId).eq('status', 'posted').is('reversed_by_id', null).select('id')
+  if (mark.error) return { id: d.data.id, error: mark.error }
+  if ((mark.data ?? []).length !== 1) return { id: d.data.id, error: { message: 'already reversed' } }
+  const post = await c.from('journal_entries').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', d.data.id)
+  return { id: d.data.id, error: post.error }
 }
 
 const isClosedPeriod = (e: { message?: string; code?: string } | null) => e?.code === '55000' && /closed_period/.test(e?.message ?? '')
@@ -224,17 +238,13 @@ describe('0082 posted ledger rows are immutable through the REST API', () => {
     expect(lines.data).toHaveLength(2)
   })
 
-  it('the app steps still work: draft, lines, post, then reverse with the two link columns', async () => {
+  it('the app steps still work: a reversal draft points back at the original, the original is marked, then the draft posts', async () => {
     const b = await books()
     const board = await mintUser(b.org, 'board')
     const c = board.client as unknown as Loose
     const original = await postedEntry(b, c)
-    const reversal = await postedEntry(b, c)
-
-    const link = await c.from('journal_entries').update({ reverses_id: original }).eq('id', reversal)
-    expect(link.error).toBeNull()
-    const mark = await c.from('journal_entries').update({ reversed_by_id: reversal, status: 'reversed' }).eq('id', original)
-    expect(mark.error).toBeNull()
+    const reversal = await reverseVia(b, c, original)
+    expect(reversal.error).toBeNull()
 
     // A reversed entry is frozen too, and the link cannot be re-pointed.
     expect(isImmutable((await c.from('journal_entries').update({ memo: 'x' }).eq('id', original)).error)).toBe(true)
@@ -242,6 +252,29 @@ describe('0082 posted ledger rows are immutable through the REST API', () => {
     // A draft (rolled-back post) can still be deleted.
     const d = await draftEntry(b, { client: c })
     expect((await c.from('journal_entries').delete().eq('id', d.data!.id)).error).toBeNull()
+  })
+
+  it('refuses a status-only or link-only change, a junk target, a reverses_id-only change and reversed to posted', async () => {
+    const b = await books()
+    const board = await mintUser(b.org, 'board')
+    const c = board.client as unknown as Loose
+    const upd = async (id: string, patch: Record<string, unknown>) => (await c.from('journal_entries').update(patch).eq('id', id)).error
+    const stranger = await postedEntry(b, c) // posted, but does not point back at anything
+
+    const e1 = await postedEntry(b, c)
+    expect(isImmutable(await upd(e1, { status: 'reversed' }))).toBe(true)
+    expect(isImmutable(await upd(e1, { reversed_by_id: stranger }))).toBe(true)
+    expect(isImmutable(await upd(e1, { reversed_by_id: stranger, status: 'reversed' }))).toBe(true) // target does not point back
+    expect((await upd(e1, { reversed_by_id: '00000000-0000-4000-8000-00000000dead', status: 'reversed' })) !== null).toBe(true)
+    expect(isImmutable(await upd(e1, { reverses_id: stranger }))).toBe(true)
+    const after = await one<{ status: string; reversed_by_id: string | null }>(admin().from('journal_entries').select('status, reversed_by_id').eq('id', e1).single(), 'e1')
+    expect(after).toEqual({ status: 'posted', reversed_by_id: null })
+
+    // reversed -> posted stays refused.
+    const e2 = await postedEntry(b, c)
+    expect((await reverseVia(b, c, e2)).error).toBeNull()
+    expect(isImmutable(await upd(e2, { status: 'posted' }))).toBe(true)
+    expect(isImmutable(await upd(e2, { status: 'posted', reversed_by_id: null }))).toBe(true)
   })
 })
 
@@ -382,47 +415,46 @@ describe('0082 refund_failed', () => {
 })
 
 describe('0082 reversing an entry that sits in a closed month', () => {
-  it('a board user marks the original reversed once; the reversal posts in the open month; a second mark is refused', async () => {
-    const b = await books()
-    const board = await mintUser(b.org, 'board')
-    const c = board.client as unknown as Loose
-
-    // An entry in 2019, then that month closes.
+  async function closedMonthEntry(b: Books) {
     const p19 = await period(b.org, '2019-01-01', '2019-12-31', 'open')
     const h = await draftEntry(b, { periodId: p19, date: '2019-06-15' })
     expect(h.error).toBeNull()
     expect((await addLines(b, h.data!.id)).error).toBeNull()
     expect((await admin().from('journal_entries').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', h.data!.id)).error).toBeNull()
     await admin().from('fiscal_periods').update({ status: 'closed' }).eq('id', p19)
+    return h.data!.id
+  }
 
-    // What reverseJournalEntry does: the reversal is booked today in the open period ...
-    const reversal = await postedEntry(b, c)
-    // ... then the original is marked and the two are linked.
-    const mark = await c.from('journal_entries').update({ reversed_by_id: reversal, status: 'reversed' }).eq('id', h.data!.id)
-    expect(mark.error).toBeNull()
-    expect((await c.from('journal_entries').update({ reverses_id: h.data!.id }).eq('id', reversal)).error).toBeNull()
+  it('a board user reverses it: the reversal posts in the open month, the original is marked once, a second reversal is refused', async () => {
+    const b = await books()
+    const c = (await mintUser(b.org, 'board')).client as unknown as Loose
+    const original = await closedMonthEntry(b)
 
-    const orig = await one<{ status: string; reversed_by_id: string }>(admin().from('journal_entries').select('status, reversed_by_id').eq('id', h.data!.id).single(), 'original')
-    expect(orig).toEqual({ status: 'reversed', reversed_by_id: reversal })
+    const first = await reverseVia(b, c, original)
+    expect(first.error).toBeNull()
+    const orig = await one<{ status: string; reversed_by_id: string }>(admin().from('journal_entries').select('status, reversed_by_id').eq('id', original).single(), 'original')
+    expect(orig).toEqual({ status: 'reversed', reversed_by_id: first.id })
+    const rev = await one<{ status: string; reverses_id: string }>(admin().from('journal_entries').select('status, reverses_id').eq('id', first.id!).single(), 'reversal')
+    expect(rev).toEqual({ status: 'posted', reverses_id: original })
 
-    // A second reversal cannot re-mark it.
-    const second = await postedEntry(b, c)
-    const again = await c.from('journal_entries').update({ reversed_by_id: second, status: 'reversed' }).eq('id', h.data!.id)
-    expect(again.error).not.toBeNull()
-    // Nothing else about a closed-month entry may change.
-    expect(isClosedPeriod((await c.from('journal_entries').update({ memo: 'x' }).eq('id', h.data!.id)).error) || isImmutable((await c.from('journal_entries').update({ memo: 'x' }).eq('id', h.data!.id)).error)).toBe(true)
+    const second = await reverseVia(b, c, original)
+    expect(second.error).not.toBeNull()
+    expect((await admin().from('journal_entries').select('reversed_by_id').eq('id', original).single()).data.reversed_by_id).toBe(first.id)
   })
 
-  it('a closed-month entry that is still posted cannot have its memo or date edited', async () => {
+  it('a closed-month entry cannot be dropped from the books without a reversal, or blocked by a junk link', async () => {
     const b = await books()
-    const board = await mintUser(b.org, 'board')
-    const c = board.client as unknown as Loose
-    const p19 = await period(b.org, '2019-01-01', '2019-12-31', 'open')
-    const h = await draftEntry(b, { periodId: p19, date: '2019-06-15' })
-    await addLines(b, h.data!.id)
-    await admin().from('journal_entries').update({ status: 'posted', posted_at: new Date().toISOString() }).eq('id', h.data!.id)
-    await admin().from('fiscal_periods').update({ status: 'closed' }).eq('id', p19)
-    const e = await c.from('journal_entries').update({ memo: 'x' }).eq('id', h.data!.id)
-    expect(e.error?.code).toBe('55000')
+    const c = (await mintUser(b.org, 'board')).client as unknown as Loose
+    const original = await closedMonthEntry(b)
+    const stranger = await postedEntry(b, c)
+    const upd = async (patch: Record<string, unknown>) => (await c.from('journal_entries').update(patch).eq('id', original)).error
+
+    expect((await upd({ status: 'reversed' }))?.code).toBe('55000')
+    expect((await upd({ reversed_by_id: stranger }))?.code).toBe('55000')
+    expect((await upd({ reversed_by_id: stranger, status: 'reversed' }))?.code).toBe('55000')
+    expect((await upd({ memo: 'x' }))?.code).toBe('55000')
+    expect((await admin().from('journal_entries').select('status, reversed_by_id').eq('id', original).single()).data).toEqual({ status: 'posted', reversed_by_id: null })
+    // The real reversal still works afterwards.
+    expect((await reverseVia(b, c, original)).error).toBeNull()
   })
 })

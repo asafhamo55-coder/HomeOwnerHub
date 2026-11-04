@@ -7,8 +7,6 @@ const h = vi.hoisted(() => ({
   original: null as Record<string, unknown> | null,
   guard: vi.fn(),
   post: vi.fn(),
-  markError: null as { code: string } | null,
-  deletes: [] as string[],
 }))
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
@@ -20,19 +18,16 @@ vi.mock('@homeowner-portal/db', () => ({
   CLOSED_PERIOD_MESSAGE: 'closed-msg',
   assertPeriodOpen: h.guard,
   postJournalEntry: h.post,
+  ALREADY_REVERSED_MESSAGE: 'This entry was already reversed.',
+  markOriginalReversed: (_db: unknown, id: string) => `hook:${id}`,
 }))
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: async () => ({
     from: () => {
       const q: Record<string, unknown> = {}
-      let op = 'select'
-      let body: Record<string, unknown> = {}
-      for (const m of ['select', 'eq']) q[m] = () => q
-      q.update = (b: Record<string, unknown>) => { op = 'update'; body = b; return q }
-      q.delete = () => { op = 'delete'; return q }
-      q.eq = (_c: string, v: string) => { if (op === 'delete') h.deletes.push(v); return q }
+      for (const m of ['select', 'eq', 'update']) q[m] = () => q
       q.single = async () => ({ data: h.original, error: null })
-      q.then = (r: (v: unknown) => unknown) => r({ error: op === 'update' && body.status === 'reversed' ? h.markError : null })
+      q.then = (r: (v: unknown) => unknown) => r({ error: null })
       return q
     },
   }),
@@ -48,8 +43,6 @@ const original = {
 }
 
 beforeEach(() => {
-  h.markError = null
-  h.deletes = []
   h.original = { ...original }
   h.post.mockReset().mockResolvedValue({ ok: true, journalEntryId: 'je-2', entryNumber: 'JE-1' })
   h.guard.mockReset().mockImplementation(async (_db: unknown, i: { date: string }) =>
@@ -60,13 +53,13 @@ describe('reverseJournalEntry and closed periods', () => {
   it('reverses a closed-month entry into the open period, dated today', async () => {
     const r = await reverseJournalEntry({ journalEntryId: ID })
     expect(r.ok).toBe(true)
-    expect(h.post).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ entryDate: '2026-11-04', fiscalPeriodId: 'fp-open' }))
+    expect(h.post).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ entryDate: '2026-11-04', fiscalPeriodId: 'fp-open' }), expect.anything())
   })
 
   it('keeps the original period when it is open', async () => {
     h.guard.mockResolvedValue({ ok: true })
     await reverseJournalEntry({ journalEntryId: ID })
-    expect(h.post).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ fiscalPeriodId: 'fp-old' }))
+    expect(h.post).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ fiscalPeriodId: 'fp-old' }), expect.anything())
   })
 
   it('refuses when the reversal date itself is closed, writing nothing', async () => {
@@ -76,11 +69,18 @@ describe('reverseJournalEntry and closed periods', () => {
     expect(h.post).not.toHaveBeenCalled()
   })
 
-  it('when marking the original fails, it takes the reversal back out and reports a plain error', async () => {
-    h.markError = { code: '55000' }
+  it('posts the reversal as a draft pointing back at the original, with the mark as its pre-post hook', async () => {
+    await reverseJournalEntry({ journalEntryId: ID })
+    expect(h.post).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ reversesId: ID, source: 'reversing' }),
+      { beforePost: `hook:${ID}` },
+    )
+  })
+
+  it('when someone else reversed it first, the caller gets a plain error', async () => {
+    h.post.mockResolvedValue({ ok: false, error: 'This entry was already reversed.' })
     const r = await reverseJournalEntry({ journalEntryId: ID })
-    expect(r.ok).toBe(false)
-    expect(r.ok === false && r.error).toMatch(/not reversed/)
-    expect(h.deletes).toContain('je-2')
+    expect(r).toEqual({ ok: false, error: 'This entry was already reversed.' })
   })
 })

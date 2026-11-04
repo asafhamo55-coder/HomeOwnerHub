@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
-import { assertPeriodOpen, CLOSED_PERIOD_MESSAGE, postJournalEntry } from '@homeowner-portal/db'
+import { ALREADY_REVERSED_MESSAGE, assertPeriodOpen, CLOSED_PERIOD_MESSAGE, markOriginalReversed, postJournalEntry } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getPrimaryAssociation } from '@/lib/vendors'
@@ -111,38 +111,29 @@ export async function reverseJournalEntry(input: {
     memo: l.memo ?? undefined,
   }))
 
-  const je = await postJournalEntry(supabase, {
-    organizationId: original.organization_id,
-    associationId: assoc.id,
-    fiscalPeriodId: reversalPeriodId,
-    entryDate: today,
-    memo:
-      parsed.data.reason
-        ? `Reversal of ${original.memo}: ${parsed.data.reason}`
-        : `Reversal of ${original.memo}`,
-    source: 'reversing',
-    sourceId: original.id,
-    lines: reversed,
-  })
+  // The reversal is a draft that already points back at the original (reversesId); just before it
+  // posts, the original is marked reversed with a conditional update. Of two concurrent reversals
+  // exactly one gets that row; the other's draft is deleted and it gets a plain error.
+  const je = await postJournalEntry(
+    supabase,
+    {
+      organizationId: original.organization_id,
+      associationId: assoc.id,
+      fiscalPeriodId: reversalPeriodId,
+      entryDate: today,
+      memo:
+        parsed.data.reason
+          ? `Reversal of ${original.memo}: ${parsed.data.reason}`
+          : `Reversal of ${original.memo}`,
+      source: 'reversing',
+      sourceId: original.id,
+      reversesId: original.id,
+      lines: reversed,
+    },
+    { beforePost: markOriginalReversed(supabase, original.id) },
+  )
 
-  if (!je.ok) return { ok: false, error: `reversal JE failed: ${je.error}` }
-
-  // Mark the original reversed first: that is the write the "already reversed" guard reads, so
-  // it must not be lost. If it fails, take the reversal back out (best effort: a database that
-  // enforces immutable posted rows may refuse the delete) and say so, rather than leaving a
-  // reversal that the original does not know about.
-  const mark = await supabase
-    .from('journal_entries')
-    .update({ reversed_by_id: je.journalEntryId, status: 'reversed' })
-    .eq('id', original.id)
-  if (mark.error) {
-    await supabase.from('journal_entries').delete().eq('id', je.journalEntryId)
-    console.error('reverseJournalEntry: could not mark the original reversed', { code: mark.error.code })
-    return { ok: false, error: "We couldn't finish reversing this entry, so it was not reversed. Please try again." }
-  }
-  // The back-link is bookkeeping only; the guard reads the original, which is already marked.
-  const link = await supabase.from('journal_entries').update({ reverses_id: original.id }).eq('id', je.journalEntryId)
-  if (link.error) console.error('reverseJournalEntry: back-link failed', { code: link.error.code })
+  if (!je.ok) return { ok: false, error: je.error === ALREADY_REVERSED_MESSAGE || je.error.startsWith("We couldn't") ? je.error : `reversal JE failed: ${je.error}` }
 
   revalidatePath('/')  // dashboard rollup
   revalidatePath(`/accounting/ledger/${original.id}`)
