@@ -19,9 +19,11 @@ This release has no new screens. It tightens who can see what, closes several se
 - Recording a payment against a charge or bill can no longer pay it twice, or pay more than is owed, if two people click at the same time.
 - Reply drafts in the shared inbox use only the documents and records of the thread's own association.
 - Mailing lists typed in by hand are no longer stored on the message record.
+- Once the treasurer closes a month, nothing dated in that month can be added, changed or deleted: no charges, payments, bills, late fees or journal entries. To correct a closed month, reverse the entry and it is booked in the current open month, dated today.
 
 ### Website
 - The competitor comparison page is off the public website. Old links to it now open the pricing page. The comparison now lives in the investor deck.
+- The website help chat now understands "can't sign in", "can't log in", "forgot password" and "reset my password".
 
 ## Under the hood
 
