@@ -102,6 +102,15 @@ BEGIN
   IF public.money_already_moved() THEN
     RETURN NEW;
   END IF;
+  -- Marking an entry reversed (status posted -> reversed, plus the two link columns) is how a
+  -- closed-month entry is reversed: the reversal itself is booked in the open month, and this
+  -- touches no amount, date or memo. Same column set journal_entries_posted_immutable allows.
+  IF TG_OP = 'UPDATE'
+     AND (to_jsonb(NEW) - 'status' - 'reversed_by_id' - 'reverses_id')
+         IS NOT DISTINCT FROM (to_jsonb(OLD) - 'status' - 'reversed_by_id' - 'reverses_id')
+     AND (NEW.status = OLD.status OR (OLD.status = 'posted' AND NEW.status = 'reversed')) THEN
+    RETURN NEW;
+  END IF;
   IF public.money_period_is_closed(NEW.association_id, NEW.fiscal_period_id, NEW.entry_date)
      OR (TG_OP = 'UPDATE'
          AND public.money_period_is_closed(OLD.association_id, OLD.fiscal_period_id, OLD.entry_date)) THEN
