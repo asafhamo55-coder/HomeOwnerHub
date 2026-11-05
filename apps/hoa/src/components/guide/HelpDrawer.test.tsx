@@ -19,10 +19,10 @@ function trigger(firstName?: string | null): string {
 }
 
 describe('HelpDrawer board trigger label', () => {
-  it('greets by first name and keeps the action in aria-label', () => {
+  it('greets by first name and the aria-label contains the visible label (WCAG 2.5.3)', () => {
     const html = trigger('Asaf')
     expect(html).toContain('Hello Asaf')
-    expect(html).toContain('aria-label="Help for this page"')
+    expect(html).toContain('aria-label="Hello Asaf, help for this page"')
     expect(html).toContain('truncate')
   })
 
@@ -30,6 +30,7 @@ describe('HelpDrawer board trigger label', () => {
     for (const name of [undefined, null, '', '   ']) {
       const html = trigger(name)
       expect(html).toContain('>Help<')
+      expect(html).toContain('aria-label="Help for this page"')
       expect(html).not.toContain('Hello')
     }
   })
