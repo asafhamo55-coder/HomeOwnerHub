@@ -14,7 +14,7 @@ const monthLabel: Record<(typeof months)[number], string> = {
   M2: 'Month 2: HOA core',
   M3: OTHER_HUBS_ENABLED ? 'Month 3: PM + financial' : 'Month 3: Financial',
   M4: OTHER_HUBS_ENABLED ? 'Month 4: Eviction + launch' : 'Month 4: Launch',
-  'M5-6': 'Months 5–6: Stabilize',
+  'M5-6': 'Months 5 to 6: Stabilize',
   'M7+': 'Months 7+: Scale',
 }
 
@@ -184,7 +184,7 @@ export function RoadmapTable() {
                                 )}
                               >
                                 <Icon className="h-3 w-3" />
-                                Bar {w.bar}
+                                {w.bar === '—' ? 'Not rated' : `Bar ${w.bar}`}
                               </span>
                             </td>
                             <td className="align-top sm:table-cell sm:px-5 sm:py-4">
