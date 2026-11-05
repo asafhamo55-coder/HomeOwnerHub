@@ -59,6 +59,28 @@ export function boardRefundDone(input: { refundedCents: number; full: boolean; s
   return { subject: 'A payment was refunded', text: lines.join('\n\n') }
 }
 
+export function boardRefundFailed(input: { refundedCents: number; reviewUrl: string }): Notice {
+  return {
+    subject: 'A refund did not go through',
+    text: [
+      `A refund of ${dollars(input.refundedCents)} did not go through, so the amount is back on the home's balance.`,
+      'Please check the payment in your Stripe dashboard and contact the resident.',
+      `See the home's account here: ${input.reviewUrl}`,
+    ].join('\n\n'),
+  }
+}
+
+export function boardBooksNotOpen(input: { amountCents?: number }): Notice {
+  const what = input.amountCents ? ` of ${dollars(input.amountCents)}` : ''
+  return {
+    subject: 'Open your accounting period so a payment change can be recorded',
+    text: [
+      `A payment change${what} could not be recorded because your accounting period is closed or not set up.`,
+      'Please open the current fiscal period in Accounting within 3 days. The payment processor keeps trying until then, and after that this change will be lost from your books.',
+    ].join('\n\n'),
+  }
+}
+
 export function boardDisputeOpened(input: { amountCents: number; dueByIso: string | null; stripeUrl: string }): Notice {
   const by = input.dueByIso ? ` Send your evidence by ${input.dueByIso}.` : ' Send your evidence before the deadline in Stripe.'
   return {

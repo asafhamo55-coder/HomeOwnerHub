@@ -70,7 +70,7 @@ function fromLifecycle(r: ConnectHandlerResult, ctx: ConnectEventContext): strin
 }
 
 function fromReversal(r: ReversalResult, ctx: ConnectEventContext): string {
-  if (r.outcome === 'retry') throw new Error('retry:attempt_not_found')
+  if (r.outcome === 'retry') throw new Error(`retry:${r.reason ?? 'attempt_not_found'}`)
   if (r.outcome === 'rejected_account') {
     logRejected(ctx.event.type, ctx.event.id, 'account_mismatch')
     return 'rejected:account_mismatch'

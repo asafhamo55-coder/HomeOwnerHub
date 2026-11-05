@@ -116,7 +116,11 @@ export function supabaseReversalStore(db: Db): ReversalStore {
         p_by: args.by ?? null,
       })
       if (error) {
-        if (error.code === '55000' || error.code === '23514') throw new ReverseRefused(error.code)
+        if (error.code === '55000' || error.code === '23514') {
+          // The RAISE text is fixed wording from migration 0082 (no row values); only the flag leaves here.
+          const msg = (error as { message?: string }).message ?? ''
+          throw new ReverseRefused(error.code, error.code === '55000' && (msg.includes('books_not_open') || msg.includes('closed_period')))
+        }
         throw fail('reverse_online_payment', error)
       }
       const r = (data ?? {}) as {
@@ -162,7 +166,7 @@ export function supabaseReversalStore(db: Db): ReversalStore {
   }
 }
 
-const logger = (msg: string, meta: Record<string, unknown>) => console.warn(msg, meta)
+const logger = (msg: string, meta: Record<string, unknown>) => (meta.level === 'error' ? console.error(msg, meta) : console.warn(msg, meta))
 
 export function supabaseReversalNotifier(db: Db): ReversalNotifier {
   async function context(attempt: AttemptView): Promise<NoticeContext> {

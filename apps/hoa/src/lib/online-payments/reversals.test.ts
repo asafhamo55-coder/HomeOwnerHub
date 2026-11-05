@@ -295,7 +295,7 @@ describe('a refund that completes later (refund.updated / charge.refund.updated)
       }
     })
 
-    it(`${type} that failed or was canceled books the refund back as refund_failed, notifying nobody`, async () => {
+    it(`${type} that failed or was canceled books the refund back as refund_failed, notifying the board but not the resident`, async () => {
       for (const status of ['failed', 'canceled']) {
         const { deps, store } = make(base)
         const r = await handleReversalEvent(ev(type, refundObj(status)), deps)
@@ -303,13 +303,34 @@ describe('a refund that completes later (refund.updated / charge.refund.updated)
         const calls = (store.reverse as unknown as { mock: { calls: Array<[{ kind: string; ref: string }]> } }).mock.calls
         expect(calls.map((c) => [c[0].kind, c[0].ref])).toEqual([['refund_failed', 're_wait']])
         expect(deps.notifier.resident).not.toHaveBeenCalled()
+        expect(deps.notifier.board).toHaveBeenCalledTimes(1)
+        expect((deps.notifier.board as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![1]).toBe('online_payment_refund_failed')
       }
     })
 
-    it(`${type} failed a second time is already_applied`, async () => {
+    it(`${type} failed a second time is already_applied and does not notify the board again`, async () => {
       const { deps } = make(base, { reverse: vi.fn().mockResolvedValue(ok({ alreadyApplied: true })) as never })
       const r = await handleReversalEvent(ev(type, refundObj('failed')), deps)
       expect(r.outcome).toBe('already_applied')
+      expect(deps.notifier.board).not.toHaveBeenCalled()
+    })
+
+    it(`${type} failed with the books not open asks Stripe to retry, logs at error level and applies nothing`, async () => {
+      const { deps } = make(base, { reverse: vi.fn().mockRejectedValue(new ReverseRefused('55000', true)) as never })
+      const log = vi.fn()
+      deps.log = log
+      const r = await handleReversalEvent(ev(type, refundObj('failed')), deps)
+      expect(r).toEqual({ outcome: 'retry', reason: 'books_not_open' })
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('ERROR'), expect.objectContaining({ level: 'error', attemptId: 'att-1', refundId: 're_wait' }))
+      const kinds = (deps.notifier.board as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => c[1])
+      expect(kinds).toEqual(['online_payment_books_not_open'])
+    })
+
+    it(`${type} failed for a refund the books never took is ignored, not retried`, async () => {
+      const { deps } = make(base, { reverse: vi.fn().mockRejectedValue(new ReverseRefused('55000')) as never })
+      const r = await handleReversalEvent(ev(type, refundObj('failed')), deps)
+      expect(r.outcome).toBe('ignored')
+      expect(deps.notifier.board).not.toHaveBeenCalled()
     })
   }
 
@@ -373,5 +394,21 @@ describe('charge.refunded without a refunds list (Stripe omits Charge.refunds un
     })
     expect(store.reverse).toHaveBeenCalledTimes(1)
     expect(store.reverse).toHaveBeenCalledWith(expect.objectContaining({ ref: 're_b', cents: 200 }))
+  })
+})
+
+describe('books not open on the other reverse kinds', () => {
+  const closed = () => vi.fn().mockRejectedValue(new ReverseRefused('55000', true)) as never
+
+  it('a refund arriving while the books are closed retries', async () => {
+    const { deps } = make(base, { reverse: closed() })
+    const r = await handleReversalEvent(ev('refund.updated', { id: 're_1', amount: 25000, status: 'succeeded', charge: 'ch_1', payment_intent: 'pi_1' }), deps)
+    expect(r).toEqual({ outcome: 'retry', reason: 'books_not_open' })
+  })
+
+  it('a lost dispute while the books are closed retries', async () => {
+    const { deps } = make(base, { reverse: closed() })
+    const r = await handleReversalEvent(ev('charge.dispute.closed', { id: 'dp_1', status: 'lost', amount: 25000, payment_intent: 'pi_1' }), deps)
+    expect(r).toEqual({ outcome: 'retry', reason: 'books_not_open' })
   })
 })
