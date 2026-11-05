@@ -15,6 +15,7 @@ import { usdCents } from '@/lib/collections/letters/model'
 import { LegalDisclaimer } from '@/components/knowledge/LegalDisclaimer'
 import { M7_APPLIED } from '@homeowner-portal/db/m7'
 import { M14_APPLIED } from '@homeowner-portal/db/m14'
+import { mailingAvailable } from '@/lib/mailed-letters/config'
 import { loadMailedLetters } from '@/lib/mailed-letters/store'
 import type { MailedLetterView } from '@/lib/mailed-letters/status'
 import {
@@ -84,6 +85,7 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
   const mailedLoad = M14_APPLIED
     ? await tryLoad('mailed letters', () => loadMailedLetters(supabase, ctx.org.id, requests.map((r) => r.id)))
     : null
+  const canMail = mailingAvailable()
   const mailed = mailedLoad && mailedLoad.ok ? mailedLoad.data : new Map<string, MailedLetterView>()
   const pending = requests.find((r) => r.status === 'proposed') ?? null
   const approved = requests.find((r) => r.status === 'posted' && r.printedAt === null) ?? null
@@ -112,12 +114,12 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
         approved={approved ? view(approved) : null}
         printed={printed.map((r) => ({ kind: r.payload.kind, printedAt: r.printedAt! }))}
       />
-      {M14_APPLIED && mailedLoad && !mailedLoad.ok ? (
+      {M14_APPLIED && canMail && mailedLoad && !mailedLoad.ok ? (
         <Alert variant="warning" title="Couldn’t check the mailing status" className="print:hidden">
           Reload the page before mailing a letter, so the same letter is not sent twice.
         </Alert>
       ) : null}
-      {M14_APPLIED && mailedLoad?.ok && approved && !mailed.has(approved.id) ? <MailLetterPanel target={{ kind: 'collections', propertyId: id, approvalRequestId: approved.id }} /> : null}
+      {M14_APPLIED && canMail && mailedLoad?.ok && approved && !mailed.has(approved.id) ? <MailLetterPanel target={{ kind: 'collections', propertyId: id, approvalRequestId: approved.id }} /> : null}
       {printed.length > 0 ? (
         <Card className="print:hidden">
           <CardHeader>
@@ -135,7 +137,7 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
                   </div>
                   {M14_APPLIED && mailed.has(r.id) ? (
                     <MailedStatus target={{ kind: 'collections', propertyId: id, approvalRequestId: r.id }} mailed={mailed.get(r.id)!} />
-                  ) : M14_APPLIED && mailedLoad?.ok && r.status === 'posted' ? (
+                  ) : M14_APPLIED && canMail && mailedLoad?.ok && r.status === 'posted' ? (
                     <details>
                       <summary className="cursor-pointer text-xs underline">Mail this printed letter</summary>
                       <MailLetterPanel target={{ kind: 'collections', propertyId: id, approvalRequestId: r.id }} />
