@@ -37,27 +37,34 @@ describe('readAll', () => {
     expectAll(await readAll(f.page, onError), 2500)
     expect(f.trips()).toBe(3) // was 4
   })
-  it('a lone short first page is final: one trip, no probe', async () => {
+  it('keeps the probe for a lone short first page when no cap is confirmed (env unset)', async () => {
     const f = fake(300)
-    expectAll(await readAll(f.page, onError), 300)
+    expectAll(await readAll(f.page, onError, undefined, undefined), 300)
+    expect(f.trips()).toBe(2)
+  })
+  it('with a confirmed cap of 1000, a lone short first page is final: one trip', async () => {
+    const f = fake(300)
+    expectAll(await readAll(f.page, onError, undefined, 1000), 300)
     expect(f.trips()).toBe(1)
   })
-  it('keeps the probe for a short first page when the server cap is lower', async () => {
+  it('a confirmed lower cap still reads everything', async () => {
     const f = fake(300, 100)
     expectAll(await readAll(f.page, onError, undefined, 100), 300)
-    expect(f.trips()).toBeGreaterThan(1)
   })
   it.each([1, 7, 400, 500, 999])('never truncates under a server cap of %i', async (cap) => {
     for (const total of [0, 1, cap - 1, cap, cap + 1, cap * 3, cap * 3 + 1, 2500]) {
       const f = fake(total, cap)
-      expectAll(await readAll(f.page, onError, undefined, cap), total)
+      expectAll(await readAll(f.page, onError), total)
     }
   })
-  it('reads the cap from POSTGREST_MAX_ROWS, never above PAGE_ROWS', () => {
-    expect(configuredServerCap({})).toBe(PAGE_ROWS)
+  it('configuredServerCap is opt-in and strict', () => {
+    expect(configuredServerCap({})).toBeUndefined()
+    for (const bad of ['0', '', '-5', '500x', '1.5', 'x']) {
+      expect(configuredServerCap({ POSTGREST_MAX_ROWS: bad })).toBeUndefined()
+    }
     expect(configuredServerCap({ POSTGREST_MAX_ROWS: '400' })).toBe(400)
-    expect(configuredServerCap({ POSTGREST_MAX_ROWS: '5000' })).toBe(PAGE_ROWS)
-    expect(configuredServerCap({ POSTGREST_MAX_ROWS: 'x' })).toBe(PAGE_ROWS)
+    expect(configuredServerCap({ POSTGREST_MAX_ROWS: '1000' })).toBe(1000)
+    expect(configuredServerCap({ POSTGREST_MAX_ROWS: '5000' })).toBe(1000)
   })
   it('throws via onError on a page error', async () => {
     await expect(

@@ -19,9 +19,10 @@
  * fetch the next page; an empty page ends the read as before. Worst case
  * is unchanged; a multi-page read saves its trailing empty round trip.
  *
- * A page shorter than the known server cap is final outright (the first
- * page included), so the common single-page read is one round trip, not
- * two. `serverCap` below PAGE_ROWS keeps the guard above for that case.
+ * Opt-in shortcut: when the server cap is confirmed (`serverCap`, or
+ * POSTGREST_MAX_ROWS), a page shorter than it is final outright, first page
+ * included, so a single-page read is one round trip, not two. Without a
+ * confirmed cap nothing changes: the logic above applies as before.
  *
  * `page(from, to)` must build a FRESH query each call with a stable
  * order (e.g. `.order('id')`), or rows can repeat or go missing between
@@ -31,15 +32,18 @@
 export const PAGE_ROWS = 1000
 
 /**
- * The rows PostgREST returns per response on this project: max_rows = 1000
- * (supabase/config.toml and the hosted default). A page shorter than this
- * cannot have been cut by the cap, so it is the last one and needs no
- * probe. If the hosted setting is ever lowered, set POSTGREST_MAX_ROWS to
- * the new value (or pass `serverCap`) and the old probing returns for it.
+ * Opt-in: the rows PostgREST returns per response on this project, taken
+ * from POSTGREST_MAX_ROWS. UNDEFINED unless that is a positive integer, and
+ * then readAll keeps its original cap-safe probing (BL-047): the hosted
+ * max_rows is a dashboard setting this code cannot see, and guessing it
+ * wrong silently truncates money totals. Set it only after confirming the
+ * value in Supabase (docs/owner-actions.md OA-46). Never above PAGE_ROWS.
  */
-export function configuredServerCap(env: Record<string, string | undefined> = process.env): number {
-  const n = Number(env.POSTGREST_MAX_ROWS)
-  return Number.isInteger(n) && n > 0 ? Math.min(n, PAGE_ROWS) : PAGE_ROWS
+export function configuredServerCap(env: Record<string, string | undefined> = process.env): number | undefined {
+  const raw = env.POSTGREST_MAX_ROWS
+  if (raw === undefined || !/^\d+$/.test(raw)) return undefined
+  const n = Number(raw)
+  return n > 0 ? Math.min(n, PAGE_ROWS) : undefined
 }
 
 interface PageResponse<T> {
@@ -51,7 +55,7 @@ export async function readAll<T>(
   page: (from: number, to: number) => PromiseLike<PageResponse<T>>,
   onError: (error: { code?: string; message?: string }) => Error,
   maxRows = 200_000,
-  serverCap = configuredServerCap(),
+  serverCap: number | undefined = configuredServerCap(),
 ): Promise<T[]> {
   const out: T[] = []
   let largest = 0 // most rows any earlier page returned
@@ -63,8 +67,8 @@ export async function readAll<T>(
     const rows = data ?? []
     if (rows.length === 0) return out
     out.push(...rows)
-    // Shorter than what the server can return at once => nothing was cut.
-    if (rows.length < Math.min(serverCap, PAGE_ROWS)) return out
+    // Only with a CONFIRMED cap: shorter than what the server returns at once => nothing was cut.
+    if (serverCap !== undefined && rows.length < Math.min(serverCap, PAGE_ROWS)) return out
     // Shorter than an earlier page => cannot be a capped page => final.
     if (rows.length < largest) return out
     largest = Math.max(largest, rows.length)

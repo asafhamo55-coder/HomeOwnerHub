@@ -83,7 +83,7 @@ describe('readAll — reads past the server row cap', () => {
   it('still gets everything when the cap is below its page size (short pages are not the end)', async () => {
     const rows = Array.from({ length: 1234 }, (_, i) => ({ id: i }))
     const { db } = fakeDb({ t: rows }, { cap: 400 })
-    const got = await readAll<{ id: number }>((f, t) => db.from('t').select('id').range(f, t) as never, () => new Error('x'), undefined, 400)
+    const got = await readAll<{ id: number }>((f, t) => db.from('t').select('id').range(f, t) as never, () => new Error('x'))
     expect(got.map((r) => r.id)).toEqual(rows.map((r) => r.id))
   })
 

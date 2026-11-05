@@ -41,6 +41,20 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-46 · Check Supabase's "Max rows" and tell the app (saves a database call on small reads)
+
+**Urgency:** Whenever
+
+**Why it matters:** the app can skip one extra database call on every short list it reads, but only if it knows Supabase returns 1000 rows at a time. It cannot see that setting, and guessing wrong could cut off a money total. So it stays on the slower, safe path until you confirm.
+
+**Steps:**
+
+1. Supabase dashboard → Settings → API → Max rows.
+2. If it says 1000, add `POSTGREST_MAX_ROWS=1000` to Vercel production for `home-owner-hub-hoa`, then redeploy.
+3. If it says anything else, tell Claude the number and do not set anything.
+
+**Files:** `apps/hoa/src/lib/supabase/read-all.ts`
+
 ### OA-44 · Add three refund events to the Stripe Connect webhook
 
 **Urgency:** Whenever
