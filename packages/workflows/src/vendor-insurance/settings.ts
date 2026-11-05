@@ -102,10 +102,15 @@ export const DEFAULT_VENDOR_INSURANCE_SETTINGS: VendorInsuranceSettings = {
 
 /** Same server-only secret and fallback chain as apps/hoa's
  *  paySettingsSecret; the domain string keeps the signatures apart. */
-export function vendorInsuranceSettingsSecret(): string | null {
-  return (
-    process.env.PAY_SETTINGS_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || null
-  )
+export function vendorInsuranceSettingsSecret(env: Record<string, string | undefined> = process.env): string | null {
+  if (env.PAY_SETTINGS_SECRET) return env.PAY_SETTINGS_SECRET
+  // Production never falls back to the service key (same rule as apps/hoa
+  // signing-secret.ts, repeated because packages/workflows may not import app code).
+  if (env.VERCEL_ENV === 'production') {
+    console.error('[signing-secret] PAY_SETTINGS_SECRET is not set in production; refusing the service-key fallback')
+    throw new Error('PAY_SETTINGS_SECRET is not set in production. Refusing to fall back to the database service key.')
+  }
+  return env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
 }
 
 // ─── validation ─────────────────────────────────────────────────────

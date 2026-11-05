@@ -18,6 +18,7 @@
 // as "not set up". Closing the policy itself is BL-007's migration batch.
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { resolveSigningSecret } from './signing-secret'
 import { parseMemoCode } from '@homeowner-portal/workflows'
 import { chargeTypeLabel } from './assessment-labels'
 import { allocationMode, orderForPayLines } from './collections/ga-payment-order'
@@ -56,28 +57,15 @@ export type ZelleReadResult =
 
 // ─── secret ─────────────────────────────────────────────────────────
 
-let warnedFallback = false
-
 /**
- * Server-only signing secret. Same fallback chain as the session cap
- * (lib/supabase/middleware.ts): a dedicated secret if set, else the
- * service-role key every deployment already has. Null fails closed.
- *
- * SEC-N7 (security review #2): the service-role key doubling as an HMAC
- * secret is meant for preview / local only. In production an unset
- * PAY_SETTINGS_SECRET logs once (never the value) and the fallback is kept
- * for now, so nothing already signed stops verifying. The owner step is to
- * set PAY_SETTINGS_SECRET in Vercel production; rotating it is covered by
+ * Server-only signing secret. PAY_SETTINGS_SECRET is required in production:
+ * a missing value throws (and logs the name, never a value) instead of falling
+ * back to the service-role key. Outside production the fallback stays for
+ * local runs and tests (see signing-secret.ts). Rotation is covered by
  * paySettingsPreviousSecret() below.
  */
 export function paySettingsSecret(env: Record<string, string | undefined> = process.env): string | null {
-  if (env.PAY_SETTINGS_SECRET) return env.PAY_SETTINGS_SECRET
-  const fallback = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
-  if (fallback && env.VERCEL_ENV === 'production' && !warnedFallback) {
-    warnedFallback = true
-    console.warn('[pay-settings] PAY_SETTINGS_SECRET is not set in production; using the service-role key fallback (SEC-N7)')
-  }
-  return fallback
+  return resolveSigningSecret('PAY_SETTINGS_SECRET', env)
 }
 
 /**
@@ -93,11 +81,6 @@ export function paySettingsSecret(env: Record<string, string | undefined> = proc
  */
 export function paySettingsPreviousSecret(env: Record<string, string | undefined> = process.env): string | null {
   return env.PAY_SETTINGS_SECRET_PREVIOUS || null
-}
-
-/** Test hook: forget that the production fallback warning was logged. */
-export function resetPaySettingsWarningForTests(): void {
-  warnedFallback = false
 }
 
 // ─── validation ─────────────────────────────────────────────────────

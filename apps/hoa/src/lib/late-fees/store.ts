@@ -11,6 +11,7 @@
 // imports this file by relative path.
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { resolveSigningSecret } from '../signing-secret'
 import { DEFAULT_LATE_FEE_POLICY, isLateFeePolicy, type LateFeePolicy } from './policy'
 
 export const LATE_FEE_POLICY_KEY = 'late_fee_policy'
@@ -31,7 +32,7 @@ export type LateFeePolicyRead =
 
 /** Same server-only chain as paySettingsSecret(); repeated because packages/jobs imports this file. */
 export function lateFeeSettingsSecret(env: Record<string, string | undefined> = process.env): string | null {
-  return env.PAY_SETTINGS_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
+  return resolveSigningSecret('PAY_SETTINGS_SECRET', env)
 }
 
 function payload(associationId: string, p: LateFeePolicy, updatedAt: string, updatedBy: string | null): string {

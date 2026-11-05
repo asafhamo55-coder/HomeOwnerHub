@@ -26,6 +26,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { resolveSigningSecret } from '../signing-secret'
 
 export const ARC_CLOCK_KEY = 'arc_decision_clock'
 export const DEFAULT_ARC_DECISION_DAYS = 30
@@ -80,7 +81,7 @@ type Unsigned = Omit<StoredArcClockSettings, 'sig'>
  * together.
  */
 export function arcClockSecret(env: Record<string, string | undefined> = process.env): string | null {
-  return env.PAY_SETTINGS_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
+  return resolveSigningSecret('PAY_SETTINGS_SECRET', env)
 }
 
 export function isValidArcDecisionDays(days: unknown): days is number {
