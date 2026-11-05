@@ -26,11 +26,13 @@ export function plainMessage(iss: Issue): string | undefined {
     case 'invalid_type':
       if (iss.input === undefined || iss.input === null) return 'Required'
       if (iss.expected === 'number') return 'Enter a number.'
-      return undefined
+      return 'That doesn’t look right.'
     case 'too_big': {
       const n = String(iss.maximum)
       if (iss.origin === 'string') return `Must be at most ${n} characters.`
-      if (iss.origin === 'array') return `Choose at most ${n} items.`
+      if (iss.origin === 'array' || iss.origin === 'set') {
+        return `Choose at most ${n} ${Number(iss.maximum) === 1 ? 'item' : 'items'}.`
+      }
       if (iss.origin === 'number') return `Must be at most ${n}.`
       return undefined
     }
@@ -39,7 +41,9 @@ export function plainMessage(iss: Issue): string | undefined {
       if (iss.origin === 'string') {
         return Number(iss.minimum) === 1 ? 'Required' : `Must be at least ${n} characters.`
       }
-      if (iss.origin === 'array') return `Choose at least ${n} items.`
+      if (iss.origin === 'array' || iss.origin === 'set') {
+        return `Choose at least ${n} ${Number(iss.minimum) === 1 ? 'item' : 'items'}.`
+      }
       if (iss.origin === 'number') return `Must be at least ${n}.`
       return undefined
     }

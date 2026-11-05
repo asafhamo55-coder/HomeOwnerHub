@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import './zod-messages'
+
+const here = path.dirname(fileURLToPath(import.meta.url))
 
 const msg = (schema: z.ZodType, value: unknown): string | undefined => {
   const r = schema.safeParse(value)
@@ -21,6 +26,8 @@ describe('plain zod messages', () => {
   it('too_big', () => {
     expect(msg(z.string().max(5), 'abcdefg')).toBe('Must be at most 5 characters.')
     expect(msg(z.array(z.string()).max(2), ['a', 'b', 'c'])).toBe('Choose at most 2 items.')
+    expect(msg(z.array(z.string()).max(1), ['a', 'b'])).toBe('Choose at most 1 item.')
+    expect(msg(z.set(z.string()).max(1), new Set(['a', 'b']))).toBe('Choose at most 1 item.')
     expect(msg(z.number().max(10), 11)).toBe('Must be at most 10.')
   })
 
@@ -28,6 +35,7 @@ describe('plain zod messages', () => {
     expect(msg(z.string().min(1), '')).toBe('Required')
     expect(msg(z.string().min(3), 'ab')).toBe('Must be at least 3 characters.')
     expect(msg(z.array(z.string()).min(2), ['a'])).toBe('Choose at least 2 items.')
+    expect(msg(z.array(z.string()).min(1), [])).toBe('Choose at least 1 item.')
     expect(msg(z.number().min(5), 4)).toBe('Must be at least 5.')
   })
 
@@ -55,7 +63,19 @@ describe('plain zod messages', () => {
     expect(msg(z.string({ error: () => 'custom' }), 1)).toBe('custom')
   })
 
-  it('other issue codes fall through to zod defaults', () => {
-    expect(msg(z.string(), 5)).toMatch(/expected string/)
+  it('every other type mismatch is plain too', () => {
+    expect(msg(z.string(), 5)).toBe('That doesn’t look right.')
+    expect(msg(z.boolean(), 'x')).toBe('That doesn’t look right.')
+  })
+
+  it('codes without a mapping fall through to zod defaults', () => {
+    expect(msg(z.string().refine(() => false), 'x')).toBe('Invalid input')
+  })
+
+  it('the four app copies are byte-identical', () => {
+    const read = (app: string) =>
+      readFileSync(path.resolve(here, '../../..', app, 'src/lib/zod-messages.ts'), 'utf8')
+    const hoa = read('hoa')
+    for (const app of ['pm', 'eviction', 'marketing']) expect(read(app), app).toBe(hoa)
   })
 })
