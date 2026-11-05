@@ -1035,5 +1035,5 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - SEO legal overstatements, and test-stuffing in chat facts.
 - **Owner directive:** the competitor comparison lives only in the investor deck (slides 16-18 and 29); the website must not carry it.
 - **Built, not applied:** migration 0082 money integrity (closed-period triggers, posted rows immutable, the buyer credit window, refund_failed, M16 flag), on branch claude/migration-0082, in independent review.
-- **New gap:** a buyer can still read the seller's assessments and payments through RLS.
+- **Corrected 2026-11-05:** a buyer can NOT read the seller's assessments and payments through RLS; 0064 section G (`auth_resident_charges_from`) already windows them. An earlier note here said otherwise.
 - **Agents used:** 14 (builders, testers, reviewers), at most about 5 at once. I declined the 100-agent request because of the weekly limit and the machine.

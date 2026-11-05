@@ -21,7 +21,7 @@ this file is the reference it points to.
 - **Prod is 0dc21540.** The bridge-ratchet fix is deployed, and so are the security and tenant-isolation fixes, the closed-month guard, the M8 gap fixes (flag off), SEO batch 26 and the /compare removal. Details are in docs/cycle-log.md, 2026-11-04.
 - **Next:**
   1. Finish the review of migration 0082 (branch claude/migration-0082), merge it, and add it to Asaf's SQL queue after 0081.
-  2. Close the buyer-reads-seller's-assessments/payments RLS gap (needs a migration, 0083).
+  2. (Not a gap: 0064 already windows a buyer's assessments and payments; tests-only follow-up on claude/sale-window-rls-tests.)
   3. Run the vitest 3 / zod 4 major bumps.
   4. Continue the PayHOA Track B items, once Asaf applies 0073-0081.
 - **OA-44** (Stripe refund webhook events) has been added to the owner actions.
