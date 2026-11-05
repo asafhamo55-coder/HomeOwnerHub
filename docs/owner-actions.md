@@ -41,29 +41,6 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-45 · Apply database update 0082 (money integrity), only after Claude says the reversal fix is live
-
-**Urgency:** Soon
-
-**Why it matters:** this closes four findings from the November 2 security audit at the database level, so they hold even if app code has a bug:
-- nothing can be written into a month the treasurer closed;
-- posted accounting entries can't be edited or deleted through the API;
-- a home's buyer can't read the seller's old credits;
-- a refund that fails after it was accepted is put back on the books.
-
-It was reviewed four times and its tests pass in CI.
-
-**Order matters:** apply it only AFTER Claude confirms the "reversals safe from double clicks" deploy is live. The older app code reverses entries in a way 0082 refuses.
-
-**Steps:**
-
-1. Wait for Claude's message that the reversal fix is live. Claude will then copy the SQL to your clipboard.
-2. Supabase → SQL editor: paste and run `migrations/0082_money_integrity.sql` on its own. If any check fails, the whole file rolls back and nothing changes.
-3. Run `migrations/verify-0082-money-integrity.sql` and send Claude the output. Every row should say PASS. A count of older entries already in closed months is expected and is not a failure.
-4. Claude then regenerates the types and turns on the failed-refund handling (M16) in a separate change.
-
-**Files:** `migrations/0082_money_integrity.sql`, `migrations/verify-0082-money-integrity.sql`
-
 ### OA-44 · Add three refund events to the Stripe Connect webhook
 
 **Urgency:** Whenever
@@ -189,6 +166,10 @@ prices; review it before pitching.
 **Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ## Done
+
+### OA-45 · Apply database update 0082 (money integrity) · Done 2026-11-05
+
+Applied in production; every verify-0082 check PASS. 113 older entries already sat in closed months (history, not a failure). Types regenerated; M16 switched on.
 
 ### OA-13 · Rotate the Supabase service-role key
 

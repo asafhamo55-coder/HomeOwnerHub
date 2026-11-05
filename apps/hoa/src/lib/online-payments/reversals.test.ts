@@ -286,13 +286,30 @@ describe('a refund that completes later (refund.updated / charge.refund.updated)
       expect(r.outcome).toBe('applied')
       expect(store.reverse).toHaveBeenCalledWith(expect.objectContaining({ kind: 'refund', ref: 're_wait', cents: 25000 }))
     })
-    it(`${type} that is not a success changes nothing`, async () => {
-      for (const status of ['pending', 'requires_action', 'failed', 'canceled']) {
+    it(`${type} that is still in flight changes nothing`, async () => {
+      for (const status of ['pending', 'requires_action']) {
         const { deps, store } = make(base)
         const r = await handleReversalEvent(ev(type, refundObj(status)), deps)
         expect(r.outcome).toBe('ignored')
         expect(store.reverse).not.toHaveBeenCalled()
       }
+    })
+
+    it(`${type} that failed or was canceled books the refund back as refund_failed, notifying nobody`, async () => {
+      for (const status of ['failed', 'canceled']) {
+        const { deps, store } = make(base)
+        const r = await handleReversalEvent(ev(type, refundObj(status)), deps)
+        expect(r.outcome).toBe('applied')
+        const calls = (store.reverse as unknown as { mock: { calls: Array<[{ kind: string; ref: string }]> } }).mock.calls
+        expect(calls.map((c) => [c[0].kind, c[0].ref])).toEqual([['refund_failed', 're_wait']])
+        expect(deps.notifier.resident).not.toHaveBeenCalled()
+      }
+    })
+
+    it(`${type} failed a second time is already_applied`, async () => {
+      const { deps } = make(base, { reverse: vi.fn().mockResolvedValue(ok({ alreadyApplied: true })) as never })
+      const r = await handleReversalEvent(ev(type, refundObj('failed')), deps)
+      expect(r.outcome).toBe('already_applied')
     })
   }
 
