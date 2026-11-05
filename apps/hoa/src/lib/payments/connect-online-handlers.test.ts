@@ -6,6 +6,7 @@ vi.mock('@homeowner-portal/db', () => ({ createAdminClient: vi.fn() }))
 import { clearConnectHandlers, connectHandlersFor, processConnectWebhook, registerConnectHandler } from './connect-webhook'
 import { registerOnlinePaymentConnectHandlers, type OnlineHandlerFactories } from './connect-online-handlers'
 import { createFakeStripeConnect, fakeSignature } from './stripe-connect-fake'
+import { ReverseRefused } from '@/lib/online-payments/reversals'
 import type { ConnectAccountRow } from './connect-account'
 import type { WebhookStore } from '@/lib/online-payments/webhook-handlers'
 
@@ -141,6 +142,32 @@ describe('outcome mapping', () => {
     })
     expect(await deliver('payment_intent.succeeded', { id: 'pi_1', latest_charge: 'ch_1' })).toMatchObject({ ok: true, outcome: 'handled' })
     expect(postSuccess).toHaveBeenCalledOnce()
+  })
+})
+
+describe('closed books on a reversal', () => {
+  it('retry:books_not_open answers 500 and the event is not recorded, so Stripe redelivers', async () => {
+    const attempt = {
+      id: 'att', organizationId: 'o', associationId: 'a', unitId: 'u', payerUserId: null, methodType: 'card', status: 'succeeded',
+      stripeAccountId: ACCT, totalCents: 1000, duesCents: 1000, feeCents: 0, feePayer: 'association',
+      postedAt: '2026-11-01T00:00:00Z', postedCents: 1000, reversedCents: 0,
+    }
+    setup({
+      reversal: () => ({
+        store: {
+          findAttempt: async () => attempt as never,
+          returnedFeeSetting: async () => null,
+          reverse: async () => {
+            throw new ReverseRefused('55000', true)
+          },
+          markDisputed: async () => false,
+        },
+        notifier: { resident: async () => {}, board: async () => {} },
+      }),
+    })
+    const res = await deliver('refund.updated', { id: 're_1', amount: 1000, status: 'succeeded', charge: 'ch_1', payment_intent: 'pi_1' })
+    expect(res).toMatchObject({ ok: false, status: 500 })
+    expect(seen.size).toBe(0)
   })
 })
 

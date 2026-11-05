@@ -9,8 +9,8 @@ vi.mock('@/lib/communications/audience', () => ({
   fetchBoardMembers: async () => [{ userId: 'u1', email: 'a@x.test' }, { userId: 'u2', email: 'b@x.test' }],
 }))
 
-import { supabaseReversalNotifier } from './reversals-deps'
-import type { AttemptView } from './reversals'
+import { supabaseReversalNotifier, supabaseReversalStore } from './reversals-deps'
+import { ReverseRefused, type AttemptView } from './reversals'
 
 const attempt = { id: 'att-1', organizationId: 'org-1', associationId: 'assoc-1' } as AttemptView
 const build = () => ({ subject: 's', text: 'body' })
@@ -62,5 +62,48 @@ describe('board notice emailOnce', () => {
     await n.board(attempt, 'online_payment_refund', build)
     await n.board(attempt, 'online_payment_refund', build)
     expect(sendEmail).toHaveBeenCalledTimes(4)
+  })
+})
+
+describe('emailOnce when the alert insert itself fails', () => {
+  beforeEach(() => sendEmail.mockClear())
+
+  it('logs and skips the email instead of emailing on every retry', async () => {
+    const db = {
+      from: (table: string) =>
+        table === 'notifications'
+          ? { insert: async () => ({ error: { code: 'XX000' } }) }
+          : { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { name: 'Oak HOA' } }) }) }) },
+      rpc: async () => ({ data: null, error: null }),
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const n = supabaseReversalNotifier(db as never)
+    await n.board(attempt, 'online_payment_books_not_open:refund:re_1', build, { emailOnce: true })
+    await n.board(attempt, 'online_payment_books_not_open:refund:re_1', build, { emailOnce: true })
+    expect(sendEmail).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('alert insert failed'), expect.objectContaining({ attemptId: 'att-1', code: 'XX000' }))
+    warn.mockRestore()
+  })
+})
+
+describe('supabaseReversalStore.reverse booksClosed flag', () => {
+  const call = (error: { code: string; message: string }) =>
+    supabaseReversalStore({ from: () => ({}), rpc: async () => ({ data: null, error }) } as never)
+      .reverse({ attemptId: 'a', kind: 'refund_failed', ref: 're_1' })
+      .catch((e: unknown) => e)
+
+  it('sets booksClosed for the exact 0082 messages', async () => {
+    for (const message of ['reverse_online_payment: books_not_open', 'closed_period']) {
+      const e = (await call({ code: '55000', message })) as ReverseRefused
+      expect(e).toBeInstanceOf(ReverseRefused)
+      expect(e.booksClosed, message).toBe(true)
+    }
+  })
+
+  it('does not set it for a refund the books never took, or for 23514', async () => {
+    const never = (await call({ code: '55000', message: 'reverse_online_payment: refund_failed for a refund the books never took' })) as ReverseRefused
+    expect(never.booksClosed).toBe(false)
+    const over = (await call({ code: '23514', message: 'books_not_open' })) as ReverseRefused
+    expect(over.booksClosed).toBe(false)
   })
 })

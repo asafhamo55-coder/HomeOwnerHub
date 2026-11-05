@@ -315,8 +315,9 @@ async function onChargeRefunded(event: ConnectEventLike, deps: ReversalDeps): Pr
     if (out.kind === 'retry') return reverseStop(out)
     if (out.kind !== 'done') continue
     if (out.result.alreadyApplied) {
-      // The board's own refund recorded this one already; carry on with fresh totals.
-      current = { ...current, reversedCents: current.reversedCents + cents }
+      // Recorded already (the board's own refund, or an earlier delivery of this event). `current`
+      // came from a fresh read of the attempt, so its reversedCents already includes it: adding
+      // `cents` again would double-count and cap the next refund short.
       continue
     }
     applied = true
@@ -478,7 +479,7 @@ async function reverseOrIgnore(deps: ReversalDeps, args: ReverseArgs, attempt: A
           code: err.code,
         })
         // One in-app alert and one email per person per payment: emailOnce keys off the notifications dedupe index.
-        await deps.notifier.board(attempt, 'online_payment_books_not_open', () => boardBooksNotOpen({ amountCents: args.cents }), { emailOnce: true }).catch(() => {})
+        await deps.notifier.board(attempt, `online_payment_books_not_open:${args.kind}:${args.ref}`, () => boardBooksNotOpen({ amountCents: args.cents }), { emailOnce: true }).catch(() => {})
         return { kind: 'retry', reason: 'books_not_open' }
       }
       deps.log?.('[online-payments] reversal not applied', { attemptId: args.attemptId, kind: args.kind, code: err.code })
