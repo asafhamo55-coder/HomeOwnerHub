@@ -988,6 +988,71 @@ export const QUOTES = {
     fixture: "ga-ocga-44-3-art6-2026.txt",
     quote: "Any lack of such compliance shall be grounds for an action to recover sums due, for damages, for injunctive relief, or for any other remedy available at law or in equity, maintainable by the association or, in any proper case, by one or more aggrieved lot owners on their own behalf or as a class action.",
   },
+  condoCommonExpenses: {
+    cite: "O.C.G.A. § 44-3-71(5) (Georgia Condominium Act)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "“Common expenses” means all expenditures lawfully made or incurred by or on behalf of the association together with all funds lawfully assessed for the creation and maintenance of reserves pursuant to the provisions of the condominium instruments.",
+  },
+  annualRegIntro: {
+    cite: "O.C.G.A. § 14-3-1622(a)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Each domestic corporation and each foreign corporation authorized to transact business in this state shall deliver to the Secretary of State for filing an annual registration that sets forth:",
+  },
+  annualRegOfficers: {
+    cite: "O.C.G.A. § 14-3-1622(a)(4)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The names and respective addresses of its chief executive officer, chief financial officer, and secretary.",
+  },
+  annualRegCurrent: {
+    cite: "O.C.G.A. § 14-3-1622(b)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Information in the annual registration must be current as of the date the annual registration is executed on behalf of the corporation.",
+  },
+  annualRegWindow: {
+    cite: "O.C.G.A. § 14-3-1622(c)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Subsequent annual registrations must be delivered to the Secretary of State between January 1 and April 1, or such other date as the Secretary of State may specify by rules or regulations, of the following calendar years.",
+  },
+  annualRegCorrect: {
+    cite: "O.C.G.A. § 14-3-1622(e)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "If the report is corrected to contain the information required by this Code section and delivered to the Secretary of State within 30 days after the effective date of notice, it is deemed to be timely filed.",
+  },
+  dissolveIntro: {
+    cite: "O.C.G.A. § 14-3-1420",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The Secretary of State may commence a proceeding under Code Section 14-3-1421 to dissolve a corporation administratively if:",
+  },
+  dissolveNoReg: {
+    cite: "O.C.G.A. § 14-3-1420(2)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The corporation does not deliver its annual registration to the Secretary of State, together with all required fees and penalties, within 60 days after it is due;",
+  },
+  dissolveNoAgent: {
+    cite: "O.C.G.A. § 14-3-1420(3)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The corporation is without a registered agent or registered office in this state for 60 days or more;",
+  },
+  nonprofitAnnual: {
+    cite: "O.C.G.A. § 14-3-701(a)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A membership corporation shall hold a meeting of members annually at a time stated in or fixed in accordance with the bylaws.",
+  },
+  nonprofitAnnualReport: {
+    cite: "O.C.G.A. § 14-3-701(d)(1)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The chief executive officer and chief financial officer shall report on the activities and financial condition of the corporation; and",
+  },
+  nonprofitRemote: {
+    cite: "O.C.G.A. § 14-3-701(c)(2)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Unless the articles of incorporation or the bylaws provide otherwise, the board of directors may determine that an annual and regular meeting of the members may be held wholly or partially by means of remote communication as authorized and provided for in Code Section 14-3-709.",
+  },
+  nonprofitAnnualFailure: {
+    cite: "O.C.G.A. § 14-3-701(f)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The failure to hold an annual or regular meeting at a time stated in or fixed in accordance with a corporation’s bylaws does not affect the validity of any corporate action.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES
