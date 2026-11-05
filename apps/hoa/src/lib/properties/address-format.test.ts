@@ -257,7 +257,21 @@ describe('state polish: lone last segment after street and city', () => {
     '1 Main St, Apt 5, Atlanta, georgia',
     '123 Main St, Washington',
     '123 Main St, In',
+    '100 Main St, Apt 2, Washington',
+    '5 Oak Dr, Unit 4, Indiana',
+    '100 Main St, Apt 2, Atlanta, Georgia',
+    '100 Main St Apt 2, Washington',
+    '100 Main St, #4, Indiana',
   ]
+  it('a unit segment does not count as the city', () => {
+    expect(formatAddressLine('100 Main St, Apt 2, Washington')).toBe('100 Main St, Apt 2, Washington')
+    expect(formatAddressLine('5 Oak Dr, Unit 4, Indiana')).toBe('5 Oak Dr, Unit 4, Indiana')
+    expect(formatAddressLine('100 Main St Apt 2, Washington')).toBe('100 Main St, Apt 2, Washington')
+    expect(formatAddressLine('100 Main St, #4, Indiana')).toBe('100 Main St, #4, Indiana')
+    expect(formatAddress('100 Main St, Apt 2, Washington')).toMatchObject({ line2: 'Apt 2, Washington', city: '', state: '' })
+    expect(formatAddressLine('100 Main St, Apt 2, Atlanta, Georgia')).toBe('100 Main St, Apt 2, Atlanta, GA')
+    expect(formatAddressLine('100 Main St, Apt 2, Atlanta, indiana')).toBe('100 Main St, Apt 2, Atlanta, IN')
+  })
   it.each(inputs)('is idempotent: %s', (input) => {
     const once = formatAddressLine(input)
     expect(formatAddressLine(once)).toBe(once)

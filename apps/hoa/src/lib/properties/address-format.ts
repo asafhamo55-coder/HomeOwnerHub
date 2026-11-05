@@ -421,7 +421,11 @@ export function formatAddress(raw: string | null | undefined): AddressParts {
     // city (3 or more segments): a full name ("Georgia") or a 2-letter code in
     // any case ("ga") becomes the code. With just two segments it stays as
     // typed, since "Washington", "In" and "Or" are more likely a city or a word.
-    const loneState = st && !zipMatch && st.used === words.length && segments.length >= 3
+    // A unit segment ("Apt 2", "#4") is not a city, so it does not count toward the 3:
+    // "100 Main St, Apt 2, Washington" is still just street plus one word.
+    const isUnitSegment = (s: string) => s.startsWith('#') || Boolean(UNIT_DESIGNATORS[key(s.split(' ')[0] ?? '')])
+    const placeSegments = segments.filter((s, i) => i === 0 || !isUnitSegment(s)).length
+    const loneState = st && !zipMatch && st.used === words.length && placeSegments >= 3
     if (st && (zipMatch || loneState)) {
       // "<city> <state> <zip>", "<state> <zip>" or "<state>" in the last segment.
       state = st.state
