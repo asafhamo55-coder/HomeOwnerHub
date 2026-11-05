@@ -180,7 +180,7 @@ export function BarExplorer() {
                       barChipMap[w.bar],
                     )}
                   >
-                    {w.bar}
+                    {w.bar === '—' ? 'n/a' : w.bar}
                   </span>
                 </m.li>
               ))}
