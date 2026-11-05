@@ -26,6 +26,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
 import { M14_APPLIED } from '@homeowner-portal/db/m14'
 import { MailLetterPanel, MailedStatus } from '@/components/mailed-letters/MailLetterPanel'
+import { mailingAvailable } from '@/lib/mailed-letters/config'
 import { loadMailedViolationLetter } from '@/lib/mailed-letters/store'
 import { violationMailBlock } from '@/lib/mailed-letters/violation-letter'
 import { timed } from '@/lib/perf/timing'
@@ -439,7 +440,7 @@ export default async function ViolationDetailPage({
                 <div className="mt-4">
                   <MailedStatus target={{ kind: 'violation', violationId: v.id }} mailed={mailedLoad.data} />
                 </div>
-              ) : mailedLoad?.ok && !mailBlock ? (
+              ) : mailedLoad?.ok && !mailBlock && mailingAvailable() ? (
                 <div className="mt-4">
                   <MailLetterPanel target={{ kind: 'violation', violationId: v.id }} />
                 </div>

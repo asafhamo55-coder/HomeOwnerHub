@@ -46,3 +46,13 @@ export function getMailProvider(pricing: MailPricing | null, env: Record<string,
   }
   return null
 }
+
+/**
+ * True only when a send could actually go through: pricing is set and a
+ * provider is wired. The screens use this to show "Mail this letter for me"
+ * only when it will work. With no keys the board sees the print step only.
+ */
+export function mailingAvailable(env: Record<string, string | undefined> = process.env): boolean {
+  const pricing = readMailPricing(env)
+  return pricing !== null && getMailProvider(pricing, env) !== null
+}
