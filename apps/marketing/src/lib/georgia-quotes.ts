@@ -1053,6 +1053,86 @@ export const QUOTES = {
     fixture: "ga-ocga-14-3-2026.txt",
     quote: "The failure to hold an annual or regular meeting at a time stated in or fixed in accordance with a corporation’s bylaws does not affect the validity of any corporate action.",
   },
+  recAccounting: {
+    cite: "O.C.G.A. § 14-3-1601(b)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A corporation shall maintain appropriate accounting records.",
+  },
+  recMemberList: {
+    cite: "O.C.G.A. § 14-3-1601(c)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A corporation or its agent shall maintain a record of its members in a form that permits preparation of a list of the name and address of all members, in alphabetical order by class, showing the number of votes each member is entitled to cast.",
+  },
+  recForm: {
+    cite: "O.C.G.A. § 14-3-1601(d)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A corporation shall maintain its records in written form or in another form capable of conversion into written form within a reasonable time.",
+  },
+  recCopyIntro: {
+    cite: "O.C.G.A. § 14-3-1602(a)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A corporation shall keep a copy of the following records:",
+  },
+  recBylaws: {
+    cite: "O.C.G.A. § 14-3-1602(a)(2)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Its bylaws or restated bylaws and all amendments to them currently in effect;",
+  },
+  recMinutes3yr: {
+    cite: "O.C.G.A. § 14-3-1602(a)(5)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "The minutes of all meetings of members, executed waivers of notice of meetings, and executed consents, delivered in writing or by electronic transmission, evidencing all actions taken or approved by the members without a meeting, for the past three years;",
+  },
+  recOfficers: {
+    cite: "O.C.G.A. § 14-3-1602(a)(7)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A list of the names and business or home addresses of its current directors and officers; and",
+  },
+  recInspectIntro: {
+    cite: "O.C.G.A. § 14-3-1602(c)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "A member is entitled to inspect and copy, at a reasonable time and reasonable location specified by the corporation, any of the following records of the corporation if the member meets the requirements of subsection (d) of this Code section and gives the corporation written notice at least five business days before the date on which the member wishes to inspect and copy:",
+  },
+  recMemberListInspect: {
+    cite: "O.C.G.A. § 14-3-1602(c)(3)",
+    fixture: "ga-ocga-14-3-2026.txt",
+    quote: "Subject to Code Section 14-3-1605, the membership list.",
+  },
+  priTax: {
+    cite: "O.C.G.A. § 44-3-232(a)(1)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Liens for ad valorem taxes on the lot;",
+  },
+  priMortgage: {
+    cite: "O.C.G.A. § 44-3-232(a)(2)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The lien of any first priority mortgage covering the lot and the lien of any mortgage recorded prior to the recording of the declaration; or",
+  },
+  priSecondary: {
+    cite: "O.C.G.A. § 44-3-232(a)(3)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "The lien of any secondary purchase money mortgage covering the lot, provided that neither the grantee nor any successor grantee on the mortgage is the seller of the lot.",
+  },
+  priForeclose: {
+    cite: "O.C.G.A. § 44-3-232(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "the lien may be foreclosed by the association by an action, judgment, and court order for foreclosure in the same manner as other liens for the improvement of real property, subject to superior liens or encumbrances, but any such court order for judicial foreclosure shall not affect the rights of holders of superior liens or encumbrances to exercise any rights or powers afforded to them under their security instruments.",
+  },
+  priBid: {
+    cite: "O.C.G.A. § 44-3-232(c)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "Unless prohibited by the instrument, the association shall have the power to bid on the lot at any foreclosure sale and to acquire, hold, lease, encumber, and convey the same.",
+  },
+  rentalConveyance: {
+    cite: "O.C.G.A. § 44-3-226(a)(2)(B)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "provided, however, that, upon the conveyance for value of such lot, such lot shall be made to conform to the instrument as amended.",
+  },
+  rentalConveyanceDef: {
+    cite: "O.C.G.A. § 44-3-226(a)(2)(B)",
+    fixture: "ga-ocga-44-3-art6-2026.txt",
+    quote: "As used in this subparagraph, the term “conveyance for value” means any transfer of the lot for consideration in the amount of $100.00 or more or any transfer of an interest in the entity that owns the lot for consideration in the amount of $100.00 or more.",
+  },
 } as const satisfies Record<string, StatuteQuote>
 
 export type QuoteId = keyof typeof QUOTES

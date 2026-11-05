@@ -400,3 +400,25 @@ describe('batch 27 pages are in the library', () => {
     for (const page of pages) expect(ga.items.map((i) => i.path)).toContain(page)
   })
 })
+
+describe('batch 28 pages are in the library', () => {
+  const pages = [
+    '/guides/georgia-hoa-records-the-association-must-keep-14-3-1601',
+    '/guides/georgia-hoa-lien-priority-taxes-and-mortgages-44-3-232',
+    '/guides/georgia-hoa-amendment-rental-restrictions-44-3-226',
+  ]
+
+  it('are in the palette feed, the sitemap and the Georgia list, with a page file each', () => {
+    for (const page of pages) {
+      expect(libraryEntries().map((e) => e.path)).toContain(page)
+      expect(SITEMAP_PATHS).toContain(page)
+      expect(GENERAL_PATHS).toContain(page)
+      expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+
+  it('are grouped under Georgia', () => {
+    const ga = guideGroups().find((g) => g.id === 'georgia')!
+    for (const page of pages) expect(ga.items.map((i) => i.path)).toContain(page)
+  })
+})
