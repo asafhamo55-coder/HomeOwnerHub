@@ -81,7 +81,7 @@ const PayloadSchema = z.object({
 const FormSchema = z.object({
   // Code units <= bytes, so this bound is never tighter than the byte cap
   // checked (as 413) before it.
-  payload: z.string({ required_error: 'Required' }).max(MAX_JSON_BYTES),
+  payload: z.string({ error: (iss) => (iss.input === undefined ? 'Required' : undefined) }).max(MAX_JSON_BYTES),
 })
 
 /** A storage upload refused because the bucket does not exist (RC-1: 503 not_configured). */

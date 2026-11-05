@@ -302,7 +302,7 @@ const UpdateStatusSchema = z.object({
   status: z.enum(VIOLATION_STATUSES),
   resolutionNote: z.string().trim().max(2000, "Keep the note under 2,000 characters.").nullable().optional(),
   // BL-130: the board's reason per blocking state-law finding (codes only).
-  lawOverrides: z.record(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]])).optional(),
+  lawOverrides: z.partialRecord(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]])).optional(),
 })
 
 export interface UpdateViolationStatusInput {
@@ -325,8 +325,8 @@ const UpdateViolationSchema = z.object({
   violation_type: z.string().trim().min(2, 'Enter a violation type, e.g. Landscaping.').max(200).optional(),
   ccr_section: z.string().trim().nullable().optional(),
   severity: z.enum(['low', 'medium', 'high']).nullable().optional(),
-  cure_period_days: z.number({ invalid_type_error: 'Enter a number of days.' }).int('Use whole days.').min(1, 'At least 1 day.').max(180, 'At most 180 days.').optional(),
-  fine_amount: z.number({ invalid_type_error: 'Enter an amount.' }).min(0, 'Can’t be negative.').max(1000, 'At most $1,000 per day.').optional(),
+  cure_period_days: z.number({ error: (iss) => (iss.input === undefined ? undefined : 'Enter a number of days.') }).int('Use whole days.').min(1, 'At least 1 day.').max(180, 'At most 180 days.').optional(),
+  fine_amount: z.number({ error: (iss) => (iss.input === undefined ? undefined : 'Enter an amount.') }).min(0, 'Can’t be negative.').max(1000, 'At most $1,000 per day.').optional(),
 })
 
 export interface UpdateViolationInput {

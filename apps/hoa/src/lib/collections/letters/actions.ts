@@ -48,7 +48,7 @@ export type LetterResult = { ok: true; message: string } | { ok: false; error: s
 
 const Values = z.record(z.string().max(64), z.string().max(1000))
 
-const LawOverrides = z.record(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]]))
+const LawOverrides = z.partialRecord(z.enum(DRIFT_CODES), z.enum(OVERRIDE_REASON_CODES as [OverrideReason, ...OverrideReason[]]))
 
 const SaveSchema = z.object({
   propertyId: z.string().uuid(),

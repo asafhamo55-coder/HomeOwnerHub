@@ -179,8 +179,8 @@ describe('event allowlist', () => {
   it('has no free-text string field anywhere: every string prop is an enum', () => {
     for (const [name, schema] of Object.entries(ANALYTICS_EVENTS)) {
       for (const [key, field] of Object.entries(schema.shape)) {
-        const typeName = (field as { _def: { typeName: string } })._def.typeName
-        expect(['ZodEnum', 'ZodBoolean', 'ZodNumber'], `${name}.${key}`).toContain(typeName)
+        const typeName = (field as { _def: { type: string } })._def.type
+        expect(['enum', 'boolean', 'number'], `${name}.${key}`).toContain(typeName)
       }
     }
   })

@@ -43,7 +43,7 @@ const nameField = z
   .min(2, 'Enter at least 2 characters.')
   .max(200, 'Keep it under 200 characters.')
 const doorsField = z
-  .number({ invalid_type_error: 'Enter a whole number.' })
+  .number({ error: (iss) => (iss.input === undefined ? 'Required' : 'Enter a whole number.') })
   .int('Enter a whole number.')
   .min(0, 'Can’t be negative.')
   .nullable()
@@ -51,11 +51,11 @@ const doorsField = z
 
 const CreateSchema = z.object({
   name: nameField,
-  plan: z.enum(PLANS, { errorMap: () => ({ message: 'Pick a plan.' }) }),
+  plan: z.enum(PLANS, { message: 'Pick a plan.' }),
   doors_count: doorsField,
   association_name: nameField,
   state: z.string().refine((s) => US_STATE_CODES.includes(s), 'Pick a US state.'),
-  association_type: z.enum(['hoa', 'condo', 'coop'], { errorMap: () => ({ message: 'Pick a type.' }) }),
+  association_type: z.enum(['hoa', 'condo', 'coop'], { message: 'Pick a type.' }),
   invite_admin_email: z.union([z.literal(''), z.string().email('Enter a valid email address.')]),
 })
 
@@ -86,7 +86,7 @@ export async function createTenantFromForm(fd: FormData): Promise<FormResult<{ o
 
 const UpdateSchema = z.object({
   name: nameField,
-  plan: z.enum(PLANS, { errorMap: () => ({ message: 'Pick a plan.' }) }),
+  plan: z.enum(PLANS, { message: 'Pick a plan.' }),
   doors_count: doorsField,
 })
 

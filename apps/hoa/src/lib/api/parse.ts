@@ -5,6 +5,7 @@
 //   413 payload_too_large  — over maxBytes (checked on Content-Length AND on the bytes read)
 
 import type { z } from 'zod'
+import '../zod-messages'
 import { ApiRouteError, type FieldIssue } from './errors'
 import { MAX_FORM_BYTES, MAX_JSON_BYTES } from './limits'
 

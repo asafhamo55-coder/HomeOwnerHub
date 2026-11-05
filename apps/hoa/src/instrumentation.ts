@@ -1,3 +1,4 @@
+import './lib/zod-messages'
 import * as Sentry from '@sentry/nextjs'
 import { sentryInitOptions } from '@homeowner-portal/observability'
 

@@ -2,7 +2,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// Every test below scans the whole source tree, which takes 1-6s depending on
+// the runner. Scoped to this file only; the global testTimeout is unchanged.
+vi.setConfig({ testTimeout: 30_000 })
 
 /**
  * UX ratchet — docs/specs/2026-10-15-enterprise-ux-plan.md, decision 4.
