@@ -9547,6 +9547,19 @@ export type Database = {
         Args: { p_thread_id: string }
         Returns: undefined
       }
+      journal_entry_is_posted: { Args: { p_id: string }; Returns: boolean }
+      journal_entry_is_reversal_mark: {
+        Args: {
+          p_new: Database["public"]["Tables"]["journal_entries"]["Row"]
+          p_old: Database["public"]["Tables"]["journal_entries"]["Row"]
+        }
+        Returns: boolean
+      }
+      money_already_moved: { Args: never; Returns: boolean }
+      money_period_is_closed: {
+        Args: { p_association: string; p_date: string; p_period: string }
+        Returns: boolean
+      }
       next_journal_entry_number: {
         Args: { p_association: string; p_year: string }
         Returns: string
@@ -9621,6 +9634,10 @@ export type Database = {
       request_violation_hearing: {
         Args: { p_statement?: string; p_violation_id: string }
         Returns: string
+      }
+      resident_credit_in_window: {
+        Args: { p_received_on: string; p_unit: string }
+        Returns: boolean
       }
       resident_meeting_notices: {
         Args: never
