@@ -305,6 +305,7 @@ describe('a refund that completes later (refund.updated / charge.refund.updated)
         expect(deps.notifier.resident).not.toHaveBeenCalled()
         expect(deps.notifier.board).toHaveBeenCalledTimes(1)
         expect((deps.notifier.board as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![1]).toBe('online_payment_refund_failed')
+        expect((deps.notifier.board as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![3]).toEqual({ emailOnce: true })
       }
     })
 
@@ -324,6 +325,7 @@ describe('a refund that completes later (refund.updated / charge.refund.updated)
       expect(log).toHaveBeenCalledWith(expect.stringContaining('ERROR'), expect.objectContaining({ level: 'error', attemptId: 'att-1', refundId: 're_wait' }))
       const kinds = (deps.notifier.board as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => c[1])
       expect(kinds).toEqual(['online_payment_books_not_open'])
+      expect((deps.notifier.board as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]![3]).toEqual({ emailOnce: true })
     })
 
     it(`${type} failed for a refund the books never took is ignored, not retried`, async () => {

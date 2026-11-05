@@ -201,7 +201,7 @@ export function supabaseReversalNotifier(db: Db): ReversalNotifier {
       }
     },
 
-    async board(attempt, kind, build) {
+    async board(attempt, kind, build, opts) {
       try {
         const notice = build(await context(attempt))
         const members = await fetchBoardMembers(attempt.organizationId, ['board', 'admin'])
@@ -218,6 +218,8 @@ export function supabaseReversalNotifier(db: Db): ReversalNotifier {
             entity_id: attempt.id,
           })
           if (error && error.code !== '23505') logger('[online-payments] alert insert failed', { attemptId: attempt.id, code: error.code ?? null })
+          // emailOnce: a 23505 means this person already got this alert (a retry), so no second email.
+          if (opts?.emailOnce && error?.code === '23505') continue
           if (m.email) await mail(attempt, m.email, notice, `op-${attempt.id}-${kind}`)
         }
       } catch (err) {

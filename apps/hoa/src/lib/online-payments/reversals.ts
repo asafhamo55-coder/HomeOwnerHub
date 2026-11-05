@@ -137,11 +137,19 @@ export interface NoticeContext {
   reviewUrl: string
 }
 
+export interface BoardNoticeOptions {
+  /**
+   * Email a board member only when their in-app alert row was newly inserted (the unique index on
+   * user, kind, entity), so a Stripe retry or replay never repeats the email.
+   */
+  emailOnce?: boolean
+}
+
 export interface ReversalNotifier {
   /** Email the home's owners. Best effort; never throws. */
   resident(attempt: AttemptView, build: (ctx: NoticeContext) => Notice): Promise<void>
   /** Email and alert the board. Best effort; never throws. `kind` dedupes the in-app alert. */
-  board(attempt: AttemptView, kind: string, build: (ctx: NoticeContext) => Notice): Promise<void>
+  board(attempt: AttemptView, kind: string, build: (ctx: NoticeContext) => Notice, opts?: BoardNoticeOptions): Promise<void>
 }
 
 export interface ReversalDeps {
@@ -349,6 +357,7 @@ async function onRefundUpdated(event: ConnectEventLike, deps: ReversalDeps): Pro
     // TODO(resident copy): do not email the resident about a failed refund until the wording is reviewed.
     await deps.notifier.board(attempt, 'online_payment_refund_failed', (ctx) =>
       boardRefundFailed({ refundedCents: amount, reviewUrl: ctx.reviewUrl }),
+      { emailOnce: true },
     )
     return { outcome: 'applied' }
   }
@@ -468,9 +477,8 @@ async function reverseOrIgnore(deps: ReversalDeps, args: ReverseArgs, attempt: A
           kind: args.kind,
           code: err.code,
         })
-        // One in-app alert per person per payment (the notifications dedupe index). The email repeats
-        // on each Stripe retry, which is acceptable for a problem that needs a person within 3 days.
-        await deps.notifier.board(attempt, 'online_payment_books_not_open', () => boardBooksNotOpen({ amountCents: args.cents })).catch(() => {})
+        // One in-app alert and one email per person per payment: emailOnce keys off the notifications dedupe index.
+        await deps.notifier.board(attempt, 'online_payment_books_not_open', () => boardBooksNotOpen({ amountCents: args.cents }), { emailOnce: true }).catch(() => {})
         return { kind: 'retry', reason: 'books_not_open' }
       }
       deps.log?.('[online-payments] reversal not applied', { attemptId: args.attemptId, kind: args.kind, code: err.code })
