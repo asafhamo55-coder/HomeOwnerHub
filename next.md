@@ -59,7 +59,8 @@ this file is the reference it points to.
 - Known code gaps:
   - Saved methods use `on_session`, but autopay charges off session.
   - An autopay timeout can leave an attempt with no PaymentIntent.
-  - A refund failing after the ledger reversal is not undone.
+  - A refund failing after the ledger reversal: fixed 2026-11-05 (0082 applied + M16 on); failed or canceled refunds are booked back.
+  - Before M8 goes live (from the M16 review): (B1) `reverse_online_payment` raises 55000 for both "refund never booked" and `books_not_open`, and `reverseOrIgnore` swallows both, so a failed refund arriving while no period is open is never restored. Return `retry` for books_not_open, or give it its own errcode. (B2) Failed refunds notify nobody: add at least a board notice.
   - The autopay notice date uses the latest due date, not the first.
 
 **Before M10 (voting):** a lawyer on Georgia § 14-3-708 electronic ballots and secrecy wording. Small ballots can reveal a vote.
