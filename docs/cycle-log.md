@@ -1037,3 +1037,21 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Built, not applied:** migration 0082 money integrity (closed-period triggers, posted rows immutable, the buyer credit window, refund_failed, M16 flag), on branch claude/migration-0082, in independent review.
 - **Corrected 2026-11-05:** a buyer can NOT read the seller's assessments and payments through RLS; 0064 section G (`auth_resident_charges_from`) already windows them. An earlier note here said otherwise.
 - **Agents used:** 14 (builders, testers, reviewers), at most about 5 at once. I declined the 100-agent request because of the weekly limit and the machine.
+
+## 2026-11-05 (day)
+
+- **Restarted 24/7 mode** after a stall: I had ended a turn waiting on 0082 with no loop running. An hourly session cron now drives the loop.
+- **0082 applied by Asaf, verified:** every check PASS; 113 older entries already sat in closed months (history). The verify script is now one UNION ALL query, because the Supabase editor shows only the last statement. Types regenerated (additive only); M16 on; OA-45 done.
+- **Deployed 61543d8a:** 0082 backstops, M16, SEO batch 27 (reserves, annual meeting, Secretary of State registration).
+- **Deployed 7d098a2a:**
+  - The help panel greets the user by first name. Owner request; never shows an email; falls back to "Help".
+  - Signing secrets never fall back to the service key in production. A missing secret returns null per feature; a missing session-cap secret ends the session instead of returning 500 everywhere. All three secrets were confirmed set on home-owner-hub-hoa.
+- **Merged, next deploy:**
+  - zod 4 and vitest 3, with a plain-language global error map for older users.
+  - SEO batch 28 (records, lien priority, rental amendments; legal hedges from review).
+  - M14 print-and-mail on. The send panel stays hidden until a real provider is wired; boards print it themselves.
+- **Audits:** no `payments` insert can break `payments_check`. M8 gaps a, b and d were already fixed.
+- **In progress:** pre-M8 follow-ups from the M16 review (books_not_open retry, failed-refund board notice).
+- **Lessons:**
+  - Reviewers must work in their own worktree; one ran `git checkout` in the main checkout.
+  - Too many parallel full test runs pushed load to about 140 and caused worker timeouts. CI on a clean runner is the tie-breaker.
