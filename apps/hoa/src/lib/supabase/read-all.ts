@@ -19,12 +19,28 @@
  * fetch the next page; an empty page ends the read as before. Worst case
  * is unchanged; a multi-page read saves its trailing empty round trip.
  *
+ * A page shorter than the known server cap is final outright (the first
+ * page included), so the common single-page read is one round trip, not
+ * two. `serverCap` below PAGE_ROWS keeps the guard above for that case.
+ *
  * `page(from, to)` must build a FRESH query each call with a stable
  * order (e.g. `.order('id')`), or rows can repeat or go missing between
  * pages. Throws on the first page error (via `onError`) and past
  * `maxRows`, so a caller never reports a partial sum as a whole one.
  */
 export const PAGE_ROWS = 1000
+
+/**
+ * The rows PostgREST returns per response on this project: max_rows = 1000
+ * (supabase/config.toml and the hosted default). A page shorter than this
+ * cannot have been cut by the cap, so it is the last one and needs no
+ * probe. If the hosted setting is ever lowered, set POSTGREST_MAX_ROWS to
+ * the new value (or pass `serverCap`) and the old probing returns for it.
+ */
+export function configuredServerCap(env: Record<string, string | undefined> = process.env): number {
+  const n = Number(env.POSTGREST_MAX_ROWS)
+  return Number.isInteger(n) && n > 0 ? Math.min(n, PAGE_ROWS) : PAGE_ROWS
+}
 
 interface PageResponse<T> {
   data: T[] | null
@@ -35,6 +51,7 @@ export async function readAll<T>(
   page: (from: number, to: number) => PromiseLike<PageResponse<T>>,
   onError: (error: { code?: string; message?: string }) => Error,
   maxRows = 200_000,
+  serverCap = configuredServerCap(),
 ): Promise<T[]> {
   const out: T[] = []
   let largest = 0 // most rows any earlier page returned
@@ -46,6 +63,8 @@ export async function readAll<T>(
     const rows = data ?? []
     if (rows.length === 0) return out
     out.push(...rows)
+    // Shorter than what the server can return at once => nothing was cut.
+    if (rows.length < Math.min(serverCap, PAGE_ROWS)) return out
     // Shorter than an earlier page => cannot be a capped page => final.
     if (rows.length < largest) return out
     largest = Math.max(largest, rows.length)
@@ -70,9 +89,10 @@ class PageReadError extends Error {
 export async function readAllResult<T>(
   page: (from: number, to: number) => PromiseLike<PageResponse<T>>,
   maxRows?: number,
+  serverCap?: number,
 ): Promise<{ data: T[] | null; error: QueryError | null }> {
   try {
-    return { data: await readAll<T>(page, (e) => new PageReadError(e), maxRows), error: null }
+    return { data: await readAll<T>(page, (e) => new PageReadError(e), maxRows, serverCap), error: null }
   } catch (e) {
     if (e instanceof PageReadError) return { data: null, error: e.queryError }
     return { data: null, error: { code: 'read_all', message: e instanceof Error ? e.message : 'read failed' } }

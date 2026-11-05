@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PAGE_ROWS, readAll } from './read-all'
+import { PAGE_ROWS, configuredServerCap, readAll } from './read-all'
 
 function fake(total: number, cap = Infinity) {
   let trips = 0
@@ -37,16 +37,27 @@ describe('readAll', () => {
     expectAll(await readAll(f.page, onError), 2500)
     expect(f.trips()).toBe(3) // was 4
   })
-  it('keeps the probe for a lone short first page (could be a cap)', async () => {
+  it('a lone short first page is final: one trip, no probe', async () => {
     const f = fake(300)
     expectAll(await readAll(f.page, onError), 300)
-    expect(f.trips()).toBe(2)
+    expect(f.trips()).toBe(1)
+  })
+  it('keeps the probe for a short first page when the server cap is lower', async () => {
+    const f = fake(300, 100)
+    expectAll(await readAll(f.page, onError, undefined, 100), 300)
+    expect(f.trips()).toBeGreaterThan(1)
   })
   it.each([1, 7, 400, 500, 999])('never truncates under a server cap of %i', async (cap) => {
     for (const total of [0, 1, cap - 1, cap, cap + 1, cap * 3, cap * 3 + 1, 2500]) {
       const f = fake(total, cap)
-      expectAll(await readAll(f.page, onError), total)
+      expectAll(await readAll(f.page, onError, undefined, cap), total)
     }
+  })
+  it('reads the cap from POSTGREST_MAX_ROWS, never above PAGE_ROWS', () => {
+    expect(configuredServerCap({})).toBe(PAGE_ROWS)
+    expect(configuredServerCap({ POSTGREST_MAX_ROWS: '400' })).toBe(400)
+    expect(configuredServerCap({ POSTGREST_MAX_ROWS: '5000' })).toBe(PAGE_ROWS)
+    expect(configuredServerCap({ POSTGREST_MAX_ROWS: 'x' })).toBe(PAGE_ROWS)
   })
   it('throws via onError on a page error', async () => {
     await expect(
