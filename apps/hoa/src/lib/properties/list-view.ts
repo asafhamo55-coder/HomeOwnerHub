@@ -11,6 +11,7 @@
 // is cheap — and it lets one read drive every filter count, so the counts
 // always describe the same search the list does.
 
+import { formatAddressLine, formatStreet } from './address-format'
 import { DEFAULT_SORT_DIR, type PropertyFilter, type PropertyListParams, type PropertySort, type SortDir } from './list-params'
 
 export interface PropertyViewRow {
@@ -198,6 +199,9 @@ export function matchesSearch(
   for (const field of [row.address, row.unitNumber, row.ownerName, row.ownerEmail]) {
     if (field && field.toLowerCase().includes(q)) return true
   }
+  // Saved addresses are in the standard format ("Main St"), so "main street"
+  // or "northeast" must still find them.
+  if (formatAddressLine(row.address).toLowerCase().includes(formatStreet(q).toLowerCase())) return true
   const qd = digits(q)
   return qd.length >= 4 && !!row.ownerPhone && digits(row.ownerPhone).includes(qd)
 }

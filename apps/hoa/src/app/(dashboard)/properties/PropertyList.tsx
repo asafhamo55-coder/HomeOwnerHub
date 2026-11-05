@@ -19,8 +19,8 @@ import {
   severityLabel,
   severityTone,
   statusLine,
-  streetOf,
 } from '@/lib/properties/severity'
+import { formatAddressLine, formatStreetOnly } from '@/lib/properties/address-format'
 import { formatShortDate } from '@/lib/format-datetime'
 import { ContactIcons } from '@/components/contact/ContactIcons'
 import { HowThisWorks } from '@/components/guide/HowThisWorks'
@@ -184,10 +184,10 @@ export function PropertyList({
               prefetch={false}
               href={open(row)}
               data-row-link
-              title={row.address}
+              title={formatAddressLine(row.address)}
               className="min-w-0 break-words line-clamp-2 font-medium text-foreground no-underline after:absolute after:inset-0 hover:text-primary focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
             >
-              {streetOf(row.address)}
+              {formatStreetOnly(row.address)}
               {row.unitNumber ? <span className="font-normal text-muted"> · {row.unitNumber}</span> : null}
               <span className="sr-only">, {severityLabel(row.severityRank)}</span>
             </Link>
@@ -330,7 +330,7 @@ export function PropertyList({
       key: 'select',
       header: <span className="sr-only">Select</span>,
       className: 'w-10',
-      cell: (row) => <BulkTenureRowCheckbox id={row.id} title={streetOf(row.address)} />,
+      cell: (row) => <BulkTenureRowCheckbox id={row.id} title={formatStreetOnly(row.address)} />,
     })
   }
 
@@ -370,17 +370,17 @@ export function PropertyList({
           const status = statusLine(row)
           return (
             <li key={row.id} data-row className="relative flex items-center gap-2 px-4 py-3">
-              {selectable ? <BulkTenureRowCheckbox id={row.id} title={streetOf(row.address)} /> : null}
+              {selectable ? <BulkTenureRowCheckbox id={row.id} title={formatStreetOnly(row.address)} /> : null}
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <Link
                     prefetch={false}
                     href={open(row)}
                     data-row-link
-                    title={row.address}
+                    title={formatAddressLine(row.address)}
                     className="min-w-0 break-words line-clamp-2 text-sm font-semibold text-foreground no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
                   >
-                    {streetOf(row.address)}
+                    {formatStreetOnly(row.address)}
                     {row.unitNumber ? <span className="font-normal text-muted"> · {row.unitNumber}</span> : null}
                   </Link>
                   {row.balance > 0 ? (

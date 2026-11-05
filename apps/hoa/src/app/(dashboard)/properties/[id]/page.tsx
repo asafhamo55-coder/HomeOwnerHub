@@ -14,6 +14,7 @@ import { tryLoad } from '@/lib/load-or-fail'
 import { parsePropertyListParams, propertyListQuery } from '@/lib/properties/list-params'
 import { parseSection } from '@/lib/properties/sections'
 import { PropertyDetailView } from './PropertyDetailView'
+import { streetViewConfigured } from '@/lib/properties/street-view'
 import { M1_APPLIED } from '@homeowner-portal/db/m1'
 import { loadEmailConsent } from '@/lib/email-consent'
 import { timed } from '@/lib/perf/timing'
@@ -131,6 +132,7 @@ export default async function PropertyDetailPage({
       gaThreshold={gaThreshold}
       gaComplaints={gaComplaints}
       letterHistory={letterHistory}
+      photoEnabled={streetViewConfigured()}
       onlinePayments={M8_APPLIED && canManage && complaintUnitId ? <OnlinePaymentsPanel unitId={complaintUnitId} /> : null}
       now={new Date()}
       today={today}

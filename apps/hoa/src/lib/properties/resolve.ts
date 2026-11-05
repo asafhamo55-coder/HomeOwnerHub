@@ -3,15 +3,16 @@
  *
  * `packages/jobs` imports this module DIRECTLY over a relative path
  * (`../../../apps/hoa/src/lib/...`), compiling it under its OWN tsconfig
- * rather than the `hoa` app's. Four files are shared this way:
+ * rather than the `hoa` app's. Five files are shared this way:
  *
  *   apps/hoa/src/lib/inbox/ingest.ts
  *   apps/hoa/src/lib/inbox/match.ts
  *   apps/hoa/src/lib/properties/resolve.ts
  *   apps/hoa/src/lib/properties/normalize-address.ts
+ *   apps/hoa/src/lib/properties/address-format.ts
  *
  * That only works because every import in them that leaves this set of
- * four is `import type` — fully erased by TypeScript, so there is no
+ * five is `import type` — fully erased by TypeScript, so there is no
  * runtime dependency for the jobs package to resolve. Therefore, in this
  * file:
  *
@@ -52,7 +53,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
-import { normalizeAddress } from './normalize-address'
+import { addressKey } from './normalize-address'
 
 type Db = SupabaseClient<Database>
 
@@ -313,7 +314,7 @@ export async function resolvePropertyByAddress(
   orgId: string,
   rawAddress: string,
 ): Promise<PropertyRef[]> {
-  const needle = normalizeAddress(rawAddress)
+  const needle = addressKey(rawAddress)
   if (needle === '') return []
 
   const { data, error } = await db
@@ -332,7 +333,7 @@ export async function resolvePropertyByAddress(
   }
 
   return ((data ?? []) as UnitRow[])
-    .filter((row) => normalizeAddress(row.address_line1) === needle)
+    .filter((row) => addressKey(row.address_line1) === needle)
     .map(toRef)
 }
 

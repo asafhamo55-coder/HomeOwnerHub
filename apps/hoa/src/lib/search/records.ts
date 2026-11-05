@@ -38,6 +38,7 @@ import {
   TICKET_STATUS,
   VIOLATION_STATUS,
 } from '@/lib/status/community'
+import { formatStreetOnly } from '@/lib/properties/address-format'
 import { DOCUMENT_TYPE_LABELS, GOVERNING_TYPE_LABELS } from '@/lib/status/knowledge'
 import {
   MOTION_MINUTES_COLUMNS,
@@ -192,6 +193,8 @@ export async function searchRecords(
 ): Promise<RecordSearchResult> {
   const term = searchTerm(rawQuery)
   if (!term) return { groups: [], failed: [] }
+  // New addresses are saved as "Main St", so "main street" must find them too.
+  const addressAlt = formatStreetOnly(term)
   // Started now, awaited after the queries — never an extra round-trip.
   const zonePromise = Promise.resolve(options.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)
   // For deciding which group a property row belongs to (the DB matched it
@@ -300,7 +303,7 @@ export async function searchRecords(
         .from('hoa_property_list_v')
         .select('id, address, unit_number, owner_name, unit_id')
         .eq('org_id', orgId)
-        .or(ilike(['address', 'unit_number', 'owner_name'], term).join(','))
+        .or([...ilike(['address', 'unit_number', 'owner_name'], term), ...(addressAlt && addressAlt !== term ? ilike(['address'], addressAlt) : [])].join(','))
         .order('address', { ascending: true })
         .limit(PROPERTY_LINK_LIMIT),
     ),

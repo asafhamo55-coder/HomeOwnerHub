@@ -15,7 +15,7 @@
 // action and the approvals executor all build the entry with the SAME
 // function, so the review screen is exactly what gets posted.
 
-import { normalizeAddress } from '../../properties/normalize-address'
+import { addressKey } from '../../properties/normalize-address'
 import { normalizeUnit } from '../../properties/match-home'
 import { parseCsvTable } from '../../properties/import'
 import { csvLine } from '../../csv'
@@ -190,7 +190,7 @@ function push<K, V>(m: Map<K, V[]>, k: K, v: V) {
 function indexUnits(units: readonly BooksUnitRow[]): UnitIndex {
   const idx: UnitIndex = { byAddress: new Map(), byUnit: new Map(), byLot: new Map() }
   for (const u of units) {
-    const a = normalizeAddress(u.address_line1)
+    const a = addressKey(u.address_line1)
     if (a) push(idx.byAddress, a, u)
     const n = normalizeUnit(u.unit_number)
     if (n) push(idx.byUnit, n, u)
@@ -205,7 +205,7 @@ const one = (list: BooksUnitRow[] | undefined): Lookup =>
 
 /** Address + unit, the roster import's rule: never guesses between several homes. */
 function lookupAddress(idx: UnitIndex, address: string, unit: string | null): Lookup {
-  const hits = idx.byAddress.get(normalizeAddress(address)) ?? []
+  const hits = idx.byAddress.get(addressKey(address)) ?? []
   if (hits.length === 0) return { kind: 'none' }
   const u = normalizeUnit(unit)
   if (u) {

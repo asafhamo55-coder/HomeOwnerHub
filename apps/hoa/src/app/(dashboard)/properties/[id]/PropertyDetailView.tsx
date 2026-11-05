@@ -49,7 +49,8 @@ import { cureBy, cureState, sortByUrgency } from '@/lib/violation-cure'
 import { collectionStatusLabel } from '@/lib/collections/statuses'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
-import { streetOf } from '@/lib/properties/severity'
+import { formatAddressLine, formatStreetOnly } from '@/lib/properties/address-format'
+import { PropertyPhoto } from '@/components/properties/PropertyPhoto'
 import { SECTIONS, SECTION_LABEL, SECTION_TAB_LABEL, type SectionKey } from '@/lib/properties/sections'
 import type { Part, Property360, UnitPart } from '@/lib/properties/property-360'
 import { LATEST } from '@/lib/properties/property-360'
@@ -140,12 +141,14 @@ export interface PropertyDetailViewProps {
   gaComplaints?: GaComplaintRead | null
   /** Round 16: the home's letters, newest first (board/admin only); null or omitted hides the card. */
   letterHistory?: LoadResult<LetterHistoryPage> | null
+  /** A Google Street View key is set on the server. False (or omitted) means no picture request is made. */
+  photoEnabled?: boolean
   /** BL-035: the card and bank payments panel (board/admin, online payments on); omitted renders nothing. */
   onlinePayments?: React.ReactNode
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, capLoadFailed = false, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null, onlinePayments = null } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, capLoadFailed = false, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null, onlinePayments = null, photoEnabled = false } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -175,7 +178,8 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
     hrefs: { violations: scoped('/violations'), dues: scoped('/dues'), compliance: '#compliance', communications: '#communications' },
   })
 
-  const street = streetOf(p.address)
+  const street = formatStreetOnly(p.address)
+  const fullAddress = formatAddressLine(p.address)
   const title = p.unit_number ? `${street} · ${p.unit_number}` : street
   const primaryOwner = people.owners.find((o) => o.primary) ?? null
   const householdCount = people.residents.length
@@ -196,7 +200,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
       width="wide"
       back={{ href: listHref, label: 'Properties' }}
       linkAs={Link}
-      title={<span title={p.address}>{title}</span>}
+      title={<span title={fullAddress}>{title}</span>}
       meta={
         <>
           {p.tenure ? <StatusBadge status={p.tenure} tones={TENURE.tones} labels={TENURE.labels} /> : null}
@@ -205,7 +209,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
       }
       description={
         <div className="space-y-1">
-          {street !== p.address ? <p className="line-clamp-2 break-words text-xs">{p.address}</p> : null}
+          {street !== fullAddress ? <p className="line-clamp-2 break-words text-xs">{fullAddress}</p> : null}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className={primaryOwner?.name ? 'text-foreground-secondary' : undefined}>
               {primaryOwner?.name ?? p.owner_name ?? 'No owner on file'}
@@ -216,10 +220,12 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
         </div>
       }
     >
+      <PropertyPhoto propertyId={p.id} address={p.address} enabled={photoEnabled} className="w-48 sm:w-72" />
+
       <ActionBar
         propertyId={p.id}
         canManage={canManage}
-        address={p.address}
+        address={fullAddress}
         householdCount={householdCount}
         ownerEmail={primaryOwner?.email ?? p.owner_email}
         stats={data.stats}

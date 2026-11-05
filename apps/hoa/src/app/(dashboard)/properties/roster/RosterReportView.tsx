@@ -21,6 +21,7 @@ import {
   type VoterRow,
 } from '@/lib/properties/statutory-roster/model'
 import { PrintRosterButton } from './PrintRosterButton'
+import { formatAddressLine } from '@/lib/properties/address-format'
 
 /**
  * The roster or voter list as it appears on screen and on paper. Pure
@@ -208,7 +209,7 @@ function VoterSummary({ report }: { report: Extract<RosterReport, { kind: 'voter
 function PropertyCell({ row }: { row: Pick<OwnerRosterRow, 'address' | 'unitNumber' | 'lotNumber'> }) {
   return (
     <div className="min-w-0">
-      <p className="break-words font-medium text-foreground">{row.address}</p>
+      <p className="break-words font-medium text-foreground">{formatAddressLine(row.address)}</p>
       {row.unitNumber || row.lotNumber ? (
         <p className="text-xs text-muted">
           {[row.unitNumber ? `Unit ${row.unitNumber}` : null, row.lotNumber ? `Lot ${row.lotNumber}` : null].filter(Boolean).join(' · ')}

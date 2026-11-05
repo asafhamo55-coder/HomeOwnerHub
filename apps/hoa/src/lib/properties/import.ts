@@ -38,6 +38,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { standardAddress } from './address-format'
 import { buildHomeIndex, matchHome, pickUnitAtAddress, type HomeIndex } from './match-home'
 
 type Db = SupabaseClient<Database>
@@ -270,6 +271,7 @@ export async function importLots(db: Db, input: LotsInput): Promise<ImportResult
     addressLine1: string,
     unit: string | null,
     propertyId: string | null,
+    typedAddress: string = addressLine1,
   ): Promise<{ ok: true; unit: UnitRow | null } | { ok: false }> => {
     if (propertyId && !propertyId.startsWith('dry:')) {
       const { data, error } = await db
@@ -291,7 +293,7 @@ export async function importLots(db: Db, input: LotsInput): Promise<ImportResult
       .from('units')
       .select('id, legacy_hoa_property_id, unit_number, created_at')
       .eq('organization_id', orgId)
-      .eq('address_line1', addressLine1)
+      .in('address_line1', [...new Set([addressLine1, typedAddress])])
       .order('created_at', { ascending: true })
       .order('id', { ascending: true })
       .limit(20)
@@ -354,7 +356,10 @@ export async function importLots(db: Db, input: LotsInput): Promise<ImportResult
 
   // ─── 1. properties → hoa_properties + units ─────────────────────
   for (const p of input.properties) {
-    const addressLine1 = nz(p.address_line1) ?? nz(p.address) ?? ''
+    // Saved in the standard format. The unit lookup also tries the address as
+    // typed, so a home saved before this existed is still found, not duplicated.
+    const typedAddress = nz(p.address_line1) ?? nz(p.address) ?? ''
+    const addressLine1 = typedAddress ? standardAddress(typedAddress) : ''
     const unit = nz(p.unit)
     if (!addressLine1) {
       pushWarn(result, `skip property ${p.id}: no address`)
@@ -374,7 +379,7 @@ export async function importLots(db: Db, input: LotsInput): Promise<ImportResult
     }
     const matchedId = match.kind === 'match' ? match.propertyId : null
 
-    const found = await findExistingUnit(addressLine1, unit, matchedId)
+    const found = await findExistingUnit(addressLine1, unit, matchedId, typedAddress)
     if (!found.ok) {
       pushWarn(result, `property ${p.id}: could not check for an existing unit`)
       result.units.errored += 1
