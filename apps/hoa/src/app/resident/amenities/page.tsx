@@ -5,7 +5,7 @@ import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor } from '@/lib/impersonation'
 import { getResidentUnits } from '@/lib/resident'
-import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
+import { DEFAULT_ASSOCIATION_TIME_ZONE, todayIn } from '@/lib/association-time'
 import {
   DISPLAY_LABELS,
   canCancel,
@@ -20,12 +20,13 @@ import {
 import { loadAmenities, loadHeldSlots, loadHomeReservations, type LooseDb } from '@/lib/amenities/queries'
 import { Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
 import { CancelButton } from '@/app/(dashboard)/amenities/ReservationButtons'
-import { BookingForm } from './BookingForm'
+import { BookingForm, type BookableAmenity } from './BookingForm'
+import { cancelLine } from '@/lib/amenities/booking-copy'
 
 export const metadata = { title: 'Book a space' }
 export const dynamic = 'force-dynamic'
 
-const SUBTITLE = 'Reserve the clubhouse, pool or courts. Pick a day, then a time that is free.'
+const SUBTITLE = 'Pick a space, a day and a time. We show only what is free.'
 
 /**
  * BL-034: a resident books an amenity for their home. Amenities and the
@@ -104,38 +105,24 @@ export default async function ResidentAmenitiesPage() {
   const names = new Map(allAmenities.map((a) => [a.id, a.name]))
   const cutoffs = new Map(allAmenities.map((a) => [a.id, a.cancelCutoffHours]))
   const homeLabel = (u: (typeof units)[number]) => [u.address, u.unit_number ? `Unit ${u.unit_number}` : null].filter(Boolean).join(', ') || 'Your home'
+  const spaces: BookableAmenity[] = amenities.map((a) => {
+    const zone = zoneFor(a.associationId)
+    return {
+      amenity: a,
+      homes: units.filter((u) => u.association_id === a.associationId).map((u) => ({ id: u.unit_id, label: homeLabel(u) })),
+      days: dayStrip({ amenity: a, timeZone: zone, now, held: held.get(a.id) ?? [], count: Math.min(a.advanceDays, 365) + 1 }),
+      today: todayIn(zone, now),
+      timeZone: zone,
+    }
+  })
 
   return (
     <div className="space-y-8">
       {header}
 
-      {amenities.map((a) => {
-        const homes = units.filter((u) => u.association_id === a.associationId)
-        const zone = zoneFor(a.associationId)
-        const days = dayStrip({ amenity: a, timeZone: zone, now, held: held.get(a.id) ?? [], count: 28 })
-        return (
-          <Section key={a.id} label={a.name}>
-            <Panel className="space-y-4">
-              {a.description ? <p className="text-base text-foreground">{a.description}</p> : null}
-              <p className="text-base text-foreground-secondary">{rulesSummary(a)}</p>
-              <p className="text-base text-foreground-secondary">
-                {a.requiresApproval ? 'The board approves each booking.' : 'Your booking is confirmed right away.'}
-              </p>
-              {a.rules ? (
-                <div>
-                  <p className="text-base font-semibold text-foreground">House rules</p>
-                  <p className="whitespace-pre-line text-base text-foreground-secondary">{a.rules}</p>
-                </div>
-              ) : null}
-              <BookingForm
-                amenity={a}
-                homes={homes.map((u) => ({ id: u.unit_id, label: homeLabel(u) }))}
-                days={days}
-              />
-            </Panel>
-          </Section>
-        )
-      })}
+      <Panel>
+        <BookingForm spaces={spaces} />
+      </Panel>
 
       {mine.length > 0 ? (
         <Section label="Your bookings">
@@ -152,9 +139,12 @@ export default async function ResidentAmenitiesPage() {
                 {r.cancelReason ? <p className="text-base text-foreground-secondary">Reason: {r.cancelReason}</p> : null}
                 {canCancel(r, now) ? (
                   residentMustAskBoard(r, cutoffs.get(r.amenityId) ?? 0, now) ? (
-                    <p className="text-base text-foreground-secondary">This is close to the start time. To cancel, please ask the board.</p>
+                    <p className="text-base text-foreground-secondary">This starts soon, so you cannot cancel it here. Please ask the board.</p>
                   ) : (
-                    <CancelButton reservationId={r.id} />
+                    <div className="space-y-1">
+                      <CancelButton reservationId={r.id} />
+                      <p className="text-base text-foreground-secondary">{cancelLine(cutoffs.get(r.amenityId) ?? 0)}</p>
+                    </div>
                   )
                 ) : null}
               </div>
