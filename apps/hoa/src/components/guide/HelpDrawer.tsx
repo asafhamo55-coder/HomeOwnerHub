@@ -130,7 +130,7 @@ export function HelpDrawer({
         )}
       </SheetTrigger>
       <SheetContent
-        title={greeting ?? 'Help for this page'}
+        title={greeting ? <span className="block break-words">{greeting}</span> : 'Help for this page'}
         description={greeting ? 'Help for this page, from the HomeownerHub guide.' : 'Short how-tos from the HomeownerHub guide.'}
         side="right" width="md">
         <div className="space-y-6">

@@ -39,17 +39,18 @@ export default async function ResidentLayout({
   // The org and the actor are independent reads, so they run together.
   // The actor's outcome is only looked at after the org check, so a
   // missing org still redirects first, exactly as before.
-  const [org, actorResult, ownFirstName] = await Promise.all([
+  const [org, actorResult] = await Promise.all([
     getCurrentOrg(),
     getResidentActor().then(
       (actor) => ({ ok: true as const, actor }),
       (error: unknown) => ({ ok: false as const, error }),
     ),
-    getSignedInFirstName(user.id),
   ])
   if (!org) redirect('/onboarding')
   if (!actorResult.ok) throw actorResult.error
   const actor = actorResult.actor
+  // Not fetched while impersonating; otherwise runs alongside the role check.
+  const ownFirstNameP = actor.impersonating ? Promise.resolve(null) : getSignedInFirstName(user.id)
 
   if (!actor.impersonating) {
     const effectiveRole = await getEffectiveRoleInOrg(org.id)
@@ -61,7 +62,7 @@ export default async function ResidentLayout({
 
   const impersonation = actor.impersonating ? await getImpersonationTarget() : null
   // Viewing as a resident greets that resident; otherwise the signed-in user.
-  const firstName = actor.impersonating ? firstNameOf(impersonation?.name) : ownFirstName
+  const firstName = actor.impersonating ? firstNameOf(impersonation?.name) : await ownFirstNameP
   const userEmail = actor.impersonating ? actor.email ?? '' : user.email ?? ''
 
   return (

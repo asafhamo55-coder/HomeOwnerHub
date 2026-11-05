@@ -7,6 +7,15 @@ describe('firstNameOf', () => {
     expect(firstNameOf('Asaf Hamo')).toBe('Asaf')
     expect(firstNameOf('  Mary Ann  Smith ')).toBe('Mary')
   })
+  it('is null when the first token is an email address', () => {
+    expect(firstNameOf('jane@x.com')).toBeNull()
+    expect(firstNameOf('  jane@x.com Smith')).toBeNull()
+    expect(helpGreeting('jane@x.com')).toBeNull()
+  })
+  it('caps a long name at 30 characters', () => {
+    expect(firstNameOf('A'.repeat(80))).toBe('A'.repeat(30))
+    expect(firstNameOf('A'.repeat(30))).toBe('A'.repeat(30))
+  })
   it('is null for blank, whitespace or missing', () => {
     expect(firstNameOf('')).toBeNull()
     expect(firstNameOf('   \t ')).toBeNull()
