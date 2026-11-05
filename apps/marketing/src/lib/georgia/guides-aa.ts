@@ -55,7 +55,7 @@ export const GA_RESERVES: Guide = {
     {
       heading: 'What changes in 2027',
       body: [
-        'Senate Bill 406 adds definitions of regular and special assessments. They take effect on January 1, 2027, and they apply to associations that fall under the new chapter. Under the new definition, regular assessments fund the regular operating budget, and the listed costs include reserve fund contributions.',
+        'Senate Bill 406 adds definitions of regular and special assessments. They take effect on January 1, 2027, and they apply to associations that fall under the new chapter (the definition of owners’ association excludes nonregistered owners’ associations). Under the new definition, regular assessments fund the regular operating budget, and the examples of those costs include reserve fund contributions.',
         'Special assessments are the other kind. They cover costs that are not in the regular operating budget, and the examples include nonroutine or emergency repairs and other capital projects. The practical point for a board is that the label matters: a planned replacement that you budget for each year is a different thing from a surprise bill.',
       ],
       quotes: ['regularDef', 'specialDef', 'actEffective'],
@@ -99,7 +99,7 @@ export const GA_RESERVES: Guide = {
     },
     {
       q: 'What is the difference between a reserve contribution and a special assessment?',
-      a: 'From January 1, 2027, the new definitions describe regular assessments as funding the regular operating budget, including reserve fund contributions, and special assessments as covering costs outside that budget, such as nonroutine or emergency repairs and other capital projects. Check whether the new chapter applies to your association.',
+      a: 'From January 1, 2027, the new definitions describe regular assessments as funding the regular operating budget, with costs that may include reserve fund contributions, and special assessments as covering costs outside that budget, such as nonroutine or emergency repairs and other capital projects. Check whether the new chapter applies to your association.',
     },
     {
       q: 'How often should a board update a reserve study?',
@@ -140,7 +140,7 @@ export const GA_ANNUAL_MEETING: Guide = {
       heading: 'The meeting itself',
       body: [
         'Subsection (a) says meetings of the members follow the bylaws and “in any event” are called not less often than yearly. If the board has let the date slip, our guide on owner-called meetings explains what owners can do under subsection (b).',
-        'Most Georgia associations are also nonprofit corporations. The Nonprofit Corporation Code has its own rule that a membership corporation holds a meeting of members annually at the time the bylaws set.',
+        'Many Georgia associations are also incorporated as nonprofit corporations. If yours is, the Nonprofit Corporation Code has its own rule that a membership corporation holds a meeting of members annually at the time the bylaws set.',
       ],
       quotes: ['meetingAnnual', 'nonprofitAnnual'],
     },
@@ -163,7 +163,7 @@ export const GA_ANNUAL_MEETING: Guide = {
     {
       heading: 'What gets reported',
       body: [
-        'The Act says comprehensive reports of the affairs, finances and budget projections of the association are made to the lot owners at the annual meeting. The Nonprofit Corporation Code adds that the chief executive officer and chief financial officer report on the activities and financial condition of the corporation.',
+        'The Act says comprehensive reports of the affairs, finances and budget projections of the association are made to the lot owners at the annual meeting. If your association is a nonprofit corporation, the Nonprofit Corporation Code adds that the chief executive officer and chief financial officer report on the activities and financial condition of the corporation.',
         'The texts do not define “comprehensive,” so a board is wise to agree on a written format with its treasurer ahead of time and attach it to the minutes.',
       ],
       quotes: ['meetingReports', 'nonprofitAnnualReport'],
@@ -179,8 +179,8 @@ export const GA_ANNUAL_MEETING: Guide = {
     {
       heading: 'Remote meetings and missed dates',
       body: [
-        'The Nonprofit Corporation Code lets the board decide that an annual meeting is held wholly or partly by remote communication, unless the articles or bylaws provide otherwise. That section points to another Code section on remote communication that we do not quote here, so ask your attorney how to run one.',
-        'The Code also says that failing to hold an annual meeting at the time the bylaws set does not affect the validity of any corporate action. That sentence is about the validity of actions, not about whether owners can insist on a meeting.',
+        'If your association is a nonprofit corporation, the Nonprofit Corporation Code lets the board decide that an annual meeting is held wholly or partly by remote communication, unless the articles or bylaws provide otherwise. That section points to another Code section on remote communication that we do not quote here, so ask your attorney how to run one.',
+        'That Code also says that failing to hold an annual meeting at the time the bylaws set does not affect the validity of any corporate action. That sentence is about the validity of actions, not about whether owners can insist on a meeting.',
       ],
       quotes: ['nonprofitRemote', 'nonprofitAnnualFailure'],
     },
@@ -215,7 +215,7 @@ export const GA_ANNUAL_MEETING: Guide = {
     },
     {
       q: 'What reports must be given at the annual meeting?',
-      a: 'The Act says comprehensive reports of the affairs, finances and budget projections of the association. The Nonprofit Corporation Code adds a report by the chief executive officer and chief financial officer on activities and financial condition.',
+      a: 'The Act says comprehensive reports of the affairs, finances and budget projections of the association. For a nonprofit corporation, the Nonprofit Corporation Code adds a report by the chief executive officer and chief financial officer on activities and financial condition.',
     },
     {
       q: 'What if the board missed the annual meeting this year?',
@@ -226,6 +226,7 @@ export const GA_ANNUAL_MEETING: Guide = {
     'annual-meeting-quorum-proxies',
     'georgia-hoa-owners-call-annual-meeting-44-3-230',
     'georgia-hoa-written-ballots-without-a-meeting',
+    'annual-meeting-notice-checklist',
     'certified-mail-collections-notices',
     'self-managed-hoa-georgia-first-90-days',
   ],
@@ -278,7 +279,7 @@ export const GA_ANNUAL_REGISTRATION: Guide = {
       heading: 'When it is due',
       body: [
         'After the first filing, the registration is delivered between January 1 and April 1 of each following year, “or such other date as the Secretary of State may specify by rules or regulations.” So check the Secretary of State’s current instructions for the date that applies to you.',
-        'The first registration has its own timing rules in subsection (c) and (d), which depend on when the articles were filed. We do not summarize those here.',
+        'The first registration has its own timing rules in subsections (c) and (d), which depend on when the articles were filed. We do not summarize those here.',
       ],
       quotes: ['annualRegWindow'],
     },
