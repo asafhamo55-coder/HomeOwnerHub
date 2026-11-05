@@ -57,10 +57,8 @@ this file is the reference it points to.
 - Stripe test mode, never run yet.
 - Asaf: OA-40 payout bank, Connect setup, `STRIPE_CONNECT_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 - Known code gaps:
-  - Saved methods use `on_session`, but autopay charges off session.
-  - An autopay timeout can leave an attempt with no PaymentIntent.
+  - Fixed, verified 2026-11-05: saved methods use `off_session` (4f1b1a3f), a timed-out autopay attempt is reconciled against Stripe with the same idempotency key (e8484aa3, 9af41a67), and the notice names the earliest due date (e8484aa3). Tests: `packages/jobs/src/autopay/autopay.test.ts`, `apps/hoa/src/app/resident/dues/methods/actions.test.ts`.
   - A refund failing after the ledger reversal is not undone.
-  - The autopay notice date uses the latest due date, not the first.
 
 **Before M10 (voting):** a lawyer on Georgia § 14-3-708 electronic ballots and secrecy wording. Small ballots can reveal a vote.
 
