@@ -37,6 +37,7 @@ describe('vendorCoiReminderDeps — board-only, no sender', () => {
     vi.stubEnv('RESEND_API_KEY', 'test-key')
     vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@example.test>')
     vi.stubEnv('VERCEL_ENV', 'production')
+    vi.stubEnv('PAY_SETTINGS_SECRET', 'test-dedicated-secret')
   })
   afterEach(() => {
     vi.unstubAllEnvs()
