@@ -60,9 +60,9 @@ export const GA_RECORDS_KEPT: Guide = {
       heading: 'Records members can inspect',
       body: [
         'Under subsection (b), a member can inspect and copy the subsection (a) records on written notice or demand at least five business days ahead, at a reasonable time and location the corporation specifies.',
-        'Subsection (c) covers a second group, including accounting records and the membership list, and it applies only if the member meets subsection (d). The member must act in good faith for a proper purpose, describe the purpose and records with reasonable particularity, and use the records only for that purpose.',
+        'Subsection (c) covers a second group, including accounting records and the membership list, and it applies only if the member meets subsection (d). The member must act in good faith for a proper purpose, describe the purpose and records with reasonable particularity, and use the records only for that purpose. Subsection (e) lets the corporation impose reasonable restrictions on the confidentiality, use or distribution of those records.',
       ],
-      quotes: ['memberInspect', 'recInspectIntro', 'recMemberListInspect'],
+      quotes: ['memberInspect', 'recInspectIntro', 'recMemberListInspect', 'memberInspectRestrict'],
     },
     {
       heading: 'What this page does not tell you',
@@ -142,7 +142,7 @@ export const GA_LIEN_PRIORITY: Guide = {
     {
       heading: 'Property taxes',
       body: [
-        'The first exception is liens for ad valorem taxes on the lot. A tax lien is not behind the association’s lien.',
+        'The first exception is liens for ad valorem taxes on the lot. The association lien is not prior to them.',
       ],
       quotes: ['priTax'],
     },
@@ -260,7 +260,7 @@ export const GA_RENTAL_AMENDMENT: Guide = {
     {
       heading: 'Why the wording matters to a board',
       body: [
-        'Owners often ask whether a new rental rule applies to them. The honest answer from the text is that it depends on whether the lot was already leased for an initial term of six months or longer before the amendment, and whether the lot has since been conveyed for value. A board that keeps a clear, dated list of known leases will find those questions easier to answer.',
+        'Owners often ask whether a new rental rule applies to them. Under the text, the question turns on whether the lot was already leased or rented for an initial term of six months or longer before the amendment, and whether it has since been conveyed for value. A board that keeps a clear, dated list of known leases will find those questions easier to answer.',
         'The statute speaks of leases or rentals under the preamended instrument. It does not say how a lease is documented, so do not assume that a verbal arrangement or a short stay counts. Ask your attorney how your documents treat each case.',
       ],
     },
@@ -289,7 +289,7 @@ export const GA_RENTAL_AMENDMENT: Guide = {
   faqs: [
     {
       q: 'Can a Georgia HOA ban rentals by amendment?',
-      a: 'It can amend with the required vote, but § 44-3-226(a)(2)(B) protects a nonowner occupied lot already leased for an initial term of six months or longer. Ask your attorney how it applies to your community.',
+      a: 'Section 44-3-226 sets the vote for amending the instrument and, in (a)(2)(B), bars an amendment from prohibiting or restricting a nonowner occupied lot that is already leased or rented for an initial term of six months or longer under the preamended instrument. It does not say whether your community may adopt a rental restriction at all. Ask your attorney.',
     },
     {
       q: 'What vote does a rental amendment need?',
