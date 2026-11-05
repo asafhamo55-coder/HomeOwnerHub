@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@homeowner-portal/db/types'
 import { SESSION_STAMP_COOKIE, evaluateSessionCap } from '@/lib/session-cap'
-import { resolveSigningSecret } from '@/lib/signing-secret'
+import { MissingSigningSecretError, requireSigningSecret } from '@/lib/signing-secret'
 
 type CookieToSet = { name: string; value: string; options: CookieOptions }
 
@@ -11,13 +11,13 @@ type CookieToSet = { name: string; value: string; options: CookieOptions }
 // session and be handed a fresh day — the cap would never fire.
 const STAMP_COOKIE_MAX_AGE_S = 30 * 24 * 60 * 60
 
-// SESSION_CAP_SECRET is required in production (resolveSigningSecret throws and
-// logs the name if it is missing); the service-role key fallback is for dev and
-// test only. Server-only, never reaches the browser.
+// SESSION_CAP_SECRET is required in production (this throws and logs the name
+// if it is missing; updateSession catches it and ends the session); the
+// service-role key fallback is for dev and test only. Server-only.
 export function sessionCapSecret(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
-  return resolveSigningSecret('SESSION_CAP_SECRET', env) ?? undefined
+  return requireSigningSecret('SESSION_CAP_SECRET', env) ?? undefined
 }
 
 // Pulled into a helper so the same flow can be reused by the eviction and pm
@@ -71,10 +71,19 @@ export async function updateSession(request: NextRequest, options: { strict?: bo
 
   if (!user) return { user, response: supabaseResponse, sessionExpired: false }
 
-  const secret = sessionCapSecret()
+  // A missing production secret fails closed for the cap only: the session
+  // counts as expired (caller clears cookies and redirects to login). Never a
+  // 500 on every route and never a service-key fallback.
+  let secret: string | undefined
+  try {
+    secret = sessionCapSecret()
+  } catch (error) {
+    if (!(error instanceof MissingSigningSecretError)) throw error
+    return await endSession(supabase, user, supabaseResponse)
+  }
   if (!secret) {
     console.error(
-      '[session-cap] Neither SESSION_CAP_SECRET nor SUPABASE_SERVICE_ROLE_KEY is set — ' +
+      '[session-cap] No session-cap secret is available (SESSION_CAP_SECRET unset and no dev fallback) — ' +
         'sessions are NOT being capped at 24h.',
     )
   }
@@ -91,20 +100,7 @@ export async function updateSession(request: NextRequest, options: { strict?: bo
   })
 
   if (decision.action === 'expire') {
-    // scope: 'local' revokes this one session's refresh token server-side
-    // without touching the user's other devices. Without it, an exfiltrated
-    // refresh token would outlive the cap we just enforced.
-    //
-    // Best-effort on purpose: if Supabase is unreachable, throwing here would
-    // 500 every request for this user instead of logging them out. The
-    // caller clears the auth cookies regardless, so the browser session ends
-    // either way — we'd just fail to revoke the token server-side.
-    try {
-      await supabase.auth.signOut({ scope: 'local' })
-    } catch (error) {
-      console.error('[session-cap] failed to revoke expired session', error)
-    }
-    return { user, response: supabaseResponse, sessionExpired: true }
+    return await endSession(supabase, user, supabaseResponse)
   }
 
   if (decision.action === 'refresh') {
@@ -138,6 +134,28 @@ async function serverVerifiedUser(supabase: MiddlewareClient): Promise<{ id: str
     data: { user },
   } = await supabase.auth.getUser()
   return user ? { id: user.id, email: user.email } : null
+}
+
+/**
+ * Ends the session. scope: 'local' revokes this one session's refresh token
+ * server-side without touching the user's other devices. Without it, an
+ * exfiltrated refresh token would outlive the cap we just enforced.
+ *
+ * Best-effort on purpose: if Supabase is unreachable, throwing here would
+ * 500 every request for this user instead of logging them out. The caller
+ * clears the auth cookies regardless, so the browser session ends either way.
+ */
+async function endSession(
+  supabase: MiddlewareClient,
+  user: { id: string; email?: string },
+  response: NextResponse,
+) {
+  try {
+    await supabase.auth.signOut({ scope: 'local' })
+  } catch (error) {
+    console.error('[session-cap] failed to revoke expired session', error)
+  }
+  return { user, response, sessionExpired: true }
 }
 
 /**

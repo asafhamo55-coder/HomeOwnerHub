@@ -5,6 +5,7 @@
 // cancelled. Pure: node:crypto only.
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { resolveSigningSecret } from '../signing-secret'
 
 const DOMAIN = 'professional-invite:v1'
 
@@ -18,8 +19,10 @@ const DOMAIN = 'professional-invite:v1'
 export function inviteSecret(env: Record<string, string | undefined> = process.env): string | null {
   const dedicated = env.PRO_INVITE_SECRET
   if (dedicated && dedicated.length >= 32) return dedicated
-  if (env.NODE_ENV === 'production') return null
-  return env.PAY_SETTINGS_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
+  // Same production test as every other signer (VERCEL_ENV). In production this
+  // logs once and returns null (no fallback); elsewhere it is the usual chain.
+  if (env.VERCEL_ENV === 'production') return resolveSigningSecret('PRO_INVITE_SECRET', { VERCEL_ENV: 'production' })
+  return resolveSigningSecret('PAY_SETTINGS_SECRET', env)
 }
 
 export function signInvite(inviteId: string, secret: string): string {

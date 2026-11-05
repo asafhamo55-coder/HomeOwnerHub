@@ -45,8 +45,8 @@ export const IMPERSONATION_READONLY_MSG =
 
 /**
  * HMAC secret for the impersonation cookie. Same chain as the Zelle pay
- * settings signature (PAY_SETTINGS_SECRET, else the service-role key), so
- * every deployment already has one. Null fails closed: no impersonation.
+ * settings signature: PAY_SETTINGS_SECRET (the service-role key only outside
+ * production). Null fails closed: no impersonation.
  */
 export function impersonationSecret(): string | null {
   return paySettingsSecret()

@@ -44,6 +44,7 @@ vi.mock('@supabase/ssr', () => ({
 }))
 
 import { sessionCapSecret, updateSession } from './middleware'
+import { resetSigningSecretLogForTests } from '@/lib/signing-secret'
 
 const SECRET = 'test-secret'
 const req = (path = '/dues', cookie?: string) => {
@@ -59,6 +60,7 @@ beforeEach(() => {
   h.user = { id: 'user-1' }
   h.accessToken = 'header.payload.sig'
   h.calls = { getUser: 0, getClaims: 0, signOut: 0 }
+  resetSigningSecretLogForTests()
 })
 
 describe('updateSession (BL-074: no auth-server round trip per request)', () => {
@@ -109,8 +111,42 @@ describe('updateSession (BL-074: no auth-server round trip per request)', () => 
   })
 })
 
+describe('updateSession with SESSION_CAP_SECRET missing in production (fails closed for the cap only)', () => {
+  it('ends the session instead of throwing: expired, revoked, no service-key stamping', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    delete process.env.SESSION_CAP_SECRET
+    vi.stubEnv('VERCEL_ENV', 'production')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'srk-value')
+    try {
+      const res = await updateSession(req())
+      expect(res.sessionExpired).toBe(true)
+      expect(h.calls.signOut).toBe(1)
+      expect(res.response.cookies.get(SESSION_STAMP_COOKIE)).toBeUndefined()
+      expect(JSON.stringify(err.mock.calls)).not.toContain('srk-value')
+    } finally {
+      vi.unstubAllEnvs()
+      err.mockRestore()
+    }
+  })
+
+  it('a signed-out visitor is unaffected (no secret needed)', async () => {
+    h.claims = null
+    vi.stubEnv('VERCEL_ENV', 'production')
+    delete process.env.SESSION_CAP_SECRET
+    try {
+      const res = await updateSession(req())
+      expect(res.user).toBeNull()
+      expect(res.sessionExpired).toBe(false)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+})
+
 // Production never falls back to the service-role key; dev and test keep it.
 describe('sessionCapSecret fallback', () => {
+  beforeEach(() => resetSigningSecretLogForTests())
+
   it('prefers SESSION_CAP_SECRET', () => {
     expect(sessionCapSecret({ SESSION_CAP_SECRET: 'dedicated', SUPABASE_SERVICE_ROLE_KEY: 'srk', VERCEL_ENV: 'production' })).toBe('dedicated')
   })
