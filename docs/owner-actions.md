@@ -61,6 +61,22 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 **Cost:** the coverage check Google runs first is free. Each picture is billed per 1,000 after Google's monthly free allowance (check the current amount on the Google Maps Platform pricing page). The app tells the browser to keep each picture for a day, so reopening a property does not ask Google again. Pictures are never stored on our side, which is what Google's terms require.
 
+### OA-47 · Check Supabase's "Max rows" and tell the app (saves a database call on small reads)
+
+**Urgency:** Whenever
+
+**Why it matters:** the app can skip one extra database call on every short list it reads, but only if it knows Supabase returns 1000 rows at a time. It cannot see that setting, and guessing wrong could cut off a money total. So it stays on the slower, safe path until you confirm.
+
+**Steps:**
+
+1. Supabase dashboard → Settings → API → Max rows.
+2. If it says 1000, add `POSTGREST_MAX_ROWS=1000` to Vercel production for `home-owner-hub-hoa`, then redeploy.
+3. If it says anything else, tell Claude the number and do not set anything.
+
+**Files:** `apps/hoa/src/lib/supabase/read-all.ts`
+
+Set it on the home-owner-hub-hoa project itself, not as a team-level shared variable.
+
 ### OA-44 · Add three refund events to the Stripe Connect webhook
 
 **Urgency:** Whenever
