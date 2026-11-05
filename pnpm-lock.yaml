@@ -54,8 +54,8 @@ importers:
         specifier: ^2.8.4
         version: 2.8.4
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
 
   apps/eviction:
     dependencies:
@@ -75,8 +75,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@hookform/resolvers':
-        specifier: ^3.9.0
-        version: 3.10.0(react-hook-form@7.75.0(react@19.2.6))
+        specifier: ^5.2.2
+        version: 5.9.2(@standard-schema/spec@1.1.0)(react-hook-form@7.75.0(react@19.2.6))(zod@4.6.7)
       '@sentry/nextjs':
         specifier: ^11.8.0
         version: 11.8.0(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(vite@5.4.21(@types/node@22.19.17))
@@ -114,8 +114,8 @@ importers:
         specifier: ^17.0.0
         version: 17.7.0
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@tailwindcss/typography':
         specifier: ^0.5.0
@@ -169,8 +169,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/workflows
       '@hookform/resolvers':
-        specifier: ^3.9.0
-        version: 3.10.0(react-hook-form@7.75.0(react@19.2.6))
+        specifier: ^5.2.2
+        version: 5.9.2(@standard-schema/spec@1.1.0)(react-hook-form@7.75.0(react@19.2.6))(zod@4.6.7)
       '@radix-ui/react-dropdown-menu':
         specifier: ^2.1.0
         version: 2.1.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -215,7 +215,7 @@ importers:
         version: 11.18.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       inngest:
         specifier: ^3.20.0
-        version: 3.54.2(@opentelemetry/core@2.7.1(@opentelemetry/api@1.9.1))(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(typescript@5.9.3)(zod@3.25.76)
+        version: 3.54.2(@opentelemetry/core@2.7.1(@opentelemetry/api@1.9.1))(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(typescript@5.9.3)(zod@4.6.7)
       lucide-react:
         specifier: ^0.460.0
         version: 0.460.0(react@19.2.6)
@@ -256,8 +256,8 @@ importers:
         specifier: ^17.0.0
         version: 17.7.0
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@next/bundle-analyzer':
         specifier: 15.5.16
@@ -326,8 +326,8 @@ importers:
         specifier: ^4.0.0
         version: 4.8.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@tailwindcss/typography':
         specifier: ^0.5.0
@@ -372,8 +372,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@hookform/resolvers':
-        specifier: ^3.9.0
-        version: 3.10.0(react-hook-form@7.75.0(react@19.2.6))
+        specifier: ^5.2.2
+        version: 5.9.2(@standard-schema/spec@1.1.0)(react-hook-form@7.75.0(react@19.2.6))(zod@4.6.7)
       '@sentry/nextjs':
         specifier: ^11.8.0
         version: 11.8.0(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(vite@5.4.21(@types/node@22.19.17))
@@ -411,8 +411,8 @@ importers:
         specifier: ^17.0.0
         version: 17.7.0
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@tailwindcss/typography':
         specifier: ^0.5.0
@@ -446,10 +446,10 @@ importers:
         version: link:../db
       openai:
         specifier: ^4.70.0
-        version: 4.104.0(ws@8.22.1)(zod@3.25.76)
+        version: 4.104.0(ws@8.22.1)(zod@4.6.7)
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       typescript:
         specifier: ^5
@@ -477,8 +477,8 @@ importers:
         specifier: ^2.45.0
         version: 2.105.3
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       typescript:
         specifier: ^5
@@ -509,7 +509,7 @@ importers:
         version: 11.8.0(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(vite@5.4.21(@types/node@22.19.17))
       inngest:
         specifier: ^3.20.0
-        version: 3.54.2(@opentelemetry/core@2.7.1(@opentelemetry/api@1.9.1))(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(typescript@5.9.3)(zod@3.25.76)
+        version: 3.54.2(@opentelemetry/core@2.7.1(@opentelemetry/api@1.9.1))(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(typescript@5.9.3)(zod@4.6.7)
       plaid:
         specifier: ^42.2.0
         version: 42.2.0
@@ -629,10 +629,10 @@ importers:
         version: link:../db
       openai:
         specifier: ^4.70.0
-        version: 4.104.0(ws@8.22.1)(zod@3.25.76)
+        version: 4.104.0(ws@8.22.1)(zod@4.6.7)
       zod:
-        specifier: ^3.23.0
-        version: 3.25.76
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       typescript:
         specifier: ^5
@@ -1029,10 +1029,83 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@hookform/resolvers@3.10.0':
-    resolution: {integrity: sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag==}
+  '@hookform/resolvers@5.9.2':
+    resolution: {integrity: sha512-RtjTnZqsC38s4NKp2XO3fD8IA5uyN4tB7McQ5C6uiMPcV+WWO8F+wVa3e+BXUpH2ScgxghAlwFRMVqjT9WChAQ==}
     peerDependencies:
-      react-hook-form: ^7.0.0
+      '@sinclair/typebox': '>=0.25.24'
+      '@standard-schema/spec': ^1.0.0
+      '@typeschema/main': '>=0.13.7'
+      '@vinejs/vine': ^2.0.0 || ^3.0.0 || ^4.0.0
+      ajv: ^8.12.0
+      ajv-errors: ^3.0.0
+      ajv-formats: ^2.1.1
+      arktype: ^2.0.0
+      ata-validator: ^1.23.0
+      class-transformer: '>=0.4.0'
+      class-validator: '>=0.12.0'
+      computed-types: ^1.0.0
+      effect: ^3.10.3
+      fluentvalidation-ts: ^3.0.0
+      fp-ts: ^2.7.0
+      io-ts: ^2.0.0
+      joi: ^17.0.0 || ^18.0.0
+      nope-validator: '>=0.12.0'
+      react-hook-form: ^7.55.0
+      superstruct: '>=0.12.0'
+      typanion: ^3.3.2
+      valibot: '>=0.31.0 || ^1.0.0-beta.4 || ^1.0.0-rc'
+      vest: '>=6.0.0'
+      yup: ^1.0.0
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@sinclair/typebox':
+        optional: true
+      '@standard-schema/spec':
+        optional: true
+      '@typeschema/main':
+        optional: true
+      '@vinejs/vine':
+        optional: true
+      ajv:
+        optional: true
+      ajv-errors:
+        optional: true
+      ajv-formats:
+        optional: true
+      arktype:
+        optional: true
+      ata-validator:
+        optional: true
+      class-transformer:
+        optional: true
+      class-validator:
+        optional: true
+      computed-types:
+        optional: true
+      effect:
+        optional: true
+      fluentvalidation-ts:
+        optional: true
+      fp-ts:
+        optional: true
+      io-ts:
+        optional: true
+      joi:
+        optional: true
+      nope-validator:
+        optional: true
+      superstruct:
+        optional: true
+      typanion:
+        optional: true
+      valibot:
+        optional: true
+      vest:
+        optional: true
+      yup:
+        optional: true
+      zod:
+        optional: true
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -2715,6 +2788,9 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
+  '@standard-schema/utils@0.3.0':
+    resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
   '@stripe/stripe-js@4.10.0':
     resolution: {integrity: sha512-KrMOL+sH69htCIXCaZ4JluJ35bchuCCznyPyrbN8JXSGQfwBI1SuIEMZNwvy8L8ykj29t6sa5BAAiL7fNoLZ8A==}
@@ -4910,8 +4986,8 @@ packages:
     resolution: {integrity: sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==}
     engines: {node: '>=12'}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
   zrender@6.1.0:
     resolution: {integrity: sha512-oEGMDB6pOP2S6OwRR4PdVv610zrjnA3Bh+JnSG12fYJlBKjtNAoEb5fSUoCOOINlH96I2fU38/A2UpRKs67xYQ==}
@@ -5152,9 +5228,13 @@ snapshots:
       protobufjs: 7.6.6
       yargs: 17.7.2
 
-  '@hookform/resolvers@3.10.0(react-hook-form@7.75.0(react@19.2.6))':
+  '@hookform/resolvers@5.9.2(@standard-schema/spec@1.1.0)(react-hook-form@7.75.0(react@19.2.6))(zod@4.6.7)':
     dependencies:
+      '@standard-schema/utils': 0.3.0
       react-hook-form: 7.75.0(react@19.2.6)
+    optionalDependencies:
+      '@standard-schema/spec': 1.1.0
+      zod: 4.6.7
 
   '@img/colour@1.1.0': {}
 
@@ -6849,6 +6929,8 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
+  '@standard-schema/utils@0.3.0': {}
+
   '@stripe/stripe-js@4.10.0': {}
 
   '@supabase/auth-js@2.105.3':
@@ -7940,7 +8022,7 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  inngest@3.54.2(@opentelemetry/core@2.7.1(@opentelemetry/api@1.9.1))(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(typescript@5.9.3)(zod@3.25.76):
+  inngest@3.54.2(@opentelemetry/core@2.7.1(@opentelemetry/api@1.9.1))(next@15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(typescript@5.9.3)(zod@4.6.7):
     dependencies:
       '@bufbuild/protobuf': 2.12.0
       '@inngest/ai': 0.1.7
@@ -7967,7 +8049,7 @@ snapshots:
       strip-ansi: 5.2.0
       temporal-polyfill: 0.2.5
       ulid: 2.4.0
-      zod: 3.25.76
+      zod: 4.6.7
     optionalDependencies:
       next: 15.5.28(@opentelemetry/api@1.9.1)(@types/node@22.19.17)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       typescript: 5.9.3
@@ -8253,7 +8335,7 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  openai@4.104.0(ws@8.22.1)(zod@3.25.76):
+  openai@4.104.0(ws@8.22.1)(zod@4.6.7):
     dependencies:
       '@types/node': 18.19.130
       '@types/node-fetch': 2.6.13
@@ -8264,7 +8346,7 @@ snapshots:
       node-fetch: 2.7.0
     optionalDependencies:
       ws: 8.22.1
-      zod: 3.25.76
+      zod: 4.6.7
     transitivePeerDependencies:
       - encoding
 
@@ -9185,7 +9267,7 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 21.1.1
 
-  zod@3.25.76: {}
+  zod@4.6.7: {}
 
   zrender@6.1.0:
     dependencies:

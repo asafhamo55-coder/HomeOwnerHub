@@ -90,7 +90,7 @@ const ArcCategorySchema = z.enum([
   'pool',
   'solar',
   'other',
-], { errorMap: () => ({ message: 'Choose a category.' }) })
+], { message: 'Choose a category.' })
 
 const CreateArcSchema = z.object({
   unit_id: z.string().uuid('Pick a unit.'),
@@ -374,7 +374,7 @@ const ViolationCategorySchema = z.enum([
   'rental',
   'nuisance',
   'other',
-], { errorMap: () => ({ message: 'Choose a category.' }) })
+], { message: 'Choose a category.' })
 
 const CreateViolationReportSchema = z.object({
   category: ViolationCategorySchema,

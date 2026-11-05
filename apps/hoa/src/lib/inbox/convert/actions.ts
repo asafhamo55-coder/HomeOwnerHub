@@ -136,7 +136,7 @@ export async function linkViolationToThread(input: { threadId: string; violation
 
 const TicketFromThreadSchema = z.object({
   threadId: uuid,
-  category: z.enum(TICKET_CATEGORIES, { errorMap: () => ({ message: 'Pick a category.' }) }),
+  category: z.enum(TICKET_CATEGORIES, { message: 'Pick a category.' }),
   subject: z
     .string()
     .trim()

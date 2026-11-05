@@ -50,7 +50,7 @@ const money = z
 const PolicySchema = z
   .object({
     associationId: z.string().uuid().optional().nullable().transform((v) => v ?? null),
-    kind: z.enum(POLICY_KINDS, { errorMap: () => ({ message: 'Pick the kind of policy.' }) }),
+    kind: z.enum(POLICY_KINDS, { message: 'Pick the kind of policy.' }),
     carrier: z.string().trim().min(1, 'Enter the insurance company.').max(200, 'Keep it under 200 characters.'),
     policyNumber: optionalText(100),
     coverageLimit: money,

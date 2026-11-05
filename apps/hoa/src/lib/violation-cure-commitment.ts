@@ -67,7 +67,7 @@ export function cureCommitmentInputSchema(now: Date = new Date()) {
   return z.object({
     violationId: z.string().uuid(),
     committedOn: z
-      .string({ required_error: 'Enter the date the owner gave the commitment.' })
+      .string({ error: (iss) => (iss.input === undefined ? 'Enter the date the owner gave the commitment.' : undefined) })
       .regex(isoDay, 'Enter the date the owner gave the commitment.')
       .refine((d) => !Number.isNaN(new Date(`${d}T00:00:00Z`).getTime()), 'Enter a real date.')
       .refine((d) => d <= latestAllowedDay(now), 'The date can’t be in the future.'),

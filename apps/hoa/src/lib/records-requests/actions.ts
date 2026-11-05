@@ -47,10 +47,10 @@ function invalid(e: z.ZodError): ActionErr {
 const CreateSchema = z.object({
   unitId: z.string().uuid('Pick a home.'),
   kind: z.enum(RECORDS_KIND_VALUES, {
-    errorMap: () => ({ message: 'Choose which records.' }),
+    message: 'Choose which records.',
   }),
-  period: z.enum(['current', 'prior', 'both'], { errorMap: () => ({ message: 'Choose which years.' }) }),
-  format: z.enum(['inspect', 'electronic', 'paper'], { errorMap: () => ({ message: 'Choose a format.' }) }),
+  period: z.enum(['current', 'prior', 'both'], { message: 'Choose which years.' }),
+  format: z.enum(['inspect', 'electronic', 'paper'], { message: 'Choose a format.' }),
   details: z.string().trim().min(10, 'Say which records you need, in a sentence or two.').max(4000),
 })
 

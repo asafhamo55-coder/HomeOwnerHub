@@ -230,7 +230,7 @@ export type CancelAfterCureResult = { ok: true } | { ok: false; error: string; f
 
 const CancelSchema = z.object({
   violationId: z.string().uuid('That violation isn’t valid.'),
-  reason: z.enum(CURE_CANCEL_REASONS, { errorMap: () => ({ message: 'Pick why the hearing is cancelled.' }) }),
+  reason: z.enum(CURE_CANCEL_REASONS, { message: 'Pick why the hearing is cancelled.' }),
 })
 
 export async function cancelHearingAfterCure(input: { violationId: string; reason: string }): Promise<CancelAfterCureResult> {

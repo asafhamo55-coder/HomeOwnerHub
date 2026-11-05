@@ -68,7 +68,7 @@ export interface TicketMessageRow {
 const TicketCategorySchema = z.enum([
   'maintenance', 'noise', 'parking', 'common_area',
   'billing', 'access', 'safety', 'general', 'other',
-], { errorMap: () => ({ message: 'Choose a category.' }) })
+], { message: 'Choose a category.' })
 
 const CreateTicketSchema = z.object({
   unit_id: z.string().uuid('Pick a unit.'),
