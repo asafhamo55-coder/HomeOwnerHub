@@ -52,6 +52,26 @@ describe('matchHome with addresses saved in the standard format', () => {
   })
 })
 
+describe('roster re-import finds a home saved in the standard format (integration fixtures)', () => {
+  it('saves "100 Fixture Lane" as "100 Fixture Ln", so reads back by the saved form', () => {
+    expect(standardAddress('100 Fixture Lane')).toBe('100 Fixture Ln')
+    expect(standardAddress('200 Fixture Lane')).toBe('200 Fixture Ln')
+  })
+
+  it('a re-import typed any way matches the saved row, and a row seeded raw still matches', () => {
+    const saved = buildHomeIndex([
+      { id: 'a', address: standardAddress('100 Fixture Lane'), unit_number: null },
+      { id: 'b', address: standardAddress('200 Fixture Lane'), unit_number: '1' },
+      { id: 'c', address: standardAddress('200 Fixture Lane'), unit_number: '2' },
+    ])
+    expect(matchHome(saved, '100 fixture lane', null)).toEqual({ kind: 'match', propertyId: 'a' })
+    expect(matchHome(saved, '100 Fixture Lane', null)).toEqual({ kind: 'match', propertyId: 'a' })
+    expect(matchHome(saved, '200 Fixture Lane', '2')).toEqual({ kind: 'match', propertyId: 'c' })
+    const seededRaw = buildHomeIndex([{ id: 'r', address: '100 Fixture Lane', unit_number: null }])
+    expect(matchHome(seededRaw, standardAddress('100 fixture lane'), null)).toEqual({ kind: 'match', propertyId: 'r' })
+  })
+})
+
 describe('standardAddress (what is saved)', () => {
   it('formats, and falls back to the trimmed input when nothing is left', () => {
     expect(standardAddress('1234 peachtree street northeast, georgia')).toBe('1234 Peachtree St NE, Georgia')
