@@ -41,9 +41,20 @@ async function world() {
     if (error || !data) throw new Error(`seed charge: ${error?.message}`)
     return data.id
   }
+  // payments_check (0006) needs exactly one of assessment_id / invoice_id, so a
+  // payment with no assessment (the policy's paid_at branch) must carry an invoice.
   const pay = async (unit: string | null, assessmentId: string | null, paidAt: string): Promise<string> => {
+    let invoiceId: string | null = null
+    if (!assessmentId) {
+      const inv = await admin().from('invoices').insert({
+        organization_id: org.orgId, association_id: org.associationId,
+        invoice_number: `INV-${Math.random().toString(36).slice(2, 8)}`, invoice_date: '2026-01-01', amount: 100,
+      }).select('id').single()
+      if (inv.error || !inv.data) throw new Error(`seed invoice: ${inv.error?.message}`)
+      invoiceId = inv.data.id
+    }
     const { data, error } = await admin().from('payments').insert({
-      organization_id: org.orgId, unit_id: unit, assessment_id: assessmentId,
+      organization_id: org.orgId, unit_id: unit, assessment_id: assessmentId, invoice_id: invoiceId,
       amount: 100, payment_method: 'zelle_assisted', paid_at: paidAt,
     }).select('id').single()
     if (error || !data) throw new Error(`seed payment: ${error?.message}`)
