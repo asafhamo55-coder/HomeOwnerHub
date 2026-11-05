@@ -116,7 +116,17 @@ export function supabaseReversalStore(db: Db): ReversalStore {
         p_by: args.by ?? null,
       })
       if (error) {
-        if (error.code === '55000' || error.code === '23514') throw new ReverseRefused(error.code)
+        if (error.code === '55000' || error.code === '23514') {
+          // The RAISE text is fixed wording from migration 0082 (no row values); only the flag leaves here.
+          const msg = (error as { message?: string }).message ?? ''
+          // Tied to the exact RAISE wording in migrations/0082_money_integrity.sql ('books_not_open' from
+          // reverse_online_payment, 'closed_period' from the posting trigger). A reword there silently
+          // drops retries; migration-0082-wording.test.ts fails if the string disappears.
+          // Tied to the exact RAISE wording in migrations/0082_money_integrity.sql ('books_not_open' from
+          // reverse_online_payment, 'closed_period' from the posting trigger). A reword there silently
+          // drops retries; migration-0082-wording.test.ts fails if the string disappears.
+          throw new ReverseRefused(error.code, error.code === '55000' && (msg.includes('books_not_open') || msg.includes('closed_period')))
+        }
         throw fail('reverse_online_payment', error)
       }
       const r = (data ?? {}) as {
@@ -162,7 +172,7 @@ export function supabaseReversalStore(db: Db): ReversalStore {
   }
 }
 
-const logger = (msg: string, meta: Record<string, unknown>) => console.warn(msg, meta)
+const logger = (msg: string, meta: Record<string, unknown>) => (meta.level === 'error' ? console.error(msg, meta) : console.warn(msg, meta))
 
 export function supabaseReversalNotifier(db: Db): ReversalNotifier {
   async function context(attempt: AttemptView): Promise<NoticeContext> {
@@ -197,7 +207,7 @@ export function supabaseReversalNotifier(db: Db): ReversalNotifier {
       }
     },
 
-    async board(attempt, kind, build) {
+    async board(attempt, kind, build, opts) {
       try {
         const notice = build(await context(attempt))
         const members = await fetchBoardMembers(attempt.organizationId, ['board', 'admin'])
@@ -214,6 +224,10 @@ export function supabaseReversalNotifier(db: Db): ReversalNotifier {
             entity_id: attempt.id,
           })
           if (error && error.code !== '23505') logger('[online-payments] alert insert failed', { attemptId: attempt.id, code: error.code ?? null })
+          // emailOnce: email only when the alert row is newly inserted. 23505 means this person already
+          // got it (a retry); any other insert error (already logged above) also skips the email, so a
+          // broken insert cannot turn every Stripe retry into another email.
+          if (opts?.emailOnce && error) continue
           if (m.email) await mail(attempt, m.email, notice, `op-${attempt.id}-${kind}`)
         }
       } catch (err) {

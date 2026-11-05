@@ -27,6 +27,8 @@ import {
   boardDisputeOpened,
   boardDisputeWon,
   boardRefundDone,
+  boardBooksNotOpen,
+  boardRefundFailed,
   residentBankPaymentFailed,
   residentRefund,
   type Notice,
@@ -94,10 +96,15 @@ export interface ReverseOutcome {
   returnedFeeCents: number
 }
 
-/** reverse_online_payment refused. `code` is the SQLSTATE: 55000 nothing left to reverse, 23514 too much. */
+/**
+ * reverse_online_payment refused. `code` is the SQLSTATE: 55000 nothing left to reverse, 23514 too much.
+ * `booksClosed` is true when the 55000 is the books being unable to take an entry right now (no
+ * OPERATING fund, no 1010/1100 account, or no open fiscal period covering today: RAISE text
+ * 'books_not_open', or 'closed_period'). That is temporary, unlike "a refund the books never took".
+ */
 export class ReverseRefused extends Error {
-  constructor(public readonly code: string) {
-    super(`reverse_online_payment refused (${code})`)
+  constructor(public readonly code: string, public readonly booksClosed = false) {
+    super(`reverse_online_payment refused (${code}${booksClosed ? ', books not open' : ''})`)
     this.name = 'ReverseRefused'
   }
 }
@@ -130,11 +137,19 @@ export interface NoticeContext {
   reviewUrl: string
 }
 
+export interface BoardNoticeOptions {
+  /**
+   * Email a board member only when their in-app alert row was newly inserted (the unique index on
+   * user, kind, entity), so a Stripe retry or replay never repeats the email.
+   */
+  emailOnce?: boolean
+}
+
 export interface ReversalNotifier {
   /** Email the home's owners. Best effort; never throws. */
   resident(attempt: AttemptView, build: (ctx: NoticeContext) => Notice): Promise<void>
   /** Email and alert the board. Best effort; never throws. `kind` dedupes the in-app alert. */
-  board(attempt: AttemptView, kind: string, build: (ctx: NoticeContext) => Notice): Promise<void>
+  board(attempt: AttemptView, kind: string, build: (ctx: NoticeContext) => Notice, opts?: BoardNoticeOptions): Promise<void>
 }
 
 export interface ReversalDeps {
@@ -153,8 +168,11 @@ export interface ReversalDeps {
 
 export type ReversalResult =
   | { outcome: 'applied' | 'already_applied' | 'ignored' | 'ignored_stale' | 'unhandled' }
-  /** Attempt not found yet (race with creation). The route should answer 500 so Stripe retries. */
-  | { outcome: 'retry' }
+  /**
+   * Attempt not found yet (race with creation), or the books are not open to take the entry
+   * (`reason: 'books_not_open'`). The route should answer 500 so Stripe retries.
+   */
+  | { outcome: 'retry'; reason?: 'books_not_open' }
   /** The event's connected account is not the attempt's. The route should answer 400 and log the event id. */
   | { outcome: 'rejected_account' }
 
@@ -223,8 +241,8 @@ async function onPaymentFailed(event: ConnectEventLike, deps: ReversalDeps): Pro
     ref: `failed:${piId}`,
     reason: `Bank payment failed (${code})`,
     returnedFeeCents,
-  })
-  if (out.kind !== 'done') return { outcome: out.kind }
+  }, attempt)
+  if (out.kind !== 'done') return reverseStop(out)
   if (out.result.alreadyApplied) return { outcome: 'already_applied' }
 
   const feeApplied = out.result.returnedFeeCents
@@ -293,11 +311,13 @@ async function onChargeRefunded(event: ConnectEventLike, deps: ReversalDeps): Pr
       ref: refund.id,
       cents,
       reason: 'Refund',
-    })
+    }, attempt)
+    if (out.kind === 'retry') return reverseStop(out)
     if (out.kind !== 'done') continue
     if (out.result.alreadyApplied) {
-      // The board's own refund recorded this one already; carry on with fresh totals.
-      current = { ...current, reversedCents: current.reversedCents + cents }
+      // Recorded already (the board's own refund, or an earlier delivery of this event). `current`
+      // came from a fresh read of the attempt, so its reversedCents already includes it: adding
+      // `cents` again would double-count and cap the next refund short.
       continue
     }
     applied = true
@@ -332,15 +352,21 @@ async function onRefundUpdated(event: ConnectEventLike, deps: ReversalDeps): Pro
   if (attempt.postedAt === null) return { outcome: 'ignored' }
 
   if (failedLate) {
-    const undone = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'refund_failed', ref: refundId, reason: 'Refund failed' })
-    if (undone.kind !== 'done') return { outcome: undone.kind }
-    return { outcome: undone.result.alreadyApplied ? 'already_applied' : 'applied' }
+    const undone = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'refund_failed', ref: refundId, reason: 'Refund failed' }, attempt)
+    if (undone.kind !== 'done') return reverseStop(undone)
+    if (undone.result.alreadyApplied) return { outcome: 'already_applied' }
+    // TODO(resident copy): do not email the resident about a failed refund until the wording is reviewed.
+    await deps.notifier.board(attempt, 'online_payment_refund_failed', (ctx) =>
+      boardRefundFailed({ refundedCents: amount, reviewUrl: ctx.reviewUrl }),
+      { emailOnce: true },
+    )
+    return { outcome: 'applied' }
   }
 
   const cents = ledgerCentsForStripeRefund(amount, attempt.postedCents, attempt.reversedCents)
   if (cents <= 0) return { outcome: 'already_applied' }
-  const out = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'refund', ref: refundId, cents, reason: 'Refund' })
-  if (out.kind !== 'done') return { outcome: out.kind }
+  const out = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'refund', ref: refundId, cents, reason: 'Refund' }, attempt)
+  if (out.kind !== 'done') return reverseStop(out)
   if (out.result.alreadyApplied) return { outcome: 'already_applied' }
   const full = isFullRefund({ refundCents: cents, postedCents: attempt.postedCents, reversedCents: attempt.reversedCents })
   await notifyRefund(deps, attempt, out.result.reversedCents, full, out.result.shortCents)
@@ -395,8 +421,8 @@ async function onDisputeClosed(event: ConnectEventLike, deps: ReversalDeps): Pro
   const amount = int(d.amount) ?? attempt.totalCents
 
   if (status === 'lost') {
-    const out = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'dispute_lost', ref: disputeId, reason: 'Dispute lost' })
-    if (out.kind !== 'done') return { outcome: out.kind }
+    const out = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'dispute_lost', ref: disputeId, reason: 'Dispute lost' }, attempt)
+    if (out.kind !== 'done') return reverseStop(out)
     if (out.result.alreadyApplied) return { outcome: 'already_applied' }
     await deps.notifier.board(attempt, 'online_payment_dispute_lost', (ctx) =>
       boardDisputeLost({ amountCents: amount, shortCents: out.result.shortCents, reviewUrl: ctx.reviewUrl }),
@@ -404,8 +430,8 @@ async function onDisputeClosed(event: ConnectEventLike, deps: ReversalDeps): Pro
     return { outcome: 'applied' }
   }
   if (status === 'won' || status === 'warning_closed') {
-    const out = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'dispute_won', ref: disputeId, reason: 'Dispute won' })
-    if (out.kind !== 'done') return { outcome: out.kind }
+    const out = await reverseOrIgnore(deps, { attemptId: attempt.id, kind: 'dispute_won', ref: disputeId, reason: 'Dispute won' }, attempt)
+    if (out.kind !== 'done') return reverseStop(out)
     if (out.result.alreadyApplied) return { outcome: 'already_applied' }
     await deps.notifier.board(attempt, 'online_payment_dispute_won', () => boardDisputeWon({ amountCents: amount }))
     return { outcome: 'applied' }
@@ -416,21 +442,46 @@ async function onDisputeClosed(event: ConnectEventLike, deps: ReversalDeps): Pro
 // ── shared ─────────────────────────────────────────────────────────────
 
 type ReverseArgs = Parameters<ReversalStore['reverse']>[0]
+type ReverseTry = { kind: 'done'; result: ReverseOutcome } | { kind: 'ignored' } | { kind: 'retry'; reason: 'books_not_open' }
+
+/** The webhook result for a reverse attempt that did not complete. */
+function reverseStop(out: Exclude<ReverseTry, { kind: 'done' }>): ReversalResult {
+  return out.kind === 'retry' ? { outcome: 'retry', reason: out.reason } : { outcome: 'ignored' }
+}
 
 /**
  * 55000 (nothing left to reverse, or wrong state) and 23514 (more than is
  * left) mean the books already reflect this event or cannot take it: log the
- * ids and move on instead of failing the webhook forever. Any other error
- * throws so Stripe redelivers.
+ * ids and move on instead of failing the webhook forever.
+ *
+ * Exception: 55000 with books_not_open (no fund or account, or no open fiscal
+ * period covering today) is temporary. Ignoring it would drop a refund, a
+ * failed refund or a dispute for good, because Stripe never redelivers a 200.
+ * It returns 'retry' so the webhook answers non-2xx. Stripe retries for up to
+ * 3 days, so a board must open the period within that window; the board is
+ * told by the books_not_open notice below. This applies to every kind that
+ * shares this path (failed, refund, refund_failed, dispute_lost, dispute_won),
+ * since each needs a journal entry or must not be lost. Any other error throws
+ * so Stripe redelivers.
  */
-async function reverseOrIgnore(
-  deps: ReversalDeps,
-  args: ReverseArgs,
-): Promise<{ kind: 'done'; result: ReverseOutcome } | { kind: 'ignored' }> {
+async function reverseOrIgnore(deps: ReversalDeps, args: ReverseArgs, attempt: AttemptView): Promise<ReverseTry> {
   try {
     return { kind: 'done', result: await deps.store.reverse(args) }
   } catch (err) {
     if (err instanceof ReverseRefused && (err.code === '55000' || err.code === '23514')) {
+      if (err.booksClosed) {
+        deps.log?.('[online-payments] ERROR reversal held, books not open; Stripe will retry', {
+          level: 'error',
+          attemptId: args.attemptId,
+          refundId: args.kind === 'refund' || args.kind === 'refund_failed' ? args.ref : null,
+          ref: args.ref,
+          kind: args.kind,
+          code: err.code,
+        })
+        // One in-app alert and one email per person per payment: emailOnce keys off the notifications dedupe index.
+        await deps.notifier.board(attempt, `online_payment_books_not_open:${args.kind}:${args.ref}`, () => boardBooksNotOpen({ amountCents: args.cents }), { emailOnce: true }).catch(() => {})
+        return { kind: 'retry', reason: 'books_not_open' }
+      }
       deps.log?.('[online-payments] reversal not applied', { attemptId: args.attemptId, kind: args.kind, code: err.code })
       return { kind: 'ignored' }
     }
