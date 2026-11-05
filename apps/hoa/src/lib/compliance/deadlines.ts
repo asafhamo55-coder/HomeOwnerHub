@@ -53,6 +53,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { resolveSigningSecret } from '../signing-secret'
 
 export const COMPLIANCE_ACK_KEY = 'compliance_deadline_acks'
 const SIGNATURE_DOMAIN = 'compliance-deadline-ack:v1'
@@ -390,7 +391,7 @@ export interface ComplianceAck {
  * paySettingsSecret(); repeated because packages/jobs imports this file.
  */
 export function complianceAckSecret(env: Record<string, string | undefined> = process.env): string | null {
-  return env.PAY_SETTINGS_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
+  return resolveSigningSecret('PAY_SETTINGS_SECRET', env)
 }
 
 export function isKnownDeadlineCode(code: unknown): code is string {

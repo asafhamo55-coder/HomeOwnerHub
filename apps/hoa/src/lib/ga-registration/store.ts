@@ -15,6 +15,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { resolveSigningSecret } from '../signing-secret'
 import {
   EMPTY_GA_REGISTRATION,
   GA_REGISTRATION_KEY,
@@ -42,7 +43,7 @@ export type GaRegistrationRead =
 
 /** Same server-only chain as paySettingsSecret(); repeated because packages/jobs imports this file. */
 export function gaRegistrationSecret(env: Record<string, string | undefined> = process.env): string | null {
-  return env.PAY_SETTINGS_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SECRET_KEY || null
+  return resolveSigningSecret('PAY_SETTINGS_SECRET', env)
 }
 
 function payload(associationId: string, r: GaRegistrationRecord, updatedAt: string, updatedBy: string | null): string {

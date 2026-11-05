@@ -43,7 +43,8 @@ vi.mock('@supabase/ssr', () => ({
   })),
 }))
 
-import { resetSessionCapWarningForTests, sessionCapSecret, updateSession } from './middleware'
+import { sessionCapSecret, updateSession } from './middleware'
+import { resetSigningSecretLogForTests } from '@/lib/signing-secret'
 
 const SECRET = 'test-secret'
 const req = (path = '/dues', cookie?: string) => {
@@ -59,6 +60,7 @@ beforeEach(() => {
   h.user = { id: 'user-1' }
   h.accessToken = 'header.payload.sig'
   h.calls = { getUser: 0, getClaims: 0, signOut: 0 }
+  resetSigningSecretLogForTests()
 })
 
 describe('updateSession (BL-074: no auth-server round trip per request)', () => {
@@ -109,33 +111,55 @@ describe('updateSession (BL-074: no auth-server round trip per request)', () => 
   })
 })
 
-// BL-175a M4: the service-role fallback is kept (switching would sign every
-// user out) but is logged once in production, never with a value.
+describe('updateSession with SESSION_CAP_SECRET missing in production (fails closed for the cap only)', () => {
+  it('ends the session instead of throwing: expired, revoked, no service-key stamping', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    delete process.env.SESSION_CAP_SECRET
+    vi.stubEnv('VERCEL_ENV', 'production')
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'srk-value')
+    try {
+      const res = await updateSession(req())
+      expect(res.sessionExpired).toBe(true)
+      expect(h.calls.signOut).toBe(1)
+      expect(res.response.cookies.get(SESSION_STAMP_COOKIE)).toBeUndefined()
+      expect(JSON.stringify(err.mock.calls)).not.toContain('srk-value')
+    } finally {
+      vi.unstubAllEnvs()
+      err.mockRestore()
+    }
+  })
+
+  it('a signed-out visitor is unaffected (no secret needed)', async () => {
+    h.claims = null
+    vi.stubEnv('VERCEL_ENV', 'production')
+    delete process.env.SESSION_CAP_SECRET
+    try {
+      const res = await updateSession(req())
+      expect(res.user).toBeNull()
+      expect(res.sessionExpired).toBe(false)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+})
+
+// Production never falls back to the service-role key; dev and test keep it.
 describe('sessionCapSecret fallback', () => {
-  beforeEach(() => resetSessionCapWarningForTests())
+  beforeEach(() => resetSigningSecretLogForTests())
 
-  it('prefers SESSION_CAP_SECRET without warning', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('prefers SESSION_CAP_SECRET', () => {
     expect(sessionCapSecret({ SESSION_CAP_SECRET: 'dedicated', SUPABASE_SERVICE_ROLE_KEY: 'srk', VERCEL_ENV: 'production' })).toBe('dedicated')
-    expect(warn).not.toHaveBeenCalled()
-    warn.mockRestore()
   })
 
-  it('falls back silently outside production', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('falls back outside production', () => {
     expect(sessionCapSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'preview' })).toBe('srk-value')
-    expect(warn).not.toHaveBeenCalled()
-    warn.mockRestore()
   })
 
-  it('falls back in production, warning exactly once and never logging the value', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const env = { SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' }
-    expect(sessionCapSecret(env)).toBe('srk-value')
-    expect(sessionCapSecret(env)).toBe('srk-value')
-    expect(warn).toHaveBeenCalledTimes(1)
-    expect(String(warn.mock.calls[0][0])).toContain('SESSION_CAP_SECRET')
-    expect(JSON.stringify(warn.mock.calls)).not.toContain('srk-value')
-    warn.mockRestore()
+  it('throws and logs the name, never the value, in production without the dedicated secret', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(() => sessionCapSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' })).toThrow(/SESSION_CAP_SECRET/)
+    expect(String(err.mock.calls[0][0])).toContain('SESSION_CAP_SECRET')
+    expect(JSON.stringify(err.mock.calls)).not.toContain('srk-value')
+    err.mockRestore()
   })
 })

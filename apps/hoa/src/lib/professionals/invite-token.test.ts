@@ -28,15 +28,15 @@ describe('verifyInvite', () => {
 
 describe('inviteSecret', () => {
   it('uses PRO_INVITE_SECRET when it is long enough', () => {
-    expect(inviteSecret({ PRO_INVITE_SECRET: SECRET, NODE_ENV: 'production' })).toBe(SECRET)
+    expect(inviteSecret({ PRO_INVITE_SECRET: SECRET, VERCEL_ENV: 'production' })).toBe(SECRET)
   })
   it('fails closed in production: no fallback to the service role or the pay secret', () => {
-    expect(inviteSecret({ NODE_ENV: 'production', SUPABASE_SERVICE_ROLE_KEY: 'srk', PAY_SETTINGS_SECRET: 'pay' })).toBeNull()
-    expect(inviteSecret({ NODE_ENV: 'production', PRO_INVITE_SECRET: 'too-short' })).toBeNull()
+    expect(inviteSecret({ VERCEL_ENV: 'production', SUPABASE_SERVICE_ROLE_KEY: 'srk', PAY_SETTINGS_SECRET: 'pay' })).toBeNull()
+    expect(inviteSecret({ VERCEL_ENV: 'production', PRO_INVITE_SECRET: 'too-short' })).toBeNull()
   })
   it('falls back outside production so local runs need no setup', () => {
-    expect(inviteSecret({ NODE_ENV: 'development', SUPABASE_SERVICE_ROLE_KEY: 'srk' })).toBe('srk')
-    expect(inviteSecret({ NODE_ENV: 'test' })).toBeNull()
+    expect(inviteSecret({ VERCEL_ENV: 'development', SUPABASE_SERVICE_ROLE_KEY: 'srk' })).toBe('srk')
+    expect(inviteSecret({ VERCEL_ENV: 'preview' })).toBeNull()
   })
 })
 

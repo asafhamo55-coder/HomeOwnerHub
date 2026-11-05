@@ -180,19 +180,19 @@ describe('payLinesFor', () => {
 })
 
 describe('SEC-N7: secret fallback and rotation', () => {
-  it('prefers PAY_SETTINGS_SECRET; falls back to the service-role key, warning once in production without the value', async () => {
+  it('prefers PAY_SETTINGS_SECRET; falls back outside production; returns null (never throws) in production without it', async () => {
     const mod = await import('./pay-by-zelle')
-    mod.resetPaySettingsWarningForTests()
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { resetSigningSecretLogForTests } = await import('./signing-secret')
+    resetSigningSecretLogForTests()
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(mod.paySettingsSecret({ PAY_SETTINGS_SECRET: 'dedicated', SUPABASE_SERVICE_ROLE_KEY: 'srk', VERCEL_ENV: 'production' })).toBe('dedicated')
-    expect(warn).not.toHaveBeenCalled()
+    expect(err).not.toHaveBeenCalled()
     expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'preview' })).toBe('srk-value')
-    expect(warn).not.toHaveBeenCalled()
-    expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' })).toBe('srk-value')
-    expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' })).toBe('srk-value')
-    expect(warn).toHaveBeenCalledTimes(1)
-    expect(JSON.stringify(warn.mock.calls)).not.toContain('srk-value')
-    warn.mockRestore()
+    expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' })).toBeNull()
+    expect(mod.paySettingsSecret({ SUPABASE_SERVICE_ROLE_KEY: 'srk-value', VERCEL_ENV: 'production' })).toBeNull()
+    expect(err).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(err.mock.calls)).not.toContain('srk-value')
+    err.mockRestore()
   })
 
   it('a Zelle setup signed with the previous secret still verifies during a rotation; an unknown key does not', async () => {

@@ -57,11 +57,9 @@ this file is the reference it points to.
 - Stripe test mode, never run yet.
 - Asaf: OA-40 payout bank, Connect setup, `STRIPE_CONNECT_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 - Known code gaps:
-  - Saved methods use `on_session`, but autopay charges off session.
-  - An autopay timeout can leave an attempt with no PaymentIntent.
+  - Fixed, verified 2026-11-05: saved methods use `off_session` (4f1b1a3f), a timed-out autopay attempt is reconciled against Stripe with the same idempotency key (e8484aa3, 9af41a67), and the notice names the earliest due date (e8484aa3). Tests: `packages/jobs/src/autopay/autopay.test.ts`, `apps/hoa/src/app/resident/dues/methods/actions.test.ts`.
   - A refund failing after the ledger reversal: fixed 2026-11-05 (0082 applied + M16 on); failed or canceled refunds are booked back.
   - Before M8 goes live (from the M16 review): (B1) `reverse_online_payment` raises 55000 for both "refund never booked" and `books_not_open`, and `reverseOrIgnore` swallows both, so a failed refund arriving while no period is open is never restored. Return `retry` for books_not_open, or give it its own errcode. (B2) Failed refunds notify nobody: add at least a board notice.
-  - The autopay notice date uses the latest due date, not the first.
 
 **Before M10 (voting):** a lawyer on Georgia § 14-3-708 electronic ballots and secrecy wording. Small ballots can reveal a vote.
 
