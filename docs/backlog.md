@@ -1104,6 +1104,8 @@ These go beyond the design-system v2 pass:
 
 ## Ranked open work (groomed 2026-10-20)
 
+- **Align the payments sale window's time zone (low, needs a migration).** `payments_select` (0064) hardcodes `America/New_York` for unapplied payments; the app uses the association's zone. GA, FL and most launch states are Eastern. Pinned by `tests/integration/security/sale-window-rls.test.ts`.
+
 **How this was groomed:** every item not already marked Done was checked against `git log --grep=BL-NNN` and the code, and now carries a "Groomed 2026-10-20" line with the commit. 72 items were classified:
 
 | Class | Count | Items |
