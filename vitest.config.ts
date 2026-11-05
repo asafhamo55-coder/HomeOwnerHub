@@ -36,6 +36,10 @@ export default defineConfig({
       'tests/stripe-sandbox/lib/**/*.test.ts',
     ],
     environment: 'node',
+    // Mirrors production: the apps import this for side effects
+    // (instrumentation.ts, lib/api/parse.ts), so tests see the same
+    // plain-language zod messages.
+    setupFiles: ['apps/hoa/src/lib/zod-messages.ts'],
     // Clear call history before every test.
     //
     // Without this, a file that resets only some of its mocks in beforeEach

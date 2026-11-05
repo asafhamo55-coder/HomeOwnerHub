@@ -3,6 +3,7 @@
 // calendar dates before they can reach a Postgres `date` column (C-11).
 
 import { z } from 'zod'
+import '../zod-messages'
 import { MAX_SHORT_TEXT } from './limits'
 
 /** Trimmed string with a mandatory upper bound. */

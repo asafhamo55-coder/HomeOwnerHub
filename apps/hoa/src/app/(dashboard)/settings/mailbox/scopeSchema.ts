@@ -46,7 +46,7 @@ export const ScopeSchema = z
 
     if (!data.scopeValue) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['scopeValue'],
         message: 'Pick an address or a label for this scope.',
       })
@@ -60,7 +60,7 @@ export const ScopeSchema = z
     // discovered later when buildScopeQuery throws during a sync.
     if (data.scopeMode === 'address' && !ADDRESS_RE.test(data.scopeValue)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['scopeValue'],
         message: 'Enter a single valid email address for this scope.',
       })
@@ -68,7 +68,7 @@ export const ScopeSchema = z
 
     if (data.scopeMode === 'label' && !LABEL_RE.test(data.scopeValue)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['scopeValue'],
         message: 'Pick a valid Gmail label for this scope.',
       })

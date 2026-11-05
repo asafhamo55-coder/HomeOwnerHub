@@ -76,5 +76,12 @@
     "vitest": "^3.2.7",
     "yaml": "^2.8.4",
     "zod": "^4.6.7"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "openai>zod": "4"
+      }
+    }
   }
 }

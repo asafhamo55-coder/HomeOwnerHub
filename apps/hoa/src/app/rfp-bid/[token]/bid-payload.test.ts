@@ -63,13 +63,13 @@ describe('describeIssues', () => {
         message: 'Some fields are missing or invalid.',
         issues: [
           { path: 'line_items.1.unit_price', message: 'Use at most two decimal places.' },
-          { path: 'payment_terms', message: 'String must contain at most 500 character(s)' },
+          { path: 'payment_terms', message: 'Must be at most 500 characters.' },
         ],
       },
     }
     expect(describeIssues(body, [0, 2])).toEqual([
       'Line item 3 unit price: Use at most two decimal places.',
-      'Payment terms: String must contain at most 500 character(s)',
+      'Payment terms: Must be at most 500 characters.',
     ])
   })
 
