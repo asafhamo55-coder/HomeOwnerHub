@@ -431,7 +431,7 @@ export default async function ViolationDetailPage({
                   approval, have no letter yet.
                 </p>
               )}
-              {mailedLoad && !mailedLoad.ok ? (
+              {mailingAvailable() && mailedLoad && !mailedLoad.ok ? (
                 <Alert variant="warning" title="Couldn’t check the mailing status" className="mt-4 print:hidden">
                   Reload the page before mailing this notice, so it is not sent twice.
                 </Alert>

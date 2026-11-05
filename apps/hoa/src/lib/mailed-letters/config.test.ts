@@ -14,6 +14,9 @@ describe('mailingAvailable', () => {
   it('is false with a provider but no pricing', () => {
     expect(mailingAvailable({ NODE_ENV: 'development', MAIL_PROVIDER: 'fake' })).toBe(false)
   })
+  it('is false when MAIL_PRICING_JSON is malformed', () => {
+    expect(mailingAvailable({ NODE_ENV: 'development', MAIL_PROVIDER: 'fake', MAIL_PRICING_JSON: '{bad' })).toBe(false)
+  })
   it('is true only with pricing and a wired provider (fake, outside production)', () => {
     expect(mailingAvailable({ NODE_ENV: 'development', MAIL_PROVIDER: 'fake', MAIL_PRICING_JSON: PRICING })).toBe(true)
   })
