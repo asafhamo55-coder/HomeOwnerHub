@@ -34,15 +34,17 @@ import { ChoosePasswordPrompt } from '@/components/auth/ChoosePasswordPrompt'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
 import { articlesFor, drawerData, articleHref } from '@/lib/guide'
 import { latestBoardWhatsNewId } from '@/lib/guide/whats-new'
+import { getSignedInFirstName } from '@/lib/guide/signed-in-first-name'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [supabase, user] = await Promise.all([getSupabaseServerClient(), getSignedInUser()])
   if (!user) redirect('/login')
 
-  const [org, userHubs, hoaOrgs] = await Promise.all([
+  const [org, userHubs, hoaOrgs, firstName] = await Promise.all([
     getCurrentOrg(),
     getUserHubs(),
     getUserHoaOrgs(),
+    getSignedInFirstName(user.id),
   ])
 
   // No HOA membership at all. Two cases:
@@ -127,7 +129,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <RoleSwitcherMount placement="toolbar" />
               </div>
               {role === 'admin' && <PlatformAdminLink />}
-              <HelpDrawer data={drawerData(role)} />
+              <HelpDrawer data={drawerData(role)} firstName={firstName} />
               <CopilotTrigger />
               {/* Wrapped in Suspense so two extra queries on the shared
                   dashboard chrome cannot delay first paint of the page

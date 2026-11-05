@@ -9,6 +9,7 @@ import { matchRouteTemplate } from '@/lib/guide/routes'
 import type { DrawerArticle, DrawerData } from '@/lib/guide'
 import { OPEN_HELP_EVENT, type OpenHelpDetail } from '@/lib/guide/open-help'
 import { trackHelp } from '@/lib/guide/track'
+import { helpGreeting } from '@/lib/guide/first-name'
 import { AskGuide } from './AskGuide'
 import { GuideBlocks } from './GuideContent'
 
@@ -31,7 +32,17 @@ function isTypingTarget(el: EventTarget | null): boolean {
  * `openHelp()` (lib/guide/open-help.ts) opens it on one article — the setup
  * checklist's "How?" links — or with a question to ask (⌘K).
  */
-export function HelpDrawer({ data, variant = 'board' }: { data: DrawerData; variant?: 'board' | 'resident' }) {
+export function HelpDrawer({
+  data,
+  variant = 'board',
+  firstName,
+}: {
+  data: DrawerData
+  variant?: 'board' | 'resident'
+  /** The signed-in user's first name; the sheet and board trigger greet them by it. */
+  firstName?: string | null
+}) {
+  const greeting = helpGreeting(firstName)
   const pathname = usePathname()
   const [open, setOpenState] = useState(false)
   const [focus, setFocus] = useState<OpenHelpDetail | null>(null)
@@ -109,16 +120,19 @@ export function HelpDrawer({ data, variant = 'board' }: { data: DrawerData; vari
         ) : (
           <button
             type="button"
-            aria-label="Help for this page"
+            aria-label={greeting ? `${greeting}, help for this page` : 'Help for this page'}
             title="Help for this page (?)"
             className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm coarse:min-h-11 font-medium text-foreground-secondary transition-colors duration-fast hover:bg-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <CircleHelp className="size-4 shrink-0" aria-hidden />
-            <span>Help</span>
+            <span className="max-w-[9rem] truncate">{greeting ?? 'Help'}</span>
           </button>
         )}
       </SheetTrigger>
-      <SheetContent title="Help for this page" description="Short how-tos from the HomeownerHub guide." side="right" width="md">
+      <SheetContent
+        title={greeting ? <span className="block break-words">{greeting}</span> : 'Help for this page'}
+        description={greeting ? 'Help for this page, from the HomeownerHub guide.' : 'Short how-tos from the HomeownerHub guide.'}
+        side="right" width="md">
         <div className="space-y-6">
           {focused ? (
             <section aria-labelledby="help-focused" className="space-y-2">

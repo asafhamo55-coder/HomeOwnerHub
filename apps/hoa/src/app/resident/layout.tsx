@@ -14,6 +14,8 @@ import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
 import { HelpDrawer } from '@/components/guide/HelpDrawer'
 import { drawerData } from '@/lib/guide'
+import { firstNameOf } from '@/lib/guide/first-name'
+import { getSignedInFirstName } from '@/lib/guide/signed-in-first-name'
 import { SkipLink } from '@homeowner-portal/ui'
 import { ChoosePasswordPrompt } from '@/components/auth/ChoosePasswordPrompt'
 
@@ -47,6 +49,8 @@ export default async function ResidentLayout({
   if (!org) redirect('/onboarding')
   if (!actorResult.ok) throw actorResult.error
   const actor = actorResult.actor
+  // Not fetched while impersonating; otherwise runs alongside the role check.
+  const ownFirstNameP = actor.impersonating ? Promise.resolve(null) : getSignedInFirstName(user.id)
 
   if (!actor.impersonating) {
     const effectiveRole = await getEffectiveRoleInOrg(org.id)
@@ -57,6 +61,8 @@ export default async function ResidentLayout({
   }
 
   const impersonation = actor.impersonating ? await getImpersonationTarget() : null
+  // Viewing as a resident greets that resident; otherwise the signed-in user.
+  const firstName = actor.impersonating ? firstNameOf(impersonation?.name) : await ownFirstNameP
   const userEmail = actor.impersonating ? actor.email ?? '' : user.email ?? ''
 
   return (
@@ -75,7 +81,7 @@ export default async function ResidentLayout({
       <ResidentTopBar
         orgName={org.name}
         userEmail={userEmail}
-        help={<HelpDrawer variant="resident" data={drawerData('resident')} />}
+        help={<HelpDrawer variant="resident" data={drawerData('resident')} firstName={firstName} />}
       />
 
       <main id="main" tabIndex={-1} className="mx-auto focus:outline-none w-full max-w-2xl flex-1 px-4 pb-10 pt-5 sm:pt-8 print:max-w-none print:p-0">

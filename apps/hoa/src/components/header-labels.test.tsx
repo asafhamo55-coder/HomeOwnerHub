@@ -27,7 +27,8 @@ describe('header controls stay readable at large text and narrow widths', () => 
 
   it('Help is never hidden behind a width breakpoint', () => {
     const src = read('apps/hoa/src/components/guide/HelpDrawer.tsx')
-    expect(src).toMatch(/<span>Help<\/span>/)
+    // The label is the greeting when a name exists, else "Help"; always visible.
+    expect(src).toContain("{greeting ?? 'Help'}")
     expect(src).not.toMatch(/hidden bar-lg:inline">Help/)
   })
 
