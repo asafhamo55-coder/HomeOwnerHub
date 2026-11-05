@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { Page } from '@homeowner-portal/ui'
 import { getPropertyDetail } from '@/lib/properties'
 import { EditPropertyForm } from './EditPropertyForm'
+import { formatAddressLine } from '@/lib/properties/address-format'
 
 export const metadata = { title: 'Edit property' }
 
@@ -25,7 +26,7 @@ export default async function EditPropertyPage({
       description="Changes apply to the property record. Residents and tenure are managed on the property itself."
       breadcrumbs={[
         { label: 'Properties', href: '/properties' },
-        { label: p.address, href: propertyHref(asPropertyId(id)) },
+        { label: formatAddressLine(p.address), href: propertyHref(asPropertyId(id)) },
         { label: 'Edit' },
       ]}
       linkAs={Link}

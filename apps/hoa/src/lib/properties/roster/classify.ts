@@ -15,7 +15,7 @@
  * once for the whole file by previewRosterMatches.
  */
 import { AMBIGUOUS_HOME_REASON, type ExistingHomeMode } from '../import'
-import { normalizeAddress } from '../normalize-address'
+import { addressKey } from '../normalize-address'
 import { normalizeUnit, type HomeMatch } from '../match-home'
 import type { RosterRow, RosterRowInput } from './rows'
 
@@ -43,7 +43,7 @@ export interface RosterSummary {
 }
 
 export function homeKey(address: string, unit: string | null): string {
-  return `${normalizeAddress(address)}|${normalizeUnit(unit)}`
+  return `${addressKey(address)}|${normalizeUnit(unit)}`
 }
 
 const ownerKey = (r: Pick<RosterRow, 'ownerEmail' | 'ownerName'>): string | null =>

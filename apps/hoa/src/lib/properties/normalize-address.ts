@@ -3,15 +3,16 @@
  *
  * `packages/jobs` imports this module DIRECTLY over a relative path
  * (`../../../apps/hoa/src/lib/...`), compiling it under its OWN tsconfig
- * rather than the `hoa` app's. Four files are shared this way:
+ * rather than the `hoa` app's. Five files are shared this way:
  *
  *   apps/hoa/src/lib/inbox/ingest.ts
  *   apps/hoa/src/lib/inbox/match.ts
  *   apps/hoa/src/lib/properties/resolve.ts
  *   apps/hoa/src/lib/properties/normalize-address.ts
+ *   apps/hoa/src/lib/properties/address-format.ts
  *
  * That only works because every import in them that leaves this set of
- * four is `import type` — fully erased by TypeScript, so there is no
+ * five is `import type` — fully erased by TypeScript, so there is no
  * runtime dependency for the jobs package to resolve. Therefore, in this
  * file:
  *
@@ -51,6 +52,8 @@
  *   3. collapse whitespace
  *   4. rewrite a trailing street type to its short form
  */
+
+import { formatAddressLine } from './address-format'
 
 // Long form → short form. Short forms map to themselves so that an
 // already-short input is idempotent.
@@ -102,4 +105,20 @@ export function normalizeAddress(raw: string | null | undefined): string {
   if (short) parts[parts.length - 1] = short
 
   return parts.join(' ')
+}
+
+/**
+ * The key two addresses are compared by: the standard format first
+ * (lib/properties/address-format.ts), then normalizeAddress.
+ *
+ * New rows are saved in the standard format ("123 Main St NE") while older
+ * rows and incoming text (an email, a CSV, CINC) can still say "123 Main
+ * Street Northeast". normalizeAddress alone only folds the trailing street
+ * type, so those two would stop matching. Passing BOTH sides through this
+ * function makes them agree. Use it for every runtime address comparison;
+ * it is a superset of normalizeAddress (anything that matched before still
+ * matches). The SQL twin is only used by the one-off bridge backfill.
+ */
+export function addressKey(raw: string | null | undefined): string {
+  return normalizeAddress(formatAddressLine(raw))
 }

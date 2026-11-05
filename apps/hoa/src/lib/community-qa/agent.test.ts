@@ -18,7 +18,7 @@ const SECRET = 'relation "hoa_properties" violates key (owner_email)=(pat@exampl
 /** A query chain that resolves to one fixed `{ data, error }`. */
 function fixedDb(result: { data: unknown; error: unknown; count?: number | null }) {
   const q: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'order', 'limit', 'range']) q[m] = () => q
+  for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'or', 'order', 'limit', 'range']) q[m] = () => q
   q.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve)
   return { from: () => q } as never
 }
@@ -137,7 +137,7 @@ describe('askCommunity tool errors', () => {
       from: () => {
         let page = 0
         const q: Record<string, unknown> = {}
-        for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'order', 'limit']) q[m] = () => q
+        for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'or', 'order', 'limit']) q[m] = () => q
         q.range = (from: number) => ((page = from), q)
         q.then = (resolve: (v: unknown) => unknown) =>
           Promise.resolve({ data: page === 0 ? [pii] : [], error: null, count: 1 }).then(resolve)

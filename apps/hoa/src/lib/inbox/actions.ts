@@ -74,7 +74,8 @@ import type { PostgrestError } from '@supabase/supabase-js'
 import type { Json } from '@homeowner-portal/db/types'
 import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { escapeLikePattern, getPropertyRef, type PropertyRef } from '@/lib/properties/resolve'
+import { getPropertyRef, type PropertyRef } from '@/lib/properties/resolve'
+import { addressOrFilter } from '@/lib/properties/address-search'
 import { LINK_TYPES, writeThreadLink } from './links'
 
 export interface InboxActionState {
@@ -389,7 +390,7 @@ export async function searchProperties(
     .from('units')
     .select('id, address_line1, unit_number')
     .eq('organization_id', org.id)
-    .ilike('address_line1', `%${escapeLikePattern(trimmed)}%`)
+    .or(addressOrFilter('address_line1', trimmed) ?? 'id.is.null')
     .order('address_line1')
     .limit(20)
 

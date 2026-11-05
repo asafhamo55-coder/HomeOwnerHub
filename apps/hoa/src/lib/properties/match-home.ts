@@ -14,7 +14,7 @@
  * Pure; shared by the import core (lib/properties/import.ts) and the
  * board import's dry run, so the preview and the write agree.
  */
-import { normalizeAddress } from './normalize-address'
+import { addressKey } from './normalize-address'
 
 export type HomeMatch = { kind: 'none' } | { kind: 'match'; propertyId: string } | { kind: 'ambiguous' }
 
@@ -45,7 +45,7 @@ export function buildHomeIndex(
   const index: HomeIndex = {
     byAddress,
     remember(id, address, unit) {
-      const key = normalizeAddress(address)
+      const key = addressKey(address)
       if (!key) return
       byAddress.set(key, [...(byAddress.get(key) ?? []), { id, unit: normalizeUnit(unit) }])
     },
@@ -62,7 +62,7 @@ export function buildHomeIndex(
 }
 
 export function matchHome(index: HomeIndex, address: string, unit: string | null | undefined): HomeMatch {
-  const hits = index.byAddress.get(normalizeAddress(address)) ?? []
+  const hits = index.byAddress.get(addressKey(address)) ?? []
   if (hits.length === 0) return { kind: 'none' }
   const u = normalizeUnit(unit)
   if (u) {

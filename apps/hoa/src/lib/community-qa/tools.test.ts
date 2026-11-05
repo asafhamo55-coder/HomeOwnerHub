@@ -37,7 +37,7 @@ const violations = Array.from({ length: 1300 }, (_, i) => ({
 /** A query chain that resolves to one fixed `{ data, error }` whatever is asked. */
 function fixedDb(result: { data: unknown; error: unknown }) {
   const q: Record<string, unknown> = {}
-  for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'order', 'limit']) q[m] = () => q
+  for (const m of ['select', 'eq', 'neq', 'is', 'lt', 'ilike', 'or', 'order', 'limit']) q[m] = () => q
   q.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve)
   return { from: () => q }
 }

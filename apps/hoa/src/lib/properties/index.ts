@@ -11,6 +11,7 @@ import { todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import { chooseAssociation, createLot, deleteLot, updateLot } from './lot'
 import { asPropertyId } from './resolve'
+import { standardAddress } from './address-format'
 import { propertyHref } from './href'
 import {
   listResidents,
@@ -83,7 +84,7 @@ export async function createProperty(
   const created = await createLot(supabase, {
     orgId,
     associationId: assoc.data.associationId,
-    address: parsed.data.address,
+    address: standardAddress(parsed.data.address),
     unitNumber: emptyToNull(parsed.data.unit_number),
     owner: {
       name: emptyToNull(parsed.data.owner_name),
@@ -172,7 +173,7 @@ export async function updateProperty(
     orgId,
     propertyId: pid,
     patch: {
-      address: parsed.data.address,
+      address: parsed.data.address === undefined ? undefined : standardAddress(parsed.data.address),
       unitNumber: parsed.data.unit_number,
       ownerName: parsed.data.owner_name,
       ownerEmail: parsed.data.owner_email,

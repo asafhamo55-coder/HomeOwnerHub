@@ -5,6 +5,7 @@ import { csvDocument } from '@/lib/csv'
 import { readPropertyRows, type PropertyRecordRow } from '@/lib/properties/list'
 import { parsePropertyListParams } from '@/lib/properties/list-params'
 import { matchesFilter, sortPropertyRows } from '@/lib/properties/list-view'
+import { formatAddressLine } from '@/lib/properties/address-format'
 
 // CSV export of the properties list, scoped to the current user's org
 // via RLS (the server client carries their session; the list view is
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
   const body = csvDocument(
     header,
     rows.map((r) => [
-      r.address,
+      formatAddressLine(r.address),
       r.unitNumber ?? '',
       r.ownerName ?? '',
       r.ownerEmail ?? '',
