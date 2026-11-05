@@ -124,7 +124,23 @@ const STATES: Record<string, string> = {
 const STATE_CODES = new Set([...Object.values(STATES), 'AA', 'AE', 'AP'])
 
 /** Words that stay capitalised when the whole address was typed in caps. */
-const KEEP_UPPER = new Set(['PO', 'RR', 'HC', 'USA'])
+const KEEP_UPPER = new Set(['PO', 'RR', 'HC', 'USA', 'MLK', 'JFK', 'FDR', 'PGA', 'UGA', 'TVA'])
+
+/** Names with a capital inside, restored when the input is all caps or all lowercase. */
+const KNOWN_CASED: Record<string, string> = {
+  dekalb: 'DeKalb', desoto: 'DeSoto', deleon: 'DeLeon', lagrange: 'LaGrange', macarthur: 'MacArthur',
+  macdonald: 'MacDonald', macdougall: 'MacDougall', macgregor: 'MacGregor', mackenzie: 'MacKenzie',
+}
+
+/** Lowercase inside a name unless it comes first ("Avenue of the Americas"). */
+const SMALL_WORDS = new Set(['of', 'the', 'and'])
+
+/** Road-route prefixes: "GA-400", "US-41", and "SR 9" when a number follows. */
+const ROUTE_WORDS = new Set(['sr', 'us', 'ga', 'cr', 'fm', 'i', 'ih', 'nc', 'sc'])
+const ROUTE_WITH_NUMBER = /^(ga|us|sr|cr|fm|i|ih|nc|sc)-\d+[a-z]?$/i
+
+/** A 2-3 letter all-caps word with no vowel is an acronym ("MLK"), not a shout. */
+const isAcronym = (w: string): boolean => /^[A-Z]{2,3}$/.test(w) && !/[AEIOU]/.test(w) && !['JR', 'SR', 'MR', 'MS', 'ST', 'DR'].includes(w)
 
 // ─── Small helpers ───────────────────────────────────────────────────
 
@@ -139,6 +155,8 @@ function caseWord(word: string, shouting: boolean): string {
   if (!hasLetter(word)) return word
   const upper = word.toUpperCase()
   if (KEEP_UPPER.has(upper.replace(/\./g, ''))) return upper.replace(/\./g, '')
+  if (ROUTE_WITH_NUMBER.test(word)) return upper
+  if (word === upper && isAcronym(word)) return word
   const ordinal = /^(\d+)(st|nd|rd|th)$/i.exec(word)
   if (ordinal) return `${ordinal[1]}${ordinal[2].toLowerCase()}`
   if (/^\d/.test(word)) {
@@ -151,8 +169,11 @@ function caseWord(word: string, shouting: boolean): string {
   if (hasLower(word) && word !== word.toLowerCase()) return word
   if (!shouting && word === upper && word !== word.toLowerCase()) return word
   const lower = word.toLowerCase()
+  const known = KNOWN_CASED[lower]
+  if (known) return known
   // Capital after a hyphen, a slash, or a one-letter apostrophe prefix (O'Neil).
   return lower
+    .replace(/^mc([a-z]{3,})$/, (_m, rest: string) => `Mc${rest.charAt(0).toUpperCase()}${rest.slice(1)}`)
     .replace(/(^|[-/])([a-z])/g, (_m, p: string, c: string) => p + c.toUpperCase())
     .replace(/^([A-Za-z])'([a-z])/,(_m, a: string, b: string) => `${a.toUpperCase()}'${b.toUpperCase()}`)
 }
@@ -160,7 +181,7 @@ function caseWord(word: string, shouting: boolean): string {
 function caseWords(text: string, shouting: boolean): string {
   return squish(text)
     .split(' ')
-    .map((w) => caseWord(w, shouting))
+    .map((w, i) => (i > 0 && SMALL_WORDS.has(w.toLowerCase()) ? w.toLowerCase() : caseWord(w, shouting)))
     .join(' ')
 }
 
@@ -188,6 +209,9 @@ export function formatUnit(raw: string | null | undefined): string {
   if (hash) return `#${formatUnitId(hash[1])}`
   const words = text.split(' ')
   const designator = UNIT_DESIGNATORS[key(words[0])]
+  if (designator && words.length === 2 && words[1].startsWith('#') && words[1].length > 1) {
+    return `${designator} ${formatUnitId(words[1].slice(1))}`
+  }
   if (designator && words.length === 2) return `${designator} ${formatUnitId(words[1])}`
   if (designator && words.length > 2 && words[1] === '#') return `${designator} ${formatUnitId(words.slice(2).join(' '))}`
   if (words.length === 1 && /^[a-z0-9-]{1,5}$/i.test(text) && /\d/.test(text)) return `#${formatUnitId(text)}`
@@ -196,8 +220,17 @@ export function formatUnit(raw: string | null | undefined): string {
 
 /** Splits an inline unit off a street line: "12 Main St Apt 5" gives the unit "Apt 5". */
 function splitInlineUnit(words: string[]): { street: string[]; unit: string | null } {
-  // "# 5" / "#5" at the end.
   const last = words[words.length - 1]
+  // "Apt #4" and "Apt # 4": the designator and the number are one unit.
+  if (words.length >= 4 && last?.startsWith('#') && last.length > 1) {
+    const des = UNIT_DESIGNATORS[key(words[words.length - 2])]
+    if (des) return { street: words.slice(0, -2), unit: `${des} ${formatUnitId(last.slice(1))}` }
+  }
+  if (words.length >= 5 && words[words.length - 2] === '#') {
+    const des = UNIT_DESIGNATORS[key(words[words.length - 3])]
+    if (des) return { street: words.slice(0, -3), unit: `${des} ${formatUnitId(last)}` }
+  }
+  // "# 5" / "#5" at the end.
   if (words.length >= 3 && last?.startsWith('#') && last.length > 1) {
     return { street: words.slice(0, -1), unit: formatUnit(last) }
   }
@@ -231,7 +264,10 @@ function formatStreetWords(words: string[], shouting: boolean): string[] {
   // Street suffix, with at least one name word before it.
   let suffixAt = -1
   const sfx = SUFFIXES[key(out[end - 1] ?? '')]
-  if (sfx && end - 1 > start) {
+  // "The Lake" is a name, not "The" + a suffix: a suffix word that is the only
+  // name word after "The" stays as typed.
+  const onlyAfterThe = end - 1 === start + 1 && key(out[start] ?? '') === 'the'
+  if (sfx && end - 1 > start && !onlyAfterThe) {
     out[end - 1] = sfx
     suffixAt = end - 1
   }
@@ -247,7 +283,14 @@ function formatStreetWords(words: string[], shouting: boolean): string[] {
 
   for (let i = 0; i < end; i += 1) {
     if (i === suffixAt || i === predirAt) continue
-    out[i] = caseWord(out[i].replace(/[,]+$/, ''), shouting)
+    const w = out[i].replace(/[,]+$/, '')
+    if (i > start && SMALL_WORDS.has(w.toLowerCase())) {
+      out[i] = w.toLowerCase()
+    } else if (ROUTE_WORDS.has(key(w)) && /^\d/.test(out[i + 1] ?? '')) {
+      out[i] = w.replace(/\./g, '').toUpperCase()
+    } else {
+      out[i] = caseWord(w, shouting)
+    }
   }
   if (postdir) out[end] = postdir
   return out
@@ -374,7 +417,11 @@ export function formatAddress(raw: string | null | undefined): AddressParts {
     const rest = zipMatch ? last.slice(0, last.length - zipMatch[1].length).trim() : last
     const words = rest ? rest.split(' ') : []
     const st = words.length ? trailingState(words) : null
-    if (st && (zipMatch || st.used === words.length)) {
+    // With no ZIP, a lone last segment is a state only when it is a typed
+    // 2-letter capital code after a street and a city. "Washington", "In" and
+    // "Or" are more likely a city or a word than a state.
+    const loneState = st && !zipMatch && st.used === words.length && words.length === 1 && segments.length >= 3 && /^[A-Z]{2}$/.test(words[0])
+    if (st && (zipMatch || loneState)) {
       // "<city> <state> <zip>", "<state> <zip>" or "<state>" in the last segment.
       state = st.state
       if (zipMatch) zip = formatZip(zipMatch[1])

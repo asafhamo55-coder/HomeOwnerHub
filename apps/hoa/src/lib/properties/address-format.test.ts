@@ -68,6 +68,36 @@ describe('formatStreet', () => {
   })
 })
 
+describe('review fixes', () => {
+  it.each([
+    ['123 Main St Apt #4', '123 Main St, Apt 4'],
+    ['123 Main St Unit #4', '123 Main St, Unit 4'],
+    ['123 Main St Apt # 4', '123 Main St, Apt 4'],
+    ['123 Main St, Apt #4', '123 Main St, Apt 4'],
+    ['123 Main St #4', '123 Main St, #4'],
+    ['123 Main St # 4', '123 Main St, #4'],
+    ['14 DEKALB INDUSTRIAL WAY', '14 DeKalb Industrial Way'],
+    ['14 dekalb way', '14 DeKalb Way'],
+    ['14 MCDONALD STREET', '14 McDonald St'],
+    ['14 MACARTHUR BLVD', '14 MacArthur Blvd'],
+    ['14 MACON ROAD', '14 Macon Rd'],
+    ['500 MLK JR DRIVE', '500 MLK Jr Dr'],
+    ['12 GA-400 SERVICE ROAD', '12 GA-400 Service Rd'],
+    ['12 us-41', '12 US-41'],
+    ['9 sr 9', '9 SR 9'],
+    ['75 I-75 Frontage Road', '75 I-75 Frontage Rd'],
+    ['3 Avenue of the Americas', '3 Avenue of the Americas'],
+    ['3 AVENUE OF THE AMERICAS', '3 Avenue of the Americas'],
+    ['100 The Lake', '100 The Lake'],
+    ['100 THE LAKE', '100 The Lake'],
+    ['100 Lake', '100 Lake'],
+    ['100 Blue Lake', '100 Blue Lk'],
+  ])('%s -> %s', (input, out) => {
+    expect(formatAddressLine(input)).toBe(out)
+    expect(formatAddressLine(out)).toBe(out)
+  })
+})
+
 describe('formatUnit', () => {
   it.each([
     ['apartment 5', 'Apt 5'],
@@ -117,7 +147,14 @@ describe('formatAddressLine', () => {
     ['105 Springwood Pkwy, Atlanta GA 30067', '105 Springwood Pkwy, Atlanta, GA 30067'],
     ['105 Springwood Pkwy, Atlanta, GA, 30067', '105 Springwood Pkwy, Atlanta, GA 30067'],
     ['105 Springwood Pkwy, Atlanta, GA 300671234', '105 Springwood Pkwy, Atlanta, GA 30067-1234'],
-    ['105 Springwood Pkwy, Atlanta, Georgia', '105 Springwood Pkwy, Atlanta, GA'],
+    // A lone tail with no ZIP is a state only as a typed 2-letter code after street and city.
+    ['105 Springwood Pkwy, Atlanta, Georgia', '105 Springwood Pkwy, Atlanta, Georgia'],
+    ['105 Springwood Pkwy, Atlanta, GA', '105 Springwood Pkwy, Atlanta, GA'],
+    ['105 Springwood Pkwy, Atlanta, ga', '105 Springwood Pkwy, Atlanta, Ga'],
+    ['123 Main St, Washington', '123 Main St, Washington'],
+    ['123 Main St, In', '123 Main St, In'],
+    ['123 Main St, Or', '123 Main St, Or'],
+    ['123 Main St, Salem, OR', '123 Main St, Salem, OR'],
     ['105 Springwood Pkwy, Atlanta', '105 Springwood Pkwy, Atlanta'],
     ['105 Springwood Pkwy, Marietta, North Carolina 28101', '105 Springwood Pkwy, Marietta, NC 28101'],
     ['105 Springwood Pkwy', '105 Springwood Pkwy'],
@@ -135,9 +172,9 @@ describe('formatAddressLine', () => {
   })
 
   it('keeps unrecognized parts as typed', () => {
-    expect(formatAddressLine('Lot 4 Behind The Mill')).toBe('Lot 4 Behind The Mill')
+    expect(formatAddressLine('Lot 4 Behind The Mill')).toBe('Lot 4 Behind the Mill')
     expect(formatAddressLine('12 Elm St, Building C, Smalltown')).toBe('12 Elm St, Bldg C, Smalltown')
-    expect(formatAddressLine('12 Elm St, Behind The Mill, Smalltown')).toBe('12 Elm St, Behind The Mill, Smalltown')
+    expect(formatAddressLine('12 Elm St, Behind The Mill, Smalltown')).toBe('12 Elm St, Behind the Mill, Smalltown')
   })
 })
 

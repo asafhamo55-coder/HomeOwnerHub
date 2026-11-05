@@ -75,7 +75,7 @@ export function PropertyPhotoView({
         ) : null}
       </div>
       {showImage && state === 'loaded' ? (
-        <figcaption className="mt-1 text-xs text-muted">Image: Google Street View</figcaption>
+        <figcaption className="mt-1 text-sm text-foreground-secondary">Image: Google Street View</figcaption>
       ) : null}
     </figure>
   )

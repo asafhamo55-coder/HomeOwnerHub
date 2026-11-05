@@ -188,17 +188,30 @@ describe('GET /api/properties/:id/photo', () => {
     expect(logged).not.toContain('Peachtree')
   })
 
-  it('503 when Google is unreachable or answers an error status', async () => {
+  it('503 when Google is unreachable or answers an error status, each with a one-minute private cache', async () => {
+    const check = async () => {
+      const res = await call()
+      expect(res.status).toBe(503)
+      expect(res.headers.get('cache-control')).toBe('private, max-age=60')
+    }
     throwOn = 'metadata'
-    expect((await call()).status).toBe(503)
+    await check()
     throwOn = 'image'
-    expect((await call()).status).toBe(503)
+    await check()
     throwOn = null
     metaHttp = 500
-    expect((await call()).status).toBe(503)
+    await check()
     metaHttp = 200
     imageStatus = 500
-    expect((await call()).status).toBe(503)
+    await check()
+    imageStatus = 200
+    metaStatus = 'OVER_QUERY_LIMIT'
+    await check()
+  })
+
+  it('404 misses are cached an hour, privately', async () => {
+    metaStatus = 'ZERO_RESULTS'
+    expect((await call()).headers.get('cache-control')).toBe('private, max-age=3600')
   })
 
   it('500 envelope, no raw text, when the property read fails', async () => {

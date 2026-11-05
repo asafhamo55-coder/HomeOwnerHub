@@ -54,7 +54,7 @@ describe('matchHome with addresses saved in the standard format', () => {
 
 describe('standardAddress (what is saved)', () => {
   it('formats, and falls back to the trimmed input when nothing is left', () => {
-    expect(standardAddress('1234 peachtree street northeast, georgia')).toBe('1234 Peachtree St NE, GA')
+    expect(standardAddress('1234 peachtree street northeast, georgia')).toBe('1234 Peachtree St NE, Georgia')
     expect(standardAddress('  ,,  ')).toBe(',,')
     expect(standardAddress(standardAddress('105 SPRINGWOOD PARKWAY, ATLANTA, GA 30067'))).toBe('105 Springwood Pkwy, Atlanta, GA 30067')
   })

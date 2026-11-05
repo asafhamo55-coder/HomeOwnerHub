@@ -14,6 +14,7 @@ import { queryGoverningDocs } from '@homeowner-portal/workflows/W1'
 import { askStateLaw, isStateLoaded, stateNotLoadedMessage, STATE_LAW_NAMES } from '@homeowner-portal/workflows/W30'
 import { redactContactPII } from '@homeowner-portal/ai/pii'
 import { readAll } from '@/lib/supabase/read-all'
+import { addressOrFilter } from '@/lib/properties/address-search'
 import { calendarDaysBetween, todayIn } from '@/lib/association-time'
 import { orgTimeZone } from '@/lib/association-time-server'
 import type { ContactVault } from './contact-placeholders'
@@ -221,7 +222,7 @@ const getUnitOwner: Tool = {
       .select('id, address, owner_name, owner_email, owner_phone, tenure')
       .eq('org_id', orgId)
       .is('deleted_at', null)
-      .ilike('address', `%${addr.replace(/[%_\\]/g, '\\$&')}%`)
+      .or(addressOrFilter('address', addr) ?? 'id.is.null')
       .limit(5)
     if (error) throw new ToolFailure('lookup_failed', error)
     if (!properties || properties.length === 0) return { matches: [] }

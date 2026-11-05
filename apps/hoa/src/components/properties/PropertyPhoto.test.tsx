@@ -34,6 +34,13 @@ describe('PropertyPhoto', () => {
     expect(view('failed')).not.toContain('Image: Google Street View')
   })
 
+  it('sets the credit in readable text for older users', () => {
+    const html = view('loaded')
+    expect(html).toMatch(/<figcaption[^>]*text-sm[^>]*>Image: Google Street View/)
+    expect(html).not.toMatch(/<figcaption[^>]*text-xs/)
+    expect(html).not.toMatch(/<figcaption[^>]*text-muted/)
+  })
+
   it('falls back to a neutral house placeholder on error, with no img element', () => {
     const html = view('failed')
     expect(html).not.toContain('<img')

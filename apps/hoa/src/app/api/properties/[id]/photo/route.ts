@@ -40,6 +40,11 @@ const CACHE_MISS = 'private, max-age=3600'
 
 const notFound = () => apiError('not_found', 'No picture is available for this home.', undefined, { 'Cache-Control': CACHE_MISS })
 
+// A short private cache, so a Google outage or a refused key is not retried on
+// every page view (each retry is another call to Google).
+const upstreamDown = () =>
+  new ApiRouteError('upstream_unavailable', undefined, undefined, { 'Cache-Control': 'private, max-age=60' })
+
 interface PropertyRow {
   address: string | null
 }
@@ -97,19 +102,19 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     meta = await fetch(urls.metadata, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
   } catch (err) {
     logRouteFailure('properties.photo.metadata', err, { orgId, propertyId })
-    throw new ApiRouteError('upstream_unavailable')
+    throw upstreamDown()
   }
   if (!meta.ok) {
     logRouteFailure('properties.photo.metadata', { code: String(meta.status) }, { orgId, propertyId })
-    throw new ApiRouteError('upstream_unavailable')
+    throw upstreamDown()
   }
   const status = z.object({ status: z.string() }).safeParse(await meta.json().catch(() => null))
-  if (!status.success) throw new ApiRouteError('upstream_unavailable')
+  if (!status.success) throw upstreamDown()
   if (status.data.status === 'ZERO_RESULTS' || status.data.status === 'NOT_FOUND') return notFound()
   if (status.data.status !== 'OK') {
     // REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST, UNKNOWN_ERROR: a code, never Google's text.
     logRouteFailure('properties.photo.metadata', { code: status.data.status }, { orgId, propertyId })
-    throw new ApiRouteError('upstream_unavailable')
+    throw upstreamDown()
   }
 
   // 2. The picture (billed by Google), passed straight through.
@@ -118,13 +123,13 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     image = await fetch(urls.image, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
   } catch (err) {
     logRouteFailure('properties.photo.image', err, { orgId, propertyId })
-    throw new ApiRouteError('upstream_unavailable')
+    throw upstreamDown()
   }
   if (image.status === 404) return notFound()
   const type = image.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
   if (!image.ok || !image.body || !type.startsWith('image/')) {
     logRouteFailure('properties.photo.image', { code: String(image.status) }, { orgId, propertyId })
-    throw new ApiRouteError('upstream_unavailable')
+    throw upstreamDown()
   }
 
   return new Response(image.body, {
