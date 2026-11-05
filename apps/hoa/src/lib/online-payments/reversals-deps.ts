@@ -122,9 +122,6 @@ export function supabaseReversalStore(db: Db): ReversalStore {
           // Tied to the exact RAISE wording in migrations/0082_money_integrity.sql ('books_not_open' from
           // reverse_online_payment, 'closed_period' from the posting trigger). A reword there silently
           // drops retries; migration-0082-wording.test.ts fails if the string disappears.
-          // Tied to the exact RAISE wording in migrations/0082_money_integrity.sql ('books_not_open' from
-          // reverse_online_payment, 'closed_period' from the posting trigger). A reword there silently
-          // drops retries; migration-0082-wording.test.ts fails if the string disappears.
           throw new ReverseRefused(error.code, error.code === '55000' && (msg.includes('books_not_open') || msg.includes('closed_period')))
         }
         throw fail('reverse_online_payment', error)
