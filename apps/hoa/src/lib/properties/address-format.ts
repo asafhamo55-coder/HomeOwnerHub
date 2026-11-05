@@ -417,10 +417,11 @@ export function formatAddress(raw: string | null | undefined): AddressParts {
     const rest = zipMatch ? last.slice(0, last.length - zipMatch[1].length).trim() : last
     const words = rest ? rest.split(' ') : []
     const st = words.length ? trailingState(words) : null
-    // With no ZIP, a lone last segment is a state only when it is a typed
-    // 2-letter capital code after a street and a city. "Washington", "In" and
-    // "Or" are more likely a city or a word than a state.
-    const loneState = st && !zipMatch && st.used === words.length && words.length === 1 && segments.length >= 3 && /^[A-Z]{2}$/.test(words[0])
+    // With no ZIP, a lone last segment is a state only after a street AND a
+    // city (3 or more segments): a full name ("Georgia") or a 2-letter code in
+    // any case ("ga") becomes the code. With just two segments it stays as
+    // typed, since "Washington", "In" and "Or" are more likely a city or a word.
+    const loneState = st && !zipMatch && st.used === words.length && segments.length >= 3
     if (st && (zipMatch || loneState)) {
       // "<city> <state> <zip>", "<state> <zip>" or "<state>" in the last segment.
       state = st.state

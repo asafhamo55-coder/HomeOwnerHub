@@ -147,10 +147,17 @@ describe('formatAddressLine', () => {
     ['105 Springwood Pkwy, Atlanta GA 30067', '105 Springwood Pkwy, Atlanta, GA 30067'],
     ['105 Springwood Pkwy, Atlanta, GA, 30067', '105 Springwood Pkwy, Atlanta, GA 30067'],
     ['105 Springwood Pkwy, Atlanta, GA 300671234', '105 Springwood Pkwy, Atlanta, GA 30067-1234'],
-    // A lone tail with no ZIP is a state only as a typed 2-letter code after street and city.
-    ['105 Springwood Pkwy, Atlanta, Georgia', '105 Springwood Pkwy, Atlanta, Georgia'],
+    // With no ZIP, a lone last segment is a state (name or code, any case) only with 3 or more segments.
+    ['105 Springwood Pkwy, Atlanta, Georgia', '105 Springwood Pkwy, Atlanta, GA'],
     ['105 Springwood Pkwy, Atlanta, GA', '105 Springwood Pkwy, Atlanta, GA'],
-    ['105 Springwood Pkwy, Atlanta, ga', '105 Springwood Pkwy, Atlanta, Ga'],
+    ['105 Springwood Pkwy, Atlanta, ga', '105 Springwood Pkwy, Atlanta, GA'],
+    ['1 Main St, Atlanta, Georgia', '1 Main St, Atlanta, GA'],
+    ['1 Main St, Seattle, washington', '1 Main St, Seattle, WA'],
+    ['1 Main St, Salem, Or', '1 Main St, Salem, OR'],
+    ['1 Main St, Raleigh, north carolina', '1 Main St, Raleigh, NC'],
+    ['1 Main St, Atlanta, Narnia', '1 Main St, Atlanta, Narnia'],
+    ['1 Main St, Atlanta, xx', '1 Main St, Atlanta, Xx'],
+    ['Atlanta, Georgia', 'Atlanta, Georgia'],
     ['123 Main St, Washington', '123 Main St, Washington'],
     ['123 Main St, In', '123 Main St, In'],
     ['123 Main St, Or', '123 Main St, Or'],
@@ -238,5 +245,26 @@ describe('idempotence and junk', () => {
   })
   it('leaves junk as typed, trimmed', () => {
     expect(formatAddressLine('  !@# $%^  ')).toBe('!@# $%^')
+  })
+})
+
+describe('state polish: lone last segment after street and city', () => {
+  const inputs = [
+    '1 Main St, Atlanta, Georgia',
+    '1 Main St, Atlanta, ga',
+    '1 Main St, Salem, Or',
+    '1 Main St, Raleigh, north carolina',
+    '1 Main St, Apt 5, Atlanta, georgia',
+    '123 Main St, Washington',
+    '123 Main St, In',
+  ]
+  it.each(inputs)('is idempotent: %s', (input) => {
+    const once = formatAddressLine(input)
+    expect(formatAddressLine(once)).toBe(once)
+  })
+  it('puts the state in its own part for 3+ segments only', () => {
+    expect(formatAddress('1 Main St, Atlanta, Georgia')).toMatchObject({ city: 'Atlanta', state: 'GA', zip: '' })
+    expect(formatAddress('123 Main St, Washington').state).toBe('')
+    expect(formatAddressLines('1 Main St, Atlanta, ga')).toEqual(['1 Main St', 'Atlanta, GA'])
   })
 })
