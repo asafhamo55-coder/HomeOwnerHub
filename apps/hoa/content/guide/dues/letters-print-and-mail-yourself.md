@@ -27,7 +27,7 @@ HomeownerHub writes the letter and the board approves it, but it does not mail a
 ### A violation letter
 1. Report the violation and approve the letter. See [report a violation](guide:violations-report-and-letter).
 2. Open the violation. The approved letter is under **Notice as sent**.
-3. Copy the text into a document, or use your browser's Print command on the page. Mail it yourself.
+3. Select the text in the **Notice as sent** box and copy it. Paste it into a document, print it from there and mail it yourself. The page has no print button yet.
 
 ## What happens next
 - Printing a collections letter records it on the collections case, dated the day it prints.

@@ -15,7 +15,7 @@ You can book the shared places in your community from your phone: the clubhouse,
 
 ## Steps
 1. On **Home**, tap [[Community]], then [[Book a space]].
-2. Step 1: tap the space you want. Each one shows its hours, its longest booking and whether the board confirms it.
+2. Step 1: tap the space you want. If your community has only one space, you start at the calendar. Each space shows its hours, its longest booking and whether the board confirms it.
 3. Step 2: pick a day on the calendar. Days with a solid border have free times. Crossed out days are full, closed or not open yet. Tap [[Earlier month]] or [[Later month]] to move around. If you have more than one home, pick it under **Which home is this for?**.
 4. Step 3: tap a start time. Times that are taken say "Booked". Then tap **How long?** and pick how many hours.
 5. Tap [[Next: check my booking]]. Step 4 shows one plain sentence, like "Clubhouse, Saturday, November 8, 2:00 pm to 4:00 pm".
