@@ -155,7 +155,7 @@ describe('deliveryErrorCode', () => {
     expect(deliveryErrorCode('sms', 'Non White-listed Destination')).toBe('sms_provider_error')
     expect(deliveryErrorCode('email', OUTBOUND_BLOCKED_ERROR)).toBe('outbound_blocked')
     expect(deliveryErrorCode('email', 'EMAIL_FROM is not configured.')).toBe('email_not_configured')
-    expect(deliveryErrorCode('sms', 'VONAGE_FROM_NUMBER is not configured.')).toBe('sms_not_configured')
+    expect(deliveryErrorCode('sms', 'TWILIO_MESSAGING_SERVICE_SID is not configured.')).toBe('sms_not_configured')
   })
 })
 

@@ -1,19 +1,16 @@
 import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 import { sha256Hex } from './sms-consent'
-import { applyStart, applyStop, classifyKeyword, isNewerPortalRevoke, verifyVonageSignedWebhook } from './sms-inbound'
+import { applyStart, applyStop, classifyKeyword, isNewerPortalRevoke, verifyTwilioSignature } from './sms-inbound'
 import { fakeSupabase, hasEq, type Recorded } from '@/lib/test-utils/fake-supabase'
 
 vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
 
 // BL-111: inbound STOP / START / HELP. No real SMS, no real database.
 
-function signVonageJwt(secret: string, claims: Record<string, unknown>, alg = 'HS256'): string {
-  const enc = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
-  const h = enc({ alg, typ: 'JWT' })
-  const p = enc(claims)
-  const sig = createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url')
-  return `${h}.${p}.${sig}`
+function twilioSignature(token: string, url: string, params: Array<[string, string]>): string {
+  const data = [...params].sort((x, y) => (x[0] < y[0] ? -1 : 1)).reduce((acc, [k, v]) => acc + k + v, url)
+  return createHmac('sha1', token).update(data, 'utf8').digest('base64')
 }
 
 describe('classifyKeyword', () => {
@@ -27,34 +24,52 @@ describe('classifyKeyword', () => {
   })
 })
 
-describe('verifyVonageSignedWebhook', () => {
-  const secret = 'sig-secret'
-  const body = '{"text":"STOP"}'
-  const now = 1_800_000_000
-  const good = signVonageJwt(secret, { iat: now - 10, payload_hash: sha256Hex(body), api_key: 'key-1' })
-  const check = (authorization: string | null, rawBody = body, apiKey: string | null = 'key-1') =>
-    verifyVonageSignedWebhook({ authorization, rawBody, secret, nowSeconds: now, apiKey })
+describe('verifyTwilioSignature', () => {
+  const token = 'auth-token'
+  const url = 'https://www.homeownerledger.com/api/webhooks/twilio/inbound'
+  const params: Array<[string, string]> = [
+    ['MessageSid', 'SM123'],
+    ['Body', 'STOP'],
+    ['From', '+14045551234'],
+  ]
+  const good = twilioSignature(token, url, params)
+  const check = (signature: string | null, over: Partial<{ url: string; params: Array<[string, string]>; authToken: string }> = {}) =>
+    verifyTwilioSignature({ signature, url, params, authToken: token, ...over })
 
-  it('accepts a correctly signed request for these exact bytes', () => {
-    expect(check(`Bearer ${good}`)).toEqual({ ok: true })
+  it('accepts a correctly signed request, whatever order the fields arrive in', () => {
+    expect(check(good)).toEqual({ ok: true })
+    expect(check(good, { params: [...params].reverse() })).toEqual({ ok: true })
   })
-  it('refuses unsigned, wrong secret, wrong alg, tampered body, wrong api key, stale', () => {
+  it('repeated field names are ordered by value, like Twilio\'s reference implementation', () => {
+    const rep: Array<[string, string]> = [['To', 'b'], ['MediaUrl', 'z'], ['MediaUrl', 'a'], ['To', 'a']]
+    // name then value: MediaUrl a, MediaUrl z, To a, To b
+    const sig = twilioSignature(token, url, [['MediaUrl', 'a'], ['MediaUrl', 'z'], ['To', 'a'], ['To', 'b']])
+    expect(check(sig, { params: rep })).toEqual({ ok: true })
+    expect(check(sig, { params: [...rep].reverse() })).toEqual({ ok: true })
+  })
+  it('refuses a missing or empty header', () => {
     expect(check(null)).toEqual({ ok: false, reason: 'missing_signature' })
-    expect(check('Basic abc')).toEqual({ ok: false, reason: 'missing_signature' })
-    expect(check(`Bearer ${signVonageJwt('other', { iat: now, payload_hash: sha256Hex(body) })}`).ok).toBe(false)
-    expect(check(`Bearer ${signVonageJwt(secret, { iat: now, payload_hash: sha256Hex(body) }, 'none')}`).ok).toBe(false)
-    expect(check(`Bearer ${good}`, '{"text":"START"}')).toEqual({ ok: false, reason: 'payload_mismatch' })
-    expect(check(`Bearer ${good}`, body, 'key-2').ok).toBe(false)
-    const stale = signVonageJwt(secret, { iat: now - 2 * 86400, payload_hash: sha256Hex(body) })
-    expect(check(`Bearer ${stale}`)).toEqual({ ok: false, reason: 'expired' })
-    const noHash = signVonageJwt(secret, { iat: now, api_key: 'key-1' })
-    expect(check(`Bearer ${noHash}`)).toEqual({ ok: false, reason: 'payload_mismatch' })
+    expect(check('  ')).toEqual({ ok: false, reason: 'missing_signature' })
+  })
+  it('refuses a tampered param, a changed value, an extra param, the wrong URL or the wrong token', () => {
+    expect(check(good, { params: [['MessageSid', 'SM123'], ['Body', 'START'], ['From', '+14045551234']] })).toEqual({
+      ok: false,
+      reason: 'invalid_signature',
+    })
+    expect(check(good, { params: [...params, ['Extra', 'x']] }).ok).toBe(false)
+    expect(check(good, { url: 'https://evil.example/api/webhooks/twilio/inbound' }).ok).toBe(false)
+    expect(check(good, { url: url + '?x=1' }).ok).toBe(false)
+    expect(check(good, { authToken: 'other' }).ok).toBe(false)
+  })
+  it('refuses garbage that is not base64 of the right length', () => {
+    expect(check('not-a-signature').ok).toBe(false)
+    expect(check(good.slice(0, 10)).ok).toBe(false)
   })
 })
 
 // ─── applyStop / applyStart against a recording fake ────────────────
 
-const FROM = '14045551234' // Vonage sends digits only
+const FROM = '+14045551234' // Twilio sends E.164 with a +
 const HASH = sha256Hex('+14045551234')
 const NOW = new Date('2026-10-20T15:00:00Z')
 
@@ -142,7 +157,7 @@ describe('applyStop', () => {
     expect(intl.queries).toHaveLength(0)
   })
 
-  it('a failed write throws (the route answers 500 so Vonage retries) and logs no number', async () => {
+  it('a failed write throws (the route answers 500 so Twilio retries) and logs no number', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { client } = harness({ grants: [{ id: 'g1', org_id: 'org-1', user_id: 'u-1' }], failOn: 'resident_communication_preferences.update' })
     await expect(applyStop(client as never, { fromRaw: FROM, messageId: 'm', keyword: 'STOP', now: NOW })).rejects.toMatchObject({ code: 'internal' })

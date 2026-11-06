@@ -13,11 +13,11 @@ Base: local branch claude/quality-oracle at 4a27813a. Method: each open-looking 
 | 5 | BL-037 | Reserve fund tracking | No reserve feature: only `accounting/coa/FundsCard.tsx` and the estoppel certificate mention reserves | 4 | yes, new flag / no | new `apps/hoa/src/app/(dashboard)/accounting/reserves/`, migration | B2 |
 | 6 | BL-033 | Law-to-bylaw findings report (FL phase 1) | No `bylaw findings` code in `apps` or `packages` (grep returns nothing) | 4 | yes / no | `packages/workflows/src/`, new route and page under `apps/hoa/src/app/(dashboard)/documents` | E |
 | 7 | BL-030 | Per-state violation procedure engine beyond hearings | Hearing rules cover only the fine-hearing steps (`apps/hoa/src/lib/violation-hearings/rules.ts`, FL 720.305); no FL notice-and-cure engine | 4 | yes / no | `apps/hoa/src/lib/violation-hearings/`, `apps/hoa/src/lib/violations.ts` | F |
-| 8 | B8 / BL-026 | SMS live | Code built (`apps/hoa/src/lib/sms*.ts`); Vonage sign-up blocked (`docs/owner-actions.md:93`, OA-11) | 0 | no / **yes** | none until keys | none |
+| 8 | B8 / BL-026 | SMS live | Code built (`apps/hoa/src/lib/sms*.ts`); previous SMS provider rejected, replaced by Twilio (`docs/owner-actions.md:93`, OA-11) | 0 | no / **yes** | none until keys | none |
 | 9 | Site-1 | Real product screenshots in marketing once a demo login exists | `next.md` §00 next-work item 3 | 2 | no / **yes** (demo login, screenshots) | `apps/marketing/src/` | G |
 | 10 | Site-2 | Restyle `/states/*` pages | Only `apps/marketing/src/app/states/[state]/` and `page.tsx` there; next.md says they were not restyled | 2 | no / no | `apps/marketing/src/app/states/` | G2 |
 | 11 | Site-3 | Ask demo click-through to the cited section | next.md item 3; no `AskDemo` in `apps/marketing/src` | 2 | no (needs an app anchor feature first) / no | `apps/marketing/src/`, `apps/hoa/src/app/(dashboard)/documents` | G3 |
-| 12 | Voice | Voice calls | Gap analysis row "Voice calls: Missing" (`docs/decisions/2026-10-31-payhoa-gap-analysis.md`) | 4 | yes / yes (Vonage) | new | none, blocked by #8 |
+| 12 | Voice | Voice calls | Gap analysis row "Voice calls: Missing" (`docs/decisions/2026-10-31-payhoa-gap-analysis.md`) | 4 | yes / yes (Twilio) | new | none, blocked by #8 |
 | 13 | Lockbox | Lockbox deposits | Gap analysis "Lockbox: Missing" | 5 | yes / yes | new | none, low value |
 | 14 | BL-040 | Native app shell | Apps are `eviction hoa marketing pm`; PWA only | 5 | no / yes (store accounts) | new `apps/` | none |
 | 15 | OA | Pending owner decisions: OA-40, OA-41, OA-42, OA-43, OA-32 (comments were due Nov 2) | `next.md` §00 "Waiting on Asaf" | n/a | n/a / yes | docs only | none |

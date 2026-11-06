@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
  * front of a person must route through outbound-guard.ts. This scans
  * source as text and fails when:
  *
- *   1. a provider SDK (Resend, Vonage, web-push, or any of the usual
+ *   1. a provider SDK (Resend, Twilio, web-push, or any of the usual
  *      alternatives) is imported anywhere but the known transport modules;
  *   2. a known transport module stops calling `guardRecipients`;
  *   3. the raw Gmail send endpoint appears outside packages/mailbox's
@@ -57,7 +57,7 @@ const sources = new Map<string, string>(
 /** Every module allowed to talk to a delivery provider, and its channel. */
 const TRANSPORTS: Record<string, string> = {
   'apps/hoa/src/lib/email.ts': 'resend (sendEmail, sendEmailBatch)',
-  'apps/hoa/src/lib/sms.ts': 'vonage (sendSms)',
+  'apps/hoa/src/lib/sms.ts': 'twilio (sendSms, raw REST via fetch, no SDK)',
   'apps/marketing/src/lib/chat/support-actions.ts': 'resend (website chat support request to internal inbox)',
   'packages/jobs/src/web-push.ts': 'web-push (sendPushToUsers)',
   'apps/marketing/src/app/demo/actions.ts': 'resend (demo request to internal inbox)',
@@ -82,7 +82,7 @@ const GMAIL_SENDER = 'packages/mailbox/src/send.ts'
 const GMAIL_CALLERS = ['packages/jobs/src/mailbox-send.ts']
 
 const PROVIDER_IMPORT =
-  /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](resend|@vonage\/[^'"]+|vonage|nexmo|web-push|twilio|nodemailer|@sendgrid\/[^'"]+|postmark|mailgun[^'"]*|@aws-sdk\/client-(?:ses|sesv2|sns|pinpoint)|firebase-admin)['"]/
+  /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](resend|nexmo|web-push|twilio|nodemailer|@sendgrid\/[^'"]+|postmark|mailgun[^'"]*|@aws-sdk\/client-(?:ses|sesv2|sns|pinpoint)|firebase-admin)['"]/
 
 const RAW_ENDPOINT =
   /gmail\.googleapis\.com\/(?:upload\/)?gmail\/v1\/users\/[^'"`]*\/messages\/send|graph\.microsoft\.com\/[^'"`]*sendMail|api\.resend\.com|rest\.nexmo\.com|api\.nexmo\.com|api\.twilio\.com/
@@ -108,8 +108,19 @@ describe('outbound ratchet', () => {
     ).toEqual([])
   })
 
-  it('every transport module still imports a provider (no stale entries)', () => {
-    const stale = Object.keys(TRANSPORTS).filter((f) => !PROVIDER_IMPORT.test(sources.get(f) ?? ''))
+  it('every transport module still contains its own provider marker (no stale entries)', () => {
+    // Each entry must match ITS provider, not just any provider. Twilio has no SDK: a raw REST call.
+    const MARKER: Record<string, RegExp> = {
+      'apps/hoa/src/lib/email.ts': /from\s+['"]resend['"]/,
+      'apps/hoa/src/lib/sms.ts': /api\.twilio\.com/,
+      'apps/marketing/src/lib/chat/support-actions.ts': /from\s+['"]resend['"]/,
+      'packages/jobs/src/web-push.ts': /from\s+['"]web-push['"]/,
+      'apps/marketing/src/app/demo/actions.ts': /from\s+['"]resend['"]/,
+    }
+    expect(Object.keys(MARKER).sort(), 'every TRANSPORTS entry needs a marker').toEqual(Object.keys(TRANSPORTS).sort())
+    const stale = Object.entries(MARKER)
+      .filter(([f, re]) => !re.test(sources.get(f) ?? ''))
+      .map(([f]) => f)
     expect(stale, 'Remove these from TRANSPORTS').toEqual([])
   })
 
@@ -121,9 +132,12 @@ describe('outbound ratchet', () => {
     expect(unguarded).toEqual([])
   })
 
-  it('raw provider HTTP endpoints appear only in the Gmail transport', () => {
+  it('raw provider HTTP endpoints appear only in the Gmail transport and the guarded TRANSPORTS (sms.ts)', () => {
     const offenders = [...sources]
-      .filter(([file, src]) => file !== GMAIL_SENDER && !(file in UNGUARDED_INTERNAL) && RAW_ENDPOINT.test(src))
+      .filter(
+        ([file, src]) =>
+          file !== GMAIL_SENDER && !(file in UNGUARDED_INTERNAL) && !(file in TRANSPORTS) && RAW_ENDPOINT.test(src),
+      )
       .map(([file]) => file)
     expect(offenders).toEqual([])
   })
@@ -156,7 +170,7 @@ describe('outbound ratchet', () => {
   it('in each guarded module, the guard runs before the provider call', () => {
     const PROVIDER_CALL: Record<string, RegExp> = {
       'apps/hoa/src/lib/email.ts': /\.emails\.send\(/,
-      'apps/hoa/src/lib/sms.ts': /\.messages\.send\(/, // BL-146b: Messages API
+      'apps/hoa/src/lib/sms.ts': /\bdoFetch\(/, // Twilio Messages REST call (fetch seam)
       'packages/jobs/src/web-push.ts': /\.sendNotification\(/,
       'apps/marketing/src/app/demo/actions.ts': /\.emails\.send\(/,
       'packages/jobs/src/mailbox-send.ts': /\bsendReply\s*\(/,
