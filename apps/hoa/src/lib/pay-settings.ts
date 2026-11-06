@@ -174,6 +174,8 @@ export async function getResidentZelleSettings(
   const contactsByAssociation: Record<string, BoardContact[]> = {}
   for (const id of ids) byAssociation[id] = { state: 'not_configured' }
   for (const row of (res.data ?? []) as Array<{ id: string; compliance_settings: unknown }>) {
+    // Defence in depth: only the associations the resident asked about.
+    if (!ids.includes(row.id)) continue
     byAssociation[row.id] = readZelleSettings(row.id, row.compliance_settings, secret)
     contactsByAssociation[row.id] = readBoardContacts(row.compliance_settings)
   }

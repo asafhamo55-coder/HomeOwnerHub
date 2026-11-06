@@ -314,3 +314,70 @@ describe('How residents pay: Zelle, checks, both or neither (round 29)', () => {
     expect(readZelleSettings(ASSOC, { [ZELLE_SETTINGS_KEY]: legacy }, SECRET, null).state).toBe('configured')
   })
 })
+
+describe('check fields: property tamper test and rotation', () => {
+  const AT = '2026-11-06T12:00:00.000Z'
+  const shapes: Record<string, Parameters<typeof validatePaymentSettingsInput>[0]> = {
+    zelleOnly: { recipient: 'pay@demo-court.example' },
+    zelleNamed: { recipient: '(555) 010-0100', recipientName: 'Demo Court HOA', instructions: 'Call Pat' },
+    checksOnly: { checkPayableTo: 'Maple Court HOA', checkMailTo: 'PO Box 12' },
+    checksDropOff: { checkPayableTo: 'Maple Court HOA', checkMailTo: 'PO Box 12', checkDropOff: 'Clubhouse', instructions: 'Hi' },
+    both: { recipient: 'pay@demo-court.example', recipientName: 'X', checkPayableTo: 'Maple Court HOA', checkMailTo: 'PO Box 12', checkDropOff: 'Clubhouse' },
+  }
+  const signed = (input: Parameters<typeof validatePaymentSettingsInput>[0], secret = SECRET) => {
+    const r = validatePaymentSettingsInput(input)
+    if (!r.ok) throw new Error('invalid')
+    return signZelleSettings(ASSOC, r.value, secret, AT)
+  }
+  const hostile: unknown[] = ['', 'evil@example.com', 'Mallory', 'PO Box 666', '  ', 0, 1, true, false, null, {}, [], ['x'], 'x'.repeat(5000)]
+  const wrap = (stored: object) => ({ [ZELLE_SETTINGS_KEY]: stored })
+
+  it('every stored key, with every hostile value, displays the same or reads as unverified', () => {
+    for (const [name, input] of Object.entries(shapes)) {
+      const stored = signed(input) as unknown as Record<string, unknown>
+      const original = readZelleSettings(ASSOC, wrap(stored), SECRET, null)
+      expect(original.state, name).not.toBe('unverified')
+      for (const key of [...Object.keys(stored), 'check_payable_to', 'check_mail_to', 'check_drop_off', 'recipient', 'recipient_name', 'instructions']) {
+        if (key === 'sig') continue
+        for (const value of [...hostile, undefined]) {
+          const copy: Record<string, unknown> = { ...stored }
+          if (value === undefined) delete copy[key]
+          else copy[key] = value
+          const read = readZelleSettings(ASSOC, wrap(copy), SECRET, null)
+          if (read.state !== 'unverified') {
+            expect(read, `${name}.${key}=${JSON.stringify(value)}`).toEqual(original)
+          }
+        }
+      }
+    }
+  })
+
+  it('adding or stripping check fields reads unverified', () => {
+    const zelleOnly = signed(shapes.zelleOnly!) as unknown as Record<string, unknown>
+    expect(
+      readZelleSettings(ASSOC, wrap({ ...zelleOnly, check_payable_to: 'M', check_mail_to: 'PO Box 1' }), SECRET, null).state,
+    ).toBe('unverified')
+    const both = signed(shapes.both!) as unknown as Record<string, unknown>
+    const { check_payable_to: _a, check_mail_to: _b, check_drop_off: _c, ...stripped } = both
+    expect(readZelleSettings(ASSOC, wrap(stripped), SECRET, null).state).toBe('unverified')
+  })
+
+  it('a drop-off line alone is ignored: it adds no check card and cannot stand by itself', () => {
+    const zelleOnly = signed(shapes.zelleOnly!) as unknown as Record<string, unknown>
+    const read = readZelleSettings(ASSOC, wrap({ ...zelleOnly, check_drop_off: 'Somewhere' }), SECRET, null)
+    expect(read.state).toBe('configured')
+    expect(checksOf(read)).toBeNull()
+    const noRecipient = { ...zelleOnly, recipient: null, check_drop_off: 'Somewhere' }
+    expect(readZelleSettings(ASSOC, wrap(noRecipient), SECRET, null).state).toBe('unverified')
+  })
+
+  it('a record with checks signed under the previous secret verifies during rotation, and only then', () => {
+    for (const name of ['checksOnly', 'both']) {
+      const old = wrap(signed(shapes[name]!, 'old-secret'))
+      const rotated = readZelleSettings(ASSOC, old, 'new-secret', 'old-secret')
+      expect(rotated.state, name).not.toBe('unverified')
+      expect(checksOf(rotated)).not.toBeNull()
+      expect(readZelleSettings(ASSOC, old, 'new-secret', null).state, name).toBe('unverified')
+    }
+  })
+})

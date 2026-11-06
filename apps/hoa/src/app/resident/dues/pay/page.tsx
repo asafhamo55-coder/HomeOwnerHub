@@ -3,7 +3,7 @@ import { LoadFailed } from '@homeowner-portal/ui'
 import { getResidentActor } from '@/lib/impersonation'
 import { getResidentDues } from '@/lib/resident-dashboard'
 import { getResidentZelleSettings } from '@/lib/pay-settings'
-import { payLinesFor, type ZelleReadResult } from '@/lib/pay-by-zelle'
+import { checksOf, payLinesFor, type ZelleReadResult } from '@/lib/pay-by-zelle'
 import type { ResidentUnit } from '@/lib/resident'
 import { PayMethods, payMethodsLabel } from '@/components/resident/PayMethods'
 import { Hero, Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
@@ -84,8 +84,7 @@ export default async function ResidentPayPage() {
   )
   const anyConfigured =
     settings.ok && Object.values(settings.byAssociation).some((r) => r.state === 'configured')
-  const anyChecks =
-    settings.ok && Object.values(settings.byAssociation).some((r) => r.state === 'checks_only')
+  const anyChecks = settings.ok && Object.values(settings.byAssociation).some((r) => checksOf(r) != null)
 
   return (
     <div className="space-y-8">
@@ -95,11 +94,13 @@ export default async function ResidentPayPage() {
         title="Pay dues"
         back={BACK}
         subtitle={
-          anyConfigured
-            ? 'Pay with Zelle from your bank’s app.'
-            : anyChecks
-              ? 'Pay by check. Mail it or drop it off.'
-              : undefined
+          anyConfigured && anyChecks
+            ? 'Pay with Zelle or by check.'
+            : anyConfigured
+              ? 'Pay with Zelle from your bank’s app.'
+              : anyChecks
+                ? 'Pay by check. Mail it or drop it off.'
+                : undefined
         }
       />
 

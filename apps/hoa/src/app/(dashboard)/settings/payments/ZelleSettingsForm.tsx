@@ -53,6 +53,7 @@ export function ZelleSettingsForm({
   const [pending, startTransition] = useTransition()
   const [values, setValues] = useState<Values>(initial)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [formError, setFormError] = useState<string | null>(null)
 
   const set = (key: keyof Values) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const v = e.currentTarget.value
@@ -66,10 +67,17 @@ export function ZelleSettingsForm({
       const res = await saveZelleSettings(values)
       if (!res.ok) {
         setFieldErrors(res.fieldErrors ?? {})
+        // One plain sentence next to Save, so it is seen without scrolling back up.
+        setFormError(
+          res.fieldErrors?.recipient?.includes('so residents know how to pay')
+            ? 'Add a Zelle email or number, or fill in the check details, so residents know how to pay.'
+            : null,
+        )
         if (!res.fieldErrors) toast({ tone: 'error', message: res.error })
         return
       }
       setFieldErrors({})
+      setFormError(null)
       toast({ tone: 'success', message: 'Saved. Residents can now see how to pay.' })
       router.refresh()
     })
@@ -102,7 +110,14 @@ export function ZelleSettingsForm({
     })
   }
 
-  const previewRecipient = values.recipient.trim()
+  // Preview only what would save: a valid Zelle address or number, and both check fields.
+  const rawRecipient = values.recipient.trim()
+  const recipientDigits = rawRecipient.replace(/\D/g, '')
+  const recipientOk =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawRecipient) ||
+    (/^[\d\s()+.-]+$/.test(rawRecipient) &&
+      (recipientDigits.length === 10 || (recipientDigits.length === 11 && recipientDigits.startsWith('1'))))
+  const previewRecipient = recipientOk ? rawRecipient : ''
   const payableTo = values.checkPayableTo.trim()
   const mailTo = values.checkMailTo.trim()
   const previewChecks =
@@ -169,7 +184,7 @@ export function ZelleSettingsForm({
                 hint="The full mailing address, such as a P.O. box or the treasurer’s mailing address."
               >
                 <Textarea
-                  className="text-base"
+                  className="min-h-12 text-base"
                   value={values.checkMailTo}
                   onChange={set('checkMailTo')}
                   maxLength={300}
@@ -192,10 +207,15 @@ export function ZelleSettingsForm({
               error={fieldErrors.instructions}
               hint="Shown with the payment steps. For example, who to call with a question."
             >
-              <Textarea className="text-base" value={values.instructions} onChange={set('instructions')} maxLength={500} rows={3} />
+              <Textarea className="min-h-12 text-base" value={values.instructions} onChange={set('instructions')} maxLength={500} rows={3} />
             </Field>
           </CardContent>
           <CardFooter className="flex flex-wrap justify-end gap-2">
+            {formError ? (
+              <p role="alert" className="w-full text-base font-medium text-danger">
+                {formError}
+              </p>
+            ) : null}
             {configured ? (
               <Button type="button" size="lg" className="min-h-12 text-base" variant="destructive-ghost" onClick={onTurnOff} disabled={pending}>
                 Turn off
@@ -221,7 +241,7 @@ export function ZelleSettingsForm({
               <ZellePayInstructions
                 recipient={previewRecipient}
                 recipientName={values.recipientName.trim() || null}
-                instructions={previewChecks ? null : values.instructions.trim() || null}
+                instructions={values.instructions.trim() || null}
                 lines={[
                   {
                     assessmentId: 'preview',

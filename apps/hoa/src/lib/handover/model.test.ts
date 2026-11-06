@@ -206,3 +206,26 @@ describe('buildPrintableSummary', () => {
     expect(text).not.toContain('anna@example.test')
   })
 })
+
+describe('payment details connection (Zelle and checks)', () => {
+  const z = (zelle: ConnectionsInput['zelle']) =>
+    buildConnections({ ...fullConnections, zelle }, new Set([A, B, C])).find((c) => c.key === 'zelle')!
+
+  it('checks only is connected, labelled for both, and names the payee and address', () => {
+    const c = z({ state: 'checks_only', updatedAt: '2026-05-01T00:00:00Z', hasChecks: true })
+    expect(c).toMatchObject({ status: 'connected', since: '2026-05-01T00:00:00Z', label: 'Payment details (Zelle and checks)' })
+    expect(c.detail).toContain('mail checks to this payee and address')
+    expect(c.detail).toContain('not a departing member’s')
+  })
+
+  it('Zelle with checks mentions the check payee too; Zelle alone does not', () => {
+    expect(z({ state: 'configured', updatedAt: 'x', hasChecks: true }).detail).toContain('mail checks')
+    expect(z({ state: 'configured', updatedAt: 'x' }).detail).not.toContain('checks')
+  })
+
+  it('uses no em dash', () => {
+    for (const st of ['checks_only', 'configured', 'not_configured'] as const) {
+      expect(z({ state: st, updatedAt: null, hasChecks: true }).detail).not.toContain('—')
+    }
+  })
+})

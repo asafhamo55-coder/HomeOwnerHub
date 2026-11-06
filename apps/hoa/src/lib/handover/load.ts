@@ -18,7 +18,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db'
 import { loadOrFail } from '../load-or-fail'
-import { paySettingsSecret, readZelleSettings } from '../pay-by-zelle'
+import { checksOf, paySettingsSecret, readZelleSettings } from '../pay-by-zelle'
 import { EXPORT_TABLES } from '../data-export/tables'
 import {
   buildAccess,
@@ -110,11 +110,16 @@ export async function loadConnections(deps: HandoverDeps, boardIds: ReadonlySet<
   if (!mailbox.ok || !plaid.ok || !assoc.ok || !org.ok) return null
 
   const assocRow = ((assoc.data ?? []) as Array<{ id: string; compliance_settings: unknown }>)[0] ?? null
-  let zelle: { state: ZelleState; updatedAt: string | null } = { state: 'no_association', updatedAt: null }
+  let zelle: { state: ZelleState; updatedAt: string | null; hasChecks?: boolean } = { state: 'no_association', updatedAt: null }
   if (assocRow) {
     const secret = deps.zelleSecret !== undefined ? deps.zelleSecret : paySettingsSecret()
     const read = readZelleSettings(assocRow.id, assocRow.compliance_settings, secret)
-    zelle = read.state === 'configured' ? { state: 'configured', updatedAt: read.settings.updatedAt } : { state: read.state === 'checks_only' ? 'not_configured' : read.state, updatedAt: null }
+    zelle =
+      read.state === 'configured'
+        ? { state: 'configured', updatedAt: read.settings.updatedAt, hasChecks: checksOf(read) != null }
+        : read.state === 'checks_only'
+          ? { state: 'checks_only', updatedAt: read.settings.updatedAt, hasChecks: true }
+          : { state: read.state, updatedAt: null }
   }
   const orgRow = ((org.data ?? []) as Array<{ stripe_customer_id: string | null }>)[0] ?? null
 
