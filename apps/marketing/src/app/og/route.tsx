@@ -26,17 +26,17 @@ export function GET(req: NextRequest) {
           flexDirection: 'column',
           justifyContent: 'space-between',
           padding: '72px 80px',
-          background: 'linear-gradient(135deg, #3b1fa8 0%, #4B27C9 55%, #6d4be0 100%)',
+          background: 'linear-gradient(135deg, #3b0764 0%, #6b21a8 55%, #7e22ce 100%)',
           color: '#ffffff',
           fontFamily: 'sans-serif',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 40, fontWeight: 700 }}>
           <span>Homeowner</span>
-          <span style={{ color: '#d9ceff' }}>Hub</span>
+          <span style={{ color: '#e9d5ff' }}>Hub</span>
         </div>
         <div style={{ display: 'flex', fontSize, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{title}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 28, color: '#e7e0ff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 28, color: '#f0e8ff' }}>
           <span>AI for self-managed HOA boards</span>
           <span>{SITE_DISPLAY_HOST}</span>
         </div>
