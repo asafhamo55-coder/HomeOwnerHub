@@ -1114,3 +1114,15 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Deployed 82d07b6b:** the phone calendar subscription (hidden until OA-52) and the jobs readAll opt-in (no change until OA-47). CI and smoke green; the release-notes email ran.
 - **SEO batch 31 (FL recall, FL reserves, TX justice court):** the 15 legal-review fixes are applied (e7a12277). A second review is running because quotes were trimmed to fit the 1500-word cap.
 - **Building:** ESLint for apps/hoa wired into CI (round 29 #9), and chart text that scales with Text size (round 29 #11).
+
+## 2026-11-06 22:25 UTC: merges for the next deploy
+
+- **Merged to quality-oracle:** SEO batch 31 (3ed2b67e, two legal reviews), chart text that follows Text size (a44ca6b9, reviewed, overflow fixes applied), OA-49 marked done, round 30 backlog.
+- **In review loop:** ESLint for apps/hoa (review asked for lint out of `next build`, restored a11y rules, keyboard tablists, proof the gate fails).
+- **Building (round 30):** invite step and city/ZIP in setup; forced-colors focus and Text size on sign-in; SEO batch 32 (three Georgia templates).
+
+## 2026-11-06 23:32 UTC: chart text and SEO 31 deploy
+
+- **Deployed 82e305dc** (pushed 23:13, live 23:31): chart labels follow Text size with truncation and scaled padding; SEO batch 31 (Florida budget and reserves, Florida recall, Texas 209.017). CI and smoke green; release-notes email running.
+- **Decks:** investor timeline and product roadmap gained the Nov 6 night line.
+- **Next batch:** ESLint for apps/hoa (approved, final wording polish), SEO batch 32 (three Georgia templates, in legal review), setup invite step and city/ZIP, forced-colors and Text size on sign-in.
