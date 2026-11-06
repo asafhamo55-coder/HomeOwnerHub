@@ -66,6 +66,7 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
   const [month, setMonth] = useState<string>(spaces[0]?.today.slice(0, 7) ?? '')
   const [extra, setExtra] = useState<Record<string, DayView[]>>({})
   const [loadingMore, setLoadingMore] = useState(false)
+  const [monthFailed, setMonthFailed] = useState<string | null>(null)
   const [day, setDay] = useState<string | null>(null)
   const [start, setStart] = useState<number | null>(null)
   const [end, setEnd] = useState<number | null>(null)
@@ -145,20 +146,24 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
   }
 
   async function goToMonth(m: string) {
-    setMonth(m)
-    if (!space) return
+    if (!space) return setMonth(m)
     const lastLoaded = allDays[allDays.length - 1]?.day
     const monthEnd = addCalendarDays(`${nextMonth(m)}-01`, -1)
-    if (!lastLoaded || lastLoaded >= monthEnd || lastLoaded >= space.lastDay) return
+    if (!lastLoaded || lastLoaded >= monthEnd || lastLoaded >= space.lastDay) {
+      setMonthFailed(null)
+      return setMonth(m)
+    }
     setLoadingMore(true)
     const res = await loadBookingDays({ amenityId: space.amenity.id, fromDay: addCalendarDays(lastLoaded, 1), count: 62 })
     setLoadingMore(false)
     if (!res.ok) {
-      setErrors({ day: res.error })
+      // Stay on the month already shown; offer to try again.
+      setMonthFailed(m)
       return
     }
-    setErrors({})
+    setMonthFailed(null)
     setExtra((cur) => ({ ...cur, [space.amenity.id]: [...(cur[space.amenity.id] ?? []), ...res.days] }))
+    setMonth(m)
   }
 
   function submit(e: React.FormEvent) {
@@ -303,6 +308,14 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
             blocked={pending || atLimit}
             loading={loadingMore}
           />
+          {monthFailed ? (
+            <div className="space-y-2" role="alert">
+              <p className="text-base text-danger">We couldn&apos;t load that month.</p>
+              <Button type="button" size="lg" variant="secondary" className="min-h-12" onClick={() => goToMonth(monthFailed)}>
+                Try again
+              </Button>
+            </div>
+          ) : null}
           {errors.day ? (
             <p className="text-base text-danger" role="alert">
               {errors.day}
