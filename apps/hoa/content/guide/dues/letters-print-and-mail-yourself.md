@@ -27,15 +27,15 @@ HomeownerHub writes the letter and the board approves it, but it does not mail a
 ### A violation letter
 1. Report the violation and approve the letter. See [report a violation](guide:violations-report-and-letter).
 2. Open the violation. The approved letter is under **Notice as sent**.
-3. Copy the text into a document, or use your browser's Print command on the page. Mail it yourself.
+3. Under **Notice as sent**, select [[Print / Save as PDF]]. A clean page opens with the association name, the date, the owner's name and address, and the full letter. Select [[Print / Save as PDF]] again to print it or save it as a PDF. Mail it yourself.
 
 ## What happens next
 - Printing a collections letter records it on the collections case, dated the day it prints.
-- A violation letter is already on record once approved. Mailing it is up to you.
+- A violation letter is already on record once approved. Printing it from the button is also recorded in the audit log. Mailing it is up to you.
 - If you mail on a later day than you print, add a note to the case with the mailing date.
 
 ## If something goes wrong
-- The printout is marked as a draft and not valid: use [[Print / Save as PDF]] on the approved letter, not your browser's Print command.
+- The printout is marked as a draft and not valid: use the [[Print / Save as PDF]] button on the approved letter, not your browser's Print command.
 - "The account has changed since this letter was approved": a payment or charge was recorded after approval. Select [[Draft a new letter instead]] and send the new one for approval.
 
 ## Good to know
