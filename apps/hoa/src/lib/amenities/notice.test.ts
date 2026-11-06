@@ -42,7 +42,7 @@ describe('who may be emailed', () => {
 describe('the board bell', () => {
   it('is deduped on the reservation and never rings the person who asked', () => {
     const b = requestBell({ organizationId: 'o', actorId: 'u', reservationId: 'r', amenityName: 'Pool' })
-    expect(b).toMatchObject({ entityId: 'r', actorId: 'u', link: '/amenities', entityType: 'amenity_reservation' })
+    expect(b).toMatchObject({ entityId: 'r', actorId: 'u', link: '/approvals?type=amenity', entityType: 'amenity_reservation' })
     expect(b.title).toContain('Pool')
   })
 })

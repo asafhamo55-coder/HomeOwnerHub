@@ -4,6 +4,10 @@
 //
 // Bulk is allowed only for sources that move no money and need no judgement
 // beyond "yes". Every other source stays one at a time:
+//   amenity                  allowed: a booking moves no money, and the per-item
+//                            approve re-checks the time, so a second booking that
+//                            clashes with a first approved one is refused with the
+//                            reason, never double-booked
 //   w18, bill, opening, pro  money (ledger posts, bills, a professional's entry)
 //   collections              a demand letter for money owed; read each one
 //   arc                      the board picks the decision and edits the letter

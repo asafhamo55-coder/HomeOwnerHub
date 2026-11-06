@@ -93,6 +93,16 @@ const COPY: Record<ApprovalTarget['kind'], Copy> = {
     rejectConfirm: 'Reject request',
     rejectPlaceholder: 'We couldn’t confirm you own this home. Please call the office.',
   },
+  amenity: {
+    approveButton: 'Approve booking',
+    approveTitle: 'Approve this booking?',
+    approveDescription: (title) =>
+      `${title}. The booking is confirmed and the resident is emailed. If the time was taken in the meantime, it is refused and nothing changes.`,
+    approveConfirm: 'Approve booking',
+    rejectTitle: 'Turn down this booking?',
+    rejectConfirm: 'Turn down',
+    rejectPlaceholder: 'The clubhouse is closed for repairs that day.',
+  },
   pro: {
     approveButton: 'Approve',
     approveTitle: 'Approve this item from your professional?',
@@ -219,7 +229,7 @@ export function ApprovalActions({
           }
         >
           <form id={`reject-${id}`} onSubmit={reject}>
-            <Field label="Reason" required hint={kind === 'contact' ? 'The resident sees this in their request.' : 'Kept in the audit trail.'} error={reasonError}>
+            <Field label="Reason" required hint={kind === 'contact' ? 'The resident sees this in their request.' : kind === 'amenity' ? 'The resident reads this in their email.' : 'Kept in the audit trail.'} error={reasonError}>
               <Textarea
                 value={reason}
                 onChange={(e) => {

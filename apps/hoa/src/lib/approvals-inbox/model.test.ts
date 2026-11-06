@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  APPROVAL_SOURCES,
+  SOURCE_META,
+  amenityItems,
+  lengthLabel,
+  type InboxDecisionTarget,
   approvalsBadge,
   arcItems,
   billItems,
@@ -170,7 +175,7 @@ describe('vendor queue predicate and items', () => {
 })
 
 describe('buildInbox (aggregation)', () => {
-  const ok = (source: 'w18' | 'bill' | 'opening' | 'w3' | 'collections' | 'arc' | 'contact' | 'join' | 'pro' | 'vendor', n: number, total = n): InboxSection => ({
+  const ok = (source: 'w18' | 'bill' | 'opening' | 'w3' | 'collections' | 'arc' | 'contact' | 'join' | 'amenity' | 'pro' | 'vendor', n: number, total = n): InboxSection => ({
     source,
     ok: true,
     total,
@@ -191,12 +196,12 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('counts each source and the total from the totals, not just the rows shown', () => {
-    const inbox = buildInbox([ok('w18', 2, 120), ok('bill', 2), ok('opening', 0), ok('w3', 1), ok('collections', 4), ok('arc', 3), ok('contact', 2), ok('join', 0), ok('pro', 0), ok('vendor', 0)], 'all')
-    expect(inbox.counts).toEqual({ w18: 120, bill: 2, opening: 0, w3: 1, collections: 4, arc: 3, contact: 2, join: 0, pro: 0, vendor: 0 })
+    const inbox = buildInbox([ok('w18', 2, 120), ok('bill', 2), ok('opening', 0), ok('w3', 1), ok('collections', 4), ok('arc', 3), ok('contact', 2), ok('join', 0), ok('amenity', 0), ok('pro', 0), ok('vendor', 0)], 'all')
+    expect(inbox.counts).toEqual({ w18: 120, bill: 2, opening: 0, w3: 1, collections: 4, arc: 3, contact: 2, join: 0, amenity: 0, pro: 0, vendor: 0 })
     expect(inbox.total).toBe(132)
     expect(inbox.anyFailed).toBe(false)
     expect(inbox.allClear).toBe(false)
-    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'join', 'pro', 'vendor'])
+    expect(inbox.sections.map((s) => s.source)).toEqual(['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'join', 'amenity', 'pro', 'vendor'])
   })
 
   it('a failed source has an unknown count and the total is unknown — never 0', () => {
@@ -209,7 +214,7 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('is all clear only when every source loaded and is empty', () => {
-    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('opening', 0), ok('w3', 0), ok('collections', 0), ok('arc', 0), ok('contact', 0), ok('join', 0), ok('pro', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
+    expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('opening', 0), ok('w3', 0), ok('collections', 0), ok('arc', 0), ok('contact', 0), ok('join', 0), ok('amenity', 0), ok('pro', 0), ok('vendor', 0)], 'all').allClear).toBe(true)
     // BL-143: a join-request source that never loaded is unknown, not empty.
     expect(buildInbox([ok('w18', 0), ok('bill', 0), ok('opening', 0), ok('w3', 0), ok('collections', 0), ok('arc', 0), ok('contact', 0), ok('vendor', 0)], 'all').allClear).toBe(false)
     // BL-089: a collections-letter source that never loaded is unknown, not empty.
@@ -223,9 +228,9 @@ describe('buildInbox (aggregation)', () => {
   })
 
   it('a type filter shows only that section but keeps every count for the tabs', () => {
-    const inbox = buildInbox([ok('w18', 2), ok('bill', 4), ok('opening', 0), ok('w3', 1), ok('collections', 3), ok('arc', 2), ok('contact', 1), ok('join', 0), ok('pro', 0), { source: 'vendor', ok: false }], 'w3')
+    const inbox = buildInbox([ok('w18', 2), ok('bill', 4), ok('opening', 0), ok('w3', 1), ok('collections', 3), ok('arc', 2), ok('contact', 1), ok('join', 0), ok('amenity', 0), ok('pro', 0), { source: 'vendor', ok: false }], 'w3')
     expect(inbox.sections.map((s) => s.source)).toEqual(['w3'])
-    expect(inbox.counts).toEqual({ w18: 2, bill: 4, opening: 0, w3: 1, collections: 3, arc: 2, contact: 1, join: 0, pro: 0, vendor: null })
+    expect(inbox.counts).toEqual({ w18: 2, bill: 4, opening: 0, w3: 1, collections: 3, arc: 2, contact: 1, join: 0, amenity: 0, pro: 0, vendor: null })
   })
 
   it('orders sections by source regardless of input order', () => {
@@ -236,20 +241,20 @@ describe('buildInbox (aggregation)', () => {
 
 describe('approvalsBadge (sidebar)', () => {
   it('shows the total when every count loaded', () => {
-    expect(approvalsBadge({ w18: 2, bill: 1, opening: 0, w3: 1, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: 0 })).toBe('4')
+    expect(approvalsBadge({ w18: 2, bill: 1, opening: 0, w3: 1, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: 0 })).toBe('4')
   })
   it('shows no badge for zero', () => {
-    expect(approvalsBadge({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: 0 })).toBeNull()
   })
   it('shows no badge — not 0 — when a count failed and nothing else is known', () => {
-    expect(approvalsBadge({ w18: null, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: 0 })).toBeNull()
-    expect(approvalsBadge({ w18: null, bill: null, opening: 0, w3: null, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: null })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: 0 })).toBeNull()
+    expect(approvalsBadge({ w18: null, bill: null, opening: 0, w3: null, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: null })).toBeNull()
   })
   it('marks a partial count as a lower bound', () => {
-    expect(approvalsBadge({ w18: 2, bill: null, opening: 0, w3: null, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: 1 })).toBe('3+')
+    expect(approvalsBadge({ w18: 2, bill: null, opening: 0, w3: null, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: 1 })).toBe('3+')
   })
   it('caps at 99+', () => {
-    expect(approvalsBadge({ w18: 150, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: 0 })).toBe('99+')
+    expect(approvalsBadge({ w18: 150, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: 0 })).toBe('99+')
   })
 })
 
@@ -508,5 +513,68 @@ describe('openingItems (BL-126)', () => {
     const [item] = openingItems([{ id: 'req-2', summary: 's', amount: null, proposed_at: T1, payload: { version: 9 } }])
     expect(item.decision).toBeNull()
     expect(item.detail).toMatch(/can’t be read/)
+  })
+})
+
+describe('amenity source (BL-034)', () => {
+  it('every source has its tab text, and the filter accepts amenity', () => {
+    for (const s of APPROVAL_SOURCES) {
+      expect(SOURCE_META[s].title, s).not.toBe('')
+      expect(SOURCE_META[s].tab, s).not.toBe('')
+    }
+    expect(Object.keys(SOURCE_META).sort()).toEqual([...APPROVAL_SOURCES].sort())
+    expect(parseApprovalFilter('amenity')).toBe('amenity')
+  })
+
+  it('the decision union is exhaustive: every source can name the id its decision takes', () => {
+    const targets: Record<string, InboxDecisionTarget> = {
+      w18: { kind: 'w18', approvalRequestId: 'a' },
+      bill: { kind: 'bill', approvalRequestId: 'a', canApprove: true },
+      opening: { kind: 'opening', approvalRequestId: 'a' },
+      w3: { kind: 'w3', runId: 'a' },
+      collections: { kind: 'collections', approvalRequestId: 'a' },
+      arc: { kind: 'arc', runId: 'a', arcId: 'b' },
+      contact: { kind: 'contact', ticketId: 'a', canApprove: true },
+      join: { kind: 'join', requestId: 'a' },
+      amenity: { kind: 'amenity', reservationId: 'a' },
+      pro: { kind: 'pro', approvalRequestId: 'a' },
+      vendor: { kind: 'vendor', vendorId: 'a', canApprove: true },
+    }
+    expect(Object.keys(targets).sort()).toEqual([...APPROVAL_SOURCES].sort())
+    for (const s of APPROVAL_SOURCES) expect(decisionId(targets[s]!), s).toBe('a')
+  })
+
+  it('amenity counts feed the total, the tab counts and the sidebar badge', () => {
+    const ok = (source: 'amenity' | 'w3', n: number): InboxSection => ({ source, ok: true, items: [], total: n })
+    const inbox = buildInbox([ok('amenity', 2), ok('w3', 1)], 'amenity')
+    expect(inbox.counts.amenity).toBe(2)
+    expect(inbox.sections.map((s) => s.source)).toEqual(['amenity'])
+    const counts = Object.fromEntries(APPROVAL_SOURCES.map((s) => [s, 0])) as Parameters<typeof approvalsBadge>[0]
+    expect(approvalsBadge({ ...counts, amenity: 3 })).toBe('3')
+    expect(approvalsBadge({ ...counts, amenity: 3, w3: 2 })).toBe('5')
+  })
+
+  it('names the length in plain words', () => {
+    expect(lengthLabel('2026-11-09T00:00:00Z', '2026-11-09T01:00:00Z')).toBe('1 hour')
+    expect(lengthLabel('2026-11-09T00:00:00Z', '2026-11-09T04:00:00Z')).toBe('4 hours')
+    expect(lengthLabel('2026-11-09T00:00:00Z', '2026-11-09T01:30:00Z')).toBe('1.5 hours')
+  })
+
+  it('items are ordered as given (oldest first), link to the day on the amenities page', () => {
+    const row = (id: string, createdAt: string, startsAt = '2026-11-09T00:00:00Z') => ({
+      id,
+      amenityId: 'am',
+      amenityName: 'Pool',
+      startsAt,
+      endsAt: '2026-11-09T01:00:00Z',
+      homeLabel: 'Unit 4B',
+      partySize: null,
+      purpose: null,
+      createdAt,
+    })
+    const items = amenityItems([row('a', T1), row('b', T2)], 'America/New_York')
+    expect(items.map((i) => i.id)).toEqual(['a', 'b'])
+    expect(items[0]!.href).toBe('/amenities?amenity=am&month=2026-11&day=2026-11-08')
+    expect(items[0]!.detail).toBe('For Unit 4B · 1 hour')
   })
 })

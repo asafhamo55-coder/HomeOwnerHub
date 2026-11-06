@@ -70,7 +70,7 @@ describe('roster import through a board user’s RLS client', () => {
     expect(r.results.map((x) => x.status)).toEqual(['new', 'new', 'new', 'new'])
     expect(await counts(org.orgId)).toEqual({ properties: 3, units: 3, ownerships: 2, residents: 2 })
 
-    const { data: unit } = await adminDb().from('units').select('*').eq('organization_id', org.orgId).eq('address_line1', '100 Fixture Lane').single()
+    const { data: unit } = await adminDb().from('units').select('*').eq('organization_id', org.orgId).eq('address_line1', '100 Fixture Ln').single()
     expect(unit).toMatchObject({ association_id: org.associationId, city: 'Fixtureville', postal_code: '32000' })
     const { data: prop } = await adminDb().from('hoa_properties').select('*').eq('id', unit!.legacy_hoa_property_id!).single()
     expect(prop).toMatchObject({ tenure: 'leased', owner_email: 'owner@example.test' })
@@ -95,7 +95,7 @@ describe('roster import through a board user’s RLS client', () => {
       homes: [{ rows: [row(2, '100 fixture lane', { city: 'Newtown', ownerEmail: 'OWNER@example.test', ownerPhone: '555-0100' })] }],
     })
     const db = adminDb()
-    const { data: unit } = await db.from('units').select('city').eq('organization_id', org.orgId).eq('address_line1', '100 Fixture Lane').single()
+    const { data: unit } = await db.from('units').select('city').eq('organization_id', org.orgId).eq('address_line1', '100 Fixture Ln').single()
     expect(unit?.city).toBe('Newtown')
     const { data: own } = await db.from('ownerships').select('owner_phone').eq('organization_id', org.orgId).eq('owner_email', 'owner@example.test').single()
     expect(own?.owner_phone).toBe('555-0100')

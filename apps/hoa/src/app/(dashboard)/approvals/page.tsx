@@ -23,7 +23,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadArcSection, loadBillSection, loadContactSection, loadJoinSection, loadLetterSection, loadOpeningSection, loadProSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadAmenitySection, loadArcSection, loadBillSection, loadContactSection, loadJoinSection, loadLetterSection, loadOpeningSection, loadProSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import {
   APPROVAL_SOURCES,
@@ -45,6 +45,7 @@ import { vendorLabel } from '@/lib/bill-scan/proposal'
 import { SummaryStrip } from './SummaryStrip'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
+import { currentTimeZone } from '@/lib/association-time-current'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { BulkApproveProvider, BulkRowCheckbox, BulkSelectAll } from '@/components/approvals/BulkApprove'
 import { isBulkEligible, isBulkSource } from '@/lib/approvals-inbox/bulk'
@@ -90,6 +91,9 @@ const SOURCE_LOADERS: Record<ApprovalSource, (orgId: string, orgName: string) =>
   ),
   contact: cache((orgId: string) => timed(R, 'approvals.contact', async () => loadContactSection(await db(), orgId, { submitterEmails: authSubmitterEmails }))),
   join: cache((orgId: string) => timed(R, 'approvals.join', async () => loadJoinSection(await db(), orgId))),
+  amenity: cache((orgId: string) =>
+    timed(R, 'approvals.amenity', async () => loadAmenitySection(await db(), orgId, await currentTimeZone())),
+  ),
   pro: cache((orgId: string) => timed(R, 'approvals.pro', async () => loadProSection(await db(), orgId))),
   vendor: cache(() =>
     timed(R, 'approvals.vendor', () =>
@@ -127,7 +131,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Things to approve"
-      description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, vendors. Nothing here happens until someone approves it."
+      description="Everything waiting on a board decision: deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, amenity bookings, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={
         <Suspense fallback={null}>
@@ -202,7 +206,7 @@ async function InboxZero({ orgId, orgName }: { orgId: string; orgName: string })
       icon={<CheckCircle2 aria-hidden />}
       title="Nothing waiting on the board"
       secondaryAction={<HowThisWorks href={guideHref('approvals-queue')} />}
-      description="New AI proposals — deposit matches, scanned bills, violation drafts, ARC reviews, vendor results — land here for a decision."
+      description="New AI proposals land here for a decision: deposit matches, scanned bills, violation drafts, ARC reviews and vendor results."
       action={
         <Button asChild variant="secondary">
           <Link href="/">Back to the dashboard</Link>
@@ -430,7 +434,7 @@ function AssociationCounts({ result }: { result: { ok: true; rows: AssociationVe
   return (
     <div className="space-y-1.5">
       <p className="text-xs text-muted" id="approvals-vendor-assoc">
-        Waiting by association{primary ? ` — the list shows ${primary.name}` : ''}
+        Waiting by association{primary ? `. The list shows ${primary.name}` : ''}
       </p>
       <ul className="flex flex-wrap gap-1.5" aria-labelledby="approvals-vendor-assoc">
         {result.rows.map((r) => (

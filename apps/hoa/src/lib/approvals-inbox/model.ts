@@ -35,6 +35,11 @@
 //          Approving a CPA's entry posts it; the rest are accepted onto
 //          the record and send nothing. Money items go to the Treasurer
 //          first, and above the board's amount need two sign-offs.
+//   amenity amenity_reservations rows (status 'pending', kind 'booking',
+//          not yet started) — a resident's request for a space whose rules
+//          say the board approves (BL-034, migration 0076, M11_APPLIED).
+//          Decided by decideReservation (lib/amenities/actions.ts), the
+//          same action the Amenities page uses.
 //   vendor the W21 vendor approval queue (/vendors/approval-queue):
 //          compliant prospects plus yellow/red/missing compliance.
 //
@@ -61,8 +66,10 @@ import { FIELD_LABEL, HELD_REASON, planContactApply } from '../contact-updates/m
 import type { ContactEntry, ContactTicketRow } from '../contact-updates/apply'
 import type { JoinCard } from '../owner-join/model'
 import { PRO_ACTION_LABEL, isProAction, proDetail, readProPayload } from '../professionals/model'
+import { formatSlot } from '../amenities/model'
+import { dayOf } from '../association-time'
 
-export const APPROVAL_SOURCES = ['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'join', 'pro', 'vendor'] as const
+export const APPROVAL_SOURCES = ['w18', 'bill', 'opening', 'w3', 'collections', 'arc', 'contact', 'join', 'amenity', 'pro', 'vendor'] as const
 export type ApprovalSource = (typeof APPROVAL_SOURCES)[number]
 export type ApprovalFilter = 'all' | ApprovalSource
 
@@ -152,6 +159,15 @@ export const SOURCE_META: Record<ApprovalSource, SourceMeta> = {
     queueLabel: 'Open members',
     what: 'requests to join',
   },
+  amenity: {
+    title: 'Amenity bookings',
+    tab: 'Amenity bookings',
+    description:
+      'Residents asked to book a space that needs your approval, such as the clubhouse. The time stays held while it waits. Approving confirms the booking and emails the resident. Turning it down needs a short reason they will read.',
+    queueHref: '/amenities',
+    queueLabel: 'Open amenities',
+    what: 'amenity bookings',
+  },
   pro: {
     title: 'From your professionals',
     tab: 'Professionals',
@@ -190,6 +206,8 @@ export type InboxDecisionTarget =
   | { kind: 'contact'; ticketId: string; canApprove: boolean }
   /** BL-143: approve links the asker to the home (owner_join_decide); reject records why. */
   | { kind: 'join'; requestId: string }
+  /** BL-034: approve confirms the booking and emails the resident; turn down records the reason (decideReservation). */
+  | { kind: 'amenity'; reservationId: string }
   /** BL-168: a CPA's or attorney's item. Approve posts a CPA entry or accepts the note/upload/draft; money goes to the Treasurer first (lib/professionals/signoff.ts). */
   | { kind: 'pro'; approvalRequestId: string }
 
@@ -199,6 +217,7 @@ export function decisionId(d: InboxDecisionTarget): string {
   if (d.kind === 'w3' || d.kind === 'arc') return d.runId
   if (d.kind === 'contact') return d.ticketId
   if (d.kind === 'join') return d.requestId
+  if (d.kind === 'amenity') return d.reservationId
   return d.vendorId
 }
 
@@ -700,6 +719,64 @@ export function joinItems(rows: ReadonlyArray<{ card: JoinCard; createdAt: strin
     decision: { kind: 'join' as const, requestId: card.requestId },
     join: card,
   }))
+}
+
+export interface AmenityBookingRow {
+  id: string
+  amenityId: string
+  amenityName: string
+  startsAt: string
+  endsAt: string
+  /** "12 Oak Lane" or "Unit 4B", as the Amenities page shows who asked. */
+  homeLabel: string
+  partySize: number | null
+  purpose: string | null
+  /** When the request was made (ISO). */
+  createdAt?: string | null
+}
+
+/** "1 hour", "2 hours", "1.5 hours". */
+export function lengthLabel(startsAt: string, endsAt: string): string {
+  const hours = Math.round(((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 3_600_000) * 100) / 100
+  if (!Number.isFinite(hours) || hours <= 0) return ''
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+}
+
+/**
+ * BL-034: booking requests the board has to answer. The time is shown in the
+ * association's zone (formatSlot, as the Amenities page does). The link opens
+ * the Amenities calendar on that amenity and that day.
+ */
+export function amenityItems(rows: readonly AmenityBookingRow[], timeZone: string): InboxItem[] {
+  return rows.map((r) => {
+    const day = dayOf(r.startsAt, timeZone)
+    const href = day
+      ? `/amenities?amenity=${encodeURIComponent(r.amenityId)}&month=${day.slice(0, 7)}&day=${day}`
+      : '/amenities'
+    const length = lengthLabel(r.startsAt, r.endsAt)
+    const detail = [
+      `For ${r.homeLabel}`,
+      length || null,
+      r.partySize ? `about ${r.partySize} people` : null,
+      r.purpose ? `Reason given: ${excerpt(r.purpose, 120)}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    return {
+      source: 'amenity' as const,
+      id: r.id,
+      title: `${r.amenityName}: ${formatSlot(r.startsAt, r.endsAt, timeZone)}`,
+      detail,
+      amount: null,
+      amountNote: null,
+      createdAt: r.createdAt ?? null,
+      reasoning: null,
+      citations: [],
+      confidenceLabel: null,
+      href,
+      decision: { kind: 'amenity' as const, reservationId: r.id },
+    }
+  })
 }
 
 export interface VendorQueueRow {

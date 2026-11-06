@@ -28,8 +28,8 @@ export function requestBell(args: {
     actorId: args.actorId,
     kind: AMENITY_REQUEST_KIND,
     title: `New request for ${clip(args.amenityName, 60) || 'a space'}`,
-    body: 'A resident asked to book a space. Open Amenities to answer.',
-    link: '/amenities',
+    body: 'A resident asked to book a space. Open Things to approve to answer.',
+    link: '/approvals?type=amenity',
     entityType: 'amenity_reservation',
     entityId: args.reservationId,
   }

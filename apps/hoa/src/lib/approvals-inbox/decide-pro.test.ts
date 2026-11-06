@@ -24,6 +24,8 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     rejectContact: vi.fn(async () => ({ ok: true as const, message: 'm' })),
     approveJoin: vi.fn(async () => ({ ok: true as const, message: 'm' })),
     rejectJoin: vi.fn(async () => ({ ok: true as const, message: 'm' })),
+    approveAmenity: vi.fn(async () => ({ ok: true as const, message: 'm' })),
+    rejectAmenity: vi.fn(async () => ({ ok: true as const, message: 'm' })),
     approvePro: vi.fn(async () => posted),
     rejectPro: vi.fn(async () => rejected),
     ...over,

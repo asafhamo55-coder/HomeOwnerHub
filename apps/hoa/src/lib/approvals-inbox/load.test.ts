@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@homeowner-portal/observability/report', () => ({ reportError: vi.fn() }))
 
-import { countPendingApprovals, loadArcSection, loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section, type InboxDb } from './load'
+import { countPendingApprovals, loadAmenitySection, loadArcSection, loadBillSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section, type InboxDb } from './load'
 
 /**
  * A minimal stand-in for the Supabase query builder: every chained call is
@@ -25,7 +25,7 @@ function fakeDb(responses: Record<string, Resp[]>) {
           entry.ops.push([name, args])
           return builder
         }
-      for (const op of ['select', 'eq', 'in', 'is', 'order', 'range', 'limit', 'not']) builder[op] = chain(op)
+      for (const op of ['select', 'eq', 'in', 'is', 'order', 'range', 'limit', 'not', 'gt']) builder[op] = chain(op)
       builder.then = (resolve: (r: Resp) => unknown, reject: (e: unknown) => unknown) => {
         const next = queue.shift()
         if (!next) return Promise.reject(new Error(`no canned response for ${table}`)).then(resolve, reject)
@@ -134,7 +134,7 @@ describe('countPendingApprovals (sidebar badge)', () => {
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(3), ok(1)],
     })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false })).toEqual({ w18: 2, bill: 5, opening: 9, w3: 1, collections: 7, arc: 2, contact: 6, join: 0, pro: 0, vendor: 4 })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: false })).toEqual({ w18: 2, bill: 5, opening: 9, w3: 1, collections: 7, arc: 2, contact: 6, join: 0, amenity: 0, pro: 0, vendor: 4 })
     // PR-10: only still-open contact-update tickets of this org.
     const contact = calls.find((c) => c.table === 'tickets')!.ops
     expect(contact).toContainEqual(['eq', ['organization_id', ORG]])
@@ -163,7 +163,7 @@ describe('countPendingApprovals (sidebar badge)', () => {
       tickets: [ok(0)],
       associations: [{ data: [], error: null }],
     })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false })).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: 0 })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: false })).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: 0 })
     expect(calls.some((c) => c.table === 'vendor_compliance')).toBe(false)
   })
 
@@ -174,7 +174,7 @@ describe('countPendingApprovals (sidebar badge)', () => {
       tickets: [ok(0)],
       associations: [{ data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false })).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: false })).toEqual({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: null })
   })
 
   it('a failed count is unknown (null), not zero', async () => {
@@ -185,7 +185,7 @@ describe('countPendingApprovals (sidebar badge)', () => {
       associations: [{ data: [ASSOC], error: null }],
       vendor_compliance: [ok(0), { data: null, error: err }],
     })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false })).toEqual({ w18: null, bill: 3, opening: 0, w3: 0, collections: 0, arc: 0, contact: null, join: 0, pro: 0, vendor: null })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: false })).toEqual({ w18: null, bill: 3, opening: 0, w3: 0, collections: 0, arc: 0, contact: null, join: 0, amenity: 0, pro: 0, vendor: null })
   })
 
   it('with M5 live, pending join requests are counted; a failed join count is unknown (null)', async () => {
@@ -196,9 +196,9 @@ describe('countPendingApprovals (sidebar badge)', () => {
       associations: [{ data: [], error: null }],
     })
     const live = fakeDb({ ...base(), owner_join_requests: [ok(4)] })
-    expect(await countPendingApprovals(live.db, ORG, { m5: true })).toMatchObject({ join: 4 })
+    expect(await countPendingApprovals(live.db, ORG, { m11: false, m5: true })).toMatchObject({ join: 4 })
     const failed = fakeDb({ ...base(), owner_join_requests: [{ data: null, error: err }] })
-    expect(await countPendingApprovals(failed.db, ORG, { m5: true })).toMatchObject({ join: null })
+    expect(await countPendingApprovals(failed.db, ORG, { m11: false, m5: true })).toMatchObject({ join: null })
   })
 })
 
@@ -223,21 +223,21 @@ describe('countPendingApprovals: Treasurer-routed professional items (BL-168 fol
 
   it('flag off: no professionals query and no org_members read, whoever is viewing', async () => {
     const { db, calls } = fakeDb(base())
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false, viewerId: 'u-brd' })).toMatchObject({ pro: 0 })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: false, viewerId: 'u-brd' })).toMatchObject({ pro: 0 })
     expect(calls.some((c) => c.table === 'org_members')).toBe(false)
     expect(calls.filter((c) => c.table === 'approval_requests')).toHaveLength(4)
   })
 
   it('flag on, no viewer: every professional item counts, as before', async () => {
     const { db, calls } = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(6)] })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true })).toMatchObject({ pro: 6 })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: true })).toMatchObject({ pro: 6 })
     expect(proActions(calls)).toContain('pro.journal_entry')
     expect(calls.some((c) => c.table === 'org_members')).toBe(false)
   })
 
   it('flag on: the Treasurer’s badge includes the CPA’s entries and review notes', async () => {
     const { db, calls } = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(3)], org_members: [members(ROWS)] })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true, viewerId: 'u-tre' })).toMatchObject({ pro: 3 })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: true, viewerId: 'u-tre' })).toMatchObject({ pro: 3 })
     expect(proActions(calls)).toEqual(expect.arrayContaining(['pro.journal_entry', 'pro.cpa_review', 'pro.note']))
     const m = calls.find((c) => c.table === 'org_members')!.ops
     expect(m).toContainEqual(['eq', ['org_id', ORG]])
@@ -245,7 +245,7 @@ describe('countPendingApprovals: Treasurer-routed professional items (BL-168 fol
 
   it('flag on: another board member’s badge leaves the CPA items out (attorney items stay)', async () => {
     const { db, calls } = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(1)], org_members: [members(ROWS)] })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true, viewerId: 'u-brd' })).toMatchObject({ pro: 1 })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: true, viewerId: 'u-brd' })).toMatchObject({ pro: 1 })
     const actions = proActions(calls)
     expect(actions).not.toContain('pro.journal_entry')
     expect(actions).not.toContain('pro.cpa_review')
@@ -255,16 +255,16 @@ describe('countPendingApprovals: Treasurer-routed professional items (BL-168 fol
   it('flag on, no Treasurer: the admin is the recipient and a board member is not', async () => {
     const noTreasurer = [ROWS[0]!, ROWS[2]!]
     const admin = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(2)], org_members: [members(noTreasurer)] })
-    await countPendingApprovals(admin.db, ORG, { m5: false, m6: true, viewerId: 'u-adm' })
+    await countPendingApprovals(admin.db, ORG, { m11: false, m5: false, m6: true, viewerId: 'u-adm' })
     expect(proActions(admin.calls)).toContain('pro.journal_entry')
     const board = fakeDb({ ...base(), approval_requests: [ok(0), ok(0), ok(0), ok(0), ok(2)], org_members: [members(noTreasurer)] })
-    await countPendingApprovals(board.db, ORG, { m5: false, m6: true, viewerId: 'u-brd' })
+    await countPendingApprovals(board.db, ORG, { m11: false, m5: false, m6: true, viewerId: 'u-brd' })
     expect(proActions(board.calls)).not.toContain('pro.journal_entry')
   })
 
   it('flag on: a failed members read makes the professionals count unknown, not 0', async () => {
     const { db } = fakeDb({ ...base(), org_members: [{ data: null, error: err }] })
-    expect(await countPendingApprovals(db, ORG, { m5: false, m6: true, viewerId: 'u-brd' })).toMatchObject({ pro: null })
+    expect(await countPendingApprovals(db, ORG, { m11: false, m5: false, m6: true, viewerId: 'u-brd' })).toMatchObject({ pro: null })
   })
 })
 
@@ -384,5 +384,107 @@ describe('loadArcSection (BL-027)', () => {
   it('a failed read is a failed section', async () => {
     const { db } = fakeDb({ ai_runs: [{ data: null, error: err }] })
     expect(await loadArcSection(db, ORG)).toEqual({ source: 'arc', ok: false })
+  })
+})
+
+describe('loadAmenitySection (BL-034)', () => {
+  const NOW = new Date('2026-11-06T12:00:00Z')
+  const AM = '22222222-2222-4222-8222-222222222222'
+  const row = (over: Record<string, unknown> = {}) => ({
+    id: 'r1',
+    amenity_id: AM,
+    unit_id: 'u1',
+    kind: 'booking',
+    // 7:00 PM to 9:00 PM on Nov 8 in New York (EST, UTC-5)
+    starts_at: '2026-11-09T00:00:00Z',
+    ends_at: '2026-11-09T02:00:00Z',
+    status: 'pending',
+    purpose: 'Birthday',
+    decision_note: null,
+    cancel_reason: null,
+    party_size: 20,
+    created_at: '2026-11-05T10:00:00Z',
+    ...over,
+  })
+  const canned = (rows: unknown[], count = rows.length) => ({
+    amenity_reservations: [{ data: rows, error: null, count }],
+    units: [{ data: [{ id: 'u1', address_line1: '12 Oak Lane', unit_number: null }], error: null }],
+    amenities: [{ data: [{ id: AM, name: 'Clubhouse' }], error: null }],
+  })
+
+  it('asks only for this org\'s pending resident requests that have not started, oldest request first', async () => {
+    const { db, calls } = fakeDb(canned([row()]))
+    await loadAmenitySection(db, ORG, 'America/New_York', { live: true, now: NOW })
+    const q = calls.find((c) => c.table === 'amenity_reservations')!.ops
+    expect(q).toContainEqual(['eq', ['organization_id', ORG]])
+    expect(q).toContainEqual(['eq', ['status', 'pending']])
+    expect(q).toContainEqual(['eq', ['kind', 'booking']])
+    expect(q).toContainEqual(['gt', ['starts_at', NOW.toISOString()]])
+    expect(q).toContainEqual(['order', ['created_at', { ascending: true }]])
+    // The name and home lookups are org-scoped too.
+    for (const t of ['units', 'amenities']) {
+      expect(calls.find((c) => c.table === t)!.ops).toContainEqual(['eq', ['organization_id', ORG]])
+    }
+  })
+
+  it('shows the amenity, the time in the association zone, the home and the length', async () => {
+    const { db } = fakeDb(canned([row()], 3))
+    const s = await loadAmenitySection(db, ORG, 'America/New_York', { live: true, now: NOW })
+    expect(s).toMatchObject({ source: 'amenity', ok: true, total: 3 })
+    if (!s.ok) throw new Error('unreachable')
+    expect(s.items[0]).toMatchObject({
+      source: 'amenity',
+      id: 'r1',
+      title: 'Clubhouse: Sun, Nov 8, 7:00 PM to 9:00 PM',
+      createdAt: '2026-11-05T10:00:00Z',
+      href: '/amenities?amenity=' + AM + '&month=2026-11&day=2026-11-08',
+      decision: { kind: 'amenity', reservationId: 'r1' },
+    })
+    expect(s.items[0]!.detail).toBe('For 12 Oak Lane · 2 hours · about 20 people · Reason given: Birthday')
+  })
+
+  it('uses the zone it is given', async () => {
+    const { db } = fakeDb(canned([row()]))
+    const s = await loadAmenitySection(db, ORG, 'America/Los_Angeles', { live: true, now: NOW })
+    if (!s.ok) throw new Error('unreachable')
+    expect(s.items[0]!.title).toBe('Clubhouse: Sun, Nov 8, 4:00 PM to 6:00 PM')
+  })
+
+  it('a failed read is a failed section, never an empty one', async () => {
+    const { db } = fakeDb({ amenity_reservations: [{ data: null, error: err }] })
+    expect(await loadAmenitySection(db, ORG, 'America/New_York', { live: true, now: NOW })).toEqual({ source: 'amenity', ok: false })
+  })
+
+  it('flag off: empty, and the database is never touched', async () => {
+    const { db, calls } = fakeDb({})
+    expect(await loadAmenitySection(db, ORG, 'America/New_York', { live: false })).toEqual({ source: 'amenity', ok: true, items: [], total: 0 })
+    expect(calls).toHaveLength(0)
+  })
+})
+
+describe('countPendingApprovals: amenity bookings (BL-034)', () => {
+  const ok = (n: number): Resp => ({ data: null, error: null, count: n })
+  const base = () => ({
+    approval_requests: [ok(0), ok(0), ok(0), ok(0)],
+    ai_runs: [ok(0), ok(0)],
+    tickets: [ok(0)],
+    associations: [{ data: [], error: null }] as Resp[],
+  })
+  const NOW = new Date('2026-11-06T12:00:00Z')
+
+  it('counts the same rows the section lists, head-only', async () => {
+    const { db, calls } = fakeDb({ ...base(), amenity_reservations: [ok(3)] })
+    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false, m11: true, now: NOW })).toMatchObject({ amenity: 3 })
+    const q = calls.find((c) => c.table === 'amenity_reservations')!.ops
+    expect(q.find(([op]) => op === 'select')![1][1]).toMatchObject({ count: 'exact', head: true })
+    expect(q).toContainEqual(['eq', ['organization_id', ORG]])
+    expect(q).toContainEqual(['eq', ['status', 'pending']])
+    expect(q).toContainEqual(['eq', ['kind', 'booking']])
+    expect(q).toContainEqual(['gt', ['starts_at', NOW.toISOString()]])
+  })
+
+  it('a failed count is unknown (null), not 0', async () => {
+    const { db } = fakeDb({ ...base(), amenity_reservations: [{ data: null, error: err }] })
+    expect(await countPendingApprovals(db, ORG, { m5: false, m6: false, m11: true, now: NOW })).toMatchObject({ amenity: null })
   })
 })
