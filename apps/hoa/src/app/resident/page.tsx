@@ -12,6 +12,7 @@ import {
   Home,
   Send,
   MessageSquarePlus,
+  Vote,
 } from 'lucide-react'
 import { Badge, Button, LoadFailed } from '@homeowner-portal/ui'
 import { getResidentDashboard, type OpenViolationRow } from '@/lib/resident-dashboard'
@@ -47,6 +48,9 @@ import { ResidentWelcome } from '@/components/resident/WelcomeCard'
 import { QuickActions } from '@/components/resident/QuickActions'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 import { formatShortDate } from '@/lib/format-datetime'
+import { M9_APPLIED } from '@homeowner-portal/db/m9'
+import type { PollsClient } from '@/lib/polls/store'
+import { closingSoonText, loadPollsToAnswer, NO_POLLS_TO_ANSWER } from '@/lib/polls/resident-badge'
 
 export const metadata = { title: 'My Home' }
 
@@ -70,7 +74,7 @@ export default async function ResidentDashboard() {
   // The next meeting needs only the org and the units' zone — both
   // memoized reads the dashboard makes too — so it runs alongside the
   // dashboard instead of after it (BL-099).
-  const [data, nextMeeting, offerTexts, contactGroups] = await Promise.all([
+  const [data, nextMeeting, offerTexts, contactGroups, polls] = await Promise.all([
     timed('/resident', 'resident.dashboard', () => getResidentDashboard()),
     timed('/resident', 'resident.nextMeeting', async () => {
       const [org, units] = await Promise.all([getCurrentOrg(), getResidentUnits()])
@@ -78,6 +82,15 @@ export default async function ResidentDashboard() {
     }),
     timed('/resident', 'resident.textsPrompt', () => shouldOfferTexts()),
     timed('/resident', 'resident.boardContacts', async () => loadBoardContacts(await getResidentUnits())),
+    timed('/resident', 'resident.pollsToAnswer', async () => {
+      if (!M9_APPLIED) return NO_POLLS_TO_ANSWER
+      try {
+        const supabase = await getSupabaseServerClient()
+        return await loadPollsToAnswer(supabase as unknown as PollsClient, await getResidentUnits(), new Date())
+      } catch {
+        return NO_POLLS_TO_ANSWER
+      }
+    }),
   ])
 
   const hasUnit = data.units.length > 0
@@ -173,6 +186,16 @@ export default async function ResidentDashboard() {
         </>
       )}
 
+      {hasUnit && polls.closingSoon ? (
+        <TappableRow
+          href={`/resident/polls/${polls.closingSoon.id}`}
+          icon={<Vote />}
+          tone="info"
+          title={closingSoonText(polls.closingSoon, residentTimeZone(data.units.filter((u) => u.association_id === polls.closingSoon?.associationId)))}
+          className="[&_span.truncate]:whitespace-normal"
+        />
+      ) : null}
+
       {hasUnit && offerTexts ? <TextsPromptCard /> : null}
 
       {data.orgId ? (
@@ -204,7 +227,7 @@ export default async function ResidentDashboard() {
       ))}
 
       <Section label="Quick actions">
-        <QuickActions newAnnouncements={data.recentAnnouncements} />
+        <QuickActions newAnnouncements={data.recentAnnouncements} pollsToAnswer={polls.count} />
       </Section>
 
       {hasUnit ? (

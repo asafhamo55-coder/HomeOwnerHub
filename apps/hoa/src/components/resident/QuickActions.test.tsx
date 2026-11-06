@@ -43,4 +43,17 @@ describe('QuickActions', () => {
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={3} />)).toContain('3 new')
     expect(renderToStaticMarkup(<QuickActions newAnnouncements={0} />)).not.toContain(' new')
   })
+
+  it('badges the Community tile with the polls to answer, in text and in its accessible name', () => {
+    const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} pollsToAnswer={2} />)
+    expect(html).toContain('2 polls to answer')
+    expect(html).toContain('aria-label="Community, 2 polls to answer. Polls, book a space, talk with neighbors"')
+    expect(renderToStaticMarkup(<QuickActions newAnnouncements={0} pollsToAnswer={1} />)).toContain('1 poll to answer')
+  })
+
+  it('shows no poll badge at 0', () => {
+    const html = renderToStaticMarkup(<QuickActions newAnnouncements={0} pollsToAnswer={0} />)
+    expect(html).not.toContain('to answer')
+    expect(html).not.toContain('aria-label="Community')
+  })
 })
