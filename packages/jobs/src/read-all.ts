@@ -8,8 +8,28 @@
  * size). `page(from, to)` must build a fresh query with a stable order
  * each call. Throws on the first page error and past `maxRows`, so a job
  * never acts on a partial set as if it were the whole one (BL-047).
+ *
+ * Opt-in shortcut (same as the app twin): when the server cap is confirmed
+ * (`serverCap`, or POSTGREST_MAX_ROWS), a page shorter than it is final
+ * outright, so a single-page read is one round trip. Without a confirmed
+ * cap nothing changes: only an empty page ends the read.
  */
 export const PAGE_ROWS = 1000
+
+/**
+ * Opt-in: the rows PostgREST returns per response on this project, taken
+ * from POSTGREST_MAX_ROWS. UNDEFINED unless that is a positive integer, and
+ * then readAll keeps its original cap-safe probing (BL-047): the hosted
+ * max_rows is a dashboard setting this code cannot see, and guessing it
+ * wrong silently truncates money totals. Set it only after confirming the
+ * value in Supabase (docs/owner-actions.md OA-46). Never above PAGE_ROWS.
+ */
+export function configuredServerCap(env: Record<string, string | undefined> = process.env): number | undefined {
+  const raw = env.POSTGREST_MAX_ROWS
+  if (raw === undefined || !/^\d+$/.test(raw)) return undefined
+  const n = Number(raw)
+  return n > 0 ? Math.min(n, PAGE_ROWS) : undefined
+}
 
 interface PageResponse<T> {
   data: T[] | null
@@ -20,6 +40,7 @@ export async function readAll<T>(
   page: (from: number, to: number) => PromiseLike<PageResponse<T>>,
   onError: (error: { code?: string; message?: string }) => Error,
   maxRows = 200_000,
+  serverCap: number | undefined = configuredServerCap(),
 ): Promise<T[]> {
   const out: T[] = []
   for (;;) {
@@ -30,5 +51,7 @@ export async function readAll<T>(
     const rows = data ?? []
     if (rows.length === 0) return out
     out.push(...rows)
+    // Only with a CONFIRMED cap: shorter than what the server returns at once => nothing was cut.
+    if (serverCap !== undefined && rows.length < Math.min(serverCap, PAGE_ROWS)) return out
   }
 }
