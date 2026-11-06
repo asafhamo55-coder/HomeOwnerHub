@@ -78,20 +78,22 @@ describe('sendSms — Twilio request and response', () => {
     expect(req.auth).toBe(`Basic ${Buffer.from('ACtest:token').toString('base64')}`)
     expect(req.form).toEqual({
       To: '+14045550100',
-      Body: 'Water off Thursday',
+      Body: 'Water off Thursday Reply STOP to opt out.',
       MessagingServiceSid: 'MGtest',
       StatusCallback: 'https://www.homeownerledger.com/api/webhooks/twilio/status',
     })
     expect(req.form).not.toHaveProperty('From')
   })
 
-  it('passes the body through untouched — a full 279-character text is not cut or split here', async () => {
+  it('a full 279-character text is cut to make room for the STOP line, never past 279', async () => {
     stubEnv()
     const { sendSms, htmlToSmsBody } = await freshSms()
     const body = htmlToSmsBody(`<p>${'a'.repeat(400)}</p>`)
     expect(body).toHaveLength(279)
     await sendSms({ to: ALLOWED, body })
-    expect(smsSend.mock.calls[0][0].form.Body).toBe(body)
+    const sent = smsSend.mock.calls[0][0].form.Body as string
+    expect(sent).toHaveLength(279)
+    expect(sent.endsWith(' Reply STOP to opt out.')).toBe(true)
   })
 
   it('a response without a sid stores null rather than inventing one', async () => {

@@ -656,7 +656,7 @@ exports[`sendCommunication, M1_APPLIED false (today) > send now: the full trace 
   [
     "sendSms",
     {
-      "body": "Annual meeting, Madison Park: Hi Ana, the annual meeting is on the 30th.",
+      "body": "Annual meeting, Madison Park: Hi Ana, the annual meeting is on the 30th. Reply STOP to opt out.",
       "to": "+15550100001",
     },
     {

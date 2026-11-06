@@ -9,7 +9,7 @@
 // Pure and client-safe: the wizard imports it for its SMS estimate, send.ts
 // for the real thing. No server imports.
 
-import { SMS_MAX_CHARS, composeSmsBody } from './sms-body'
+import { SMS_MAX_CHARS, SMS_STOP_LINE, composeSmsBody } from './sms-body'
 
 export type CommLanguage = 'en' | 'es'
 
@@ -174,7 +174,8 @@ export function composeBilingualSms({
   const en = oneLine(englishText)
   if (spanish) {
     const both = `${oneLine(subject)}: ${en} / ${oneLine(spanish.subject)}: ${oneLine(spanish.text)}`
-    if (both.length <= SMS_MAX_CHARS) return { body: both, spanishIncluded: true }
+    // The opt-out line stays English: STOP is the carrier keyword.
+    if (both.length + SMS_STOP_LINE.length <= SMS_MAX_CHARS) return { body: `${both}${SMS_STOP_LINE}`, spanishIncluded: true }
   }
   return { body: composeSmsBody({ subject, body: en, portalLink }), spanishIncluded: false }
 }

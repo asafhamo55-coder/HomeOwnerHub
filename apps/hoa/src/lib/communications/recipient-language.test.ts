@@ -163,9 +163,9 @@ describe('email payload language', () => {
 describe('renderSmsText language', () => {
   it('es sends Spanish only; en sends English only', () => {
     const es = renderSmsText({ subject: 'Pool', html: BILINGUAL, portalLink: link, language: 'es' })
-    expect(es.body).toBe('Piscina: La piscina abre el sábado.')
+    expect(es.body).toBe('Piscina: La piscina abre el sábado. Reply STOP to opt out.')
     const en = renderSmsText({ subject: 'Pool', html: BILINGUAL, portalLink: link, language: 'en' })
-    expect(en.body).toBe('Pool: The pool opens Saturday.')
+    expect(en.body).toBe('Pool: The pool opens Saturday. Reply STOP to opt out.')
     expect(en.englishOnly).toBe(false)
   })
 
@@ -174,7 +174,7 @@ describe('renderSmsText language', () => {
     expect(both.body).toContain('Piscina')
     expect(both.body).toContain('The pool')
     const plain = renderSmsText({ subject: 'Pool', html: EN, text: 'The pool opens Saturday.', portalLink: link, language: 'es' })
-    expect(plain.body).toBe('Pool: The pool opens Saturday.')
+    expect(plain.body).toBe('Pool: The pool opens Saturday. Reply STOP to opt out.')
   })
 
   it('a long Spanish text stays within the SMS limit and links to the portal', () => {
@@ -185,7 +185,7 @@ describe('renderSmsText language', () => {
     })
     const r = renderSmsText({ subject: 'Pool', html: longEs, portalLink: link, language: 'es' })
     expect(r.body.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
-    expect(r.body.endsWith(link)).toBe(true)
+    expect(r.body.endsWith(`${link} Reply STOP to opt out.`)).toBe(true)
     expect(r.shortened).toBe(true)
   })
 })
@@ -218,7 +218,7 @@ describe('deliverToRecipients language', () => {
     })
     expect(h.prefQueries).toHaveLength(1)
     const bodies = h.sms.map((m) => m.body)
-    expect(bodies).toContain('Piscina: La piscina abre el sábado.')
+    expect(bodies).toContain('Piscina: La piscina abre el sábado. Reply STOP to opt out.')
     expect(bodies.filter((b) => b.includes('Piscina') && b.includes('The pool'))).toHaveLength(2)
   })
 
