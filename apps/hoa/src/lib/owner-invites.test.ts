@@ -40,9 +40,9 @@ describe('planOwnerInvites (outbound guard + batching)', () => {
 
   it('outside production only allowlisted addresses are sent', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const list = [...owners(3), { email: 'me@team.test', name: null, unitIds: ['x'] }]
-    const plan = planOwnerInvites(list, { orgSandbox: false, env: { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: '@team.test' } })
-    expect(plan.batch.map((o) => o.email)).toEqual(['me@team.test'])
+    const list = [...owners(3), { email: 'me@team-hoa.com', name: null, unitIds: ['x'] }]
+    const plan = planOwnerInvites(list, { orgSandbox: false, env: { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: '@team-hoa.com' } })
+    expect(plan.batch.map((o) => o.email)).toEqual(['me@team-hoa.com'])
     expect(plan.held).toBe(3)
     // The guard's log line carries counts, never an address.
     expect(JSON.stringify(spy.mock.calls)).not.toMatch(/example\.com|team\.test/)

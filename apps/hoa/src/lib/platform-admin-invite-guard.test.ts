@@ -110,7 +110,7 @@ describe('createTenant initial-admin invite: outbound guard', () => {
 
   it('outside production: an address not on OUTBOUND_ALLOWLIST is held', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
     const res = await tenant('admin@acme-hoa.com')
     expect(res.ok && res.data.inviteHeld).toBe(true)
     expect(h.invited).toEqual([])
@@ -118,9 +118,9 @@ describe('createTenant initial-admin invite: outbound guard', () => {
 
   it('outside production: an allowlisted address is invited', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
-    await tenant('pat@team.test')
-    expect(h.invited).toEqual(['pat@team.test'])
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
+    await tenant('pat@team-hoa.com')
+    expect(h.invited).toEqual(['pat@team-hoa.com'])
   })
 
   it('the held-send log line carries counts and the org id, never the address', async () => {
@@ -150,7 +150,7 @@ describe('inviteOrPromotePlatformAdmin: outbound guard', () => {
 
   it('outside production: a held address gets no account, no grant and no email', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
     const res = await inviteOrPromotePlatformAdmin('new@acme-hoa.com')
     expect(res.ok).toBe(false)
     expect(res).toMatchObject({ error: expect.stringContaining('no invitation was sent') })
@@ -164,9 +164,9 @@ describe('inviteOrPromotePlatformAdmin: outbound guard', () => {
 
   it('outside production: an allowlisted address is invited', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
-    const res = await inviteOrPromotePlatformAdmin('Pat@Team.test')
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
+    const res = await inviteOrPromotePlatformAdmin('Pat@Team-hoa.com')
     expect(res.ok).toBe(true)
-    expect(h.invited).toEqual(['pat@team.test'])
+    expect(h.invited).toEqual(['pat@team-hoa.com'])
   })
 })

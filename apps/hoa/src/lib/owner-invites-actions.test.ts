@@ -151,13 +151,13 @@ describe('inviteAllOwners', () => {
 
   it('the outbound guard holds back non-allowlisted owners outside production', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
-    h.owners = [owner(1), owner(2, 'team.test')]
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
+    h.owners = [owner(1), owner(2, 'team-hoa.com')]
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const r = await inviteAllOwners(1)
     spy.mockRestore()
     expect(r).toMatchObject({ ok: true, data: { invited: 1, held: 1 } })
-    expect(h.invited).toEqual(['o2@team.test'])
+    expect(h.invited).toEqual(['o2@team-hoa.com'])
   })
 
   it('a sandboxed org sends nothing', async () => {

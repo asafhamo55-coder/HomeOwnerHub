@@ -1285,7 +1285,7 @@ describe('runMailboxSend — outbound safety guard', () => {
   }
 
   beforeEach(() => {
-    vi.stubEnv('OUTBOUND_ALLOWLIST', 'owner@allowed.test')
+    vi.stubEnv('OUTBOUND_ALLOWLIST', 'owner@allowed-hoa.com')
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
@@ -1308,8 +1308,8 @@ describe('runMailboxSend — outbound safety guard', () => {
   it('in preview, sends only to allowlisted To/Cc addresses', async () => {
     vi.stubEnv('VERCEL_ENV', 'preview')
     const db = guardDb({
-      to: [RESIDENT_EMAIL, 'owner@allowed.test'],
-      cc: ['neighbour@acme-hoa.com', 'owner@allowed.test'],
+      to: [RESIDENT_EMAIL, 'owner@allowed-hoa.com'],
+      cc: ['neighbour@acme-hoa.com', 'owner@allowed-hoa.com'],
     })
     vi.mocked(sendReply).mockResolvedValue({ messageId: 'm1', threadId: 'gt1' })
 
@@ -1317,8 +1317,8 @@ describe('runMailboxSend — outbound safety guard', () => {
 
     expect(result).toEqual({ sent: true, messageId: 'm1' })
     const args = vi.mocked(buildMimeMessage).mock.calls[0][0]
-    expect(args.to).toEqual(['owner@allowed.test'])
-    expect(args.cc).toEqual(['owner@allowed.test'])
+    expect(args.to).toEqual(['owner@allowed-hoa.com'])
+    expect(args.cc).toEqual(['owner@allowed-hoa.com'])
   })
 
   it('in production, sends to the resident', async () => {

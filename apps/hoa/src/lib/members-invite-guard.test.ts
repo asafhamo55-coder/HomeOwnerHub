@@ -113,7 +113,7 @@ describe('inviteMember outbound guard (BL-135)', () => {
 
   it('outside production: an address not on OUTBOUND_ALLOWLIST is held', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
     const res = await inviteMember({ email: 'owner@acme-hoa.com', role: 'resident' })
     expect(res.ok).toBe(false)
     expect(h.invited).toEqual([])
@@ -122,10 +122,10 @@ describe('inviteMember outbound guard (BL-135)', () => {
 
   it('outside production: an allowlisted address is invited', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
-    const res = await inviteMember({ email: 'Pat@Team.test', role: 'board' })
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
+    const res = await inviteMember({ email: 'Pat@Team-hoa.com', role: 'board' })
     expect(res.ok).toBe(true)
-    expect(h.invited).toEqual(['Pat@Team.test'])
+    expect(h.invited).toEqual(['Pat@Team-hoa.com'])
   })
 
   it('the held-send log line carries counts and the org id, never the address', async () => {

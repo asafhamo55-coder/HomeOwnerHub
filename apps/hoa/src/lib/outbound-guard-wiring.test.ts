@@ -27,7 +27,7 @@ vi.mock('@vonage/server-sdk', () => ({
 }))
 
 const RESIDENT = 'resident@gmail.com'
-const OWNER = 'owner@example.test'
+const OWNER = 'owner@staging-hoa.com'
 
 async function freshEmail() {
   vi.resetModules()
@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.stubEnv('VONAGE_API_KEY', 'k')
   vi.stubEnv('VONAGE_API_SECRET', 's')
   vi.stubEnv('VONAGE_FROM_NUMBER', '15550000000')
-  vi.stubEnv('OUTBOUND_ALLOWLIST', '@example.test,+1 404 555 1234')
+  vi.stubEnv('OUTBOUND_ALLOWLIST', '@staging-hoa.com,+1 404 555 1234')
   emailSend.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
   smsSend.mockResolvedValue({ messageUUID: 'sms_1' })
   vi.spyOn(console, 'warn').mockImplementation(() => {})

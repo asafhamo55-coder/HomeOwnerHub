@@ -20,7 +20,7 @@ vi.mock('resend', () => ({
 }))
 
 const RESIDENT = 'owner@gmail.com'
-const ALLOWED = 'treasurer@example.test'
+const ALLOWED = 'treasurer@staging-hoa.com'
 
 async function freshDeps() {
   vi.resetModules()
@@ -70,7 +70,7 @@ describe('duesReminderDeps — the guarded sender the job is registered with', (
     send.mockReset()
     send.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
     vi.stubEnv('RESEND_API_KEY', 'test-key')
-    vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@example.test>')
+    vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@staging-hoa.com>')
     vi.stubEnv('OUTBOUND_ALLOWLIST', ALLOWED)
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -105,7 +105,7 @@ describe('duesReminderDeps — the guarded sender the job is registered with', (
     const { s, statuses } = store(true, ALLOWED)
     await runDuesRemindersForAssociation(s, deps, CTX, quiet)
     expect(send).toHaveBeenCalledTimes(1)
-    expect(send.mock.calls[0][0]).toMatchObject({ to: ALLOWED, from: '"Maple Creek HOA" <noreply@example.test>' })
+    expect(send.mock.calls[0][0]).toMatchObject({ to: ALLOWED, from: '"Maple Creek HOA" <noreply@staging-hoa.com>' })
     expect(statuses).toEqual(['sent'])
   })
 

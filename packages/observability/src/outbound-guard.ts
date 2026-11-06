@@ -78,7 +78,7 @@ function normalizePhone(raw: string): string {
 
 /** Pull the bare address out of `Name <addr>` and lowercase it. */
 function normalizeEmail(raw: string): string {
-  const angle = raw.match(/<([^>]+)>/)
+  const angle = raw.match(/<([^<>]+)>\s*$/)
   return (angle ? angle[1] : raw).trim().toLowerCase()
 }
 
@@ -207,25 +207,30 @@ export function guardRecipients<T>(
 
   const allowed: T[] = []
   const blocked: T[] = []
+  const reasons = new Set<string>()
   const allowedMask = items.map((item) => {
-    // Reserved test domains are refused when the policy is not enforcing
-    // (production). Under enforcement the allowlist is the explicit,
-    // deliberate decision and already blocks everything not listed.
-    const ok = policy.enforce
-      ? isAllowlisted(channel, recipientOf(item), policy.allowlist)
-      : !(isEmail && isReservedTestAddress(recipientOf(item)))
-    ;(ok ? allowed : blocked).push(item)
+    const recipient = recipientOf(item)
+    // Reserved test domains are refused in every mode, with no escape hatch:
+    // an allowlist entry cannot make a bouncing address deliverable.
+    const reserved = isEmail && isReservedTestAddress(recipient)
+    const ok = !reserved && (policy.enforce ? isAllowlisted(channel, recipient, policy.allowlist) : true)
+    if (ok) allowed.push(item)
+    else {
+      blocked.push(item)
+      reasons.add(reserved ? 'reserved_domain' : (policy.reason ?? 'non_production'))
+    }
     return ok
   })
 
   if (blocked.length > 0) {
+    const reason = reasons.size === 1 ? [...reasons][0] : 'mixed'
     ;(opts.logger ?? defaultLogger).warn(
       `[outbound-guard] blocked ${blocked.length} of ${items.length} ${channel} recipient(s)`,
       {
         channel,
         blocked: blocked.length,
         total: items.length,
-        reason: policy.enforce ? policy.reason : 'reserved_domain',
+        reason,
         ref: opts.ref ?? null,
       },
     )
