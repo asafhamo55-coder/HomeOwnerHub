@@ -1,0 +1,82 @@
+{
+  "voice": "Samantha",
+  "rate": 135,
+  "scenes": [
+    {
+      "id": "welcome",
+      "title": "Welcome",
+      "lines": [
+        "Madison Park is moving to HomeownerHub.",
+        { "text": "One easy place for your dues, your requests, and your news.", "hold": 0.6 }
+      ]
+    },
+    {
+      "id": "setup",
+      "title": "Step 1: Sign in",
+      "lines": [
+        "Open the invitation email from HomeownerHub, sent by your board, and tap the button.",
+        "That signs you in. No password needed.",
+        "Next time, tap Email me a link. Or choose a password."
+      ]
+    },
+    {
+      "id": "install",
+      "title": "Step 2: Add it to your phone",
+      "lines": [
+        "Add it to your home screen, so it opens like any app.",
+        { "text": "On iPhone, use Safari. Tap Share, then Add to Home Screen.", "hold": 1.2 },
+        "On Android, use Chrome. Tap the menu.",
+        { "text": "Then tap Add to Home screen, or Install app.", "hold": 1.6 }
+      ]
+    },
+    {
+      "id": "dues",
+      "title": "Dues and statement",
+      "lines": [
+        { "text": "Tap Dues to see what you owe, and your statement.", "hold": 0.8 },
+        { "text": "Tap Pay to see how your board takes payment.", "hold": 2.3 }
+      ]
+    },
+    {
+      "id": "requests",
+      "title": "Ask the board",
+      "lines": [
+        "Need something fixed? Tap Requests, then New support request.",
+        { "text": "Write a note, and tap Send request.", "hold": 1.1 }
+      ]
+    },
+    {
+      "id": "booking",
+      "title": "Book a space",
+      "lines": [
+        "To book the clubhouse or the pool, tap Community, then Book a space.",
+        { "text": "Pick a space, a day, and a time.", "hold": 1.0 },
+        "Then check your booking, and tap Book it."
+      ]
+    },
+    {
+      "id": "community",
+      "title": "News and neighbors",
+      "lines": [
+        { "text": "On Home, you will find Announcements and Documents.", "hold": 0.8 },
+        { "text": "Under Community, answer polls and talk with your neighbors.", "hold": 0.6 }
+      ]
+    },
+    {
+      "id": "help",
+      "title": "If you get stuck",
+      "lines": [
+        { "text": "Stuck? Tap the Help button. It says Hello, and your first name.", "hold": 0.8 },
+        { "text": "Or tap Ask, to chat with your assistant.", "hold": 0.5 }
+      ]
+    },
+    {
+      "id": "closing",
+      "title": "You are ready",
+      "lines": [
+        "Welcome to HomeownerHub, Madison Park.",
+        "Your board is glad to help."
+      ]
+    }
+  ]
+}
