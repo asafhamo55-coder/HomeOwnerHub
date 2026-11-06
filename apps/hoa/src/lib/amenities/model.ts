@@ -369,6 +369,11 @@ export interface DayView {
   note: string
   hours: DayHours | null
   slots: Slot[]
+  /**
+   * For each free start hour, the end hours that checkRequest would accept
+   * (same whole-range count against concurrentLimit). Computed on the server.
+   */
+  ends: Record<number, number[]>
 }
 
 /**
@@ -381,7 +386,7 @@ export function daySlots(args: { amenity: Amenity; day: string; timeZone: string
   const { amenity: a, day, timeZone, now, held } = args
   const label = dayLabel(day)
   const today = todayIn(timeZone, now)
-  const base = { day, label, slots: [] as Slot[] }
+  const base = { day, label, slots: [] as Slot[], ends: {} as Record<number, number[]> }
   if (dateOnlyCompare(day, today) < 0) return { ...base, status: 'past', note: 'Passed', hours: null }
   if (dateOnlyCompare(day, addCalendarDays(today, a.advanceDays)) > 0) {
     return { ...base, status: 'too_far', note: 'Too far ahead', hours: null }
@@ -390,6 +395,7 @@ export function daySlots(args: { amenity: Amenity; day: string; timeZone: string
   if (hours === null) return { ...base, status: 'closed', note: 'Closed', hours: null }
 
   const slots: Slot[] = []
+  const ends: Record<number, number[]> = {}
   for (let h = hours.open; h < hours.close; h++) {
     const startsAt = instantAtLocalTime(day, h, timeZone)
     if (hourIn(timeZone, startsAt) !== h) continue
@@ -399,17 +405,46 @@ export function daySlots(args: { amenity: Amenity; day: string; timeZone: string
     else if (a.minNoticeHours > 0 && startsAt.getTime() < now.getTime() + a.minNoticeHours * 3_600_000) state = 'too_soon'
     else if (heldCount(held, { startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() }) >= a.concurrentLimit) state = 'taken'
     slots.push({ hour: h, label: hourLabel(h), state })
+    if (state === 'free') {
+      // Same rule as checkRequest: the whole range counts against the limit.
+      const list: number[] = []
+      for (let e = h + 1; e <= Math.min(hours.close, h + a.maxHours); e++) {
+        const range = { startsAt: startsAt.toISOString(), endsAt: instantAtLocalTime(day, e, timeZone).toISOString() }
+        if (heldCount(held, range) >= a.concurrentLimit) break
+        list.push(e)
+      }
+      ends[h] = list
+    }
   }
   const anyFree = slots.some((s) => s.state === 'free')
-  return { ...base, status: anyFree ? 'open' : 'full', note: anyFree ? 'Free times' : 'Full', hours, slots }
+  return { ...base, status: anyFree ? 'open' : 'full', note: anyFree ? 'Free times' : 'Full', hours, slots, ends }
 }
 
-/** The next `count` days starting today, each with its free times. */
-export function dayStrip(args: { amenity: Amenity; timeZone: string; now: Date; held: Busy[]; count: number }): DayView[] {
-  const today = todayIn(args.timeZone, args.now)
-  return Array.from({ length: args.count }, (_, i) =>
-    daySlots({ amenity: args.amenity, day: addCalendarDays(today, i), timeZone: args.timeZone, now: args.now, held: args.held }),
-  )
+/**
+ * `count` days starting at `startDay` (default today), each with its free
+ * times. Held bookings are parsed once and bucketed per day so a long strip
+ * does not rescan every booking for every hour.
+ */
+export function dayStrip(args: {
+  amenity: Amenity
+  timeZone: string
+  now: Date
+  held: Busy[]
+  count: number
+  startDay?: string
+}): DayView[] {
+  const first = args.startDay ?? todayIn(args.timeZone, args.now)
+  const parsed = args.held.map((h) => ({ h, s: Date.parse(h.startsAt), e: Date.parse(h.endsAt) }))
+  return Array.from({ length: args.count }, (_, i) => {
+    const day = addCalendarDays(first, i)
+    let held: Busy[] = []
+    if (parsed.length > 0) {
+      const from = instantAtLocalTime(day, 0, args.timeZone).getTime()
+      const to = instantAtLocalTime(addCalendarDays(day, 1), 0, args.timeZone).getTime()
+      held = parsed.filter((p) => p.s < to && p.e > from).map((p) => p.h)
+    }
+    return daySlots({ amenity: args.amenity, day, timeZone: args.timeZone, now: args.now, held })
+  })
 }
 
 /**
@@ -417,8 +452,10 @@ export function dayStrip(args: { amenity: Amenity; timeZone: string; now: Date; 
  * booking and the closing time, stopping at the first slot that is not free.
  * (An hour that does not exist on a clock-change day is passed over.)
  */
-export function validEnds(view: Pick<DayView, 'hours' | 'slots'>, startHour: number, maxHours: number): number[] {
+export function validEnds(view: Pick<DayView, 'hours' | 'slots'> & { ends?: DayView['ends'] }, startHour: number, maxHours: number): number[] {
   if (!view.hours) return []
+  // The server's answer, counted over the whole range as checkRequest does.
+  if (view.ends) return view.ends[startHour] ?? []
   const bySlot = new Map(view.slots.map((s) => [s.hour, s]))
   const out: number[] = []
   for (let h = startHour; h < Math.min(view.hours.close, startHour + maxHours); h++) {
