@@ -12,6 +12,9 @@ const PUBLIC_PREFIXES = [
   '/verify',
   // Resident onboarding video and steps, linked from the invitation email.
   '/welcome',
+  // Subscribable calendar feed. A calendar app sends no cookies; the signed
+  // token in the URL is the whole authorization (lib/calendar-feed/token.ts).
+  '/calendar',
   '/forgot-password',
   '/reset-password',
   '/auth',

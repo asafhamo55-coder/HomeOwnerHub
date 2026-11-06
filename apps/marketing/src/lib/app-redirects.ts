@@ -61,6 +61,8 @@ export const APP_PATH_SEGMENTS = [
   'people',
   // Public resident onboarding video page
   'welcome',
+  // Subscribable calendar feed (signed link, Round 29)
+  'calendar',
   // BL-168 professional access (CPA, attorney)
   'pro',
   'pro-invite',

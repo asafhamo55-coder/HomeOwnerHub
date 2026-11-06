@@ -8,7 +8,7 @@
  */
 import { instantAtLocalTime } from '@/lib/association-time'
 import { meetingTypeLabel } from '@/lib/resident-meetings/select'
-import { buildIcs } from '@/lib/ics'
+import { buildIcs, type IcsEvent } from '@/lib/ics'
 import { CALENDAR_TIME_RE } from './notice-prefill'
 
 /** Calendar length when only a start time is known. */
@@ -32,6 +32,11 @@ export function meetingIcsFilename(meetingDate: string): string {
 }
 
 export function buildMeetingIcs(input: MeetingIcsInput): string {
+  return buildIcs(meetingIcsEvent(input))
+}
+
+/** The one event for a meeting. The same UID everywhere, so a download and a subscription never duplicate. */
+export function meetingIcsEvent(input: MeetingIcsInput & { status?: IcsEvent['status'] }): IcsEvent {
   let start: { at: Date; minutes: number } | undefined
   const m = input.start ? CALENDAR_TIME_RE.exec(input.start) : null
   if (m) {
@@ -41,7 +46,7 @@ export function buildMeetingIcs(input: MeetingIcsInput): string {
   }
   const host = input.origin.replace(/^https?:\/\//, '').replace(/[:/].*$/, '') || 'homeownerhub'
   const portal = `${input.origin}/resident/meetings`
-  return buildIcs({
+  return {
     uid: `meeting-${input.meetingId}@${host}`,
     summary: `${input.associationName}: ${meetingTypeLabel(input.meetingType)}`,
     date: input.meetingDate,
@@ -49,6 +54,7 @@ export function buildMeetingIcs(input: MeetingIcsInput): string {
     location: input.where ?? null,
     description: `Meeting notice from ${input.associationName}. The agenda and notices are in the resident portal: ${portal}`,
     url: portal,
+    status: input.status,
     now: input.now,
-  })
+  }
 }

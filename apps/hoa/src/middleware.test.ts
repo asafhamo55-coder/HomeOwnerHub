@@ -113,6 +113,19 @@ describe('middleware: /welcome is public', () => {
   })
 })
 
+describe('middleware: /calendar feed is public', () => {
+  it('lets a calendar app with no cookies fetch the feed', async () => {
+    const res = await middleware(req('/calendar/some-token'))
+    expect(res.headers.get('location')).toBeNull()
+    expect(res.status).toBe(200)
+  })
+
+  it('still sends a look-alike route to /login', async () => {
+    const res = await middleware(req('/calendar-admin/x'))
+    expect(res.headers.get('location')).toContain('/login')
+  })
+})
+
 describe('middleware: which requests confirm the session with the auth server (BL-074)', () => {
   const strictFor = async (path: string) => {
     vi.mocked(updateSession).mockClear()

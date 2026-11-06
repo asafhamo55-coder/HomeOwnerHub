@@ -1,7 +1,10 @@
 import Link from 'next/link'
 import { CalendarClock, CalendarDays, CalendarPlus, FileText } from 'lucide-react'
 import { Badge, Button, LoadFailed, NoOrgSelected } from '@homeowner-portal/ui'
-import { getCurrentOrg } from '@/lib/orgs'
+import { getCurrentOrg, getSignedInUser } from '@/lib/orgs'
+import { appOrigin } from '@/lib/app-origin'
+import { calendarFeedSecret, feedUrls, feedVersionOf, signFeedToken } from '@/lib/calendar-feed/token'
+import { CalendarFeedCard } from './CalendarFeedCard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { tryLoad } from '@/lib/load-or-fail'
 import { calendarDaysBetween, todayIn } from '@/lib/association-time'
@@ -74,9 +77,22 @@ export default async function ResidentMeetingsPage() {
 
   const { upcoming, past, pastCapped } = res.data
 
+  // The subscribe card. No CALENDAR_FEED_SECRET (or no signed-in user) = no card.
+  const feedSecret = calendarFeedSecret()
+  const user = feedSecret ? await getSignedInUser() : null
+  const feed =
+    feedSecret && user
+      ? feedUrls(
+          appOrigin(),
+          signFeedToken(feedSecret, { userId: user.id, orgId: org.id, version: feedVersionOf(user.user_metadata) }),
+        )
+      : null
+
   return (
     <div className="space-y-6">
       {header}
+
+      {feed ? <CalendarFeedCard webcalUrl={feed.webcal} httpsUrl={feed.https} /> : null}
 
       <Section label="Upcoming meetings">
         {upcoming.length === 0 ? (
