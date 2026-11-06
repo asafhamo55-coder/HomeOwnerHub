@@ -66,10 +66,17 @@ describe('the brand header in every renderer', () => {
     try {
       const html = renderEmailDocument({ bodyHtml: '<p>x</p>', footerHtml: 'y' })
       const img = html.match(/<img[^>]*>/)?.[0] ?? ''
-      expect(img).toContain('src="https://app.homeownerhub.test/email/v2/homeownerhub-logo.png"')
+      expect(img).toContain('src="https://app.homeownerhub.test/email/v3/homeownerhub-logo.png"')
       expect(img).toContain('alt="HomeownerHub"')
-      expect(img).toContain('width="180"')
-      expect(img).toContain('height="30"')
+      expect(img).toContain('width="200"')
+      expect(img).toContain('height="48"')
+      // The badge carries its own colour: no white fill or border on the img.
+      const style = img.match(/style="([^"]*)"/)?.[1] ?? ''
+      expect(style).not.toMatch(/background(-color)?:\s*(#fff|#ffffff|white)/i)
+      expect(style).not.toMatch(/border:\s*[1-9]/)
+      expect(img).not.toMatch(/bgcolor/i)
+      // Clients honouring prefers-color-scheme: dark get the band in dark ink.
+      expect(html).toMatch(/@media \(prefers-color-scheme: dark\)\{\.eh-logo\{background-color:#1f1033 !important/)
     } finally {
       if (prev === undefined) delete process.env.EMAIL_ASSET_BASE_URL
       else process.env.EMAIL_ASSET_BASE_URL = prev
@@ -81,7 +88,7 @@ describe('the brand header in every renderer', () => {
     process.env.EMAIL_ASSET_BASE_URL = 'https://app.homeownerhub.test'
     try {
       const html = wrapBrandedEmail({ bodyHtml: '<p>Hello</p>', footerHtml: 'Sent by HomeownerHub', title: 'T' })
-      expect(html).toContain('src="https://app.homeownerhub.test/email/v2/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"')
+      expect(html).toContain('src="https://app.homeownerhub.test/email/v3/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48"')
       expect(html).toContain('lang="en"')
       expect(html).toContain('<title>T</title>')
       expect(html).toContain('<meta name="color-scheme" content="light" />')
@@ -115,7 +122,7 @@ describe('the brand header in every renderer', () => {
 
 describe('ensureBranded (the send-time safety net)', () => {
   it('wraps a bare fragment in the brand frame', () => {
-    const out = ensureBranded('<p>Your booking is confirmed.</p>', 'https://a.test/email/v2/homeownerhub-logo.png')
+    const out = ensureBranded('<p>Your booking is confirmed.</p>', 'https://a.test/email/v3/homeownerhub-logo.png')
     expect(out).toContain('alt="HomeownerHub"')
     expect(out).toContain('Your booking is confirmed.')
     expect(out).toMatch(/^<!DOCTYPE/i)
@@ -141,7 +148,7 @@ describe('ensureBranded (the send-time safety net)', () => {
     expect(safeLogoUrlFromOrigin('http://localhost:3000')).toBeNull()
     expect(safeLogoUrlFromOrigin('https://x-git-abc.vercel.app')).toBeNull()
     expect(safeLogoUrlFromOrigin('https://www.homeownerledger.com/')).toBe(
-      'https://www.homeownerledger.com/email/v2/homeownerhub-logo.png',
+      'https://www.homeownerledger.com/email/v3/homeownerhub-logo.png',
     )
   })
 

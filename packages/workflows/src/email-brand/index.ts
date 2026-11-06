@@ -53,13 +53,17 @@ export const BRAND = {
 export const EMAIL_FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
 /** Folder of the header logo under the app's public root. v2: bumped so caches drop the old violet PNG. */
-export const LOGO_DIR = 'email/v2'
-/** File name of the header logo inside apps/hoa/public/email/v2/. */
+export const LOGO_DIR = 'email/v3'
+/** File name of the header logo inside apps/hoa/public/email/v3/. */
 export const LOGO_FILE = 'homeownerhub-logo.png'
-/** Displayed size. The PNG itself is 2x (360 wide) for retina screens. */
-export const LOGO_WIDTH = 180
-export const LOGO_HEIGHT = 30
+/** Displayed size. The PNG itself is 2x (400 wide) for retina screens. */
+export const LOGO_WIDTH = 200
+export const LOGO_HEIGHT = 48
 export const LOGO_ALT = 'HomeownerHub'
+/** Dark ink behind the badge where a client honours prefers-color-scheme: dark. */
+export const LOGO_BAND_DARK = '#1f1033'
+/** Head CSS for the logo band. Light mode keeps the inline white; dark gets ink. */
+export const LOGO_DARK_CSS = `@media (prefers-color-scheme: dark){.eh-logo{background-color:${LOGO_BAND_DARK} !important;} }`
 
 export function escapeEmailHtml(s: string): string {
   return s
@@ -106,12 +110,12 @@ export function brandButtonHtml(href: string, label: string, color: string = BRA
 }
 
 /**
- * The brand header, two table rows: the full-colour logo on a white band,
- * then a 4px royal purple rule. White rather than deep purple because dark
- * mode engines invert backgrounds but never image pixels: a white band is
- * the "light" case and stays put (the document declares color-scheme:
- * light), and the PNG carries its own opaque white field, so even where a
- * client darkens the band the logo reads as a white badge.
+ * The brand header, two table rows: the logo badge on a white band, then a
+ * 4px royal purple rule. The logo PNG (email/v3) is a purple rounded badge
+ * with the white wordmark and TRANSPARENT corners, so it looks deliberate on
+ * a white band and on a darkened one (clients invert backgrounds but never
+ * image pixels). The img carries no background of its own. Clients that
+ * honour prefers-color-scheme: dark get the band in dark ink (LOGO_DARK_CSS).
  *
  * `url` null renders the wordmark as styled text, which is also what shows
  * through `alt` when a client blocks images.
@@ -119,7 +123,7 @@ export function brandButtonHtml(href: string, label: string, color: string = BRA
 export function logoHeaderRowsHtml(url: string | null): string {
   const textStyle = `font-family:${EMAIL_FONT};font-size:22px;line-height:30px;font-weight:700;color:${BRAND.primary};text-decoration:none;`
   const inner = url
-    ? `<img src="${escapeEmailHtml(url)}" alt="${LOGO_ALT}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" border="0" style="display:block;border:0;outline:none;width:${LOGO_WIDTH}px;height:${LOGO_HEIGHT}px;${textStyle}" />`
+    ? `<img src="${escapeEmailHtml(url)}" alt="${LOGO_ALT}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" border="0" style="display:block;border:0;outline:none;background:none;width:${LOGO_WIDTH}px;height:${LOGO_HEIGHT}px;${textStyle}" />`
     : `<span style="${textStyle}">${LOGO_ALT}</span>`
   return `<tr><td class="eh-logo" bgcolor="${BRAND.card}" style="background-color:${BRAND.card};color:${BRAND.ink};padding:18px 22px 16px;">${inner}</td></tr>
 <tr><td bgcolor="${BRAND.primary}" height="4" style="background-color:${BRAND.primary};color:${BRAND.primary};height:4px;font-size:1px;line-height:4px;mso-line-height-rule:exactly;">&nbsp;</td></tr>`
@@ -154,6 +158,7 @@ export function wrapBrandedEmail(opts: {
 <meta name="color-scheme" content="light" />
 <meta name="supported-color-schemes" content="light" />
 <title>${opts.title ? escapeEmailHtml(opts.title) : ''}</title>
+<style type="text/css">${LOGO_DARK_CSS}</style>
 </head>
 <body style="margin:0;padding:0;background-color:${BRAND.page};color:${BRAND.ink};">
 ${pre}

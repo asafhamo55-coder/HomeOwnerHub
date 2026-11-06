@@ -61,7 +61,7 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
 ```
 <div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#211B2C;max-width:560px;margin:0 auto;padding:16px">
   <p style="margin:0 0 12px;padding:0 0 16px;border-bottom:4px solid #6D28D9">
-    <img src="https://www.homeownerledger.com/email/v2/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30" style="display:block;border:0;height:30px;width:180px">
+    <img src="https://www.homeownerledger.com/email/v3/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48" style="display:block;border:0;height:48px;width:200px">
   </p>
   <p style="font-size:20px;font-weight:bold;margin:0 0 16px">You are invited to {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }}.</p>
   <p style="margin:0 0 16px">HomeownerHub is where you see your dues, ask the board a question, and find your community's rules and news. There is nothing to download.</p>

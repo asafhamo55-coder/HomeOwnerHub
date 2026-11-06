@@ -116,7 +116,7 @@ export function wordmarkHeader(label: string): string {
   return `<!-- Header: logo -->
 <tr><td style="padding:0 4px 18px 4px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-    <td valign="middle"><img src="${escapeHtml(BRAND.logoUrl)}" alt="${BRAND.productName}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" border="0" style="display:block;border:0;border-radius:6px;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;font-family:${BRAND.font};font-size:20px;line-height:30px;font-weight:700;color:${BRAND.primary};" /></td>
+    <td valign="middle"><img src="${escapeHtml(BRAND.logoUrl)}" alt="${BRAND.productName}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" border="0" style="display:block;border:0;background:none;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;font-family:${BRAND.font};font-size:20px;line-height:30px;font-weight:700;color:${BRAND.primary};" /></td>
     <td valign="middle" align="right" class="rn-muted" style="font-size:13px;line-height:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${BRAND.muted};">${escapeHtml(label)}</td>
   </tr></table>
 </td></tr>`

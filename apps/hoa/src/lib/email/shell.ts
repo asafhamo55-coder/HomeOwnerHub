@@ -11,7 +11,7 @@
  */
 
 import { emailAssetUrl } from './asset-url'
-import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_FILE, logoHeaderRowsHtml } from './brand'
+import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_DARK_CSS, LOGO_FILE, logoHeaderRowsHtml } from './brand'
 
 export interface EmailBand {
   text: string
@@ -89,8 +89,8 @@ function bandRow(band: EmailBand): string {
  * engines (Gmail iOS, Outlook.com, Apple Mail) invert or partially invert
  * backgrounds but never touch image pixels. A white band is already the
  * "light" case, so it stays put (the document declares color-scheme: light),
- * and where an engine does darken it the PNG carries its own opaque white
- * field, so the logo reads as a white badge instead of dark ink on dark. A
+ * and where an engine does darken it the PNG is a purple badge with
+ * transparent corners, so it still reads as deliberate on dark. A
  * deep-purple band would invert unpredictably and could leave the white logo
  * on white. The purple rule keeps the royal purple at the very top of every
  * message, which is what the site does.
@@ -134,7 +134,8 @@ export function renderEmailDocument(opts: EmailDocumentOptions): string {
 <meta name="color-scheme" content="light" />
 <meta name="supported-color-schemes" content="light" />
 <title>${opts.title ? escapeHtml(opts.title) : ''}</title>
-${opts.extraCss ? `<style type="text/css">${opts.extraCss}</style>\n` : ''}</head>
+<style type="text/css">${LOGO_DARK_CSS}${opts.extraCss ?? ''}</style>
+</head>
 <body style="margin:0;padding:0;background-color:${PAGE_BG};color:${TEXT};">
 ${opts.previewText ? preheader(opts.previewText) : ''}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="background-color:${PAGE_BG};color:${TEXT};">
