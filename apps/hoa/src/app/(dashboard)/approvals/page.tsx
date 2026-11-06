@@ -131,7 +131,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Things to approve"
-      description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, amenity bookings, vendors. Nothing here happens until someone approves it."
+      description="Everything waiting on a board decision: deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, amenity bookings, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={
         <Suspense fallback={null}>
@@ -206,7 +206,7 @@ async function InboxZero({ orgId, orgName }: { orgId: string; orgName: string })
       icon={<CheckCircle2 aria-hidden />}
       title="Nothing waiting on the board"
       secondaryAction={<HowThisWorks href={guideHref('approvals-queue')} />}
-      description="New AI proposals — deposit matches, scanned bills, violation drafts, ARC reviews, vendor results — land here for a decision."
+      description="New AI proposals land here for a decision: deposit matches, scanned bills, violation drafts, ARC reviews and vendor results."
       action={
         <Button asChild variant="secondary">
           <Link href="/">Back to the dashboard</Link>
@@ -434,7 +434,7 @@ function AssociationCounts({ result }: { result: { ok: true; rows: AssociationVe
   return (
     <div className="space-y-1.5">
       <p className="text-xs text-muted" id="approvals-vendor-assoc">
-        Waiting by association{primary ? ` — the list shows ${primary.name}` : ''}
+        Waiting by association{primary ? `. The list shows ${primary.name}` : ''}
       </p>
       <ul className="flex flex-wrap gap-1.5" aria-labelledby="approvals-vendor-assoc">
         {result.rows.map((r) => (
