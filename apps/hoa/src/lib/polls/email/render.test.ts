@@ -130,7 +130,8 @@ describe('renderPollResultsEmail', () => {
     const t = tally([2, 1])
     const e = renderPollResultsEmail({ ...base, rows: t.rows, homesAnswered: 2, allowMultiple: false })
     expect(e.html).toContain('never shown by name')
-    expect(e.html).not.toMatch(/@/)
+    // Ignore <style> blocks: the shared head carries an @media dark-mode rule.
+    expect(e.html.replace(/<style[\s\S]*?<\/style>/g, '')).not.toMatch(/@/)
   })
 
   it('escapes the question and the association name', () => {

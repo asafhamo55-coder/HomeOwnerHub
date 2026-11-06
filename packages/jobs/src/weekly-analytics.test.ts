@@ -111,7 +111,8 @@ describe('runWeeklyAnalytics', () => {
     await runWeeklyAnalytics(f.db, { sendEmail }, { now: NOW, env: ENV })
     const { text, html, subject } = sendEmail.mock.calls[0]![0]
     for (const body of [text, html, subject]) {
-      expect(body).not.toContain('@')
+      // Ignore <style> blocks: the shared head carries an @media dark-mode rule.
+      expect(body.replace(/<style[\s\S]*?<\/style>/g, '')).not.toContain('@')
       expect(body).not.toContain('Maple Glen')
       expect(body).not.toContain('org-2')
     }
