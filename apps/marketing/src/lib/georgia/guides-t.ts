@@ -138,6 +138,7 @@ export const TX_VIOLATION_NOTICE: Guide = {
     'texas-hoa-third-party-collections-notice',
     'ai-hoa-violation-letters-board-approval',
     'violation-notice-checklist',
+    'texas-hoa-owner-suit-justice-court-209-017',
   ],
   hoaDoes: [
     {
