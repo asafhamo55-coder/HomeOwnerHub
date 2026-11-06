@@ -26,7 +26,7 @@ async function fresh() {
 
 const mk = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
-    to: `r${i}@example.com`,
+    to: `r${i}@acme-hoa.com`,
     subject: `s${i}`,
     html: `<p>${i}</p>`,
     senderName: 'Madison Park HOA',
@@ -40,7 +40,7 @@ describe('sendEmailBatch', () => {
     process.env.EMAIL_FROM = ENV_FROM
     process.env.RESEND_API_KEY = 'test-key'
     // These cases pin the production transport. The outbound guard
-    // (BL-004) would block every @example.com address outside production;
+    // (BL-004) would block every @acme-hoa.com address outside production;
     // its own wiring is covered in outbound-guard-wiring.test.ts.
     vi.stubEnv('VERCEL_ENV', 'production')
   })

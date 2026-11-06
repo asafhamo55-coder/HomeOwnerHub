@@ -5,6 +5,7 @@ import {
   guardRecipients,
   isAllowlisted,
   isOrgSandbox,
+  isReservedTestAddress,
   parseAllowlist,
   resolveOutboundPolicy,
 } from './outbound-guard'
@@ -15,8 +16,8 @@ import {
  */
 
 const RESIDENT = 'resident@gmail.com'
-const PREVIEW = { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: 'owner@example.com,@example.test' }
-const LOCAL = { OUTBOUND_ALLOWLIST: 'owner@example.com' } // no VERCEL_ENV at all
+const PREVIEW = { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: 'owner@acme-hoa.com,@staging-hoa.com' }
+const LOCAL = { OUTBOUND_ALLOWLIST: 'owner@acme-hoa.com' } // no VERCEL_ENV at all
 const PROD = { VERCEL_ENV: 'production' }
 
 function quietLogger() {
@@ -50,16 +51,16 @@ describe('resolveOutboundPolicy', () => {
 
 describe('allowlist matching', () => {
   const list = parseAllowlist(
-    ' Owner@Example.com , @example.test, staging.dev, +1 (404) 555-1234, user:abc-123 ,, ',
+    ' Owner@acme-hoa.com , @staging-hoa.com, staging.dev, +1 (404) 555-1234, user:abc-123 ,, ',
   )
 
   it('matches an exact email, case-insensitively', () => {
-    expect(isAllowlisted('email', 'owner@example.com', list)).toBe(true)
-    expect(isAllowlisted('email', 'OWNER@EXAMPLE.COM', list)).toBe(true)
+    expect(isAllowlisted('email', 'owner@acme-hoa.com', list)).toBe(true)
+    expect(isAllowlisted('email', 'OWNER@ACME-HOA.COM', list)).toBe(true)
   })
 
   it('matches every address at an @domain entry', () => {
-    expect(isAllowlisted('email', 'anyone@example.test', list)).toBe(true)
+    expect(isAllowlisted('email', 'anyone@staging-hoa.com', list)).toBe(true)
   })
 
   it('matches every address at a bare-domain entry', () => {
@@ -67,17 +68,17 @@ describe('allowlist matching', () => {
   })
 
   it('does not match a subdomain or a lookalike domain', () => {
-    expect(isAllowlisted('email', 'x@mail.example.test', list)).toBe(false)
-    expect(isAllowlisted('email', 'x@example.test.evil.com', list)).toBe(false)
-    expect(isAllowlisted('email', 'x@notexample.test', list)).toBe(false)
+    expect(isAllowlisted('email', 'x@mail.staging-hoa.com', list)).toBe(false)
+    expect(isAllowlisted('email', 'x@staging-hoa.com.evil.com', list)).toBe(false)
+    expect(isAllowlisted('email', 'x@notstaging-hoa.com', list)).toBe(false)
   })
 
   it('does not match a different address at the exact-email domain', () => {
-    expect(isAllowlisted('email', 'someone-else@example.com', list)).toBe(false)
+    expect(isAllowlisted('email', 'someone-else@acme-hoa.com', list)).toBe(false)
   })
 
   it('handles display-name and angle-bracket forms', () => {
-    expect(isAllowlisted('email', 'Owner <owner@example.com>', list)).toBe(true)
+    expect(isAllowlisted('email', 'Owner <owner@acme-hoa.com>', list)).toBe(true)
     expect(isAllowlisted('email', 'Resident <resident@gmail.com>', list)).toBe(false)
   })
 
@@ -100,7 +101,7 @@ describe('allowlist matching', () => {
 
   it('a blank or malformed recipient is never allowed', () => {
     expect(isAllowlisted('email', '', list)).toBe(false)
-    expect(isAllowlisted('email', '@example.test', list)).toBe(false)
+    expect(isAllowlisted('email', '@staging-hoa.com', list)).toBe(false)
     expect(isAllowlisted('sms', '', list)).toBe(false)
   })
 })
@@ -108,11 +109,11 @@ describe('allowlist matching', () => {
 describe('guardRecipients', () => {
   it('outside production, drops a resident and keeps an allowlisted address', () => {
     const logger = quietLogger()
-    const result = guardRecipients('email', [RESIDENT, 'owner@example.com'], (r) => r, {
+    const result = guardRecipients('email', [RESIDENT, 'owner@acme-hoa.com'], (r) => r, {
       env: PREVIEW,
       logger,
     })
-    expect(result.allowed).toEqual(['owner@example.com'])
+    expect(result.allowed).toEqual(['owner@acme-hoa.com'])
     expect(result.blocked).toEqual([RESIDENT])
   })
 
@@ -145,7 +146,7 @@ describe('guardRecipients', () => {
   it('works on objects through the recipient accessor and keeps positions', () => {
     const rows = [
       { id: 'r1', email: RESIDENT },
-      { id: 'r2', email: 'a@example.test' },
+      { id: 'r2', email: 'a@staging-hoa.com' },
       { id: 'r3', email: null },
     ]
     const result = guardRecipients('email', rows, (r) => r.email, {
@@ -174,7 +175,7 @@ describe('guardRecipients', () => {
 
   it('does not log when nothing was blocked', () => {
     const logger = quietLogger()
-    guardRecipients('email', ['owner@example.com'], (r) => r, { env: PREVIEW, logger })
+    guardRecipients('email', ['owner@acme-hoa.com'], (r) => r, { env: PREVIEW, logger })
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
@@ -228,5 +229,82 @@ describe('org sandbox flag', () => {
       }),
     }
     expect(await fetchOrgSandbox(db, 'org-1', quietLogger())).toBe(true)
+  })
+})
+
+describe('reserved test domains', () => {
+  const RESERVED = [
+    'a@example.com', 'a@example.net', 'a@example.org', 'a@example.invalid',
+    'a@x.example', 'a@x.invalid', 'a@x.test', 'a@x.localhost', 'a@localhost',
+    'A@EXAMPLE.COM', 'a@Mail.Example.Org', 'a@deep.sub.example.net',
+    'Sample <sample.home1@example.invalid>', 'a@example.com.',
+  ]
+  const NORMAL = [
+    'resident@gmail.com', 'a@notexample.com', 'a@example.com.au', 'a@myexample.org',
+    'a@testing.com', 'a@invalid.com', 'a@example.co', 'a@homeownerledger.com',
+  ]
+
+  it.each(RESERVED)('flags %s', (addr) => {
+    expect(isReservedTestAddress(addr)).toBe(true)
+  })
+  it.each(NORMAL)('allows %s', (addr) => {
+    expect(isReservedTestAddress(addr)).toBe(false)
+  })
+  it('ignores empty and malformed input', () => {
+    expect(isReservedTestAddress(null)).toBe(false)
+    expect(isReservedTestAddress('')).toBe(false)
+    expect(isReservedTestAddress('no-at-sign')).toBe(false)
+  })
+
+  it('in production skips reserved email recipients, keeps the rest, logs counts only', () => {
+    const logger = quietLogger()
+    const items = ['sample.home1@example.invalid', RESIDENT, 'old@EXAMPLE.com', 'b@x.test']
+    const r = guardRecipients('email', items, (x) => x, { env: PROD, logger, ref: 'comm_1' })
+    expect(r.allowed).toEqual([RESIDENT])
+    expect(r.blocked).toHaveLength(3)
+    expect(r.allowedMask).toEqual([false, true, false, false])
+    expect(logger.warn).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toMatch(/example|resident@|gmail/)
+    expect(logger.warn.mock.calls[0][1]).toMatchObject({ channel: 'email', blocked: 3, total: 4, ref: 'comm_1' })
+  })
+
+  it('applies to the gmail channel too, but never to sms', () => {
+    expect(guardRecipients('gmail', ['a@example.org'], (x) => x, { env: PROD, logger: quietLogger() }).blocked).toHaveLength(1)
+    expect(guardRecipients('sms', ['+15550001111'], (x) => x, { env: PROD, logger: quietLogger() }).allowed).toHaveLength(1)
+  })
+
+  it('an allowlisted reserved domain is still blocked under enforcement, logged as reserved_domain', () => {
+    const logger = quietLogger()
+    const r = guardRecipients('email', ['owner@example.test', 'ok@acme-hoa.com'], (x) => x, {
+      env: { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: '@example.test,owner@example.com,@acme-hoa.com' },
+      logger,
+    })
+    expect(r.allowed).toEqual(['ok@acme-hoa.com'])
+    expect(logger.warn.mock.calls[0][1]).toMatchObject({ reason: 'reserved_domain', blocked: 1 })
+  })
+
+  it('logs the reason per item: mixed when reserved and non-allowlisted drops coincide', () => {
+    const logger = quietLogger()
+    guardRecipients('email', ['a@example.test', RESIDENT], (x) => x, {
+      env: { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: '@example.test' },
+      logger,
+    })
+    expect(logger.warn.mock.calls[0][1]).toMatchObject({ reason: 'mixed', blocked: 2 })
+  })
+
+  it('allowlist @domain is exact (no subdomains) while the reserved check covers subdomains', () => {
+    const allow = parseAllowlist('@acme-hoa.com')
+    expect(isAllowlisted('email', 'a@acme-hoa.com', allow)).toBe(true)
+    expect(isAllowlisted('email', 'a@mail.acme-hoa.com', allow)).toBe(false)
+    expect(isReservedTestAddress('a@mail.example.com')).toBe(true)
+    expect(isReservedTestAddress('a@deep.sub.example.org')).toBe(true)
+  })
+
+  it('uses the LAST <...> group, so a display name containing <...> cannot hide the real address', () => {
+    expect(isReservedTestAddress('"Bob <bob@gmail.com>" <x@example.invalid>')).toBe(true)
+    expect(isReservedTestAddress('"Bob <bob@example.com>" <x@gmail.com>')).toBe(false)
+    const allow = parseAllowlist('')
+    expect(isAllowlisted('email', '"A <a@acme-hoa.com>" <b@gmail.com>', parseAllowlist('a@acme-hoa.com'))).toBe(false)
+    void allow
   })
 })

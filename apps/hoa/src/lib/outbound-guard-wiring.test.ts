@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { sampleHomes } from './sample-community/data'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
 
 /**
@@ -26,7 +27,7 @@ vi.mock('@vonage/server-sdk', () => ({
 }))
 
 const RESIDENT = 'resident@gmail.com'
-const OWNER = 'owner@example.test'
+const OWNER = 'owner@staging-hoa.com'
 
 async function freshEmail() {
   vi.resetModules()
@@ -43,7 +44,7 @@ beforeEach(() => {
   vi.stubEnv('VONAGE_API_KEY', 'k')
   vi.stubEnv('VONAGE_API_SECRET', 's')
   vi.stubEnv('VONAGE_FROM_NUMBER', '15550000000')
-  vi.stubEnv('OUTBOUND_ALLOWLIST', '@example.test,+1 404 555 1234')
+  vi.stubEnv('OUTBOUND_ALLOWLIST', '@staging-hoa.com,+1 404 555 1234')
   emailSend.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
   smsSend.mockResolvedValue({ messageUUID: 'sms_1' })
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -136,7 +137,8 @@ describe('sendEmailBatch', () => {
       error: null,
     })
     const { sendEmailBatch } = await freshEmail()
-    const results = await sendEmailBatch([mail(RESIDENT), mail(OWNER)])
+    // A real second recipient: reserved test domains are refused even in production.
+    const results = await sendEmailBatch([mail(RESIDENT), mail('neighbour@yahoo.com')])
     expect((batchSend.mock.calls[0][0] as unknown[]).length).toBe(2)
     expect(results.every((r) => r.ok)).toBe(true)
   })
@@ -177,5 +179,31 @@ describe('sendSms', () => {
     const { sendSms } = await freshSms()
     expect((await sendSms({ to: '+15559876543', body: 'hi' }, { orgSandbox: true })).ok).toBe(false)
     expect(smsSend).not.toHaveBeenCalled()
+  })
+})
+
+describe('sample-community owners (reserved test domain)', () => {
+  it('in production, a batch that includes sample owners skips them and sends the rest', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    batchSend.mockResolvedValue({ data: { data: [{ id: 'b1' }], errors: [] }, error: null })
+    const { sendEmailBatch } = await freshEmail()
+    const samples = sampleHomes().slice(0, 3).map((h) => h.ownerEmail)
+    expect(samples.every((e) => e.endsWith('@example.invalid'))).toBe(true)
+
+    const results = await sendEmailBatch([
+      mail(samples[0]!), mail(RESIDENT), mail(samples[1]!), mail('legacy@example.com'), mail(samples[2]!),
+    ])
+
+    const payload = batchSend.mock.calls[0][0] as { to: string }[]
+    expect(payload.map((p) => p.to)).toEqual([RESIDENT])
+    expect(results.map((r) => r.ok)).toEqual([false, true, false, false, false])
+  })
+
+  it('in production, a single send to a sample owner never calls Resend', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production')
+    const { sendEmail } = await freshEmail()
+    expect(await sendEmail(mail('sample.home1@example.invalid'))).toEqual({ ok: false, error: OUTBOUND_BLOCKED_ERROR })
+    expect((await sendEmail(mail('sample.home1@example.com'))).ok).toBe(false)
+    expect(emailSend).not.toHaveBeenCalled()
   })
 })

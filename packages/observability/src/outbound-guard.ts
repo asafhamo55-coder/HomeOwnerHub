@@ -78,7 +78,7 @@ function normalizePhone(raw: string): string {
 
 /** Pull the bare address out of `Name <addr>` and lowercase it. */
 function normalizeEmail(raw: string): string {
-  const angle = raw.match(/<([^>]+)>/)
+  const angle = raw.match(/<([^<>]+)>\s*$/)
   return (angle ? angle[1] : raw).trim().toLowerCase()
 }
 
@@ -135,6 +135,32 @@ export function isAllowlisted(
   return allowlist.domains.has(address.slice(at + 1))
 }
 
+// ─── Reserved test domains ──────────────────────────────────────────
+
+const RESERVED_DOMAINS: ReadonlySet<string> = new Set(['example.com', 'example.net', 'example.org'])
+const RESERVED_TLDS = ['example', 'invalid', 'test', 'localhost']
+
+/**
+ * RFC 2606 / 6761 names that can never receive mail: example.com/.net/.org
+ * (and subdomains) plus anything under .example, .invalid, .test, .localhost.
+ * Sending to one bounces and damages sender reputation, so these are refused
+ * even in production (sample-community owners, fixtures, typos). Email only.
+ */
+export function isReservedTestAddress(recipient: string | null | undefined): boolean {
+  if (!recipient) return false
+  const address = normalizeEmail(recipient)
+  const at = address.lastIndexOf('@')
+  if (at <= 0) return false
+  const domain = address.slice(at + 1).replace(/\.$/, '')
+  if (!domain) return false
+  const labels = domain.split('.')
+  if (RESERVED_TLDS.includes(labels[labels.length - 1])) return true
+  for (let i = 0; i < labels.length - 1; i++) {
+    if (RESERVED_DOMAINS.has(labels.slice(i).join('.'))) return true
+  }
+  return false
+}
+
 // ─── Policy ─────────────────────────────────────────────────────────
 
 export function resolveOutboundPolicy(
@@ -177,26 +203,34 @@ export function guardRecipients<T>(
   opts: GuardOptions = {},
 ): GuardResult<T> {
   const policy = resolveOutboundPolicy({ env: opts.env, orgSandbox: opts.orgSandbox })
-  if (!policy.enforce) {
-    return { allowed: [...items], blocked: [], allowedMask: items.map(() => true), policy }
-  }
+  const isEmail = channel === 'email' || channel === 'gmail'
 
   const allowed: T[] = []
   const blocked: T[] = []
+  const reasons = new Set<string>()
   const allowedMask = items.map((item) => {
-    const ok = isAllowlisted(channel, recipientOf(item), policy.allowlist)
-    ;(ok ? allowed : blocked).push(item)
+    const recipient = recipientOf(item)
+    // Reserved test domains are refused in every mode, with no escape hatch:
+    // an allowlist entry cannot make a bouncing address deliverable.
+    const reserved = isEmail && isReservedTestAddress(recipient)
+    const ok = !reserved && (policy.enforce ? isAllowlisted(channel, recipient, policy.allowlist) : true)
+    if (ok) allowed.push(item)
+    else {
+      blocked.push(item)
+      reasons.add(reserved ? 'reserved_domain' : (policy.reason ?? 'non_production'))
+    }
     return ok
   })
 
   if (blocked.length > 0) {
+    const reason = reasons.size === 1 ? [...reasons][0] : 'mixed'
     ;(opts.logger ?? defaultLogger).warn(
       `[outbound-guard] blocked ${blocked.length} of ${items.length} ${channel} recipient(s)`,
       {
         channel,
         blocked: blocked.length,
         total: items.length,
-        reason: policy.reason,
+        reason,
         ref: opts.ref ?? null,
       },
     )

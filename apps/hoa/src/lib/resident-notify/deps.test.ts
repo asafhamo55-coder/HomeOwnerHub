@@ -25,7 +25,7 @@ vi.mock('@vonage/server-sdk', () => ({
 
 const ASSOC = 'a0000000-0000-4000-8000-000000000001'
 const RESIDENT = 'dana@resident.example'
-const ALLOWED = 'treasurer@example.test'
+const ALLOWED = 'treasurer@staging-hoa.com'
 const SECRET = 'svc-secret'
 
 async function freshDeps() {
@@ -82,7 +82,7 @@ describe('residentNotifyDeps — the guarded senders the notification runs with'
     smsSend.mockReset()
     smsSend.mockResolvedValue({ messageUUID: 'sid' })
     vi.stubEnv('RESEND_API_KEY', 'test-key')
-    vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@example.test>')
+    vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@staging-hoa.com>')
     vi.stubEnv('VONAGE_API_KEY', 'k')
     vi.stubEnv('VONAGE_API_SECRET', 's')
     vi.stubEnv('VONAGE_FROM_NUMBER', '14045550000')
@@ -122,7 +122,7 @@ describe('residentNotifyDeps — the guarded senders the notification runs with'
     const { s, statuses } = store(true, ALLOWED)
     const r = await runResidentNotification(s, deps, event, quiet)
     expect(send).toHaveBeenCalledTimes(1)
-    expect(send.mock.calls[0][0]).toMatchObject({ to: ALLOWED, from: '"Maple Creek HOA" <noreply@example.test>' })
+    expect(send.mock.calls[0][0]).toMatchObject({ to: ALLOWED, from: '"Maple Creek HOA" <noreply@staging-hoa.com>' })
     expect(send.mock.calls[0][0].headers['Message-ID']).toContain('0f0f0f0f-0000-4000-8000-000000000001')
     expect(statuses).toEqual(['sent'])
     expect(r.status).toBe('sent')
