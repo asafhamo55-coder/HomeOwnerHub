@@ -46,6 +46,15 @@ const ctx = (id = ID) => ({ params: Promise.resolve({ id }) })
 const call = (id = ID) => GET(new Request(`http://x/api/properties/${id}/photo`), ctx(id))
 
 const calls: string[] = []
+const geoCalls: string[] = []
+let geoStatus = 'REQUEST_DENIED'
+let geoType = 'ROOFTOP'
+let geoHttp = 200
+let geoThrow = false
+let panoStatus = 'OK'
+let panoLoc = { lat: 33.0, lng: -84.0 }
+let partial = false
+let aimedStatus = 200
 let metaStatus = 'OK'
 let imageStatus = 200
 let metaHttp = 200
@@ -58,6 +67,15 @@ beforeEach(() => {
   h.readError = null
   h.orgFilter = null
   calls.length = 0
+  geoCalls.length = 0
+  geoStatus = 'REQUEST_DENIED'
+  geoType = 'ROOFTOP'
+  geoHttp = 200
+  geoThrow = false
+  panoStatus = 'OK'
+  panoLoc = { lat: 33.0, lng: -84.0 }
+  partial = false
+  aimedStatus = 200
   metaStatus = 'OK'
   imageStatus = 200
   metaHttp = 200
@@ -67,7 +85,24 @@ beforeEach(() => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      if (url.includes('/geocode/json')) {
+        geoCalls.push(url)
+        if (geoThrow) throw new Error('boom')
+        return new Response(
+          JSON.stringify({
+            status: geoStatus,
+            results: geoStatus === 'OK' ? [{ partial_match: partial || undefined, geometry: { location: { lat: 33.0001, lng: -84.0 }, location_type: geoType } }] : [],
+          }),
+          { status: geoHttp },
+        )
+      }
       calls.push(url)
+      if (url.includes('radius=')) {
+        return new Response(JSON.stringify({ status: panoStatus, pano_id: 'PANO123', location: panoLoc }))
+      }
+      if (url.includes('pano=PANO123') && aimedStatus !== 200) {
+        return new Response(aimedStatus === 0 ? 'html' : 'err', { status: aimedStatus === 0 ? 200 : aimedStatus, headers: { 'content-type': 'text/html' } })
+      }
       const isMeta = url.includes('/streetview/metadata')
       if (throwOn === (isMeta ? 'metadata' : 'image')) throw new Error('boom')
       if (isMeta) return new Response(JSON.stringify({ status: metaStatus }), { status: metaHttp })
@@ -219,5 +254,142 @@ describe('GET /api/properties/:id/photo', () => {
     const res = await call()
     expect(res.status).toBe(500)
     expect(calls).toHaveLength(0)
+  })
+
+  describe('aimed at the house', () => {
+    beforeEach(() => {
+      geoStatus = 'OK'
+    })
+
+    it('geocodes, finds the panorama, then requests the image aimed at the house (3 calls)', async () => {
+      const res = await call()
+      expect(res.status).toBe(200)
+      expect(geoCalls).toHaveLength(1)
+      const geo = new URL(geoCalls[0])
+      expect(geo.pathname).toBe('/maps/api/geocode/json')
+      expect(geo.searchParams.get('address')).toBe('1234 Peachtree St NE, Atlanta, GA 30309')
+      expect(geo.searchParams.get('key')).toBe('test-key-not-real')
+      expect(calls).toHaveLength(2)
+      const pano = new URL(calls[0])
+      expect(pano.pathname).toBe('/maps/api/streetview/metadata')
+      expect(pano.searchParams.get('location')).toBe('33.0001,-84')
+      expect(pano.searchParams.get('source')).toBe('outdoor')
+      expect(pano.searchParams.get('radius')).toBe('50')
+      const img = new URL(calls[1])
+      expect(img.pathname).toBe('/maps/api/streetview')
+      expect(img.searchParams.get('pano')).toBe('PANO123')
+      expect(img.searchParams.get('location')).toBeNull()
+      expect(img.searchParams.get('heading')).toBe('0')
+      expect(img.searchParams.get('pitch')).toBe('5')
+      expect(img.searchParams.get('fov')).toBe('60')
+    })
+
+    it('accepts RANGE_INTERPOLATED', async () => {
+      geoType = 'RANGE_INTERPOLATED'
+      await call()
+      expect(new URL(calls[1]).searchParams.get('pano')).toBe('PANO123')
+    })
+
+    it('signs all three URLs when a secret is set', async () => {
+      process.env.GOOGLE_MAPS_URL_SIGNING_SECRET = 'c2VjcmV0LW5vdC1yZWFs'
+      await call()
+      for (const u of [geoCalls[0], calls[0], calls[1]]) expect(new URL(u).searchParams.get('signature')).toBeTruthy()
+    })
+
+    const expectOldPath = async () => {
+      calls.length = 0
+      const res = await call()
+      expect(res.status).toBe(200)
+      // The last two calls are the address-only coverage check and image (a failed pano lookup may precede them).
+      const [metaUrl, imgUrl] = calls.slice(-2)
+      expect(calls.length).toBeLessThanOrEqual(4)
+      expect(new URL(metaUrl).searchParams.get('location')).toBe('1234 Peachtree St NE, Atlanta, GA 30309')
+      const img = new URL(imgUrl)
+      expect(img.searchParams.get('location')).toBe('1234 Peachtree St NE, Atlanta, GA 30309')
+      expect(img.searchParams.get('heading')).toBeNull()
+      expect(img.searchParams.get('fov')).toBe('80')
+    }
+
+    it('falls back when geocoding is denied, and logs only the code', async () => {
+      geoStatus = 'REQUEST_DENIED'
+      await expectOldPath()
+      const logged = JSON.stringify((console.error as unknown as { mock: { calls: unknown[] } }).mock.calls)
+      expect(logged).toContain('REQUEST_DENIED')
+      expect(logged).not.toContain('Peachtree')
+      expect(logged).not.toContain('test-key-not-real')
+    })
+
+    it('falls back on an approximate result', async () => {
+      geoType = 'APPROXIMATE'
+      await expectOldPath()
+      geoType = 'GEOMETRIC_CENTER'
+      await expectOldPath()
+    })
+
+    it('falls back when the geocode call errors or answers HTTP 500', async () => {
+      geoThrow = true
+      await expectOldPath()
+      geoThrow = false
+      geoHttp = 500
+      await expectOldPath()
+    })
+
+    it('falls back when the panorama metadata is not OK', async () => {
+      panoStatus = 'ZERO_RESULTS'
+      await expectOldPath()
+      panoStatus = 'OVER_QUERY_LIMIT'
+      await expectOldPath()
+    })
+
+    it('skips the aimed attempt when little of the overall 10 s budget is left', async () => {
+      let t = 1_000_000
+      vi.spyOn(Date, 'now').mockImplementation(() => {
+        t += 7000
+        return t
+      })
+      const res = await call()
+      expect(res.status).toBe(200)
+      expect(geoCalls).toHaveLength(0)
+      expect(new URL(calls[1]).searchParams.get('heading')).toBeNull()
+    })
+
+    it('falls back on a partial_match geocode', async () => {
+      partial = true
+      await expectOldPath()
+    })
+
+    it('falls back when the panorama is too far (alley or cross street, about 60 m)', async () => {
+      panoLoc = { lat: 33.0001 - 0.00054, lng: -84.0 }
+      await expectOldPath()
+    })
+
+    it('falls back when the panorama is too close (under 5 m)', async () => {
+      panoLoc = { lat: 33.0001 - 0.00002, lng: -84.0 }
+      await expectOldPath()
+    })
+
+    it('falls back to the address-only flow when the aimed image is 404, 5xx or not an image', async () => {
+      for (const st of [404, 500, 0]) {
+        aimedStatus = st
+        await expectOldPath()
+      }
+    })
+
+    it('returns 503 only if the address-only fallback also fails after the aimed image failed', async () => {
+      aimedStatus = 500
+      imageStatus = 500
+      expect((await call()).status).toBe(503)
+    })
+
+    it('never logs the address on any path', async () => {
+      geoThrow = true
+      await call()
+      geoThrow = false
+      panoStatus = 'REQUEST_DENIED'
+      await call()
+      const logged = JSON.stringify((console.error as unknown as { mock: { calls: unknown[] } }).mock.calls)
+      expect(logged).not.toContain('Peachtree')
+      expect(logged).not.toContain('30309')
+    })
   })
 })

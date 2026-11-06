@@ -51,15 +51,16 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 1. Go to console.cloud.google.com and sign in with the Google account that should own billing. Create a project, for example "HomeownerHub".
 2. In that project open APIs & Services, then Library. Search for "Street View Static API" and click Enable. Billing must be turned on for the project.
-3. Open APIs & Services, then Credentials. Click Create credentials, then API key.
-4. Click Edit on the new key. Under API restrictions choose "Restrict key" and tick only "Street View Static API". Leave the application restriction on "None": this is a server key, so a website (referrer) restriction would block it. If you want, add Vercel's IP addresses under IP addresses; skip this if unsure.
-5. Open Billing, then Budgets & alerts. Create a budget (for example $20 a month) with email alerts at 50%, 90% and 100%. A budget only sends an email; it does not stop spending.
-6. Set a daily limit, which is the real cap on cost. In APIs & Services, open "Street View Static API", then the Quotas & System Limits tab. Find the daily requests limit ("Requests per day"), click Edit quota, and enter a number you are happy to pay for in a day (for example 500). Google stops answering once the limit is reached, and the app then simply shows the house icon.
-7. Vercel dashboard, project home-owner-hub-hoa, Settings, Environment Variables. Add `GOOGLE_MAPS_API_KEY` with the key as its value, for Production only. Redeploy when Vercel offers it.
-8. Optional: for signed requests, on the same Google page create a URL signing secret and add it as `GOOGLE_MAPS_URL_SIGNING_SECRET` in the same place.
-9. Tell Claude when it's done. Never paste the key into a file in this repo or into a chat.
+3. Still in Library, search for "Geocoding API" and click Enable. The app uses it to find the exact spot of the house so the picture faces the front of the home instead of the street or a neighbour. Until it is enabled, pictures keep working the old way (they just may face the wrong direction).
+4. Open APIs & Services, then Credentials. Click Create credentials, then API key.
+5. Click Edit on the new key. Under API restrictions choose "Restrict key" and tick "Street View Static API" and "Geocoding API". Leave the application restriction on "None": this is a server key, so a website (referrer) restriction would block it. If you want, add Vercel's IP addresses under IP addresses; skip this if unsure. If you made the key earlier, edit it and tick Geocoding API too.
+6. Open Billing, then Budgets & alerts. Create a budget (for example $20 a month) with email alerts at 50%, 90% and 100%. A budget only sends an email; it does not stop spending.
+7. Set a daily limit, which is the real cap on cost. In APIs & Services, open "Street View Static API", then the Quotas & System Limits tab. Find the daily requests limit ("Requests per day"), click Edit quota, and enter a number you are happy to pay for in a day (for example 500). Google stops answering once the limit is reached, and the app then simply shows the house icon. Do the same for "Geocoding API": open it, Quotas & System Limits, and set a "Requests per day" cap (for example 500).
+8. Vercel dashboard, project home-owner-hub-hoa, Settings, Environment Variables. Add `GOOGLE_MAPS_API_KEY` with the key as its value, for Production only. Redeploy when Vercel offers it.
+9. Optional: for signed requests, on the same Google page create a URL signing secret and add it as `GOOGLE_MAPS_URL_SIGNING_SECRET` in the same place.
+10. Tell Claude when it's done. Never paste the key into a file in this repo or into a chat.
 
-**Cost:** the coverage check Google runs first is free. Each picture is billed per 1,000 after Google's monthly free allowance (check the current amount on the Google Maps Platform pricing page). The app tells the browser to keep each picture for a day, so reopening a property does not ask Google again. Pictures are never stored on our side, which is what Google's terms require.
+**Cost:** the coverage check Google runs first is free. The Geocoding API is billed per request (check the Google Maps Platform pricing page), at most once per home per browser per day. Each picture is billed per 1,000 after Google's monthly free allowance (check the current amount on the Google Maps Platform pricing page). The app tells the browser to keep each picture for a day, so reopening a property does not ask Google again. Pictures are never stored on our side, which is what Google's terms require.
 
 ### OA-47 · Check Supabase's "Max rows" and tell the app (saves a database call on small reads)
 
