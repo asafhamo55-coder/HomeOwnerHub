@@ -8,7 +8,7 @@ import { Letterhead } from './Letterhead'
 describe('Letterhead', () => {
   it('prints the full-colour logo, 40px tall, with alt text and the association name', () => {
     const html = renderToStaticMarkup(<Letterhead name="Madison Park" />)
-    expect(html).toContain('src="/brand/logo-full.svg"')
+    expect(html).toContain('src="/brand-site/logo-full.svg"')
     expect(html).toContain('alt="HomeownerHub"')
     expect(html).toContain('height="40"')
     expect(html).toContain('h-10')

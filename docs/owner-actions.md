@@ -61,7 +61,7 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
 ```
 <div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#211B2C;max-width:560px;margin:0 auto;padding:16px">
   <p style="margin:0 0 12px;padding:0 0 16px;border-bottom:4px solid #6D28D9">
-    <img src="https://www.homeownerledger.com/email/logo-full-360.png" alt="HomeownerHub" width="180" height="30" style="display:block;border:0;height:30px;width:180px">
+    <img src="https://www.homeownerledger.com/email/v2/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30" style="display:block;border:0;height:30px;width:180px">
   </p>
   <p style="font-size:20px;font-weight:bold;margin:0 0 16px">You are invited to {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }}.</p>
   <p style="margin:0 0 16px">HomeownerHub is where you see your dues, ask the board a question, and find your community's rules and news. There is nothing to download.</p>
@@ -73,8 +73,6 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
   <p style="margin:0;font-size:18px;color:#211B2C">If the button does not work, copy this address into your phone's browser:<br><a href="{{ .ConfirmationURL }}" style="color:#6D28D9;word-break:break-all">{{ .ConfirmationURL }}</a></p>
 </div>
 ```
-
-   The logo is a picture the app serves at `/email/logo-full-360.png` (360 pixels wide, shown at 180, so it is sharp on a phone). The email builder adds that file under `apps/hoa/public/email/`. Until it is deployed the picture is broken, so deploy first. The colours are the website's Royal purple: button #6D28D9 with white text (7.1 to 1), text #211B2C. If the app moves to a new web address, change the address in the `img` line (or use `{{ .SiteURL }}/email/logo-full-360.png` if Supabase's Site URL is set to the app address).
 
 4. Save, then send yourself a test invite from the Members page and open it on a phone. Check that the subject names the association and the button is easy to tap. Also test once with a name that has an apostrophe, such as O'Brien Park, to make sure the subject and greeting show it correctly.
 5. Tell Claude when it is done.

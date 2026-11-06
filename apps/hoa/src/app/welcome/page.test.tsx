@@ -30,7 +30,7 @@ describe('/welcome page', () => {
   })
 
   it('carries the HomeownerHub logo with alt text', () => {
-    expect(html).toContain('src="/brand/logo-full.svg"')
+    expect(html).toContain('src="/brand-site/logo-full.svg"')
     expect(html).toContain('alt="HomeownerHub"')
   })
 
