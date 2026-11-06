@@ -83,13 +83,13 @@ function StepRow({ step, index, variant }: { step: FirstWeekStep; index: number;
       >
         <span
           aria-hidden
-          className="num mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-border-strong text-xs font-semibold text-muted"
+          className="num mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border border-border-strong text-sm font-semibold text-muted"
         >
           {index + 1}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium text-foreground group-hover:underline">{step.title}</span>
-          <span className="block text-xs text-muted">{step.description}</span>
+          <span className="block text-base font-medium text-foreground group-hover:underline">{step.title}</span>
+          <span className="block text-sm text-muted">{step.description}</span>
         </span>
         {variant === 'board' ? (
           <BookOpen className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
@@ -100,7 +100,7 @@ function StepRow({ step, index, variant }: { step: FirstWeekStep; index: number;
       <Link
         href={step.secondary.href}
         aria-label={`${step.secondary.label}: ${step.title}`}
-        className="inline-flex min-h-10 items-center gap-1 self-start rounded-md px-3 pb-2 pl-12 text-xs font-medium text-primary no-underline hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-8"
+        className="inline-flex min-h-12 items-center gap-1 self-start rounded-md px-3 pl-12 text-sm font-medium text-primary no-underline hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {step.secondary.label}
         <ArrowRight className="size-3" aria-hidden />

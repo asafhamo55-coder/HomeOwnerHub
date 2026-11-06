@@ -71,7 +71,11 @@ export function HashSessionHandler() {
         router.replace(isRecovery ? '/reset-password' : next)
         router.refresh()
       } else {
+        // A link that cannot start a session (used, expired, opened elsewhere)
+        // gets the same plain "send me a new link" help as an expired one,
+        // instead of an empty form with no explanation.
         setBusy(false)
+        router.replace('/login?error=link_expired')
       }
     })()
 
@@ -82,7 +86,7 @@ export function HashSessionHandler() {
 
   if (!busy) return null
   return (
-    <p role="status" className="mb-5 text-sm text-muted">
+    <p role="status" className="mb-5 text-base text-muted">
       Signing you in…
     </p>
   )
