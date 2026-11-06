@@ -203,6 +203,76 @@ export async function loadBoardReservations(
   return withHomeLabels(db, orgId, rows)
 }
 
+export interface PendingBooking extends BoardReservation {
+  amenityName: string
+}
+
+/**
+ * Bookings waiting on the board, for /approvals. Only a resident's request
+ * (kind booking) that is still pending AND has not started, because
+ * decideReservation refuses a request whose time has passed; listing one
+ * would be a button that can never work. Oldest request first. Reads run on
+ * the caller's client (the board member's own RLS session in the app):
+ * amenity_reservations_board_select scopes them to the board's org, and the
+ * org filter is repeated here. `total` can exceed rows.length (limit). Null
+ * on a failed read; empty with the flag off, without touching the database.
+ */
+export async function loadPendingBookings(
+  db: LooseDb,
+  orgId: string,
+  nowIso: string,
+  limit: number,
+  live: boolean = M11_APPLIED,
+): Promise<{ rows: PendingBooking[]; total: number } | null> {
+  if (!live) return { rows: [], total: 0 }
+  const res = (await db
+    .from(RESERVATIONS_TABLE)
+    .select(RESERVATION_COLUMNS, { count: 'exact' })
+    .eq('organization_id', orgId)
+    .eq('status', 'pending')
+    .eq('kind', 'booking')
+    .gt('starts_at', nowIso)
+    .order('created_at', { ascending: true })
+    .range(0, limit - 1)) as Res & { count?: number | null }
+  if (res.error) {
+    console.error('[amenities] pending bookings read failed', { orgId, code: res.error.code ?? null })
+    return null
+  }
+  const base = (res.data ?? []).map(reservationFromRow).filter((r): r is Reservation => r !== null)
+  if (base.length === 0) return { rows: [], total: res.count ?? 0 }
+  const labelled = await withHomeLabels(db, orgId, base)
+  if (labelled === null) return null
+  const ids = [...new Set(base.map((r) => r.amenityId))]
+  const names = (await db.from(AMENITIES_TABLE).select('id, name').eq('organization_id', orgId).in('id', ids)) as Res
+  if (names.error) {
+    console.error('[amenities] amenity names read failed', { orgId, code: names.error.code ?? null })
+    return null
+  }
+  const nameOf = new Map<string, string>()
+  for (const a of names.data ?? []) if (typeof a.id === 'string' && typeof a.name === 'string') nameOf.set(a.id, a.name)
+  return {
+    rows: labelled.map((r) => ({ ...r, amenityName: nameOf.get(r.amenityId) ?? 'Amenity' })),
+    total: res.count ?? base.length,
+  }
+}
+
+/** Head-only count with the same predicate as loadPendingBookings. Null on a failed read. */
+export async function countPendingBookings(db: LooseDb, orgId: string, nowIso: string, live: boolean = M11_APPLIED): Promise<number | null> {
+  if (!live) return 0
+  const res = (await db
+    .from(RESERVATIONS_TABLE)
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .eq('status', 'pending')
+    .eq('kind', 'booking')
+    .gt('starts_at', nowIso)) as Res & { count?: number | null }
+  if (res.error) {
+    console.error('[amenities] pending bookings count failed', { orgId, code: res.error.code ?? null })
+    return null
+  }
+  return res.count ?? 0
+}
+
 async function withHomeLabels(db: LooseDb, orgId: string, rows: Reservation[]): Promise<BoardReservation[] | null> {
   const unitIds = [...new Set(rows.map((r) => r.unitId).filter((id): id is string => id !== null))]
   const labels = new Map<string, string>()

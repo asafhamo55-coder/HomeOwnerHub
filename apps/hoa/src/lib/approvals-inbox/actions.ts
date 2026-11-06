@@ -15,6 +15,7 @@ import { M5_APPLIED } from '@homeowner-portal/db/m5'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { moneyGate, type SignoffDb } from '@/lib/professionals/signoff'
 import { PRO_AUDIT } from '@/lib/professionals/model'
+import { decideReservation } from '@/lib/amenities/actions'
 import { approveManyFor, type ApproveManyInput, type ApproveManyOutcome } from './bulk'
 import { billHandlers, contactHandlers, decideApprovalFor, joinHandlers, letterHandlers, openingHandlers, postingHandlers, proHandlers, type InboxDecisionHandlers, type InboxDecisionInput, type InboxDecisionOutcome } from './decide'
 
@@ -52,6 +53,17 @@ async function buildHandlers(gate: Gate): Promise<{ ok: true; handlers: InboxDec
     ...contactHandlers(supabase, { orgId: gate.orgId, deciderId: user.id, deciderRole: gate.role }, { submitterEmails: authSubmitterEmails }),
     // BL-143: the board's own RLS client; owner_join_decide refuses non-board callers.
     ...joinHandlers(supabase, M5_APPLIED),
+    // BL-034: the Amenities page's own decideReservation, so the board check,
+    // the one-answer-only claim, the overlap guard, the resident's email and
+    // the decided-by record stay in one place.
+    approveAmenity: async (reservationId) => {
+      const r = await decideReservation({ reservationId, decision: 'approve' })
+      return r.ok ? { ok: true, message: 'Booking approved. The resident is emailed.' } : { ok: false, error: r.error }
+    },
+    rejectAmenity: async (reservationId, reason) => {
+      const r = await decideReservation({ reservationId, decision: 'deny', note: reason })
+      return r.ok ? { ok: true, message: 'Booking turned down. The resident is emailed your reason.' } : { ok: false, error: r.error }
+    },
     // BL-168: Treasurer routing and dual control on the decider's own RLS
     // client; absent with M6_APPLIED false (no routing, as today).
     ...(M6_APPLIED
@@ -113,6 +125,9 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
   } else if (input.kind === 'join') {
     revalidatePath('/settings/members')
     revalidatePath('/properties', 'layout')
+  } else if (input.kind === 'amenity') {
+    revalidatePath('/amenities')
+    revalidatePath('/resident/amenities')
   } else if (input.kind === 'opening') {
     revalidatePath('/accounting', 'layout')
     revalidatePath('/dues')
@@ -135,7 +150,7 @@ export async function decideApproval(input: InboxDecisionInput): Promise<InboxDe
 }
 
 /**
- * Approve several non-money items at once (w3 letters, contact updates).
+ * Approve several non-money items at once (w3 letters, contact updates, amenity bookings).
  * No approval logic lives here: approveManyFor calls decideApprovalFor for
  * each id, so every item is re-checked for role, org and eligibility. Money
  * sources and anything else are refused item by item. At most 50 per call.
@@ -164,6 +179,8 @@ export async function approveMany(input: ApproveManyInput): Promise<ApproveManyO
   revalidatePath('/properties', 'layout')
   revalidatePath('/tickets', 'layout')
   revalidatePath('/resident/account')
+  revalidatePath('/amenities')
+  revalidatePath('/resident/amenities')
   revalidatePath('/', 'layout')
   return outcome
 }

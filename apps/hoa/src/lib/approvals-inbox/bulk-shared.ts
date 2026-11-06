@@ -6,7 +6,7 @@
 import type { InboxItem } from './model'
 
 /** Sources the board may approve several at a time. */
-export const BULK_SOURCES = ['w3', 'contact'] as const
+export const BULK_SOURCES = ['w3', 'contact', 'amenity'] as const
 export type BulkSource = (typeof BULK_SOURCES)[number]
 
 /** Most items one call will touch. */
@@ -20,7 +20,7 @@ export function isBulkSource(source: string): source is BulkSource {
 export function isBulkEligible(item: Pick<InboxItem, 'source' | 'decision'>): boolean {
   const d = item.decision
   if (!d || !isBulkSource(item.source)) return false
-  if (d.kind === 'w3') return true
+  if (d.kind === 'w3' || d.kind === 'amenity') return true
   return d.kind === 'contact' && d.canApprove
 }
 

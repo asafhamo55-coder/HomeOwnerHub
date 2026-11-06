@@ -27,6 +27,8 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     rejectContact: never('rejectContact'),
     approveJoin: never('approveJoin'),
     rejectJoin: never('rejectJoin'),
+    approveAmenity: vi.fn(async () => ({ ok: true as const, message: 'Booking approved.' })),
+    rejectAmenity: never('rejectAmenity'),
     approvePro: never('approvePro'),
     rejectPro: never('rejectPro'),
     moneyGate: never('moneyGate'),
@@ -59,13 +61,17 @@ describe('which rows get a checkbox', () => {
     expect(isBulkEligible({ source: 'contact', decision: { kind: 'contact', ticketId: uid(1), canApprove: true } })).toBe(true)
   })
 
+  it('on an amenity booking', () => {
+    expect(isBulkEligible({ source: 'amenity', decision: { kind: 'amenity', reservationId: uid(1) } })).toBe(true)
+  })
+
   it('not on rows with no one-click approve', () => {
     expect(isBulkEligible({ source: 'w3', decision: null })).toBe(false)
     expect(isBulkEligible({ source: 'contact', decision: { kind: 'contact', ticketId: uid(1), canApprove: false } })).toBe(false)
   })
 
   it('the bulk list holds no money source', () => {
-    expect([...BULK_SOURCES].sort()).toEqual(['contact', 'w3'])
+    expect([...BULK_SOURCES].sort()).toEqual(['amenity', 'contact', 'w3'])
   })
 })
 
@@ -99,6 +105,23 @@ describe('approveManyFor', () => {
     const sum = summarizeBulk(out.results)
     expect(sum).toMatchObject({ approved: 3, failed: 2 })
     expect(sum.text).toBe('3 approved, 2 could not be approved: Someone already decided this draft. (1 other reason)')
+  })
+
+  it('amenity bookings: a second booking that clashes with the first is refused by the per-item re-check, with the reason', async () => {
+    const taken = 'Someone else just booked that time. Pick another time.'
+    const h = handlers({
+      approveAmenity: vi.fn(async (id: string) => (id === uid(2) ? { ok: false as const, error: taken } : { ok: true as const, message: 'Booking approved.' })),
+    })
+    const out = await approveManyFor('board', { amenity: [uid(1), uid(2)] }, h)
+    expect(out.ok).toBe(true)
+    if (!out.ok) return
+    expect(out.results.map((r) => [r.id, r.ok, r.message])).toEqual([
+      [uid(1), true, 'Booking approved.'],
+      [uid(2), false, taken],
+    ])
+    // Each booking is decided on its own, one after the other, never as a batch.
+    expect(h.approveAmenity).toHaveBeenCalledTimes(2)
+    expect(summarizeBulk(out.results).text).toBe(`1 approved, 1 could not be approved: ${taken}`)
   })
 
   it('says it plainly when one fails', () => {

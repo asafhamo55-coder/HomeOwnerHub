@@ -47,7 +47,7 @@ describe('oldestWaitDays', () => {
 })
 
 describe('aiShare', () => {
-  const counts = (over: Partial<SourceCounts>): SourceCounts => ({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, pro: 0, vendor: 0, ...over })
+  const counts = (over: Partial<SourceCounts>): SourceCounts => ({ w18: 0, bill: 0, opening: 0, w3: 0, collections: 0, arc: 0, contact: 0, join: 0, amenity: 0, pro: 0, vendor: 0, ...over })
 
   it('counts the AI-drafted sources against all waiting', () => {
     expect(aiShare(counts({ w18: 2, bill: 1, w3: 1, contact: 4, join: 2 }))).toEqual({ ai: 4, total: 10, percent: 40 })
