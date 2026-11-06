@@ -95,7 +95,7 @@ describe('welcome email: render', () => {
     const { html } = madison()
     expect(html).toContain(`href="${ORIGIN}/welcome"`)
     expect((html.match(/href="/g) ?? []).length).toBe(1)
-    expect(html).toContain('Watch a 1 minute video about getting started')
+    expect(html).toContain('Watch a short video about getting started')
     expect(html).not.toMatch(/<img|bgcolor="#1F6F5C" height|\/login/)
     expect(buildWelcomeEmailHtml(`${ORIGIN}/`)).toContain(`href="${ORIGIN}/welcome"`)
   })

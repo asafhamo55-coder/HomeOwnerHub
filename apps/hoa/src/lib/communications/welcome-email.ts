@@ -126,7 +126,7 @@ export function buildWelcomeEmailHtml(origin: string, modules: WelcomeModules = 
     ...(community ? [item(community)] : []),
     `</ul>`,
 
-    `<p style="${P}margin-top:20px;"><a href="${escapeHtml(watch)}" style="color:${ACCENT};font-weight:700;text-decoration:underline;">Watch a 1 minute video about getting started</a></p>`,
+    `<p style="${P}margin-top:20px;"><a href="${escapeHtml(watch)}" style="color:${ACCENT};font-weight:700;text-decoration:underline;">Watch a short video about getting started</a></p>`,
     `<p style="${P}">Tip: to keep HomeownerHub on your phone, open it in Safari, tap Share, then Add to Home Screen.</p>`,
     `<p style="${P}">Questions? Reply to this email and the board will answer.</p>`,
     `<p style="margin:24px 0 0;font-size:17px;line-height:1.6;color:${BODY};font-family:${FONT};">Thank you,<br>{{ board_signature }}</p>`,

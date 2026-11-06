@@ -301,7 +301,7 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-foreground">Send the welcome email</p>
             <p className="mt-1 text-sm text-foreground-secondary">
-              Introduce HomeownerHub to your residents, with a one-minute video and how to get started. It opens as a
+              Introduce HomeownerHub to your residents, with a short video and how to get started. It opens as a
               draft for you to review and send yourself.
             </p>
           </div>
