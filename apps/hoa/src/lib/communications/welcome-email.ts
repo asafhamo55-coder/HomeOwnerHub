@@ -26,15 +26,20 @@
  * with an explicit background on every cell so Gmail and Outlook dark mode
  * cannot turn text invisible, table layout, fluid down to a phone.
  *
- * Merge fields (all supplied by the send): {{ recipient_name }} and
- * {{ association_name }} are ambient per recipient; {{ city }} and
- * {{ board_signature }} are the template's two questions. The resident's
- * full name is the only name the send path has, so the greeting uses it
- * (as the other built-ins do) rather than a first name.
+ * Merge fields (all supplied by the send): {{ association_name }} is ambient;
+ * {{ city }} and {{ board_signature }} are the template's two questions. The
+ * greeting is a plain "Hello," with no name: the send only has a full name,
+ * and rosters hold "SMITH, JOHN" or nothing at all.
+ *
+ * The invitation is NOT sent from this mailer. It is Supabase Auth's email
+ * (inviteUserByEmail), so the copy does not claim the same sender.
  */
 
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { assertAccent } from '@/lib/email/palette'
+import { M9_APPLIED } from '@homeowner-portal/db/m9'
+import { M11_APPLIED } from '@homeowner-portal/db/m11'
+import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { renderTemplateStrict } from './templates'
 
 export const WELCOME_TEMPLATE_ID = 'builtin:welcome-homeownerhub'
@@ -48,8 +53,6 @@ export const WELCOME_SUBJECT = '{{ association_name }} is moving to HomeownerHub
 const ACCENT = '#1F6F5C'
 const TEXT = '#1A1D21'
 const BODY = '#2B3238'
-const MUTED = '#5B646C'
-const PANEL = '#F3F7F5'
 const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
 assertAccent(ACCENT)
@@ -58,88 +61,84 @@ const P = `margin:0 0 16px;font-size:17px;line-height:1.6;color:${BODY};font-fam
 const H2 = `margin:28px 0 10px;font-size:20px;line-height:1.3;font-weight:700;color:${TEXT};font-family:${FONT};`
 const LI = `margin:0 0 10px;font-size:17px;line-height:1.6;color:${BODY};font-family:${FONT};`
 
-/** A button 56px tall with 18px text. Padding lives on the cell because
- *  Outlook's Word engine ignores padding on an anchor. */
-function button(href: string, label: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px;"><tr><td bgcolor="${ACCENT}" height="56" style="background-color:${ACCENT};border-radius:8px;height:56px;padding:0 34px;"><a href="${escapeHtml(href)}" style="display:inline-block;font-family:${FONT};font-size:18px;line-height:56px;font-weight:700;color:#ffffff;text-decoration:none;">${escapeHtml(label)}</a></td></tr></table>`
+/** Which community modules are on. Defaults to the build's switches (M11 booking, M9 polls, M13 neighbors board). */
+export interface WelcomeModules {
+  amenities: boolean
+  polls: boolean
+  board: boolean
 }
 
-function step(n: number, title: string, text: string): string {
-  return `<tr><td width="44" valign="top" style="padding:0 0 14px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="34" height="34" align="center" bgcolor="${ACCENT}" style="background-color:${ACCENT};border-radius:17px;width:34px;height:34px;font-family:${FONT};font-size:17px;line-height:34px;font-weight:700;color:#ffffff;">${n}</td></tr></table></td><td valign="top" style="padding:0 0 14px;font-family:${FONT};font-size:17px;line-height:1.6;color:${BODY};"><strong style="color:${TEXT};">${title}</strong><br>${text}</td></tr>`
+export const DEFAULT_WELCOME_MODULES: WelcomeModules = {
+  amenities: M11_APPLIED,
+  polls: M9_APPLIED,
+  board: M13_APPLIED,
 }
 
-function bullet(text: string): string {
+/** "Book the clubhouse, answer polls and talk with neighbors", or only the parts that are on. Null when none are. */
+export function communityLine(m: WelcomeModules): string | null {
+  const parts = [
+    m.amenities ? 'book the clubhouse' : null,
+    m.polls ? 'answer polls' : null,
+    m.board ? 'talk with neighbors' : null,
+  ].filter((x): x is string => x !== null)
+  if (parts.length === 0) return null
+  const joined = parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
+}
+
+function item(text: string): string {
   return `<li style="${LI}">${text}</li>`
 }
 
 /**
  * The email body with the merge placeholders left in. `origin` is the app's
- * public origin (appOrigin()); the video page is `${origin}/welcome` and the
- * poster `${origin}/welcome/poster.jpg`.
+ * public origin (appOrigin()); the video page is `${origin}/welcome`. The
+ * poster image is left out on purpose: it is optional, and an image URL
+ * needs EMAIL_ASSET_BASE_URL, which the browser-side composer cannot read.
+ * The video is a plain, secondary text link.
  */
-export function buildWelcomeEmailHtml(origin: string): string {
-  const base = origin.replace(/\/+$/, '')
-  const watch = `${base}/welcome`
-  const poster = `${base}/welcome/poster.jpg`
-  const login = `${base}/login`
+export function buildWelcomeEmailHtml(origin: string, modules: WelcomeModules = DEFAULT_WELCOME_MODULES): string {
+  const watch = `${origin.replace(/\/+$/, '')}/welcome`
+  const community = communityLine(modules)
 
   const body = [
-    `<h1 style="margin:0 0 16px;font-size:26px;line-height:1.25;font-weight:700;color:${TEXT};font-family:${FONT};">{{ association_name }} is moving to HomeownerHub</h1>`,
-    `<p style="${P}">Hi {{ recipient_name }},</p>`,
-    `<p style="${P}">{{ association_name }} in {{ city }} is moving to HomeownerHub. It puts your dues, your requests to the board and the latest news in one place, on your phone or your computer.</p>`,
-    `<p style="${P}">The next minute is the easiest way to see how it works.</p>`,
+    `<h1 style="margin:0 0 16px;font-size:26px;line-height:1.25;font-weight:700;color:${TEXT};font-family:${FONT};">Your new place for {{ association_name }}</h1>`,
+    `<p style="${P}">Hello,</p>`,
+    `<p style="${P}">{{ association_name }} in {{ city }} now uses HomeownerHub, free for you on your phone or computer. You can see your balance, ask the board a question and read community news.</p>`,
 
-    `<h2 style="${H2}">Watch: getting started (1 minute)</h2>`,
-    `<a href="${escapeHtml(watch)}" style="text-decoration:none;"><img src="${escapeHtml(poster)}" width="556" alt="Watch the 1 minute video: getting started with HomeownerHub" style="display:block;width:100%;max-width:556px;height:auto;border:0;border-radius:8px;background-color:${PANEL};color:${TEXT};font-family:${FONT};font-size:17px;"></a>`,
-    button(watch, 'Watch the video'),
-    `<p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:${MUTED};font-family:${FONT};">It shows how to sign in the first time and where to find everything.</p>`,
-
-    `<h2 style="${H2}">How to get started</h2>`,
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">`,
-    step(
-      1,
-      'Open your invitation',
-      'Your board is sending you a separate email that invites you to join. Tap the link in it. If you do not see it, look in your spam folder.',
+    `<h2 style="${H2}">What to do now</h2>`,
+    `<ol style="margin:0 0 8px;padding-left:26px;">`,
+    item(
+      `Look for an email called &ldquo;Join {{ association_name }} on HomeownerHub&rdquo;. It may come from a different sender. If you can&rsquo;t find it, check your spam folder.`,
     ),
-    step(
-      2,
-      'Sign in',
-      `The link signs you in. You can choose a password if you like, or skip that. Next time, go to <a href="${escapeHtml(login)}" style="color:${ACCENT};font-weight:700;">${escapeHtml(login.replace(/^https?:\/\//, ''))}</a> and type your password, or tap &ldquo;Email me a link&rdquo;.`,
+    item('Tap the button in that email. That signs you in. You don&rsquo;t need a password.'),
+    item(
+      'If the first screen says no home is linked yet, tap &ldquo;Ask to join&rdquo; and type your address. The board will approve it.',
     ),
-    step(
-      3,
-      'Check your home',
-      'Your home and balance show on the first screen. If it says no home is linked yet, tap &ldquo;Ask to join&rdquo; and give your address. The board will approve it.',
-    ),
-    `</table>`,
+    `</ol>`,
 
     `<h2 style="${H2}">What you can do</h2>`,
-    `<ul style="margin:0 0 8px;padding-left:22px;">`,
-    bullet('See your balance and your statement.'),
-    bullet('Pay your dues the way your board offers, by Zelle or by check. The app shows you how, step by step.'),
-    bullet('Send a request to the board and see their replies.'),
-    bullet('Book the clubhouse or the pool.'),
-    bullet('Read announcements and find association documents.'),
-    bullet('Answer quick polls from the board.'),
-    bullet('Talk with your neighbors on the community message board.'),
-    bullet('Get help any time. Tap Ask for answers in plain words, or open Account, then Help.'),
+    `<ul style="margin:0 0 8px;padding-left:24px;">`,
+    item('See your balance and how to pay'),
+    item('Send a request to the board and read the reply'),
+    item('Read announcements and documents'),
+    item('Tap &ldquo;Ask&rdquo; any time for help in plain words'),
+    ...(community ? [item(community)] : []),
     `</ul>`,
 
-    `<h2 style="${H2}">Add it to your phone&rsquo;s home screen</h2>`,
-    `<p style="${P}"><strong style="color:${TEXT};">iPhone:</strong> open the link in Safari, tap the Share button, then tap &ldquo;Add to Home Screen&rdquo;.</p>`,
-    `<p style="${P}"><strong style="color:${TEXT};">Android:</strong> open the link in Chrome, tap the menu (three dots), then tap &ldquo;Add to Home screen&rdquo;.</p>`,
-
-    `<h2 style="${H2}">Questions?</h2>`,
-    `<p style="${P}">Just reply to this email and the board will get back to you.</p>`,
+    `<p style="${P}margin-top:20px;"><a href="${escapeHtml(watch)}" style="color:${ACCENT};font-weight:700;text-decoration:underline;">Watch a 1 minute video about getting started</a></p>`,
+    `<p style="${P}">Tip: to keep HomeownerHub on your phone, open it in Safari, tap Share, then Add to Home Screen.</p>`,
+    `<p style="${P}">Questions? Reply to this email and the board will answer.</p>`,
     `<p style="margin:24px 0 0;font-size:17px;line-height:1.6;color:${BODY};font-family:${FONT};">Thank you,<br>{{ board_signature }}</p>`,
   ].join('\n')
 
   return renderEmailDocument({
+    title: WELCOME_SUBJECT,
     band: { text: 'HomeownerHub', color: ACCENT },
-    previewText: 'One place for your dues, your requests and your news. Watch a 1 minute video to get started.',
+    previewText: 'Your balance, your requests and your news in one place. Look for the email that invites you to join.',
     bodyHtml: body,
     footerHtml:
-      'Sent by the {{ association_name }} board through HomeownerHub. If you would rather not get emails like this, reply and tell the board.',
+      'Sent by the {{ association_name }} board through HomeownerHub. To stop these emails, reply and tell the board.',
     fluid: true,
     // Phones: a little less side padding so the 17px text gets the width.
     extraCss: '@media only screen and (max-width:480px){.eh-page{padding:8px !important}.eh-body{padding:18px !important} }',
@@ -171,7 +170,7 @@ export function defaultBoardSignature(associationName: string): string {
  */
 export function welcomePrefillAnswers(input: { associationName: string; stateName?: string | null }): WelcomeAnswers {
   const name = input.associationName.trim()
-  const isMadison = name.toLowerCase().startsWith(MADISON_PARK_PRESET.associationName.toLowerCase())
+  const isMadison = name.toLowerCase() === MADISON_PARK_PRESET.associationName.toLowerCase()
   return {
     city: isMadison ? MADISON_PARK_PRESET.city : (input.stateName?.trim() ?? ''),
     board_signature: defaultBoardSignature(name),
@@ -204,17 +203,16 @@ export function renderWelcomeEmail(input: {
   associationName: string
   city: string
   boardSignature: string
-  recipientName: string
+  modules?: WelcomeModules
 }): { subject: string; html: string } {
   const bag = {
     association_name: escapeHtml(input.associationName),
     city: escapeHtml(input.city),
     board_signature: escapeHtml(input.boardSignature),
-    recipient_name: escapeHtml(input.recipientName),
   }
   return {
     // The subject is plain text: unescaped.
     subject: renderTemplateStrict(WELCOME_SUBJECT, { association_name: input.associationName }),
-    html: renderTemplateStrict(buildWelcomeEmailHtml(input.origin), bag),
+    html: renderTemplateStrict(buildWelcomeEmailHtml(input.origin, input.modules), bag),
   }
 }

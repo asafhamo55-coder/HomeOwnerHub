@@ -254,7 +254,7 @@ export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
     id: WELCOME_TEMPLATE_ID,
     name: 'Welcome to HomeownerHub',
     description:
-      'Tell residents the association is moving to HomeownerHub: a short video, three steps to get started and what they can do. A designed email, sent through the normal review and send steps.',
+      'Tell residents the association is on HomeownerHub, in three steps. Send the invitations first (Settings, Members, Invite owners), then send this email within a few minutes.',
     category: 'welcome',
     channels: ['email'],
     subject: WELCOME_SUBJECT,
