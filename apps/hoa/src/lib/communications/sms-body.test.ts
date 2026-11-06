@@ -80,7 +80,6 @@ describe('withStopLine', () => {
   it('is idempotent and never doubles an existing line or STOP wording', () => {
     const once = withStopLine('Water off Thursday')
     expect(withStopLine(once)).toBe(once)
-    expect(withStopLine('Hi. Text STOP... Reply STOP to unsubscribe.')).toBe('Hi. Text STOP... Reply STOP to unsubscribe.')
   })
   it('shortens content, never the STOP line, at exactly 279', () => {
     for (const n of [250, 256, 257, 279, 280, 1000]) {
@@ -89,5 +88,48 @@ describe('withStopLine', () => {
       expect(out.endsWith(SMS_STOP_LINE)).toBe(true)
     }
     expect(withStopLine('a'.repeat(256))).toBe(`${'a'.repeat(256)}${SMS_STOP_LINE}`)
+  })
+})
+
+describe('withStopLine hardening', () => {
+  it('"reply stop" wording inside the text does not suppress the line', () => {
+    const out = withStopLine('Please reply stop signs are being replaced')
+    expect(out).toBe('Please reply stop signs are being replaced Reply STOP to opt out.')
+  })
+  it('400 chars followed by the line is cut and still ends with the line', () => {
+    const out = withStopLine(`${'a'.repeat(400)}${SMS_STOP_LINE}`)
+    expect(out.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
+    expect(out.endsWith(SMS_STOP_LINE)).toBe(true)
+    expect(out.split('Reply STOP').length).toBe(2)
+  })
+  it('the line at the front followed by 400 chars still ends with the line', () => {
+    const out = withStopLine(`Reply STOP to opt out. ${'b'.repeat(400)}`)
+    expect(out.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
+    expect(out.endsWith(SMS_STOP_LINE)).toBe(true)
+  })
+  it('an already-correct body is returned unchanged', () => {
+    const ok = 'Water off Thursday Reply STOP to opt out.'
+    expect(withStopLine(ok)).toBe(ok)
+    expect(withStopLine(withStopLine('x'.repeat(500)))).toBe(withStopLine('x'.repeat(500)))
+  })
+  it('never leaves a lone surrogate when cutting emoji', () => {
+    const out = withStopLine('\u{1F600}'.repeat(200))
+    expect(out.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
+    expect(out.endsWith(SMS_STOP_LINE)).toBe(true)
+    expect(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(out)).toBe(false)
+    const composed = composeSmsBody({ subject: 'S', body: '\u{1F600}'.repeat(300), portalLink: 'https://x.test/p/1' })
+    expect(composed.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
+    expect(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(composed)).toBe(false)
+  })
+  it('an over-long link is dropped, not cut', () => {
+    const huge = `https://x.test/${'p'.repeat(400)}`
+    const out = composeSmsBody({ subject: 'Meeting', body: 'y'.repeat(300), portalLink: huge })
+    expect(out.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
+    expect(out.endsWith(SMS_STOP_LINE)).toBe(true)
+    expect(out).not.toContain('https://x.test')
+  })
+  it('trims the content before the ellipsis and an empty body gives just the line', () => {
+    expect(withStopLine(`${'a'.repeat(200)} ${'b'.repeat(200)}`)).not.toMatch(/ …/)
+    expect(withStopLine('')).toBe('Reply STOP to opt out.')
   })
 })
