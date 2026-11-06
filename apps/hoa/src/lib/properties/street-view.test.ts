@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { signStreetViewUrl, streetViewConfigured, streetViewLocation, streetViewUrls } from './street-view'
+import { aimedImageUrl, bearingDegrees, geocodeUrl, isPreciseGeocode, panoMetadataUrl, signStreetViewUrl, streetViewConfigured, streetViewLocation, streetViewUrls } from './street-view'
 
 describe('streetViewConfigured', () => {
   it('is true only with a non-blank key', () => {
@@ -51,5 +51,61 @@ describe('streetViewLocation', () => {
   it('is null with no street', () => {
     expect(streetViewLocation('')).toBeNull()
     expect(streetViewLocation(null)).toBeNull()
+  })
+})
+
+describe('bearingDegrees', () => {
+  const o = { lat: 33, lng: -84 }
+  it('points N, E, S and W', () => {
+    expect(bearingDegrees(o, { lat: 33.001, lng: -84 })).toBeCloseTo(0, 5)
+    expect(bearingDegrees(o, { lat: 33, lng: -83.999 })).toBeCloseTo(90, 1)
+    expect(bearingDegrees(o, { lat: 32.999, lng: -84 })).toBeCloseTo(180, 5)
+    expect(bearingDegrees(o, { lat: 33, lng: -84.001 })).toBeCloseTo(270, 1)
+  })
+  it('stays within 0-360 across the wrap', () => {
+    const nw = bearingDegrees(o, { lat: 33.001, lng: -84.0001 })
+    expect(nw).toBeGreaterThan(270)
+    expect(nw).toBeLessThan(360)
+    const ne = bearingDegrees(o, { lat: 33.001, lng: -83.9999 })
+    expect(ne).toBeGreaterThan(0)
+    expect(ne).toBeLessThan(90)
+    expect(bearingDegrees({ lat: 0, lng: 179.9999 }, { lat: 0, lng: -179.9999 })).toBeCloseTo(90, 3)
+    expect(bearingDegrees({ lat: 0, lng: -179.9999 }, { lat: 0, lng: 179.9999 })).toBeCloseTo(270, 3)
+  })
+  it('handles very close points and the same point', () => {
+    const b = bearingDegrees(o, { lat: 33.00001, lng: -83.99999 })
+    expect(b).toBeGreaterThan(0)
+    expect(b).toBeLessThan(90)
+    const same = bearingDegrees(o, o)
+    expect(same).toBeGreaterThanOrEqual(0)
+    expect(same).toBeLessThan(360)
+  })
+})
+
+describe('isPreciseGeocode', () => {
+  it('accepts only rooftop and interpolated results', () => {
+    expect(isPreciseGeocode('ROOFTOP')).toBe(true)
+    expect(isPreciseGeocode('RANGE_INTERPOLATED')).toBe(true)
+    expect(isPreciseGeocode('APPROXIMATE')).toBe(false)
+    expect(isPreciseGeocode('GEOMETRIC_CENTER')).toBe(false)
+    expect(isPreciseGeocode(undefined)).toBe(false)
+  })
+})
+
+describe('aimed URL builders', () => {
+  const house = { lat: 33.1, lng: -84.2 }
+  it('builds geocode, pano metadata and aimed image URLs, all signed with a secret', () => {
+    const g = new URL(geocodeUrl('1 Main St', 'k'))
+    expect(g.pathname).toBe('/maps/api/geocode/json')
+    expect(g.searchParams.get('address')).toBe('1 Main St')
+    const m = new URL(panoMetadataUrl(house, 'k'))
+    expect(m.pathname).toBe('/maps/api/streetview/metadata')
+    expect(Object.fromEntries(m.searchParams)).toMatchObject({ location: '33.1,-84.2', source: 'outdoor', radius: '50', key: 'k' })
+    const i = new URL(aimedImageUrl('P1', 123.456, 'k'))
+    expect(Object.fromEntries(i.searchParams)).toMatchObject({ pano: 'P1', heading: '123.5', pitch: '5', fov: '60', size: '640x400', key: 'k' })
+    expect(i.searchParams.get('signature')).toBeNull()
+    for (const u of [geocodeUrl('1 Main St', 'k', 'c2VjcmV0'), panoMetadataUrl(house, 'k', 'c2VjcmV0'), aimedImageUrl('P1', 1, 'k', 'c2VjcmV0')]) {
+      expect(new URL(u).searchParams.get('signature')).toBeTruthy()
+    }
   })
 })
