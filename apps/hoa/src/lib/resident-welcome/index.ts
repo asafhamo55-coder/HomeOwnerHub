@@ -12,6 +12,9 @@ export type HomeScreenPlatform = 'ios' | 'android' | 'other'
 export const WELCOME_KEY_PREFIX = 'hh:resident-welcome-seen:'
 export const HOME_SCREEN_KEY = 'hh:home-screen-helper-dismissed'
 
+/** Fired on window when "Got it" is tapped, so the first-week card can appear without a reload. */
+export const WELCOME_DISMISSED_EVENT = 'hh:resident-welcome-dismissed'
+
 export function welcomeKey(scope: string): string {
   return `${WELCOME_KEY_PREFIX}${scope}`
 }

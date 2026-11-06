@@ -6,6 +6,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } fro
 import { browserStorage } from '@/lib/guide/first-week'
 import {
   HOME_SCREEN_STEPS,
+  WELCOME_DISMISSED_EVENT,
   WELCOME_TILES,
   detectPlatform,
   dismissHomeScreenHelper,
@@ -88,6 +89,7 @@ export function ResidentWelcome({ scope }: { scope: string }) {
                 onClick={() => {
                   const storage = browserStorage()
                   dismissWelcome(storage, scope)
+                  window.dispatchEvent(new Event(WELCOME_DISMISSED_EVENT))
                   setStep(canShowHomeScreen(storage) ? 'home-screen' : 'none')
                 }}
               >
