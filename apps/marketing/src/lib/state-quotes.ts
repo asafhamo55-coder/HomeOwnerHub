@@ -1455,10 +1455,15 @@ export const STATE_QUOTES = {
     fixture: FL,
     quote: "If the board fails to duly notice and hold a board meeting within 5 full business days after service of an agreement in writing or within 5 full business days after the adjournment of the member recall meeting, the recall shall be deemed effective and the board directors so recalled shall immediately turn over to the board all records and property of the association.",
   },
+  flRecallMeetBoard: {
+    cite: "Fla. Stat. § 720.303(10)(c)2.",
+    fixture: FL,
+    quote: "The board shall duly notice and hold a board meeting within 5 full business days after the adjournment of the member meeting to recall one or more directors.",
+  },
   flRecallMinutes: {
     cite: "Fla. Stat. § 720.303(10)(i)",
     fixture: FL,
-    quote: "The minutes of the board meeting at which the board decides whether to certify the recall are an official association record. The minutes must record the date and time of the meeting, the decision of the board, and the vote count taken on each board member subject to the recall.",
+    quote: "The minutes of the board meeting at which the board decides whether to certify the recall are an official association record. The minutes must record the date and time of the meeting, the decision of the board, and the vote count taken on each board member subject to the recall. In addition, when the board decides not to certify the recall, as to each vote rejected, the minutes must identify the parcel number and the specific reason for each such rejection.",
   },
   flRecallSeparate: {
     cite: "Fla. Stat. § 720.303(10)(j)",

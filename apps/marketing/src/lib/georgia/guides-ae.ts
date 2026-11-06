@@ -24,7 +24,7 @@ export const FL_BUDGET_RESERVES: Guide = {
   dateModified: PUBLISHED,
   howTo: true,
   summary: [
-    'Section 720.303(6) of the Florida Homeowners’ Association Act requires an annual budget and lets the budget include reserve accounts. Reserves become a rule for the association once the members approve them. Section 720.303(7) then sets the financial report the association prepares after the year ends, and the kind of report depends on total annual revenues.',
+    'Section 720.303(6) of the Florida Homeowners’ Association Act in chapter 720 requires an annual budget and lets the budget include reserve accounts. Reserves become a rule for the association once the members approve them. Section 720.303(7) then sets the financial report the association prepares after the year ends, and the kind of report depends on total annual revenues.',
     'The text covers homeowners’ associations under chapter 720, not condominiums. This is a plain-language guide to the text we hold, not legal advice. Your attorney and your accountant decide how it applies to your association.',
   ],
   sections: [
@@ -45,7 +45,7 @@ export const FL_BUDGET_RESERVES: Guide = {
     {
       heading: 'Reserves are optional until members approve them',
       body: [
-        'The budget may include reserve accounts for capital expenditures and deferred maintenance. The statute says may. The association is treated as having provided for reserve accounts once a majority of the total voting interests approve, either at a meeting or in writing.',
+        'The budget may include reserve accounts for capital expenditures and deferred maintenance. The statute says may. The association is treated as having provided for reserve accounts once a majority of the total voting interests approve, either at a meeting or in writing. The approval must say reserves will be provided in the budget and name the components.',
       ],
       quotes: ['flReserveMay', 'flReserveApprove'],
     },
@@ -59,7 +59,7 @@ export const FL_BUDGET_RESERVES: Guide = {
     {
       heading: 'Waiving or reducing reserves',
       body: [
-        'After reserve accounts are established, the members can vote to provide for no reserves or less than the section requires. The vote needs a quorum, and it covers one budget year only.',
+        'After reserve accounts are established, the members can vote to provide for no reserves or less than the section requires. The vote needs a quorum, and it covers one budget year only. If the meeting does not produce a waiver vote or lacks a quorum, the reserves in the budget go into effect.',
       ],
       quotes: ['flReserveWaive', 'flReserveWaiveYear'],
     },
@@ -94,7 +94,7 @@ export const FL_BUDGET_RESERVES: Guide = {
     {
       heading: 'What this page does not tell you',
       body: [
-        'We hold chapter 720 only. We do not state how much to reserve, which accounting standard your accountant applies, or what happens to a board that misses a deadline. We also leave out the developer rules in paragraph (i). Check the current text with your attorney before the board relies on a date.',
+        'We hold chapter 720 only. We do not state how much to reserve, which accounting standard your accountant applies, or what happens to a board that misses a deadline. We also leave out the developer rules in paragraph (i). Paragraph (c) also requires a conspicuous statement in the financial report when reserves are not provided or not fully funded. Ask your accountant for the required wording. Check the current text with your attorney before the board relies on a date.',
       ],
     },
   ],
@@ -109,7 +109,7 @@ export const FL_BUDGET_RESERVES: Guide = {
   faqs: [
     {
       q: 'Does a Florida HOA have to keep reserves?',
-      a: 'Not by the text of § 720.303(6)(b) alone. The budget may include reserve accounts. Once the members approve them, the association follows the reserve rules in that subsection.',
+      a: 'Not by the text of § 720.303(6)(b) and (d). The budget may include reserve accounts. Once the members approve them, the association follows the reserve rules in that subsection.',
     },
     {
       q: 'Who can waive reserves?',
@@ -152,8 +152,8 @@ export const FL_RECALL: Guide = {
   dateModified: PUBLISHED,
   howTo: true,
   summary: [
-    'Section 720.303(10) of the Florida Homeowners’ Association Act lets members remove a director with or without cause by a majority of the total voting interests, whatever the governing documents say, subject to the section on transition of control from a developer.',
-    'A recall can be done by a written agreement or ballot, or at a meeting if the governing documents allow it. The board then has 5 full business days to hold a meeting and certify the recall or take the dispute to arbitration or court.',
+    'Section 720.303(10) of the Florida Homeowners’ Association Act in chapter 720 lets members remove a director with or without cause by a majority of the total voting interests, whatever the governing documents say, subject to the section on transition of control from a developer.',
+    'A recall can be done by a written agreement or ballot, or at a meeting if the governing documents allow it. The board then has 5 full business days to notice and hold a meeting and decide whether to certify. If it will not certify, it has another 5 full business days after that meeting to file in court or petition for binding arbitration.',
     'The text covers homeowners’ associations under chapter 720, not condominiums. This is a plain-language guide to the text we hold, not legal advice. A recall has short deadlines, so involve an attorney early.',
   ],
   sections: [
@@ -162,14 +162,14 @@ export const FL_RECALL: Guide = {
       body: [
         'Any director may be recalled with or without cause by a majority of the total voting interests. If the documents say only one class of members elects a director, only that class votes on recalling that director.',
       ],
-      quotes: ['flRecallAny', 'flRecallClass'],
+      quotes: ['flRecallAny'],
     },
     {
       heading: 'Recall by written agreement or ballot',
       body: [
-        'Members can sign a written agreement or written ballots without holding a meeting. The papers are served on the association by certified mail or personal service in the way the statute names.',
+        'Members can sign a written agreement or written ballots without holding a meeting. The papers are served on the association by certified mail or personal service in the way the statute names. A signed recall paper has a short shelf life and must meet formal requirements, so confirm both with your attorney before anyone relies on it.',
       ],
-      quotes: ['flRecallWritten'],
+      
     },
     {
       heading: 'Recall at a meeting',
@@ -183,46 +183,47 @@ export const FL_RECALL: Guide = {
       body: [
         'After the papers are served, the board must notice and hold a meeting within 5 full business days. The same period runs from the end of a members’ recall meeting. At the board meeting the board certifies the recall, or it follows the dispute route in paragraph (d).',
       ],
-      quotes: ['flRecallBoardMeet'],
+      quotes: ['flRecallBoardMeet', 'flRecallMeetBoard'],
     },
     {
       heading: 'If the board does not certify',
       body: [
-        'A board that decides not to certify must file an action in court or a petition for binding arbitration within 5 full business days after the meeting. Which route fits is a question for your attorney.',
+        'A board that decides not to certify must file an action in court or a petition for binding arbitration with the state agency within 5 full business days after the meeting. The text says a recall that goes this route takes effect only when the court enters its final order or the arbitration order is mailed to the association, and the members who voted or signed are treated as one party. Which route fits is a question for your attorney. Recall disputes are not eligible for presuit mediation under 720.311(1). They go to arbitration by the state agency or to court, and the arbitration carries a filing fee and a prevailing party cost rule that your attorney can explain.',
       ],
-      quotes: ['flRecallNoCert'],
+      
     },
     {
       heading: 'If the board does nothing',
       body: [
-        'If the board misses the meeting deadline, the text says the recall is deemed effective and the recalled directors turn over the association’s records and property. A parcel owner representative has a separate way to challenge a board that fails to act, set out in paragraph (g).',
+        'If the board misses the meeting deadline, the text says the recall is deemed effective and the recalled directors turn over the association’s records and property. A parcel owner representative has a separate way to challenge a board that fails to act, set out in paragraph (g), which requires the petition or action within 60 days after the 5 full business day period ends.',
       ],
-      quotes: ['flRecallDeemed'],
+      
     },
     {
       heading: 'Minutes and separate votes',
       body: [
-        'The minutes of the board meeting about certification are an official record and must show the date, time, decision and vote counts. When more than one director is targeted, each gets a separate vote.',
+        'The minutes of the board meeting about certification are an official record and must show the date, time, decision and vote counts. If the board decides not to certify, the minutes must also give the parcel number and the specific reason for each vote rejected. When more than one director is targeted, each gets a separate vote.',
       ],
-      quotes: ['flRecallMinutes', 'flRecallSeparate'],
+      quotes: ['flRecallMinutes'],
     },
     {
       heading: 'A recalled director can challenge it',
       body: [
-        'A recalled board member may file an action or petition challenging the validity of the recall. The text gives a filing window, quoted below.',
+        'A recalled board member may file an action or petition challenging the validity of the recall, within 60 days after the recall is deemed certified.',
       ],
-      quotes: ['flRecallChallenge'],
+      
     },
     {
       heading: 'What this page does not tell you',
       body: [
-        'We hold chapter 720 only. We do not restate how vacancies are filled after a recall, the rules for reusing ballots or the procedural rules of the state agency. We give no deadline of our own. Because the clocks are short, ask your attorney before the board acts on either side of a recall.',
+        'We hold chapter 720 only. We do not restate how vacancies are filled after a recall, how a signed recall ballot expires (no ballot is valid more than 120 days after signing), the rule that a member’s written rescission must reach the association before service, the requirement that the instrument list replacement directors when a majority of the board is targeted, the reuse of ballots after a defective first attempt, or the procedural rules of the state agency. Paragraphs (d) and (k) borrow the arbitration procedure from sections of the condominium chapter. The recall right itself comes from chapter 720, and this page does not cover condominium recalls. Paragraph (l) bars the state agency and the courts from accepting a recall petition or action when 60 or fewer days remain until the director’s scheduled reelection, or when 60 or fewer days have passed since the director’s election. Ask your attorney to check that window before anyone files. We give no deadline of our own. Because the clocks are short, ask your attorney before the board acts on either side of a recall.',
       ],
     },
   ],
   steps: [
     'Read your declaration, articles and bylaws for any meeting-based recall rule and for who may call a special meeting.',
     'If a written recall is served, record the date and method of service the same day.',
+    'Ask your attorney whether the recalled director’s election date falls within the 60 day window in paragraph (l).',
     'Calendar the 5 full business days and notice a board meeting with your attorney.',
     'At the meeting, decide whether to certify. Record the vote count for each director in the minutes.',
     'If the board will not certify, ask your attorney to file the court action or arbitration petition within the period.',
@@ -234,10 +235,6 @@ export const FL_RECALL: Guide = {
       a: 'Yes. Under § 720.303(10)(a), any director may be recalled with or without cause by a majority of the total voting interests.',
     },
     {
-      q: 'Does a recall need a meeting?',
-      a: 'No. Directors may be recalled by written agreement or written ballot. A meeting vote is available only if the governing documents provide for it.',
-    },
-    {
       q: 'How long does the board have to act on a recall?',
       a: 'The board must notice and hold a meeting within 5 full business days after the papers are received or after the members’ meeting adjourns.',
     },
@@ -246,8 +243,8 @@ export const FL_RECALL: Guide = {
       a: 'It must file a court action or an arbitration petition within 5 full business days after the meeting. Ask an attorney which route to use.',
     },
     {
-      q: 'Does this apply to a condominium?',
-      a: 'No. This page covers homeowners’ associations under chapter 720. Condominium associations are under a different chapter.',
+      q: 'Does this cover condominium recalls?',
+      a: 'No. This page covers homeowners’ associations under chapter 720 only.',
     },
   ],
   related: [
@@ -294,7 +291,7 @@ export const TX_JUSTICE: Guide = {
     {
       heading: 'What counts as a subdivision and an association',
       body: [
-        'The chapter defines a residential subdivision by its restrictions, and it defines a property owners’ association as one that represents owners in such a subdivision. Whether your community fits is a question about your recorded documents.',
+        'The chapter defines a residential subdivision by its restrictions, and it defines a property owners’ association as one that represents owners in such a subdivision. Whether your community fits is a question about your recorded documents. Both definitions continue with conditions, including that the restrictions are recorded, limit most of the land to residential use, and require membership in an association with authority to impose assessments. Read the full definitions with your attorney.',
       ],
       quotes: ['txDefSubdivision', 'txDefAssoc'],
     },
@@ -314,7 +311,7 @@ export const TX_JUSTICE: Guide = {
     {
       heading: 'Reading the sentence closely',
       body: [
-        'The right belongs to an owner, and the defendant is the association. The subject is a violation of Chapter 209 itself, not a breach of a private rule or a covenant. A dispute that rests only on the declaration is a different kind of claim, and whether it fits this section is a question for your attorney.',
+        'The right belongs to an owner, and the defendant is the association. The text says an action for a violation of this chapter. It does not say whether a claim based only on the declaration or another rule may also be brought under this section, and we do not infer an answer. A dispute that rests only on the declaration should be raised with your attorney, who can say whether it fits this section or belongs elsewhere.',
         'The venue is a justice court in a precinct where all or part of the subdivision is located. For a large subdivision that can mean more than one precinct, and the text we hold does not rank them.',
       ],
     },
