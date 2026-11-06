@@ -13,8 +13,12 @@ import { getPrimaryAssociation } from '@/lib/vendors'
 import { addCalendarDays, instantAtLocalTime, todayIn } from '@/lib/association-time'
 import { getResidentUnits } from '@/lib/resident'
 import { parsePollInput, type PollInput } from './rules'
+import { sendPollEmailNow } from './email/notify'
+import type { PollEmailKind, PollEmailStatus } from './email/run'
 import {
   createDraftPoll,
+  getPoll,
+  getResults,
   deleteDraftPoll,
   setPollStatus,
   submitAnswer,
@@ -22,7 +26,15 @@ import {
   type StoreResult,
 } from './store'
 
-export type PollActionResult = { ok: true; id?: string } | { ok: false; error: string }
+/** What the optional email did. Counts only: homes, never names. */
+export interface PollEmailOutcome {
+  status: PollEmailStatus
+  sent: number
+  held: number
+  optedOut: number
+}
+
+export type PollActionResult = { ok: true; id?: string; email?: PollEmailOutcome } | { ok: false; error: string }
 
 const Id = z.string().uuid()
 
@@ -85,11 +97,54 @@ async function boardChange(id: string, run: (c: PollsClient) => Promise<StoreRes
   return fromStore(r, id)
 }
 
-export async function openPollAction(id: string) {
-  return boardChange(id, (c) => setPollStatus(c, id, 'open'))
+/**
+ * Change the poll's status, then (only when the board asked for it) email
+ * residents. The status change is never undone by an email problem: the
+ * outcome comes back beside `ok: true` and the screen says what happened.
+ */
+async function changeAndEmail(
+  id: string,
+  status: 'open' | 'closed',
+  kind: PollEmailKind,
+  emailResidents: boolean,
+): Promise<PollActionResult> {
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  if (!Id.safeParse(id).success) return { ok: false, error: 'Invalid poll.' }
+  const supabase = await getSupabaseServerClient()
+  const client = supabase as unknown as PollsClient
+  const changed = await setPollStatus(client, id, status)
+  let email: PollEmailOutcome | undefined
+  if (changed.ok && emailResidents) {
+    const found = await getPoll(client, id)
+    if (found.ok && found.data) {
+      const r = await sendPollEmailNow(
+        supabase,
+        async (pollId) => {
+          const res = await getResults(client, pollId)
+          if (!res.ok) throw new Error('poll-email: results read failed')
+          return res.data
+        },
+        { kind, pollId: id, associationId: found.data.poll.association_id },
+      )
+      email = { status: r.status, sent: r.sent, held: r.held, optedOut: r.optedOut }
+      revalidatePath('/communications')
+    } else {
+      email = { status: 'failed', sent: 0, held: 0, optedOut: 0 }
+    }
+  }
+  revalidatePath('/polls')
+  revalidatePath(`/polls/${id}`)
+  revalidatePath('/resident/polls')
+  const base = fromStore(changed, id)
+  return base.ok && email ? { ...base, email } : base
 }
-export async function closePollAction(id: string) {
-  return boardChange(id, (c) => setPollStatus(c, id, 'closed'))
+
+export async function openPollAction(id: string, options?: { emailResidents?: boolean }) {
+  return changeAndEmail(id, 'open', 'opened', options?.emailResidents === true)
+}
+export async function closePollAction(id: string, options?: { emailResidents?: boolean }) {
+  return changeAndEmail(id, 'closed', 'results', options?.emailResidents === true)
 }
 export async function deletePollAction(id: string) {
   return boardChange(id, (c) => deleteDraftPoll(c, id))

@@ -8,6 +8,8 @@ import { getPoll, getResults, pollsAvailable, type PollsClient } from '@/lib/pol
 import { effectiveStatus } from '@/lib/polls/rules'
 import { PollNotice } from '@/components/polls/PollNotice'
 import { PollResults } from '@/components/polls/PollResults'
+import { countPollEmailHomes, loadAssociationZone, loadPollEmailSummary } from '@/lib/polls/email/store'
+import { emailedLine } from '@/lib/polls/email/messages'
 import { PollBoardActions } from '@/components/polls/PollBoardActions'
 
 export const metadata = { title: 'Poll' }
@@ -24,6 +26,19 @@ export default async function PollDetailPage({ params }: { params: Promise<{ id:
   const { poll, options } = res.data
   const eff = effectiveStatus(poll, new Date())
   const results = poll.status === 'draft' ? null : await getResults(supabase, id)
+  const [emailed, zone, emailHomes] = await Promise.all([
+    loadPollEmailSummary(supabase, id),
+    loadAssociationZone(supabase, poll.association_id),
+    eff === 'draft' || eff === 'open'
+      ? countPollEmailHomes(supabase, { id: poll.association_id, organizationId: poll.organization_id })
+      : Promise.resolve(null),
+  ])
+  // The same test run.ts uses before the daily job sends results.
+  const openedEmailed = Boolean(emailed?.opened && emailed.opened.status !== 'cancelled')
+  const sentLines = [
+    emailed?.opened && emailed.opened.homes > 0 ? `Poll email: ${emailedLine(emailed.opened.homes, emailed.opened.at, zone)}` : null,
+    emailed?.results && emailed.results.homes > 0 ? `Results email: ${emailedLine(emailed.results.homes, emailed.results.at, zone)}` : null,
+  ].filter((l): l is string => l !== null)
 
   return (
     <Page
@@ -60,7 +75,17 @@ export default async function PollDetailPage({ params }: { params: Promise<{ id:
           )}
         </CardContent>
       </Card>
-      <PollBoardActions id={poll.id} status={eff} />
+      {sentLines.length > 0 ? (
+        <div className="space-y-1 text-base text-foreground">
+          {sentLines.map((l) => (
+            <p key={l}>{l}</p>
+          ))}
+        </div>
+      ) : null}
+      <PollBoardActions id={poll.id} status={eff} resultsEmailed={Boolean(emailed?.results)}
+        openedEmailed={openedEmailed}
+        emailHomes={emailHomes}
+      />
     </Page>
   )
 }
