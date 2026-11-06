@@ -17,13 +17,21 @@ import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { Badge } from '@homeowner-portal/ui'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { communityLinks } from '@/lib/resident-community'
+import { pollBadgeText } from '@/lib/polls/resident-badge'
 import { IconTile, type Tone } from '@/components/resident/screen'
 
 /**
  * Resident home quick-action tiles. Pure presentation: the "N new"
  * announcement count is the one the home page already loads.
  */
-export function QuickActions({ newAnnouncements }: { newAnnouncements: number }) {
+export function QuickActions({
+  newAnnouncements,
+  pollsToAnswer = 0,
+}: {
+  newAnnouncements: number
+  pollsToAnswer?: number
+}) {
+  const pollBadge = M9_APPLIED ? pollBadgeText(pollsToAnswer) : null
   return (
     // Nine tiles today (ten with online voting). The span classes keep a lone
     // last tile from sitting by itself when the count is odd.
@@ -66,7 +74,14 @@ export function QuickActions({ newAnnouncements }: { newAnnouncements: number })
       ) : null}
       {/* One tile instead of three: polls, booking and the neighbors board live on /resident/community. */}
       {communityLinks({ polls: M9_APPLIED, amenities: M11_APPLIED, board: M13_APPLIED }).length > 0 ? (
-        <ActionTile icon={<UsersRound />} tone="slate" label="Community" hint="Polls, book a space, talk with neighbors" href="/resident/community" />
+        <ActionTile
+          icon={<UsersRound />}
+          tone="slate"
+          label="Community"
+          hint="Polls, book a space, talk with neighbors"
+          href="/resident/community"
+          badge={pollBadge}
+        />
       ) : null}
     </div>
   )
@@ -90,6 +105,7 @@ function ActionTile({
   return (
     <Link
       href={href}
+      aria-label={badge ? `${label}, ${badge}. ${hint}` : undefined}
       className="relative flex min-h-12 flex-col gap-3 rounded-xl border border-border bg-surface p-4 no-underline transition-colors duration-fast hover:border-border-strong hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <IconTile icon={icon} tone={tone} />
