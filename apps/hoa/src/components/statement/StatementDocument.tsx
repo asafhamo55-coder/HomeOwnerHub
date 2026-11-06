@@ -1,4 +1,5 @@
 import { ReceiptText } from 'lucide-react'
+import { Letterhead } from '@/components/print/Letterhead'
 import { DataTable, EmptyState, type DataTableColumn } from '@homeowner-portal/ui'
 import type { LedgerEntry, StatementWindow } from '@/lib/resident-ledger'
 import { formatDay } from '@/lib/money/format'
@@ -72,6 +73,7 @@ export function StatementDocument(props: StatementDocumentProps) {
     >
       <header className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
+          <Letterhead className="mb-3" />
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">Account statement</p>
           <h2 className="text-lg text-foreground [overflow-wrap:anywhere]">{props.associationName}</h2>
         </div>

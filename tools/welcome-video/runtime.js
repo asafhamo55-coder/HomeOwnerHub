@@ -94,10 +94,10 @@
     const p = document.getElementById('poster')
     p.hidden = false
     p.style.cssText =
-      'position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:50px;background:linear-gradient(180deg,#1B1346,#0F172A);color:#fff;text-align:center'
+      'position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:50px;background:linear-gradient(180deg,#6B21A8,#3B0764 55%,#1f1033);color:#fff;text-align:center'
     p.innerHTML =
       '<img src="brand/logo-full-dark.svg" style="height:' + (layout === 'port' ? 96 : 72) + 'px" alt="">' +
-      '<div style="width:' + (layout === 'port' ? 340 : 240) + 'px;height:' + (layout === 'port' ? 340 : 240) + 'px;border-radius:50%;background:#4B27C9;border:12px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">' +
+      '<div style="width:' + (layout === 'port' ? 340 : 240) + 'px;height:' + (layout === 'port' ? 340 : 240) + 'px;border-radius:50%;background:#6D28D9;border:12px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">' +
       '<svg viewBox="0 0 24 24" width="' + (layout === 'port' ? 170 : 120) + '" height="' + (layout === 'port' ? 170 : 120) + '" fill="#fff" style="margin-left:14px"><path d="M7 4.5v15l13-7.5z"/></svg></div>' +
       '<div style="font-size:' + (layout === 'port' ? 78 : 64) + 'px;font-weight:800;line-height:1.1;padding:0 50px">Watch: getting started</div>'
     // The captions do not belong on a poster.

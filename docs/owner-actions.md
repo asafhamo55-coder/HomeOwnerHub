@@ -59,15 +59,18 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
 3. Replace the message body with this (switch the editor to its source or HTML view first):
 
 ```
-<div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#1a1a1a;max-width:560px;margin:0 auto;padding:16px">
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#211B2C;max-width:560px;margin:0 auto;padding:16px">
+  <p style="margin:0 0 12px;padding:0 0 16px;border-bottom:4px solid #6D28D9">
+    <img src="https://www.homeownerledger.com/email/v2/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30" style="display:block;border:0;height:30px;width:180px">
+  </p>
   <p style="font-size:20px;font-weight:bold;margin:0 0 16px">You are invited to {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }}.</p>
   <p style="margin:0 0 16px">HomeownerHub is where you see your dues, ask the board a question, and find your community's rules and news. There is nothing to download.</p>
   <p style="margin:0 0 24px">Tap the button below to get in. You do not need to make a password.</p>
   <p style="margin:0 0 24px">
-    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:20px;font-weight:bold;text-decoration:none;padding:16px 28px;min-height:48px;line-height:1.2;border-radius:8px">Open HomeownerHub</a>
+    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#6D28D9;color:#ffffff;font-size:20px;font-weight:bold;text-decoration:none;padding:18px 32px;min-height:48px;line-height:1.2;border-radius:8px">Open HomeownerHub</a>
   </p>
   <p style="margin:0 0 16px">This link works for 24 hours. If it stops working, ask your board to send a new one, or email support@homeownerledger.com and we will help.</p>
-  <p style="margin:0;font-size:17px;color:#444444">If the button does not work, copy this address into your phone's browser:<br>{{ .ConfirmationURL }}</p>
+  <p style="margin:0;font-size:18px;color:#211B2C">If the button does not work, copy this address into your phone's browser:<br><a href="{{ .ConfirmationURL }}" style="color:#6D28D9;word-break:break-all">{{ .ConfirmationURL }}</a></p>
 </div>
 ```
 

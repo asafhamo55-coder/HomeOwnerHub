@@ -1,5 +1,6 @@
 'use client'
 
+import { Letterhead } from '@/components/print/Letterhead'
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -501,7 +502,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
   return (
     <article aria-labelledby="letter-title" className={`space-y-4 rounded-lg border border-border bg-surface p-5 text-sm print:border-0 print:p-0 ${printClass}`}>
       <header className="space-y-3">
-        <p className="font-medium text-foreground">{association}</p>
+        <Letterhead name={association} />
         <p className="num text-foreground-secondary">{formatDay(letter.letterDate)}</p>
         <div className="text-foreground">
           <p>

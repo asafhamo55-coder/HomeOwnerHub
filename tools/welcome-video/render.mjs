@@ -29,8 +29,8 @@ const FPS = 25
 const FPS_OUT = 20
 const LAYOUTS = {
   // w/h: what is recorded (and what the poster is); ow/oh: the encoded size.
-  port: { w: 1080, h: 1920, ow: 720, oh: 1280, rate: ['-crf', '26', '-maxrate', '700k', '-bufsize', '1.4M'], file: 'welcome.mp4', poster: 'poster.jpg' },
-  land: { w: 1920, h: 1080, ow: 1280, oh: 720, rate: ['-crf', '26', '-maxrate', '800k', '-bufsize', '1.6M'], file: 'welcome-landscape.mp4', poster: 'poster-land.jpg' },
+  port: { w: 1080, h: 1920, ow: 720, oh: 1280, rate: ['-crf', '27', '-maxrate', '700k', '-bufsize', '1.4M'], file: 'welcome.mp4', poster: 'poster.jpg' },
+  land: { w: 1920, h: 1080, ow: 1280, oh: 720, rate: ['-crf', '27', '-maxrate', '800k', '-bufsize', '1.6M'], file: 'welcome-landscape.mp4', poster: 'poster-land.jpg' },
 }
 
 const sh = (cmd, a, opts = {}) => execFileSync(cmd, a, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28, ...opts })

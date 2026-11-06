@@ -61,6 +61,9 @@ describe('violation letter print view', () => {
     }
     const html = await render()
     expect(html).toContain('Peachtree Fixture HOA')
+    expect(html).toContain('src="/brand-site/logo-full.svg"')
+    expect(html).toContain('alt="HomeownerHub"')
+    expect(html).toContain('print-color-adjust:exact')
     expect(html).toContain('Nov 2, 2026')
     expect(html).toContain('Jane Owner')
     expect(html).toContain('1234 Peachtree St NE')

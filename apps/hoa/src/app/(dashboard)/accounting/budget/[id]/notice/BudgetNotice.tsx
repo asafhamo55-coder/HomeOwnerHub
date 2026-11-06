@@ -1,5 +1,6 @@
 'use client'
 
+import { Letterhead } from '@/components/print/Letterhead'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Megaphone, Printer } from 'lucide-react'
@@ -110,8 +111,11 @@ export function BudgetNotice({ input, today }: { input: BudgetNoticeInput; today
       <article
         aria-label="Budget notice preview"
         className={`${gate.docClass} space-y-3 rounded-lg border border-border bg-surface p-5 text-sm text-foreground print:border-0 print:p-0 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:pt-2 [&_h3]:font-semibold [&_li]:ml-5 [&_li]:list-disc [&_small]:text-xs [&_small]:text-foreground-secondary [&_td]:border-b [&_td]:border-border/60 [&_td]:py-1 [&_td]:pr-3 [&_th]:border-b [&_th]:border-border [&_th]:py-1 [&_th]:font-medium [&_th]:text-foreground-secondary [&_.budget-notice-blank]:rounded [&_.budget-notice-blank]:bg-warning-subtle [&_.budget-notice-blank]:px-1 [&_.budget-notice-blank]:font-mono [&_.budget-notice-blank]:text-warning`}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      >
+        {/* Logo only: the notice body already names the association under the title. */}
+        <Letterhead className="mb-2" />
+        <div dangerouslySetInnerHTML={{ __html: html }} />
+      </article>
 
       <div className="space-y-3 print:hidden">
         <ul className="list-disc space-y-1 pl-5 text-xs text-muted">
