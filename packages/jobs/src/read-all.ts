@@ -22,7 +22,7 @@ export const PAGE_ROWS = 1000
  * then readAll keeps its original cap-safe probing (BL-047): the hosted
  * max_rows is a dashboard setting this code cannot see, and guessing it
  * wrong silently truncates money totals. Set it only after confirming the
- * value in Supabase (docs/owner-actions.md OA-46). Never above PAGE_ROWS.
+ * value in Supabase (docs/owner-actions.md OA-47). Never above PAGE_ROWS.
  */
 export function configuredServerCap(env: Record<string, string | undefined> = process.env): number | undefined {
   const raw = env.POSTGREST_MAX_ROWS
