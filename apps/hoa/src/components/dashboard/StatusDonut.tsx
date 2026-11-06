@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { LazyECharts as ReactECharts } from '@/components/charts/LazyECharts'
 import { Card, CardContent, CardHeader, CardTitle, EmptyState } from '@homeowner-portal/ui'
 import { palette } from '@homeowner-portal/ui/tokens'
+import { scaleChartFont, useChartFontScale } from '@/components/charts/useChartFontScale'
 import type { DonutSegment } from '@/lib/dashboard/charts'
 
 // ECharts paints to canvas and cannot read CSS variables, so the brand tone
@@ -41,11 +42,12 @@ export function StatusDonut({
 }: StatusDonutProps) {
   // Recompute the chart option only when inputs change. ECharts re-runs
   // the option diff on every render otherwise, which is wasteful.
+  const scale = useChartFontScale()
   const option = useMemo(
     () => ({
       tooltip: {
         trigger: 'item',
-        textStyle: { fontSize: 12 },
+        textStyle: { fontSize: scaleChartFont(12, scale) },
         borderColor: '#e5e7eb',
         borderWidth: 1,
         padding: [6, 10],
@@ -75,7 +77,7 @@ export function StatusDonut({
         },
       ],
     }),
-    [segments],
+    [segments, scale],
   )
 
   const ariaSummary =

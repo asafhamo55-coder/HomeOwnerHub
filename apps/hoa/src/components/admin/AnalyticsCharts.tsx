@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LazyECharts as ReactECharts } from '@/components/charts/LazyECharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, useTheme } from '@homeowner-portal/ui'
+import { scaleChartFont, scaleChartSpace, useChartFontScale } from '@/components/charts/useChartFontScale'
 import { palette } from '@homeowner-portal/ui/tokens'
 
 // Platform-analytics charts (ECharts, SVG renderer). Colours come from the
@@ -76,9 +77,9 @@ function useChartTokens(): Tokens {
   return tokens
 }
 
-function baseTooltip(t: Tokens) {
+function baseTooltip(t: Tokens, scale: number) {
   return {
-    textStyle: { fontSize: 12, color: t.foreground },
+    textStyle: { fontSize: scaleChartFont(12, scale), color: t.foreground },
     backgroundColor: t.elevated,
     borderColor: t.border,
     borderWidth: 1,
@@ -103,42 +104,43 @@ interface GrowthChartProps {
 
 export function GrowthChart({ tenants, members }: GrowthChartProps) {
   const t = useChartTokens()
+  const scale = useChartFontScale()
   const option = useMemo(
     () => ({
-      tooltip: { trigger: 'axis', ...baseTooltip(t) },
+      tooltip: { trigger: 'axis', ...baseTooltip(t, scale) },
       legend: {
         bottom: 0,
-        textStyle: { fontSize: 12, color: t['foreground-secondary'] },
+        textStyle: { fontSize: scaleChartFont(12, scale), color: t['foreground-secondary'] },
         itemWidth: 12,
         itemHeight: 8,
       },
-      grid: { top: 24, right: 40, bottom: 40, left: 40, containLabel: false },
+      grid: { top: scaleChartSpace(24, scale), right: scaleChartSpace(40, scale), bottom: scaleChartSpace(40, scale), left: scaleChartSpace(40, scale), containLabel: false },
       xAxis: {
         type: 'category',
         data: tenants.map((x) => x.month.slice(5)),
         axisLine: { lineStyle: { color: t.border } },
         axisTick: { show: false },
-        axisLabel: { fontSize: 11, color: t.muted },
+        axisLabel: { fontSize: scaleChartFont(11, scale), color: t.muted },
       },
       yAxis: [
         {
           type: 'value',
           name: 'Tenants',
-          nameTextStyle: { fontSize: 11, color: t.muted },
+          nameTextStyle: { fontSize: scaleChartFont(11, scale), color: t.muted },
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: { lineStyle: { color: t.border, type: [2, 4] as [number, number] } },
-          axisLabel: { fontSize: 11, color: t.muted },
+          axisLabel: { fontSize: scaleChartFont(11, scale), color: t.muted },
           minInterval: 1,
         },
         {
           type: 'value',
           name: 'Members',
-          nameTextStyle: { fontSize: 11, color: t.muted },
+          nameTextStyle: { fontSize: scaleChartFont(11, scale), color: t.muted },
           axisLine: { show: false },
           axisTick: { show: false },
           splitLine: { show: false },
-          axisLabel: { fontSize: 11, color: t.muted },
+          axisLabel: { fontSize: scaleChartFont(11, scale), color: t.muted },
           minInterval: 1,
         },
       ],
@@ -164,7 +166,7 @@ export function GrowthChart({ tenants, members }: GrowthChartProps) {
         },
       ],
     }),
-    [tenants, members, t],
+    [tenants, members, t, scale],
   )
 
   return (
@@ -188,12 +190,13 @@ interface FeatureAdoptionProps {
 
 export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
   const t = useChartTokens()
+  const scale = useChartFontScale()
   const option = useMemo(
     () => ({
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        ...baseTooltip(t),
+        ...baseTooltip(t, scale),
         formatter: (params: Array<{ dataIndex: number; name: string; value: number }>) => {
           const d = params[0]
           if (!d) return ''
@@ -202,14 +205,14 @@ export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
           return `${d.name}<br/><b>${d.value}</b> / ${total} tenants (${pct}%)`
         },
       },
-      grid: { top: 4, right: 40, bottom: 4, left: 4, containLabel: true },
+      grid: { top: 4, right: scaleChartSpace(40, scale), bottom: 4, left: 4, containLabel: true },
       xAxis: { type: 'value', show: false, minInterval: 1 },
       yAxis: {
         type: 'category',
         data: features.map((f) => f.feature).reverse(),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { fontSize: 12, color: t['foreground-secondary'] },
+        axisLabel: { fontSize: scaleChartFont(12, scale), color: t['foreground-secondary'] },
       },
       series: [
         {
@@ -220,7 +223,7 @@ export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
           label: {
             show: true,
             position: 'right',
-            fontSize: 11,
+            fontSize: scaleChartFont(11, scale),
             color: t.muted,
             formatter: (params: { dataIndex: number }) => {
               const f = features[features.length - 1 - params.dataIndex]
@@ -231,7 +234,7 @@ export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
         },
       ],
     }),
-    [features, t],
+    [features, t, scale],
   )
 
   return (
@@ -244,7 +247,7 @@ export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
         {features.length === 0 ? (
           <EmptyState variant="compact" title="No feature data yet" />
         ) : (
-          <Chart option={option} height={Math.max(features.length * 30 + 8, 120)} />
+          <Chart option={option} height={Math.max(scaleChartSpace(features.length * 30 + 8, scale), 120)} />
         )}
       </CardContent>
     </Card>
@@ -262,10 +265,11 @@ interface Segment {
 
 function Donut({ title, description, segments, emptyTitle }: { title: string; description: string; segments: Segment[]; emptyTitle: string }) {
   const t = useChartTokens()
+  const scale = useChartFontScale()
   const total = segments.reduce((n, s) => n + s.value, 0)
   const option = useMemo(
     () => ({
-      tooltip: { trigger: 'item', ...baseTooltip(t), formatter: '{b}: <b>{c}</b> ({d}%)' },
+      tooltip: { trigger: 'item', ...baseTooltip(t, scale), formatter: '{b}: <b>{c}</b> ({d}%)' },
       legend: { show: false },
       series: [
         {
@@ -279,7 +283,7 @@ function Donut({ title, description, segments, emptyTitle }: { title: string; de
         },
       ],
     }),
-    [segments, t],
+    [segments, t, scale],
   )
 
   return (
@@ -366,11 +370,12 @@ export function VendorComplianceDonut({ data }: { data: { green: number; yellow:
 
 export function WorkflowUsageChart({ workflows }: { workflows: Array<{ workflow_id: string; runs: number }> }) {
   const t = useChartTokens()
+  const scale = useChartFontScale()
   const top = useMemo(() => workflows.slice(0, 10), [workflows])
   const option = useMemo(
     () => ({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, ...baseTooltip(t) },
-      grid: { top: 4, right: 40, bottom: 4, left: 4, containLabel: true },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, ...baseTooltip(t, scale) },
+      grid: { top: 4, right: scaleChartSpace(40, scale), bottom: 4, left: 4, containLabel: true },
       xAxis: { type: 'value', show: false, minInterval: 1 },
       yAxis: {
         type: 'category',
@@ -378,7 +383,7 @@ export function WorkflowUsageChart({ workflows }: { workflows: Array<{ workflow_
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
-          fontSize: 11,
+          fontSize: scaleChartFont(11, scale),
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
           color: t['foreground-secondary'],
           formatter: (v: string) => (v.length > 26 ? `${v.slice(0, 24)}…` : v),
@@ -390,11 +395,11 @@ export function WorkflowUsageChart({ workflows }: { workflows: Array<{ workflow_
           data: [...top].reverse().map((w) => w.runs),
           itemStyle: { color: t.primary, borderRadius: [0, 3, 3, 0] },
           barMaxWidth: 18,
-          label: { show: true, position: 'right', fontSize: 11, color: t.muted },
+          label: { show: true, position: 'right', fontSize: scaleChartFont(11, scale), color: t.muted },
         },
       ],
     }),
-    [top, t],
+    [top, t, scale],
   )
 
   return (
