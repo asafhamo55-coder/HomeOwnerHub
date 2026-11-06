@@ -82,17 +82,7 @@ export async function applySmsStatus(
   if (!move) return { updated: 0 }
   const ctx = { messageId: args.messageId }
 
-  // The event's time, first-write-wins, whether or not the status moves.
-  const tsUpdate: RecipientUpdate = { [move.timestamp]: args.at }
-  const { error: tsError } = await db
-    .from('communication_recipients')
-    .update(tsUpdate)
-    .eq('external_id', args.messageId)
-    .eq('channel', 'sms')
-    .is(move.timestamp, null)
-  checkWrite({ error: tsError }, 'webhooks.twilio_status.timestamp', ctx)
-
-  // The status, forward only. A failure carries its reason with it.
+  // The status first, forward only. A failure carries its reason with it.
   const statusUpdate: RecipientUpdate = { delivery_status: move.status }
   if (move.status === 'failed') statusUpdate.error_message = smsFailureMessage(args.status, args.errorCode)
   const { data, error } = await db
@@ -103,5 +93,17 @@ export async function applySmsStatus(
     .in('delivery_status', move.from)
     .select('id')
   checkWrite({ error }, 'webhooks.twilio_status.status', ctx)
-  return { updated: ((data ?? []) as unknown[]).length }
+  const moved = ((data ?? []) as Array<{ id: string }>).map((r) => r.id)
+  if (moved.length === 0) return { updated: 0 }
+
+  // The event's time, first-write-wins, only on the rows that just moved: a
+  // late `failed` on a delivered row must not stamp failed_at.
+  const tsUpdate: RecipientUpdate = { [move.timestamp]: args.at }
+  const { error: tsError } = await db
+    .from('communication_recipients')
+    .update(tsUpdate)
+    .in('id', moved)
+    .is(move.timestamp, null)
+  checkWrite({ error: tsError }, 'webhooks.twilio_status.timestamp', ctx)
+  return { updated: moved.length }
 }

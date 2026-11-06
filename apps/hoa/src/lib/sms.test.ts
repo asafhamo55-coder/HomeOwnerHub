@@ -57,6 +57,24 @@ describe('sendSms when Twilio is not fully configured', () => {
   })
 })
 
+describe('sendSms StatusCallback follows SMS_STATUS_WEBHOOK_ENABLED', () => {
+  it('is sent when the status webhook is on', async () => {
+    stubAll({ SMS_STATUS_WEBHOOK_ENABLED: 'true', NEXT_PUBLIC_APP_URL: 'https://www.homeownerledger.com' })
+    const { sendSms } = await load()
+    await sendSms({ to: ALLOWED, body: 'x' })
+    expect(smsSend.mock.calls[0][0].form.StatusCallback).toBe('https://www.homeownerledger.com/api/webhooks/twilio/status')
+  })
+  it('is left out when the flag is off or unset', async () => {
+    for (const v of ['', 'false']) {
+      smsSend.mockClear()
+      stubAll({ SMS_STATUS_WEBHOOK_ENABLED: v })
+      const { sendSms } = await load()
+      await sendSms({ to: ALLOWED, body: 'x' })
+      expect(smsSend.mock.calls[0][0].form).not.toHaveProperty('StatusCallback')
+    }
+  })
+})
+
 describe('sendSms when configured', () => {
   it('sends through Twilio and returns the message sid', async () => {
     stubAll()

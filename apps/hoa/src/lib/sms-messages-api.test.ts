@@ -42,6 +42,7 @@ function stubEnv(over: Record<string, string> = {}) {
   vi.stubEnv('VERCEL_ENV', 'preview')
   vi.stubEnv('OUTBOUND_ALLOWLIST', ALLOWED)
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://www.homeownerledger.com')
+  vi.stubEnv('SMS_STATUS_WEBHOOK_ENABLED', 'true')
   vi.stubEnv('TWILIO_ACCOUNT_SID', 'ACtest')
   vi.stubEnv('TWILIO_AUTH_TOKEN', 'token')
   vi.stubEnv('TWILIO_MESSAGING_SERVICE_SID', 'MGtest')
@@ -184,7 +185,7 @@ describe('sendSms — gates in front of the client', () => {
   }
 })
 
-describe('deliverToRecipients — the message_uuid lands in external_id', () => {
+describe('deliverToRecipients — the message sid lands in external_id', () => {
   const updates: Array<{ id: string; patch: Record<string, unknown> }> = []
   function db() {
     return {
@@ -226,7 +227,7 @@ describe('deliverToRecipients — the message_uuid lands in external_id', () => 
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
-  it('a sent text stores the message_uuid as external_id', async () => {
+  it('a sent text stores the message sid as external_id', async () => {
     const counts = await deliver([row('r1', ALLOWED)])
     expect(counts.sentCount).toBe(1)
     expect(patchOf('r1')).toMatchObject({ delivery_status: 'sent', external_id: UUID })
@@ -235,7 +236,7 @@ describe('deliverToRecipients — the message_uuid lands in external_id', () => 
   it('the stored id is exactly what the status webhook looks a receipt up by', async () => {
     await deliver([row('r1', ALLOWED)])
     const { smsStatusMove } = await import('./sms-status')
-    // The route reads `message_uuid` off the receipt and matches external_id on it.
+    // The route reads `MessageSid` off the receipt and matches external_id on it.
     expect(patchOf('r1').external_id).toBe(UUID)
     expect(smsStatusMove('delivered')).toMatchObject({ status: 'delivered' })
   })
@@ -331,7 +332,7 @@ describe('resident notifications — consent and opt-out still gate the text', (
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
-  it('opted in, consent covers the number: sent, and the message_uuid is the stored id', async () => {
+  it('opted in, consent covers the number: sent, and the message sid is the stored id', async () => {
     const { run, outcomes } = await setup({ sms: true, phones: [ALLOWED] })
     await run()
     expect(smsSend).toHaveBeenCalledTimes(1)

@@ -104,7 +104,8 @@ describe('applySmsStatus', () => {
     expect(rows[0]).toMatchObject({ delivery_status: 'delivered', delivered_at: at })
     for (const c of calls) {
       expect(c.table).toBe('communication_recipients')
-      expect(c.filters).toEqual(expect.arrayContaining(['eq:external_id', 'eq:channel']))
+      // the status write matches on provider id + channel; the timestamp write on the ids that just moved
+      expect(c.filters).toEqual(expect.arrayContaining(c.patch.delivery_status ? ['eq:external_id', 'eq:channel'] : ['in:id']))
       expect(c.filters.some((f) => /phone|email|user_id|unit_id/.test(f))).toBe(false)
     }
   })
@@ -138,6 +139,15 @@ describe('applySmsStatus', () => {
     expect(await applySmsStatus(db, { messageId: 'uuid-1', status: 'sent', at: '2026-10-21T10:06:00.000Z' })).toEqual({ updated: 0 })
     expect(await applySmsStatus(db, { messageId: 'uuid-1', status: 'undelivered', at: '2026-10-21T10:07:00.000Z' })).toEqual({ updated: 0 })
     expect(rows[0]).toMatchObject({ delivery_status: 'delivered', delivered_at: at, error_message: null })
+    expect(rows[0].failed_at).toBeNull()
+  })
+
+  it('late failed on a delivered row leaves failed_at null (and delivered_at as it was)', async () => {
+    const rows = [row({ delivery_status: 'delivered', delivered_at: at })]
+    const { db } = fakeDb(rows)
+    expect(await applySmsStatus(db, { messageId: 'uuid-1', status: 'failed', at: '2026-10-21T11:00:00.000Z' })).toEqual({ updated: 0 })
+    expect(rows[0].failed_at).toBeNull()
+    expect(rows[0].delivered_at).toBe(at)
   })
 
   it('leaves email rows and other messages alone', async () => {

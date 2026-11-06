@@ -108,11 +108,19 @@ describe('outbound ratchet', () => {
     ).toEqual([])
   })
 
-  it('every transport module still imports a provider (no stale entries)', () => {
-    // A transport is either an SDK importer or (Twilio, no SDK) a raw REST caller.
-    const stale = Object.keys(TRANSPORTS).filter(
-      (f) => !PROVIDER_IMPORT.test(sources.get(f) ?? '') && !RAW_ENDPOINT.test(sources.get(f) ?? ''),
-    )
+  it('every transport module still contains its own provider marker (no stale entries)', () => {
+    // Each entry must match ITS provider, not just any provider. Twilio has no SDK: a raw REST call.
+    const MARKER: Record<string, RegExp> = {
+      'apps/hoa/src/lib/email.ts': /from\s+['"]resend['"]/,
+      'apps/hoa/src/lib/sms.ts': /api\.twilio\.com/,
+      'apps/marketing/src/lib/chat/support-actions.ts': /from\s+['"]resend['"]/,
+      'packages/jobs/src/web-push.ts': /from\s+['"]web-push['"]/,
+      'apps/marketing/src/app/demo/actions.ts': /from\s+['"]resend['"]/,
+    }
+    expect(Object.keys(MARKER).sort(), 'every TRANSPORTS entry needs a marker').toEqual(Object.keys(TRANSPORTS).sort())
+    const stale = Object.entries(MARKER)
+      .filter(([f, re]) => !re.test(sources.get(f) ?? ''))
+      .map(([f]) => f)
     expect(stale, 'Remove these from TRANSPORTS').toEqual([])
   })
 

@@ -18,7 +18,7 @@
 // with the message `sid`; sendSms returns it as `messageSid`, callers store
 // it in communication_recipients.external_id, and the signed status webhook
 // (/api/webhooks/twilio/status, lib/sms-status.ts) matches receipts on it.
-// StatusCallback is the app's public origin (lib/app-origin.ts) plus that
+// StatusCallback (only while SMS_STATUS_WEBHOOK_ENABLED=true) is the app's public origin (lib/app-origin.ts) plus that
 // path. Twilio's error body is never logged or returned: only a short
 // code (twilioErrorMessage).
 //
@@ -100,8 +100,12 @@ export async function sendSms(
     To: input.to.trim(),
     Body: input.body,
     MessagingServiceSid: serviceSid,
-    StatusCallback: appUrl('/api/webhooks/twilio/status'),
   })
+  // Only ask for receipts while the status route is on; with it off the route
+  // answers 404 and Twilio would log error 11200 for every text.
+  if (process.env.SMS_STATUS_WEBHOOK_ENABLED === 'true') {
+    form.set('StatusCallback', appUrl('/api/webhooks/twilio/status'))
+  }
   const doFetch: SmsFetch = opts.fetchImpl ?? ((url, init) => fetch(url, init))
 
   try {

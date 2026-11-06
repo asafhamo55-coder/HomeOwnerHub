@@ -74,8 +74,8 @@ export type SignatureCheck =
  * each POST parameter's name then value, sorted by name)), compared in
  * constant time. `url` must be the exact public URL Twilio requested
  * (scheme, host, path and any query string); see the route for how it is
- * built. Twilio signs the parsed form fields, so duplicate names (rare)
- * are concatenated in the order given.
+ * built. Twilio signs the parsed form fields, so duplicate names
+ * are ordered by value.
  */
 export function verifyTwilioSignature(args: {
   signature: string | null
@@ -85,7 +85,9 @@ export function verifyTwilioSignature(args: {
 }): SignatureCheck {
   const given = args.signature?.trim()
   if (!given) return { ok: false, reason: 'missing_signature' }
-  const sorted = [...args.params].sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0))
+  // Sort by name, then value, so repeated names match Twilio's reference implementation.
+  const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0)
+  const sorted = [...args.params].sort((x, y) => cmp(x[0], y[0]) || cmp(x[1], y[1]))
   let data = args.url
   for (const [k, v] of sorted) data += k + v
   const expected = createHmac('sha1', args.authToken).update(data, 'utf8').digest()

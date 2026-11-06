@@ -40,6 +40,13 @@ describe('verifyTwilioSignature', () => {
     expect(check(good)).toEqual({ ok: true })
     expect(check(good, { params: [...params].reverse() })).toEqual({ ok: true })
   })
+  it('repeated field names are ordered by value, like Twilio\'s reference implementation', () => {
+    const rep: Array<[string, string]> = [['To', 'b'], ['MediaUrl', 'z'], ['MediaUrl', 'a'], ['To', 'a']]
+    // name then value: MediaUrl a, MediaUrl z, To a, To b
+    const sig = twilioSignature(token, url, [['MediaUrl', 'a'], ['MediaUrl', 'z'], ['To', 'a'], ['To', 'b']])
+    expect(check(sig, { params: rep })).toEqual({ ok: true })
+    expect(check(sig, { params: [...rep].reverse() })).toEqual({ ok: true })
+  })
   it('refuses a missing or empty header', () => {
     expect(check(null)).toEqual({ ok: false, reason: 'missing_signature' })
     expect(check('  ')).toEqual({ ok: false, reason: 'missing_signature' })
