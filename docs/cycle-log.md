@@ -1055,3 +1055,27 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Lessons:**
   - Reviewers must work in their own worktree; one ran `git checkout` in the main checkout.
   - Too many parallel full test runs pushed load to about 140 and caused worker timeouts. CI on a clean runner is the tie-breaker.
+
+## 2026-11-05 evening to 2026-11-06 morning
+
+- **Deployed:**
+  - 31d48187: plain form messages, zod 4 and vitest 3, SEO 28, M14 in print-yourself mode.
+  - 5389bd95: refund safety, pre-M8.
+  - 91ba0c0a: standard USPS addresses, Street View house photo (needs OA-46), weekly SEO audit, readAll opt-in shortcut (OA-47).
+  - e39153dc: amenity bookings in Things to approve, an owner request.
+  - 6caf9a78: step-by-step resident booking calendar (an owner request: "unclear and not friendly"), plus SEO 29.
+- **Reviews caught:**
+  - the charge.refunded retry double-count;
+  - readAll silent truncation if hosted max_rows is below 1000 (made opt-in);
+  - "Apt #4" and city-loss formatter bugs;
+  - inbox and community-qa searches missing "St";
+  - the UI offering lengths the server refused with concurrent_limit above 1;
+  - no focus management in the booking steps.
+- **Confirmed:** Supabase JWTs are ES256 (public JWKS), so middleware `getClaims` is local; the 450ms is not an auth round trip.
+- **Ops lessons:**
+  - Load reached about 240 with three builds at once. When CI runs the same gates, skip the local build and unit run.
+  - DNS dropped twice and killed agents mid-run; resuming them by message worked.
+  - Owner-action numbers collided when two branches each added "the next OA". Renumber at merge.
+- **Building:**
+  - round-28 sign-in blockers for older users (expired invite link, choosing a password, plain sign-in errors);
+  - A4 sample community.
