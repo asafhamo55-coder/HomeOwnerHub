@@ -141,20 +141,25 @@ Set it on the home-owner-hub-hoa project itself, not as a team-level shared vari
 
 **Files:** `docs/specs/2026-10-19-domain-split.md`
 
-### OA-11 · Decide on text messages (Vonage and 10DLC)
-
-**Progress 2026-10-30:** Asaf chose "yes, start Vonage". Sign-up at dashboard.nexmo.com is blocked with "Issue With Your Account" (Vonage fraud screening). Asaf sent Vonage support an unlock request on 2026-10-30. The app needs `VONAGE_API_KEY`, `VONAGE_API_SECRET`, `VONAGE_FROM_NUMBER` and `VONAGE_SIGNATURE_SECRET`.
+### OA-50 · Turn on text messages with Twilio (replaces OA-11, OA-23, OA-27)
 
 **Urgency:** Whenever
 
-**Why it matters:** only needed if you want the app to send SMS. US carriers
-require a 10DLC registration before business texts are delivered.
+**Why it matters:** Vonage refused the account for good on 2026-11-05, so texting moves to Twilio (decided 2026-11-06). The app code is switched to Twilio and stays off until the steps below are done. With it, boards can text residents, replying STOP or START is recorded in HomeownerHub, and each text shows "delivered" or "not delivered".
 
-**Steps:**
+**Found 2026-11-06:** Vercel production already has `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM_NUMBER` from about 165 days ago, so a Twilio account may already exist. Sign in to that one rather than opening a second.
 
-1. Tell Claude whether texting is wanted.
-2. If yes: create the Vonage account, start the 10DLC brand and campaign registration, and add the Vonage keys as Vercel production environment variables.
-3. In Vonage, set a HELP auto-reply on the number or campaign (for example "HomeownerHub alerts for your HOA. Reply STOP to stop. Help: support@homeownerledger.com"). Residents' consent wording promises HELP works.
+**Steps (Claude walks you through each screen):**
+
+1. **EIN for Hamo Earny LLC.** The IRS online tool answered "reference 101", which usually means the LLC already has one. Look in the Northwest Registered Agent account and email for "CP 575", or call 1-800-829-4933 and ask for the number and a 147C letter.
+2. **Twilio account.** Sign in (or sign up) at twilio.com and upgrade it with a card.
+3. **A2P 10DLC registration.** Register the brand as a Low Volume Standard brand: legal name `Hamo Earny LLC`, the EIN, brand name `HomeownerHub`, and the address the IRS has. Then register one campaign for HOA account notifications. Expect about $4.50 + $15 one-time and a small monthly campaign fee; approval can take several business days.
+4. **Number and Messaging Service.** Buy one local number. Create a Messaging Service, put the number in its Sender Pool, and attach the approved campaign.
+5. **Messaging Service settings.** Integration → "Send a webhook" → `https://www.homeownerledger.com/api/webhooks/twilio/inbound` (HTTP POST). Opt-Out Management → turn on Advanced Opt-Out, keep STOP / START / HELP, and set the HELP reply, for example "HomeownerHub alerts for your HOA. Reply STOP to stop. Help: support@homeownerledger.com".
+6. **Vercel (project home-owner-hub-hoa, Production).** Check `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` hold this account's values, and add `TWILIO_MESSAGING_SERVICE_SID` (starts with `MG`). `TWILIO_FROM_NUMBER` is no longer used. Then set `SMS_INBOUND_ENABLED=true` and `SMS_STATUS_WEBHOOK_ENABLED=true`, and redeploy.
+7. Tell Claude. Claude checks `NEXT_PUBLIC_APP_URL` matches the webhook address above, then tests a text, STOP and START with you.
+
+**Files:** `apps/hoa/src/lib/sms.ts`, `docs/specs/2026-10-20-sms-inbound.md`, `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ### OA-15 · Fill in the investor deck's traction numbers
 
@@ -171,38 +176,11 @@ prices; review it before pitching.
 1. Open `~/HomeownerHub-decks/HomeownerHub-Investor-Deck.pptx` on your Mac (it is not in the repo).
 2. Send Claude the real traction numbers, or tell Claude to remove the traction slide. Claude rebuilds the deck.
 
-### OA-23 · Let residents text STOP and START (Vonage setup)
-
-**Urgency:** Whenever
-
-**Why it matters:** do this together with OA-11 if you turn texting on. Residents can already stop texts in their portal. With this, replying STOP to a text also records the opt-out in HomeownerHub, and START turns texts back on, as US texting rules expect. The code is built but off until Vonage is set up.
-
-**Steps:**
-
-1. In the Vonage dashboard → Settings → API settings → SMS settings, switch to **Messages API**. Sending isn't affected.
-2. Copy Settings → **Signature secret** into the Vercel production env var `VONAGE_SIGNATURE_SECRET`.
-3. Create an Application with the Messages capability. Set its Inbound URL to `https://www.homeownerledger.com/api/webhooks/vonage/inbound` (POST), and link the sending number to it.
-4. Make sure the HELP and STOP auto-replies in the 10DLC campaign name the program and give a contact.
-5. Set `SMS_INBOUND_ENABLED=true` in Vercel production and tell Claude. Claude redeploys and tests STOP/START with you.
-
-**Files:** `docs/specs/2026-10-20-sms-inbound.md`
-
-### OA-27 · Show "delivered" on texts (Vonage delivery receipts)
-
-**Urgency:** Whenever
-
-**Why it matters:** today a text message only ever shows as "sent", never "delivered" or "not delivered". The app can now take Vonage's delivery receipts and mark each text as delivered, or as failed with the reason. The code is built but off. Texts now go through Vonage's Messages API (BL-146b) with your existing key and secret, so no new keys are needed and receipts can be matched once this is on.
-
-**Steps:**
-
-1. Do OA-23 first, or at least its steps 1 to 3: the Messages API setting, the signature secret in `VONAGE_SIGNATURE_SECRET`, and the Application.
-2. In that Vonage Application, set the **Status URL** to `https://www.homeownerledger.com/api/webhooks/vonage/status` (POST). Save.
-3. Also in the Vonage dashboard → **API Settings** → Messages API, set the account-level **Status URL** to the same address (POST). Save. Texts are sent with the key and secret, not the Application, so this is where Vonage sends their receipts.
-4. Set `SMS_STATUS_WEBHOOK_ENABLED=true` in Vercel production, then tell Claude. Claude redeploys and checks one test text shows "delivered".
-
-**Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
-
 ## Done
+
+### OA-11, OA-23, OA-27 · Texting through Vonage · Closed 2026-11-06
+
+Vonage support (request #3167688) refused to activate the account on 2026-11-05 under its Acceptable Use Policy, with no appeal. Texting, STOP/START replies and delivery receipts move to Twilio in OA-50.
 
 ### OA-45 · Apply database update 0082 (money integrity) · Done 2026-11-05
 
