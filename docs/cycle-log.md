@@ -1079,3 +1079,32 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Building:**
   - round-28 sign-in blockers for older users (expired invite link, choosing a password, plain sign-in errors);
   - A4 sample community.
+
+## 2026-11-06 (day): onboarding push, brand unification, parallel sessions
+
+- **Deployed:** 6caf9a78, c12ccbb8, cb2d553e, 2a49d2f9, 419d4b83, d0c20a8c and f7766af6.
+  - Pay by check (signed, with handover, statement and assistant awareness).
+  - Poll emails with HTML bar charts; the board confirms with a home count.
+  - Violation letter print; help articles for the Nov 5 features.
+  - Street View aimed at the house, with the community city and ZIP and no guessing on street-only addresses.
+  - Easier first sign-in (welcome card, home-screen helper, expired-link fix, 16px coarse-pointer inputs, pinch-zoom).
+  - How-to-join flyer with QR; signup redirect to /join.
+  - The /welcome video page (103 s, open captions, transcript, purple brand).
+  - The welcome email template (one action, about 220 words).
+  - Every email in Royal purple with a dark-safe badge logo.
+  - Letterheads; text size setting; poll badge; SEO 27 to 30.
+- **Owner requests handled:** Madison Park welcome email and video (samples 1 to 5 sent to Asaf only), brand consistency across all communications, dark-mode logo fix, wrong-house photo fix.
+- **Parallel sessions:** another session shipped the Royal purple website, Twilio texting (with the STOP line and the /text-messages opt-in page), marketing logo regeneration, and Street View owner coordination. The rule now is that everyone merges into quality-oracle before prod.
+- **Lessons:**
+  - Gates piped through grep don't stop the push; gate on exit codes.
+  - Merge prod into quality-oracle before deploying when a peer pushed.
+  - OA numbers collide across branches, so renumber at merge.
+  - The OA parser needs one number per heading.
+  - Stale .next/types breaks local typecheck after route removals.
+- **Open with Asaf:**
+  - OA-51 (Supabase custom SMTP) before inviting owners.
+  - OA-49 (invite template).
+  - The community ZIP (for photos).
+  - Feedback on sample 5.
+  - Whether to recolour the app's own screens to Royal purple.
+  - The lawyer review (M8 payments, M10 voting).
