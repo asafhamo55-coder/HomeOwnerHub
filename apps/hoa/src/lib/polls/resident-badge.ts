@@ -14,6 +14,7 @@ export interface ClosingSoonPoll {
   id: string
   title: string
   closesAt: string
+  associationId: string
 }
 
 export interface PollsToAnswer {
@@ -26,6 +27,10 @@ export const NO_POLLS_TO_ANSWER: PollsToAnswer = { count: 0, closingSoon: null }
 interface UnitRef {
   unit_id: string
   association_id: string | null
+}
+
+export function pollBadgeShortText(count: number): string | null {
+  return count > 0 ? `${count} to answer` : null
 }
 
 export function pollBadgeText(count: number): string | null {
@@ -48,6 +53,7 @@ export async function loadPollsToAnswer(
       .select('id, title, association_id, status, closes_at')
       .eq('status', 'open')
       .in('association_id', associationIds)
+      .order('closes_at', { ascending: true, nullsFirst: false })
       .limit(100)
     if (polls.error) throw polls.error
     const open = (
@@ -83,7 +89,7 @@ export async function loadPollsToAnswer(
 
     return {
       count: unanswered.length,
-      closingSoon: soonest ? { id: soonest.id, title: soonest.title, closesAt: soonest.closes_at as string } : null,
+      closingSoon: soonest ? { id: soonest.id, title: soonest.title, closesAt: soonest.closes_at as string, associationId: soonest.association_id } : null,
     }
   } catch (e) {
     // Code only: never row values. A failed read hides the nudge.

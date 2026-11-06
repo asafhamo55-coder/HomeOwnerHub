@@ -84,8 +84,12 @@ export default async function ResidentDashboard() {
     timed('/resident', 'resident.boardContacts', async () => loadBoardContacts(await getResidentUnits())),
     timed('/resident', 'resident.pollsToAnswer', async () => {
       if (!M9_APPLIED) return NO_POLLS_TO_ANSWER
-      const supabase = await getSupabaseServerClient()
-      return loadPollsToAnswer(supabase as unknown as PollsClient, await getResidentUnits(), new Date())
+      try {
+        const supabase = await getSupabaseServerClient()
+        return await loadPollsToAnswer(supabase as unknown as PollsClient, await getResidentUnits(), new Date())
+      } catch {
+        return NO_POLLS_TO_ANSWER
+      }
     }),
   ])
 
@@ -187,7 +191,7 @@ export default async function ResidentDashboard() {
           href={`/resident/polls/${polls.closingSoon.id}`}
           icon={<Vote />}
           tone="info"
-          title={closingSoonText(polls.closingSoon, residentTimeZone(data.units))}
+          title={closingSoonText(polls.closingSoon, residentTimeZone(data.units.filter((u) => u.association_id === polls.closingSoon?.associationId)))}
           className="[&_span.truncate]:whitespace-normal"
         />
       ) : null}

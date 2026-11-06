@@ -17,7 +17,7 @@ import { M13_APPLIED } from '@homeowner-portal/db/m13'
 import { Badge } from '@homeowner-portal/ui'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { communityLinks } from '@/lib/resident-community'
-import { pollBadgeText } from '@/lib/polls/resident-badge'
+import { pollBadgeShortText, pollBadgeText } from '@/lib/polls/resident-badge'
 import { IconTile, type Tone } from '@/components/resident/screen'
 
 /**
@@ -32,6 +32,7 @@ export function QuickActions({
   pollsToAnswer?: number
 }) {
   const pollBadge = M9_APPLIED ? pollBadgeText(pollsToAnswer) : null
+  const pollBadgeShort = M9_APPLIED ? pollBadgeShortText(pollsToAnswer) : null
   return (
     // Nine tiles today (ten with online voting). The span classes keep a lone
     // last tile from sitting by itself when the count is odd.
@@ -81,6 +82,7 @@ export function QuickActions({
           hint="Polls, book a space, talk with neighbors"
           href="/resident/community"
           badge={pollBadge}
+          badgeShort={pollBadgeShort}
         />
       ) : null}
     </div>
@@ -94,6 +96,7 @@ function ActionTile({
   href,
   tone,
   badge,
+  badgeShort,
 }: {
   icon: React.ReactNode
   label: string
@@ -101,6 +104,8 @@ function ActionTile({
   href: string
   tone?: Tone
   badge?: string | null
+  /** Shorter text for narrow phones; the aria-label keeps the full badge. */
+  badgeShort?: string | null
 }) {
   return (
     <Link
@@ -116,7 +121,14 @@ function ActionTile({
       {badge ? (
         <span className="absolute right-3 top-3">
           <Badge variant="info" size="sm">
-            {badge}
+            {badgeShort ? (
+              <>
+                <span className="sm:hidden">{badgeShort}</span>
+                <span className="hidden sm:inline">{badge}</span>
+              </>
+            ) : (
+              badge
+            )}
           </Badge>
         </span>
       ) : null}

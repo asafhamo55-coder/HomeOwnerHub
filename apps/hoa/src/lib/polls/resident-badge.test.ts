@@ -18,6 +18,7 @@ function fake(polls: Poll[], answers: Array<{ poll_id: string; unit_id: string }
     q.select = chain
     q.eq = (c: string, v: unknown) => ((filters[c] = v), q)
     q.in = (c: string, v: unknown) => ((filters[c] = v), q)
+    q.order = chain
     q.limit = chain
     q.then = (res: (v: unknown) => void) => {
       if (table === 'polls') {
@@ -104,7 +105,7 @@ describe('loadPollsToAnswer', () => {
     const client = {
       from: () => {
         const q: Record<string, unknown> = {}
-        q.select = q.eq = q.in = q.limit = () => q
+        q.select = q.eq = q.in = q.order = q.limit = () => q
         q.then = (res: (v: unknown) => void) => res({ data: null, error: { code: 'x' } })
         return q
       },
@@ -123,7 +124,7 @@ describe('copy', () => {
   })
 
   it('words the closing-soon line with the day and the question', () => {
-    const text = closingSoonText({ id: 'p', title: 'Pool hours?', closesAt: '2026-11-08T17:00:00Z' }, 'America/New_York')
+    const text = closingSoonText({ id: 'p', title: 'Pool hours?', closesAt: '2026-11-08T17:00:00Z', associationId: 'a1' }, 'America/New_York')
     expect(text).toBe('A poll closes on Sunday, Nov 8: Pool hours?')
     expect(text).not.toContain('—')
   })
