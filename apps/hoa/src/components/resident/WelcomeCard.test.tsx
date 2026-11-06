@@ -89,4 +89,35 @@ describe('ResidentWelcome', () => {
     await mount()
     expect(host!.textContent).toContain('Put HomeownerHub on your home screen')
   })
+
+  it('moves focus to the main area, not the body, when the last card closes', async () => {
+    setup(DESKTOP)
+    const main = document.createElement('main')
+    main.id = 'main'
+    main.tabIndex = -1
+    document.body.appendChild(main)
+    await mount()
+    const gotIt = button('Got it')
+    gotIt.focus()
+    await act(async () => gotIt.click())
+    expect(document.activeElement).toBe(main)
+    main.remove()
+  })
+
+  it('does not take focus when it first appears', async () => {
+    setup(DESKTOP)
+    await mount()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it('an unknown touch device gets both the iPhone and the Android steps', async () => {
+    const store = setup('Mozilla/5.0 (X11; Linux x86_64) Firefox/120')
+    Object.defineProperty(window.navigator, 'maxTouchPoints', { configurable: true, value: 5 })
+    store.set('hh:resident-welcome-seen:org1', '1')
+    await mount()
+    const text = host!.textContent!
+    expect(text).toContain('Add to Home Screen')
+    expect(text).toContain('Install app')
+    Object.defineProperty(window.navigator, 'maxTouchPoints', { configurable: true, value: 0 })
+  })
 })

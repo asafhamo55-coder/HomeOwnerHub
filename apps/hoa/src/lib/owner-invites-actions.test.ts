@@ -42,7 +42,7 @@ vi.mock('@/lib/owner-invites', async (orig) => ({
 
 function chain(log: unknown[][], table: string, result: () => unknown) {
   const b: Record<string, unknown> = {}
-  for (const op of ['select', 'eq', 'is', 'ilike', 'limit', 'update', 'delete', 'upsert', 'insert']) {
+  for (const op of ['select', 'eq', 'is', 'ilike', 'order', 'limit', 'update', 'delete', 'upsert', 'insert']) {
     b[op] = (...a: unknown[]) => (log.push([table, op, ...a]), b)
   }
   b.maybeSingle = async () => result()

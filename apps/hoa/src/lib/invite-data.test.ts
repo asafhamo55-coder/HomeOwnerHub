@@ -5,7 +5,7 @@ function db(opts: { assoc?: string | null; org?: string | null; throws?: boolean
   return {
     from: (t: string) => {
       const b: Record<string, unknown> = {}
-      for (const op of ['select', 'eq', 'limit']) b[op] = () => b
+      for (const op of ['select', 'eq', 'order', 'limit']) b[op] = () => b
       b.maybeSingle = async () => ({ data: opts.org ? { name: opts.org } : null })
       b.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) =>
         (opts.throws

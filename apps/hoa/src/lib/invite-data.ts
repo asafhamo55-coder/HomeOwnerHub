@@ -27,7 +27,7 @@ export async function loadInviteNames(
   let org = clean(orgName)
   let assoc: string | null = null
   try {
-    const a = await admin.from('associations').select('name').eq('organization_id', orgId).limit(1)
+    const a = await admin.from('associations').select('name').eq('organization_id', orgId).order('created_at', { ascending: true }).limit(1)
     assoc = clean((a?.data as Array<{ name?: string }> | null)?.[0]?.name)
     if (!org) {
       const o = await admin.from('orgs').select('name').eq('id', orgId).maybeSingle()

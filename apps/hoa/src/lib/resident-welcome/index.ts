@@ -7,7 +7,7 @@
  */
 
 export type WelcomeStorage = Pick<Storage, 'getItem' | 'setItem'>
-export type HomeScreenPlatform = 'ios' | 'android' | 'other'
+export type HomeScreenPlatform = 'ios' | 'android' | 'touch' | 'other'
 
 export const WELCOME_KEY_PREFIX = 'hh:resident-welcome-seen:'
 export const HOME_SCREEN_KEY = 'hh:home-screen-helper-dismissed'
@@ -59,6 +59,8 @@ export function detectPlatform(ua: string, maxTouchPoints = 0): HomeScreenPlatfo
   if (/iPhone|iPad|iPod/i.test(ua)) return 'ios'
   if (/Macintosh/i.test(ua) && maxTouchPoints > 1) return 'ios'
   if (/Android/i.test(ua)) return 'android'
+  // A touch screen we cannot name: show both sets of steps rather than nothing.
+  if (maxTouchPoints > 1) return 'touch'
   return 'other'
 }
 

@@ -41,7 +41,7 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-48 · Put the association name and a big button in the invite email (Supabase dashboard)
+### OA-49 · Put the association name and a big button in the invite email (Supabase dashboard)
 
 **Urgency:** Soon
 
@@ -66,12 +66,12 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
   <p style="margin:0 0 24px">
     <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:20px;font-weight:bold;text-decoration:none;padding:16px 28px;min-height:48px;line-height:1.2;border-radius:8px">Open HomeownerHub</a>
   </p>
-  <p style="margin:0 0 16px">This link works for 24 hours. If it stops working, ask your board to send a new one, or reply to this email and we will help.</p>
+  <p style="margin:0 0 16px">This link works for 24 hours. If it stops working, ask your board to send a new one, or email support@homeownerledger.com and we will help.</p>
   <p style="margin:0;font-size:17px;color:#444444">If the button does not work, copy this address into your phone's browser:<br>{{ .ConfirmationURL }}</p>
 </div>
 ```
 
-4. Save, then send yourself a test invite from the Members page and open it on a phone. Check that the subject names the association and the button is easy to tap.
+4. Save, then send yourself a test invite from the Members page and open it on a phone. Check that the subject names the association and the button is easy to tap. Also test once with a name that has an apostrophe, such as O'Brien Park, to make sure the subject and greeting show it correctly.
 5. Tell Claude when it is done.
 
 **Files:** `apps/hoa/src/lib/invite-data.ts`

@@ -58,6 +58,13 @@ describe('detectPlatform', () => {
   })
 })
 
+describe('detectPlatform unknown touch devices', () => {
+  it('has a both-platform result for a touch device that is neither', () => {
+    expect(detectPlatform('Mozilla/5.0 (X11; Linux x86_64) Firefox/120', 5)).toBe('touch')
+    expect(detectPlatform('Mozilla/5.0 (X11; Linux x86_64) Firefox/120', 0)).toBe('other')
+  })
+})
+
 describe('copy', () => {
   it('has four tiles, four steps per phone, and no em dashes', () => {
     expect(WELCOME_TILES).toHaveLength(4)

@@ -34,7 +34,7 @@ export function ResidentWelcome({ scope }: { scope: string }) {
   const [canPrompt, setCanPrompt] = useState(false)
   const prompt = useRef<InstallPromptEvent | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
-  const firstRender = useRef(true)
+  const previous = useRef<Step>('none')
 
   useEffect(() => {
     const storage = browserStorage()
@@ -50,13 +50,16 @@ export function ResidentWelcome({ scope }: { scope: string }) {
     return () => window.removeEventListener('beforeinstallprompt', onPrompt)
   }, [scope])
 
-  // When the card changes after a tap, move the screen reader to the new heading.
+  // After a tap the button that had focus disappears. Move focus on purpose:
+  // to the next card's heading, or, when the cards are done, to the main
+  // area (a stable target, so keyboard and screen reader users do not land on <body>).
+  // The first appearance on page load never takes focus.
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false
-      return
-    }
-    if (step !== 'none') heading.current?.focus({ preventScroll: true })
+    const was = previous.current
+    previous.current = step
+    if (was === 'none') return
+    if (step === 'none') document.getElementById('main')?.focus({ preventScroll: true })
+    else heading.current?.focus({ preventScroll: true })
   }, [step])
 
   if (step === 'none') return null
@@ -105,7 +108,15 @@ export function ResidentWelcome({ scope }: { scope: string }) {
     )
   }
 
-  const steps = platform === 'other' ? null : HOME_SCREEN_STEPS[platform]
+  const groups: Array<{ title: string | null; steps: readonly string[] }> =
+    platform === 'ios' || platform === 'android'
+      ? [{ title: null, steps: HOME_SCREEN_STEPS[platform] }]
+      : platform === 'touch'
+        ? [
+            { title: 'On an iPhone or iPad', steps: HOME_SCREEN_STEPS.ios },
+            { title: 'On an Android phone or tablet', steps: HOME_SCREEN_STEPS.android },
+          ]
+        : []
   function done() {
     dismissHomeScreenHelper(browserStorage())
     setStep('none')
@@ -122,13 +133,16 @@ export function ResidentWelcome({ scope }: { scope: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {steps ? (
-            <ol className="list-decimal space-y-3 pl-6 text-base text-foreground">
-              {steps.map((s) => (
-                <li key={s}>{s}</li>
-              ))}
-            </ol>
-          ) : null}
+          {groups.map((g) => (
+            <div key={g.title ?? 'steps'} className="space-y-2">
+              {g.title ? <h3 className="text-base font-semibold text-foreground">{g.title}</h3> : null}
+              <ol className="list-decimal space-y-3 pl-6 text-base text-foreground">
+                {g.steps.map((s) => (
+                  <li key={s}>{s}</li>
+                ))}
+              </ol>
+            </div>
+          ))}
           <div className="flex flex-col gap-3 sm:flex-row">
             {canPrompt ? (
               <Button
