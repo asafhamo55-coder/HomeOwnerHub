@@ -4,7 +4,7 @@ vi.mock('@sentry/nextjs', () => ({ captureException: vi.fn() }))
 
 import { applySmsStatus, smsFailureMessage, smsStatusMove } from './sms-status'
 
-// BL-146: Vonage delivery receipts. An in-memory communication_recipients
+// BL-146: Twilio delivery receipts (StatusCallback). An in-memory communication_recipients
 // that honours the filters the module uses (eq / is / in), so idempotency
 // and forward-only moves are checked against real row state.
 
@@ -69,13 +69,12 @@ const row = (over: Partial<Row> = {}): Row => ({
 })
 
 describe('smsStatusMove', () => {
-  it('maps Vonage statuses; anything else changes nothing', () => {
+  it('maps Twilio MessageStatus values; anything else changes nothing', () => {
     expect(smsStatusMove('delivered')?.status).toBe('delivered')
     expect(smsStatusMove('DELIVERED')?.timestamp).toBe('delivered_at')
-    expect(smsStatusMove('submitted')?.status).toBe('sent')
-    for (const s of ['rejected', 'undeliverable', 'failed']) expect(smsStatusMove(s)?.status).toBe('failed')
-    expect(smsStatusMove('read')).toBeNull()
-    expect(smsStatusMove('accepted')).toBeNull()
+    expect(smsStatusMove('sent')?.status).toBe('sent')
+    for (const s of ['undelivered', 'failed']) expect(smsStatusMove(s)?.status).toBe('failed')
+    for (const s of ['queued', 'accepted', 'sending', 'read', 'scheduled', 'receiving']) expect(smsStatusMove(s)).toBeNull()
     expect(smsStatusMove(null)).toBeNull()
   })
 
@@ -87,8 +86,8 @@ describe('smsStatusMove', () => {
 
 describe('smsFailureMessage', () => {
   it('fixed wording, with a short code only', () => {
-    expect(smsFailureMessage('undeliverable', '1320')).toBe('The carrier did not deliver this text (code 1320).')
-    expect(smsFailureMessage('rejected', null)).toBe('Vonage rejected this text.')
+    expect(smsFailureMessage('undelivered', '30003')).toBe('The carrier did not deliver this text (code 30003).')
+    expect(smsFailureMessage('failed', null)).toBe('The carrier did not deliver this text.')
     expect(smsFailureMessage('failed', 'Number 14045551234 is barred by the operator')).toBe(
       'The carrier did not deliver this text.',
     )
@@ -105,7 +104,8 @@ describe('applySmsStatus', () => {
     expect(rows[0]).toMatchObject({ delivery_status: 'delivered', delivered_at: at })
     for (const c of calls) {
       expect(c.table).toBe('communication_recipients')
-      expect(c.filters).toEqual(expect.arrayContaining(['eq:external_id', 'eq:channel']))
+      // the status write matches on provider id + channel; the timestamp write on the ids that just moved
+      expect(c.filters).toEqual(expect.arrayContaining(c.patch.delivery_status ? ['eq:external_id', 'eq:channel'] : ['in:id']))
       expect(c.filters.some((f) => /phone|email|user_id|unit_id/.test(f))).toBe(false)
     }
   })
@@ -123,14 +123,31 @@ describe('applySmsStatus', () => {
   it('failure: failed_at, status and a fixed reason; never over a delivered row', async () => {
     const rows = [row(), row({ id: 'r2', external_id: 'uuid-2', delivery_status: 'delivered' })]
     const { db } = fakeDb(rows)
-    await applySmsStatus(db, { messageId: 'uuid-1', status: 'undeliverable', at, errorCode: '1320' })
+    await applySmsStatus(db, { messageId: 'uuid-1', status: 'undelivered', at, errorCode: '30003' })
     expect(rows[0]).toMatchObject({
       delivery_status: 'failed',
       failed_at: at,
-      error_message: 'The carrier did not deliver this text (code 1320).',
+      error_message: 'The carrier did not deliver this text (code 30003).',
     })
     expect(await applySmsStatus(db, { messageId: 'uuid-2', status: 'failed', at })).toEqual({ updated: 0 })
     expect(rows[1]).toMatchObject({ delivery_status: 'delivered', error_message: null })
+  })
+
+  it('out of order: a late "sent" or a late "failed" never downgrades delivered', async () => {
+    const rows = [row({ delivery_status: 'delivered', delivered_at: at })]
+    const { db } = fakeDb(rows)
+    expect(await applySmsStatus(db, { messageId: 'uuid-1', status: 'sent', at: '2026-10-21T10:06:00.000Z' })).toEqual({ updated: 0 })
+    expect(await applySmsStatus(db, { messageId: 'uuid-1', status: 'undelivered', at: '2026-10-21T10:07:00.000Z' })).toEqual({ updated: 0 })
+    expect(rows[0]).toMatchObject({ delivery_status: 'delivered', delivered_at: at, error_message: null })
+    expect(rows[0].failed_at).toBeNull()
+  })
+
+  it('late failed on a delivered row leaves failed_at null (and delivered_at as it was)', async () => {
+    const rows = [row({ delivery_status: 'delivered', delivered_at: at })]
+    const { db } = fakeDb(rows)
+    expect(await applySmsStatus(db, { messageId: 'uuid-1', status: 'failed', at: '2026-10-21T11:00:00.000Z' })).toEqual({ updated: 0 })
+    expect(rows[0].failed_at).toBeNull()
+    expect(rows[0].delivered_at).toBe(at)
   })
 
   it('leaves email rows and other messages alone', async () => {
@@ -146,7 +163,7 @@ describe('applySmsStatus', () => {
     expect(calls).toHaveLength(0)
   })
 
-  it('a failed write throws the generic error (the route answers 500 so Vonage retries)', async () => {
+  it('a failed write throws the generic error (the route answers 500 so Twilio retries)', async () => {
     const { db } = fakeDb([row()], { failOn: 'update' })
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
     await expect(applySmsStatus(db, { messageId: 'uuid-1', status: 'delivered', at })).rejects.toMatchObject({

@@ -14,6 +14,17 @@
   }
 }
 
+/* Touch screens (phones, iPad): form fields are at least 16px, so iOS Safari
+   does not zoom the page when one is focused. Pinch-zoom itself stays on
+   (WCAG 1.4.4). Mouse and keyboard desktops keep their smaller type. */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* NavigationProgress — top-of-viewport loading bar shown while a same-
    origin link navigation is in flight. Starts at 20% width so the bar
    is visible the FRAME the user clicks (not invisibly tiny). Width

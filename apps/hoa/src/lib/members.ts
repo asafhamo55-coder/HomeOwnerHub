@@ -26,6 +26,7 @@ import { checkOrgOwned } from '@/lib/org-owned'
 import { appUrl } from '@/lib/app-origin'
 import { paySettingsSecret } from '@/lib/pay-by-zelle'
 import { GA_REGISTRATION_KIT_HREF, boardSeatChanged } from '@/lib/ga-registration/model'
+import { buildInviteData, loadInviteNames } from '@/lib/invite-data'
 import { startGaOfficerChangeClock } from '@/lib/ga-registration/officer-change'
 
 // The three member roles. Professionals (cpa, attorney) are not members
@@ -279,9 +280,8 @@ export async function inviteMember(
   // user shows up with a real name even before they complete sign-in.
   const inviteOptions = {
     redirectTo: appUrl('/auth/callback'),
-    data: parsed.data.full_name
-      ? { full_name: parsed.data.full_name }
-      : undefined,
+    // org_name / association_name feed the email's subject and greeting.
+    data: buildInviteData(parsed.data.full_name, await loadInviteNames(admin, org.id, org.name)),
   }
   const startedAt = Date.now()
   const { data: invitedUser, error: inviteErr } = await admin.auth.admin

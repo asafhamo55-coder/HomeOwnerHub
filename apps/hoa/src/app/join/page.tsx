@@ -35,7 +35,7 @@ export default async function JoinPage() {
         <AuthHeader
           icon={<UserPlus />}
           title="Ask to join your home"
-          description="Tell us which home is yours. Your board checks the request and links your account to the home — nothing is shared until they approve it."
+          description="Tell us which home is yours. Your board checks the request and links your account to your home. Nothing is shared until they approve it."
         />
         {!M5_APPLIED ? (
           <Alert variant="info" title="Not available yet">
@@ -44,7 +44,7 @@ export default async function JoinPage() {
         ) : (
           <div className="space-y-4">
             {status?.lastAttemptAt ? (
-              <p className="text-sm text-muted">
+              <p className="text-base text-muted">
                 You last asked on {new Date(status.lastAttemptAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}. Your board
                 will review it; you&apos;ll see your home in your portal once they approve.
               </p>
@@ -52,8 +52,8 @@ export default async function JoinPage() {
             <AskToJoinForm remaining={left} />
           </div>
         )}
-        <p className="mt-6 text-center text-sm">
-          <Link href={back.href} className="font-medium text-primary">
+        <p className="mt-6 text-center text-base">
+          <Link href={back.href} className="inline-flex min-h-12 items-center font-medium text-primary underline underline-offset-2">
             {back.label}
           </Link>
         </p>

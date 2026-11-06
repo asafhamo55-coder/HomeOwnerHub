@@ -52,10 +52,11 @@ export function AskToJoinForm({ remaining }: { remaining: number | null }) {
 
   return (
     <form onSubmit={submit} className="space-y-5" noValidate>
-      <div className="flex gap-2" role="radiogroup" aria-label="How do you want to ask?">
+      <div className="flex flex-col gap-2 sm:flex-row" role="radiogroup" aria-label="How do you want to ask?">
         <Button
           type="button"
-          size="sm"
+          size="lg"
+          className="min-h-12"
           role="radio"
           aria-checked={method === 'address'}
           variant={method === 'address' ? 'default' : 'secondary'}
@@ -66,7 +67,8 @@ export function AskToJoinForm({ remaining }: { remaining: number | null }) {
         </Button>
         <Button
           type="button"
-          size="sm"
+          size="lg"
+          className="min-h-12"
           role="radio"
           aria-checked={method === 'code'}
           variant={method === 'code' ? 'default' : 'secondary'}
@@ -98,13 +100,13 @@ export function AskToJoinForm({ remaining }: { remaining: number | null }) {
       )}
 
       {error ? (
-        <Alert variant="error" title="Couldn’t send it">
+        <Alert variant="error" title="We could not send it">
           {error}
         </Alert>
       ) : null}
 
       {remaining !== null ? (
-        <p className="text-xs text-muted">
+        <p className="text-sm text-muted">
           {outOfTries ? 'You’ve used today’s requests. Try again tomorrow.' : `You can ask ${remaining} more time${remaining === 1 ? '' : 's'} today.`}
         </p>
       ) : null}

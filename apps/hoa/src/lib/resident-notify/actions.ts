@@ -66,7 +66,7 @@ export async function getBoardResidentNotifySettings(): Promise<BoardResidentNot
       on: read.state === 'configured' && read.settings.decisionsAndReplies,
       emailConfigured: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
       smsConfigured: Boolean(
-        process.env.VONAGE_API_KEY && process.env.VONAGE_API_SECRET && process.env.VONAGE_FROM_NUMBER,
+        process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_MESSAGING_SERVICE_SID,
       ),
     },
   }

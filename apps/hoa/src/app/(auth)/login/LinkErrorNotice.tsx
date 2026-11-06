@@ -57,7 +57,7 @@ export function LinkErrorNotice({
       title="This link has expired or was already used."
       className="mb-5"
       actions={
-        <Button type="button" size="md" onClick={resend} loading={state === 'sending'}>
+        <Button type="button" size="lg" className="min-h-12" onClick={resend} loading={state === 'sending'}>
           Send me a new link
         </Button>
       }

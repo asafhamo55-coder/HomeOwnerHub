@@ -114,10 +114,10 @@ describe('HashSessionHandler', () => {
     expect(window.localStorage.getItem('hh:last-signin-method')).toBe('link')
   })
 
-  it('clears the hash and stays put when setSession fails', async () => {
+  it('clears the hash and shows the expired-link help when setSession fails', async () => {
     setSession.mockResolvedValue({ error: new Error('bad') })
     await mount(`/login#access_token=${TOK}&refresh_token=${REF}`)
-    expect(replace).not.toHaveBeenCalled()
+    expect(replace).toHaveBeenCalledWith('/login?error=link_expired')
     expect(window.location.hash).toBe('')
     expect(host!.textContent).not.toContain('Signing you in')
   })

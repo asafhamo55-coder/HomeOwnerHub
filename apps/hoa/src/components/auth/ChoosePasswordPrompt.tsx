@@ -47,24 +47,25 @@ export function ChoosePasswordPrompt() {
   return (
     <section
       aria-label="Choose a password"
-      className="mb-5 rounded-xl border border-border bg-primary-subtle p-4 text-base text-foreground"
+      className="mb-5 rounded-xl border border-border bg-primary-subtle p-5 text-base text-foreground"
     >
-      <p className="font-semibold">Choose a password for next time (optional).</p>
-      <p className="mt-1">Or skip; we can always email you a sign-in link.</p>
+      <p className="text-lg font-semibold">Choose a password for next time (optional).</p>
+      <p className="mt-1">You can skip this. We can always email you a new sign-in link.</p>
       <div className="mt-3 flex flex-wrap gap-3">
-        <Button asChild size="md">
+        <Button asChild size="lg" className="min-h-12">
           <Link href="/reset-password?welcome=1">Choose a password</Link>
         </Button>
         <Button
           type="button"
-          size="md"
+          size="lg"
+          className="min-h-12"
           variant="secondary"
           onClick={() => {
             dismissPasswordPrompt()
             setShow(false)
           }}
         >
-          Skip
+          Skip for now
         </Button>
       </div>
     </section>

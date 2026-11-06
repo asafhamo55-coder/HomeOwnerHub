@@ -1,63 +1,50 @@
-// Vonage wrapper for transactional SMS. Mirror of lib/email.ts so the
+// Twilio wrapper for transactional SMS. Mirror of lib/email.ts so the
 // communications send pipeline can treat both channels symmetrically.
 //
 // Env vars (set in Vercel → Project → Settings → Environment Variables):
-//   VONAGE_API_KEY      — the API key from the Vonage dashboard
-//   VONAGE_API_SECRET   — the API secret from the Vonage dashboard
-//   VONAGE_FROM_NUMBER  — the sender. For US delivery this must be a
-//                         Vonage virtual number you've rented, in E.164
-//                         (e.g. "14045551234"). Some non-US countries
-//                         also accept an alphanumeric sender ID, e.g.
-//                         "HomeownerHub".
+//   TWILIO_ACCOUNT_SID           — the Account SID ("AC…") from the Twilio console
+//   TWILIO_AUTH_TOKEN            — the Auth Token (also signs inbound webhooks)
+//   TWILIO_MESSAGING_SERVICE_SID — the Messaging Service ("MG…") holding the
+//                                  registered 10DLC campaign and sender numbers.
+//                                  A raw From number is never used.
 //
 // If any of the three is unset, sendSms returns { ok: false, error:
-// SMS_NOT_CONFIGURED }. It used to no-op and report success when the key
-// or secret was missing, so a broadcast's text rows read "sent" while
-// nothing went out (BL-102 finding 2). smsConfigured() lets the composer
-// grey out the Text option up front instead.
+// SMS_NOT_CONFIGURED }, so a broadcast's text rows read "failed" rather
+// than "sent" when nothing went out (BL-102 finding 2). smsConfigured()
+// lets the composer grey out the Text option up front instead.
 //
-// We use the `@vonage/server-sdk` package (the official Vonage Node SDK)
-// and its Messages API (vonage.messages.send, BL-146b). It authenticates
-// with Basic auth from the same API key + secret pair the legacy SMS API
-// used, so no new keys are needed. The Messages API answers 202 with a
-// `message_uuid`; sendSms returns it as `messageSid`, the callers store it
-// in communication_recipients.external_id, and the signed status webhook
-// (/api/webhooks/vonage/status, lib/sms-status.ts) matches receipts on it.
-// The legacy SMS API's messageId never matched a receipt.
-// The client is constructed lazily and cached at the module level so
-// serverless cold starts amortize across requests in the same warm
-// function instance.
-
+// No Twilio SDK (it is heavy): one form-encoded POST to the Messages
+// resource with Basic auth (Account SID : Auth Token). Twilio answers 201
+// with the message `sid`; sendSms returns it as `messageSid`, callers store
+// it in communication_recipients.external_id, and the signed status webhook
+// (/api/webhooks/twilio/status, lib/sms-status.ts) matches receipts on it.
+// StatusCallback (only while SMS_STATUS_WEBHOOK_ENABLED=true) is the app's public origin (lib/app-origin.ts) plus that
+// path. Twilio's error body is never logged or returned: only a short
+// code (twilioErrorMessage).
 //
 // Every send passes the outbound safety guard (BL-004) first — outside
 // VERCEL_ENV=production, or for a sandboxed org, only OUTBOUND_ALLOWLIST
 // numbers are sent. See packages/observability/src/outbound-guard.ts.
 
-import { Vonage } from '@vonage/server-sdk'
 import {
   OUTBOUND_BLOCKED_ERROR,
   guardRecipients,
 } from '@homeowner-portal/observability/outbound-guard'
 import type { OutboundSendOptions } from './email'
+import { appUrl } from './app-origin'
 
-let _client: Vonage | null = null
+const TWILIO_API = 'https://api.twilio.com/2010-04-01'
+const SEND_TIMEOUT_MS = 10_000
 
-function getClient(): Vonage | null {
-  if (_client) return _client
-  const apiKey = process.env.VONAGE_API_KEY
-  const apiSecret = process.env.VONAGE_API_SECRET
-  if (!apiKey || !apiSecret) return null
-  _client = new Vonage({ apiKey, apiSecret })
-  return _client
-}
-
-/** The error a send returns when Vonage isn't fully configured. */
+/** The error a send returns when Twilio isn't fully configured. */
 export const SMS_NOT_CONFIGURED = 'SMS not configured'
 
-/** True only when every Vonage variable a send needs is present. Reads
+/** True only when every Twilio variable a send needs is present. Reads
  *  names only, never values, and logs nothing. */
 export function smsConfigured(): boolean {
-  return Boolean(process.env.VONAGE_API_KEY && process.env.VONAGE_API_SECRET && process.env.VONAGE_FROM_NUMBER)
+  return Boolean(
+    process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_MESSAGING_SERVICE_SID,
+  )
 }
 
 export interface SendSmsInput {
@@ -67,9 +54,30 @@ export interface SendSmsInput {
   body: string
 }
 
+interface TwilioReply {
+  sid?: unknown
+  code?: unknown
+}
+
+/** Fetch seam so tests can pass a fake. */
+export type SmsFetch = (url: string, init: RequestInit) => Promise<Response>
+
+/**
+ * A short, number-free reason for a failed Twilio call. Only the numeric
+ * `code` from Twilio's JSON error is used (e.g. 21211 invalid To, 21610
+ * recipient opted out); the message text, which can echo a number, is
+ * never read. HTTP status is the fallback.
+ */
+export function twilioErrorMessage(status: number, code: unknown): string {
+  if (typeof code === 'number' && Number.isInteger(code) && code > 0 && code < 1_000_000) {
+    return `Twilio error ${code}`
+  }
+  return `Twilio HTTP ${status}`
+}
+
 export async function sendSms(
   input: SendSmsInput,
-  opts: OutboundSendOptions = {},
+  opts: OutboundSendOptions & { fetchImpl?: SmsFetch } = {},
 ): Promise<
   | { ok: true; messageSid: string | null }
   | { ok: false; error: string }
@@ -79,45 +87,49 @@ export async function sendSms(
     return { ok: false, error: OUTBOUND_BLOCKED_ERROR }
   }
 
-  const from = process.env.VONAGE_FROM_NUMBER
-  const client = from ? getClient() : null
-  if (!from || !client) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID
+  const authToken = process.env.TWILIO_AUTH_TOKEN
+  const serviceSid = process.env.TWILIO_MESSAGING_SERVICE_SID
+  if (!accountSid || !authToken || !serviceSid) {
     // Never report success for a text that did not go out: the recipient
     // row must read failed, not sent.
     return { ok: false, error: SMS_NOT_CONFIGURED }
   }
 
-  // Vonage expects E.164 *without* the leading + (digits only): country
-  // code followed by the subscriber number. Strip anything else.
-  const to = input.to.trim().replace(/[^\d]/g, '')
+  const form = new URLSearchParams({
+    To: input.to.trim(),
+    Body: input.body,
+    MessagingServiceSid: serviceSid,
+  })
+  // Only ask for receipts while the status route is on; with it off the route
+  // answers 404 and Twilio would log error 11200 for every text.
+  if (process.env.SMS_STATUS_WEBHOOK_ENABLED === 'true') {
+    form.set('StatusCallback', appUrl('/api/webhooks/twilio/status'))
+  }
+  const doFetch: SmsFetch = opts.fetchImpl ?? ((url, init) => fetch(url, init))
 
   try {
-    const resp = await client.messages.send({
-      channel: 'sms',
-      messageType: 'text',
-      to,
-      from,
-      text: input.body,
+    const res = await doFetch(`${TWILIO_API}/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+      body: form.toString(),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     })
-    // The Messages API accepts a text with HTTP 202 and a message_uuid
-    // (the SDK maps it to messageUUID). Any non-2xx makes the SDK *throw*
-    // a VetchError rather than resolve, so the real error handling lives
-    // in the catch below.
-    return { ok: true, messageSid: resp?.messageUUID || null }
+    let json: TwilioReply | null
+    try {
+      json = (await res.json()) as TwilioReply
+    } catch {
+      json = null
+    }
+    if (!res.ok) return { ok: false, error: twilioErrorMessage(res.status, json?.code) }
+    return { ok: true, messageSid: typeof json?.sid === 'string' && json.sid ? json.sid : null }
   } catch (err) {
-    // A failed send throws a VetchError whose unread response carries an
-    // RFC 7807 body ({ type, title, detail }), e.g. title "Invalid sender"
-    // or "Non-Whitelisted Destination". Surface that specific reason
-    // instead of the generic "Request failed with status code 422".
-    const detail = await firstVonageErrorText(err)
-    // The fallback is masked too: a non-RFC 7807 failure can echo the
-    // number in its message (security review #3, SEC3-L7).
-    const message =
-      detail ??
-      (err && typeof err === 'object' && 'message' in err
-        ? maskPhoneNumbers(String((err as { message: unknown }).message)).slice(0, 200)
-        : 'Vonage send failed.')
-    return { ok: false, error: message }
+    const timedOut = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')
+    return { ok: false, error: timedOut ? 'Twilio request timed out' : 'Twilio request failed' }
   }
 }
 
@@ -127,44 +139,11 @@ export async function sendSms(
  * .error_message). A number is 7 or more digits, either one contiguous
  * run or split by spaces, dashes, dots or parentheses, with or without a
  * leading +: "14045550100", "+1 404-555-0100", "(404) 555.0100". Security
- * review #3, SEC3-L7 (before it, only contiguous runs were masked). It
- * errs toward masking: a long digit group in an error text is never
- * worth keeping.
+ * review #3, SEC3-L7. It errs toward masking: a long digit group in an
+ * error text is never worth keeping.
  */
 export function maskPhoneNumbers(text: string): string {
   return text.replace(/\+?\(?\d(?:[ \t.()-]{0,3}\d){6,}\)?/g, '[number]')
-}
-
-/**
- * Pull the reason out of a thrown Vonage Messages API error. The SDK's
- * VetchError keeps the raw fetch Response (body not yet read); its JSON
- * body is { type, title, detail, instance }. Returns the title (a short
- * reason, like the legacy SMS API's errorText), else the detail. Phone
- * numbers, contiguous or formatted, are masked (maskPhoneNumbers) so a
- * number echoed back by Vonage never lands in the row. Returns undefined for anything unrecognizable; never throws.
- */
-async function firstVonageErrorText(err: unknown): Promise<string | undefined> {
-  if (!err || typeof err !== 'object' || !('response' in err)) return undefined
-  const response = (err as { response?: unknown }).response
-  if (!response || typeof response !== 'object' || !('text' in response)) return undefined
-  const read = (response as { text: unknown }).text
-  if (typeof read !== 'function') return undefined
-  try {
-    const raw: unknown = await read.call(response)
-    if (typeof raw !== 'string' || raw.length === 0) return undefined
-    const body: unknown = JSON.parse(raw)
-    if (!body || typeof body !== 'object') return undefined
-    const { title, detail } = body as { title?: unknown; detail?: unknown }
-    const reason =
-      typeof title === 'string' && title.trim()
-        ? title.trim()
-        : typeof detail === 'string' && detail.trim()
-          ? detail.trim()
-          : undefined
-    return reason ? maskPhoneNumbers(reason).slice(0, 200) : undefined
-  } catch {
-    return undefined
-  }
 }
 
 /**

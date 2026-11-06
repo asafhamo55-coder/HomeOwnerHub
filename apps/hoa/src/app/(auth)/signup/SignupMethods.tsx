@@ -9,7 +9,7 @@ import { SignupForm } from './SignupForm'
 // Signup mirrors the login toggle: password by default, magic link as the
 // no-password alternative. The magic-link form handles signup transparently
 // (signInWithOtp with shouldCreateUser=true). Email carries across tabs.
-export function SignupMethods() {
+export function SignupMethods({ next = '/onboarding' }: { next?: string } = {}) {
   const [email, setEmail] = useState('')
 
   return (
@@ -25,10 +25,11 @@ export function SignupMethods() {
         </Tab>
       </TabList>
       <TabPanel value="password">
-        <SignupForm email={email} onEmailChange={setEmail} />
+        <SignupForm next={next} email={email} onEmailChange={setEmail} />
       </TabPanel>
       <TabPanel value="magic-link">
         <MagicLinkForm
+          redirectTo={next === '/onboarding' ? undefined : next}
           submitLabel="Email me a sign-up link"
           helperText="No password needed. We’ll set up your HOA on the next step."
           email={email}
