@@ -130,6 +130,7 @@ export const FL_ELECTIONS: Guide = {
     'florida-hoa-director-certification-checklist',
     'florida-hoa-member-meetings-proxies-and-recording',
     'georgia-hoa-written-ballots-without-a-meeting',
+    'florida-hoa-board-director-recall-720-303',
   ],
   hoaDoes: [
     {
@@ -373,6 +374,7 @@ export const FL_MEMBER_MEETINGS: Guide = {
     'florida-hoa-board-meeting-notice-rules',
     'florida-hoa-official-records-inspection',
     'hoa-board-meeting-minutes',
+    'florida-hoa-board-director-recall-720-303',
   ],
   hoaDoes: [
     {

@@ -401,6 +401,31 @@ describe('batch 27 pages are in the library', () => {
   })
 })
 
+describe('batch 31 pages are in the library', () => {
+  const pages = [
+    '/guides/florida-hoa-budget-reserves-and-financial-reports-720-303',
+    '/guides/florida-hoa-board-director-recall-720-303',
+    '/guides/texas-hoa-owner-suit-justice-court-209-017',
+  ]
+
+  it('are in the palette feed, the sitemap and the guide list, with a page file each', () => {
+    for (const page of pages) {
+      expect(libraryEntries().map((e) => e.path)).toContain(page)
+      expect(SITEMAP_PATHS).toContain(page)
+      expect(GENERAL_PATHS).toContain(page)
+      expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+
+  it('are grouped under their state', () => {
+    const fl = guideGroups().find((g) => g.id === 'florida')!
+    const tx = guideGroups().find((g) => g.id === 'texas')!
+    expect(fl.items.map((i) => i.path)).toContain(pages[0])
+    expect(fl.items.map((i) => i.path)).toContain(pages[1])
+    expect(tx.items.map((i) => i.path)).toContain(pages[2])
+  })
+})
+
 describe('batch 30 pages are in the library', () => {
   const pages = [
     '/guides/georgia-hoa-architectural-review-covenants-44-3-231',

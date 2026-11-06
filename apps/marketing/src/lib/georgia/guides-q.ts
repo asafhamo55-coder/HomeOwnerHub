@@ -128,6 +128,7 @@ export const FL_BOARD_MEETINGS: Guide = {
     'florida-hoa-fine-hearing-committee',
     'florida-hoa-official-records-inspection',
     'hoa-board-meeting-minutes',
+    'florida-hoa-budget-reserves-and-financial-reports-720-303',
   ],
   hoaDoes: [
     {

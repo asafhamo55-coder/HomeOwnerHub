@@ -121,6 +121,7 @@ export const TX_BALLOTS: Guide = {
     'california-hoa-election-rules',
     'florida-hoa-elections-and-quorum',
     'texas-hoa-third-party-collections-notice',
+    'texas-hoa-owner-suit-justice-court-209-017',
   ],
   hoaDoes: [
     {

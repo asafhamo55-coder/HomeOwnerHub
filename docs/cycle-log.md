@@ -1108,3 +1108,9 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
   - Feedback on sample 5.
   - Whether to recolour the app's own screens to Royal purple.
   - The lawyer review (M8 payments, M10 voting).
+
+## 2026-11-06 22:10 UTC: calendar feed deploy
+
+- **Deployed 82d07b6b:** the phone calendar subscription (hidden until OA-52) and the jobs readAll opt-in (no change until OA-47). CI and smoke green; the release-notes email ran.
+- **SEO batch 31 (FL recall, FL reserves, TX justice court):** the 15 legal-review fixes are applied (e7a12277). A second review is running because quotes were trimmed to fit the 1500-word cap.
+- **Building:** ESLint for apps/hoa wired into CI (round 29 #9), and chart text that scales with Text size (round 29 #11).

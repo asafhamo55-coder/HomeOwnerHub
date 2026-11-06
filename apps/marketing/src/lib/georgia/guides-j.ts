@@ -344,7 +344,7 @@ export const TX_PAYMENT_PLANS: Guide = {
       a: 'The statute says that does not stop an owner from receiving a payment plan. File them anyway.',
     },
   ],
-  related: ['georgia-hoa-payment-order-sb-406', 'overpayments-credits', 'hoa-treasurer-duties', 'florida-hoa-estoppel-certificate-rules', 'texas-hoa-payment-plan-agreement', 'texas-hoa-third-party-collections-notice'],
+  related: ['georgia-hoa-payment-order-sb-406', 'overpayments-credits', 'hoa-treasurer-duties', 'florida-hoa-estoppel-certificate-rules', 'texas-hoa-payment-plan-agreement', 'texas-hoa-third-party-collections-notice', 'texas-hoa-owner-suit-justice-court-209-017'],
   hoaDoes: [
     {
       text: 'Accounting has a Payment plans page. A plan moves to Completed on its own when every installment is paid, waived or written off, and the board can see which plans are behind.',

@@ -1349,4 +1349,165 @@ export const STATE_QUOTES = {
     fixture: FL,
     quote: "Any parcel owner may display a sign of reasonable size provided by a contractor for security services within 10 feet of any entrance to the home.",
   },
+  // SEO batch 31: Florida budgets, reserves, financial reports and recall (§ 720.303), Texas owner suits and definitions
+  flBudgetAnnual: {
+    cite: "Fla. Stat. § 720.303(6)(a)",
+    fixture: FL,
+    quote: "The association shall prepare an annual budget that sets out the annual operating expenses. The budget must reflect the estimated revenues and expenses for that year and the estimated surplus or deficit as of the end of the current year.",
+  },
+  flBudgetCopy: {
+    cite: "Fla. Stat. § 720.303(6)(a)",
+    fixture: FL,
+    quote: "The association shall provide each member with a copy of the annual budget or a written notice that a copy of the budget is available upon request at no charge to the member.",
+  },
+  flReserveMay: {
+    cite: "Fla. Stat. § 720.303(6)(b)",
+    fixture: FL,
+    quote: "In addition to annual operating expenses, the budget may include reserve accounts for capital expenditures and deferred maintenance for which the association is responsible.",
+  },
+  flReserveApprove: {
+    cite: "Fla. Stat. § 720.303(6)(d)",
+    fixture: FL,
+    quote: "An association is deemed to have provided for reserve accounts upon the affirmative approval of a majority of the total voting interests of the association. Such approval may be obtained by vote of the members at a duly called meeting of the membership or by the written consent of a majority of the total voting interests of the association.",
+  },
+  flReserveFormula: {
+    cite: "Fla. Stat. § 720.303(6)(e)",
+    fixture: FL,
+    quote: "The amount to be reserved in any account established shall be computed by means of a formula that is based upon estimated remaining useful life and estimated replacement cost or deferred maintenance expense of each reserve item.",
+  },
+  flReserveWaive: {
+    cite: "Fla. Stat. § 720.303(6)(f)",
+    fixture: FL,
+    quote: "After one or more reserve accounts are established, the membership of the association, upon a majority vote at a meeting at which a quorum is present, may provide for no reserves or less reserves than required by this section.",
+  },
+  flReserveWaiveYear: {
+    cite: "Fla. Stat. § 720.303(6)(f)",
+    fixture: FL,
+    quote: "Any vote taken pursuant to this subsection to waive or reduce reserves is applicable only to one budget year.",
+  },
+  flReserveUse: {
+    cite: "Fla. Stat. § 720.303(6)(h)",
+    fixture: FL,
+    quote: "Reserve funds and any interest accruing thereon shall remain in the reserve account or accounts and shall be used only for authorized reserve expenditures unless their use for other purposes is approved in advance by a majority vote at a meeting at which a quorum is present.",
+  },
+  flFinDeadline: {
+    cite: "Fla. Stat. § 720.303(7)",
+    fixture: FL,
+    quote: "Within 90 days after the end of the fiscal year, or annually on the date provided in the bylaws, the association shall prepare and complete, or contract with a third party for the preparation and completion of, a financial report for the preceding fiscal year.",
+  },
+  flFinCompiled: {
+    cite: "Fla. Stat. § 720.303(7)(a)1.",
+    fixture: FL,
+    quote: "An association with total annual revenues of $150,000 or more, but less than $300,000, shall prepare compiled financial statements.",
+  },
+  flFinReviewed: {
+    cite: "Fla. Stat. § 720.303(7)(a)2.",
+    fixture: FL,
+    quote: "An association with total annual revenues of at least $300,000, but less than $500,000, shall prepare reviewed financial statements.",
+  },
+  flFinAudited: {
+    cite: "Fla. Stat. § 720.303(7)(a)3.",
+    fixture: FL,
+    quote: "An association with total annual revenues of $500,000 or more shall prepare audited financial statements.",
+  },
+  flFinSmall: {
+    cite: "Fla. Stat. § 720.303(7)(b)1.",
+    fixture: FL,
+    quote: "An association with total annual revenues of less than $150,000 shall prepare a report of cash receipts and expenditures.",
+  },
+  flFinPetition: {
+    cite: "Fla. Stat. § 720.303(7)(c)",
+    fixture: FL,
+    quote: "If 20 percent of the parcel owners petition the board for a level of financial reporting higher than that required by this section, the association shall duly notice and hold a meeting of members within 30 days of receipt of the petition for the purpose of voting on raising the level of reporting for that fiscal year.",
+  },
+  flRecallAny: {
+    cite: "Fla. Stat. § 720.303(10)(a)1.",
+    fixture: FL,
+    quote: "Regardless of any provision to the contrary contained in the governing documents, subject to the provisions of s. 720.307 regarding transition of association control, any member of the board of directors may be recalled and removed from office with or without cause by a majority of the total voting interests.",
+  },
+  flRecallClass: {
+    cite: "Fla. Stat. § 720.303(10)(a)2.",
+    fixture: FL,
+    quote: "When the governing documents, including the declaration, articles of incorporation, or bylaws, provide that only a specific class of members is entitled to elect a board director or directors, only that class of members may vote to recall those board directors so elected.",
+  },
+  flRecallWritten: {
+    cite: "Fla. Stat. § 720.303(10)(b)1.",
+    fixture: FL,
+    quote: "Board directors may be recalled by an agreement in writing or by written ballot without a membership meeting. The agreement in writing or the written ballots, or a copy thereof, shall be served on the association by certified mail or by personal service in the manner authorized by chapter 48 and the Florida Rules of Civil Procedure.",
+  },
+  flRecallBoardMeet: {
+    cite: "Fla. Stat. § 720.303(10)(b)2.",
+    fixture: FL,
+    quote: "The board shall duly notice and hold a meeting of the board within 5 full business days after receipt of the agreement in writing or written ballots. At the meeting, the board shall either certify the written ballots or written agreement to recall a director or directors of the board, in which case such director or directors shall be recalled effective immediately and shall turn over to the board within 5 full business days any and all records and property of the association in their possession, or proceed as described in paragraph (d).",
+  },
+  flRecallMeeting: {
+    cite: "Fla. Stat. § 720.303(10)(c)1.",
+    fixture: FL,
+    quote: "If the declaration, articles of incorporation, or bylaws specifically provide, the members may also recall and remove a board director or directors by a vote taken at a meeting. If so provided in the governing documents, a special meeting of the members to recall a director or directors of the board of administration may be called by 10 percent of the voting interests giving notice of the meeting as required for a meeting of members, and the notice shall state the purpose of the meeting. Electronic transmission may not be used as a method of giving notice of a meeting called in whole or in part for this purpose.",
+  },
+  flRecallNoCert: {
+    cite: "Fla. Stat. § 720.303(10)(d)",
+    fixture: FL,
+    quote: "If the board determines not to certify the written agreement or written ballots to recall a director or directors of the board or does not certify the recall by a vote at a meeting, the board shall, within 5 full business days after the meeting, file an action with a court of competent jurisdiction or file with the department a petition for binding arbitration under the applicable procedures in ss. 718.112(2)(l) and 718.1255 and the rules adopted thereunder.",
+  },
+  flRecallDeemed: {
+    cite: "Fla. Stat. § 720.303(10)(f)",
+    fixture: FL,
+    quote: "If the board fails to duly notice and hold a board meeting within 5 full business days after service of an agreement in writing or within 5 full business days after the adjournment of the member recall meeting, the recall shall be deemed effective and the board directors so recalled shall immediately turn over to the board all records and property of the association.",
+  },
+  flRecallMeetBoard: {
+    cite: "Fla. Stat. § 720.303(10)(c)2.",
+    fixture: FL,
+    quote: "The board shall duly notice and hold a board meeting within 5 full business days after the adjournment of the member meeting to recall one or more directors.",
+  },
+  flRecallWindow: {
+    cite: "Fla. Stat. § 720.303(10)(l)",
+    fixture: FL,
+    quote: "when 60 or fewer days have not elapsed since the election of the board member sought to be recalled.",
+  },
+  flRecallMinutes: {
+    cite: "Fla. Stat. § 720.303(10)(i)",
+    fixture: FL,
+    quote: "The minutes of the board meeting at which the board decides whether to certify the recall are an official association record. The minutes must record the date and time of the meeting, the decision of the board, and the vote count taken on each board member subject to the recall. In addition, when the board decides not to certify the recall, as to each vote rejected, the minutes must identify the parcel number and the specific reason for each such rejection.",
+  },
+  flRecallSeparate: {
+    cite: "Fla. Stat. § 720.303(10)(j)",
+    fixture: FL,
+    quote: "When the recall of more than one board director is sought, the written agreement, ballot, or vote at a meeting shall provide for a separate vote for each board director sought to be recalled.",
+  },
+  flRecallChallenge: {
+    cite: "Fla. Stat. § 720.303(10)(k)",
+    fixture: FL,
+    quote: "A board member who has been recalled may file an action with a court of competent jurisdiction or a petition under ss. 718.112(2)(l) and 718.1255 and the rules adopted challenging the validity of the recall. The petition or action must be filed within 60 days after the recall is deemed certified.",
+  },
+  txJustice: {
+    cite: "Tex. Prop. Code § 209.017",
+    fixture: TX3,
+    quote: "An owner of property in a subdivision may bring an action for a violation of this chapter against the property owners' association of the subdivision in the justice court of a precinct in which all or part of the subdivision is located.",
+  },
+  txDefOwner: {
+    cite: "Tex. Prop. Code § 209.002(6)",
+    fixture: TX3,
+    quote: "\"Owner\" means a person who holds record title to property in a residential subdivision and includes the personal representative of a person who holds record title to property in a residential subdivision.",
+  },
+  txDefAssessment: {
+    cite: "Tex. Prop. Code § 209.002(1)",
+    fixture: TX3,
+    quote: "\"Assessment\" means a regular assessment, special assessment, or other amount a property owner is required to pay a property owners' association under the dedicatory instrument or by law.",
+  },
+  txDefDedicatory: {
+    cite: "Tex. Prop. Code § 209.002(4)",
+    fixture: TX3,
+    quote: "\"Dedicatory instrument\" means each governing instrument covering the establishment, maintenance, and operation of a residential subdivision.",
+  },
+  txDefAssoc: {
+    cite: "Tex. Prop. Code § 209.002(7)",
+    fixture: TX3,
+    quote: "\"Property owners' association\" or \"association\" means an incorporated or unincorporated association that:",
+  },
+  txDefSubdivision: {
+    cite: "Tex. Prop. Code § 209.002(9)",
+    fixture: TX3,
+    quote: "\"Residential subdivision\" or \"subdivision\" means a subdivision, planned unit development, townhouse regime, or similar planned development",
+  },
 } as const satisfies Record<string, StatuteQuote>
