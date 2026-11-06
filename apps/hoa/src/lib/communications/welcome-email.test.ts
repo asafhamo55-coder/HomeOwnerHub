@@ -106,23 +106,24 @@ describe('welcome email: render', () => {
     expect(subject + html).not.toMatch(/&mdash;|&ndash;|&#8212;|&#8211;/)
   })
 
-  it('is short: about 200 words of body copy, down from 330', () => {
+  it('is short: about 220 words of body copy, down from 330', () => {
     const body = stripTags(bodyOf(madison().html))
     const words = body.split(' ').filter(Boolean).length
     expect(words).toBeGreaterThanOrEqual(120)
-    expect(words).toBeLessThanOrEqual(210)
+    expect(words).toBeLessThanOrEqual(230)
   })
 
   it('lists the three steps, the bullets and the sign-off', () => {
     const text = stripTags(madison().html)
-    expect(text).toMatch(/Look for an email called\s+Join Madison Park on HomeownerHub\s+\./)
-    expect(text).toContain('check your spam folder')
-    expect(text).toContain('Tap the button in that email. That signs you in.')
+    expect(text).toContain('Look in your inbox for an email from HomeownerHub inviting you to join. If you can t find it, check your spam or junk folder.')
+    expect(text).not.toMatch(/different sender|Join Madison Park/)
+    expect(text).toContain('check your spam or junk folder')
+    expect(text).toContain('That signs you in. You don t need a password. The button works for 24 hours. If it stops working, reply to this email and the board will send a new one.')
     expect(text).toContain('Ask to join')
     for (const b of ['See your balance and how to pay', 'Send a request to the board and read the reply', 'Read announcements and documents', 'in plain words']) {
       expect(text).toContain(b)
     }
-    expect(text).toContain('Tip: to keep HomeownerHub on your phone, open it in Safari, tap Share, then Add to Home Screen.')
+    expect(text).toContain('Tip: to keep HomeownerHub on your phone, open it, then tap Share (iPhone) or the three dots (Android), and choose Add to Home Screen.')
     expect(text).toContain('Questions? Reply to this email and the board will answer.')
     expect(text).not.toContain('Zelle')
     expect(text).not.toContain('pool')
@@ -130,7 +131,7 @@ describe('welcome email: render', () => {
 
   it('plain-text version carries the steps, the video URL and the sign-off, with no image noise', () => {
     const text = htmlToMessageText(madison().html)
-    expect(text).toContain('Look for an email called')
+    expect(text).toContain('Look in your inbox for an email from HomeownerHub')
     expect(text).toContain('Tap the button in that email')
     expect(text).toContain('Ask to join')
     expect(text).toContain(`${ORIGIN}/welcome`)

@@ -32,7 +32,8 @@
  * and rosters hold "SMITH, JOHN" or nothing at all.
  *
  * The invitation is NOT sent from this mailer. It is Supabase Auth's email
- * (inviteUserByEmail), so the copy does not claim the same sender.
+ * (inviteUserByEmail), whose subject and sender change (OA-49, OA-51), so
+ * step 1 names neither.
  */
 
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
@@ -109,9 +110,11 @@ export function buildWelcomeEmailHtml(origin: string, modules: WelcomeModules = 
     `<h2 style="${H2}">What to do now</h2>`,
     `<ol style="margin:0 0 8px;padding-left:26px;">`,
     item(
-      `Look for an email called &ldquo;Join {{ association_name }} on HomeownerHub&rdquo;. It may come from a different sender. If you can&rsquo;t find it, check your spam folder.`,
+      'Look in your inbox for an email from HomeownerHub inviting you to join. If you can&rsquo;t find it, check your spam or junk folder.',
     ),
-    item('Tap the button in that email. That signs you in. You don&rsquo;t need a password.'),
+    item(
+      'Tap the button in that email. That signs you in. You don&rsquo;t need a password. The button works for 24 hours. If it stops working, reply to this email and the board will send a new one.',
+    ),
     item(
       'If the first screen says no home is linked yet, tap &ldquo;Ask to join&rdquo; and type your address. The board will approve it.',
     ),
@@ -127,7 +130,7 @@ export function buildWelcomeEmailHtml(origin: string, modules: WelcomeModules = 
     `</ul>`,
 
     `<p style="${P}margin-top:20px;"><a href="${escapeHtml(watch)}" style="color:${ACCENT};font-weight:700;text-decoration:underline;">Watch a short video about getting started</a></p>`,
-    `<p style="${P}">Tip: to keep HomeownerHub on your phone, open it in Safari, tap Share, then Add to Home Screen.</p>`,
+    `<p style="${P}">Tip: to keep HomeownerHub on your phone, open it, then tap Share (iPhone) or the three dots (Android), and choose Add to Home Screen.</p>`,
     `<p style="${P}">Questions? Reply to this email and the board will answer.</p>`,
     `<p style="margin:24px 0 0;font-size:17px;line-height:1.6;color:${BODY};font-family:${FONT};">Thank you,<br>{{ board_signature }}</p>`,
   ].join('\n')
