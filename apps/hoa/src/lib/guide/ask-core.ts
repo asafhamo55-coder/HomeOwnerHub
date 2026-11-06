@@ -158,7 +158,7 @@ const FILLER = new Set(
 /**
  * How much of the question one section (with its article's title and
  * keywords) actually covers: idf-weighted share of the question's terms it
- * contains. A term the guide never uses ("clubhouse", "QuickBooks") counts
+ * contains. A term the guide never uses ("snowplow", "QuickBooks") counts
  * at full weight against it, which is what refuses a question about a
  * feature we don't have even when its other words ("residents", "book")
  * match well.
