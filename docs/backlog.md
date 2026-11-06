@@ -2519,6 +2519,8 @@ Checked against the code on 2026-11-06 at the tip of the quality-oracle branch. 
 9. **Configure ESLint for `apps/hoa` and add it to CI.** `next lint` has no config, so `pnpm lint` drops into an interactive prompt and nothing lints. Verified: no `eslint.config.*` or `.eslintrc*` exists in the repo, `apps/hoa/package.json:9` runs `next lint`, and `.github/workflows/ci.yml` has no lint step. Start with `next/core-web-vitals` plus `jsx-a11y`, fix or downgrade what it finds, then wire it in. Other apps stay out of scope. Files: new `apps/hoa/eslint.config.mjs`, `apps/hoa/package.json`, `.github/workflows/ci.yml`. Effort 3.
 10. **Jobs `readAll` twin: same page-length shortcut as the app.** The app helper treats a page shorter than a confirmed server cap as final and skips the trailing empty-page query (`apps/hoa/src/lib/supabase/read-all.ts:23-70`, opt-in via `POSTGREST_MAX_ROWS`, OA-47). The jobs copy still makes one extra round trip per list (`packages/jobs/src/read-all.ts:19-33`, the loop ends only on an empty page). Port the opt-in guard and its tests, keeping the throw past `maxRows`. Files: `packages/jobs/src/read-all.ts` and its test. Effort 1.
 
+11. **Scale chart text with the Text size setting.** ECharts draws on canvas with fixed pixel font sizes (11 and 12px in `apps/hoa/src/components/admin/AnalyticsCharts.tsx`, `dashboard/StatusDonut.tsx`, `dashboard/ActivityBar.tsx`), so chart labels ignore the Larger text setting. Multiply them by the root font size (read it from `document.documentElement` and re-render when it changes). Effort 1.
+
 ### Waiting on owner or migration
 
 - **M8 online payments and autopay (BL-035, BL-036):** built and dark; waiting on the lawyer and on OA-40 (Stripe activation, Connect).
