@@ -38,6 +38,7 @@ import { logRouteEvent, logRouteFailure } from '@/lib/api/log'
 import { zUuid } from '@/lib/api/schemas'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { formatAddress } from '@/lib/properties/address-format'
+import { readCommunityLocation } from '@/lib/association-location'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import {
   aimedImageUrl,
@@ -60,7 +61,13 @@ const CACHE_MISS = 'private, max-age=3600'
 
 // One info line per miss or fallback: a reason code and the property id only.
 type Ctx = { orgId: string; propertyId: string }
-function logPhoto(outcome: 'miss' | 'fallback' | 'note', reason: string, ctx: { propertyId: string }, extra: Record<string, string | number> = {}) {
+// Google statuses are logged only when they are known values.
+const GEOCODE_STATUSES = ['OK', 'ZERO_RESULTS', 'OVER_DAILY_LIMIT', 'OVER_QUERY_LIMIT', 'REQUEST_DENIED', 'INVALID_REQUEST', 'UNKNOWN_ERROR', 'bad_body']
+const PANO_STATUSES = ['OK', 'ZERO_RESULTS', 'NOT_FOUND', 'OVER_QUERY_LIMIT', 'REQUEST_DENIED', 'INVALID_REQUEST', 'UNKNOWN_ERROR', 'bad_body']
+const LOCATION_TYPES = ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER', 'APPROXIMATE', 'none']
+const known = (v: string, allowed: string[]) => (allowed.includes(v) ? v : 'other')
+
+function logPhoto(outcome: 'miss' | 'fallback', reason: string, ctx: { propertyId: string }, extra: Record<string, string | number> = {}) {
   logRouteEvent('properties.photo', { event: 'property_photo', outcome, reason, propertyId: ctx.propertyId, ...extra })
 }
 
@@ -128,7 +135,7 @@ async function aimedImage(
       // REQUEST_DENIED until the Geocoding API is enabled (OA-46): a code only.
       const code = body.success ? body.data.status : 'bad_body'
       logRouteFailure('properties.photo.geocode', { code }, logCtx)
-      logPhoto('fallback', code === 'ZERO_RESULTS' ? 'geocode_zero_results' : code === 'bad_body' ? 'geocode_bad_body' : 'geocode_denied', logCtx, { geocodeStatus: code })
+      logPhoto('fallback', code === 'ZERO_RESULTS' ? 'geocode_zero_results' : code === 'bad_body' ? 'geocode_bad_body' : 'geocode_denied', logCtx, { geocodeStatus: known(code, GEOCODE_STATUSES) })
       return null
     }
     const first = body.data.results?.[0]
@@ -139,7 +146,7 @@ async function aimedImage(
     }
     const geometry = first?.geometry
     if (!geometry || !isPreciseGeocode(geometry.location_type)) {
-      logPhoto('fallback', 'geocode_imprecise', logCtx, { geocodeStatus: 'OK', locationType: geometry?.location_type ?? 'none' })
+      logPhoto('fallback', 'geocode_imprecise', logCtx, { geocodeStatus: 'OK', locationType: known(geometry?.location_type ?? 'none', LOCATION_TYPES) })
       return null
     }
     house = geometry.location
@@ -164,7 +171,7 @@ async function aimedImage(
     if (!body.success || body.data.status !== 'OK' || !body.data.pano_id || !body.data.location) {
       const code = body.success ? body.data.status : 'bad_body'
       if (code !== 'ZERO_RESULTS') logRouteFailure('properties.photo.pano', { code }, logCtx)
-      logPhoto('fallback', code === 'ZERO_RESULTS' ? 'pano_zero_results' : 'pano_not_ok', logCtx, { panoStatus: code })
+      logPhoto('fallback', code === 'ZERO_RESULTS' ? 'pano_zero_results' : 'pano_not_ok', logCtx, { panoStatus: known(code, PANO_STATUSES) })
       return null
     }
     // Too close: inside the lot. Too far: a back alley or cross street, which would not face the front.
@@ -241,11 +248,17 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
       if (!hasPlace(unit) && data?.association_id) {
         const { data: assoc } = await supabase
           .from('associations')
-          .select('state')
+          .select('state, compliance_settings')
           .eq('organization_id', orgId)
           .eq('id', data.association_id)
-          .maybeSingle<{ state: string | null }>()
-        if (assoc?.state?.trim()) association = { state: assoc.state }
+          .maybeSingle<{ state: string | null; compliance_settings: unknown }>()
+        if (assoc) {
+          // The board's own city and ZIP (Settings > Association) make this safe to geocode.
+          const loc = readCommunityLocation(assoc.compliance_settings)
+          if (assoc.state?.trim() || loc.city || loc.zip) {
+            association = { state: assoc.state, city: loc.city, postal_code: loc.zip }
+          }
+        }
       }
     }
   } catch (err) {
@@ -258,9 +271,14 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     logPhoto('miss', 'no_location', { propertyId })
     return notFound()
   }
-  if (!hasPlace(unit) && association && formatAddress(property.address).state === '') {
-    // Street plus a bare state: Google often resolves this poorly.
-    logPhoto('note', 'state_only_location', { propertyId })
+  // A street with at most a bare state ("105 Springwood Pkwy, GA") can come
+  // back as a confident photo of the wrong house in another city, and neither
+  // ROOFTOP nor partial_match catches it. Never call Google for it.
+  const own = formatAddress(property.address)
+  const placed = own.city || own.zip || own.state || fallback?.city?.trim() || fallback?.postal_code?.trim()
+  if (!placed) {
+    logPhoto('miss', 'state_only_location', { propertyId })
+    return notFound()
   }
 
   const secret = process.env.GOOGLE_MAPS_URL_SIGNING_SECRET?.trim() || null
@@ -305,7 +323,7 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     const status = z.object({ status: z.string() }).safeParse(await meta.json().catch(() => null))
     if (!status.success) throw upstreamDown()
     if (status.data.status === 'ZERO_RESULTS' || status.data.status === 'NOT_FOUND') {
-      logPhoto('miss', status.data.status === 'ZERO_RESULTS' ? 'meta_zero_results' : 'meta_not_found', { propertyId }, { metaStatus: status.data.status })
+      logPhoto('miss', status.data.status === 'ZERO_RESULTS' ? 'meta_zero_results' : 'meta_not_found', { propertyId }, { metaStatus: known(status.data.status, PANO_STATUSES) })
       return notFound()
     }
     if (status.data.status !== 'OK') {

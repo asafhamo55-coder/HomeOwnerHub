@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({
   role: 'board' as 'admin' | 'board' | 'resident' | 'cpa' | null,
   property: { address: '1234 Peachtree St NE, Atlanta, GA 30309' } as { address: string | null } | null,
   unit: null as { city: string | null; state: string | null; postal_code: string | null } | null,
-  assoc: null as { state: string | null } | null,
+  assoc: null as { state: string | null; compliance_settings?: unknown } | null,
   readError: null as null | { code: string },
   orgFilter: null as string | null,
 }))
@@ -327,6 +327,33 @@ describe('GET /api/properties/:id/photo', () => {
         'geocode_http_error',
       ])
     })
+    it('geocode_error, geocode_bad_body and aimed_image_error', async () => {
+      geoStatus = 'OK'
+      geoThrow = true
+      await call()
+      geoThrow = false
+      aimedStatus = -1
+      await call()
+      expect(reasons().slice(0, 1)).toEqual(['geocode_error'])
+      expect(reasons()).toContain('aimed_image_error')
+    })
+    it('budget_exhausted when the clock runs low between geocode and pano', async () => {
+      geoStatus = 'OK'
+      let n = 0
+      const real = Date.now()
+      vi.spyOn(Date, 'now').mockImplementation(() => {
+        n += 1
+        // The first calls see plenty of time; later ones see almost none.
+        return n < 4 ? real : real + 9500
+      })
+      await call()
+      expect(reasons()).toContain('budget_exhausted')
+    })
+    it('logs only known Google statuses, else other', async () => {
+      geoStatus = 'SOME_NEW_STATUS <script>'
+      await call()
+      expect(infoLines()[0]).toMatchObject({ reason: 'geocode_denied', geocodeStatus: 'other' })
+    })
     it('aimed_image_failed', async () => {
       geoStatus = 'OK'
       aimedStatus = 404
@@ -347,13 +374,52 @@ describe('GET /api/properties/:id/photo', () => {
   })
 
   describe('association fallback', () => {
-    it('uses the association state when neither property nor unit has a place, and notes state_only_location', async () => {
+    it('404s with zero Google calls for a street plus only the association state', async () => {
       h.property = { address: '105 Springwood Parkway' }
       h.unit = { city: null, state: null, postal_code: null }
       h.assoc = { state: 'GA' }
+      const res = await call()
+      expect(res.status).toBe(404)
+      expect(calls).toHaveLength(0)
+      expect(geoCalls).toHaveLength(0)
+      expect(reasons()).toEqual(['state_only_location'])
+      expect(infoLines()[0]).toMatchObject({ outcome: 'miss', propertyId: ID })
+    })
+    it('sends the request when the address has a city and ZIP and the association supplies the state', async () => {
+      h.property = { address: '105 Springwood Parkway, Marietta, 30067' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = { state: 'GA' }
+      expect((await call()).status).toBe(200)
+      expect(new URL(calls[0]).searchParams.get('location')).toBe('105 Springwood Pkwy, Marietta, GA 30067')
+    })
+    it('builds "street, City, ST ZIP" from the board-set community city and ZIP', async () => {
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = { state: 'GA', compliance_settings: { community_city: 'Marietta', community_zip: '30067', other: 1 } }
+      expect((await call()).status).toBe(200)
+      expect(new URL(calls[0]).searchParams.get('location')).toBe('105 Springwood Pkwy, Marietta, GA 30067')
+      expect(reasons()).toEqual(['geocode_denied'])
+      const logged = JSON.stringify((console.info as unknown as { mock: { calls: unknown[] } }).mock.calls)
+      expect(logged).not.toContain('Springwood')
+      expect(logged).not.toContain('Marietta')
+      expect(logged).not.toContain('30067')
+      expect(logged).not.toContain('test-key-not-real')
+    })
+    it('still applies the precision checks to a community-built address', async () => {
+      geoStatus = 'OK'
+      geoType = 'APPROXIMATE'
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = { state: 'GA', compliance_settings: { community_city: 'Marietta', community_zip: '30067' } }
       await call()
-      expect(new URL(calls[0]).searchParams.get('location')).toBe('105 Springwood Pkwy, GA')
-      expect(reasons()).toContain('state_only_location')
+      expect(reasons()).toEqual(['geocode_imprecise'])
+      expect(new URL(calls[calls.length - 1]).searchParams.get('heading')).toBeNull()
+    })
+    it('a unit with only a state does not make a street-only address safe', async () => {
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: 'GA', postal_code: null }
+      expect((await call()).status).toBe(404)
+      expect(calls).toHaveLength(0)
     })
     it('prefers the unit place over the association', async () => {
       h.property = { address: '105 Springwood Parkway' }
