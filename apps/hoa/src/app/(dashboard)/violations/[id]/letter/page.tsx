@@ -78,7 +78,6 @@ export default async function ViolationLetterPage({ params }: { params: Promise<
           violationId: v.id,
           association: assoc.ok && assoc.data ? assoc.data.name : null,
           dateLabel: formatDay(letterDate),
-          letterDate,
           ownerName: v.property?.owner_name ?? null,
           addressLines,
           letter: v.approved_letter,

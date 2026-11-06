@@ -45,4 +45,3 @@ A poll is a quick question for the homes in your community, like "Should the poo
 - You can't edit a poll after you save it, and a closed poll can't be opened again. Start a new poll instead.
 - Only a draft can be deleted. An open or closed poll stays on the list.
 - Every poll page says it is informal. For a real board election, see [plan an election](guide:election-planner).
-- Online voting is not switched on, so a poll is the only way to ask residents a question inside the app.

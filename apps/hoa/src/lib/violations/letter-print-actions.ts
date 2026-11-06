@@ -3,9 +3,11 @@
 import { z } from 'zod'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getPrimaryAssociationResult } from '@/lib/primary-association'
+import { todayIn } from '@/lib/association-time'
 import { violationLetterAuditRow } from './letter-print-audit'
 
-const Schema = z.object({ violationId: z.string().uuid(), letterDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+const Schema = z.object({ violationId: z.string().uuid() })
 
 export type ViolationPrintResult = { ok: true } | { ok: false; error: string }
 
@@ -39,8 +41,12 @@ export async function recordViolationLetterPrinted(input: z.input<typeof Schema>
   }
   if (!data || !data.approved_letter) return { ok: false, error: 'This violation has no approved notice to print.' }
 
+  // The day is decided here, in the association's zone, never by the client.
+  const assoc = await getPrimaryAssociationResult()
+  const letterDate = todayIn(assoc.ok && assoc.data ? assoc.data.timeZone : 'America/New_York')
+
   const { error: auditErr } = (await supabase.from('audit_log').insert(
-    violationLetterAuditRow({ orgId: gate.orgId, userId: user.id, violationId: data.id, propertyId: data.property_id, letterDate: parsed.data.letterDate }),
+    violationLetterAuditRow({ orgId: gate.orgId, userId: user.id, violationId: data.id, propertyId: data.property_id, letterDate }),
   )) as { error: { code?: string } | null }
   if (auditErr) {
     console.error('[violations.letter-print] audit insert failed', { orgId: gate.orgId, code: auditErr.code ?? null })

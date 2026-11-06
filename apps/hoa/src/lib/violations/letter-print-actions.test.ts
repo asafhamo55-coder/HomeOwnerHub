@@ -31,9 +31,10 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 
+vi.mock('@/lib/primary-association', () => ({ getPrimaryAssociationResult: vi.fn(async () => ({ ok: true, data: { id: 'a', name: 'A', timeZone: 'America/New_York' }, count: null })) }))
 import { recordViolationLetterPrinted } from './letter-print-actions'
 
-const input = { violationId: ID, letterDate: '2026-11-02' }
+const input = { violationId: ID }
 
 describe('recordViolationLetterPrinted', () => {
   it('writes one audit row with ids and a day only', async () => {
@@ -46,6 +47,8 @@ describe('recordViolationLetterPrinted', () => {
     expect(h.inserts[0]!.table).toBe('audit_log')
     expect(h.inserts[0]!.row).toMatchObject({ action: 'violation_letter_printed', org_id: 'org-1', user_id: 'user-1', entity_type: 'violation_letter', entity_id: ID })
     expect(JSON.stringify(h.inserts[0]!.row)).not.toContain('secret text')
+    // The day comes from the server, not the caller.
+    expect((h.inserts[0]!.row.metadata as { letter_date: string }).letter_date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 
   it.each(['resident', 'vendor', null])('refuses %s and writes nothing', async (role) => {

@@ -11,8 +11,6 @@ export interface ViolationLetterView {
   association: string | null
   /** Already formatted, e.g. "Nov 6, 2026". */
   dateLabel: string
-  /** YYYY-MM-DD, for the print record. */
-  letterDate: string
   ownerName: string | null
   /** Two lines in standard format: street, then city, state and ZIP. */
   addressLines: string[]
@@ -32,11 +30,15 @@ export function ViolationLetterPrint({ view }: { view: ViolationLetterView }) {
 
   function print() {
     startTransition(async () => {
-      const res = await recordViolationLetterPrinted({ violationId: view.violationId, letterDate: view.letterDate })
-      if (!res.ok) {
-        toast({ tone: 'error', title: 'Not printed', message: res.error })
-        return
+      // Fail open: the board's letter must always be printable. A failed
+      // record is reported, not a reason to hold the letter back.
+      let recorded = false
+      try {
+        recorded = (await recordViolationLetterPrinted({ violationId: view.violationId })).ok
+      } catch (e) {
+        console.error('[violations.letter-print] record failed', { code: (e as { code?: string } | null)?.code ?? null })
       }
+      if (!recorded) toast({ tone: 'warning', message: 'We couldn’t record this print, but you can still print.' })
       gate.print()
     })
   }
