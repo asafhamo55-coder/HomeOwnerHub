@@ -53,7 +53,7 @@ export const NOTICE_STEPS = [
     body: 'Type it, or point your phone camera at the square code. Tap "Create an account", then confirm your email. A family member\'s email works.',
   },
   {
-    title: 'Tap "Ask to join your home".',
-    body: 'Type your street address and ZIP code. Your board checks it and approves you. Then your home shows when you sign in.',
+    title: 'Ask to join your home.',
+    body: 'After you confirm your email, this page opens on its own. Type your street address and ZIP code. Your board checks it and approves you. Then your home shows when you sign in.',
   },
 ] as const

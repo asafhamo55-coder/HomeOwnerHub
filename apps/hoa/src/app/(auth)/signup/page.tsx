@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { AuthHeader } from '@/components/auth/AuthShell'
+import { signupNextPath } from '@/lib/safe-next-path'
 import { SignupMethods } from './SignupMethods'
 
 export const metadata = { title: 'Create account' }
@@ -7,7 +8,9 @@ export const metadata = { title: 'Create account' }
 // Two ways to sign up: email + password, or a no-password magic link (the
 // latter handled by signInWithOtp with shouldCreateUser=true). Either way,
 // first-time users land in onboarding after confirming their email.
-export default function SignupPage() {
+export default async function SignupPage({ searchParams }: { searchParams: Promise<{ redirect?: string }> }) {
+  const { redirect } = await searchParams
+  const next = signupNextPath(redirect)
   return (
     <>
       <AuthHeader
@@ -15,13 +18,13 @@ export default function SignupPage() {
         description={
           <>
             Confirm your email, then set up your HOA in about a minute. Already have an account?{' '}
-            <Link href="/login" className="font-medium text-primary hover:underline">
+            <Link href={next === '/onboarding' ? '/login' : `/login?redirect=${encodeURIComponent(next)}`} className="font-medium text-primary hover:underline">
               Sign in
             </Link>
           </>
         }
       />
-      <SignupMethods />
+      <SignupMethods next={next} />
     </>
   )
 }
