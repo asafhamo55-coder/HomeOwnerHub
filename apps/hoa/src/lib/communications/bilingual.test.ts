@@ -82,7 +82,7 @@ describe('composeBilingualSms', () => {
       spanish: { subject: 'Piscina', text: 'Abre el sábado.' },
       portalLink: link,
     })
-    expect(r).toEqual({ body: 'Pool: Opens Saturday. / Piscina: Abre el sábado.', spanishIncluded: true })
+    expect(r).toEqual({ body: 'Pool: Opens Saturday. / Piscina: Abre el sábado. Reply STOP to opt out.', spanishIncluded: true })
   })
 
   it('falls back to English only, never past the limit, when both do not fit', () => {
@@ -106,13 +106,13 @@ describe('composeBilingualSms', () => {
       portalLink: link,
     })
     expect(r.body.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
-    expect(r.body.endsWith(link)).toBe(true)
+    expect(r.body.endsWith(`${link} Reply STOP to opt out.`)).toBe(true)
   })
 
   it('without Spanish behaves like the English composer', () => {
     expect(
       composeBilingualSms({ subject: 'Pool', englishText: 'Opens.', spanish: null, portalLink: link }),
-    ).toEqual({ body: 'Pool: Opens.', spanishIncluded: false })
+    ).toEqual({ body: 'Pool: Opens. Reply STOP to opt out.', spanishIncluded: false })
   })
 
   it('the note says English only', () => {

@@ -114,3 +114,36 @@ describe('maskPhoneNumbers (security review #3, SEC3-L7)', () => {
     expect(maskPhoneNumbers('to +1 404-555-0100 and 678.555.0199')).toBe('to [number] and [number]')
   })
 })
+
+describe('sendSms opt-out line', () => {
+  async function sentBody(body: string) {
+    stubAll()
+    const { sendSms } = await load()
+    await sendSms({ to: ALLOWED, body })
+    return smsSend.mock.calls[0][0].form.Body as string
+  }
+
+  it('adds " Reply STOP to opt out." to a normal body', async () => {
+    expect(await sentBody('Water off Thursday')).toBe('Water off Thursday Reply STOP to opt out.')
+  })
+
+  it('does not add it twice for a body that already ends with it', async () => {
+    const already = 'Water off Thursday Reply STOP to opt out.'
+    expect(await sentBody(already)).toBe(already)
+  })
+
+  it('shortens a long body, keeps the STOP line and never exceeds 279', async () => {
+    const sent = await sentBody('w'.repeat(500))
+    expect(sent).toHaveLength(279)
+    expect(sent.endsWith('\u2026 Reply STOP to opt out.')).toBe(true)
+  })
+
+  it('a composed body with a portal link passes through unchanged', async () => {
+    const { composeSmsBody } = await import('@/lib/communications/sms-body')
+    const link = 'https://www.homeownerledger.com/communications/3f2b8c1e-0000-4000-8000-000000000000'
+    const composed = composeSmsBody({ subject: 'Meeting', body: 'x'.repeat(600), portalLink: link })
+    const sent = await sentBody(composed)
+    expect(sent).toBe(composed)
+    expect(sent).toContain(link)
+  })
+})

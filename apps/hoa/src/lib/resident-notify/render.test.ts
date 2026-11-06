@@ -59,7 +59,7 @@ describe('ARC decision email', () => {
     const long = 'Dear Dana, '.repeat(80)
     const e = renderArcDecisionEmail({ ...base, kind: 'approved_with_conditions', letter: long })
     expect(e.sms.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
-    expect(e.sms.endsWith(PORTAL)).toBe(true)
+    expect(e.sms.endsWith(`${PORTAL} Reply STOP to opt out.`)).toBe(true)
     expect(e.sms.startsWith('Maple Court HOA: Your ARC application was approved with conditions')).toBe(true)
   })
 })
@@ -69,7 +69,7 @@ describe('ticket reply email', () => {
     associationName: 'Maple Court HOA',
     residentName: 'Dana Smith',
     ticketSubject: 'Pool gate is broken',
-    reply: 'Thanks — a vendor is booked for Tuesday.',
+    reply: 'Thanks — a vendor is booked for Tuesday. Reply STOP to opt out.',
     portalUrl: 'https://www.homeownerledger.com/resident/tickets/abc',
   }
 
@@ -85,12 +85,12 @@ describe('ticket reply email', () => {
   it('text message fits one SMS', () => {
     const e = renderTicketReplyEmail({ ...t, reply: 'word '.repeat(200) })
     expect(e.sms.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
-    expect(e.sms.endsWith(t.portalUrl)).toBe(true)
+    expect(e.sms.endsWith(`${t.portalUrl} Reply STOP to opt out.`)).toBe(true)
   })
 
   it('a short reply goes in the text whole', () => {
     expect(renderTicketReplyEmail(t).sms).toBe(
-      'Maple Court HOA: The board replied to your request: Thanks — a vendor is booked for Tuesday.',
+      'Maple Court HOA: The board replied to your request: Thanks — a vendor is booked for Tuesday. Reply STOP to opt out.',
     )
   })
 })

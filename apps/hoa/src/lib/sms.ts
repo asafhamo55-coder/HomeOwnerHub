@@ -32,6 +32,7 @@ import {
 } from '@homeowner-portal/observability/outbound-guard'
 import type { OutboundSendOptions } from './email'
 import { appUrl } from './app-origin'
+import { withStopLine } from './communications/sms-body'
 
 const TWILIO_API = 'https://api.twilio.com/2010-04-01'
 const SEND_TIMEOUT_MS = 10_000
@@ -50,7 +51,7 @@ export function smsConfigured(): boolean {
 export interface SendSmsInput {
   /** E.164-formatted destination number, e.g. "+14045551234". */
   to: string
-  /** Plain-text body. Carriers split at 160 chars (multipart for longer). */
+  /** Plain-text body. sendSms appends the opt-out line (withStopLine) and caps at 279. */
   body: string
 }
 
@@ -98,7 +99,9 @@ export async function sendSms(
 
   const form = new URLSearchParams({
     To: input.to.trim(),
-    Body: input.body,
+    // Last guard for every path: the body always ends with the opt-out line
+    // and stays within 279 characters. No-op for composeSmsBody output.
+    Body: withStopLine(input.body),
     MessagingServiceSid: serviceSid,
   })
   // Only ask for receipts while the status route is on; with it off the route
