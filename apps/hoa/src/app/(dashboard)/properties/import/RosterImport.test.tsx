@@ -203,6 +203,7 @@ describe('DoneStep next steps', () => {
     expect(out).toContain('What’s next')
     expect(out).toContain('href="/settings/members"')
     expect(out).toContain('Invite owners')
+    expect(out).toContain('href="/people/join-notice"')
     expect(out).toContain('href="/dues"')
     expect(out).toContain('href="/communications/announce"')
     const n = importedEmailCount(classifiedSkip, results)

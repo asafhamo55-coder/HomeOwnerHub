@@ -22,7 +22,7 @@ export function LoginView({
         description={
           <>
             New to HomeownerHub?{' '}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
+            <Link href={redirect ? `/signup?redirect=${encodeURIComponent(redirect)}` : '/signup'} className="font-medium text-primary hover:underline">
               Create an account
             </Link>
           </>
