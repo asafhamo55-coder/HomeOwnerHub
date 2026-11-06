@@ -9,6 +9,8 @@
  * no memo or bank reference, no internal ids.
  */
 
+import { BRAND, EMAIL_FONT } from '@/lib/email/brand'
+import { emailButton } from '@/lib/email/components'
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { formatDay, usd } from '@/lib/money/format'
 
@@ -33,15 +35,15 @@ export function receiptMethodLabel(method: string | null | undefined): string {
   return (method && METHOD_LABELS[method]) || 'Recorded by the board'
 }
 
-const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
-const ACCENT = '#1F6F5C'
+const FONT = EMAIL_FONT
+const ACCENT = BRAND.primary
 
 function button(href: string, label: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;"><tr><td bgcolor="${ACCENT}" style="background-color:${ACCENT};border-radius:6px;"><a href="${escapeHtml(href)}" style="display:inline-block;padding:11px 18px;font-family:${FONT};font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">${escapeHtml(label)}</a></td></tr></table>`
+  return emailButton(href, label)
 }
 
 function row(label: string, value: string): string {
-  return `<tr><td style="padding:6px 16px 6px 0;font-size:13px;color:#5B646C;white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 0;font-size:14px;color:#1A1D21;font-weight:600;">${escapeHtml(value)}</td></tr>`
+  return `<tr><td style="padding:6px 16px 6px 0;font-size:14px;color:${BRAND.muted};white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 0;font-size:14px;color:${BRAND.ink};font-weight:600;">${escapeHtml(value)}</td></tr>`
 }
 
 /** "$0.00", or "$25.00 credit" when the owner is ahead. */
@@ -84,14 +86,14 @@ export function renderPaymentReceiptEmail(i: {
     fluid: true,
     previewText: subject,
     band: { text: i.associationName, color: ACCENT },
-    bodyHtml: `<div style="font-family:${FONT};font-size:15px;line-height:1.6;color:#1A1D21;">
+    bodyHtml: `<div style="font-family:${FONT};font-size:17px;line-height:1.6;color:${BRAND.ink};">
 <p style="margin:0 0 12px;">Hello,</p>
 <p style="margin:0 0 12px;">${escapeHtml(lead)}</p>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 4px;font-family:${FONT};">${rows}</table>
-${balanceNote ? `<p style="margin:12px 0 0;font-size:14px;color:#5B646C;">${escapeHtml(balanceNote)}</p>` : ''}
+${balanceNote ? `<p style="margin:12px 0 0;font-size:14px;color:${BRAND.muted};">${escapeHtml(balanceNote)}</p>` : ''}
 ${button(i.portalUrl, 'View your ledger')}
 </div>`,
-    footerHtml: `You’re receiving this because ${escapeHtml(i.associationName)} emails owners a receipt when the board records a payment. Keep it for your records. Replies to this email may not be read — use the resident portal to contact the board.`,
+    footerHtml: `You’re receiving this because ${escapeHtml(i.associationName)} emails owners a receipt when the board records a payment. Keep it for your records. Replies to this email may not be read. Use the resident portal to contact the board.`,
   })
 
   const lines = [

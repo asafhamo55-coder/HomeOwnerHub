@@ -18,6 +18,8 @@
  * …"), and its numbers are never shown as zeros.
  */
 
+import { BRAND } from '@/lib/email/brand'
+import { emailButton } from '@/lib/email/components'
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { formatDay } from '@/lib/money/format'
 import type { MonthlyReportData } from './model'
@@ -37,16 +39,16 @@ import {
 export { COMPLIANCE_PATH, RESERVE_SETUP_PATH, type MonthlyReportLinks } from './view'
 
 /** Band accent — inside the dark-mode-safe window (email/palette.ts; render.test.ts asserts it). Kept for the shell's optional band; the report's own brand colour is BRAND_PRIMARY. */
-export const REPORT_ACCENT = '#2F5D8A'
+export const REPORT_ACCENT: string = BRAND.primary
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
-const TEXT = '#0F172A'
-const TEXT_2 = '#334155'
-const MUTED = '#526077'
-const LINE = '#E2E8F0'
-const TINT = '#F5F8FC'
+const TEXT = BRAND.ink
+const TEXT_2 = BRAND.body
+const MUTED = BRAND.muted
+const LINE = BRAND.line
+const TINT = BRAND.panel
 const PRIMARY = BRAND_PRIMARY
-const PRIMARY_TINT = '#F0ECFF'
+const PRIMARY_TINT = BRAND.tint
 const DANGER = '#C4261B'
 const SUCCESS = '#067647'
 const WARN_BG = '#FFF8E6'
@@ -78,15 +80,9 @@ const EMAIL_CSS = `
 }
 `
 
+/** The logo lives in the shared shell header; this is just the report's own label. */
 function headerHtml(): string {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td width="36" valign="middle" style="width:36px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="36" height="36" align="center" valign="middle" bgcolor="${PRIMARY}" style="width:36px;height:36px;background-color:${PRIMARY};color:#FFFFFF;border-radius:9px;font-family:${FONT};font-size:21px;line-height:36px;font-weight:700;">H</td></tr></table>
-</td>
-<td valign="middle" style="padding-left:10px;font-family:${FONT};font-size:20px;line-height:24px;font-weight:700;letter-spacing:-0.3px;color:${TEXT};">Homeowner<span style="color:${PRIMARY};">Hub</span></td>
-<td align="right" valign="middle" style="font-family:${FONT};font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};">Board report</td>
-</tr></table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="3" bgcolor="${PRIMARY}" style="height:3px;line-height:3px;font-size:3px;background-color:${PRIMARY};">&nbsp;</td></tr></table>`
+  return `<p style="margin:0;font-family:${FONT};font-size:13px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${PRIMARY};">Board report</p>`
 }
 
 function summaryHtml(s: ReportSummary): string {
@@ -147,10 +143,8 @@ function figuresHtml(figures: Figure[]): string {
 }
 
 function buttonHtml(href: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td align="left" style="padding:4px 0 6px 0;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td bgcolor="${PRIMARY}" style="background-color:${PRIMARY};border-radius:8px;"><a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 26px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:8px;">Open the full report</a></td>
-</tr></table>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td align="left" style="padding:0 0 6px 0;">
+${emailButton(href, 'Open the full report')}
 <p style="margin:8px 0 0 0;font-family:${FONT};font-size:14px;line-height:20px;color:${MUTED};">Sign in to see it in the app. It prints cleanly too.</p>
 </td></tr></table>`
 }
@@ -239,7 +233,7 @@ ${view.sections.map(blockHtml).join('\n')}`
     extraCss: EMAIL_CSS,
     previewText: `${d.period.label}: ${view.summary.headline}`,
     bodyHtml,
-    footerHtml: `<div style="font-family:${FONT};font-size:13px;line-height:20px;color:${MUTED};">Sent by HomeownerHub to board members of ${escapeHtml(d.associationName)}. Board only, please don’t forward to residents.<br /><a href="${escapeHtml(settingsUrl)}" style="color:${MUTED};text-decoration:underline;">Turn off the monthly board report</a></div>`,
+    footerHtml: `<div style="font-family:${FONT};font-size:14px;line-height:20px;color:${MUTED};">Sent by HomeownerHub to board members of ${escapeHtml(d.associationName)}. Board only, please don’t forward to residents.<br /><a href="${escapeHtml(settingsUrl)}" style="color:${MUTED};text-decoration:underline;">Turn off the monthly board report</a></div>`,
   })
 
   const text = [

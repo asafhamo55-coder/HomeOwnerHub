@@ -17,6 +17,7 @@ import { inngest } from './client'
 import { loadBoardRecipients, BoardRecipientsError } from './daily-digest'
 import { CHANGEABLE_SUBSCRIPTION_STATUSES, errorFacts, type BillingStripePort } from './billing-stripe-port'
 import { planForBandLookupKey } from './billing-band-sync'
+import { BRAND, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 
 /**
  * BL-104 (decision §5): grandfathered $4.99/door subscriptions keep their
@@ -119,11 +120,12 @@ export function buildRenewalNotice(args: {
     `Questions, or want to move sooner? Email ${SUPPORT_EMAIL}.`,
   ]
   const text = [...paras, '', `See your plan: ${args.link}`].join('\n\n')
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111;">
-  <h2 style="margin:0 0 12px 0;font-size:18px;">${escapeHtml(subject)}</h2>
-  ${paras.map((p) => `<p style="margin:0 0 12px 0;color:#333;">${escapeHtml(p)}</p>`).join('\n  ')}
-  <p style="margin:0;"><a href="${escapeHtml(args.link)}">See your plan</a></p>
-</div>`
+  const html = wrapBrandedEmail({
+    title: subject,
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:${BRAND.ink};">${escapeHtml(subject)}</h2>
+  ${paras.map((p) => `<p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;color:${BRAND.body};">${escapeHtml(p)}</p>`).join('\n  ')}
+  <p style="margin:0;font-size:16px;"><a href="${escapeHtml(args.link)}" style="color:${BRAND.primary};font-weight:700;text-decoration:underline;">See your plan</a></p>`,
+  })
   return { subject, html, text }
 }
 

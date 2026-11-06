@@ -36,6 +36,8 @@
  * step 1 names neither.
  */
 
+import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_FILE, safeLogoUrlFromOrigin } from '@/lib/email/brand'
+import { emailAssetUrl } from '@/lib/email/asset-url'
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { assertAccent } from '@/lib/email/palette'
 import { M9_APPLIED } from '@homeowner-portal/db/m9'
@@ -50,11 +52,11 @@ export const WELCOME_EMAIL_HREF = `/communications/new?from=${WELCOME_EMAIL_FROM
 
 export const WELCOME_SUBJECT = '{{ association_name }} is moving to HomeownerHub'
 
-/** Brand green, the receipt and notification accent. Inside the dark-mode luminance window. */
-const ACCENT = '#1F6F5C'
-const TEXT = '#1A1D21'
-const BODY = '#2B3238'
-const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
+/** Royal purple, the marketing site's primary (email/brand.ts). Inside the dark-mode luminance window. */
+const ACCENT: string = BRAND.primary
+const TEXT = BRAND.ink
+const BODY = BRAND.body
+const FONT = EMAIL_FONT
 
 assertAccent(ACCENT)
 
@@ -85,6 +87,21 @@ export function communityLine(m: WelcomeModules): string | null {
   if (parts.length === 0) return null
   const joined = parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
   return joined.charAt(0).toUpperCase() + joined.slice(1)
+}
+
+/**
+ * The header logo for this email. The template is assembled in the browser
+ * composer, where the server-only EMAIL_ASSET_BASE_URL is unreadable, so
+ * when it is missing the logo comes from the app's own origin (the same
+ * public/email/v1 folder, and the same host the /welcome link already uses).
+ */
+function welcomeLogoUrl(origin: string): string | null {
+  try {
+    return emailAssetUrl(LOGO_FILE, LOGO_DIR)
+  } catch {
+    // Never bake a localhost or preview host into a stored template: text wordmark instead.
+    return safeLogoUrlFromOrigin(origin)
+  }
 }
 
 function item(text: string): string {
@@ -137,7 +154,8 @@ export function buildWelcomeEmailHtml(origin: string, modules: WelcomeModules = 
 
   return renderEmailDocument({
     title: WELCOME_SUBJECT,
-    band: { text: 'HomeownerHub', color: ACCENT },
+    logoUrl: welcomeLogoUrl(origin),
+    band: { text: '{{ association_name }}', color: ACCENT },
     previewText: 'Your balance, your requests and your news in one place. Look for the email that invites you to join.',
     bodyHtml: body,
     footerHtml:

@@ -7,6 +7,7 @@
  */
 
 import { formatCents } from './decide'
+import { BRAND, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 
 export interface AutopayEmail {
   subject: string
@@ -20,11 +21,12 @@ function esc(s: string): string {
 
 function wrap(subject: string, paras: string[], link?: { href: string; label: string }): AutopayEmail {
   const text = [...paras, ...(link ? ['', `${link.label}: ${link.href}`] : [])].join('\n\n')
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111;font-size:16px;">
-  <h2 style="margin:0 0 12px 0;font-size:18px;">${esc(subject)}</h2>
-  ${paras.map((p) => `<p style="margin:0 0 12px 0;color:#333;">${esc(p)}</p>`).join('\n  ')}
-  ${link ? `<p style="margin:0;"><a href="${esc(link.href)}">${esc(link.label)}</a></p>` : ''}
-</div>`
+  const html = wrapBrandedEmail({
+    title: subject,
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:${BRAND.ink};">${esc(subject)}</h2>
+  ${paras.map((p) => `<p style="margin:0 0 12px 0;font-size:16px;line-height:1.6;color:${BRAND.body};">${esc(p)}</p>`).join('\n  ')}
+  ${link ? `<p style="margin:0;font-size:16px;"><a href="${esc(link.href)}" style="color:${BRAND.primary};font-weight:700;text-decoration:underline;">${esc(link.label)}</a></p>` : ''}`,
+  })
   return { subject, text, html }
 }
 

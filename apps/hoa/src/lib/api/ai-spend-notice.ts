@@ -19,6 +19,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient, type Database } from '@homeowner-portal/db'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
+import { BRAND, brandButtonHtml, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 import { logRouteFailure } from './log'
 import { monthKeyUtc, monthStartUtc, type AiSpendLevel } from './ai-limits'
 import { aiSpendNoticeCopy } from './ai-spend'
@@ -93,11 +94,12 @@ export async function notifyAiSpendLevel(
   const link = appUrl('/settings/billing')
   const subject = copy.title
   const text = `${copy.body}\n\nSee your plan: ${link}`
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111;">
-  <h2 style="margin:0 0 12px 0;font-size:18px;">${escapeHtml(copy.title)}</h2>
-  <p style="margin:0 0 16px 0;color:#333;">${escapeHtml(copy.body)}</p>
-  <p style="margin:0;"><a href="${link}">See your plan</a></p>
-</div>`
+  const html = wrapBrandedEmail({
+    title: subject,
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;color:${BRAND.ink};">${escapeHtml(copy.title)}</h2>
+  <p style="margin:0 0 16px 0;color:${BRAND.body};">${escapeHtml(copy.body)}</p>
+  ${brandButtonHtml(link, 'See your plan')}`,
+  })
 
   let sent = 0
   for (const to of emails) {
