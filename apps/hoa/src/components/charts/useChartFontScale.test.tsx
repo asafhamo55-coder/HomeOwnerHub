@@ -20,7 +20,7 @@ import {
 } from './useChartFontScale'
 import { ActivityBar } from '@/components/dashboard/ActivityBar'
 import { StatusDonut } from '@/components/dashboard/StatusDonut'
-import { FeatureAdoptionChart, GrowthChart } from '@/components/admin/AnalyticsCharts'
+import { FeatureAdoptionChart, GrowthChart, WorkflowUsageChart } from '@/components/admin/AnalyticsCharts'
 import { applyTextSize } from '@/lib/larger-text'
 
 ;(globalThis as { React?: typeof React }).React = React
@@ -92,8 +92,7 @@ describe('useChartFontScale', () => {
     }
     render(<Probe />)
     expect(seen[0]).toBe(1)
-    await setRootSize('130%')
-    // jsdom does not resolve % against 16px, so use an absolute size to prove re-render.
+    // jsdom does not resolve % against 16px, so use an absolute size.
     await setRootSize('20.8px')
     expect(seen[seen.length - 1]).toBeCloseTo(1.3)
     await act(async () => { applyTextSize('normal'); await Promise.resolve() })
@@ -147,5 +146,56 @@ describe('chart option builders use the scale', () => {
     expect(o.yAxis.axisLabel.fontSize).toBe(16)
     expect(o.series[0].label.fontSize).toBe(14)
     expect(o.grid.right).toBe(52)
+  })
+
+  it('WorkflowUsageChart: labels truncate to a scaled width and height scales', async () => {
+    const wf = Array.from({ length: 4 }, (_, i) => ({ workflow_id: `workflow-with-a-long-name-${i}`, runs: i + 1 }))
+    render(<WorkflowUsageChart workflows={wf} />)
+    let o = last()
+    expect(o.yAxis.axisLabel.width).toBe(110)
+    expect(o.yAxis.axisLabel.overflow).toBe('truncate')
+    expect(host.querySelector('div[style*="height"]')?.getAttribute('style')).toContain('128px')
+    await setRootSize('20.8px')
+    o = last()
+    expect(o.yAxis.axisLabel.width).toBe(143)
+    expect(o.yAxis.axisLabel.overflow).toBe('truncate')
+    expect(host.querySelector('div[style*="height"]')?.getAttribute('style')).toContain('166px')
+  })
+
+  it('FeatureAdoptionChart: y labels truncate to a scaled width', async () => {
+    render(<FeatureAdoptionChart features={[{ feature: 'Violations', tenants_using: 1, total_tenants: 2 }]} />)
+    await setRootSize('20.8px')
+    expect(last().yAxis.axisLabel.width).toBe(143)
+    expect(last().yAxis.axisLabel.overflow).toBe('truncate')
+  })
+
+  it('no chart font is under 12px at 130% on a real component', async () => {
+    render(<GrowthChart tenants={[{ month: '2026-10', count: 1 }]} members={[{ month: '2026-10', count: 2 }]} />)
+    await setRootSize('20.8px')
+    const sizes: number[] = []
+    const walk = (v: unknown) => {
+      if (!v || typeof v !== 'object') return
+      for (const [k, x] of Object.entries(v)) {
+        if (k === 'fontSize' && typeof x === 'number') sizes.push(x)
+        else walk(x)
+      }
+    }
+    walk(last())
+    expect(sizes.length).toBeGreaterThan(4)
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(12)
+  })
+})
+
+describe('observer cleanup', () => {
+  it('disconnects the MutationObserver on unmount', () => {
+    const spy = vi.spyOn(MutationObserver.prototype, 'disconnect')
+    function Probe() {
+      useChartFontScale()
+      return null
+    }
+    render(<Probe />)
+    act(() => root.render(<div />))
+    expect(spy).toHaveBeenCalled()
+    spy.mockRestore()
   })
 })

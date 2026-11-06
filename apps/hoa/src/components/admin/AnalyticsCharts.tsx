@@ -83,7 +83,7 @@ function baseTooltip(t: Tokens, scale: number) {
     backgroundColor: t.elevated,
     borderColor: t.border,
     borderWidth: 1,
-    padding: [6, 10],
+    padding: [scaleChartSpace(6, scale), scaleChartSpace(10, scale)],
   }
 }
 
@@ -111,8 +111,8 @@ export function GrowthChart({ tenants, members }: GrowthChartProps) {
       legend: {
         bottom: 0,
         textStyle: { fontSize: scaleChartFont(12, scale), color: t['foreground-secondary'] },
-        itemWidth: 12,
-        itemHeight: 8,
+        itemWidth: scaleChartSpace(12, scale),
+        itemHeight: scaleChartSpace(8, scale),
       },
       grid: { top: scaleChartSpace(24, scale), right: scaleChartSpace(40, scale), bottom: scaleChartSpace(40, scale), left: scaleChartSpace(40, scale), containLabel: false },
       xAxis: {
@@ -212,7 +212,7 @@ export function FeatureAdoptionChart({ features }: FeatureAdoptionProps) {
         data: features.map((f) => f.feature).reverse(),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { fontSize: scaleChartFont(12, scale), color: t['foreground-secondary'] },
+        axisLabel: { fontSize: scaleChartFont(12, scale), color: t['foreground-secondary'], width: Math.round(110 * scale), overflow: 'truncate' },
       },
       series: [
         {
@@ -383,6 +383,8 @@ export function WorkflowUsageChart({ workflows }: { workflows: Array<{ workflow_
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
+          width: Math.round(110 * scale),
+          overflow: 'truncate',
           fontSize: scaleChartFont(11, scale),
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
           color: t['foreground-secondary'],
@@ -412,7 +414,7 @@ export function WorkflowUsageChart({ workflows }: { workflows: Array<{ workflow_
         {top.length === 0 ? (
           <EmptyState variant="compact" title="No AI runs in the last 30 days" />
         ) : (
-          <Chart option={option} height={Math.max(top.length * 30 + 8, 120)} />
+          <Chart option={option} height={Math.max(scaleChartSpace(top.length * 30 + 8, scale), 120)} />
         )}
       </CardContent>
     </Card>

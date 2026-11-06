@@ -48,7 +48,7 @@ export function ActivityBar({ buckets }: ActivityBarProps) {
         textStyle: { fontSize: scaleChartFont(12, scale) },
         borderColor: '#e5e7eb',
         borderWidth: 1,
-        padding: [6, 10],
+        padding: [scaleChartSpace(6, scale), scaleChartSpace(10, scale)],
       },
       // Legend is rendered in the header above the chart (matches the
       // prior design), so suppress ECharts' own legend.

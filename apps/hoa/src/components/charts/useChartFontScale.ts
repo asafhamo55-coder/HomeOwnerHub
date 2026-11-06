@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 
 // ECharts paints text with fixed pixel sizes, so it ignores the Text size
 // setting (a root font-size percentage on <html>, see lib/larger-text.ts).
@@ -30,10 +30,13 @@ function readScale(): number {
   return computeChartFontScale(parseFloat(getComputedStyle(document.documentElement).fontSize))
 }
 
+// useLayoutEffect warns during server render, so fall back to useEffect there.
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
+
 /** 1 on the server and first render; the live root scale after mount. */
 export function useChartFontScale(): number {
   const [scale, setScale] = useState(1)
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     const read = () => setScale(readScale())
     read()
     const obs = new MutationObserver(read)
