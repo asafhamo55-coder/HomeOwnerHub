@@ -73,6 +73,7 @@ import { SpanishVersion, type SpanishDraft } from './SpanishVersion'
 import { PhonePreview } from './PhonePreview'
 import { NoticeLawAlert } from '@/components/meetings/NoticeLawAlert'
 import type { NoticeCheck } from '@/lib/meetings/notice-law'
+import type { WelcomePrefill } from '@/lib/communications/welcome-email'
 import { TEMPLATE_MEETING_TYPE, calendarParagraphHtml, type MeetingNoticePrefill } from '@/lib/meetings/notice-prefill'
 import { annualReportNoticeSection } from '@/lib/annual-report/actions'
 import { meetingCalendarParagraph, recordMeetingNoticeSent } from '@/lib/meetings/notice-actions'
@@ -178,6 +179,7 @@ export function NewCommunicationWizard({
   followUp: followUpProp = null,
   resumeDraft = null,
   meetingNotice: meetingNoticeProp = null,
+  welcomePrefill: welcomePrefillProp = null,
 }: {
   templates: TemplateOption[]
   audienceCounts: AudienceCounts
@@ -227,6 +229,12 @@ export function NewCommunicationWizard({
    * add-to-calendar link; nothing goes out until the board presses Send.
    */
   meetingNotice?: { prefill: MeetingNoticePrefill; check: NoticeCheck | null } | null
+  /**
+   * `?from=welcome-email` — the built-in "Welcome to HomeownerHub" email,
+   * answered for this association, to everyone. Fills the composer only;
+   * the board reviews, test-sends and presses Send.
+   */
+  welcomePrefill?: WelcomePrefill | null
 }) {
   const r = resumeDraft?.state ?? null
   // BL-118: a fresh meeting notice (a resumed draft carries its own link).
@@ -235,7 +243,11 @@ export function NewCommunicationWizard({
   // BL-153: the annual meeting's notice can carry the owner annual report (offered on a fresh notice).
   const offerAnnualReport = meetingPrefill?.answers.meeting_type === TEMPLATE_MEETING_TYPE.annual
   const [attachReport, setAttachReport] = useState(false)
-  const meetingTemplate = meetingPrefill ? BUILT_IN_OPTIONS.find((t) => t.id === meetingPrefill.templateId) ?? null : null
+  // A built-in template the page opened the composer on (a meeting notice or
+  // the welcome email), with its answers, category and audience.
+  const startPrefill: { templateId: string; baseCategory: (typeof CATEGORIES)[number]; audience: AudienceKind; answers: Record<string, string> } | null =
+    meetingPrefill ?? (r ? null : welcomePrefillProp)
+  const meetingTemplate = startPrefill ? BUILT_IN_OPTIONS.find((t) => t.id === startPrefill.templateId) ?? null : null
   // A resumed follow-up draft carries its own follow-up audience.
   const followUp: FollowUpDraft | null = followUpProp ?? r?.followUp ?? null
   const preselect = initialPropertyId && properties.some((p) => p.id === initialPropertyId) ? initialPropertyId : null
@@ -243,12 +255,12 @@ export function NewCommunicationWizard({
   // BL-102 A4: no Topic step. A template brings its own category; a
   // message written from scratch is filed as an announcement (or, from the
   // budget notice, as financial).
-  const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>(r?.baseCategory ?? (meetingPrefill ? meetingPrefill.baseCategory : 'announcement'))
+  const [baseCategory, setBaseCategory] = useState<(typeof CATEGORIES)[number]>(r?.baseCategory ?? (startPrefill ? startPrefill.baseCategory : 'announcement'))
   const [audience, setAudience] = useState<AudienceKind>(
-    r ? r.audience : followUp ? 'follow_up' : preselect ? 'specific_property' : meetingPrefill ? meetingPrefill.audience : 'everyone',
+    r ? r.audience : followUp ? 'follow_up' : preselect ? 'specific_property' : startPrefill ? startPrefill.audience : 'everyone',
   )
   const [templateId, setTemplateId] = useState<string>(r?.templateId ?? (meetingTemplate ? meetingTemplate.id : ''))
-  const [answers, setAnswers] = useState<AnswerMap>(r?.answers ?? (meetingTemplate ? { ...meetingPrefill?.answers } : {}))
+  const [answers, setAnswers] = useState<AnswerMap>(r?.answers ?? (meetingTemplate ? { ...startPrefill?.answers } : {}))
   const [subject, setSubject] = useState(r?.subject ?? followUp?.subject ?? meetingTemplate?.subject ?? '')
   const [bodyHtml, setBodyHtml] = useState(r?.bodyHtml ?? followUp?.bodyHtml ?? meetingTemplate?.bodyHtml ?? '')
   // A follow-up goes only on the channel the board asked for: the original

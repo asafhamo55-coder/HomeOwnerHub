@@ -3,6 +3,7 @@ import { buildMergeBag, type AnswerMap } from '@/lib/community-templates/merge-b
 import type { TemplateQuestion } from '@/lib/community-templates/types'
 import { BUILT_IN_TEMPLATES, isBuiltInTemplateId } from './built-in-templates'
 import { buildRecipientBag } from './merge-bag'
+import { WELCOME_TEMPLATE_ID } from './welcome-email'
 import { renderForSchedule } from './partial-render'
 import { extractMergeFields, renderTemplateStrict } from './templates'
 
@@ -43,7 +44,7 @@ function renderAll(subject: string, body: string, answers: AnswerMap, questions:
 const ALLOWED_AMBIENT = new Set(['recipient_name', 'association_name'])
 
 describe('built-in templates', () => {
-  it('ships the seven the plan lists', () => {
+  it('ships the eight the plan lists', () => {
     expect(BUILT_IN_TEMPLATES.map((t) => t.name)).toEqual([
       'Dues reminder',
       'Meeting notice',
@@ -51,6 +52,7 @@ describe('built-in templates', () => {
       'Pool closing',
       'Holiday office closure',
       'Welcome new owner',
+      'Welcome to HomeownerHub',
       'Severe weather',
     ])
     expect(new Set(BUILT_IN_TEMPLATES.map((t) => t.id)).size).toBe(BUILT_IN_TEMPLATES.length)
@@ -103,7 +105,9 @@ describe('built-in templates', () => {
 
       it('is plain language: no HTML jargon or merge-field talk in the copy', () => {
         expect(t.bodyHtml).not.toMatch(/merge field|variable|template/i)
-        expect(t.bodyHtml).not.toMatch(/<(div|table|style|script)/i)
+        // The welcome email is a designed layout (table shell); the rest are plain paragraphs.
+        if (t.id !== WELCOME_TEMPLATE_ID) expect(t.bodyHtml).not.toMatch(/<(div|table|style|script)/i)
+        expect(t.bodyHtml).not.toMatch(/<script/i)
       })
     })
   }

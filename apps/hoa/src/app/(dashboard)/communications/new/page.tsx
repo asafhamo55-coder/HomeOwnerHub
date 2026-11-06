@@ -22,6 +22,8 @@ import { ANNUAL_REPORT_FROM } from '@/lib/annual-report/message'
 import { smsConfigured } from '@/lib/sms'
 import { parseMeetingParam } from '@/lib/meetings/notice-prefill'
 import { loadMeetingNoticeContext, type MeetingNoticeContext } from '@/lib/meetings/notice-queries'
+import { WELCOME_EMAIL_FROM, buildWelcomePrefill } from '@/lib/communications/welcome-email'
+import { US_STATES } from '@/lib/us-states'
 import { NewCommunicationWizard } from './NewCommunicationWizard'
 
 export const metadata = { title: 'New message' }
@@ -54,6 +56,9 @@ export default async function NewCommunicationPage({
    * `?from=dues-rate-notice`: the owner notice for a dues change (BL-137).
    * `?from=ho6-notice`: the optional HO-6 notice to owners (BL-142).
    * `?from=annual-report`: the annual report message to owners (BL-153).
+   * `?from=welcome-email`: the built-in "Welcome to HomeownerHub" email,
+   * prefilled for this association. Only fills the composer; the board
+   * reviews, test-sends and presses Send.
    */
   searchParams: Promise<{ property?: string; from?: string; followUp?: string; via?: string; draft?: string; meeting?: string }>
 }) {
@@ -87,7 +92,7 @@ export default async function NewCommunicationPage({
   const supabase = await getSupabaseServerClient()
   const assocRes = await loadOrFail(
     'association',
-    supabase.from('associations').select('organization_id').eq('id', assoc.id).single(),
+    supabase.from('associations').select('organization_id, state').eq('id', assoc.id).single(),
   )
   if (!assocRes.ok || !assocRes.data) {
     return (
@@ -97,6 +102,7 @@ export default async function NewCommunicationPage({
     )
   }
   const orgId = (assocRes.data as { organization_id: string }).organization_id
+  const stateCode = (assocRes.data as { state?: string | null }).state ?? null
 
   // Property list for the "Specific property" audience option. Cheap
   // top-level query — residents are lazy-loaded per property via the
@@ -190,6 +196,16 @@ export default async function NewCommunicationPage({
     followUpUnavailable = followUp === null && !followUpFailed
   }
 
+  // The welcome email, prefilled for this association. A resumed draft, a
+  // follow-up or another prefill wins, since each already holds its own text.
+  const welcomePrefill =
+    sp.from === WELCOME_EMAIL_FROM && !resumeDraft && !prefillFrom && !sp.followUp && !meetingCtx?.ok
+      ? buildWelcomePrefill({
+          associationName: assoc.name,
+          stateName: US_STATES.find((st) => st.code === stateCode?.toUpperCase())?.name ?? null,
+        })
+      : null
+
   const counts = {
     ...audienceCounts,
     board: boardRes.count ?? 0,
@@ -270,6 +286,7 @@ export default async function NewCommunicationPage({
           streets={streets}
           followUp={followUp}
           resumeDraft={resumeDraft}
+          welcomePrefill={welcomePrefill}
           meetingNotice={meetingCtx?.ok ? { prefill: meetingCtx.prefill, check: meetingCtx.check } : null}
         />
       </Card>

@@ -21,6 +21,7 @@ import { LocalDateTime } from '@/components/ui/LocalDateTime'
 import { getPrimaryAssociation } from '@/lib/vendors'
 import { getCommunicationsStrip, listCommunications, type CommunicationSummary } from '@/lib/communications/queries'
 import { draftHref, draftTitle } from '@/lib/communications/drafts'
+import { WELCOME_EMAIL_HREF } from '@/lib/communications/welcome-email'
 import { DeleteDraftButton } from './DeleteDraftButton'
 import { pickDisplaySubject } from '@/lib/communications/display'
 import { COMMUNICATION_CATEGORY, COMMUNICATION_STATUS, communicationStatusBadge } from '@/lib/status/community'
@@ -292,6 +293,26 @@ export default async function CommunicationsPage({ searchParams }: PageProps) {
         />
       }
     >
+      {!showingDrafts && page === 1 ? (
+        <section
+          aria-label="Welcome email"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-primary-subtle p-4"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-foreground">Send the welcome email</p>
+            <p className="mt-1 text-sm text-foreground-secondary">
+              Introduce HomeownerHub to your residents, with a one-minute video and how to get started. It opens as a
+              draft for you to review and send yourself.
+            </p>
+          </div>
+          <Button asChild variant="secondary">
+            <Link href={WELCOME_EMAIL_HREF}>
+              <Send aria-hidden />
+              Open the welcome email
+            </Link>
+          </Button>
+        </section>
+      ) : null}
       {!result.ok ? (
         <LoadFailed what="communications" />
       ) : total === 0 && !filtered && !draftCount ? (

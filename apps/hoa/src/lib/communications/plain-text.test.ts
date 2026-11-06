@@ -90,6 +90,11 @@ describe('htmlToPlainEditorText', () => {
 
   it('opens every built-in template in the plain editor, losslessly', () => {
     for (const t of BUILT_IN_TEMPLATES) {
+      // The welcome email is a designed layout: it opens in HTML mode, with a note, by design.
+      if (t.id === 'builtin:welcome-homeownerhub') {
+        expect(htmlToPlainEditorText(t.bodyHtml), t.id).toBeNull()
+        continue
+      }
       const text = htmlToPlainEditorText(t.bodyHtml)
       expect(text, t.id).not.toBeNull()
       // Round trip is stable: text → html → text gives the same text.
