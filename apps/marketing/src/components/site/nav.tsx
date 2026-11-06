@@ -290,7 +290,7 @@ export function Nav() {
                     <Link
                       href="/georgia"
                       onClick={() => setFeaturesOpen(false)}
-                      className="inline-flex min-h-11 items-center justify-between rounded-xl bg-[#fff] px-4 text-[15px] font-semibold text-[#3b0764] transition-colors hover:bg-[#e9e3ff]"
+                      className="inline-flex min-h-11 items-center justify-between rounded-xl bg-[#fff] px-4 text-[15px] font-semibold text-[#3b0764] transition-colors hover:bg-[#f0e8ff]"
                     >
                       See Georgia guides
                       <ArrowRight className="h-4 w-4" aria-hidden />

@@ -246,10 +246,10 @@
   }
   .section-night {
     background: var(--night);
-    --background: 246 13.2% 14.9%;
-    --surface: 246 13% 19%;
-    --elevated: 246 13% 22%;
-    --subtle: 246 12% 24%;
+    --background: 272 32% 10%;
+    --surface: 272 30% 14%;
+    --elevated: 272 30% 17.5%;
+    --subtle: 272 28% 20.5%;
   }
 
   /* Features mega-menu: fade and rise on open, instant under reduced motion. */
