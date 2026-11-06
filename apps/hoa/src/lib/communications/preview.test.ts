@@ -78,7 +78,7 @@ describe('buildPreview', () => {
       portalLink: LINK,
     })
     expect(p.sms.shortened).toBe(true)
-    expect(p.sms.body.endsWith(LINK)).toBe(true)
+    expect(p.sms.body.endsWith(`${LINK} Reply STOP to opt out.`)).toBe(true)
     expect(p.sms.chars).toBeLessThanOrEqual(SMS_MAX_CHARS)
   })
 

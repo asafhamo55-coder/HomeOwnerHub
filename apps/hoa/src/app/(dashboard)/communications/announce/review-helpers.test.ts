@@ -15,7 +15,7 @@ describe('announce review helpers', () => {
   it('a 300-character message goes out as one text of at most 279', () => {
     const body = composeSmsBody({ subject: 'Pool', body: 'x'.repeat(300), portalLink: 'https://example.test/p/1' })
     expect(body.length).toBeLessThanOrEqual(SMS_MAX_CHARS)
-    expect(body.endsWith('https://example.test/p/1')).toBe(true)
+    expect(body.endsWith('https://example.test/p/1 Reply STOP to opt out.')).toBe(true)
     expect(smsTextCount(body)).toBe(1)
   })
 

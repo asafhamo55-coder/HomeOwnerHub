@@ -10,7 +10,7 @@ import { sendEmail, appUrl } from '@/lib/email'
 import { BRAND, brandButtonHtml, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
-import { SMS_MAX_CHARS, composeSmsBody } from '@/lib/communications/sms-body'
+import { withStopLine, composeSmsBody } from '@/lib/communications/sms-body'
 import {
   resolveAudience,
   fetchBoardMembers,
@@ -695,7 +695,7 @@ function buildSmsBody(
   // The same one-message rule as announcements (BL-072): shortened with a
   // whole portal link, never a link cut off at character 279.
   if (portalLink) return composeSmsBody({ subject, body: raw, portalLink })
-  return `${subject}: ${raw}`.slice(0, SMS_MAX_CHARS)
+  return withStopLine(`${subject}: ${raw}`)
 }
 
 function buildEventMessage(event: RecurringEvent, today: string): {
