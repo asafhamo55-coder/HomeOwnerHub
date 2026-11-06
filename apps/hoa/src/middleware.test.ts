@@ -100,6 +100,19 @@ describe('middleware: /api/* without a session (R-03 / C-03)', () => {
   })
 })
 
+describe('middleware: /welcome is public', () => {
+  it('lets a signed-out visitor reach the onboarding page', async () => {
+    const res = await middleware(req('/welcome'))
+    expect(res.headers.get('location')).toBeNull()
+    expect(res.status).toBe(200)
+  })
+
+  it('still sends a look-alike route to /login', async () => {
+    const res = await middleware(req('/welcome-admin'))
+    expect(res.headers.get('location')).toContain('/login')
+  })
+})
+
 describe('middleware: which requests confirm the session with the auth server (BL-074)', () => {
   const strictFor = async (path: string) => {
     vi.mocked(updateSession).mockClear()
@@ -141,6 +154,8 @@ describe('middleware matcher exclusions are anchored (C-16)', () => {
       '/favicon.ico',
       '/brand/icon.svg',
       '/brand/logo-mark-512.png',
+      '/welcome/welcome.mp4',
+      '/welcome/welcome.vtt',
       '/_next/static/chunk.js',
       '/sw.js',
     ]) {
@@ -160,6 +175,7 @@ describe('middleware matcher exclusions are anchored (C-16)', () => {
       '/favicon.icon-admin',
       '/brand',
       '/branding-settings',
+      '/welcome-admin',
       '/api/ai/rewrite',
       '/violations',
     ]) {

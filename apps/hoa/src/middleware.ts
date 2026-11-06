@@ -10,6 +10,8 @@ const PUBLIC_PREFIXES = [
   '/login',
   '/signup',
   '/verify',
+  // Resident onboarding video and steps, linked from the invitation email.
+  '/welcome',
   '/forgot-password',
   '/reset-password',
   '/auth',
@@ -130,6 +132,9 @@ export const config = {
     //                 no resident data. Trailing slash so a future /email page
     //                 is not accidentally un-gated, and unversioned so email/v2
     //                 keeps working.
+    //       welcome/ — the onboarding video, poster, captions and preview GIF
+    //                 (public/welcome/). The /welcome page itself still runs
+    //                 through the middleware and is listed as public above.
     //       brand/  — the HomeownerHub logo files (BL-098): the SVG favicon, the
     //                 manifest's 192/512 icons, logo PNGs. Public brand art,
     //                 loaded before sign-in. Trailing slash, same reason.
@@ -147,6 +152,6 @@ export const config = {
     //   /api/healthcare-reports or /api/cron-admin would silently skip the
     //   session refresh and the JSON 401 above. middleware.test.ts pins both
     //   the excluded set and the look-alikes that must stay gated.
-    '/((?!_next/static/|_next/image|favicon\\.ico$|email/|brand/|sw\\.js$|manifest\\.webmanifest$|icon$|apple-icon$|robots\\.txt$|api/webhooks/|api/inngest$|api/health$|api/cron/|api/admin/setup-stripe-pricing$|api/oauth/).*)',
+    '/((?!_next/static/|_next/image|favicon\\.ico$|email/|welcome/|brand/|sw\\.js$|manifest\\.webmanifest$|icon$|apple-icon$|robots\\.txt$|api/webhooks/|api/inngest$|api/health$|api/cron/|api/admin/setup-stripe-pricing$|api/oauth/).*)',
   ],
 }
