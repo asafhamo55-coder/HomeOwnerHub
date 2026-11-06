@@ -1460,6 +1460,11 @@ export const STATE_QUOTES = {
     fixture: FL,
     quote: "The board shall duly notice and hold a board meeting within 5 full business days after the adjournment of the member meeting to recall one or more directors.",
   },
+  flRecallWindow: {
+    cite: "Fla. Stat. § 720.303(10)(l)",
+    fixture: FL,
+    quote: "when 60 or fewer days have not elapsed since the election of the board member sought to be recalled.",
+  },
   flRecallMinutes: {
     cite: "Fla. Stat. § 720.303(10)(i)",
     fixture: FL,

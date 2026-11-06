@@ -94,7 +94,7 @@ export const FL_BUDGET_RESERVES: Guide = {
     {
       heading: 'What this page does not tell you',
       body: [
-        'We hold chapter 720 only. We do not state how much to reserve, which accounting standard your accountant applies, or what happens to a board that misses a deadline. We also leave out the developer rules in paragraph (i). Paragraph (c) also requires a conspicuous statement in the financial report when reserves are not provided or not fully funded. Ask your accountant for the required wording. Check the current text with your attorney before the board relies on a date.',
+        'We hold chapter 720 only. We do not state how much to reserve, which accounting standard your accountant applies, or what happens to a board that misses a deadline. We also leave out the developer rules in paragraph (i). Paragraph (c) requires a conspicuous statement in the financial report in certain cases where reserves are not provided or not fully funded, and a different one for limited voluntary accounts. Ask your accountant whether either applies and for the required wording. Check the current text with your attorney before the board relies on a date.',
       ],
     },
   ],
@@ -169,7 +169,6 @@ export const FL_RECALL: Guide = {
       body: [
         'Members can sign a written agreement or written ballots without holding a meeting. The papers are served on the association by certified mail or personal service in the way the statute names. A signed recall paper has a short shelf life and must meet formal requirements, so confirm both with your attorney before anyone relies on it.',
       ],
-      
     },
     {
       heading: 'Recall at a meeting',
@@ -188,16 +187,14 @@ export const FL_RECALL: Guide = {
     {
       heading: 'If the board does not certify',
       body: [
-        'A board that decides not to certify must file an action in court or a petition for binding arbitration with the state agency within 5 full business days after the meeting. The text says a recall that goes this route takes effect only when the court enters its final order or the arbitration order is mailed to the association, and the members who voted or signed are treated as one party. Which route fits is a question for your attorney. Recall disputes are not eligible for presuit mediation under 720.311(1). They go to arbitration by the state agency or to court, and the arbitration carries a filing fee and a prevailing party cost rule that your attorney can explain.',
+        'A board that decides not to certify must file an action in court or a petition for binding arbitration with the state agency within 5 full business days after the meeting. The text says that if the arbitrator or court certifies the recall, it takes effect on the court’s final order or the mailing of the final arbitration order to the association, and the members who voted or signed are treated as one party. Which route fits is a question for your attorney. Recall disputes are not eligible for presuit mediation under 720.311(1). They go to arbitration by the state agency or to court, and the arbitration carries a filing fee and a prevailing party cost rule that your attorney can explain.',
       ],
-      
     },
     {
       heading: 'If the board does nothing',
       body: [
         'If the board misses the meeting deadline, the text says the recall is deemed effective and the recalled directors turn over the association’s records and property. A parcel owner representative has a separate way to challenge a board that fails to act, set out in paragraph (g), which requires the petition or action within 60 days after the 5 full business day period ends.',
       ],
-      
     },
     {
       heading: 'Minutes and separate votes',
@@ -209,21 +206,21 @@ export const FL_RECALL: Guide = {
     {
       heading: 'A recalled director can challenge it',
       body: [
-        'A recalled board member may file an action or petition challenging the validity of the recall, within 60 days after the recall is deemed certified.',
+        'A recalled board member may file an action or petition challenging the validity of the recall, within 60 days after the recall is deemed certified. Ask your attorney to confirm the date.',
       ],
-      
     },
     {
       heading: 'What this page does not tell you',
       body: [
-        'We hold chapter 720 only. We do not restate how vacancies are filled after a recall, how a signed recall ballot expires (no ballot is valid more than 120 days after signing), the rule that a member’s written rescission must reach the association before service, the requirement that the instrument list replacement directors when a majority of the board is targeted, the reuse of ballots after a defective first attempt, or the procedural rules of the state agency. Paragraphs (d) and (k) borrow the arbitration procedure from sections of the condominium chapter. The recall right itself comes from chapter 720, and this page does not cover condominium recalls. Paragraph (l) bars the state agency and the courts from accepting a recall petition or action when 60 or fewer days remain until the director’s scheduled reelection, or when 60 or fewer days have passed since the director’s election. Ask your attorney to check that window before anyone files. We give no deadline of our own. Because the clocks are short, ask your attorney before the board acts on either side of a recall.',
+        'We hold chapter 720 only. We do not restate how vacancies are filled after a recall, how a signed recall ballot expires (no ballot is valid more than 120 days after signing), the rule that a member’s written rescission must reach the association before service, the requirement that the instrument list replacement directors when a majority of the board is targeted, the reuse of ballots after a defective first attempt, or the procedural rules of the state agency. Paragraphs (d) and (k) borrow the arbitration procedure from sections of the condominium chapter. The recall right itself comes from chapter 720, and this page does not cover condominium recalls. Paragraph (l) bars the state agency and the courts from accepting a recall petition or action, whether or not the recall was certified, when 60 or fewer days remain until the director’s scheduled reelection. It adds a second limit worded “when 60 or fewer days have not elapsed since the election of the board member sought to be recalled.” That wording is unclear, so we do not restate it as a fixed number of days. Ask your attorney to read both limits against the director’s election date before anyone files. We give no deadline of our own. Because the clocks are short, ask your attorney before the board acts on either side of a recall.',
       ],
+      quotes: ['flRecallWindow'],
     },
   ],
   steps: [
     'Read your declaration, articles and bylaws for any meeting-based recall rule and for who may call a special meeting.',
     'If a written recall is served, record the date and method of service the same day.',
-    'Ask your attorney whether the recalled director’s election date falls within the 60 day window in paragraph (l).',
+    'Ask your attorney whether paragraph (l) bars a filing, given the recalled director’s election date.',
     'Calendar the 5 full business days and notice a board meeting with your attorney.',
     'At the meeting, decide whether to certify. Record the vote count for each director in the minutes.',
     'If the board will not certify, ask your attorney to file the court action or arbitration petition within the period.',
@@ -291,7 +288,7 @@ export const TX_JUSTICE: Guide = {
     {
       heading: 'What counts as a subdivision and an association',
       body: [
-        'The chapter defines a residential subdivision by its restrictions, and it defines a property owners’ association as one that represents owners in such a subdivision. Whether your community fits is a question about your recorded documents. Both definitions continue with conditions, including that the restrictions are recorded, limit most of the land to residential use, and require membership in an association with authority to impose assessments. Read the full definitions with your attorney.',
+        'The chapter defines a residential subdivision by its restrictions, and it defines a property owners’ association as one that represents owners in such a subdivision. Whether your community fits is a question about your recorded documents. Each definition continues with further conditions. The subdivision definition requires, among other things, that the restrictions are recorded, limit most of the land to residential use, and require membership in an association with authority to impose assessments. The association definition has its own conditions. Read the full definitions with your attorney.',
       ],
       quotes: ['txDefSubdivision', 'txDefAssoc'],
     },
