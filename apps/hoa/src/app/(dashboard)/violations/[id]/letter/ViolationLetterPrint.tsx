@@ -1,5 +1,6 @@
 'use client'
 
+import { Letterhead } from '@/components/print/Letterhead'
 import { useTransition } from 'react'
 import { Printer } from 'lucide-react'
 import { Alert, Button, useToast } from '@homeowner-portal/ui'
@@ -59,7 +60,7 @@ export function ViolationLetterPrint({ view }: { view: ViolationLetterView }) {
         className={`space-y-4 rounded-lg border border-border bg-surface p-5 text-sm print:border-0 print:p-0 ${gate.docClass}`}
       >
         <header className="space-y-3">
-          {view.association ? <p className="text-base font-semibold text-foreground">{view.association}</p> : null}
+          <Letterhead name={view.association} />
           <p className="num text-foreground-secondary">{view.dateLabel}</p>
           <div className="text-foreground">
             {view.ownerName ? <p>{view.ownerName}</p> : null}

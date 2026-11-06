@@ -1,9 +1,10 @@
 import { NOTICE_STEPS, displayAddress } from '@/lib/join-notice'
+import { Letterhead } from '@/components/print/Letterhead'
 import { telHref, type BoardContact } from '@/lib/association-contacts'
 
 /**
  * One printed page: black on white, headings 28pt and up, body 16pt and up.
- * Nothing here relies on colour. Pure presentation so tests can render it.
+ * Nothing here relies on colour (the letterhead logo prints in colour, but the words never depend on it). Pure presentation so tests can render it.
  */
 export function JoinNotice({
   associationName,
@@ -26,7 +27,7 @@ export function JoinNotice({
     >
       <style>{'@media print { @page { size: letter; margin: 0.5in; } }'}</style>
       <header className="break-inside-avoid border-b-4 border-black pb-2">
-        <p className="text-[16pt] font-bold uppercase tracking-wide">{associationName}</p>
+        <Letterhead name={associationName} className="mb-2 [&_span]:text-[16pt] [&_span]:font-bold" />
         <h1 className="text-[30pt] font-bold leading-tight">{associationName} is now on HomeownerHub</h1>
       </header>
 

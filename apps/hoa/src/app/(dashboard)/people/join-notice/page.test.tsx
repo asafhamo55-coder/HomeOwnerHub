@@ -56,6 +56,8 @@ describe('join notice page', () => {
     m.role.mockResolvedValue(board)
     const html = renderToStaticMarkup(await Page())
     expect(html).toContain('Madison Park is now on HomeownerHub')
+    expect(html).toContain('src="/brand/logo-full.svg"')
+    expect(html).toContain('alt="HomeownerHub"')
     expect(html).toContain('Look for our email.')
     expect(html).toContain('No email? Open the web address below.')
     expect(html).toContain('Ask to join your home')

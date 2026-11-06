@@ -1,4 +1,4 @@
-/* Welcome video scenes. Colours are the HOA light palette from packages/ui/src/tokens.ts. */
+/* Welcome video scenes. In-phone screens use the HOA light palette from packages/ui/src/tokens.ts (the real app is indigo #4B27C9). The video chrome (cards, captions, rings, phone frame) uses the website Royal purple palette: #6D28D9, #5B21B6, #3B0764, #6B21A8, #7E22CE, ink #1f1033, mint accent #34D399. */
 :root {
   --bg: #F5F8FC;
   --surface: #FFFFFF;
@@ -18,7 +18,7 @@
   --ink: #0F172A;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { background: var(--ink); overflow: hidden; }
+html, body { background: #1f1033; overflow: hidden; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   color: var(--fg);
@@ -28,13 +28,13 @@ body {
 /* ---------- Stage layout ---------- */
 body.port { width: 1080px; height: 1920px; --s: 1.95; --uh: 700px; --cap: 54px; }
 body.land { width: 1920px; height: 1080px; --s: 1.5; --uh: 640px; --cap: 58px; }
-#stage { position: relative; width: 100%; height: 100%; background: linear-gradient(180deg, #1B1346 0%, #0F172A 100%); overflow: hidden; }
+#stage { position: relative; width: 100%; height: 100%; background: linear-gradient(180deg, #6B21A8 0%, #3B0764 55%, #1f1033 100%); overflow: hidden; }
 body.port #stage { display: grid; grid-template-rows: 150px 1400px 370px; justify-items: center; }
 body.land #stage { display: grid; grid-template-columns: 760px 1fr; }
 
 #top { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0 44px; color: #fff; }
 #top img { height: 60px; }
-#top .tag { font-size: 42px; font-weight: 700; color: #E1DBFF; text-align: right; line-height: 1.12; }
+#top .tag { font-size: 42px; font-weight: 700; color: #F3E8FF; text-align: right; line-height: 1.12; }
 body.land #top { display: none; }
 
 #mid { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
@@ -47,7 +47,7 @@ body.land #side {
 }
 #side .brand { display: flex; align-items: center; justify-content: space-between; }
 #side .brand img { height: 64px; }
-#side .tag { font-size: 40px; font-weight: 700; color: #E1DBFF; text-align: right; line-height: 1.12; }
+#side .tag { font-size: 40px; font-weight: 700; color: #F3E8FF; text-align: right; line-height: 1.12; }
 #side h2 { font-size: 60px; line-height: 1.1; margin-bottom: 34px; letter-spacing: -0.01em; }
 
 #cap {
@@ -56,7 +56,7 @@ body.land #side {
 }
 #cap p {
   font-size: var(--cap); font-weight: 700; line-height: 1.25; letter-spacing: -0.005em;
-  background: rgba(15,23,42,0.88); border: 2px solid rgba(203,194,255,0.35);
+  background: rgba(59,7,100,0.92); border: 2px solid rgba(233,213,255,0.5);
   border-radius: 28px; padding: 28px 34px; opacity: 0; transition: opacity .25s;
   text-shadow: 0 1px 2px rgba(0,0,0,.4);
 }
@@ -64,12 +64,12 @@ body.land #side {
 body.land #cap { padding: 0; justify-content: flex-start; text-align: left; }
 body.land #cap p { font-size: 64px; }
 
-#fade { position: absolute; inset: 0; background: #0F172A; opacity: 1; pointer-events: none; z-index: 50; }
+#fade { position: absolute; inset: 0; background: #1f1033; opacity: 1; pointer-events: none; z-index: 50; }
 
 /* ---------- Phone ---------- */
 .phone {
-  position: relative; background: #0B1020; border-radius: 96px; padding: 16px;
-  box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 3px #2A3350;
+  position: relative; background: #1f1033; border-radius: 96px; padding: 16px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 0 0 3px #7E22CE;
 }
 body.land .phone { border-radius: 76px; }
 .screenbox {
@@ -202,16 +202,16 @@ body.land .screenbox { border-radius: 62px; }
 
 /* tap + ring */
 .tap { position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 20; }
-.tap::before { content: ""; position: absolute; left: -34px; top: -34px; width: 68px; height: 68px; border-radius: 50%; background: rgba(75,39,201,.28); border: 5px solid var(--primary); opacity: 0; }
-.tap::after { content: ""; position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); border: 4px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4); opacity: 0; }
+.tap::before { content: ""; position: absolute; left: -34px; top: -34px; width: 68px; height: 68px; border-radius: 50%; background: rgba(109,40,217,.28); border: 5px solid #6D28D9; opacity: 0; }
+.tap::after { content: ""; position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; background: #6D28D9; border: 4px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.4); opacity: 0; }
 .tap.cue.on { opacity: 1; }
 .tap.on::before { animation: ripple 1.0s ease-out 1; }
 .tap.on::after { animation: dot 1.0s ease-out 1; }
 @keyframes ripple { 0% { transform: scale(.4); opacity: 0; } 25% { opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
 @keyframes dot { 0% { transform: scale(1.8); opacity: 0; } 30% { transform: scale(1); opacity: 1; } 70% { transform: scale(.8); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
-.ring { position: absolute; inset: -6px; border-radius: 18px; border: 5px solid #F59E0B; box-shadow: 0 0 0 4px rgba(245,158,11,.28); z-index: 18; }
+.ring { position: absolute; inset: -6px; border-radius: 18px; border: 5px solid #6D28D9; box-shadow: 0 0 0 4px #fff, 0 0 0 7px rgba(109,40,217,.35); z-index: 18; }
 .ring.on { animation: pulse 1.1s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(245,158,11,.25); } 50% { box-shadow: 0 0 0 12px rgba(245,158,11,.12); } }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 4px #fff, 0 0 0 7px rgba(109,40,217,.35); } 50% { box-shadow: 0 0 0 4px #fff, 0 0 0 14px rgba(109,40,217,.2); } }
 
 /* ---------- Title / closing cards ---------- */
 .card-scene { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #fff; padding: 40px; gap: 18px; }
@@ -219,18 +219,20 @@ body.port .card-scene { top: -150px; bottom: -370px; z-index: 5; }
 .card-scene img.mk { width: 220px; height: 220px; border-radius: 52px; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
 body.land .card-scene img.mk { width: 160px; height: 160px; border-radius: 38px; }
 .card-scene h1 { font-size: 132px; line-height: 1; letter-spacing: -.03em; font-weight: 800; }
-.card-scene .loc { font-size: 54px; font-weight: 600; color: #CBC2FF; }
+.card-scene .loc { font-size: 54px; font-weight: 600; color: #E9D5FF; }
 .card-scene .to { font-size: 70px; font-weight: 700; line-height: 1.1; margin-top: 18px; }
-.card-scene .to em { font-style: normal; color: #CBC2FF; }
+.card-scene .to em { font-style: normal; color: #34D399; }
+.card-scene img.lg { width: 700px; height: auto; margin-bottom: 24px; }
+body.land .card-scene img.lg { width: 560px; }
 body.land .card-scene h1 { font-size: 110px; }
 body.land .card-scene .to { font-size: 58px; }
 .icons3 { display: flex; gap: 30px; margin-top: 40px; }
-.icons3 .i { width: 230px; padding: 26px 10px; border-radius: 32px; background: rgba(255,255,255,.1); border: 2px solid rgba(203,194,255,.35); font-size: 40px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.icons3 .i svg { width: 76px; height: 76px; stroke-width: 1.8; color: #CBC2FF; }
+.icons3 .i { width: 230px; padding: 26px 10px; border-radius: 32px; background: rgba(255,255,255,.1); border: 2px solid rgba(233,213,255,.45); font-size: 40px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.icons3 .i svg { width: 76px; height: 76px; stroke-width: 1.8; color: #34D399; }
 body.land .icons3 .i { width: 200px; font-size: 36px; }
 .recap { display: flex; flex-direction: column; gap: 22px; margin-top: 30px; text-align: left; }
 .recap .r { display: flex; gap: 24px; align-items: center; font-size: 52px; font-weight: 700; }
-.recap .r span { flex: none; width: 76px; height: 76px; border-radius: 50%; background: #CBC2FF; color: #16141F; display: flex; align-items: center; justify-content: center; font-size: 44px; }
+.recap .r span { flex: none; width: 76px; height: 76px; border-radius: 50%; background: #34D399; color: #3B0764; display: flex; align-items: center; justify-content: center; font-size: 44px; }
 body.land .recap .r { font-size: 46px; }
 .fadein { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
 .fadein.on { opacity: 1; transform: none; }

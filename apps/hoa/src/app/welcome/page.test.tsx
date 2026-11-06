@@ -29,6 +29,11 @@ describe('/welcome page', () => {
     expect(html).not.toContain('<track')
   })
 
+  it('carries the HomeownerHub logo with alt text', () => {
+    expect(html).toContain('src="/brand/logo-full.svg"')
+    expect(html).toContain('alt="HomeownerHub"')
+  })
+
   it('lists the steps in words and offers a sign-in button', () => {
     expect(html).toContain('Add to Home Screen')
     expect(html).toContain('Install app')

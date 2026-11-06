@@ -46,6 +46,11 @@ const STEPS: Array<{ title: string; body: string }> = [
 export default function WelcomePage() {
   return (
     <main className="mx-auto min-h-dvh w-full max-w-3xl px-4 py-8 text-foreground sm:py-12">
+      {/* The logo is the real brand asset. The page colours (text, button) come from the app theme tokens, which follow the product app, not the marketing site. */}
+      <header className="mb-6">
+        <img src="/brand/logo-full.svg" alt="HomeownerHub" width={238} height={40} className="h-10 w-auto dark:hidden" />
+        <img src="/brand/logo-full-dark.svg" alt="HomeownerHub" width={238} height={40} className="hidden h-10 w-auto dark:block" />
+      </header>
       <h1 className="text-3xl font-bold tracking-tight">Getting started with HomeownerHub</h1>
       <p className="mt-3 text-lg text-foreground-secondary">Watch the short video, or read the steps below.</p>
 

@@ -91,7 +91,7 @@
     card: true,
     html:
       `<div class="card-scene">` +
-      F('fadein', '@0.1', '', `<img class="mk" src="brand/logo-mark-512.png" alt="">`) +
+      F('fadein', '@0.1', '', `<img class="lg" src="brand/logo-full-dark.svg" alt="HomeownerHub">`) +
       F('fadein', '0s+0', '', `<h1>Madison Park</h1>`) +
       F('fadein', '0s+0.9', '', `<div class="loc">Johns Creek, Georgia</div>`) +
       F('fadein', '0s+1.5', '', `<div class="to">is moving to <em>HomeownerHub</em></div>`) +
@@ -450,7 +450,7 @@
     card: true,
     html:
       `<div class="card-scene">` +
-      F('fadein', '@0.1', '', `<img class="mk" src="brand/logo-mark-512.png" alt="">`) +
+      F('fadein', '@0.1', '', `<img class="lg" src="brand/logo-full-dark.svg" alt="HomeownerHub">`) +
       F('fadein', '0s+0', '', `<h1 style="font-size:96px">Welcome to HomeownerHub</h1>`) +
       F('fadein', '0s+0.8', '', `<div class="loc">Madison Park</div>`) +
       F('fadein', '0s+1.4', '', `<div class="recap"><div class="r"><span>1</span>Open the email</div><div class="r"><span>2</span>Tap the link</div><div class="r"><span>3</span>Add it to your home screen</div></div>`) +

@@ -59,17 +59,22 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
 3. Replace the message body with this (switch the editor to its source or HTML view first):
 
 ```
-<div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#1a1a1a;max-width:560px;margin:0 auto;padding:16px">
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#211B2C;max-width:560px;margin:0 auto;padding:16px">
+  <p style="margin:0 0 12px;padding:0 0 16px;border-bottom:4px solid #6D28D9">
+    <img src="https://www.homeownerledger.com/email/logo-full-360.png" alt="HomeownerHub" width="180" height="30" style="display:block;border:0;height:30px;width:180px">
+  </p>
   <p style="font-size:20px;font-weight:bold;margin:0 0 16px">You are invited to {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }}.</p>
   <p style="margin:0 0 16px">HomeownerHub is where you see your dues, ask the board a question, and find your community's rules and news. There is nothing to download.</p>
   <p style="margin:0 0 24px">Tap the button below to get in. You do not need to make a password.</p>
   <p style="margin:0 0 24px">
-    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:20px;font-weight:bold;text-decoration:none;padding:16px 28px;min-height:48px;line-height:1.2;border-radius:8px">Open HomeownerHub</a>
+    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#6D28D9;color:#ffffff;font-size:20px;font-weight:bold;text-decoration:none;padding:18px 32px;min-height:48px;line-height:1.2;border-radius:8px">Open HomeownerHub</a>
   </p>
   <p style="margin:0 0 16px">This link works for 24 hours. If it stops working, ask your board to send a new one, or email support@homeownerledger.com and we will help.</p>
-  <p style="margin:0;font-size:17px;color:#444444">If the button does not work, copy this address into your phone's browser:<br>{{ .ConfirmationURL }}</p>
+  <p style="margin:0;font-size:18px;color:#211B2C">If the button does not work, copy this address into your phone's browser:<br><a href="{{ .ConfirmationURL }}" style="color:#6D28D9;word-break:break-all">{{ .ConfirmationURL }}</a></p>
 </div>
 ```
+
+   The logo is a picture the app serves at `/email/logo-full-360.png` (360 pixels wide, shown at 180, so it is sharp on a phone). The email builder adds that file under `apps/hoa/public/email/`. Until it is deployed the picture is broken, so deploy first. The colours are the website's Royal purple: button #6D28D9 with white text (7.1 to 1), text #211B2C. If the app moves to a new web address, change the address in the `img` line (or use `{{ .SiteURL }}/email/logo-full-360.png` if Supabase's Site URL is set to the app address).
 
 4. Save, then send yourself a test invite from the Members page and open it on a phone. Check that the subject names the association and the button is easy to tap. Also test once with a name that has an apostrophe, such as O'Brien Park, to make sure the subject and greeting show it correctly.
 5. Tell Claude when it is done.
