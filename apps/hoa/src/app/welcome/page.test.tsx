@@ -32,7 +32,8 @@ describe('/welcome page', () => {
   it('lists the steps in words and offers a sign-in button', () => {
     expect(html).toContain('Add to Home Screen')
     expect(html).toContain('Install app')
-    expect(html).toContain('Dues: tap Pay to see how your board takes payment.')
+    expect(html).toContain('Pay your dues')
+    expect(html).toContain('The Pay screen shows the ways your board accepts payment')
     expect(html).toContain('may say Log in instead')
     expect(html).toContain('href="/login"')
     expect(html).toContain('short video')

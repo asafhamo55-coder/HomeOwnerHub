@@ -142,9 +142,11 @@
           fake('#0EA5E9', 'Landmark', 'Bank') +
           fake('#F59E0B', 'Lock', 'Wallet') +
           fake('#8B5CF6', 'Wrench', 'Tools') +
-          F('app hub', '0s+1.6', '', `<div class="ico"><img src="brand/logo-mark-512.png" alt=""></div>HomeownerHub${ring('0s+2.4', '0e+0.3')}`, '') +
+          F('app hub', '0s+0.9', '', `<div class="ico"><img src="brand/logo-mark-512.png" alt=""></div>HomeownerHub${ring('0s+1.6', '0s+3.1')}${tap('0s+2.3', 0.9)}`, '') +
           `</div>`,
       ) +
+      // The app opens from the new icon.
+      scr('0s+3.1', '1s', top() + home() + tabs('home')) +
       // iPhone Safari: Share, Add to Home Screen, Add.
       F(
         'scr',

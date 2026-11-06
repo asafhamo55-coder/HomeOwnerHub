@@ -34,7 +34,7 @@ const STEPS: Array<{ title: string; body: string }> = [
     body: 'The tabs at the bottom are Home, Dues, Requests, Ask and Account. Dues shows what you owe and your statement. Requests sends a note to the board. On Home, Community lets you book a space, answer polls and talk with neighbors, if your board turned it on.',
   },
   {
-    title: 'Dues: tap Pay to see how your board takes payment.',
+    title: 'Pay your dues',
     body: 'The Pay screen shows the ways your board accepts payment, such as Zelle or a check.',
   },
   {

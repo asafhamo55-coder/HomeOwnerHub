@@ -208,7 +208,7 @@ if (!flag('audio') && !flag('no-record')) {
   const only = val('only')
   for (const l of layouts) {
     await record(timeline, l, only)
-    if (!only) join(l)
+    join(l)
   }
 }
 if (!flag('audio') && !val('only')) {
