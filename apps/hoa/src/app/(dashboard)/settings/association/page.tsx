@@ -8,6 +8,8 @@ import { AssociationNotSetUp } from '../../_components/AssociationNotSetUp'
 import { readBoardContacts, type BoardContact } from '@/lib/association-contacts'
 import { AssociationSettingsForm, type AssociationRow } from './AssociationSettingsForm'
 import { BoardContactsForm } from './BoardContactsForm'
+import { CommunityLocationForm } from './CommunityLocationForm'
+import { readCommunityLocation } from '@/lib/association-location'
 
 export const metadata = { title: 'Association' }
 export const dynamic = 'force-dynamic'
@@ -51,6 +53,7 @@ export default async function AssociationSettingsPage() {
     compliance_settings: unknown
   }>
   const contactsById = new Map<string, BoardContact[]>(raw.map((r) => [r.id, readBoardContacts(r.compliance_settings)]))
+  const locById = new Map(raw.map((r) => [r.id, readCommunityLocation(r.compliance_settings)]))
   const rows = raw.map(
     (r): AssociationRow => ({
       id: r.id,
@@ -75,6 +78,12 @@ export default async function AssociationSettingsPage() {
       {rows.map((a) => (
         <div key={a.id} className="space-y-6">
           <AssociationSettingsForm association={a} canEdit={role === 'admin'} />
+          <CommunityLocationForm
+            associationId={a.id}
+            associationName={a.name}
+            initialCity={locById.get(a.id)?.city ?? ''}
+            initialZip={locById.get(a.id)?.zip ?? ''}
+          />
           <BoardContactsForm associationId={a.id} associationName={a.name} initial={contactsById.get(a.id) ?? []} />
         </div>
       ))}

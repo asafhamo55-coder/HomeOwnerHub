@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   role: 'board' as 'admin' | 'board' | 'resident' | 'cpa' | null,
   property: { address: '1234 Peachtree St NE, Atlanta, GA 30309' } as { address: string | null } | null,
   unit: null as { city: string | null; state: string | null; postal_code: string | null } | null,
+  assoc: null as { state: string | null; compliance_settings?: unknown } | null,
   readError: null as null | { code: string },
   orgFilter: null as string | null,
 }))
@@ -33,7 +34,9 @@ vi.mock('@/lib/supabase/server', () => ({
       q.maybeSingle = async () =>
         table === 'hoa_properties'
           ? { data: h.property, error: h.readError }
-          : { data: h.unit, error: null }
+          : table === 'associations'
+            ? { data: h.assoc, error: null }
+            : { data: h.unit ? { ...h.unit, association_id: 'assoc-1' } : null, error: null }
       return q
     },
   })),
@@ -64,6 +67,7 @@ beforeEach(() => {
   h.role = 'board'
   h.property = { address: '1234 Peachtree St NE, Atlanta, GA 30309' }
   h.unit = null
+  h.assoc = null
   h.readError = null
   h.orgFilter = null
   calls.length = 0
@@ -113,6 +117,7 @@ beforeEach(() => {
     }),
   )
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'info').mockImplementation(() => {})
 })
 
 afterEach(() => {
@@ -120,6 +125,10 @@ afterEach(() => {
   vi.restoreAllMocks()
   delete process.env.GOOGLE_MAPS_API_KEY
 })
+
+const infoLines = () =>
+  (console.info as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => JSON.parse(String(c[1])) as Record<string, unknown>)
+const reasons = () => infoLines().map((l) => l.reason)
 
 describe('GET /api/properties/:id/photo', () => {
   it('401 without a session, before any Google call', async () => {
@@ -254,6 +263,193 @@ describe('GET /api/properties/:id/photo', () => {
     const res = await call()
     expect(res.status).toBe(500)
     expect(calls).toHaveLength(0)
+  })
+
+  describe('diagnostic reason codes', () => {
+    it('no_key', async () => {
+      delete process.env.GOOGLE_MAPS_API_KEY
+      await call()
+      expect(reasons()).toEqual(['no_key'])
+    })
+    it('row_not_visible', async () => {
+      h.property = null
+      await call()
+      expect(infoLines()[0]).toMatchObject({ event: 'property_photo', outcome: 'miss', reason: 'row_not_visible', propertyId: ID })
+    })
+    it('no_address', async () => {
+      h.property = { address: null }
+      await call()
+      expect(reasons()).toEqual(['no_address'])
+    })
+    it('no_location when the address has no street line', async () => {
+      h.property = { address: ',' }
+      const res = await call()
+      expect(res.status).toBe(404)
+      expect(reasons()).toEqual(['no_location'])
+    })
+    it('meta_zero_results and meta_not_found, with the geocode status', async () => {
+      metaStatus = 'ZERO_RESULTS'
+      await call()
+      metaStatus = 'NOT_FOUND'
+      await call()
+      expect(reasons()).toEqual(['geocode_denied', 'meta_zero_results', 'geocode_denied', 'meta_not_found'])
+      expect(infoLines()[1]).toMatchObject({ metaStatus: 'ZERO_RESULTS' })
+      expect(infoLines()[0]).toMatchObject({ geocodeStatus: 'REQUEST_DENIED' })
+    })
+    it('image_404', async () => {
+      imageStatus = 404
+      await call()
+      expect(reasons()).toContain('image_404')
+    })
+    it('geocode and pano reasons', async () => {
+      geoStatus = 'OK'
+      geoType = 'APPROXIMATE'
+      await call()
+      partial = true
+      geoType = 'ROOFTOP'
+      await call()
+      partial = false
+      panoStatus = 'ZERO_RESULTS'
+      await call()
+      panoLoc = { lat: 33.0001 - 0.00054, lng: -84.0 }
+      panoStatus = 'OK'
+      await call()
+      panoLoc = { lat: 33.0001 - 0.00002, lng: -84.0 }
+      await call()
+      geoHttp = 500
+      await call()
+      expect(reasons()).toEqual([
+        'geocode_imprecise',
+        'geocode_imprecise',
+        'pano_zero_results',
+        'pano_too_far',
+        'pano_too_close',
+        'geocode_http_error',
+      ])
+    })
+    it('geocode_error, geocode_bad_body and aimed_image_error', async () => {
+      geoStatus = 'OK'
+      geoThrow = true
+      await call()
+      geoThrow = false
+      aimedStatus = -1
+      await call()
+      expect(reasons().slice(0, 1)).toEqual(['geocode_error'])
+      expect(reasons()).toContain('aimed_image_error')
+    })
+    it('budget_exhausted when the clock runs low between geocode and pano', async () => {
+      geoStatus = 'OK'
+      let n = 0
+      const real = Date.now()
+      vi.spyOn(Date, 'now').mockImplementation(() => {
+        n += 1
+        // The first calls see plenty of time; later ones see almost none.
+        return n < 4 ? real : real + 9500
+      })
+      await call()
+      expect(reasons()).toContain('budget_exhausted')
+    })
+    it('logs an unknown locationType as other', async () => {
+      geoStatus = 'OK'
+      geoType = 'SOMETHING_NEW'
+      await call()
+      expect(infoLines()[0]).toMatchObject({ reason: 'geocode_imprecise', locationType: 'other' })
+    })
+    it('logs only known Google statuses, else other', async () => {
+      geoStatus = 'SOME_NEW_STATUS <script>'
+      await call()
+      expect(infoLines()[0]).toMatchObject({ reason: 'geocode_denied', geocodeStatus: 'other' })
+    })
+    it('aimed_image_failed', async () => {
+      geoStatus = 'OK'
+      aimedStatus = 404
+      await call()
+      expect(reasons()).toEqual(['aimed_image_failed'])
+    })
+    it('never logs the address, key or a URL', async () => {
+      geoStatus = 'OK'
+      aimedStatus = 500
+      await call()
+      metaStatus = 'ZERO_RESULTS'
+      await call()
+      const logged = JSON.stringify((console.info as unknown as { mock: { calls: unknown[] } }).mock.calls)
+      expect(logged).not.toContain('Peachtree')
+      expect(logged).not.toContain('test-key-not-real')
+      expect(logged).not.toContain('http')
+    })
+  })
+
+  describe('association fallback', () => {
+    it('404s with zero Google calls for a street plus only the association state', async () => {
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = { state: 'GA' }
+      const res = await call()
+      expect(res.status).toBe(404)
+      expect(calls).toHaveLength(0)
+      expect(geoCalls).toHaveLength(0)
+      expect(reasons()).toEqual(['state_only_location'])
+      expect(infoLines()[0]).toMatchObject({ outcome: 'miss', propertyId: ID })
+    })
+    it('sends the request when the address has a city and ZIP and the association supplies the state', async () => {
+      h.property = { address: '105 Springwood Parkway, Marietta, 30067' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = { state: 'GA' }
+      expect((await call()).status).toBe(200)
+      expect(new URL(calls[0]).searchParams.get('location')).toBe('105 Springwood Pkwy, Marietta, GA 30067')
+    })
+    it('builds "street, City, ST ZIP" from the board-set community city and ZIP', async () => {
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = { state: 'GA', compliance_settings: { community_city: 'Marietta', community_zip: '30067', other: 1 } }
+      expect((await call()).status).toBe(200)
+      expect(new URL(calls[0]).searchParams.get('location')).toBe('105 Springwood Pkwy, Marietta, GA 30067')
+      expect(reasons()).toEqual(['geocode_denied'])
+      const logged = JSON.stringify((console.info as unknown as { mock: { calls: unknown[] } }).mock.calls)
+      expect(logged).not.toContain('Springwood')
+      expect(logged).not.toContain('Marietta')
+      expect(logged).not.toContain('30067')
+      expect(logged).not.toContain('test-key-not-real')
+    })
+    it('still applies the precision checks to a community-built address', async () => {
+      geoStatus = 'OK'
+      geoType = 'APPROXIMATE'
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = { state: 'GA', compliance_settings: { community_city: 'Marietta', community_zip: '30067' } }
+      await call()
+      expect(reasons()).toEqual(['geocode_imprecise'])
+      expect(new URL(calls[calls.length - 1]).searchParams.get('heading')).toBeNull()
+    })
+    it('404s with zero Google calls for an address whose only place is its own state', async () => {
+      h.property = { address: '105 Springwood Parkway, GA' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = null
+      const res = await call()
+      expect(res.status).toBe(404)
+      expect(calls).toHaveLength(0)
+      expect(geoCalls).toHaveLength(0)
+      expect(reasons()).toEqual(['state_only_location'])
+    })
+    it('a unit with only a state does not make a street-only address safe', async () => {
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: 'GA', postal_code: null }
+      expect((await call()).status).toBe(404)
+      expect(calls).toHaveLength(0)
+    })
+    it('prefers the unit place over the association', async () => {
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: 'Atlanta', state: 'GA', postal_code: '30067' }
+      h.assoc = { state: 'FL' }
+      await call()
+      expect(new URL(calls[0]).searchParams.get('location')).toBe('105 Springwood Pkwy, Atlanta, GA 30067')
+      expect(reasons()).not.toContain('state_only_location')
+    })
+    it('a full address ignores the association', async () => {
+      h.assoc = { state: 'FL' }
+      await call()
+      expect(reasons()).not.toContain('state_only_location')
+    })
   })
 
   describe('aimed at the house', () => {

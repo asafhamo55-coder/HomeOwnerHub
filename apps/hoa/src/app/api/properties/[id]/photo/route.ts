@@ -34,9 +34,11 @@ import { z } from 'zod'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError, apiError } from '@/lib/api/errors'
 import { requireRouteMember } from '@/lib/api/auth'
-import { logRouteFailure } from '@/lib/api/log'
+import { logRouteEvent, logRouteFailure } from '@/lib/api/log'
 import { zUuid } from '@/lib/api/schemas'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { formatAddress } from '@/lib/properties/address-format'
+import { readCommunityLocation } from '@/lib/association-location'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import {
   aimedImageUrl,
@@ -56,6 +58,18 @@ import {
 const FETCH_TIMEOUT_MS = 6000
 const CACHE_OK = 'private, max-age=86400'
 const CACHE_MISS = 'private, max-age=3600'
+
+// One info line per miss or fallback: a reason code and the property id only.
+type Ctx = { orgId: string; propertyId: string }
+// Google statuses are logged only when they are known values.
+const GEOCODE_STATUSES = ['OK', 'ZERO_RESULTS', 'OVER_DAILY_LIMIT', 'OVER_QUERY_LIMIT', 'REQUEST_DENIED', 'INVALID_REQUEST', 'UNKNOWN_ERROR', 'bad_body']
+const PANO_STATUSES = ['OK', 'ZERO_RESULTS', 'NOT_FOUND', 'OVER_QUERY_LIMIT', 'REQUEST_DENIED', 'INVALID_REQUEST', 'UNKNOWN_ERROR', 'bad_body']
+const LOCATION_TYPES = ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER', 'APPROXIMATE', 'none']
+const known = (v: string, allowed: string[]) => (allowed.includes(v) ? v : 'other')
+
+function logPhoto(outcome: 'miss' | 'fallback', reason: string, ctx: { propertyId: string }, extra: Record<string, string | number> = {}) {
+  logRouteEvent('properties.photo', { event: 'property_photo', outcome, reason, propertyId: ctx.propertyId, ...extra })
+}
 
 const notFound = () => apiError('not_found', 'No picture is available for this home.', undefined, { 'Cache-Control': CACHE_MISS })
 
@@ -103,7 +117,7 @@ async function aimedImage(
   address: string,
   key: string,
   secret: string | null,
-  logCtx: { orgId: string; propertyId: string },
+  logCtx: Ctx,
   clock: Clock,
 ): Promise<string | null> {
   // Too little time for geocode + pano + image: go straight to the old path.
@@ -113,48 +127,69 @@ async function aimedImage(
     const res = await fetch(geocodeUrl(address, key, secret), clock.opts())
     if (!res.ok) {
       logRouteFailure('properties.photo.geocode', { code: String(res.status) }, logCtx)
+      logPhoto('fallback', 'geocode_http_error', logCtx, { geocodeHttp: res.status })
       return null
     }
     const body = geocodeBody.safeParse(await res.json().catch(() => null))
     if (!body.success || body.data.status !== 'OK') {
       // REQUEST_DENIED until the Geocoding API is enabled (OA-46): a code only.
-      logRouteFailure('properties.photo.geocode', { code: body.success ? body.data.status : 'bad_body' }, logCtx)
+      const code = body.success ? body.data.status : 'bad_body'
+      logRouteFailure('properties.photo.geocode', { code }, logCtx)
+      logPhoto('fallback', code === 'ZERO_RESULTS' ? 'geocode_zero_results' : code === 'bad_body' ? 'geocode_bad_body' : 'geocode_denied', logCtx, { geocodeStatus: known(code, GEOCODE_STATUSES) })
       return null
     }
     const first = body.data.results?.[0]
     // A partial match means Google guessed at part of the address.
-    if (first?.partial_match === true) return null
+    if (first?.partial_match === true) {
+      logPhoto('fallback', 'geocode_imprecise', logCtx, { geocodeStatus: 'OK', detail: 'partial_match' })
+      return null
+    }
     const geometry = first?.geometry
-    if (!geometry || !isPreciseGeocode(geometry.location_type)) return null
+    if (!geometry || !isPreciseGeocode(geometry.location_type)) {
+      logPhoto('fallback', 'geocode_imprecise', logCtx, { geocodeStatus: 'OK', locationType: known(geometry?.location_type ?? 'none', LOCATION_TYPES) })
+      return null
+    }
     house = geometry.location
   } catch (err) {
     logRouteFailure('properties.photo.geocode', err, logCtx)
+    logPhoto('fallback', 'geocode_error', logCtx)
     return null
   }
 
   try {
-    if (clock.left() < MIN_CALL_MS * 2) return null
+    if (clock.left() < MIN_CALL_MS * 2) {
+      logPhoto('fallback', 'budget_exhausted', logCtx)
+      return null
+    }
     const res = await fetch(panoMetadataUrl(house, key, secret), clock.opts())
     if (!res.ok) {
       logRouteFailure('properties.photo.pano', { code: String(res.status) }, logCtx)
+      logPhoto('fallback', 'pano_http_error', logCtx, { panoHttp: res.status })
       return null
     }
     const body = panoBody.safeParse(await res.json().catch(() => null))
     if (!body.success || body.data.status !== 'OK' || !body.data.pano_id || !body.data.location) {
-      if (body.success && body.data.status !== 'ZERO_RESULTS') {
-        logRouteFailure('properties.photo.pano', { code: body.data.status }, logCtx)
-      }
+      const code = body.success ? body.data.status : 'bad_body'
+      if (code !== 'ZERO_RESULTS') logRouteFailure('properties.photo.pano', { code }, logCtx)
+      logPhoto('fallback', code === 'ZERO_RESULTS' ? 'pano_zero_results' : 'pano_not_ok', logCtx, { panoStatus: known(code, PANO_STATUSES) })
       return null
     }
     // Too close: inside the lot. Too far: a back alley or cross street, which would not face the front.
     const dist = distanceMeters(body.data.location, house)
-    if (dist < STREET_VIEW_PANO_MIN_M || dist > STREET_VIEW_PANO_MAX_M) return null
+    if (dist < STREET_VIEW_PANO_MIN_M || dist > STREET_VIEW_PANO_MAX_M) {
+      logPhoto('fallback', dist < STREET_VIEW_PANO_MIN_M ? 'pano_too_close' : 'pano_too_far', logCtx, { distanceM: Math.round(dist) })
+      return null
+    }
     return aimedImageUrl(body.data.pano_id, bearingDegrees(body.data.location, house), key, secret)
   } catch (err) {
     logRouteFailure('properties.photo.pano', err, logCtx)
+    logPhoto('fallback', 'pano_error', logCtx)
     return null
   }
 }
+
+const hasPlace = (l: LocationFallback | null): l is LocationFallback =>
+  Boolean(l && (l.city?.trim() || l.state?.trim() || l.postal_code?.trim()))
 
 interface PropertyRow {
   address: string | null
@@ -168,7 +203,10 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   const propertyId = parsedId.data
 
   const key = process.env.GOOGLE_MAPS_API_KEY?.trim()
-  if (!key) return notFound()
+  if (!key) {
+    logPhoto('miss', 'no_key', { propertyId })
+    return notFound()
+  }
 
   const supabase = await getSupabaseServerClient()
   const { data: property, error } = await supabase
@@ -182,28 +220,66 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     logRouteFailure('properties.photo.read', error, { orgId })
     throw new ApiRouteError('internal')
   }
-  if (!property?.address) return notFound()
+  if (!property) {
+    logPhoto('miss', 'row_not_visible', { propertyId })
+    return notFound()
+  }
+  if (!property.address) {
+    logPhoto('miss', 'no_address', { propertyId })
+    return notFound()
+  }
 
   // A street-only address borrows the community's city, state and ZIP.
   // Best effort: a failed lookup only means the address is used as saved.
   let unit: LocationFallback | null = null
+  let association: LocationFallback | null = null
   try {
     const { unitId } = await resolveUnitForProperty(supabase, orgId, asPropertyId(propertyId))
     if (unitId) {
       const { data } = await supabase
         .from('units')
-        .select('city, state, postal_code')
+        .select('city, state, postal_code, association_id')
         .eq('organization_id', orgId)
         .eq('id', unitId)
-        .maybeSingle<LocationFallback>()
+        .maybeSingle<LocationFallback & { association_id?: string | null }>()
       unit = data
+      // Many rosters keep only the street line. The associations table has a
+      // state (no city or ZIP), so that is the last place to borrow from.
+      if (!hasPlace(unit) && data?.association_id) {
+        const { data: assoc } = await supabase
+          .from('associations')
+          .select('state, compliance_settings')
+          .eq('organization_id', orgId)
+          .eq('id', data.association_id)
+          .maybeSingle<{ state: string | null; compliance_settings: unknown }>()
+        if (assoc) {
+          // The board's own city and ZIP (Settings > Association) make this safe to geocode.
+          const loc = readCommunityLocation(assoc.compliance_settings)
+          if (assoc.state?.trim() || loc.city || loc.zip) {
+            association = { state: assoc.state, city: loc.city, postal_code: loc.zip }
+          }
+        }
+      }
     }
   } catch (err) {
     logRouteFailure('properties.photo.unit', err, { orgId, propertyId })
   }
 
-  const location = streetViewLocation(property.address, unit)
-  if (!location) return notFound()
+  const fallback = hasPlace(unit) ? unit : association
+  const location = streetViewLocation(property.address, fallback)
+  if (!location) {
+    logPhoto('miss', 'no_location', { propertyId })
+    return notFound()
+  }
+  // A street with at most a bare state ("105 Springwood Pkwy, GA") can come
+  // back as a confident photo of the wrong house in another city, and neither
+  // ROOFTOP nor partial_match catches it. Never call Google for it.
+  const own = formatAddress(property.address)
+  const placed = own.city || own.zip || fallback?.city?.trim() || fallback?.postal_code?.trim()
+  if (!placed) {
+    logPhoto('miss', 'state_only_location', { propertyId })
+    return notFound()
+  }
 
   const secret = process.env.GOOGLE_MAPS_URL_SIGNING_SECRET?.trim() || null
   const urls = streetViewUrls(location, key, secret)
@@ -221,9 +297,13 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
       const r = await fetch(aimed, clock.opts())
       const t = r.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
       if (r.ok && r.body && t.startsWith('image/')) image = r
-      else logRouteFailure('properties.photo.aimed', { code: String(r.status) }, { orgId, propertyId })
+      else {
+        logRouteFailure('properties.photo.aimed', { code: String(r.status) }, { orgId, propertyId })
+        logPhoto('fallback', 'aimed_image_failed', { propertyId }, { imageHttp: r.status })
+      }
     } catch (err) {
       logRouteFailure('properties.photo.aimed', err, { orgId, propertyId })
+      logPhoto('fallback', 'aimed_image_error', { propertyId })
     }
   }
 
@@ -242,7 +322,10 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     }
     const status = z.object({ status: z.string() }).safeParse(await meta.json().catch(() => null))
     if (!status.success) throw upstreamDown()
-    if (status.data.status === 'ZERO_RESULTS' || status.data.status === 'NOT_FOUND') return notFound()
+    if (status.data.status === 'ZERO_RESULTS' || status.data.status === 'NOT_FOUND') {
+      logPhoto('miss', status.data.status === 'ZERO_RESULTS' ? 'meta_zero_results' : 'meta_not_found', { propertyId }, { metaStatus: known(status.data.status, PANO_STATUSES) })
+      return notFound()
+    }
     if (status.data.status !== 'OK') {
       // REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST, UNKNOWN_ERROR: a code, never Google's text.
       logRouteFailure('properties.photo.metadata', { code: status.data.status }, { orgId, propertyId })
@@ -259,7 +342,10 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
       logRouteFailure('properties.photo.image', err, { orgId, propertyId })
       throw upstreamDown()
     }
-    if (plain.status === 404) return notFound()
+    if (plain.status === 404) {
+      logPhoto('miss', 'image_404', { propertyId }, { imageHttp: 404 })
+      return notFound()
+    }
     const type = plain.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
     if (!plain.ok || !plain.body || !type.startsWith('image/')) {
       logRouteFailure('properties.photo.image', { code: String(plain.status) }, { orgId, propertyId })
