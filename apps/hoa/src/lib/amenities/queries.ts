@@ -118,34 +118,46 @@ export async function loadAmenityReservations(
   return withHomeLabels(db, orgId, rows)
 }
 
-/** Times that are taken (pending or approved) from `fromIso` on, per amenity. Times only. */
+/**
+ * Times that are taken (pending or approved) from `fromIso` on, per amenity.
+ * Times only. With `toIso` the read is a bounded window and runs one query per
+ * amenity, so one busy space cannot push another's bookings past the row cap.
+ */
 export async function loadHeldSlots(
   db: LooseDb,
   orgId: string,
   amenityIds: string[],
   fromIso: string,
   live: boolean = M11_APPLIED,
+  toIso?: string,
 ): Promise<Map<string, Busy[]> | null> {
   const out = new Map<string, Busy[]>()
   if (!live || amenityIds.length === 0) return out
-  const { data, error } = (await db
-    .from(RESERVATIONS_TABLE)
-    .select('amenity_id, starts_at, ends_at')
-    .eq('organization_id', orgId)
-    .in('amenity_id', amenityIds)
-    .in('status', ['pending', 'approved'])
-    .gt('ends_at', fromIso)
-    .order('starts_at', { ascending: true })
-    .range(0, 999)) as Res
-  if (error) {
-    console.error('[amenities] held slots read failed', { orgId, code: error.code ?? null })
-    return null
-  }
-  for (const r of data ?? []) {
-    if (typeof r.amenity_id !== 'string' || typeof r.starts_at !== 'string' || typeof r.ends_at !== 'string') continue
-    const list = out.get(r.amenity_id) ?? []
-    list.push({ startsAt: r.starts_at, endsAt: r.ends_at })
-    out.set(r.amenity_id, list)
+  const groups = toIso ? amenityIds.map((id) => [id]) : [amenityIds]
+  const results = await Promise.all(
+    groups.map(async (ids) => {
+      let q = db
+        .from(RESERVATIONS_TABLE)
+        .select('amenity_id, starts_at, ends_at')
+        .eq('organization_id', orgId)
+        .in('amenity_id', ids)
+        .in('status', ['pending', 'approved'])
+        .gt('ends_at', fromIso)
+      if (toIso) q = q.lt('starts_at', toIso)
+      return (await q.order('starts_at', { ascending: true }).range(0, 999)) as Res
+    }),
+  )
+  for (const { data, error } of results) {
+    if (error) {
+      console.error('[amenities] held slots read failed', { orgId, code: error.code ?? null })
+      return null
+    }
+    for (const r of data ?? []) {
+      if (typeof r.amenity_id !== 'string' || typeof r.starts_at !== 'string' || typeof r.ends_at !== 'string') continue
+      const list = out.get(r.amenity_id) ?? []
+      list.push({ startsAt: r.starts_at, endsAt: r.ends_at })
+      out.set(r.amenity_id, list)
+    }
   }
   return out
 }

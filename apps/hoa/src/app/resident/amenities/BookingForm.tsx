@@ -1,9 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { Button, Checkbox, Field, Input, Select, useToast } from '@homeowner-portal/ui'
 import { requestReservation } from '@/lib/amenities/actions'
+import { loadBookingDays } from '@/lib/amenities/booking-days'
+import { addCalendarDays } from '@/lib/association-time'
 import { validEnds, type Amenity, type DayView } from '@/lib/amenities/model'
 import {
   SLOT_WORDS,
@@ -30,16 +32,24 @@ export interface HomeOption {
 export interface BookableAmenity {
   amenity: Amenity
   homes: HomeOption[]
-  /** Free-time view from today through the last bookable day. */
+  /** Free-time view from today for the first weeks; later months load on demand. */
   days: DayView[]
   today: string
+  /** The last day the space can be booked (today plus the advance limit). */
+  lastDay: string
   timeZone: string
+  /** Bookings that still count against the limit, by home id. */
+  activeByHome: Record<string, number>
 }
 
 type Step = 'amenity' | 'day' | 'time' | 'review' | 'done'
 
 const FOCUS =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+
+function scrollTo(el: HTMLElement | null) {
+  if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'start' })
+}
 
 /**
  * Four plain steps: pick a space, pick a day, pick a time and length, check
@@ -54,6 +64,8 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
   const [step, setStep] = useState<Step>(single ? 'day' : 'amenity')
   const [spaceId, setSpaceId] = useState<string | null>(single ? spaces[0].amenity.id : null)
   const [month, setMonth] = useState<string>(spaces[0]?.today.slice(0, 7) ?? '')
+  const [extra, setExtra] = useState<Record<string, DayView[]>>({})
+  const [loadingMore, setLoadingMore] = useState(false)
   const [day, setDay] = useState<string | null>(null)
   const [start, setStart] = useState<number | null>(null)
   const [end, setEnd] = useState<number | null>(null)
@@ -64,12 +76,37 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [result, setResult] = useState<{ status: 'pending' | 'approved'; sentence: string } | null>(null)
 
+  const formRef = useRef<HTMLFormElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const lengthRef = useRef<HTMLHeadingElement>(null)
+  const firstRender = useRef(true)
+
   const space = spaces.find((s) => s.amenity.id === spaceId) ?? null
   const amenity = space?.amenity ?? null
-  const byDay = useMemo(() => new Map((space?.days ?? []).map((d) => [d.day, d])), [space])
+  const allDays = useMemo(() => (space ? [...space.days, ...(extra[space.amenity.id] ?? [])] : []), [space, extra])
+  const byDay = useMemo(() => new Map(allDays.map((d) => [d.day, d])), [allDays])
   const view = day ? (byDay.get(day) ?? null) : null
   const ends = view && start !== null && amenity ? validEnds(view, start, amenity.maxHours) : []
   const mustRead = Boolean(amenity?.rules)
+  const activeCount = space ? (space.activeByHome[unitId] ?? 0) : 0
+  const atLimit = Boolean(amenity && activeCount >= amenity.maxActivePerUnit)
+
+  // Every step change moves focus to that step's heading and back to the top.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false
+      return
+    }
+    scrollTo(formRef.current)
+    headingRef.current?.focus({ preventScroll: true })
+  }, [step])
+
+  // Choosing a start time brings "How long?" into view and reads it out.
+  useEffect(() => {
+    if (start === null) return
+    scrollTo(lengthRef.current)
+    lengthRef.current?.focus({ preventScroll: true })
+  }, [start])
 
   function chooseSpace(s: BookableAmenity) {
     setSpaceId(s.amenity.id)
@@ -107,6 +144,23 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
     setStep('review')
   }
 
+  async function goToMonth(m: string) {
+    setMonth(m)
+    if (!space) return
+    const lastLoaded = allDays[allDays.length - 1]?.day
+    const monthEnd = addCalendarDays(`${nextMonth(m)}-01`, -1)
+    if (!lastLoaded || lastLoaded >= monthEnd || lastLoaded >= space.lastDay) return
+    setLoadingMore(true)
+    const res = await loadBookingDays({ amenityId: space.amenity.id, fromDay: addCalendarDays(lastLoaded, 1), count: 62 })
+    setLoadingMore(false)
+    if (!res.ok) {
+      setErrors({ day: res.error })
+      return
+    }
+    setErrors({})
+    setExtra((cur) => ({ ...cur, [space.amenity.id]: [...(cur[space.amenity.id] ?? []), ...res.days] }))
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!amenity || !day || start === null || end === null) return
@@ -133,7 +187,9 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
       if (!res.ok) {
         const f = res.fieldErrors ?? {}
         setErrors({ ...f, form: res.error })
-        if (f.day || f.startHour || f.endHour) setStep('time')
+        // Send the resident to the step that shows the problem.
+        if (f.day) setStep('day')
+        else if (f.startHour || f.endHour) setStep('time')
         toast({ tone: 'error', message: res.error })
         router.refresh()
         return
@@ -157,13 +213,15 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
 
   if (step === 'done' && result) {
     return (
-      <div className="space-y-4" role="status">
-        <p className="text-xl font-semibold text-foreground">{result.status === 'approved' ? 'You are booked.' : 'Your request is sent.'}</p>
+      <div ref={formRef as unknown as React.RefObject<HTMLDivElement>} className="space-y-4" role="status">
+        <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold text-foreground focus:outline-none">
+          {result.status === 'approved' ? 'You are booked.' : 'Your request is sent.'}
+        </h2>
         <p className="text-base text-foreground">{result.sentence}.</p>
         <p className="text-base text-foreground-secondary">
           {result.status === 'approved'
             ? 'It is listed under Your bookings below.'
-            : 'Your time is held. We’ll email you when the board answers.'}
+            : 'Your time is held. We’ll let you know when the board answers.'}
         </p>
         <Button type="button" size="lg" variant="secondary" onClick={() => setStep(single ? 'day' : 'amenity')}>
           Book another time
@@ -172,8 +230,10 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
     )
   }
 
+  const h2 = 'text-xl font-semibold text-foreground focus:outline-none'
+
   return (
-    <form onSubmit={submit} noValidate className="space-y-5">
+    <form ref={formRef} onSubmit={submit} noValidate className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-base font-semibold text-foreground" aria-live="polite">
           Step {Math.max(shownNumber, 1)} of {stepTotal}
@@ -187,7 +247,7 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
 
       {step === 'amenity' ? (
         <section aria-labelledby="step-amenity" className="space-y-3">
-          <h2 id="step-amenity" className="text-xl font-semibold text-foreground">
+          <h2 ref={headingRef} tabIndex={-1} id="step-amenity" className={h2}>
             What would you like to book?
           </h2>
           <ul className="grid gap-3 sm:grid-cols-2">
@@ -211,14 +271,46 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
 
       {step === 'day' && space ? (
         <section aria-labelledby="step-day" className="space-y-3">
-          <h2 id="step-day" className="text-xl font-semibold text-foreground">
+          <h2 ref={headingRef} tabIndex={-1} id="step-day" className={h2}>
             Which day for {space.amenity.name}?
           </h2>
           <p className="text-base text-foreground-secondary">{plainRules(space.amenity)}</p>
-          <MonthPicker space={space} month={month} setMonth={setMonth} byDay={byDay} selected={day} onPick={chooseDay} disabled={pending} />
+          {space.homes.length > 1 ? (
+            <Field label="Which home is this for?" required error={errors.unitId}>
+              <Select value={unitId} onValueChange={setUnitId} disabled={pending}>
+                {space.homes.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          {atLimit ? (
+            <p className="text-base font-semibold text-foreground" role="alert">
+              You already have {activeCount} of {space.amenity.maxActivePerUnit} bookings for {space.amenity.name}. Cancel one or wait until it has
+              passed.
+            </p>
+          ) : null}
+          <MonthPicker
+            space={space}
+            month={month}
+            goToMonth={goToMonth}
+            byDay={byDay}
+            allDays={allDays}
+            selected={day}
+            onPick={chooseDay}
+            blocked={pending || atLimit}
+            loading={loadingMore}
+          />
           {errors.day ? (
             <p className="text-base text-danger" role="alert">
               {errors.day}
+            </p>
+          ) : null}
+          {errors.form && errors.form !== errors.day ? (
+            <p className="text-base text-danger" role="alert">
+              {errors.form}
             </p>
           ) : null}
         </section>
@@ -226,20 +318,23 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
 
       {step === 'time' && space && view && amenity ? (
         <section aria-labelledby="step-time" className="space-y-4">
-          <h2 id="step-time" className="text-xl font-semibold text-foreground">
+          <h2 ref={headingRef} tabIndex={-1} id="step-time" className={h2}>
             What time on {longDayLabel(view.day)}?
           </h2>
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Start times">
             {view.slots.map((s) => {
               const free = s.state === 'free'
               const chosen = start === s.hour
+              const blocked = !free || pending
               return (
                 <li key={s.hour}>
                   <button
                     type="button"
-                    disabled={!free || pending}
+                    aria-disabled={blocked ? 'true' : undefined}
                     aria-pressed={chosen}
-                    onClick={() => chooseStart(s.hour)}
+                    onClick={() => {
+                      if (!blocked) chooseStart(s.hour)
+                    }}
                     className={`flex min-h-12 w-full flex-col items-center justify-center rounded-lg border-2 px-2 py-1 text-base ${FOCUS} ${
                       chosen
                         ? 'border-primary bg-primary text-primary-fg'
@@ -263,7 +358,9 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
 
           {start !== null ? (
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-foreground">How long?</h3>
+              <h3 ref={lengthRef} tabIndex={-1} className="text-lg font-semibold text-foreground focus:outline-none">
+                How long?
+              </h3>
               <div className="flex flex-wrap gap-2">
                 {ends.map((h) => (
                   <Button
@@ -289,6 +386,11 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
               ) : null}
             </div>
           ) : null}
+          {errors.form ? (
+            <p className="text-base text-danger" role="alert">
+              {errors.form}
+            </p>
+          ) : null}
           <Button type="button" size="lg" onClick={toReview} disabled={pending}>
             Next: check my booking
           </Button>
@@ -297,21 +399,13 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
 
       {step === 'review' && space && amenity && day && start !== null && end !== null ? (
         <section aria-labelledby="step-review" className="space-y-4">
-          <h2 id="step-review" className="text-xl font-semibold text-foreground">
+          <h2 ref={headingRef} tabIndex={-1} id="step-review" className={h2}>
             Check your booking
           </h2>
           <p className="text-lg font-semibold text-foreground">{reviewSentence(amenity.name, day, start, end)}</p>
           <p className="text-base text-foreground">{approvalLine(amenity.requiresApproval)}</p>
           {space.homes.length > 1 ? (
-            <Field label="Which home is this for?" required error={errors.unitId}>
-              <Select value={unitId} onValueChange={setUnitId} disabled={pending}>
-                {space.homes.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            <p className="text-base text-foreground-secondary">For {space.homes.find((h) => h.id === unitId)?.label ?? 'your home'}.</p>
           ) : null}
           {amenity.capacity ? (
             <Field label={`How many people? (up to ${amenity.capacity})`} optional error={errors.partySize}>
@@ -350,75 +444,102 @@ export function BookingForm({ spaces }: { spaces: BookableAmenity[] }) {
 function MonthPicker({
   space,
   month,
-  setMonth,
+  goToMonth,
   byDay,
+  allDays,
   selected,
   onPick,
-  disabled,
+  blocked,
+  loading,
 }: {
   space: BookableAmenity
   month: string
-  setMonth: (m: string) => void
+  goToMonth: (m: string) => void
   byDay: Map<string, DayView>
+  allDays: DayView[]
   selected: string | null
   onPick: (day: string) => void
-  disabled: boolean
+  blocked: boolean
+  loading: boolean
 }) {
   const first = space.today.slice(0, 7)
-  const last = space.days[space.days.length - 1]?.day.slice(0, 7) ?? first
+  const last = space.lastDay.slice(0, 7)
   const weeks = monthWeeks(month, space.timeZone)
+  const lastLoaded = allDays[allDays.length - 1]?.day ?? ''
+  const complete = lastLoaded >= space.lastDay
+  const open = allDays.filter((d) => d.status === 'open')
+  const monthHasOpen = open.some((d) => d.day.startsWith(month))
+  const laterOpen = open.find((d) => d.day.slice(0, 7) > month)
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <Button type="button" size="lg" variant="secondary" disabled={month <= first} onClick={() => setMonth(prevMonth(month))} aria-label="Previous month">
-          Earlier
+        <Button type="button" size="lg" variant="secondary" disabled={month <= first || loading} onClick={() => goToMonth(prevMonth(month))}>
+          Earlier month
         </Button>
-        <p className="text-lg font-semibold text-foreground" aria-live="polite">
+        <p className="text-center text-lg font-semibold text-foreground" aria-live="polite">
           {monthTitle(month)}
         </p>
-        <Button type="button" size="lg" variant="secondary" disabled={month >= last} onClick={() => setMonth(nextMonth(month))} aria-label="Next month">
-          Later
+        <Button type="button" size="lg" variant="secondary" disabled={month >= last || loading} onClick={() => goToMonth(nextMonth(month))}>
+          Later month
         </Button>
       </div>
-      <div role="grid" aria-label={monthTitle(month)} className="grid gap-1">
-        <div role="row" className="grid grid-cols-7 gap-1">
-          {WEEKDAY_HEADS.map((w) => (
-            <div key={w.long} role="columnheader" aria-label={w.long} className="py-1 text-center text-base font-semibold text-foreground-secondary">
-              {w.short}
-            </div>
-          ))}
-        </div>
+      {loading ? (
+        <p className="text-base text-foreground-secondary" role="status">
+          Loading free times...
+        </p>
+      ) : null}
+      {complete && open.length === 0 ? (
+        <p className="text-base font-semibold text-foreground" role="status">
+          There are no free times for {space.amenity.name} right now. Ask the board.
+        </p>
+      ) : null}
+      {!monthHasOpen && laterOpen ? (
+        <Button type="button" size="lg" variant="secondary" onClick={() => goToMonth(laterOpen.day.slice(0, 7))}>
+          Next day with free times
+        </Button>
+      ) : null}
+      <div aria-hidden="true" className="grid grid-cols-7 gap-0.5">
+        {WEEKDAY_HEADS.map((w) => (
+          <div key={w.long} className="py-1 text-center text-base font-semibold text-foreground-secondary">
+            {w.short}
+          </div>
+        ))}
+      </div>
+      <div className="space-y-0.5">
         {weeks.map((row) => (
-          <div role="row" key={row[0].day} className="grid grid-cols-7 gap-1">
+          <ul key={row[0].day} className="grid grid-cols-7 gap-0.5">
             {row.map((c) => {
-              if (!c.inMonth) return <div key={c.day} role="gridcell" aria-hidden="true" />
+              if (!c.inMonth) return <li key={c.day} aria-hidden="true" />
               const v = byDay.get(c.day)
               const usable = v?.status === 'open'
               const isToday = c.day === space.today
               const chosen = selected === c.day
+              const off = !usable || blocked
               return (
-                <div key={c.day} role="gridcell">
+                <li key={c.day} className="min-w-0">
                   <button
                     type="button"
-                    disabled={!usable || disabled}
+                    aria-disabled={off ? 'true' : undefined}
                     aria-label={dayAria(c.day, v, space.today)}
                     aria-pressed={chosen}
                     aria-current={isToday ? 'date' : undefined}
-                    onClick={() => onPick(c.day)}
-                    className={`flex min-h-12 w-full items-center justify-center rounded-lg border-2 text-base ${FOCUS} ${
+                    onClick={() => {
+                      if (!off) onPick(c.day)
+                    }}
+                    className={`flex min-h-12 w-full min-w-11 items-center justify-center rounded-lg border-2 text-base ${FOCUS} ${
                       chosen
                         ? 'border-primary bg-primary font-bold text-primary-fg'
-                        : usable
+                        : usable && !blocked
                           ? 'border-border-strong bg-surface font-semibold text-foreground hover:bg-subtle'
                           : 'border-dashed border-border bg-subtle text-foreground-muted line-through'
                     } ${isToday ? 'ring-2 ring-primary' : ''}`}
                   >
                     {Number(c.day.slice(8))}
                   </button>
-                </div>
+                </li>
               )
             })}
-          </div>
+          </ul>
         ))}
       </div>
       <p className="text-base text-foreground-secondary">

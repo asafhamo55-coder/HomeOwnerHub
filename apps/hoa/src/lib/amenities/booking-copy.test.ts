@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daySlots, validEnds, type Amenity } from './model'
+import { checkRequest, dayStrip, daySlots, validEnds, type Amenity } from './model'
 import { approvalLine, cancelLine, dayAria, monthWeeks, nextMonth, plainRules, prevMonth, reviewSentence, timeLabel } from './booking-copy'
 
 const TZ = 'America/New_York'
@@ -116,5 +116,68 @@ describe('booking words', () => {
     expect(nextMonth('2026-12')).toBe('2027-01')
     expect(prevMonth('2026-01')).toBe('2025-12')
     expect(monthWeeks('2026-11', TZ)[0][0].day).toBe('2026-11-01')
+  })
+})
+
+describe('lengths offered match what the server accepts', () => {
+  // concurrent_limit 2 with bookings at 10-11 and 11-12 (and 11-1): a longer
+  // range overlaps more of them, so it must not be offered.
+  const two = { ...hall, concurrentLimit: 2, maxHours: 4 }
+  const held = [
+    { startsAt: '2026-11-14T15:00:00Z', endsAt: '2026-11-14T16:00:00Z' }, // 10-11 NY
+    { startsAt: '2026-11-14T16:00:00Z', endsAt: '2026-11-14T17:00:00Z' }, // 11-12 NY
+    { startsAt: '2026-11-14T16:00:00Z', endsAt: '2026-11-14T18:00:00Z' }, // 11-1 NY
+  ]
+
+  it('does not offer a length the whole-range count would refuse', () => {
+    const v = daySlots({ amenity: two, day: '2026-11-14', timeZone: TZ, now: NOW, held })
+    expect(validEnds(v, 10, 4)).toEqual([11])
+    expect(validEnds(v, 9, 4)).toEqual([10, 11])
+  })
+
+  const cases: Array<[string, Amenity, { startsAt: string; endsAt: string }[]]> = [
+    ['exclusive, one booking', hall, [{ startsAt: '2026-11-14T19:00:00Z', endsAt: '2026-11-14T21:00:00Z' }]],
+    ['limit 2, staggered bookings', two, held],
+    ['limit 3, many overlaps', { ...hall, concurrentLimit: 3, maxHours: 5 }, [...held, ...held]],
+    ['notice window', { ...hall, minNoticeHours: 5, maxHours: 5 }, []],
+  ]
+  it.each(cases)('every slot and length offered is accepted by checkRequest (%s)', (_name, amenity, heldList) => {
+    for (const day of ['2026-11-02', '2026-11-14']) {
+      const v = daySlots({ amenity, day, timeZone: TZ, now: NOW, held: heldList })
+      let offered = 0
+      for (const s of v.slots) {
+        const ends = validEnds(v, s.hour, amenity.maxHours)
+        if (s.state === 'free') expect(ends.length).toBeGreaterThan(0)
+        for (const e of ends) {
+          offered++
+          const r = checkRequest({ amenity, day, startHour: s.hour, endHour: e, timeZone: TZ, now: NOW, held: heldList, homeActiveCount: 0 })
+          expect(r.ok, `${day} ${s.hour}-${e}`).toBe(true)
+        }
+      }
+      expect(offered).toBeGreaterThan(0)
+    }
+  })
+
+  it('also holds across the fall-back day', () => {
+    const night = { ...hall, openHour: 0, closeHour: 6, maxHours: 4, concurrentLimit: 2 }
+    const day = '2026-11-01'
+    const now = new Date('2026-10-25T15:00:00Z')
+    const v = daySlots({ amenity: night, day, timeZone: TZ, now, held: [] })
+    for (const s of v.slots) {
+      for (const e of validEnds(v, s.hour, 4)) {
+        const r = checkRequest({ amenity: night, day, startHour: s.hour, endHour: e, timeZone: TZ, now, held: [], homeActiveCount: 0 })
+        expect(r.ok).toBe(true)
+      }
+    }
+  })
+})
+
+describe('dayStrip', () => {
+  it('starts at a given day and matches daySlots for each day', () => {
+    const held = [{ startsAt: '2026-11-14T19:00:00Z', endsAt: '2026-11-14T21:00:00Z' }]
+    const strip = dayStrip({ amenity: hall, timeZone: TZ, now: NOW, held, count: 3, startDay: '2026-11-13' })
+    expect(strip.map((d) => d.day)).toEqual(['2026-11-13', '2026-11-14', '2026-11-15'])
+    expect(strip[1]).toEqual(daySlots({ amenity: hall, day: '2026-11-14', timeZone: TZ, now: NOW, held }))
+    expect(strip[0].slots.every((s) => s.state === 'free')).toBe(true)
   })
 })
