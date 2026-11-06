@@ -106,6 +106,27 @@ describe('an invite link that cannot start a session', () => {
   })
 })
 
+describe('a successful sign-in from an invite link', () => {
+  it('never shows the expired-link notice, during or after', async () => {
+    let finish: (v: unknown) => void = () => {}
+    setSession.mockReturnValue(new Promise((r) => (finish = r)))
+    const seen: string[] = []
+    replace.mockImplementationOnce(async () => {
+      // The moment the router is told to leave, the notice must not be on screen.
+      seen.push(host!.textContent ?? '')
+    })
+    await mount(`/login?error=missing_code${HASH}`)
+    seen.push(host!.textContent ?? '')
+    await act(async () => finish({ error: null }))
+    await act(async () => {})
+    seen.push(host!.textContent ?? '')
+    expect(replace).toHaveBeenCalledWith('/')
+    expect(window.location.hash).toBe('')
+    expect(seen).toHaveLength(3)
+    for (const text of seen) expect(text).not.toContain('has expired')
+  })
+})
+
 describe('a signing-in problem that is not an expired link', () => {
   it('a dropped connection on setSession says so and offers Try again, not "expired"', async () => {
     setSession.mockRejectedValueOnce(new TypeError('Failed to fetch'))

@@ -20,9 +20,9 @@ function expiredLoginUrl(): string {
 }
 
 /** Clean the address bar and tell the login page the hash is dealt with. */
-function clearHash() {
+function clearHash(notify: boolean) {
   window.history.replaceState(null, '', window.location.pathname + window.location.search)
-  window.dispatchEvent(new Event(HASH_SESSION_DONE_EVENT))
+  if (notify) window.dispatchEvent(new Event(HASH_SESSION_DONE_EVENT))
 }
 
 /** Only a real "this link is no good" answer counts as expired, never a dropped connection. */
@@ -94,18 +94,21 @@ export function HashSessionHandler() {
         // login defaults to that tab and the first screen can offer a password.
         if (!t.isRecovery) rememberSignInMethod('link')
         pending.current = null
-        clearHash()
+        // No done event here: the page is about to leave, and telling the login
+        // page the hash is gone would flash its expired-link notice first.
+        clearHash(false)
         router.replace(t.isRecovery ? '/reset-password' : t.next)
         router.refresh()
       } else if (outcome === 'expired') {
         pending.current = null
         setBusy(false)
         const url = expiredLoginUrl()
-        clearHash()
+        clearHash(true)
         router.replace(url)
       } else {
         setBusy(false)
         setOffline(true)
+        window.dispatchEvent(new Event(HASH_SESSION_DONE_EVENT))
       }
     },
     [],
@@ -123,7 +126,7 @@ export function HashSessionHandler() {
       // switches to the "Email me a link" tab) instead of showing a bare form.
       // The error text itself is never rendered.
       const url = expiredLoginUrl()
-      clearHash()
+      clearHash(true)
       routerRef.current.replace(url)
       return
     }
