@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
+import { installFakeTwilio, twilioError } from '@/lib/test-utils/fake-twilio'
 
 /**
- * BL-146b: outbound texts go through Vonage's Messages API
- * (vonage.messages.send, Basic auth with the existing key + secret), so
- * the row's external_id holds the `message_uuid` the signed status
- * webhook matches on. These tests run the REAL sendSms, deliverToRecipients
- * and resident-notify runner with only the Vonage client mocked, and prove:
- *   - the message_uuid is what gets stored in external_id;
+ * BL-146b: outbound texts go through Twilio's Messages REST resource
+ * (form-encoded POST, Basic auth, a Messaging Service), so the row's
+ * external_id holds the message `sid` the signed status webhook matches
+ * on. These tests run the REAL sendSms, deliverToRecipients and
+ * resident-notify runner with only fetch faked, and prove:
+ *   - the request shape (URL, auth header, form fields) and that the sid
+ *     is what gets stored in external_id;
  *   - every gate in front of the provider still holds (outbound guard,
  *     sandbox org, missing config, text allowance, no phone, consent,
- *     opt-out), and a blocked text never reaches the client;
- *   - a provider failure still lands as a specific, PII-free reason.
+ *     opt-out), and a blocked text never reaches the network;
+ *   - a provider failure still lands as a short, PII-free code.
  * Nothing here reaches a real provider or a database.
  */
 
@@ -21,13 +23,6 @@ const h = vi.hoisted(() => ({
 }))
 
 const smsSend = vi.fn()
-const legacySend = vi.fn()
-vi.mock('@vonage/server-sdk', () => ({
-  Vonage: class {
-    messages = { send: smsSend }
-    sms = { send: legacySend }
-  },
-}))
 vi.mock('@homeowner-portal/observability/outbound-guard', async (orig) => ({
   ...(await orig<typeof import('@homeowner-portal/observability/outbound-guard')>()),
   fetchOrgSandbox: async () => h.orgSandbox,
@@ -39,16 +34,17 @@ vi.mock('@/lib/email', async (orig) => ({
 }))
 vi.mock('@/lib/sms-allowance', () => ({ smsAllowanceGate: async () => h.gate }))
 
-const UUID = 'aaaaaaaa-bbbb-4ccc-8ddd-0123456789ab'
+const UUID = 'SMaaaaaaaabbbb4ccc8ddd0123456789ab'
 const ALLOWED = '+14045550100'
 const OTHER = '+14045550199'
 
 function stubEnv(over: Record<string, string> = {}) {
   vi.stubEnv('VERCEL_ENV', 'preview')
   vi.stubEnv('OUTBOUND_ALLOWLIST', ALLOWED)
-  vi.stubEnv('VONAGE_API_KEY', 'k')
-  vi.stubEnv('VONAGE_API_SECRET', 's')
-  vi.stubEnv('VONAGE_FROM_NUMBER', '14045559999')
+  vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://www.homeownerledger.com')
+  vi.stubEnv('TWILIO_ACCOUNT_SID', 'ACtest')
+  vi.stubEnv('TWILIO_AUTH_TOKEN', 'token')
+  vi.stubEnv('TWILIO_MESSAGING_SERVICE_SID', 'MGtest')
   for (const [k, v] of Object.entries(over)) vi.stubEnv(k, v)
 }
 
@@ -57,41 +53,35 @@ async function freshSms() {
   return import('./sms')
 }
 
-/** A thrown Messages API failure as the SDK raises it: a VetchError whose
- *  fetch Response body has not been read yet. */
-function vetchError(status: number, body: unknown) {
-  const err = new Error(`Request failed with status code ${status}`) as Error & { response: unknown }
-  err.response = { status, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)) }
-  return err
-}
-
 beforeEach(() => {
   h.orgSandbox = false
   h.gate = null
   smsSend.mockReset()
-  legacySend.mockReset()
-  smsSend.mockResolvedValue({ messageUUID: UUID })
+  smsSend.mockResolvedValue({ sid: UUID })
+  installFakeTwilio(smsSend)
 })
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
 })
 
-describe('sendSms — Messages API request and response', () => {
-  it('sends one SMS text through messages.send (never the legacy sms.send) and returns the message_uuid', async () => {
+describe('sendSms — Twilio request and response', () => {
+  it('posts one form-encoded message with Basic auth and a Messaging Service, and returns the sid', async () => {
     stubEnv()
     const { sendSms } = await freshSms()
     const result = await sendSms({ to: ALLOWED, body: 'Water off Thursday' })
     expect(result).toEqual({ ok: true, messageSid: UUID })
-    expect(legacySend).not.toHaveBeenCalled()
     expect(smsSend).toHaveBeenCalledTimes(1)
-    expect(smsSend.mock.calls[0][0]).toEqual({
-      channel: 'sms',
-      messageType: 'text',
-      to: '14045550100', // E.164 digits, no "+"
-      from: '14045559999',
-      text: 'Water off Thursday',
+    const req = smsSend.mock.calls[0][0]
+    expect(req.url).toBe('https://api.twilio.com/2010-04-01/Accounts/ACtest/Messages.json')
+    expect(req.auth).toBe(`Basic ${Buffer.from('ACtest:token').toString('base64')}`)
+    expect(req.form).toEqual({
+      To: '+14045550100',
+      Body: 'Water off Thursday',
+      MessagingServiceSid: 'MGtest',
+      StatusCallback: 'https://www.homeownerledger.com/api/webhooks/twilio/status',
     })
+    expect(req.form).not.toHaveProperty('From')
   })
 
   it('passes the body through untouched — a full 279-character text is not cut or split here', async () => {
@@ -100,10 +90,10 @@ describe('sendSms — Messages API request and response', () => {
     const body = htmlToSmsBody(`<p>${'a'.repeat(400)}</p>`)
     expect(body).toHaveLength(279)
     await sendSms({ to: ALLOWED, body })
-    expect(smsSend.mock.calls[0][0].text).toBe(body)
+    expect(smsSend.mock.calls[0][0].form.Body).toBe(body)
   })
 
-  it('a response without a uuid stores null rather than inventing one', async () => {
+  it('a response without a sid stores null rather than inventing one', async () => {
     stubEnv()
     smsSend.mockResolvedValue({})
     const { sendSms } = await freshSms()
@@ -112,51 +102,53 @@ describe('sendSms — Messages API request and response', () => {
 })
 
 describe('sendSms — error handling', () => {
-  it('surfaces the Messages API error title (the short reason)', async () => {
+  it('maps a Twilio error response to a short code, never the message text', async () => {
     stubEnv()
-    smsSend.mockRejectedValue(
-      vetchError(422, { type: 'https://developer.vonage.com/api-errors#1120', title: 'Invalid sender', detail: 'The `from` parameter is invalid.' }),
-    )
-    const { sendSms } = await freshSms()
-    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Invalid sender' })
-  })
-
-  it('falls back to the detail, and masks any number echoed back', async () => {
-    stubEnv()
-    smsSend.mockRejectedValue(vetchError(422, { detail: 'Destination 14045550100 is not whitelisted' }))
+    smsSend.mockResolvedValue(twilioError(400, 21211, "The 'To' number +14045550100 is not a valid phone number."))
     const { sendSms } = await freshSms()
     const r = await sendSms({ to: ALLOWED, body: 'x' })
-    expect(r).toEqual({ ok: false, error: 'Destination [number] is not whitelisted' })
+    expect(r).toEqual({ ok: false, error: 'Twilio error 21211' })
   })
 
-  it('masks a formatted number in the reason, and in the plain error message fallback (SEC3-L7)', async () => {
+  it('falls back to the HTTP status when the error has no code or is not JSON', async () => {
     stubEnv()
-    smsSend.mockRejectedValue(vetchError(422, { title: 'Destination +1 404-555-0100 is not whitelisted' }))
     const { sendSms } = await freshSms()
-    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Destination [number] is not whitelisted' })
-
-    smsSend.mockRejectedValue(new Error('Could not reach (404) 555.0100'))
-    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Could not reach [number]' })
+    smsSend.mockResolvedValueOnce(twilioError(401, null, 'Authenticate'))
+    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Twilio HTTP 401' })
+    smsSend.mockResolvedValueOnce(new Response('<html>oops</html>', { status: 502 }))
+    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Twilio HTTP 502' })
   })
 
-  it('an unparseable body falls back to the error message', async () => {
+  it('a network error never echoes its message', async () => {
     stubEnv()
-    smsSend.mockRejectedValue(vetchError(500, '<html>oops</html>'))
+    smsSend.mockRejectedValueOnce(new Error('connect to +14045550100 failed')).mockRejectedValueOnce('boom')
     const { sendSms } = await freshSms()
-    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Request failed with status code 500' })
+    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Twilio request failed' })
+    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Twilio request failed' })
   })
 
-  it('a network error keeps its message; a non-error throw reads "Vonage send failed."', async () => {
+  it('a timeout reads as a timeout', async () => {
     stubEnv()
-    smsSend.mockRejectedValueOnce(new Error('socket hang up')).mockRejectedValueOnce('boom')
+    smsSend.mockRejectedValueOnce(Object.assign(new Error('t'), { name: 'TimeoutError' }))
     const { sendSms } = await freshSms()
-    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'socket hang up' })
-    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Vonage send failed.' })
+    expect(await sendSms({ to: ALLOWED, body: 'x' })).toEqual({ ok: false, error: 'Twilio request timed out' })
+  })
+
+  it('uses a timeout signal on the request', async () => {
+    stubEnv()
+    const fetchSpy = vi.fn(async (_u: string, init: RequestInit) => {
+      expect(init.signal).toBeInstanceOf(AbortSignal)
+      return new Response(JSON.stringify({ sid: UUID }), { status: 201 })
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+    const { sendSms } = await freshSms()
+    await sendSms({ to: ALLOWED, body: 'x' })
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 
   it('logs nothing on a failed send', async () => {
     stubEnv()
-    smsSend.mockRejectedValue(vetchError(401, { title: 'Unauthorized' }))
+    smsSend.mockResolvedValue(twilioError(401, 20003))
     const spies = (['log', 'info', 'warn', 'error'] as const).map((k) => vi.spyOn(console, k))
     const { sendSms } = await freshSms()
     await sendSms({ to: ALLOWED, body: 'Water off Thursday' })
@@ -182,7 +174,7 @@ describe('sendSms — gates in front of the client', () => {
     expect(await sendSms({ to: OTHER, body: 'x' })).toEqual({ ok: true, messageSid: UUID })
   })
 
-  for (const missing of ['VONAGE_API_KEY', 'VONAGE_API_SECRET', 'VONAGE_FROM_NUMBER']) {
+  for (const missing of ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_MESSAGING_SERVICE_SID']) {
     it(`without ${missing}, fails "SMS not configured" and never calls the client`, async () => {
       stubEnv({ [missing]: '' })
       const { sendSms } = await freshSms()
@@ -278,11 +270,11 @@ describe('deliverToRecipients — the message_uuid lands in external_id', () => 
     expect(smsSend).not.toHaveBeenCalled()
   })
 
-  it('a provider failure marks the row failed with the specific reason and no external_id', async () => {
-    smsSend.mockRejectedValue(vetchError(422, { title: 'Invalid sender' }))
+  it('a provider failure marks the row failed with a short code and no external_id', async () => {
+    smsSend.mockResolvedValue(twilioError(400, 21606))
     const counts = await deliver([row('r1', ALLOWED)])
     expect(counts.failedCount).toBe(1)
-    expect(patchOf('r1')).toMatchObject({ delivery_status: 'failed', error_message: 'Invalid sender' })
+    expect(patchOf('r1')).toMatchObject({ delivery_status: 'failed', error_message: 'Twilio error 21606' })
     expect(patchOf('r1').external_id).toBeUndefined()
   })
 })

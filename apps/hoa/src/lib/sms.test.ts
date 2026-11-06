@@ -1,17 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { installFakeTwilio } from '@/lib/test-utils/fake-twilio'
 
 /**
- * BL-102 finding 2: a missing Vonage key or secret used to return
+ * BL-102 finding 2: a missing Twilio variable used to be able to return
  * { ok: true, messageSid: null }, so a text row read "sent" while nothing
- * went out. Vonage is mocked; nothing here reaches a real provider.
+ * went out. fetch is faked; nothing here reaches a real provider.
  */
 
 const smsSend = vi.fn()
-vi.mock('@vonage/server-sdk', () => ({
-  Vonage: class {
-    messages = { send: smsSend }
-  },
-}))
 
 const ALLOWED = '+15550100001'
 
@@ -23,19 +19,23 @@ async function load() {
 function stubAll(over: Record<string, string> = {}) {
   vi.stubEnv('VERCEL_ENV', 'preview')
   vi.stubEnv('OUTBOUND_ALLOWLIST', ALLOWED)
-  vi.stubEnv('VONAGE_API_KEY', 'k')
-  vi.stubEnv('VONAGE_API_SECRET', 's')
-  vi.stubEnv('VONAGE_FROM_NUMBER', '15550109999')
+  vi.stubEnv('TWILIO_ACCOUNT_SID', 'ACtest')
+  vi.stubEnv('TWILIO_AUTH_TOKEN', 'token')
+  vi.stubEnv('TWILIO_MESSAGING_SERVICE_SID', 'MGtest')
   for (const [k, v] of Object.entries(over)) vi.stubEnv(k, v)
 }
 
+beforeEach(() => {
+  smsSend.mockReset()
+  smsSend.mockResolvedValue({ sid: 'SM1' })
+  installFakeTwilio(smsSend)
+})
 afterEach(() => {
   vi.unstubAllEnvs()
-  smsSend.mockReset()
 })
 
-describe('sendSms when Vonage is not fully configured', () => {
-  for (const missing of ['VONAGE_API_KEY', 'VONAGE_API_SECRET', 'VONAGE_FROM_NUMBER']) {
+describe('sendSms when Twilio is not fully configured', () => {
+  for (const missing of ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_MESSAGING_SERVICE_SID']) {
     it(`fails with "SMS not configured" when ${missing} is unset, and sends nothing`, async () => {
       stubAll({ [missing]: '' })
       const { sendSms, smsConfigured, SMS_NOT_CONFIGURED } = await load()
@@ -48,7 +48,7 @@ describe('sendSms when Vonage is not fully configured', () => {
   }
 
   it('logs nothing about the number or the message', async () => {
-    stubAll({ VONAGE_API_KEY: '' })
+    stubAll({ TWILIO_AUTH_TOKEN: '' })
     const spies = (['log', 'info', 'warn', 'error'] as const).map((k) => vi.spyOn(console, k))
     const { sendSms } = await load()
     await sendSms({ to: ALLOWED, body: 'Water off Thursday' })
@@ -58,12 +58,12 @@ describe('sendSms when Vonage is not fully configured', () => {
 })
 
 describe('sendSms when configured', () => {
-  it('sends through Vonage and returns the message id', async () => {
+  it('sends through Twilio and returns the message sid', async () => {
     stubAll()
-    smsSend.mockResolvedValue({ messageUUID: 'vm-1' })
+    smsSend.mockResolvedValue({ sid: 'SMabc' })
     const { sendSms, smsConfigured } = await load()
     expect(smsConfigured()).toBe(true)
-    expect(await sendSms({ to: ALLOWED, body: 'Water off Thursday' })).toEqual({ ok: true, messageSid: 'vm-1' })
+    expect(await sendSms({ to: ALLOWED, body: 'Water off Thursday' })).toEqual({ ok: true, messageSid: 'SMabc' })
     expect(smsSend).toHaveBeenCalledTimes(1)
   })
 

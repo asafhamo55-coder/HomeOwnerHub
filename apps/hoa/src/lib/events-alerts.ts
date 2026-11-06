@@ -556,7 +556,7 @@ async function setCommunicationStatus(
 
 /**
  * The short code stored for a failed delivery, in place of the provider's
- * text. Provider text (Resend, Vonage) can name the recipient's address.
+ * text. Provider text (Resend, Twilio) can name the recipient's address.
  */
 export function deliveryErrorCode(channel: 'email' | 'sms', providerError: string): string {
   if (providerError === OUTBOUND_BLOCKED_ERROR) return 'outbound_blocked'
