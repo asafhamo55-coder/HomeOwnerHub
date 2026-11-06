@@ -279,6 +279,7 @@ export const FL_MEDIATION: Guide = {
     'florida-hoa-board-meeting-notice-rules',
     'florida-hoa-fine-hearing-committee',
     'florida-hoa-architectural-review-720-3035',
+    'florida-hoa-board-director-recall-720-303',
   ],
   hoaDoes: [],
   hoaDoesNot:
