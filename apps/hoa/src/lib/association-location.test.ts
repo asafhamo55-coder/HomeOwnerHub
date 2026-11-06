@@ -12,6 +12,11 @@ describe('community location', () => {
     expect(saveCommunityLocationSchema.safeParse({ associationId: A, city: '', zip: '30067-1234' }).success).toBe(true)
     expect(saveCommunityLocationSchema.safeParse({ associationId: A }).success).toBe(true)
   })
+  it('accepts real city names', () => {
+    for (const city of ['Johns Creek', 'St. Marys', "O'Fallon", 'Winston-Salem']) {
+      expect(saveCommunityLocationSchema.safeParse({ associationId: A, city }).success, city).toBe(true)
+    }
+  })
   it('rejects a bad ZIP and a city with digits or markup', () => {
     expect(saveCommunityLocationSchema.safeParse({ associationId: A, zip: '3006' }).success).toBe(false)
     expect(saveCommunityLocationSchema.safeParse({ associationId: A, city: 'At<b>lanta' }).success).toBe(false)

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readZelleSettings, signZelleSettings } from './pay-by-zelle'
 
 // Community city and ZIP: the save action. A server action is a public
 // endpoint, so a non-board caller must be refused before anything is read.
@@ -71,6 +72,17 @@ describe('saveCommunityLocation', () => {
       expect(h.updates[0]).toMatchObject({ board_contacts: [{ keep: 1 }], community_city: 'Atlanta', community_zip: '30067' })
     }
     expect(h.orgFilters.every((o) => o === ORG)).toBe(true)
+  })
+
+  it('leaves a signed pay_by_zelle record verifying after the save', async () => {
+    const secret = 'test-secret-not-real'
+    const signed = signZelleSettings(A1, { recipient: 'board@example.org', recipientName: 'Test HOA', instructions: null, checks: null }, secret)
+    h.stored = { pay_by_zelle: signed, board_contacts: [] }
+    expect(readZelleSettings(A1, h.stored, secret, null).state).toBe('configured')
+    const r = await saveCommunityLocation({ associationId: A1, city: 'Atlanta', zip: '30067' })
+    expect(r).toEqual({ ok: true })
+    expect(h.updates[0].pay_by_zelle).toEqual(signed)
+    expect(readZelleSettings(A1, h.updates[0], secret, null).state).toBe('configured')
   })
 
   it('rejects an invalid ZIP with a field error and writes nothing', async () => {

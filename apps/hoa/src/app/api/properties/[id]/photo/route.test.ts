@@ -349,6 +349,12 @@ describe('GET /api/properties/:id/photo', () => {
       await call()
       expect(reasons()).toContain('budget_exhausted')
     })
+    it('logs an unknown locationType as other', async () => {
+      geoStatus = 'OK'
+      geoType = 'SOMETHING_NEW'
+      await call()
+      expect(infoLines()[0]).toMatchObject({ reason: 'geocode_imprecise', locationType: 'other' })
+    })
     it('logs only known Google statuses, else other', async () => {
       geoStatus = 'SOME_NEW_STATUS <script>'
       await call()
@@ -414,6 +420,16 @@ describe('GET /api/properties/:id/photo', () => {
       await call()
       expect(reasons()).toEqual(['geocode_imprecise'])
       expect(new URL(calls[calls.length - 1]).searchParams.get('heading')).toBeNull()
+    })
+    it('404s with zero Google calls for an address whose only place is its own state', async () => {
+      h.property = { address: '105 Springwood Parkway, GA' }
+      h.unit = { city: null, state: null, postal_code: null }
+      h.assoc = null
+      const res = await call()
+      expect(res.status).toBe(404)
+      expect(calls).toHaveLength(0)
+      expect(geoCalls).toHaveLength(0)
+      expect(reasons()).toEqual(['state_only_location'])
     })
     it('a unit with only a state does not make a street-only address safe', async () => {
       h.property = { address: '105 Springwood Parkway' }

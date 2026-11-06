@@ -275,7 +275,7 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   // back as a confident photo of the wrong house in another city, and neither
   // ROOFTOP nor partial_match catches it. Never call Google for it.
   const own = formatAddress(property.address)
-  const placed = own.city || own.zip || own.state || fallback?.city?.trim() || fallback?.postal_code?.trim()
+  const placed = own.city || own.zip || fallback?.city?.trim() || fallback?.postal_code?.trim()
   if (!placed) {
     logPhoto('miss', 'state_only_location', { propertyId })
     return notFound()
