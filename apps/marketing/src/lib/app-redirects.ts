@@ -59,6 +59,8 @@ export const APP_PATH_SEGMENTS = [
   'onboarding',
   // How-to-join notice for owners without email
   'people',
+  // Public resident onboarding video page
+  'welcome',
   // BL-168 professional access (CPA, attorney)
   'pro',
   'pro-invite',
