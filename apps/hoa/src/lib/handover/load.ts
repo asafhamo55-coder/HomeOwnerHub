@@ -114,7 +114,7 @@ export async function loadConnections(deps: HandoverDeps, boardIds: ReadonlySet<
   if (assocRow) {
     const secret = deps.zelleSecret !== undefined ? deps.zelleSecret : paySettingsSecret()
     const read = readZelleSettings(assocRow.id, assocRow.compliance_settings, secret)
-    zelle = read.state === 'configured' ? { state: 'configured', updatedAt: read.settings.updatedAt } : { state: read.state, updatedAt: null }
+    zelle = read.state === 'configured' ? { state: 'configured', updatedAt: read.settings.updatedAt } : { state: read.state === 'checks_only' ? 'not_configured' : read.state, updatedAt: null }
   }
   const orgRow = ((org.data ?? []) as Array<{ stripe_customer_id: string | null }>)[0] ?? null
 

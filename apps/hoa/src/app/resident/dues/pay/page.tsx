@@ -1,12 +1,11 @@
-import Link from 'next/link'
 import { CheckCircle2, Landmark, ShieldCheck, Wallet } from 'lucide-react'
-import { Button, LoadFailed } from '@homeowner-portal/ui'
+import { LoadFailed } from '@homeowner-portal/ui'
 import { getResidentActor } from '@/lib/impersonation'
 import { getResidentDues } from '@/lib/resident-dashboard'
 import { getResidentZelleSettings } from '@/lib/pay-settings'
 import { payLinesFor, type ZelleReadResult } from '@/lib/pay-by-zelle'
 import type { ResidentUnit } from '@/lib/resident'
-import { ZellePayInstructions } from '@/components/resident/ZellePayInstructions'
+import { PayMethods, payMethodsLabel } from '@/components/resident/PayMethods'
 import { Hero, Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
 import { TrackOnMount } from '@/components/analytics/ProductAnalytics'
 import { CreditOnAccountCard } from '@/components/resident/CreditOnAccountCard'
@@ -85,6 +84,8 @@ export default async function ResidentPayPage() {
   )
   const anyConfigured =
     settings.ok && Object.values(settings.byAssociation).some((r) => r.state === 'configured')
+  const anyChecks =
+    settings.ok && Object.values(settings.byAssociation).some((r) => r.state === 'checks_only')
 
   return (
     <div className="space-y-8">
@@ -93,7 +94,13 @@ export default async function ResidentPayPage() {
       <ScreenHeader
         title="Pay dues"
         back={BACK}
-        subtitle={anyConfigured ? 'Pay with Zelle from your bank’s app.' : undefined}
+        subtitle={
+          anyConfigured
+            ? 'Pay with Zelle from your bank’s app.'
+            : anyChecks
+              ? 'Pay by check. Mail it or drop it off.'
+              : undefined
+        }
       />
 
       <Hero
@@ -126,29 +133,22 @@ export default async function ResidentPayPage() {
           const read: ZelleReadResult = settings.byAssociation[assocId] ?? { state: 'not_configured' }
           const assocName = units.find((u) => u.association_id === assocId)?.association_name ?? null
           return (
-            <Section
-              key={assocId || 'none'}
-              label={groups.size > 1 && assocName ? `Pay ${assocName}` : 'Send with Zelle'}
-            >
-              {read.state === 'configured' ? (
-                <ZellePayInstructions
-                  recipient={read.settings.recipient}
-                  recipientName={read.settings.recipientName}
-                  instructions={read.settings.instructions}
-                  lines={payLinesFor(charges, {
-                    state: units.find((u) => u.association_id === assocId)?.association_state,
-                    today: dues.today,
-                  })}
-                  unitLabelFor={
-                    multiUnit
-                      ? (id) => unitLabel(units, charges.find((c) => c.id === id)?.unitId ?? null)
-                      : undefined
-                  }
-                />
-              ) : (
-                <NotSetUp />
-              )}
-              {read.state === 'configured' ? (
+            <Section key={assocId || 'none'} label={groups.size > 1 && assocName ? `Pay ${assocName}` : payMethodsLabel(read)}>
+              <PayMethods
+                read={read}
+                lines={payLinesFor(charges, {
+                  state: units.find((u) => u.association_id === assocId)?.association_state,
+                  today: dues.today,
+                })}
+                amountDue={charges.reduce((sum, c) => sum + c.amount, 0)}
+                contacts={settings.contactsByAssociation[assocId] ?? []}
+                unitLabelFor={
+                  multiUnit
+                    ? (id) => unitLabel(units, charges.find((c) => c.id === id)?.unitId ?? null)
+                    : undefined
+                }
+              />
+              {read.state === 'configured' || read.state === 'checks_only' ? (
                 <p className="mt-3 text-sm text-foreground-secondary">
                   Your payment shows on your ledger once the board records it.
                 </p>
@@ -179,22 +179,6 @@ export default async function ResidentPayPage() {
         </Section>
       ) : null}
     </div>
-  )
-}
-
-function NotSetUp() {
-  return (
-    <ScreenEmpty
-      icon={<Wallet />}
-      tone="slate"
-      title="Online payments aren’t set up yet"
-      description="Your board hasn’t added its Zelle details yet. Contact your board to pay — or ask them to turn on Pay by Zelle in their settings."
-      action={
-        <Button asChild variant="secondary">
-          <Link href="/resident/tickets/new">Message your board</Link>
-        </Button>
-      }
-    />
   )
 }
 

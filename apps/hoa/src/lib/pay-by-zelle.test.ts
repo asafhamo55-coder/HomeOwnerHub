@@ -4,7 +4,9 @@ import {
   ZELLE_SETTINGS_KEY,
   payLinesFor,
   readZelleSettings,
+  checksOf,
   signZelleSettings,
+  validatePaymentSettingsInput,
   usableMemoCode,
   validateZelleInput,
   withZelleSettings,
@@ -202,5 +204,113 @@ describe('SEC-N7: secret fallback and rotation', () => {
     expect(readZelleSettings('assoc-1', cs, 'new-secret', null).state).toBe('unverified')
     expect(readZelleSettings('assoc-1', cs, 'new-secret', 'old-secret').state).toBe('configured')
     expect(readZelleSettings('assoc-1', cs, 'new-secret', 'other').state).toBe('unverified')
+  })
+})
+
+describe('How residents pay: Zelle, checks, both or neither (round 29)', () => {
+  const AT = '2026-11-06T12:00:00.000Z'
+  const checkInput = { checkPayableTo: 'Maple Court HOA', checkMailTo: 'PO Box 12\nMacon, GA 31201', checkDropOff: ' ' }
+  const sign = (input: Parameters<typeof validatePaymentSettingsInput>[0]) => {
+    const r = validatePaymentSettingsInput(input)
+    if (!r.ok) throw new Error('invalid')
+    return withZelleSettings({}, signZelleSettings(ASSOC, r.value, SECRET, AT))
+  }
+
+  it('saves checks only: no Zelle recipient needed', () => {
+    const r = validatePaymentSettingsInput(checkInput)
+    expect(r).toEqual({
+      ok: true,
+      value: {
+        recipient: null,
+        recipientName: null,
+        instructions: null,
+        checks: { payableTo: 'Maple Court HOA', mailTo: 'PO Box 12\nMacon, GA 31201', dropOff: null },
+      },
+    })
+    const read = readZelleSettings(ASSOC, sign(checkInput), SECRET, null)
+    expect(read.state).toBe('checks_only')
+    expect(checksOf(read)).toEqual({ payableTo: 'Maple Court HOA', mailTo: 'PO Box 12\nMacon, GA 31201', dropOff: null })
+  })
+
+  it('saves Zelle only, with no check fields', () => {
+    const read = readZelleSettings(ASSOC, sign({ recipient: 'pay@demo-court.example' }), SECRET, null)
+    expect(read.state).toBe('configured')
+    expect(checksOf(read)).toBeNull()
+  })
+
+  it('saves both', () => {
+    const read = readZelleSettings(
+      ASSOC,
+      sign({ recipient: 'pay@demo-court.example', checkPayableTo: 'Maple Court HOA', checkMailTo: 'PO Box 12', checkDropOff: 'Clubhouse office' }),
+      SECRET,
+      null,
+    )
+    expect(read.state).toBe('configured')
+    expect(checksOf(read)).toEqual({ payableTo: 'Maple Court HOA', mailTo: 'PO Box 12', dropOff: 'Clubhouse office' })
+  })
+
+  it('refuses neither, and half-filled check details, in plain words', () => {
+    expect(validatePaymentSettingsInput({ instructions: 'Call us' })).toMatchObject({
+      ok: false,
+      fieldErrors: { recipient: expect.stringContaining('so residents know how to pay') },
+    })
+    expect(validatePaymentSettingsInput({ checkPayableTo: 'Maple Court HOA' })).toMatchObject({
+      ok: false,
+      fieldErrors: { checkMailTo: 'Enter the address residents should mail checks to.' },
+    })
+    expect(validatePaymentSettingsInput({ checkMailTo: 'PO Box 12' })).toMatchObject({
+      ok: false,
+      fieldErrors: { checkPayableTo: 'Enter who checks should be made out to.' },
+    })
+    expect(validatePaymentSettingsInput({ recipient: 'nope' })).toMatchObject({ ok: false })
+  })
+
+  it('rejects tampering with check fields, in both directions', () => {
+    const checksOnly = sign(checkInput)
+    const tamperedPayee = withZelleSettings(checksOnly, {
+      ...(checksOnly[ZELLE_SETTINGS_KEY] as object),
+      check_payable_to: 'Someone Else',
+    } as never)
+    expect(readZelleSettings(ASSOC, tamperedPayee, SECRET, null).state).toBe('unverified')
+
+    const zelleOnly = sign({ recipient: 'pay@demo-court.example' })
+    const injected = withZelleSettings(zelleOnly, {
+      ...(zelleOnly[ZELLE_SETTINGS_KEY] as object),
+      check_payable_to: 'Mallory',
+      check_mail_to: 'PO Box 666',
+    } as never)
+    expect(readZelleSettings(ASSOC, injected, SECRET, null).state).toBe('unverified')
+
+    const both = sign({ recipient: 'pay@demo-court.example', ...checkInput })
+    const stripped = { ...(both[ZELLE_SETTINGS_KEY] as Record<string, unknown>) }
+    delete stripped.check_payable_to
+    delete stripped.check_mail_to
+    expect(readZelleSettings(ASSOC, { [ZELLE_SETTINGS_KEY]: stripped }, SECRET, null).state).toBe('unverified')
+
+    const swappedRecipient = withZelleSettings(checksOnly, {
+      ...(checksOnly[ZELLE_SETTINGS_KEY] as object),
+      recipient: 'mallory@example.com',
+    } as never)
+    expect(readZelleSettings(ASSOC, swappedRecipient, SECRET, null).state).toBe('unverified')
+  })
+
+  it('refuses a signed value copied from another association', () => {
+    expect(readZelleSettings(OTHER_ASSOC, sign(checkInput), SECRET, null).state).toBe('unverified')
+  })
+
+  it('fails closed with no secret, for checks and Zelle alike', () => {
+    expect(readZelleSettings(ASSOC, sign(checkInput), null, null).state).toBe('unverified')
+    expect(readZelleSettings(ASSOC, sign({ recipient: 'pay@demo-court.example' }), null, null).state).toBe('unverified')
+  })
+
+  it('still verifies a Zelle setup saved before checks existed', () => {
+    const legacy = signZelleSettings(
+      ASSOC,
+      { recipient: 'pay@demo-court.example', recipientName: 'Demo Court HOA', instructions: null },
+      SECRET,
+      AT,
+    )
+    expect(Object.keys(legacy)).not.toContain('check_payable_to')
+    expect(readZelleSettings(ASSOC, { [ZELLE_SETTINGS_KEY]: legacy }, SECRET, null).state).toBe('configured')
   })
 })

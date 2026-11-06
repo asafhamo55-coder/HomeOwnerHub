@@ -15,12 +15,12 @@ export const SETUP_LABEL: Record<SetupState, string> = {
   unknown: 'Open to check',
 }
 
-type Saved = 'configured' | 'not_configured' | 'unverified'
+type Saved = 'configured' | 'checks_only' | 'not_configured' | 'unverified'
 
 /** Settings saved outside the screen read as paused, so they need a look. */
 function fromSaved(state: Saved, on: boolean): SetupState {
   if (state === 'unverified') return 'needs_attention'
-  return state === 'configured' && on ? 'set_up' : 'not_set_up'
+  return (state === 'configured' || state === 'checks_only') && on ? 'set_up' : 'not_set_up'
 }
 
 export function paymentsState(r: Read<{ read: { state: Saved } }>): SetupState {

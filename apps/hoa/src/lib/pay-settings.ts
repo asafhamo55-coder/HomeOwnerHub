@@ -10,12 +10,14 @@ import { requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getResidentActor } from '@/lib/impersonation'
 import { loadOrFail } from '@/lib/load-or-fail'
+import { readBoardContacts, type BoardContact } from '@/lib/association-contacts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import {
+  checksOf,
   paySettingsSecret,
   readZelleSettings,
   signZelleSettings,
-  validateZelleInput,
+  validatePaymentSettingsInput,
   withZelleSettings,
   type ZelleReadResult,
 } from '@/lib/pay-by-zelle'
@@ -24,7 +26,14 @@ export interface BoardZelleSettings {
   association: { id: string; name: string }
   read: ZelleReadResult
   /** What the form starts with: the verified values, else empty. */
-  initial: { recipient: string; recipientName: string; instructions: string }
+  initial: {
+    recipient: string
+    recipientName: string
+    instructions: string
+    checkPayableTo: string
+    checkMailTo: string
+    checkDropOff: string
+  }
   /** A real-looking memo code for the preview (this association's slug). */
   sampleMemoCode: string | null
 }
@@ -61,16 +70,21 @@ export async function getBoardZelleSettings(): Promise<BoardZelleLoad> {
   const { row } = assoc
 
   const read = readZelleSettings(row.id, row.compliance_settings, paySettingsSecret())
-  const s = read.state === 'configured' ? read.settings : null
+  const s = read.state === 'configured' || read.state === 'checks_only' ? read.settings : null
+  const zelle = read.state === 'configured' ? read.settings : null
+  const checks = checksOf(read)
   return {
     ok: true,
     data: {
       association: { id: row.id, name: row.name },
       read,
       initial: {
-        recipient: s?.recipient ?? '',
+        recipient: zelle?.recipient ?? '',
         recipientName: s?.recipientName ?? row.name,
         instructions: s?.instructions ?? '',
+        checkPayableTo: checks?.payableTo ?? '',
+        checkMailTo: checks?.mailTo ?? '',
+        checkDropOff: checks?.dropOff ?? '',
       },
       sampleMemoCode: memoCodeFor({
         associationSlug: row.slug,
@@ -90,11 +104,14 @@ export async function saveZelleSettings(input: {
   recipient: string
   recipientName: string
   instructions: string
+  checkPayableTo?: string
+  checkMailTo?: string
+  checkDropOff?: string
 }): Promise<SaveZelleResult> {
   const gate = await requireBoardOrAdminForAction()
   if (!gate.ok) return { ok: false, error: gate.error }
 
-  const parsed = validateZelleInput(input)
+  const parsed = validatePaymentSettingsInput(input)
   if (!parsed.ok) return { ok: false, error: 'Check the highlighted fields.', fieldErrors: parsed.fieldErrors }
 
   const secret = paySettingsSecret()
@@ -140,9 +157,12 @@ async function writeSettings(
  */
 export async function getResidentZelleSettings(
   associationIds: string[],
-): Promise<{ ok: true; byAssociation: Record<string, ZelleReadResult> } | { ok: false }> {
+): Promise<
+  | { ok: true; byAssociation: Record<string, ZelleReadResult>; contactsByAssociation: Record<string, BoardContact[]> }
+  | { ok: false }
+> {
   const ids = [...new Set(associationIds)]
-  if (ids.length === 0) return { ok: true, byAssociation: {} }
+  if (ids.length === 0) return { ok: true, byAssociation: {}, contactsByAssociation: {} }
   const actor = await getResidentActor()
   let q = actor.client.from('associations').select('id, compliance_settings').in('id', ids)
   // Impersonating = service-role client: never read another org's settings.
@@ -151,9 +171,11 @@ export async function getResidentZelleSettings(
   if (!res.ok) return { ok: false }
   const secret = paySettingsSecret()
   const byAssociation: Record<string, ZelleReadResult> = {}
+  const contactsByAssociation: Record<string, BoardContact[]> = {}
   for (const id of ids) byAssociation[id] = { state: 'not_configured' }
   for (const row of (res.data ?? []) as Array<{ id: string; compliance_settings: unknown }>) {
     byAssociation[row.id] = readZelleSettings(row.id, row.compliance_settings, secret)
+    contactsByAssociation[row.id] = readBoardContacts(row.compliance_settings)
   }
-  return { ok: true, byAssociation }
+  return { ok: true, byAssociation, contactsByAssociation }
 }

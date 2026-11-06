@@ -21,13 +21,20 @@ import {
 } from '@homeowner-portal/ui'
 import { clearZelleSettings, saveZelleSettings } from '@/lib/pay-settings'
 import { ZellePayInstructions } from '@/components/resident/ZellePayInstructions'
+import { CheckPayCard } from '@/components/resident/CheckPayCard'
 import { formatShortDate } from '@/lib/format-datetime'
 
 interface Values {
   recipient: string
   recipientName: string
   instructions: string
+  checkPayableTo: string
+  checkMailTo: string
+  checkDropOff: string
 }
+
+// Older boards, phones: 16px text and 48px targets on everything here.
+const BIG_INPUT = 'h-12 text-base'
 
 export function ZelleSettingsForm({
   initial,
@@ -63,15 +70,15 @@ export function ZelleSettingsForm({
         return
       }
       setFieldErrors({})
-      toast({ tone: 'success', message: 'Saved. Residents now see Pay by Zelle.' })
+      toast({ tone: 'success', message: 'Saved. Residents can now see how to pay.' })
       router.refresh()
     })
   }
 
   async function onTurnOff() {
     const ok = await confirm({
-      title: 'Turn off Pay by Zelle?',
-      description: 'Residents will see that online payment isn’t set up. Payments already sent still arrive and match.',
+      title: 'Turn off how residents pay?',
+      description: 'Residents will be told to contact the board to pay. Payments already sent still arrive and match.',
       confirmLabel: 'Turn off',
       destructive: true,
     })
@@ -82,74 +89,120 @@ export function ZelleSettingsForm({
         toast({ tone: 'error', message: res.error })
         return
       }
-      setValues({ recipient: '', recipientName: initial.recipientName, instructions: '' })
-      toast({ tone: 'success', message: 'Pay by Zelle is off.' })
+      setValues({
+        recipient: '',
+        recipientName: initial.recipientName,
+        instructions: '',
+        checkPayableTo: '',
+        checkMailTo: '',
+        checkDropOff: '',
+      })
+      toast({ tone: 'success', message: 'Payment details are off.' })
       router.refresh()
     })
   }
 
   const previewRecipient = values.recipient.trim()
+  const payableTo = values.checkPayableTo.trim()
+  const mailTo = values.checkMailTo.trim()
+  const previewChecks =
+    payableTo && mailTo ? { payableTo, mailTo, dropOff: values.checkDropOff.trim() || null } : null
 
   return (
     <>
       <Card>
         <form onSubmit={onSubmit} noValidate>
           <CardHeader className="pb-4">
-            <CardTitle as="h2">Zelle details</CardTitle>
-            <CardDescription>
-              Use the email or phone number your association’s bank account receives Zelle on — never a board
-              member’s personal account.
+            <CardTitle as="h2">How residents pay</CardTitle>
+            <CardDescription className="text-base">
+              Fill in Zelle, checks, or both. Use your association’s own bank account, never a board member’s
+              personal account.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+          <CardContent className="space-y-6 text-base">
+            <div className="flex flex-wrap items-center gap-2 text-base text-muted">
               {configured ? (
-                <StatusPill tone="success" label="On — residents can pay" />
+                <StatusPill tone="success" label="On: residents can see how to pay" />
               ) : (
-                <StatusPill tone="neutral" label="Off — residents see “not set up yet”" />
+                <StatusPill tone="neutral" label="Off: residents are told to contact the board" />
               )}
               {configured && updatedAt ? <span>Last saved {formatShortDate(updatedAt)}</span> : null}
             </div>
-            <Field
-              label="Zelle email or mobile number"
-              required
-              error={fieldErrors.recipient}
-              hint="What residents type into “Send to” in their bank app."
-            >
-              <Input
-                value={values.recipient}
-                onChange={set('recipient')}
-                placeholder="treasurer@yourhoa.org"
-                autoComplete="off"
-                inputMode="email"
-                maxLength={254}
-              />
-            </Field>
-            <Field
-              label="Name Zelle shows"
-              optional
-              error={fieldErrors.recipientName}
-              hint="The account name residents should see before they confirm, so they know it’s really you."
-            >
-              <Input value={values.recipientName} onChange={set('recipientName')} maxLength={80} />
-            </Field>
+
+            <fieldset className="space-y-4">
+              <legend className="text-lg font-semibold text-foreground">Pay by Zelle (optional)</legend>
+              <Field
+                label="Zelle email or mobile number"
+                optional
+                error={fieldErrors.recipient}
+                hint="What residents type into “Send to” in their bank app. Leave empty if you do not use Zelle."
+              >
+                <Input
+                  className={BIG_INPUT}
+                  value={values.recipient}
+                  onChange={set('recipient')}
+                  placeholder="treasurer@yourhoa.org"
+                  autoComplete="off"
+                  inputMode="email"
+                  maxLength={254}
+                />
+              </Field>
+              <Field
+                label="Name Zelle shows"
+                optional
+                error={fieldErrors.recipientName}
+                hint="The account name residents should see before they confirm, so they know it’s really you."
+              >
+                <Input className={BIG_INPUT} value={values.recipientName} onChange={set('recipientName')} maxLength={80} />
+              </Field>
+            </fieldset>
+
+            <fieldset className="space-y-4">
+              <legend className="text-lg font-semibold text-foreground">Pay by check (optional)</legend>
+              <Field label="Make checks payable to" optional error={fieldErrors.checkPayableTo} hint="For example: Maple Court HOA">
+                <Input className={BIG_INPUT} value={values.checkPayableTo} onChange={set('checkPayableTo')} maxLength={160} />
+              </Field>
+              <Field
+                label="Mail to"
+                optional
+                error={fieldErrors.checkMailTo}
+                hint="The full mailing address, such as a P.O. box or the treasurer’s mailing address."
+              >
+                <Textarea
+                  className="text-base"
+                  value={values.checkMailTo}
+                  onChange={set('checkMailTo')}
+                  maxLength={300}
+                  rows={3}
+                />
+              </Field>
+              <Field
+                label="Or drop off at"
+                optional
+                error={fieldErrors.checkDropOff}
+                hint="A place residents can hand in a check, if you have one. Leave empty if not."
+              >
+                <Input className={BIG_INPUT} value={values.checkDropOff} onChange={set('checkDropOff')} maxLength={300} />
+              </Field>
+            </fieldset>
+
             <Field
               label="Note to residents"
               optional
               error={fieldErrors.instructions}
-              hint="Shown under the payment steps. For example, other ways to pay or who to call."
+              hint="Shown with the payment steps. For example, who to call with a question."
             >
-              <Textarea value={values.instructions} onChange={set('instructions')} maxLength={500} rows={3} />
+              <Textarea className="text-base" value={values.instructions} onChange={set('instructions')} maxLength={500} rows={3} />
             </Field>
           </CardContent>
           <CardFooter className="flex flex-wrap justify-end gap-2">
             {configured ? (
-              <Button type="button" variant="destructive-ghost" onClick={onTurnOff} disabled={pending}>
+              <Button type="button" size="lg" className="min-h-12 text-base" variant="destructive-ghost" onClick={onTurnOff} disabled={pending}>
                 Turn off
               </Button>
             ) : null}
-            <Button type="submit" loading={pending} icon={<Save aria-hidden />}>
-              {configured ? 'Save changes' : 'Turn on Pay by Zelle'}
+            <Button type="submit" size="lg" className="min-h-12 text-base" loading={pending} icon={<Save aria-hidden />}>
+              {configured ? 'Save changes' : 'Save how residents pay'}
             </Button>
           </CardFooter>
         </form>
@@ -157,19 +210,18 @@ export function ZelleSettingsForm({
 
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle as="h2">What residents see</CardTitle>
-          <CardDescription>
-            A live preview of the Pay screen for a sample $325.00 dues charge. Each real charge carries its own
-            memo code; your bank feed matches on it, and a board member approves every match before it posts.
+          <CardTitle as="h2">This is what residents will see</CardTitle>
+          <CardDescription className="text-base">
+            A live preview of the Pay screen for a sample $325.00 dues charge. It updates as you type.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4 text-base">
           {previewRecipient ? (
             <div className="rounded-xl bg-background p-3 sm:p-4">
               <ZellePayInstructions
                 recipient={previewRecipient}
                 recipientName={values.recipientName.trim() || null}
-                instructions={values.instructions.trim() || null}
+                instructions={previewChecks ? null : values.instructions.trim() || null}
                 lines={[
                   {
                     assessmentId: 'preview',
@@ -182,12 +234,22 @@ export function ZelleSettingsForm({
                 ]}
               />
             </div>
-          ) : (
-            <p className="rounded-xl bg-subtle p-4 text-sm text-foreground-secondary">
-              Residents see: <span className="font-medium text-foreground">“Online payments aren’t set up yet”</span>{' '}
-              with a prompt to contact the board. Enter a Zelle email or number to preview the Pay screen.
+          ) : null}
+          {previewChecks ? (
+            <div className="rounded-xl bg-background p-3 sm:p-4">
+              <CheckPayCard
+                checks={previewChecks}
+                amountDue={325}
+                instructions={previewRecipient ? null : values.instructions.trim() || null}
+              />
+            </div>
+          ) : null}
+          {!previewRecipient && !previewChecks ? (
+            <p className="rounded-xl bg-subtle p-4 text-base text-foreground-secondary">
+              Residents see: <span className="font-medium text-foreground">“Your board hasn’t shared how to pay yet”</span>{' '}
+              with a note to contact the board. Add Zelle or check details above to preview the Pay screen.
             </p>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </>
