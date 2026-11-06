@@ -5,6 +5,7 @@ import { getResidentUnits } from '@/lib/resident'
 import { loadMyContacts } from '@/lib/contact-updates/resident-load'
 import { MyContactDetails } from './MyContactDetails'
 import { getResidentActor } from '@/lib/impersonation'
+import { TextSizeControl } from '@/components/theme/TextSizeControl'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { SignOutButton } from '@/components/resident/SignOutButton'
 import { Panel, RowGroup, ScreenHeader, SectionLabel, TappableRow } from '@/components/resident/screen'
@@ -226,6 +227,9 @@ export default async function ResidentAccountPage() {
             <p className="text-xs text-muted">Light, dark, or match your device</p>
           </div>
           <ThemeToggle />
+        </Panel>
+        <Panel>
+          <TextSizeControl />
         </Panel>
       </section>
 

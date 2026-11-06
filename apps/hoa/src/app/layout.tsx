@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { THEME_INIT_SCRIPT } from '@homeowner-portal/ui'
 import { palette } from '@homeowner-portal/ui/tokens'
+import { TEXT_SIZE_INIT_SCRIPT } from '@/lib/larger-text'
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister'
 
 // Same face and weights as the marketing site, so the app and the website
@@ -84,6 +85,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: THEME_INIT_SCRIPT,
           }}
         />
+        {/* Pre-paint text size (Normal, Large, Largest) from localStorage.
+            Inline like the theme script: script-src already allows
+            'unsafe-inline' and this app has no nonce pattern. */}
+        <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_INIT_SCRIPT }} />
       </head>
       <body>
         {children}

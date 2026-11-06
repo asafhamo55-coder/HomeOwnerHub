@@ -66,7 +66,7 @@ export function ResidentTabBar() {
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-16 flex-col items-center justify-center gap-1 no-underline transition-colors',
+                  'flex min-h-16 flex-col py-1 items-center justify-center gap-1 no-underline transition-colors',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
                   active ? 'text-primary' : 'text-muted hover:text-foreground',
                 )}
@@ -79,7 +79,7 @@ export function ResidentTabBar() {
                 >
                   <Icon className="h-[22px] w-[22px]" />
                 </span>
-                <span className="text-2xs font-medium leading-none">{tab.label}</span>
+                <span className="max-w-full break-words px-0.5 text-center text-2xs font-medium leading-tight">{tab.label}</span>
               </Link>
             </li>
           )

@@ -200,7 +200,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
                         {item.title}
                       </span>
                       {item.body ? (
-                        <span className="mt-0.5 line-clamp-2 block text-[12px] text-muted">
+                        <span className="mt-0.5 line-clamp-2 block text-xs text-muted">
                           {item.body}
                         </span>
                       ) : null}

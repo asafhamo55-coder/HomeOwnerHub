@@ -25,6 +25,7 @@ import {
 import {
   CommandPalette,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   UserMenu,
   useTheme,
   type PaletteCommand,
@@ -34,6 +35,7 @@ import { fetchRecordSearch } from '@/lib/search/client'
 import type { RecordType } from '@/lib/search/types'
 import { clearDeviceStateOnSignOut } from '@/lib/sign-out-cleanup'
 import { askGuideCommand, helpArticleCommands, type PaletteHelpArticle } from '@/components/guide/palette-help'
+import { TextSizeMenuItems } from '@/components/theme/TextSizeMenuItems'
 import { SHORTCUTS_OPEN_EVENT } from './ShortcutsHelp'
 import { ADMIN_ACCOUNT, BOARD_ACCOUNT, HOA_CREATE, HOA_NAV } from './nav'
 
@@ -77,6 +79,8 @@ export function HoaUserMenu({
         <Keyboard aria-hidden />
         <span className="flex-1">Keyboard shortcuts</span>
       </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <TextSizeMenuItems />
     </UserMenu>
   )
 }

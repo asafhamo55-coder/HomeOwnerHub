@@ -21,7 +21,8 @@
   input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
   select,
   textarea {
-    font-size: 16px;
+    /* Never below 16px, and still follows the in-app Text size. */
+    font-size: max(16px, 1rem);
   }
 }
 
