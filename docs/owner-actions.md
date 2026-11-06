@@ -178,7 +178,15 @@ prices; review it before pitching.
 
 ## Done
 
-### OA-11, OA-23, OA-27 · Texting through Vonage · Closed 2026-11-06
+### OA-11 · Texting through Vonage · Closed 2026-11-06
+
+Vonage support (request #3167688) refused to activate the account on 2026-11-05 under its Acceptable Use Policy, with no appeal. Texting, STOP/START replies and delivery receipts move to Twilio in OA-50.
+
+### OA-23 · Texting through Vonage · Closed 2026-11-06
+
+Vonage support (request #3167688) refused to activate the account on 2026-11-05 under its Acceptable Use Policy, with no appeal. Texting, STOP/START replies and delivery receipts move to Twilio in OA-50.
+
+### OA-27 · Texting through Vonage · Closed 2026-11-06
 
 Vonage support (request #3167688) refused to activate the account on 2026-11-05 under its Acceptable Use Policy, with no appeal. Texting, STOP/START replies and delivery receipts move to Twilio in OA-50.
 
