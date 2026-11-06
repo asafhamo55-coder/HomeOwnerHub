@@ -154,6 +154,11 @@ export const PAGE_META: Readonly<Record<string, PageMetaEntry>> = {
     title: 'Service status and incident reporting',
     description: 'How to check on HomeownerHub services, what the status page covers, and how to report an incident, an outage or a data concern to our support team.',
   },
+  '/text-messages': {
+    title: 'Text message alerts: how residents opt in',
+    description:
+      'How residents choose to get text alerts from their HOA through HomeownerHub, what the texts say, how often they come, and how to stop them with STOP.',
+  },
   '/privacy': {
     title: 'Privacy policy: how we handle your data',
     description:

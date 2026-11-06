@@ -96,6 +96,17 @@ export default function TermsPage() {
               These terms are governed by the laws of the State of Georgia.
             </p>
 
+            <h2 id="text-messages">9. Text message alerts</h2>
+            <p>
+              Program name: HomeownerHub text alerts, operated by Hamo Earny LLC for the associations that use
+              HomeownerHub. You receive texts only after you agree in the resident portal. Message frequency
+              varies. Message and data rates may apply. Reply STOP to cancel at any time, or HELP for help, or
+              email support@homeownerledger.com. Agreeing is not a condition of anything else. Carriers are not
+              liable for delayed or undelivered messages. See how to sign up on the{' '}
+              <a href="/text-messages">text message alerts page</a> and read our{' '}
+              <a href="/privacy#text-messages">privacy policy</a>.
+            </p>
+
             <p className="mt-12 text-xs text-muted">
               This is a working draft. The production terms are being reviewed
               by counsel and will replace this page before public launch.
