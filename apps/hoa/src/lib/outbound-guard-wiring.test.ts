@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { sampleHomes } from './sample-community/data'
+import { installFakeTwilio } from '@/lib/test-utils/fake-twilio'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
 
 /**
@@ -20,11 +21,6 @@ vi.mock('resend', () => ({
 }))
 
 const smsSend = vi.fn()
-vi.mock('@vonage/server-sdk', () => ({
-  Vonage: class {
-    messages = { send: smsSend }
-  },
-}))
 
 const RESIDENT = 'resident@gmail.com'
 const OWNER = 'owner@staging-hoa.com'
@@ -39,14 +35,15 @@ async function freshSms() {
 }
 
 beforeEach(() => {
+  installFakeTwilio(smsSend)
   vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@homeownerledger.com>')
   vi.stubEnv('RESEND_API_KEY', 'test-key')
-  vi.stubEnv('VONAGE_API_KEY', 'k')
-  vi.stubEnv('VONAGE_API_SECRET', 's')
-  vi.stubEnv('VONAGE_FROM_NUMBER', '15550000000')
+  vi.stubEnv('TWILIO_ACCOUNT_SID', 'ACtest')
+  vi.stubEnv('TWILIO_AUTH_TOKEN', 'tok')
+  vi.stubEnv('TWILIO_MESSAGING_SERVICE_SID', 'MGtest')
   vi.stubEnv('OUTBOUND_ALLOWLIST', '@staging-hoa.com,+1 404 555 1234')
   emailSend.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
-  smsSend.mockResolvedValue({ messageUUID: 'sms_1' })
+  smsSend.mockResolvedValue({ sid: 'sms_1' })
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
@@ -153,7 +150,7 @@ describe('sendEmailBatch', () => {
 })
 
 describe('sendSms', () => {
-  it('in preview, blocks a resident phone and never calls Vonage', async () => {
+  it('in preview, blocks a resident phone and never calls Twilio', async () => {
     vi.stubEnv('VERCEL_ENV', 'preview')
     const { sendSms } = await freshSms()
     const result = await sendSms({ to: '+15559876543', body: 'hi' })
