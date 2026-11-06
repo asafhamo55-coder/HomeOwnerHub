@@ -20,8 +20,8 @@ import {
   type Reservation,
 } from '@/lib/amenities/model'
 import { loadAmenities, loadHeldSlots, loadHomeReservations, type LooseDb } from '@/lib/amenities/queries'
-import { Panel, ScreenEmpty, ScreenHeader, Section } from '@/components/resident/screen'
-import { ResidentCancel } from './ResidentCancel'
+import { Panel, ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
+import { BOOKINGS_HEADING_ID, ResidentCancel } from './ResidentCancel'
 import { BookingForm, type BookableAmenity } from './BookingForm'
 import { cancelLine, shortHour } from '@/lib/amenities/booking-copy'
 
@@ -153,7 +153,10 @@ export default async function ResidentAmenitiesPage() {
       </div>
 
       {mine.length > 0 ? (
-        <Section label="Your bookings">
+        <section aria-labelledby={BOOKINGS_HEADING_ID} className="space-y-2.5">
+          <h2 id={BOOKINGS_HEADING_ID} tabIndex={-1} className="px-1 text-base font-semibold uppercase tracking-wide text-muted focus:outline-none">
+            Your bookings
+          </h2>
           <Panel className="space-y-4">
             {mine.map((r: Reservation) => (
               <div key={r.id} className="space-y-1 border-b border-border pb-4 last:border-0 last:pb-0">
@@ -178,7 +181,7 @@ export default async function ResidentAmenitiesPage() {
               </div>
             ))}
           </Panel>
-        </Section>
+        </section>
       ) : null}
     </div>
   )

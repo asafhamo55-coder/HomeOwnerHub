@@ -27,7 +27,14 @@ afterEach(() => {
 function mount() {
   host = document.createElement('div')
   document.body.appendChild(host)
-  root = createRoot(host)
+  const h = document.createElement('h2')
+  h.id = 'your-bookings-heading'
+  h.tabIndex = -1
+  h.textContent = 'Your bookings'
+  host.appendChild(h)
+  const mountPoint = document.createElement('div')
+  host.appendChild(mountPoint)
+  root = createRoot(mountPoint)
   act(() =>
     root!.render(
       <ToastProvider>
@@ -52,6 +59,14 @@ describe('ResidentCancel', () => {
     expect(btn('No, keep it')!.className).toContain('min-h-12')
   })
 
+  it('leaves focus alone when the cancel fails', async () => {
+    cancel.mockResolvedValue({ ok: false, error: 'No' })
+    mount()
+    act(() => btn('Cancel booking')!.click())
+    await act(async () => btn('Yes, cancel it')!.click())
+    expect(document.activeElement).not.toBe(document.getElementById('your-bookings-heading'))
+  })
+
   it('keeps the booking and returns focus when the resident says no', () => {
     mount()
     act(() => btn('Cancel booking')!.click())
@@ -66,5 +81,6 @@ describe('ResidentCancel', () => {
     act(() => btn('Cancel booking')!.click())
     await act(async () => btn('Yes, cancel it')!.click())
     expect(cancel).toHaveBeenCalledWith('r1', '')
+    expect(document.activeElement).toBe(document.getElementById('your-bookings-heading'))
   })
 })

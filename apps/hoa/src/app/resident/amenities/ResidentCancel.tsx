@@ -5,6 +5,9 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { Button, useToast } from '@homeowner-portal/ui'
 import { cancelReservation } from '@/lib/amenities/actions'
 
+/** The "Your bookings" heading on the page; focus lands here after a cancel. */
+export const BOOKINGS_HEADING_ID = 'your-bookings-heading'
+
 /**
  * A resident cancels their own booking. The first tap asks "Cancel
  * Clubhouse, Sat Nov 8, 2 pm?" so a slip of the thumb does not lose the time.
@@ -34,6 +37,8 @@ export function ResidentCancel({ reservationId, label }: { reservationId: string
         return
       }
       toast({ tone: 'success', message: 'Booking canceled.' })
+      // Move to the bookings list so a screen reader hears what changed.
+      document.getElementById(BOOKINGS_HEADING_ID)?.focus()
       router.refresh()
     })
   }

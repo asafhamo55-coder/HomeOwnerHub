@@ -274,4 +274,22 @@ describe('BookingForm', () => {
     expect(el.textContent).toContain('December 2026')
     expect(off(btn(/Friday, December 11, has free times/))).toBe(false)
   })
+
+  it('stays on the same month and offers Try again when a later month fails to load', async () => {
+    const a = { ...hall, advanceDays: 90 }
+    const first = space(a, [], { lastDay: '2027-01-31' }, 30)
+    more.mockResolvedValueOnce({ ok: false, error: 'x' })
+    const el = mount([first])
+    await act(async () => btn('Later month')!.click())
+    expect(el.textContent).toContain('November 2026')
+    expect(el.textContent).not.toContain('December 2026')
+    expect(el.textContent).toContain("We couldn't load that month.")
+    const retry = btn('Try again')!
+    expect(retry.className).toContain('min-h-12')
+    more.mockResolvedValueOnce({ ok: true, days: dayStrip({ amenity: a, timeZone: TZ, now: NOW, held: [], count: 62 }).slice(30) })
+    await act(async () => retry.click())
+    expect(more).toHaveBeenCalledTimes(2)
+    expect(el.textContent).toContain('December 2026')
+    expect(btn('Try again')).toBeUndefined()
+  })
 })
