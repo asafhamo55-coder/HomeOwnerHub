@@ -401,6 +401,24 @@ describe('batch 27 pages are in the library', () => {
   })
 })
 
+describe('batch 32 pages are in the library', () => {
+  const pages = [
+    '/templates/georgia-hoa-architectural-change-request-form',
+    '/templates/georgia-hoa-new-owner-welcome-letter',
+    '/templates/georgia-hoa-rules-adoption-resolution',
+  ]
+
+  it('are in the palette feed, the sitemap and the template list, with a page file each', () => {
+    const templates = templateGroups().flatMap((g) => g.items.map((i) => i.path))
+    for (const page of pages) {
+      expect(libraryEntries().map((e) => e.path)).toContain(page)
+      expect(SITEMAP_PATHS).toContain(page)
+      expect(templates).toContain(page)
+      expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+})
+
 describe('batch 31 pages are in the library', () => {
   const pages = [
     '/guides/florida-hoa-budget-reserves-and-financial-reports-720-303',
