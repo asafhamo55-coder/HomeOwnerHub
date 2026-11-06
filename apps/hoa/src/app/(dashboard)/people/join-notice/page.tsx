@@ -31,7 +31,8 @@ export default async function JoinNoticePage() {
       .select('id, name, compliance_settings')
       .eq('organization_id', role.org.id)
       .order('name', { ascending: true })
-      .limit(1),
+      // One association for the letterhead, not a truncated list.
+      .range(0, 0),
   )
 
   const crumbs = [

@@ -20,7 +20,7 @@ vi.mock('@/lib/app-origin', () => ({ appUrl: (p: string) => `https://app.example
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: async () => ({
     from: () => ({
-      select: () => ({ eq: () => ({ order: () => ({ limit: async () => m.assoc() }) }) }),
+      select: () => ({ eq: () => ({ order: () => ({ range: async () => m.assoc() }) }) }),
     }),
   }),
 }))
