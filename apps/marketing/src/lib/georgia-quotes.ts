@@ -321,6 +321,86 @@ export const QUOTES = {
     fixture: "ga-ocga-44-3-art3-2026.txt",
     quote: "The lien for assessments shall lapse and be of no further effect, as to assessments or installments thereof, together with late charges and interest applicable thereto, four years after the assessment or installment first became due and payable.",
   },
+  condoComply: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "Every unit owner and all those entitled to occupy a unit shall comply with all lawful provisions of the condominium instruments.",
+  },
+  condoRules: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "In addition, any unit owner and all those entitled to occupy a unit shall comply with any reasonable rules or regulations adopted by the association pursuant to the condominium instruments which have been provided to the unit owners and with the lawful provisions of bylaws of the association.",
+  },
+  condoInjunct: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "After providing notice in accordance with the terms of the instrument, or, if the instrument is silent, ten days’ written notice, the association may pursue injunctive relief without the need or requirement to first pursue or utilize any other remedies, regardless of whether other remedies may be available or might otherwise be adequate",
+  },
+  condoFineAuth: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "If and to the extent provided in the condominium instruments, the association shall be empowered to impose and assess fines, and suspend temporarily voting rights and the right of use of certain of the common elements in order to enforce such compliance; provided, however, that no such suspension shall deny any unit owner or occupants access to the unit owned or occupied nor cause any hazardous or unsanitary condition to exist.",
+  },
+  condoVoteSuspended: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "If the voting right of a unit owner has been suspended, then to the extent provided in the condominium instruments, that unit owner’s vote shall not count for purposes of establishing a quorum or taking any action which requires a vote of the owners under this article or the condominium instruments.",
+  },
+  condoUtility: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "Notwithstanding any other provision of this Code section, to the extent provided in the condominium instruments, water, gas, electricity, heat, and air conditioning services being provided to a unit or unit owner by the association may be terminated for failure to pay assessments and other amounts due pursuant to subsection (a) of Code Section 44-3-109, subject to the suspension standards and notice requirements imposed on the institutional providers providing such services to the condominium development, only after a final judgment or final judgments in excess of a total of $750.00 are obtained in favor of the association from a court of competent jurisdiction.",
+  },
+  condoUtilityRestore: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "The utility services shall not be required to be restored until the judgment or judgments and any reasonable utility provider charges or other reasonable costs incurred in suspending and restoring such services are paid in full.",
+  },
+  condoUtilityLien: {
+    cite: "O.C.G.A. § 44-3-76",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "All common expenses for termination and restoration of any services pursuant to this Code section shall be an assessment and a lien against the unit.",
+  },
+  condoLimitedCE: {
+    cite: "O.C.G.A. § 44-3-80(a)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "Except to the extent that the condominium instruments provide otherwise, any common expenses associated with the maintenance, repair, renovation, restoration, or replacement of any limited common element shall be specially assessed against the condominium unit to which that limited common element was assigned at the time the expenses were made or incurred",
+  },
+  condoBenefitLess1: {
+    cite: "O.C.G.A. § 44-3-80(b)(1)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "Any other common expenses benefiting less than all of the units shall be specially assessed equitably among all of the condominium units so benefited;",
+  },
+  condoRemainder: {
+    cite: "O.C.G.A. § 44-3-80(c)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "The amount of all common expenses not specially assessed pursuant to subsection (a) or (b) of this Code section, less the amount of all undistributed and unreserved common profits, shall be assessed against the condominium units in accordance with the allocation of liability for common expenses set forth in the declaration.",
+  },
+  condoMethod: {
+    cite: "O.C.G.A. § 44-3-80(c)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "The allocation may be by percentage, fraction, formula, or any other method which indicates the relative liabilities for common expenses.",
+  },
+  condoAssessAnnual: {
+    cite: "O.C.G.A. § 44-3-80(c)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "The assessments shall be made by the association annually or more often if the condominium instruments so provide and shall be payable in the manner determined by the association.",
+  },
+  condoAllocFixed: {
+    cite: "O.C.G.A. § 44-3-80(c)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "Except to the extent otherwise expressly provided or permitted by this article, the allocations of the liability shall not be altered; provided, however, that no reallocation shall affect any assessment or installation thereof becoming due and payable prior to reallocation.",
+  },
+  condoUniform: {
+    cite: "O.C.G.A. § 44-3-80(c)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "this provision shall not preclude the association from levying charges equally among units for services or items provided to owners upon request, or which provide proportionate or uniform benefit to the units, including, but not limited to, uniform charges for pool keys or other common element entry devices.",
+  },
+  condoNoExempt: {
+    cite: "O.C.G.A. § 44-3-80(d)(1)",
+    fixture: "ga-ocga-44-3-art3-2026.txt",
+    quote: "no unit owner other than the association shall be exempted from any liability for any assessment under this Code section or under any condominium instrument for any reason whatsoever, including, without limitation, abandonment, nonuse, or waiver of the use or enjoyment of his or her unit or any part of the common elements.",
+  },
   rightsIntro: {
     cite: "O.C.G.A. § 43-17A-7 (SB 406 § 2)",
     fixture: "ga-sb406-2026-2027-text.txt",
