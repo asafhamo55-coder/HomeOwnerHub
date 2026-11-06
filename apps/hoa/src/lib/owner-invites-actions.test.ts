@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   sandbox: false,
   inviteErrors: {} as Record<string, { message?: string; code?: string; status?: number }>,
   invited: [] as string[],
+  inviteOpts: [] as unknown[],
   memberRole: 'resident' as string | null,
   authUser: { email: 'p@x.com', email_confirmed_at: null, last_sign_in_at: null } as Record<string, unknown> | null,
   hereMember: false,
@@ -41,7 +42,7 @@ vi.mock('@/lib/owner-invites', async (orig) => ({
 
 function chain(log: unknown[][], table: string, result: () => unknown) {
   const b: Record<string, unknown> = {}
-  for (const op of ['select', 'eq', 'is', 'ilike', 'limit', 'update', 'delete', 'upsert', 'insert']) {
+  for (const op of ['select', 'eq', 'is', 'ilike', 'order', 'limit', 'update', 'delete', 'upsert', 'insert']) {
     b[op] = (...a: unknown[]) => (log.push([table, op, ...a]), b)
   }
   b.maybeSingle = async () => result()
@@ -66,11 +67,14 @@ vi.mock('@homeowner-portal/db', () => ({
           return { data: h.memberRole ? { role: h.memberRole } : null, error: null }
         }
         if (t === 'profiles') return { data: [{ id: 'existing-user' }], error: null }
+        if (t === 'associations') return { data: [{ name: 'Madison Park' }], error: null }
+        if (t === 'orgs') return { data: { name: 'Madison Park HOA' }, error: null }
         return { data: null, error: null }
       }),
     auth: {
       admin: {
-        inviteUserByEmail: vi.fn(async (email: string) => {
+        inviteUserByEmail: vi.fn(async (email: string, opts?: unknown) => {
+          h.inviteOpts.push(opts)
           const err = h.inviteErrors[email]
           if (err) return { data: { user: null }, error: err }
           h.invited.push(email)
@@ -101,6 +105,7 @@ beforeEach(() => {
   h.sandbox = false
   h.inviteErrors = {}
   h.invited = []
+  h.inviteOpts = []
   h.memberRole = 'resident'
   h.authUser = { email: 'p@x.com', email_confirmed_at: null, last_sign_in_at: null }
   h.hereMember = false
@@ -136,6 +141,8 @@ describe('inviteAllOwners', () => {
     const r = await inviteAllOwners(2)
     expect(r).toEqual({ ok: true, data: { invited: 2, failed: 0, held: 0, remaining: 0, rateLimited: false } })
     expect(h.invited).toEqual(['o1@acme-hoa.com', 'o2@acme-hoa.com'])
+    // The email's subject and greeting read these from the invite data.
+    expect(h.inviteOpts[0]).toMatchObject({ data: { org_name: 'Madison Park HOA', association_name: 'Madison Park' } })
     expect(h.linked).toHaveLength(4)
     const memberInserts = h.userCalls.filter((c) => c[0] === 'org_members' && c[1] === 'insert')
     expect(memberInserts.map((c) => (c[2] as { role: string }).role)).toEqual(['resident', 'resident'])

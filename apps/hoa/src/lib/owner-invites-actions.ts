@@ -22,6 +22,7 @@ import { orgTimeZone } from '@/lib/association-time-server'
 import { exactIlike } from '@/lib/impersonation-target'
 import { linkOwnershipForMember } from '@/lib/properties/lot'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { buildInviteData, loadInviteNames } from '@/lib/invite-data'
 import {
   INVITE_SPACING_MS,
   createdByThisCall,
@@ -102,13 +103,14 @@ export async function inviteAllOwners(expected: number): Promise<Result<OwnerInv
   }
 
   const supabase = await getSupabaseServerClient()
+  const names = await loadInviteNames(admin, gate.orgId)
   const today = todayIn(await orgTimeZone(admin, gate.orgId))
   const out: OwnerInviteOutcome = { invited: 0, failed: 0, held: plan.held, remaining: plan.remaining, rateLimited: false }
 
   for (let i = 0; i < plan.batch.length; i++) {
     const owner = plan.batch[i]!
     if (i > 0) await sleep(INVITE_SPACING_MS)
-    const r = await inviteOneOwner(admin, supabase, gate.orgId, owner, today)
+    const r = await inviteOneOwner(admin, supabase, gate.orgId, owner, today, names)
     if (r === 'rate_limited') {
       out.rateLimited = true
       out.remaining += plan.batch.length - i
@@ -157,12 +159,13 @@ async function inviteOneOwner(
   orgId: string,
   owner: OwnerToInvite,
   today: string,
+  names: { orgName: string | null; associationName: string | null },
 ): Promise<OneOutcome> {
   let userId: string | null = null
   const startedAt = Date.now()
   const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(owner.email, {
     redirectTo: appUrl('/auth/callback'),
-    data: owner.name ? { full_name: owner.name } : undefined,
+    data: buildInviteData(owner.name, names),
   })
   if (inviteErr) {
     if (isRateLimited(inviteErr)) return 'rate_limited'
@@ -279,7 +282,7 @@ export async function resendInvitation(userId: string): Promise<Result<{ sent: b
   // Re-inviting an unconfirmed user re-sends the same invitation email.
   const { error } = await found.admin.auth.admin.inviteUserByEmail(found.email, {
     redirectTo: appUrl('/auth/callback'),
-    data: found.fullName ? { full_name: found.fullName } : undefined,
+    data: buildInviteData(found.fullName, await loadInviteNames(found.admin, gate.orgId)),
   })
   if (error) {
     if (isRateLimited(error)) return { ok: false, error: 'Too many emails just went out. Try again in a few minutes.' }
