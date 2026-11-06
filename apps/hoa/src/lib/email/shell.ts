@@ -10,6 +10,9 @@
  * `linear-gradient` entirely, leaving no background at all.
  */
 
+import { emailAssetUrl } from './asset-url'
+import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_FILE, logoHeaderRowsHtml } from './brand'
+
 export interface EmailBand {
   text: string
   /** Solid accent. Validate with palette.assertAccent before passing. */
@@ -38,14 +41,28 @@ export interface EmailDocumentOptions {
    * Omitted: the head is exactly what it was.
    */
   extraCss?: string
+  /**
+   * The HomeownerHub logo header. On by default for every email. Only the
+   * internal tooling that has already drawn its own header turns it off.
+   */
+  logo?: boolean
+  /**
+   * Absolute https URL of the logo PNG. Leave unset to build it from
+   * EMAIL_ASSET_BASE_URL (server-side renders). Pass it when the body is
+   * built where that server-only variable is not readable, as the welcome
+   * email is (its template is assembled in the browser composer). Pass
+   * null to force the text wordmark.
+   */
+  logoUrl?: string | null
 }
 
-const PAGE_BG = '#F1F3F5'
-const CARD_BG = '#FFFFFF'
-const TEXT = '#1A1D21'
-const MUTED = '#5B646C'
-const LINE = '#E8EBED'
-const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
+const PAGE_BG = BRAND.page
+const CARD_BG = BRAND.card
+const TEXT = BRAND.ink
+const MUTED = BRAND.muted
+const LINE = BRAND.line
+const FOOTER_BG = BRAND.panel
+const FONT = EMAIL_FONT
 
 export function escapeHtml(s: string): string {
   return s
@@ -62,6 +79,47 @@ function bandRow(band: EmailBand): string {
   // set in the same declaration because partial-inversion engines flip a
   // background without its foreground and produce white-on-white.
   return `<tr><td bgcolor="${band.color}" style="background-color:${band.color};color:#ffffff;padding:13px 22px;font-family:${FONT};font-size:14px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">${escapeHtml(band.text)}</td></tr>`
+}
+
+/**
+ * The brand header: the full-colour logo on a WHITE band, with a 4px royal
+ * purple rule under it.
+ *
+ * Why white and not a deep-purple band with the white logo: dark-mode
+ * engines (Gmail iOS, Outlook.com, Apple Mail) invert or partially invert
+ * backgrounds but never touch image pixels. A white band is already the
+ * "light" case, so it stays put (the document declares color-scheme: light),
+ * and where an engine does darken it the PNG carries its own opaque white
+ * field, so the logo reads as a white badge instead of dark ink on dark. A
+ * deep-purple band would invert unpredictably and could leave the white logo
+ * on white. The purple rule keeps the royal purple at the very top of every
+ * message, which is what the site does.
+ *
+ * The URL is built from EMAIL_ASSET_BASE_URL (asset-url.ts), never from the
+ * deployment host. If that variable is missing the header degrades to the
+ * styled wordmark in text, loudly, rather than failing the whole send.
+ */
+let logoWarned = false
+
+/** Test hook: lets a test see the once-per-process warning again. */
+export function resetLogoWarning(): void {
+  logoWarned = false
+}
+
+export function logoUrl(): string | null {
+  try {
+    return emailAssetUrl(LOGO_FILE, LOGO_DIR)
+  } catch (err) {
+    if (!logoWarned) {
+      logoWarned = true
+      console.error(`[email] logo unavailable, sending text header: ${err instanceof Error ? err.message : String(err)}`)
+    }
+    return null
+  }
+}
+
+function logoRow(explicit: string | null | undefined): string {
+  return logoHeaderRowsHtml(explicit === undefined ? logoUrl() : explicit)
 }
 
 function preheader(text: string): string {
@@ -87,11 +145,12 @@ ${
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="width:100%;max-width:600px;background-color:${CARD_BG};color:${TEXT};border:1px solid ${LINE};">`
     : `<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="width:600px;background-color:${CARD_BG};color:${TEXT};border:1px solid ${LINE};">`
 }
+${opts.logo === false ? '' : logoRow(opts.logoUrl)}
 ${opts.band ? bandRow(opts.band) : ''}
 <tr><td class="eh-body" bgcolor="${CARD_BG}" style="padding:22px;font-family:${FONT};color:${TEXT};background-color:${CARD_BG};">
 ${opts.bodyHtml}
 </td></tr>
-<tr><td bgcolor="#FAFAFA" style="background-color:#FAFAFA;color:${MUTED};padding:14px 22px;border-top:1px solid ${LINE};font-family:${FONT};font-size:14px;line-height:1.6;">
+<tr><td bgcolor="${FOOTER_BG}" style="background-color:${FOOTER_BG};color:${MUTED};padding:14px 22px;border-top:1px solid ${LINE};font-family:${FONT};font-size:14px;line-height:1.6;">
 ${opts.footerHtml}
 </td></tr>
 </table>

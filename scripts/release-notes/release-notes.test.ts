@@ -12,7 +12,8 @@ import { combineNotes, parseNote, selectNotes } from './lib/note'
 import { runSend } from './lib/run'
 import { readSendEnv } from './lib/send'
 import { BRAND } from './lib/brand'
-import { palette } from '../../packages/ui/src/tokens'
+import { BRAND as EMAIL_BRAND, LOGO_FILE, LOGO_HEIGHT, LOGO_WIDTH } from '../../packages/workflows/src/email-brand'
+import { relativeLuminance } from '../../apps/hoa/src/lib/email/palette'
 
 const DEPLOYED = 'c56061f8aa88192a885522f4af1eda89c020932a'
 
@@ -126,9 +127,9 @@ describe('render', () => {
     expect(html).toContain('role="presentation"')
     expect(html).toContain('One-click approvals &amp; search')
     expect(subject).toBe('HomeownerHub release: One-click approvals & search (c56061f)')
-    // BL-098 header: "H" tile, then "Homeowner" + blue "Hub".
-    expect(html).toMatch(/font-weight:700;[^"]*">H<\/td>/)
-    expect(html).toContain('>Homeowner<span class="rn-link" style="color:#4B27C9;">Hub</span></td>')
+    // Header: the HomeownerHub logo PNG (absolute https, with alt text and size), royal purple accents.
+    expect(html).toMatch(/<img src="https:\/\/[^"]+\/email\/v2\/homeownerhub-logo\.png" alt="HomeownerHub" width="180" height="30"/)
+    expect(html).toContain('#6D28D9')
     expect(html).not.toContain('Ledger')
     expect(html).not.toContain('HOA Hub')
     expect(html).toContain('Saturday, October 17, 2026 at 3:55 PM EDT')
@@ -142,11 +143,12 @@ describe('render', () => {
     expect(text).toContain('  - Try a real bill scan')
   })
 
-  it('references every inline image by CID and nothing remote', () => {
+  it('references every inline image by CID; the only remote image is the header logo', () => {
     const images = fakeImages(2)
     const { html } = renderEmail(note, images)
     for (const img of images) expect(html).toContain(`src="cid:${img.cid}"`)
-    expect(html).not.toMatch(/<img[^>]+src="https?:/)
+    const remote = [...html.matchAll(/<img[^>]+src="(https?:[^"]+)"/g)].map((m) => m[1])
+    expect(remote).toEqual([BRAND.logoUrl])
   })
 
   it('footer links the DEPLOYED sha to its GitHub commit', () => {
@@ -409,43 +411,54 @@ describe('send', () => {
   })
 })
 
-describe('brand colours stay in sync with the design tokens (BL-095)', () => {
-  it('BRAND matches the HOA light palette', () => {
-    const p = palette('hoa', 'light')
+describe('brand colours stay in sync with the product email palette (royal purple)', () => {
+  it('BRAND matches packages/workflows/src/email-brand', () => {
     expect({
       primary: BRAND.primary,
-      primaryFg: BRAND.primaryFg,
       primarySubtle: BRAND.primarySubtle,
       background: BRAND.background,
       surface: BRAND.surface,
-      subtle: BRAND.subtle,
       border: BRAND.border,
       foreground: BRAND.foreground,
       foregroundSecondary: BRAND.foregroundSecondary,
       muted: BRAND.muted,
-      accentSubtle: BRAND.accentSubtle,
-      accentFg: BRAND.accentFg,
     }).toEqual({
-      primary: p.primary,
-      primaryFg: p['primary-fg'],
-      primarySubtle: p['primary-subtle'],
-      background: p.background,
-      surface: p.surface,
-      subtle: p.subtle,
-      border: p.border,
-      foreground: p.foreground,
-      foregroundSecondary: p['foreground-secondary'],
-      muted: p.muted,
-      accentSubtle: p['accent-subtle'],
-      accentFg: p['accent-fg'],
+      primary: EMAIL_BRAND.primary,
+      primarySubtle: EMAIL_BRAND.tint,
+      background: EMAIL_BRAND.page,
+      surface: EMAIL_BRAND.card,
+      border: EMAIL_BRAND.line,
+      foreground: EMAIL_BRAND.ink,
+      foregroundSecondary: EMAIL_BRAND.body,
+      muted: EMAIL_BRAND.muted,
     })
   })
 
-  it('the dark-mode email overrides use the HOA dark palette', () => {
-    const d = palette('hoa', 'dark')
+  it('the logo is the same file and size the product emails use', () => {
+    expect(BRAND.logoUrl.endsWith(`/email/v2/${LOGO_FILE}`)).toBe(true)
+    expect(BRAND.logoUrl.startsWith('https://')).toBe(true)
+    expect(BRAND.logoWidth).toBe(LOGO_WIDTH)
+    expect(BRAND.logoHeight).toBe(LOGO_HEIGHT)
+  })
+
+  it('the dark-mode email overrides keep text readable (4.5:1) on their backgrounds', () => {
     const src = readFileSync(path.join(__dirname, 'lib/email.ts'), 'utf8')
-    for (const hex of [d.background, d.surface, d.foreground, d['foreground-secondary'], d.muted, d.primary, d.subtle]) {
-      expect(src, hex).toContain(`${hex} !important`)
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x)
+      return (hi! + 0.05) / (lo! + 0.05)
+    }
+    const pairs: Array<[string, string]> = [
+      ['#1A0E2B', '#F6F2FB'], // page bg, headings
+      ['#261540', '#F6F2FB'], // card, headings
+      ['#261540', '#DDD3EE'], // card, body
+      ['#261540', '#BDB3D0'], // card, muted
+      ['#261540', '#CBC2FF'], // card, links
+      ['#33204F', '#F6F2FB'], // code
+    ]
+    for (const [bg, fg] of pairs) {
+      expect(src, bg).toContain(`${bg} !important`)
+      expect(src, fg).toContain(`${fg} !important`)
+      expect(ratio(bg, fg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5)
     }
   })
 })

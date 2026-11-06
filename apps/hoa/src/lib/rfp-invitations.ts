@@ -1,9 +1,9 @@
 'use server'
 
+import { BRAND, brandButtonHtml, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { palette } from '@homeowner-portal/ui/tokens'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { sendEmail, appUrl } from '@/lib/email'
@@ -14,7 +14,6 @@ import { checkOrgOwned } from '@/lib/org-owned'
 import { insuranceRequirementLines, resolveVendorInsuranceSettings } from '@homeowner-portal/workflows/vendor-insurance'
 
 // Email buttons use the app's brand colour from the design tokens.
-const BRAND_PRIMARY = palette('hoa', 'light').primary
 
 // rfp_invitations rows ship in migration 0007. One row per (rfp_id,
 // vendor_id) — unique constraint. Token format identical to
@@ -590,8 +589,8 @@ interface InviteTemplateArgs {
 
 function insuranceHtml(lines: string[]): string {
   if (lines.length === 0) return ''
-  return `<p style="font-size: 14px; margin-bottom: 4px;"><strong>Insurance required</strong> — your certificate of insurance must show at least:</p>
-  <ul style="font-size: 14px; margin-top: 0;">${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`
+  return `<p style="font-size:16px;margin:0 0 4px;color:${BRAND.body};"><strong style="color:${BRAND.ink};">Insurance required.</strong> Your certificate of insurance must show at least:</p>
+  <ul style="font-size:16px;margin-top:0;color:${BRAND.body};">${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`
 }
 
 function insuranceText(lines: string[]): string {
@@ -601,20 +600,18 @@ function insuranceText(lines: string[]): string {
 
 function renderInviteHtml(args: InviteTemplateArgs): string {
   const deadlineFmt = new Date(args.deadline).toLocaleString()
-  return `<!doctype html>
-<html><body style="font-family: -apple-system, system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #222;">
-  <p style="font-size: 12px; color: #666; margin-bottom: 4px;">${escapeHtml(args.rfpNumber)}</p>
-  <h1 style="font-size: 20px; margin: 0 0 16px;">Invitation to bid: ${escapeHtml(args.rfpTitle)}</h1>
-  <p>Hi ${escapeHtml(args.vendorName)},</p>
-  <p>You're invited to submit a bid on the RFP linked below. Please review the scope and line items, and submit your bid before the deadline.</p>
-  <p style="margin: 24px 0;">
-    <a href="${args.link}" style="display:inline-block; background:${BRAND_PRIMARY}; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600;">View RFP & submit bid</a>
-  </p>
-  <p style="font-size: 14px;"><strong>Submission deadline:</strong> ${escapeHtml(deadlineFmt)}</p>
+  return wrapBrandedEmail({
+    title: `Invitation to bid: ${args.rfpTitle}`,
+    bodyHtml: `<p style="font-size:14px;color:${BRAND.muted};margin:0 0 4px;">${escapeHtml(args.rfpNumber)}</p>
+  <h1 style="font-size:24px;line-height:1.3;margin:0 0 16px;color:${BRAND.ink};">Invitation to bid: ${escapeHtml(args.rfpTitle)}</h1>
+  <p style="margin:0 0 12px;color:${BRAND.body};">Hi ${escapeHtml(args.vendorName)},</p>
+  <p style="margin:0 0 12px;color:${BRAND.body};">You're invited to submit a bid on the RFP linked below. Please review the scope and line items, and submit your bid before the deadline.</p>
+  ${brandButtonHtml(args.link, 'View RFP & submit bid')}
+  <p style="margin:12px 0;color:${BRAND.body};"><strong style="color:${BRAND.ink};">Submission deadline:</strong> ${escapeHtml(deadlineFmt)}</p>
   ${insuranceHtml(args.insuranceLines)}
-  <p style="font-size: 12px; color: #666;">Or copy this link: <br><a href="${args.link}">${escapeHtml(args.link)}</a></p>
-  <p style="font-size: 12px; color: #666;">This link is unique to you. Please don't forward it — anyone with the link can submit a bid in your name.</p>
-</body></html>`
+  <p style="font-size:14px;color:${BRAND.muted};">Or copy this link: <br><a href="${args.link}" style="color:${BRAND.primary};">${escapeHtml(args.link)}</a></p>
+  <p style="font-size:14px;color:${BRAND.muted};">This link is unique to you. Please don't forward it. Anyone with the link can submit a bid in your name.</p>`,
+  })
 }
 
 function renderInviteText(args: InviteTemplateArgs): string {

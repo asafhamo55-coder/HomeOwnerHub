@@ -1,6 +1,7 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
 import { parseRecipients } from './ai-spend-alert'
+import { BRAND, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 
 /**
  * BL-171 (round 8 #3): a weekly product-analytics digest to the platform
@@ -164,11 +165,13 @@ export function renderWeeklyAnalytics(weekEnd: string, c: WeeklyCounts, p: Weekl
     '',
     'Not counted yet: help-beacon events and demo requests (neither is stored), and web traffic (Vercel Analytics, OA-35).',
   ].join('\n')
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;color:#111;">${text
+  const body = text
     .split('\n')
-    .map((l) => `<p style="margin:0 0 6px 0;">${l.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`)
-    .join('')}</div>`
-  return { subject: `HomeownerHub weekly numbers: week ending ${weekEnd}`, text, html }
+    .map((l) => `<p style="margin:0 0 6px 0;font-size:16px;line-height:1.6;color:${BRAND.ink};">${l.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`)
+    .join('')
+  const subject = `HomeownerHub weekly numbers: week ending ${weekEnd}`
+  const html = wrapBrandedEmail({ bodyHtml: body, title: subject })
+  return { subject, text, html }
 }
 
 export async function runWeeklyAnalytics(

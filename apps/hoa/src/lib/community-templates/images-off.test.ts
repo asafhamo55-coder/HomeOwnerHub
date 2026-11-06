@@ -36,6 +36,11 @@ import { findBackgroundWithoutColor } from '@/lib/email/test-helpers'
 // the env var too late and renderVisualBlock would throw on every template.
 process.env.EMAIL_ASSET_BASE_URL = 'https://app.homeownerhub.com'
 
+/** The header logo (alt="HomeownerHub") is not part of the template's own imagery. */
+function withoutLogo(html: string): string {
+  return html.replace(/<img[^>]*alt="HomeownerHub"[^>]*>/g, '')
+}
+
 function stripImages(html: string): string {
   return html.replace(/<img[^>]*>/gi, '')
 }
@@ -68,7 +73,9 @@ describe.each(COMMUNITY_TEMPLATES.map((t) => [t.slug, t] as const))(
     })
 
     it('has at most one image', () => {
-      expect((html.match(/<img/gi) ?? []).length).toBeLessThanOrEqual(1)
+      // The brand logo in the header has alt text and a text fallback, so it is
+      // not an illustration that can hide the message. Count the others.
+      expect((withoutLogo(html).match(/<img/gi) ?? []).length).toBeLessThanOrEqual(1)
     })
 
     it('sets a foreground on every background', () => {

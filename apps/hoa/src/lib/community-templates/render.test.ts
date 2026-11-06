@@ -33,13 +33,17 @@ const T: CommunityTemplate = {
 describe('renderCommunityEmailHtml', () => {
   it('puts the community name in an accent band above the body', () => {
     const html = renderCommunityEmailHtml(T)
-    expect(html).toContain('bgcolor="#1C6772"')
+    // The band is royal purple like every other email; the topic colour lives on the pictogram.
+    expect(html).toContain('bgcolor="#6D28D9"')
     expect(html).toContain('{{association_name}}')
   })
 
   it('places the headline and first paragraph BEFORE the visual', () => {
     const html = renderCommunityEmailHtml(T)
-    expect(html.indexOf('Hi {{recipient_name}}')).toBeLessThan(html.indexOf('<img'))
+    // The header logo has alt text; the illustration is the first OTHER image.
+    const visual = html.search(/<img(?![^>]*alt="HomeownerHub")/)
+    expect(visual).toBeGreaterThan(0)
+    expect(html.indexOf('Hi {{recipient_name}}')).toBeLessThan(visual)
   })
 
   it('preserves merge placeholders untouched for the strict renderer', () => {

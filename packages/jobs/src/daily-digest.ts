@@ -1,9 +1,10 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { inngest } from './client'
+import { BRAND, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 
-// HOA brand primary. Mirrors packages/ui/src/tokens.ts (this package does not depend on ui).
-const HOA_BRAND_PRIMARY = '#4B27C9'
+// Royal purple, the marketing site's primary (packages/workflows/src/email-brand).
+const HOA_BRAND_PRIMARY: string = BRAND.primary
 // Dependency-free (no imports of its own), shared with the inbox list so the
 // digest's "waiting" means exactly what the badge means. Same relative-path
 // pattern as mailbox-attachments.ts -> attachment-state.ts.
@@ -323,14 +324,14 @@ export function buildMailboxAlert(args: {
   const htmlBlocks = mailboxes
     .map(
       (m) => `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid #b45309;border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid #b45309;border-radius:6px;padding:16px;margin:16px 0">
     <p style="margin:0 0 8px;font-weight:600">Mailbox disconnected since ${escapeHtml(formatDate(brokenSince(m)))} — reconnect</p>
     <p style="margin:0 0 12px">${escapeHtml(m.email_address)}: ${escapeHtml(whatHappened(m.sync_status))}</p>
-    <a href="${escapeHtml(reconnectUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Reconnect mailbox</a>
+    <a href="${escapeHtml(reconnectUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Reconnect mailbox</a>
   </div>`,
     )
     .join('')
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.5;color:#111827">
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:16px;line-height:1.6;color:${BRAND.ink}">
   <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(orgName)}.</p>${htmlBlocks}
   <p>Until it is reconnected, replies and new messages from residents will not appear in your Inbox.</p>
 </div>`
@@ -388,9 +389,9 @@ export function buildWaitingBlock(args: {
   const line = `${who} waiting more than ${Math.round(hours)}h (${mine} assigned to you)`
   const text = [line, `Open the Inbox: ${inboxUrl}`].join('\n')
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid #b45309;border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid #b45309;border-radius:6px;padding:16px;margin:16px 0">
     <p style="margin:0 0 12px;font-weight:600">${escapeHtml(line)}</p>
-    <a href="${escapeHtml(inboxUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open the Inbox</a>
+    <a href="${escapeHtml(inboxUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Open the Inbox</a>
   </div>`
   return { line, text, html }
 }
@@ -468,10 +469,10 @@ export function buildArcBlock(args: { overdue: number; dueSoon: number; arcUrl: 
   const text = [...lines, ...(note ? [note] : []), `Open ARC review: ${args.arcUrl}`].join('\n')
   const border = args.overdue > 0 ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
     ${note ? `<p style="margin:0 0 12px">${escapeHtml(note)}</p>` : ''}
-    <a href="${escapeHtml(args.arcUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open ARC review</a>
+    <a href="${escapeHtml(args.arcUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Open ARC review</a>
   </div>`
   return { lines, text, html }
 }
@@ -525,9 +526,9 @@ export function buildTaskBlock(args: { overdue: number; dueSoon: number; tasksUr
   const text = [...lines, `Open your tasks: ${args.tasksUrl}`].join('\n')
   const border = args.overdue > 0 ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
-    <a href="${escapeHtml(args.tasksUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open your tasks</a>
+    <a href="${escapeHtml(args.tasksUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Open your tasks</a>
   </div>`
   return { lines, text, html }
 }
@@ -583,9 +584,9 @@ export function buildRecordsBlock(args: { overdue: number; dueSoon: number; reco
   const text = [...lines, `Open records requests: ${args.recordsUrl}`].join('\n')
   const border = args.overdue > 0 ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
-    <a href="${escapeHtml(args.recordsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open records requests</a>
+    <a href="${escapeHtml(args.recordsUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Open records requests</a>
   </div>`
   return { lines, text, html }
 }
@@ -660,7 +661,7 @@ export function buildComplianceBlock(args: { items: PendingComplianceItem[]; das
     .join('\n')
   const border = args.items.some((i) => i.tone === 'overdue') ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     ${args.items
       .map(
         (item, i) => `<p style="margin:0 0 4px;font-weight:600">${escapeHtml(lines[i]!)}</p>
@@ -668,7 +669,7 @@ export function buildComplianceBlock(args: { items: PendingComplianceItem[]; das
     <p style="margin:0 0 12px"><a href="${escapeHtml(item.deadline.officialUrl)}">${escapeHtml(item.deadline.officialLabel)}</a></p>`,
       )
       .join('')}
-    <a href="${escapeHtml(args.dashboardUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">What to do, and mark it done</a>
+    <a href="${escapeHtml(args.dashboardUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">What to do, and mark it done</a>
   </div>`
   return { lines, text, html }
 }
@@ -757,10 +758,10 @@ export function buildInsuranceBlock(args: { reminders: PolicyReminder[]; insuran
   const text = [headline, ...lines, `Record the renewal: ${args.insuranceUrl}`].join('\n')
   const border = args.reminders.some((r) => r.tone === 'expired' || r.tone === '30') ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     <p style="margin:0 0 8px;font-weight:600">${escapeHtml(headline)}</p>
     <ul style="margin:0 0 12px;padding-left:20px">${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>
-    <a href="${escapeHtml(args.insuranceUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Record the renewal</a>
+    <a href="${escapeHtml(args.insuranceUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Record the renewal</a>
   </div>`
   return { lines, text, html }
 }
@@ -848,10 +849,10 @@ export function buildVendorCoiBlock(args: { counts: VendorCoiCounts; vendorsUrl:
   const text = ['Vendor insurance', headline, `Review vendors: ${args.vendorsUrl}`].join('\n')
   const border = args.counts.expired > 0 ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     <p style="margin:0 0 4px;font-weight:600">Vendor insurance</p>
     <p style="margin:0 0 12px">${escapeHtml(headline)}</p>
-    <a href="${escapeHtml(args.vendorsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Review vendors</a>
+    <a href="${escapeHtml(args.vendorsUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Review vendors</a>
   </div>`
   return { lines, text, html }
 }
@@ -912,9 +913,9 @@ export function buildHearingBlock(args: { counts: HearingDigestCounts; violation
   const late = args.counts.noticeLate + args.counts.findingsLate + args.counts.requestsWaiting > 0
   const border = late ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
-    <a href="${escapeHtml(args.violationsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open violations</a>
+    <a href="${escapeHtml(args.violationsUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Open violations</a>
   </div>`
   return { lines, text, html }
 }
@@ -1052,9 +1053,9 @@ export function buildLateFeeBlock(args: { summary: LateFeeDigestSummary; policyU
   const line = lateFeeDigestLine(args.summary)
   const text = [line, `Review the late-fee policy: ${args.policyUrl}`].join('\n')
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${HOA_BRAND_PRIMARY};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${HOA_BRAND_PRIMARY};border-radius:6px;padding:16px;margin:16px 0">
     <p style="margin:0 0 12px">${escapeHtml(line)}</p>
-    <a href="${escapeHtml(args.policyUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Review the late-fee policy</a>
+    <a href="${escapeHtml(args.policyUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Review the late-fee policy</a>
   </div>`
   return { line, text, html }
 }
@@ -1132,9 +1133,9 @@ export function buildProTreasurerBlock(args: { entries: number; reviews: number;
   if (args.reviews > 0) lines.push(`${itemCount(args.reviews, 'period review note', 'period review notes')} from your CPA waiting for approval`)
   const text = [...lines, `Review in Approvals: ${args.approvalsUrl}`].join('\n')
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${HOA_BRAND_PRIMARY};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${HOA_BRAND_PRIMARY};border-radius:6px;padding:16px;margin:16px 0">
     ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
-    <a href="${escapeHtml(args.approvalsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Open Approvals</a>
+    <a href="${escapeHtml(args.approvalsUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Open Approvals</a>
   </div>`
   return { lines, text, html }
 }
@@ -1151,9 +1152,9 @@ export function buildProExpiryBlock(args: { expiring: number; expired: number; p
   const text = [...lines, `Renew or remove access: ${args.professionalsUrl}`].join('\n')
   const border = args.expired > 0 ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     ${lines.map((l) => `<p style="margin:0 0 8px;font-weight:600">${escapeHtml(l)}</p>`).join('')}
-    <a href="${escapeHtml(args.professionalsUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Manage professionals</a>
+    <a href="${escapeHtml(args.professionalsUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Manage professionals</a>
   </div>`
   return { lines, text, html }
 }
@@ -1176,12 +1177,12 @@ export function buildDirectorCertBlock(args: { rows: DirectorCertRow[]; membersU
   ].join('\n')
   const border = args.rows.some((r) => r.status.tone === 'overdue' || r.status.tone === 'expired') ? '#b91c1c' : '#b45309'
   const html = `
-  <div style="border:1px solid #e5e7eb;border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
+  <div style="border:1px solid ${BRAND.line};border-left:4px solid ${border};border-radius:6px;padding:16px;margin:16px 0">
     <p style="margin:0 0 8px;font-weight:600">Florida director certification</p>
     <ul style="margin:0 0 8px;padding-left:20px">${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')}</ul>
     ${consequences.map((c) => `<p style="margin:0 0 8px">${escapeHtml(c)}</p>`).join('')}
     <p style="margin:0 0 12px"><a href="${escapeHtml(DIRECTOR_CERT_OFFICIAL_URL)}">${escapeHtml(DIRECTOR_CERT_OFFICIAL_LABEL)}</a></p>
-    <a href="${escapeHtml(args.membersUrl)}" style="display:inline-block;padding:8px 14px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none">Record certificates</a>
+    <a href="${escapeHtml(args.membersUrl)}" style="display:inline-block;padding:14px 28px;border-radius:999px;background-color:${BRAND.primary};color:#ffffff;font-size:17px;line-height:22px;font-weight:700;text-decoration:none">Record certificates</a>
   </div>`
   return { lines, text, html }
 }
@@ -1272,7 +1273,7 @@ export function buildDigestEmail(args: {
     '',
     extras.map((b) => b.text).join('\n\n'),
   ].join('\n')
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;line-height:1.5;color:#111827">
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:16px;line-height:1.6;color:${BRAND.ink}">
   <p>Good morning. This is your daily check from HomeownerHub for ${escapeHtml(args.orgName)}.</p>${extras.map((b) => b.html).join('')}
 </div>`
   const firstDeadline = args.compliance?.items[0]
@@ -1750,7 +1751,10 @@ export async function runDailyDigest(
           nudge: nudge ? { nudge, announceUrl: deps.appUrl(nudgeAnnouncePath(nudge)) } : null,
         })
         try {
-          const res = await deps.sendEmail({ to, ...alert }, outbound)
+          const res = await deps.sendEmail(
+            { to, ...alert, html: wrapBrandedEmail({ bodyHtml: alert.html, title: alert.subject }) },
+            outbound,
+          )
           if (res.ok) orgSent += 1
           else orgFailed += 1
         } catch {

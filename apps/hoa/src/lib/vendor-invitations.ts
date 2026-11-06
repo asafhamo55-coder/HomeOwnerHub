@@ -1,9 +1,9 @@
 'use server'
 
+import { BRAND, brandButtonHtml, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { palette } from '@homeowner-portal/ui/tokens'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -14,7 +14,6 @@ import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accountin
 import { checkOrgOwned } from '@/lib/org-owned'
 
 // Email buttons use the app's brand colour from the design tokens.
-const BRAND_PRIMARY = palette('hoa', 'light').primary
 
 export type InvitationStatus = 'pending' | 'submitted' | 'expired' | 'revoked'
 
@@ -281,17 +280,15 @@ function renderInvitationHtml(args: {
   link: string
 }): string {
   const greeting = args.inviteeName ? `Hi ${escapeHtml(args.inviteeName)},` : 'Hi,'
-  return `<!doctype html>
-<html><body style="font-family: -apple-system, system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #222;">
-  <h1 style="font-size: 20px; margin: 0 0 16px;">${escapeHtml(args.orgName)} would like to onboard you as a vendor</h1>
-  <p>${greeting}</p>
-  <p>${escapeHtml(args.orgName)} uses HomeownerHub to manage their vendors. To complete your profile, please follow the link below and fill in your business details and compliance documents (COI, W-9, contractor license if applicable).</p>
-  <p style="margin: 24px 0;">
-    <a href="${args.link}" style="display:inline-block; background:${BRAND_PRIMARY}; color:#fff; padding:10px 16px; border-radius:6px; text-decoration:none; font-weight:600;">Start onboarding</a>
-  </p>
-  <p style="font-size: 12px; color: #666;">Or copy this link: <br><a href="${args.link}">${escapeHtml(args.link)}</a></p>
-  <p style="font-size: 12px; color: #666;">This link is unique to you and expires in 7 days. If you weren't expecting this email you can safely ignore it.</p>
-</body></html>`
+  return wrapBrandedEmail({
+    title: `${args.orgName} would like to onboard you as a vendor`,
+    bodyHtml: `<h1 style="font-size:24px;line-height:1.3;margin:0 0 16px;color:${BRAND.ink};">${escapeHtml(args.orgName)} would like to onboard you as a vendor</h1>
+  <p style="margin:0 0 12px;color:${BRAND.body};">${greeting}</p>
+  <p style="margin:0 0 12px;color:${BRAND.body};">${escapeHtml(args.orgName)} uses HomeownerHub to manage their vendors. To complete your profile, please follow the link below and fill in your business details and compliance documents (COI, W-9, contractor license if applicable).</p>
+  ${brandButtonHtml(args.link, 'Start onboarding')}
+  <p style="font-size:14px;color:${BRAND.muted};">Or copy this link: <br><a href="${args.link}" style="color:${BRAND.primary};">${escapeHtml(args.link)}</a></p>
+  <p style="font-size:14px;color:${BRAND.muted};">This link is unique to you and expires in 7 days. If you weren't expecting this email you can safely ignore it.</p>`,
+  })
 }
 
 function renderInvitationText(args: {

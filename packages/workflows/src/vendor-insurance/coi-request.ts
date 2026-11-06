@@ -14,6 +14,8 @@
  */
 
 /** "Expiring" means the certificate expires within this many days. */
+import { BRAND, wrapBrandedEmail } from '../email-brand'
+
 export const COI_WARNING_DAYS = 30
 
 export type CoiExpiryState = 'expired' | 'expiring' | 'current'
@@ -116,10 +118,7 @@ export function coiRequestHtml(body: string): string {
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean)
-    .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+    .map((p) => `<p style="margin:0 0 14px;color:${BRAND.body};">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
     .join('\n')
-  return `<!doctype html>
-<html><body style="font-family:-apple-system,system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#222;line-height:1.5;">
-${paras}
-</body></html>`
+  return wrapBrandedEmail({ bodyHtml: paras })
 }

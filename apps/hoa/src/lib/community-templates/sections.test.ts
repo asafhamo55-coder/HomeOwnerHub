@@ -156,7 +156,8 @@ describe('rendering a filtered template', () => {
   it('still renders a valid document with the illustration removed', () => {
     const visualIdx = dog.body.findIndex((b) => b.type === 'visual')
     const html = renderCommunityEmailHtml(withoutSections(dog, [visualIdx]))
-    expect(html).not.toContain('.png')
+    // Only the header logo (alt="HomeownerHub") may remain.
+    expect(html.replace(/<img[^>]*alt="HomeownerHub"[^>]*>/g, '')).not.toContain('.png')
     expect(html).toContain('<table')
   })
 

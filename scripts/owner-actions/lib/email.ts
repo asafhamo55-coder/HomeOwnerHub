@@ -26,8 +26,8 @@ const PILL: Record<Urgency, { bg: string; fg: string; cls: string }> = {
 const EXTRA_CSS = `  @media (prefers-color-scheme: dark) {
     .oa-urgent { background-color:#3D1512 !important; color:#FDA29B !important; }
     .oa-soon { background-color:#2B2110 !important; color:#FEC84B !important; }
-    .oa-whenever { background-color:#1E293B !important; color:#94A3B8 !important; }
-    .oa-item { border-color:#1E293B !important; }
+    .oa-whenever { background-color:#33204F !important; color:#BDB3D0 !important; }
+    .oa-item { border-color:#33204F !important; }
   }
 `
 

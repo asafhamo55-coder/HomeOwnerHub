@@ -16,13 +16,14 @@
  * note.
  */
 
+import { BRAND } from '@/lib/email/brand'
 import { formatDay, plural, usd } from '@/lib/money/format'
 import { MEETING_TYPE } from '@/lib/status/community'
 import type { ComplianceSummary } from '@/lib/compliance/obligations'
 import type { MonthlyReportData, ReserveReport, Section, Variance } from './model'
 
-/** Brand violet (packages/ui tokens HOA primary; the logo tile uses the same). */
-export const BRAND_PRIMARY = '#4B27C9'
+/** Royal purple, the marketing site's primary (email/brand.ts). */
+export const BRAND_PRIMARY: string = BRAND.primary
 
 /** BL-145: the state-law obligations page. */
 export const COMPLIANCE_PATH = '/compliance'
