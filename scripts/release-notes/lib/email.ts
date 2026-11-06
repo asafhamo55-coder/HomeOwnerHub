@@ -3,8 +3,8 @@
 // Email constraints honoured here: table layout only, every style inline,
 // explicit bgcolor on every coloured cell (Gmail's dark mode recolours
 // backgrounds it can see and leaves the rest alone, so nothing is left
-// transparent), no SVG (Gmail strips it — the logo is a coloured cell with
-// a letter), no web fonts, images as CID attachments rather than remote
+// transparent), no SVG (Gmail strips it — the logo is the app's hosted PNG with alt
+// text), no web fonts, images as CID attachments rather than remote
 // URLs (no tracking pixels, shows without "load images"), 600px column.
 
 import { BRAND } from './brand'
@@ -92,15 +92,15 @@ export function emailHead(title: string, extraCss = ''): string {
 <style>
   :root { color-scheme: light dark; supported-color-schemes: light dark; }
   @media (prefers-color-scheme: dark) {
-    .rn-bg { background-color:#0A0F1A !important; }
-    .rn-card { background-color:#111827 !important; }
-    .rn-fg, .rn-card h2, .rn-card h3 { color:#F1F5F9 !important; }
-    .rn-card p, .rn-card li { color:#CBD5E1 !important; }
-    .rn-muted { color:#94A3B8 !important; }
+    .rn-bg { background-color:#1A0E2B !important; }
+    .rn-card { background-color:#261540 !important; }
+    .rn-fg, .rn-card h2, .rn-card h3 { color:#F6F2FB !important; }
+    .rn-card p, .rn-card li { color:#DDD3EE !important; }
+    .rn-muted { color:#BDB3D0 !important; }
     .rn-action { background-color:#2B2110 !important; }
     .rn-action p, .rn-action li { color:#FEC84B !important; }
     .rn-card a, .rn-link { color:#CBC2FF !important; }
-    .rn-card code { background-color:#1E293B !important; color:#F1F5F9 !important; }
+    .rn-card code { background-color:#33204F !important; color:#F6F2FB !important; }
   }
   @media screen and (max-width: 620px) {
     .rn-container { width:100% !important; }
@@ -111,18 +111,13 @@ ${extraCss}</style>
 `
 }
 
-/** The wordmark row at the top of the 600px column, with a right-aligned label. */
+/** The logo row at the top of the 600px column, with a right-aligned label. */
 export function wordmarkHeader(label: string): string {
-  return `<!-- Header: wordmark -->
+  return `<!-- Header: logo -->
 <tr><td style="padding:0 4px 18px 4px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-    <td valign="middle" style="width:36px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td width="32" height="32" align="center" valign="middle" bgcolor="${BRAND.primary}" style="width:32px;height:32px;background-color:${BRAND.primary};border-radius:8px;color:${BRAND.primaryFg};font-size:19px;line-height:32px;font-weight:700;font-family:${BRAND.font};">H</td>
-      </tr></table>
-    </td>
-    <td valign="middle" class="rn-fg" style="padding-left:10px;font-size:17px;line-height:24px;font-weight:600;letter-spacing:-0.01em;color:${BRAND.foreground};">${BRAND.wordmark.lead}<span class="rn-link" style="color:${BRAND.primary};">${BRAND.wordmark.accent}</span></td>
-    <td valign="middle" align="right" class="rn-muted" style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${BRAND.muted};">${escapeHtml(label)}</td>
+    <td valign="middle"><img src="${escapeHtml(BRAND.logoUrl)}" alt="${BRAND.productName}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" border="0" style="display:block;border:0;border-radius:6px;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;font-family:${BRAND.font};font-size:20px;line-height:30px;font-weight:700;color:${BRAND.primary};" /></td>
+    <td valign="middle" align="right" class="rn-muted" style="font-size:13px;line-height:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${BRAND.muted};">${escapeHtml(label)}</td>
   </tr></table>
 </td></tr>`
 }

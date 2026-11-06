@@ -13,12 +13,14 @@
 
 import { renderEmailDocument, escapeHtml } from '@/lib/email/shell'
 import { renderVisualBlock } from '@/lib/email/visual-block'
-import { assertAccent, tintOver } from '@/lib/email/palette'
+import { BRAND, EMAIL_FONT } from '@/lib/email/brand'
+import { emailButton } from '@/lib/email/components'
+import { assertAccent } from '@/lib/email/palette'
 import type { CommunityTemplate, BodyBlock } from './types'
 
-const TEXT = '#1A1D21'
-const BODY = '#3D454D'
-const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
+const TEXT = BRAND.ink
+const BODY = BRAND.body
+const FONT = EMAIL_FONT
 
 /** Placeholders must survive escaping untouched — they are our own syntax,
  *  not user input. `escapeHtml` never touches `{` or `}`, so the merge
@@ -40,16 +42,16 @@ function assertNeverBlock(block: never): never {
 function renderBlock(block: BodyBlock, t: CommunityTemplate): string {
   switch (block.type) {
     case 'paragraph':
-      return `<p style="margin:0 0 11px;font-size:14px;line-height:1.55;color:${BODY};font-family:${FONT};">${escapePreservingMerge(block.text)}</p>`
+      return `<p style="margin:0 0 11px;font-size:16px;line-height:1.6;color:${BODY};font-family:${FONT};">${escapePreservingMerge(block.text)}</p>`
     case 'visual':
       return renderVisualBlock(t.visual, t.accentColor)
     case 'callout': {
-      const panel = tintOver(t.accentColor, 0.09)
+      const panel = BRAND.tint
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${panel}" style="background-color:${panel};color:${TEXT};margin:13px 0;">
-<tr><td style="padding:11px 14px;font-size:13px;line-height:1.55;color:${TEXT};background-color:${panel};font-family:${FONT};border-left:4px solid ${t.accentColor};">${escapePreservingMerge(block.text)}</td></tr></table>`
+<tr><td style="padding:11px 14px;font-size:16px;line-height:1.6;color:${TEXT};background-color:${panel};font-family:${FONT};border-left:4px solid ${BRAND.primary};">${escapePreservingMerge(block.text)}</td></tr></table>`
     }
     case 'list':
-      return `<ul style="margin:0 0 11px;padding-left:20px;font-size:14px;line-height:1.6;color:${BODY};font-family:${FONT};">${block.items
+      return `<ul style="margin:0 0 11px;padding-left:20px;font-size:16px;line-height:1.6;color:${BODY};font-family:${FONT};">${block.items
         .map((i) => `<li style="margin-bottom:4px;color:${BODY};">${escapePreservingMerge(i)}</li>`)
         .join('')}</ul>`
     case 'raw':
@@ -66,17 +68,12 @@ function renderBlock(block: BodyBlock, t: CommunityTemplate): string {
 export function renderCommunityEmailHtml(t: CommunityTemplate): string {
   assertAccent(t.accentColor)
 
-  const headline = `<h1 style="margin:0 0 12px;font-size:20px;line-height:1.25;color:${TEXT};font-weight:700;font-family:${FONT};">${escapePreservingMerge(t.name.split('—').pop()?.trim() || t.name)}</h1>`
+  const headline = `<h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;color:${TEXT};font-weight:700;font-family:${FONT};">${escapePreservingMerge(t.name.split('—').pop()?.trim() || t.name)}</h1>`
 
-  const cta = t.cta
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 0;"><tr>
-<td bgcolor="${t.accentColor}" style="background-color:${t.accentColor};color:#ffffff;">
-<a href="{{${t.cta.urlField}}}" style="display:inline-block;padding:11px 18px;font-size:13px;font-weight:600;color:#ffffff;text-decoration:none;font-family:${FONT};">${escapeHtml(t.cta.label)}</a>
-</td></tr></table>`
-    : ''
+  const cta = t.cta ? emailButton(`{{${t.cta.urlField}}}`, t.cta.label) : ''
 
   return renderEmailDocument({
-    band: { text: '{{association_name}}', color: t.accentColor },
+    band: { text: '{{association_name}}', color: BRAND.primary },
     previewText: t.preview,
     bodyHtml: headline + t.body.map((b) => renderBlock(b, t)).join('\n') + cta,
     footerHtml: 'Sent to residents of {{association_name}}.',

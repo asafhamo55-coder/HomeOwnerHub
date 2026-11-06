@@ -11,6 +11,8 @@
  */
 
 import { chargeTypeLabel } from '@/lib/assessment-labels'
+import { BRAND } from '@/lib/email/brand'
+import { emailButton } from '@/lib/email/components'
 import { renderEmailDocument } from '@/lib/email/shell'
 import type { ReminderPacket } from './types'
 
@@ -71,10 +73,10 @@ export function amountSummary(packet: ReminderPacket): string {
 }
 
 // ─── palette ─────────────────────────────────────────────────────────
-const TEXT = '#1a1d21'
-const MUTED = '#6b7280'
-const LINE = '#eef0f2'
-const PANEL = '#f9fafb'
+const TEXT = BRAND.ink
+const MUTED = BRAND.muted
+const LINE = BRAND.line
+const PANEL = BRAND.panel
 const DANGER = '#b42318'
 const DANGER_BG = '#fef3f2'
 const DANGER_LINE = '#fbd5d1'
@@ -85,12 +87,12 @@ function chargeRow(
 ): string {
   const border = isLast ? '' : `border-bottom:1px solid ${LINE};`
   const late = charge.pastDue
-    ? `<span style="display:inline-block;margin-top:3px;background:${DANGER_BG};color:${DANGER};font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;">${charge.daysLate} ${charge.daysLate === 1 ? 'day' : 'days'} late</span>`
+    ? `<span style="display:inline-block;margin-top:3px;background:${DANGER_BG};color:${DANGER};font-size:13px;font-weight:700;padding:2px 7px;border-radius:20px;">${charge.daysLate} ${charge.daysLate === 1 ? 'day' : 'days'} late</span>`
     : ''
 
   return `<tr><td style="padding:11px 14px;${border}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-<td style="font-size:13px;font-weight:600;color:${TEXT};">${escapeHtml(chargeTypeLabel(charge.assessmentType))}<div style="font-size:11px;font-weight:400;color:${MUTED};margin-top:2px;">Due ${formatDueDate(charge.dueDate)}</div></td>
+<td style="font-size:15px;font-weight:600;color:${TEXT};">${escapeHtml(chargeTypeLabel(charge.assessmentType))}<div style="font-size:13px;font-weight:400;color:${MUTED};margin-top:2px;">Due ${formatDueDate(charge.dueDate)}</div></td>
 <td style="text-align:right;vertical-align:top;"><div style="font-size:14px;font-weight:700;color:${TEXT};">${formatUsd(charge.balance)}</div>${late}</td>
 </tr></table></td></tr>`
 }
@@ -100,11 +102,11 @@ export function renderDuesTableHtml(packet: ReminderPacket): string {
 
   const totalCard = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${DANGER_BG};border:1px solid ${DANGER_LINE};border-radius:10px;margin-bottom:20px;">
 <tr><td style="padding:16px 18px;">
-<div style="font-size:12px;color:${MUTED};font-weight:600;">Total due</div>
+<div style="font-size:14px;color:${MUTED};font-weight:600;">Total due</div>
 <div style="font-size:32px;font-weight:700;letter-spacing:-0.6px;margin-top:2px;color:${TEXT};">${formatUsd(packet.totalDue)}</div>
 ${
   packet.pastDueTotal > 0
-    ? `<div style="margin-top:6px;font-size:12px;font-weight:700;color:${DANGER};">${formatUsd(packet.pastDueTotal)} past due &middot; oldest ${packet.oldestDaysLate} ${packet.oldestDaysLate === 1 ? 'day' : 'days'}</div>`
+    ? `<div style="margin-top:6px;font-size:14px;font-weight:700;color:${DANGER};">${formatUsd(packet.pastDueTotal)} past due &middot; oldest ${packet.oldestDaysLate} ${packet.oldestDaysLate === 1 ? 'day' : 'days'}</div>`
     : ''
 }
 </td></tr></table>`
@@ -112,13 +114,13 @@ ${
   const blocks = packet.properties
     .map((property) => {
       const heading = multi
-        ? `<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:${TEXT};">${escapeHtml(property.label)}</div>`
+        ? `<div style="font-size:15px;font-weight:700;margin-bottom:8px;color:${TEXT};">${escapeHtml(property.label)}</div>`
         : ''
       const rows = property.charges
         .map((c, i) => chargeRow(c, i === property.charges.length - 1 && !multi))
         .join('')
       const subtotal = multi
-        ? `<tr><td style="padding:10px 14px;border-top:1px solid ${LINE};font-size:12px;color:${MUTED};">Subtotal <span style="float:right;font-weight:700;color:${TEXT};">${formatUsd(property.subtotal)}</span></td></tr>`
+        ? `<tr><td style="padding:10px 14px;border-top:1px solid ${LINE};font-size:14px;color:${MUTED};">Subtotal <span style="float:right;font-weight:700;color:${TEXT};">${formatUsd(property.subtotal)}</span></td></tr>`
         : ''
       return `${heading}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PANEL};border:1px solid ${LINE};border-radius:10px;margin-bottom:14px;">${rows}${subtotal}</table>`
     })
@@ -157,20 +159,20 @@ export function renderNoteHtml(note: string | undefined): string {
   const trimmed = note?.trim()
   if (!trimmed) return ''
   const body = escapeHtml(trimmed).replace(/\r?\n/g, '<br>')
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;border-radius:8px;margin-bottom:18px;">
-<tr><td style="padding:12px 14px;font-size:13px;line-height:1.5;color:${TEXT};">${body}</td></tr></table>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.tint};border-radius:8px;margin-bottom:18px;">
+<tr><td style="padding:12px 14px;font-size:15px;line-height:1.5;color:${TEXT};">${body}</td></tr></table>`
 }
 
 export function renderShellHtml(opts: { note?: string; portalUrl: string }): string {
-  const body = `<div style="font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};font-weight:700;">{{association_name}}</div>
-<p style="margin:12px 0 4px;font-size:15px;font-weight:700;color:${TEXT};">Hi {{owner_name}},</p>
-<p style="margin:0 0 18px;font-size:13px;line-height:1.5;color:#4b5563;">Here&rsquo;s everything currently outstanding on your account.</p>
+  const body = `<div style="font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};font-weight:700;">{{association_name}}</div>
+<p style="margin:12px 0 4px;font-size:17px;font-weight:700;color:${TEXT};">Hi {{owner_name}},</p>
+<p style="margin:0 0 18px;font-size:15px;line-height:1.5;color:${BRAND.body};">Here&rsquo;s everything currently outstanding on your account.</p>
 ${renderNoteHtml(opts.note)}
 {{dues_table}}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 0;">
-<a href="${escapeHtml(opts.portalUrl)}" style="display:inline-block;background-color:#111827;color:#ffffff;font-size:13px;font-weight:700;padding:12px 28px;text-decoration:none;">View my dues</a>
+${emailButton(opts.portalUrl, 'View my dues')}
 </td></tr></table>
-<p style="margin:16px 0 0;font-size:11px;line-height:1.6;color:${MUTED};text-align:center;">To pay or request a detailed statement, reply to this email or contact your community manager.</p>`
+<p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:${MUTED};text-align:center;">To pay or request a detailed statement, reply to this email or contact your community manager.</p>`
 
   return renderEmailDocument({
     bodyHtml: body,

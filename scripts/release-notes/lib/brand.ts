@@ -1,36 +1,37 @@
-// Brand constants for the release-note email.
+// Brand constants for the internal release-note, owner-actions and backlog
+// emails.
 //
-// Sources: the wordmark is the marketing site's (apps/marketing/src/
-// components/site/brand.tsx: the HomeownerHub mark, a blue tile — BL-098.
-// Gmail strips SVG, so the email shows it as a blue cell with an "H" next
-// to "HomeownerHub" set semibold with slight negative tracking, "Hub" in
-// primary). Colours are the HOA light palette from packages/ui/src/
-// tokens.ts. Copied, not imported: this script runs under plain tsx in CI
-// and must not pull the UI package's build graph in. If the tokens move,
-// update these — release-notes.test.ts fails if they drift.
+// Palette: the marketing site's "Royal purple" (apps/marketing/src/app/
+// globals.css), the same values the product's own emails use
+// (packages/workflows/src/email-brand). Copied, not imported: this script
+// runs under plain tsx in CI and must not pull in a package build graph. If
+// the palette moves, update these; release-notes.test.ts fails on drift.
+// The logo is the HomeownerHub PNG the app serves from its public origin
+// (apps/hoa/public/email/v1/homeownerhub-logo.png), 2x, opaque white field.
 
 export const BRAND = {
   productName: 'HomeownerHub',
-  // The two-tone wordmark: "Homeowner" in foreground, "Hub" in primary
-  // (rn-link lifts it to #CBC2FF in dark mode, the logo's dark accent).
-  wordmark: { lead: 'Homeowner', accent: 'Hub' },
   appName: 'HomeownerHub',
   // The app's public origin (APP_ORIGIN, set by release-notes.yml from the
   // repo variable); the pre-split host until then.
   prodUrl: process.env.APP_ORIGIN || 'https://www.homeownerledger.com',
   repoUrl: 'https://github.com/asafhamo55-coder/HomeOwnerHub',
-  primary: '#4B27C9',
+  primary: '#6D28D9',
   primaryFg: '#FFFFFF',
-  primarySubtle: '#F0ECFF',
-  background: '#F5F8FC',
+  primarySubtle: '#F0E8FF',
+  background: '#F6F2FB',
   surface: '#FFFFFF',
-  subtle: '#EEF3F9',
-  border: '#E2E8F0',
-  foreground: '#0F172A',
-  foregroundSecondary: '#334155',
-  muted: '#526077',
+  subtle: '#F3EEFA',
+  border: '#E9E3EE',
+  foreground: '#211B2C',
+  foregroundSecondary: '#423A50',
+  muted: '#5C5469',
   accentSubtle: '#FFF6E5',
   accentFg: '#93370D',
+  /** Absolute https URL of the header logo, served by the app (middleware leaves /email/ public). */
+  logoUrl: `${process.env.APP_ORIGIN || 'https://www.homeownerledger.com'}/email/v1/homeownerhub-logo.png`,
+  logoWidth: 180,
+  logoHeight: 30,
   font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",
   mono: "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace",
 } as const

@@ -7,6 +7,7 @@ import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { logRouteFailure } from '@/lib/api/log'
 import type { OutboundSendOptions } from '@/lib/email'
 import { sendEmail, appUrl } from '@/lib/email'
+import { BRAND, brandButtonHtml, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 import { buildSenderName } from '@/lib/email/sender-name'
 import { sendSms, htmlToSmsBody } from '@/lib/sms'
 import { SMS_MAX_CHARS, composeSmsBody } from '@/lib/communications/sms-body'
@@ -711,26 +712,22 @@ function buildEventMessage(event: RecurringEvent, today: string): {
   const dateLabel = formatEventDate(event.event_date)
   const link = appUrl(`/events/${event.id}`)
   const descriptionBlock = event.description
-    ? `<p style="margin:12px 0;color:#444;white-space:pre-wrap;">${escapeHtml(event.description)}</p>`
+    ? `<p style="margin:12px 0;color:${BRAND.body};white-space:pre-wrap;">${escapeHtml(event.description)}</p>`
     : ''
-  const html = `
-<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111;">
-  <h2 style="margin:0 0 8px 0;font-size:20px;">${escapeHtml(event.title)}</h2>
-  <p style="margin:0 0 16px 0;color:#555;">
-    ${escapeHtml(dateLabel)} ·
+  const html = wrapBrandedEmail({
+    title: subject,
+    bodyHtml: `<h2 style="margin:0 0 8px 0;font-size:24px;line-height:1.3;color:${BRAND.ink};">${escapeHtml(event.title)}</h2>
+  <p style="margin:0 0 16px 0;color:${BRAND.muted};">
+    ${escapeHtml(dateLabel)} &middot;
     ${daysUntil <= 0 ? 'today' : `${daysUntil} day${daysUntil === 1 ? '' : 's'} away`}
   </p>
   ${descriptionBlock}
-  <p style="margin:20px 0;">
-    <a href="${link}" style="display:inline-block;padding:10px 16px;background:#111;color:#fff;text-decoration:none;border-radius:6px;">
-      Open in HomeownerHub
-    </a>
-  </p>
-  <p style="margin-top:24px;font-size:12px;color:#888;">
+  ${brandButtonHtml(link, 'Open in HomeownerHub')}
+  <p style="margin-top:24px;font-size:14px;color:${BRAND.muted};">
     You're receiving this reminder from your HOA.
     ${event.recurrence === 'annual' ? 'It repeats annually.' : ''}
-  </p>
-</div>`.trim()
+  </p>`,
+  })
 
   const text = [
     event.title,

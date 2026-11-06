@@ -11,6 +11,8 @@
  */
 
 import { composeSmsBody } from '@/lib/communications/sms-body'
+import { BRAND, EMAIL_FONT } from '@/lib/email/brand'
+import { emailButton, emailCallout, emailEyebrow } from '@/lib/email/components'
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 
 export type ArcNoticeKind = 'approved' | 'approved_with_conditions' | 'denied' | 'more_info'
@@ -36,8 +38,8 @@ const ARC_LEAD: Record<ArcNoticeKind, string> = {
   more_info: 'The board needs more information before it can decide your architectural application',
 }
 
-const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
-const ACCENT = '#1F6F5C'
+const FONT = EMAIL_FONT
+const ACCENT = BRAND.primary
 
 /** Paragraph breaks kept: escape, then newlines become <br />. */
 function multiline(s: string): string {
@@ -50,16 +52,16 @@ function greeting(name: string | null): string {
 }
 
 function button(href: string, label: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;"><tr><td bgcolor="${ACCENT}" style="background-color:${ACCENT};border-radius:6px;"><a href="${escapeHtml(href)}" style="display:inline-block;padding:11px 18px;font-family:${FONT};font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">${escapeHtml(label)}</a></td></tr></table>`
+  return emailButton(href, label)
 }
 
 function quoted(label: string, body: string): string {
-  return `<p style="margin:18px 0 6px;font-size:12px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#5B646C;">${escapeHtml(label)}</p>
-<div style="margin:0;padding:14px 16px;border-left:3px solid ${ACCENT};background-color:#F6F8F7;font-size:14px;line-height:1.6;color:#1A1D21;">${multiline(body)}</div>`
+  return `${emailEyebrow(label)}
+${emailCallout(multiline(body))}`
 }
 
 function footer(associationName: string): string {
-  return `You’re receiving this because ${escapeHtml(associationName)} emails residents when the board decides or answers their requests. Replies to this email may not be read — use the resident portal to respond.`
+  return `You’re receiving this because ${escapeHtml(associationName)} emails residents when the board decides or answers their requests. Replies to this email may not be read. Use the resident portal to respond.`
 }
 
 function wrap(opts: { associationName: string; previewText: string; body: string }): string {
@@ -67,7 +69,7 @@ function wrap(opts: { associationName: string; previewText: string; body: string
     fluid: true,
     previewText: opts.previewText,
     band: { text: opts.associationName, color: ACCENT },
-    bodyHtml: `<div style="font-family:${FONT};font-size:15px;line-height:1.6;color:#1A1D21;">${opts.body}</div>`,
+    bodyHtml: `<div style="font-family:${FONT};font-size:17px;line-height:1.6;color:${BRAND.ink};">${opts.body}</div>`,
     footerHtml: footer(opts.associationName),
   })
 }

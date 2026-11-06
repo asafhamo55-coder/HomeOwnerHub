@@ -25,6 +25,7 @@ import {
 } from '@homeowner-portal/observability/outbound-guard'
 import { formatFrom } from './email/sender-name'
 import { recipientMessageId } from './email/message-id'
+import { ensureBranded } from './email/ensure-branded'
 
 let _client: Resend | null = null
 
@@ -101,7 +102,7 @@ export async function sendEmail(
     from,
     to: input.to,
     subject: input.subject,
-    html: input.html,
+    html: ensureBranded(input.html),
     text: input.text,
     ...threadingHeaders(input, envFrom),
   })
@@ -186,7 +187,7 @@ async function sendAllowedBatch(inputs: SendEmailInput[]): Promise<BatchSendResu
       from: formatFrom(envFrom, input.senderName),
       to: input.to,
       subject: input.subject,
-      html: input.html,
+      html: ensureBranded(input.html),
       text: input.text,
       ...threadingHeaders(input, envFrom),
     }))

@@ -7,11 +7,11 @@
  * leaving others alone. A pastel accent inverts to near-white and disappears;
  * a near-black one is indistinguishable from body text.
  *
- * The 0.10–0.30 window is the band that reads as a deliberate accent in both
+ * The 0.09–0.30 window (0.09 lets royal purple #6D28D9, luminance 0.098, through) is the band that reads as a deliberate accent in both
  * directions. It will reject colours a designer wants. That is the point.
  */
 
-export const MIN_ACCENT_LUMINANCE = 0.1
+export const MIN_ACCENT_LUMINANCE = 0.09
 export const MAX_ACCENT_LUMINANCE = 0.3
 
 /** The neutral every tinted panel is composited over. Never pure white —

@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderEmailDocument } from './shell'
+
+const ORIGINAL_BASE = process.env.EMAIL_ASSET_BASE_URL
 
 const BASE = {
   bodyHtml: '<p style="margin:0;color:#1a1d21;">Hello</p>',
@@ -52,9 +54,9 @@ describe('renderEmailDocument', () => {
     // "no bgcolor anywhere" to prove the band is absent would forbid these
     // and silently degrade every email in Outlook.
     const html = renderEmailDocument(BASE)
-    expect(html).toContain('bgcolor="#F1F3F5"') // page background
+    expect(html).toContain('bgcolor="#F6F2FB"') // page background (lilac)
     expect(html).toContain('bgcolor="#FFFFFF"') // card
-    expect(html).toContain('bgcolor="#FAFAFA"') // footer
+    expect(html).toContain('bgcolor="#FBF8FD"') // footer
   })
 
   it('escapes band text', () => {
@@ -80,5 +82,66 @@ describe('renderEmailDocument', () => {
     expect(doc('')).toContain('<title></title>')
     expect(doc()).toContain('<title></title>')
     expect(doc()).toContain('lang="en" xml:lang="en"')
+  })
+})
+
+describe('the brand header', () => {
+  const withBase = (base: string | undefined, fn: () => void) => {
+    const prev = process.env.EMAIL_ASSET_BASE_URL
+    if (base === undefined) delete process.env.EMAIL_ASSET_BASE_URL
+    else process.env.EMAIL_ASSET_BASE_URL = base
+    try {
+      fn()
+    } finally {
+      if (prev === undefined) delete process.env.EMAIL_ASSET_BASE_URL
+      else process.env.EMAIL_ASSET_BASE_URL = prev
+    }
+  }
+
+  it('renders the logo as an absolute https img with alt, width and height, from EMAIL_ASSET_BASE_URL', () => {
+    withBase('https://app.homeownerhub.test/', () => {
+      const html = renderEmailDocument(BASE)
+      expect(html).toContain(
+        '<img src="https://app.homeownerhub.test/email/v1/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"',
+      )
+      // White band, then the royal purple rule.
+      expect(html).toMatch(/class="eh-logo" bgcolor="#FFFFFF" style="background-color:#FFFFFF;color:#211B2C/)
+      expect(html).toMatch(/bgcolor="#6D28D9" height="4"/)
+      // The logo comes before the body.
+      expect(html.indexOf('alt="HomeownerHub"')).toBeLessThan(html.indexOf('Hello'))
+    })
+  })
+
+  it('can be given its own URL (the browser-built welcome email), and null forces the text wordmark', () => {
+    withBase(undefined, () => {
+      expect(renderEmailDocument({ ...BASE, logoUrl: 'https://x.test/email/v1/homeownerhub-logo.png' })).toContain(
+        'src="https://x.test/email/v1/homeownerhub-logo.png"',
+      )
+      const text = renderEmailDocument({ ...BASE, logoUrl: null })
+      expect(text).not.toContain('<img')
+      expect(text).toContain('>HomeownerHub</span>')
+    })
+  })
+
+  it('falls back to the text wordmark, and says so, when EMAIL_ASSET_BASE_URL is missing', () => {
+    withBase(undefined, () => {
+      const errors: string[] = []
+      const spy = vi.spyOn(console, 'error').mockImplementation((m: string) => void errors.push(String(m)))
+      const html = renderEmailDocument(BASE)
+      spy.mockRestore()
+      expect(html).not.toContain('<img')
+      expect(html).toContain('>HomeownerHub</span>')
+      expect(errors.join(' ')).toMatch(/EMAIL_ASSET_BASE_URL/)
+    })
+  })
+
+  it('logo: false leaves it out (internal tooling that drew its own header)', () => {
+    withBase('https://app.homeownerhub.test', () => {
+      expect(renderEmailDocument({ ...BASE, logo: false })).not.toContain('alt="HomeownerHub"')
+    })
+  })
+
+  it('keeps the original EMAIL_ASSET_BASE_URL untouched', () => {
+    expect(process.env.EMAIL_ASSET_BASE_URL).toBe(ORIGINAL_BASE)
   })
 })

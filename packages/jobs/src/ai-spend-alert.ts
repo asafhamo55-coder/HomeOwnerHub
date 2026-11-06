@@ -1,5 +1,6 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
+import { BRAND, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 
 /**
  * BL-108 (docs/decisions/2026-10-20-ai-spend-ceiling.md §2, "Platform"):
@@ -134,10 +135,11 @@ export async function runAiSpendAlert(
     '',
     'To stop all AI now, set AI_PLATFORM_KILL_SWITCH=1 in Vercel production and redeploy.',
   ].join('\n')
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;color:#111;">${text
+  const body = text
     .split('\n')
-    .map((l) => `<p style="margin:0 0 6px 0;">${l.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`)
-    .join('')}</div>`
+    .map((l) => `<p style="margin:0 0 6px 0;font-size:16px;line-height:1.6;color:${BRAND.ink};">${l.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`)
+    .join('')
+  const html = wrapBrandedEmail({ bodyHtml: body, title: subject })
 
   let sent = 0
   for (const to of recipients) {

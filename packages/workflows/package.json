@@ -26,7 +26,8 @@
     "./citations": "./src/W32-reply-drafter/tools.ts",
     "./chunker": "./src/W1-governing-docs-brain/chunker.ts",
     "./vendor-insurance": "./src/vendor-insurance/settings.ts",
-    "./vendor-coi": "./src/vendor-insurance/coi-request.ts"
+    "./email-brand": "./src/email-brand/index.ts",
+    "./vendor-coi":"./src/vendor-insurance/coi-request.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

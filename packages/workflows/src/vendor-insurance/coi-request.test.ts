@@ -48,7 +48,7 @@ describe('draftCoiRequest', () => {
 describe('coiRequestHtml', () => {
   it('escapes and paragraphs the plain text', () => {
     const html = coiRequestHtml('Hi <b>you</b>,\n\nLine one\nLine two')
-    expect(html).toContain('<p>Hi &lt;b&gt;you&lt;/b&gt;,</p>')
-    expect(html).toContain('<p>Line one<br>Line two</p>')
+    expect(html).toContain('>Hi &lt;b&gt;you&lt;/b&gt;,</p>')
+    expect(html).toContain('>Line one<br>Line two</p>')
   })
 })

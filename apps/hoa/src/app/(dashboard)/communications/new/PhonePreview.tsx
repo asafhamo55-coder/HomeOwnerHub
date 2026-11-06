@@ -3,6 +3,9 @@
 import { useEffect, useId, useState, useTransition } from 'react'
 import { Loader2, Send } from 'lucide-react'
 import { Alert, Button, cn } from '@homeowner-portal/ui'
+import { appOrigin } from '@/lib/app-origin'
+import { LOGO_FILE } from '@/lib/email/brand'
+import { ensureBranded } from '@/lib/email/ensure-branded'
 import {
   previewForSample,
   sendTestToMe,
@@ -17,8 +20,13 @@ const TAB_LABEL: Record<Tab, string> = { email: 'Email', text: 'Text', portal: '
 /** Plain styling for the rendered email inside the phone frame. The frame
  *  is sandboxed (no scripts, no same-origin), so the message's own HTML
  *  can't touch the app. */
+/** What the resident gets: a bare body is wrapped in the brand frame at send time (email/ensure-branded.ts), so the preview wraps it too. */
+function previewHtml(html: string): string {
+  return ensureBranded(html, `${appOrigin()}/email/v1/${LOGO_FILE}`)
+}
+
 function frameDoc(html: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;margin:14px;color:#1a1a1a;background:#fff;word-wrap:break-word}a{color:#4B27C9}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>${html}</body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5;margin:14px;color:#1a1a1a;background:#fff;word-wrap:break-word}a{color:#6D28D9}img{max-width:100%;height:auto}table{max-width:100%}</style></head><body>${previewHtml(html)}</body></html>`
 }
 
 /**

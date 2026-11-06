@@ -13,6 +13,8 @@
  * email counts homes, never names.
  */
 
+import { BRAND, EMAIL_FONT } from '@/lib/email/brand'
+import { emailButton } from '@/lib/email/components'
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { POLL_NOT_A_VOTE, type TallyRow } from '../rules'
 
@@ -22,11 +24,11 @@ export interface RenderedPollEmail {
   text: string
 }
 
-const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
-export const POLL_ACCENT = '#1F6F5C'
-const TEXT = '#1A1D21'
-const MUTED = '#4A545C'
-const TRACK = '#D9DEE2'
+const FONT = EMAIL_FONT
+export const POLL_ACCENT: string = BRAND.primary
+const TEXT = BRAND.ink
+const MUTED = BRAND.muted
+const TRACK = BRAND.track
 const BAR_HEIGHT = 20
 
 /** One line, no control characters: safe for a subject header. */
@@ -75,7 +77,7 @@ export function renderPollBarsHtml(rows: readonly TallyRow[], accent: string = P
 }
 
 export function renderButtonHtml(href: string, label: string, accent: string = POLL_ACCENT): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 8px;"><tr><td align="center" bgcolor="${accent}" style="background-color:${accent};border:2px solid ${accent};border-radius:8px;"><a href="${escapeHtml(href)}" style="display:inline-block;padding:18px 34px;font-family:${FONT};font-size:20px;font-weight:700;color:#ffffff;text-decoration:none;">${escapeHtml(label)}</a></td></tr></table>`
+  return emailButton(href, label, accent)
 }
 
 function paragraphs(text: string): string {
@@ -113,14 +115,14 @@ export function renderPollOpenedEmail(i: PollOpenedInput): RenderedPollEmail {
     previewText: `${i.associationName} would like your answer: ${cleanSubject(i.title)}`,
     band: { text: i.associationName, color: POLL_ACCENT },
     bodyHtml: `${BODY_OPEN}
-<p style="margin:0 0 8px;font-size:15px;color:${MUTED};">A short poll from your board</p>
+<p style="margin:0 0 8px;font-size:16px;color:${MUTED};">A short poll from your board</p>
 <p style="margin:0 0 14px;font-size:24px;line-height:1.3;font-weight:700;color:${TEXT};">${escapeHtml(i.title)}</p>
 ${i.description ? paragraphs(i.description) : ''}
 <p style="margin:14px 0 6px;font-weight:700;">The answers are:</p>
 <ul style="margin:0 0 12px;padding:0 0 0 22px;">${list}</ul>
 <p style="margin:0 0 12px;">${escapeHtml(pick)} ${escapeHtml(closes)}</p>
 ${renderButtonHtml(i.pollUrl, 'Answer the poll')}
-<p style="margin:16px 0 0;font-size:15px;color:${MUTED};">${escapeHtml(POLL_NOT_A_VOTE)}</p>
+<p style="margin:16px 0 0;font-size:16px;color:${MUTED};">${escapeHtml(POLL_NOT_A_VOTE)}</p>
 </div>`,
     footerHtml: footer(i.associationName),
   })
@@ -163,13 +165,13 @@ export function renderPollResultsEmail(i: PollResultsInput): RenderedPollEmail {
     previewText: `${answered} ${cleanSubject(i.title)}`,
     band: { text: i.associationName, color: POLL_ACCENT },
     bodyHtml: `${BODY_OPEN}
-<p style="margin:0 0 8px;font-size:15px;color:${MUTED};">The poll has closed. Here are the results.</p>
+<p style="margin:0 0 8px;font-size:16px;color:${MUTED};">The poll has closed. Here are the results.</p>
 <p style="margin:0 0 14px;font-size:24px;line-height:1.3;font-weight:700;color:${TEXT};">${escapeHtml(i.title)}</p>
 <p style="margin:0 0 18px;font-weight:700;">${escapeHtml(answered)}</p>
 ${renderPollBarsHtml(i.rows)}
-${i.allowMultiple ? `<p style="margin:0 0 12px;font-size:15px;color:${MUTED};">${escapeHtml(MULTIPLE_CHOICE_NOTE)}</p>` : ''}
+${i.allowMultiple ? `<p style="margin:0 0 12px;font-size:16px;color:${MUTED};">${escapeHtml(MULTIPLE_CHOICE_NOTE)}</p>` : ''}
 ${renderButtonHtml(i.resultsUrl, 'See the results')}
-<p style="margin:16px 0 0;font-size:15px;color:${MUTED};">${escapeHtml(POLL_NOT_A_VOTE)} Answers are counted by home and are never shown by name.</p>
+<p style="margin:16px 0 0;font-size:16px;color:${MUTED};">${escapeHtml(POLL_NOT_A_VOTE)} Answers are counted by home and are never shown by name.</p>
 </div>`,
     footerHtml: footer(i.associationName),
   })

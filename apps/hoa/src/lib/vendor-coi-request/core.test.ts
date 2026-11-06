@@ -119,7 +119,7 @@ describe('sendCoiRequestCore', () => {
       senderName: 'Maple Court HOA',
       recipientRef: 'rec-1',
     })
-    expect(email.html).toContain('<p>Hello Acme,</p>')
+    expect(email.html).toContain('>Hello Acme,</p>')
     expect(opts).toEqual({ orgSandbox: false, ref: 'comm-1' })
     expect(m.recorded[0]).toMatchObject({ to: VENDOR_EMAIL, vendorId: VENDOR_ID, associationId: ASSOC })
     expect(m.marks).toEqual([{ status: 'sent', externalId: 'm-1' }])
