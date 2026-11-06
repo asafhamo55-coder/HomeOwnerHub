@@ -6,7 +6,7 @@
   /* ─────────────────────────────────────────────────────────────────────────
      Marketing palette (BL-174, docs/decisions/2026-10-26-website-nice-
      inspired-design.md). Inspired by the look of large enterprise-software
-     sites: white and cool-grey pages, deep violet-to-blue gradient panels,
+     sites: white and cool-grey pages, deep purple gradient panels,
      near-black pill buttons, one mint accent. Every value is our own.
 
      Colours stay semantic tokens (HSL channels) so every component picks
@@ -14,33 +14,39 @@
      is NOT touched: marketing overrides its channels here, after the preset's
      own :root block.
 
-       light   white page · lavender-grey wells · ink #22212B text
-               violet #4B27C9 links and accents (8.6:1 on white)
+       light   white page · lilac wells · ink #211B2C text
+               royal purple #6D28D9 links and accents (7.1:1 on white)
        dark    scope class .on-dark (heroes, closing bands, footer) re-points
                the same tokens to a light-on-dark set, so components written
                with text-foreground / text-muted / border-border just work.
-     Contrast (WCAG 2.2 AA) measured: ink/white 15.9 · secondary/white 9.5 ·
-     muted/white 6.6 · muted/well 6.0 · violet/white 8.6 · white/#3B1AB5 10.5.
+     Contrast (WCAG 2.2 AA) measured (script, WCAG relative luminance):
+       light  ink/white 16.7 · ink/well 15.1 · muted/white 7.2 · muted/well 6.5
+              purple/white 7.1 · purple/well 6.4 · purple/primary-subtle 6.0
+              white/purple 7.1 · white/hover #5B21B6 9.0 · white/ink pill 17.8
+       panel  white/#3B0764 15.0 · white/#6B21A8 8.7 · white/#7E22CE 7.0
+              on-dark muted/page 12.5 · muted/#7E22CE 4.8 · primary/#7E22CE 4.8
+              white-pill button text #3B0764/white 15.0
+       ui     on-dark input border vs page 5.5 · light input border 4.5
      ───────────────────────────────────────────────────────────────────────── */
   :root,
   .card,
   .app-window,
   .theme-light {
-    --background: 250 60% 98.4%;
+    --background: 270 60% 98.4%;
     --surface: 0 0% 100%;
     --elevated: 0 0% 100%;
-    --subtle: 250 33.3% 96.5%;
-    --border: 250.9 24.4% 91.2%;
-    --border-strong: 249.5 21.8% 82.9%;
-    --input: 248.2 8.7% 49.4%;
-    --ring: 253.3 67.5% 47.1%;
-    --foreground: 246 13.2% 14.9%;
-    --foreground-secondary: 245.5 14.1% 30.6%;
-    --muted: 245 11.8% 40%;
-    --primary: 253.3 67.5% 47.1%;
-    --primary-hover: 253.4 72% 37.8%;
+    --subtle: 266.7 52.9% 96.7%;
+    --border: 270 24.4% 91.2%;
+    --border-strong: 270 21.8% 82.9%;
+    --input: 270 8.7% 49.4%;
+    --ring: 263.4 70% 50.4%;
+    --foreground: 261.2 23.9% 13.9%;
+    --foreground-secondary: 262 16% 27%;
+    --muted: 262.9 11.1% 37.1%;
+    --primary: 263.4 70% 50.4%;
+    --primary-hover: 263.4 69.3% 42.2%;
     --primary-fg: 0 0% 100%;
-    --primary-subtle: 252.6 100% 96.3%;
+    --primary-subtle: 260.9 100% 95.5%;
     --accent: 163.4 73.3% 45.5%;
     --accent-subtle: 160.9 68.7% 93.7%;
     --accent-fg: 164.2 81.2% 22.9%;
@@ -49,37 +55,37 @@
   :root {
     --font-sans: var(--font-be-vietnam), system-ui, sans-serif;
     --font-mono: var(--font-jetbrains-mono), monospace;
-    --ink: #16141f;
+    --ink: #1f1033;
     /* Panel gradient stops (decorative fills, never behind small text unless
        measured: white >= 8:1 on every stop that text can reach). */
-    --panel-a: #2a1288;
-    --panel-b: #4a1dc2;
-    --panel-c: #2b3cc4;
+    --panel-a: #3b0764;
+    --panel-b: #6b21a8;
+    --panel-c: #7e22ce;
     --panel-glow: #22c7c0;
     --radius-panel: 2.5rem;
     --warm: #f2f0eb;
-    --night: #22212b;
+    --night: #1f1033;
     --bar-h: 0rem;
   }
 
   .hero-wash,
   .section-ink,
   .on-dark {
-    --background: 250.9 21.6% 10%;
-    --surface: 250.6 23.9% 13.9%;
-    --elevated: 248.2 25% 17.3%;
-    --subtle: 249.2 25.5% 20%;
-    --border: 252 40% 44%;
-    --border-strong: 252 55% 62%;
-    --input: 247.5 19.6% 60%;
-    --ring: 249.8 100% 83.1%;
+    --background: 272 32% 10%;
+    --surface: 272 30% 14%;
+    --elevated: 272 30% 17.5%;
+    --subtle: 272 28% 20.5%;
+    --border: 272 40% 44%;
+    --border-strong: 272 55% 62%;
+    --input: 272 20% 60%;
+    --ring: 275 100% 87%;
     --foreground: 0 0% 100%;
-    --foreground-secondary: 248.6 51.9% 92%;
-    --muted: 247.5 39.2% 86%;
-    --primary: 249.2 100% 88%;
-    --primary-hover: 250.4 100% 93%;
-    --primary-fg: 250.9 21.6% 10%;
-    --primary-subtle: 252 55% 34%;
+    --foreground-secondary: 275 60% 93%;
+    --muted: 275 60% 88%;
+    --primary: 275 100% 90%;
+    --primary-hover: 275 100% 94%;
+    --primary-fg: 272 32% 10%;
+    --primary-subtle: 272 55% 34%;
     --accent: 162.2 72.3% 56.1%;
     --accent-subtle: 168.6 56.8% 14.5%;
     --accent-fg: 161.2 79.3% 71.6%;
@@ -120,11 +126,12 @@
   /* The HomeownerHub mark and wordmark keep their shape (packages/ui
      BrandLogo); only the colours move to the marketing palette. */
   svg[viewBox='0 0 32 32'] > rect:first-child {
-    fill: #4b27c9;
+    fill: #6d28d9;
   }
   svg[viewBox='0 0 32 32'] > rect:last-child {
-    fill: #d9cfff;
+    fill: #e9d5ff;
   }
+  svg g[class*='4B27C9'],
   svg g[class*='2563EB'] {
     color: hsl(var(--primary));
   }
@@ -239,10 +246,10 @@
   }
   .section-night {
     background: var(--night);
-    --background: 246 13.2% 14.9%;
-    --surface: 246 13% 19%;
-    --elevated: 246 13% 22%;
-    --subtle: 246 12% 24%;
+    --background: 272 32% 10%;
+    --surface: 272 30% 14%;
+    --elevated: 272 30% 17.5%;
+    --subtle: 272 28% 20.5%;
   }
 
   /* Features mega-menu: fade and rise on open, instant under reduced motion. */
@@ -336,14 +343,14 @@
   .on-dark .btn-primary,
   .btn-on-ink {
     background: #fff;
-    color: #3b1ab5;
-    box-shadow: 0 10px 24px -10px rgb(10 5 60 / 0.6);
+    color: #3b0764;
+    box-shadow: 0 10px 24px -10px rgb(30 8 55 / 0.6);
   }
   .hero-wash .btn-primary:hover,
   .section-ink .btn-primary:hover,
   .on-dark .btn-primary:hover,
   .btn-on-ink:hover {
-    background: #e9e3ff;
+    background: #f0e8ff;
   }
   .hero-wash .btn-secondary,
   .section-ink .btn-secondary,
@@ -398,9 +405,9 @@
     border-radius: 1.25rem;
     overflow: hidden;
     box-shadow:
-      0 1px 2px rgb(22 20 31 / 0.08),
-      0 36px 70px -28px rgb(22 12 90 / 0.55),
-      0 14px 28px -16px rgb(22 12 90 / 0.3);
+      0 1px 2px rgb(33 27 44 / 0.08),
+      0 36px 70px -28px rgb(40 12 80 / 0.55),
+      0 14px 28px -16px rgb(40 12 80 / 0.3);
   }
 }
 
@@ -477,14 +484,14 @@
   .section-ink {
     --background: 0 0% 100%;
     --surface: 0 0% 100%;
-    --subtle: 250 33.3% 96.5%;
-    --border: 250.9 24.4% 91.2%;
-    --border-strong: 249.5 21.8% 82.9%;
-    --foreground: 246 13.2% 14.9%;
-    --foreground-secondary: 245.5 14.1% 30.6%;
-    --muted: 245 11.8% 40%;
-    --primary: 253.3 67.5% 47.1%;
-    --primary-subtle: 252.6 100% 96.3%;
+    --subtle: 266.7 52.9% 96.7%;
+    --border: 270 24.4% 91.2%;
+    --border-strong: 270 21.8% 82.9%;
+    --foreground: 261.2 23.9% 13.9%;
+    --foreground-secondary: 262 16% 27%;
+    --muted: 262.9 11.1% 37.1%;
+    --primary: 263.4 70% 50.4%;
+    --primary-subtle: 260.9 100% 95.5%;
     background: #fff;
     margin: 0;
     border-radius: 0;
@@ -552,7 +559,7 @@
   height: 22px;
   margin: -3px 0 0 -3px;
   pointer-events: none;
-  filter: drop-shadow(0 2px 3px rgb(22 12 90 / 0.35));
+  filter: drop-shadow(0 2px 3px rgb(40 12 80 / 0.35));
   transition:
     left 900ms cubic-bezier(0.22, 0.8, 0.3, 1),
     top 900ms cubic-bezier(0.22, 0.8, 0.3, 1);
