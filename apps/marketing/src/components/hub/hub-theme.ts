@@ -1,9 +1,9 @@
 // Sub-brand colour dialects — the same tints the products ship
 // (packages/ui/src/tokens.ts BRANDS), so a visitor who clicks through
 // lands in an app that looks like the page they left:
-//   HOA: blue (`primary`, the HomeownerHub brand)
-//   PM: blue (`pm`)
-//   Eviction: violet (`eviction`)
+//   HOA: the product primary (`primary`, HomeownerHub brand)
+//   PM: `pm`
+//   Eviction: `eviction`
 // Status colours (success/warning/danger) stay reserved for status.
 
 import { HOA_PRODUCT_NAME } from '@/lib/hubs'

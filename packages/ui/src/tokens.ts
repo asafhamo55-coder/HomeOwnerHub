@@ -210,6 +210,18 @@ export const LOGO = {
   dark: { tile: '#6340E0', glyph: '#FFFFFF', line: '#DDD6FE', text: '#F1F5F9', accent: '#CBC2FF' },
 } as const
 
+/**
+ * Marketing-site logo palette ("Georgia evergreen", apps/marketing only).
+ * scripts/build-brand-assets.ts writes apps/marketing assets from this and
+ * apps/hoa assets from LOGO, so a regenerate cannot undo the marketing theme.
+ * Unlike LOGO, the mark follows the mode: a pine tile on light canvases, a
+ * mint tile with a dark-green glyph on dark ones.
+ */
+export const MARKETING_LOGO = {
+  light: { tile: '#1F5A43', glyph: '#FFFFFF', line: '#F2A583', text: '#23201C', accent: '#1F5A43' },
+  dark: { tile: '#BDE3CB', glyph: '#0F2E22', line: '#E07A4F', text: '#FBF7F0', accent: '#A9D8BC' },
+} as const
+
 export function palette(hub: HubKey, mode: ThemeMode): Palette {
   return { ...neutral[mode], ...BRANDS[hub][mode] }
 }
