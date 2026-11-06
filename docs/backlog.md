@@ -2039,12 +2039,12 @@ Each item was checked against the code and `git log` on 2026-10-27 and is still 
 
 Migrations through 0072 are applied and M1 to M7 are all true. Each item below was checked against the code on 2026-10-27, is still open, needs **no migration**, is HOA-only (`apps/hoa`, `packages/jobs`; marketing only for SEO), and is ranked by value to self-managed boards, Georgia first. Georgia's code-side list (BL-158, 159, 161 to 169) is now built; what remains there is BL-160 (waits on OA-32), BL-156 ballots (needs a migration) and the SEO program.
 
-1. **Credit balance on the resident pay and dues pages (BL-177 follow-up).** A resident with an unapplied credit (overpayment) sees it on the ledger and statement but not on `/resident/dues` or `/resident/dues/pay`, where the Zelle lines still ask for the full charge. Show "You have $X credit on account", and say the board applies it. Verified: `loadUnappliedCredits` feeds only `resident-dashboard.ts` (ledger), the estoppel and `resident-ledger.ts`; neither page references it. Files: `apps/hoa/src/app/resident/dues/page.tsx`, `apps/hoa/src/app/resident/dues/pay/page.tsx`, `apps/hoa/src/lib/resident-dashboard.ts`.
-2. **Holiday and occasion nudge in the board's daily digest (BL-173 leftover).** The dashboard card already links to `/communications/announce?occasion=…`, whose flow sends, so no new send path is needed; what is missing is the digest line ("Halloween is Friday: send a party notice?") with a link into that flow, honouring the dismissal cookie. Verified: `nextNudge` is pure and client-safe, and `packages/jobs/src/daily-digest.ts` has no nudge. Files: `apps/hoa/src/lib/announcements/nudge.ts`, `packages/jobs/src/daily-digest.ts`.
-3. **BL-171 weekly analytics digest to Asaf (counts only).** A weekly job emailing page views, demo requests and Georgia-guide visits as counts, no addresses or bodies. Verified: no code exists (BL-171 "Checked" line). Demo email (OA-34) is now done; only the Search Console tag waits on OA-35. Files: `packages/jobs/src/`, `apps/hoa/src/lib/platform-admin-analytics-counts.ts` (pattern).
-4. **Unapplied credit visible on the board's `/dues` list.** Show a credit badge per unit with a link to the existing "Apply credit" action, so a board member does not have to open each property to find overpayments. Verified: `app/(dashboard)/dues/page.tsx` has no credit reference; `ApplyCreditButton` exists only on `properties/[id]`. Files: `apps/hoa/src/app/(dashboard)/dues/page.tsx`, `apps/hoa/src/app/(dashboard)/properties/[id]/ApplyCreditButton.tsx`.
-5. **Owner-actions and release-note hygiene for M6/M7 screens: "From your professionals" and mail-tracking empty states.** Add the next action to the empty states of `/settings/professionals` and the collections mail-tracking panel now that both flags are on (BL-012 pattern). Lower confidence: verify the current empty states before building.
-6. **BL-172 SEO batch 6 (Georgia first).** Three or more new Georgia guides or templates per day quoting the official fixtures (SB 406 payment order, owners' records rights, conflict disclosure, ballots-by-consent § 14-3-708), each with a demo or tool CTA, then FL, CA, TX. Files: `apps/marketing/src/app/georgia/`, `apps/marketing/src/app/templates/`.
+1. **Credit balance on the resident pay and dues pages (BL-177 follow-up).** **Done 2026-10-27 (38f9cd3a).** A resident with an unapplied credit (overpayment) sees it on the ledger and statement but not on `/resident/dues` or `/resident/dues/pay`, where the Zelle lines still ask for the full charge. Show "You have $X credit on account", and say the board applies it. Verified: `loadUnappliedCredits` feeds only `resident-dashboard.ts` (ledger), the estoppel and `resident-ledger.ts`; neither page references it. Files: `apps/hoa/src/app/resident/dues/page.tsx`, `apps/hoa/src/app/resident/dues/pay/page.tsx`, `apps/hoa/src/lib/resident-dashboard.ts`.
+2. **Holiday and occasion nudge in the board's daily digest (BL-173 leftover).** **Done 2026-10-28 (f54d718b).** The dashboard card already links to `/communications/announce?occasion=…`, whose flow sends, so no new send path is needed; what is missing is the digest line ("Halloween is Friday: send a party notice?") with a link into that flow, honouring the dismissal cookie. Verified: `nextNudge` is pure and client-safe, and `packages/jobs/src/daily-digest.ts` has no nudge. Files: `apps/hoa/src/lib/announcements/nudge.ts`, `packages/jobs/src/daily-digest.ts`.
+3. **BL-171 weekly analytics digest to Asaf (counts only).** **Done 2026-10-28 (9b5feaf5).** A weekly job emailing page views, demo requests and Georgia-guide visits as counts, no addresses or bodies. Verified: no code exists (BL-171 "Checked" line). Demo email (OA-34) is now done; only the Search Console tag waits on OA-35. Files: `packages/jobs/src/`, `apps/hoa/src/lib/platform-admin-analytics-counts.ts` (pattern).
+4. **Unapplied credit visible on the board's `/dues` list.** **Done 2026-10-28 (71887a79).** Show a credit badge per unit with a link to the existing "Apply credit" action, so a board member does not have to open each property to find overpayments. Verified: `app/(dashboard)/dues/page.tsx` has no credit reference; `ApplyCreditButton` exists only on `properties/[id]`. Files: `apps/hoa/src/app/(dashboard)/dues/page.tsx`, `apps/hoa/src/app/(dashboard)/properties/[id]/ApplyCreditButton.tsx`.
+5. **Owner-actions and release-note hygiene for M6/M7 screens: "From your professionals" and mail-tracking empty states.** **Done 2026-10-28 (70da3c2e).** Add the next action to the empty states of `/settings/professionals` and the collections mail-tracking panel now that both flags are on (BL-012 pattern). Lower confidence: verify the current empty states before building.
+6. **BL-172 SEO batch 6 (Georgia first).** **Done 2026-10-28 (c955a2d2); batches 7 to 29 followed, last 5937644e on 2026-11-06.** Three or more new Georgia guides or templates per day quoting the official fixtures (SB 406 payment order, owners' records rights, conflict disclosure, ballots-by-consent § 14-3-708), each with a demo or tool CTA, then FL, CA, TX. Files: `apps/marketing/src/app/georgia/`, `apps/marketing/src/app/templates/`.
 
 **Not ranked (waiting on something outside the code or on a migration):** BL-156 ballots (new batch), resident quiet hours (migration), BL-160 (OA-32), BL-171 Search Console tag (OA-35), BL-059 real-bill test, BL-061 and BL-086 manual prod checks, BL-099 perf (in progress), Phase B inbox work and module-off pages (M2).
 
@@ -2058,7 +2058,7 @@ Rules:
 - Items that need a migration ship behind an `M*_APPLIED` flag. The SQL is pbcopied to Asaf.
 
 ### Track A: sales blockers (do first)
-1. **A1 · Marketing site redesign, phase 1.**
+1. **A1 · Marketing site redesign, phase 1.** **Done 2026-10-31 (3ef78914, 5dc4b4bf).**
    - Violet hero slab with a cropped product shot, and a 3-line headline with both CTAs above the fold.
    - Trust checklist (30-day trial, no card, we load your roster, cancel anytime).
    - 18px body text and a violet 12px-radius primary button.
@@ -2066,30 +2066,30 @@ Rules:
    - Grouped Features menu.
    - Feature tab explorer, "Up and running in days", an interactive pricing slider with real prices, and the FAQ "Questions boards ask before switching".
    - No migration. Effort 3.
-2. **A2 · Online dues payments, card and ACH (BL-035).** Stripe Connect per HOA, a convenience-fee pass-through option, receipts posting to the owner ledger, and a resident "Pay now" button.
+2. **A2 · Online dues payments, card and ACH (BL-035).** **Built 2026-11-02 (4834a158, aa63eb93, 72e3e219), dark: M8 is off, waiting on the lawyer and OA-40.** Stripe Connect per HOA, a convenience-fee pass-through option, receipts posting to the owner ledger, and a resident "Pay now" button.
    - Needs a migration, plus OA-40 (Stripe activation) and Connect onboarding.
    - Design doc first, then build behind a flag. Effort 5.
-3. **A3 · Autopay (BL-036).** Owner opt-in with a maximum amount. Depends on A2. Effort 3.
-4. **A4 · Self-explore demo.** A trial org can load a sample community (homes, dues, violations, tickets) with one click and remove it again. No migration if it reuses existing tables. Effort 2.
-5. **A5 · Pricing stance.** PayHOA uses one plan with every feature, priced by units, from $49. Decide whether to merge Essentials and Complete. This is an owner decision; see the doc. Effort 1.
+3. **A3 · Autopay (BL-036).** **Built 2026-11-02 (d91252b8), dark: M8 is off.** Owner opt-in with a maximum amount. Depends on A2. Effort 3.
+4. **A4 · Self-explore demo.** **Done 2026-10-31 (6c650749).** A trial org can load a sample community (homes, dues, violations, tickets) with one click and remove it again. No migration if it reuses existing tables. Effort 2.
+5. **A5 · Pricing stance.** **Done 2026-11-01 (8640034b, a9309943).** PayHOA uses one plan with every feature, priced by units, from $49. Decide whether to merge Essentials and Complete. This is an owner decision; see the doc. Effort 1.
 
 ### Track B: feature parity
-6. **B1 · Surveys and polls,** answered in the resident portal with results for the board. Migration. Effort 2.
-7. **B2 · Online voting and elections (BL-156),** with ballots, proxies and quorum online, built on the existing paper election kit and its Georgia and Florida rules. Migration. Effort 4.
-8. **B3 · Amenity reservations (BL-034).** Migration. Effort 3.
-9. **B4 · Community public website per HOA (BL-038),** using a simple builder from existing documents and announcements. Migration. Effort 3.
-10. **B5 · Community message board,** private to residents. Migration. Effort 2.
-11. **B6 · Print-and-mail letters (BL-032),** using Lob or similar for violation and collection letters. Needs owner keys. Effort 3.
-12. **B7 · Vendor bill pay and check mailing (BL-039).** Depends on A2 and B6. Effort 4.
-13. **B8 · SMS live.** It's built and needs Vonage (OA-11). Voice calls come after. Owner action.
-14. **B9 · 1099 forms** from the existing candidate list; e-filing comes later. Effort 2.
+6. **B1 · Surveys and polls,** **Done 2026-11-02 (d4cfbf00); M9 on 2026-11-05 (e772aa8e).** answered in the resident portal with results for the board. Migration. Effort 2.
+7. **B2 · Online voting and elections (BL-156),** **Built 2026-11-02 (c8fd271b, 13f577a9), dark: M10 is off, waiting on the lawyer.** with ballots, proxies and quorum online, built on the existing paper election kit and its Georgia and Florida rules. Migration. Effort 4.
+8. **B3 · Amenity reservations (BL-034).** **Done 2026-11-02 (e63399a7); M11 on 2026-11-05 (81a58f57).** Migration. Effort 3.
+9. **B4 · Community public website per HOA (BL-038),** **Done 2026-11-02 (f9f07cac); M12 on 2026-11-05 (515dd170).** using a simple builder from existing documents and announcements. Migration. Effort 3.
+10. **B5 · Community message board,** **Done 2026-11-02 (da554115); M13 on 2026-11-05 (865bcd6f).** private to residents. Migration. Effort 2.
+11. **B6 · Print-and-mail letters (BL-032),** **Done 2026-11-02 (93f69d68, 7245fc02, a893ff7c); M14 on 2026-11-05 (d7b3efd6) in print-yourself mode. The send panel stays hidden until a provider and owner keys are wired.** using Lob or similar for violation and collection letters. Needs owner keys. Effort 3.
+12. **B7 · Vendor bill pay and check mailing (BL-039).** **Open, blocked: design only (5953d88e, 2026-11-02). Needs a new migration, an M15 flag (packages/db/src/m15.ts does not exist) and Lob and Stripe keys.** Depends on A2 and B6. Effort 4.
+13. **B8 · SMS live.** **Blocked on owner action: a Vonage account (OA-11). The code is built.** It's built and needs Vonage (OA-11). Voice calls come after. Owner action.
+14. **B9 · 1099 forms** **Partly done 2026-11-02 (1549ebcb): per-vendor 1099-NEC summary with print and CSV. E-filing stays later.** from the existing candidate list; e-filing comes later. Effort 2.
 
 ### Track C: ease of use (PayHOA's top review praise; carried over from round 28 items 11-15)
-15. **C1 · "Do this next" dashboard card** that collapses the KPI wall for new orgs, plus one welcome card for invited members. Effort 2.
-16. **C2 · Plain words in the violation form.** Effort 1.
-17. **C3 · "Show only the basics" menu** with plainer nav names. Effort 2.
-18. **C4 · 14px text-xs floor** and line-clamp instead of truncate. Effort 2.
-19. **C5 · Drop the single-key "g" shortcuts.** Effort 1.
+15. **C1 · "Do this next" dashboard card** **Done 2026-10-31 (0066a392).** that collapses the KPI wall for new orgs, plus one welcome card for invited members. Effort 2.
+16. **C2 · Plain words in the violation form.** **Done 2026-11-01 (67e8221d).** Effort 1.
+17. **C3 · "Show only the basics" menu** **Done 2026-11-01 (67e8221d).** with plainer nav names. Effort 2.
+18. **C4 · 14px text-xs floor** **Done 2026-11-02 (94054814).** and line-clamp instead of truncate. Effort 2.
+19. **C5 · Drop the single-key "g" shortcuts.** **Done 2026-11-01 (67e8221d).** Effort 1.
 
 ### Where we already lead (protect and market these)
 - Georgia and state law built into the product.
@@ -2105,21 +2105,21 @@ Rules:
 
 Asaf, 2026-10-31: "people that are running HOA in many cases are not young… they should be able to get a link, register and start using the system easily." The persona is a 70-year-old volunteer on a phone with large text turned on. None of these needs a migration.
 
-1. **BLOCKER: an expired or used invite link lands silently on a password form.** HashSessionHandler.tsx:27-30 clears the error hash with no message. Show a plain "This link has expired" with "Email me a new link". The expired-link alert should not say "reset link" for an invite. Effort 1.
-2. **BLOCKER: invited people are never asked to choose a password.** Their next visit opens on the password tab. After an invite session, offer "Choose a password (or skip and use email links)". Make the "Email me a link" tab the default for anyone without a password. Effort 2.
-3. **Raw Supabase errors on sign-in** (PasswordForm.tsx:57, SignupForm.tsx:54, MagicLinkForm.tsx:58). Map each to plain words plus a next step. Effort 1.
-4. **No help before login.** Add a "Need help? support@homeownerledger.com" line to the AuthShell footer and to the expired-link alert. Effort 1.
-5. **A link opened on another device fails as "expired".** Explain that it was opened on a different phone or computer, and give one button to send a new link to the typed email. Effort 1.
-6. **Auth screens use 12-13px hints, and the show-password control is about 24px.** There is no show-password on the reset screen. Raise the text floor on auth screens and add the toggle. Effort 1.
-7. **Announcements send to the whole community on one click** (NewCommunicationWizard.tsx:1611). Add "This goes to N homes by email/text. Send?". Effort 1.
-8. **ARC approve and deny fire on one click** and notify the resident (ArcDecisionForm.tsx:70-76). Add a confirm that names who will be told. Effort 1.
-9. **Success toasts vanish in 4.5 seconds and don't pause on touch** (Toast.tsx). Make it 8 seconds for success, keep errors until dismissed, and pause on touch. Effort 1.
-10. **Header controls go icon-only at zoom, and the logo isn't a link home.** Show a visible "Menu" and "Help" at all widths, and link the logo to /. Effort 1.
-11. **The dashboard stacks about 20 blocks with no first step.** Add one "Do this next" card at the top, and collapse "Community health" for new orgs. A new invited board member sees one welcome card, not three. Effort 2.
-12. **The violation form uses legal jargon** (Wizard.tsx:634-766). Use "Days to fix it", "Fine per day if not fixed (optional)" and "Write the notice for me", and add a reason why photos are required. Effort 1.
-13. **The sidebar has about 28 links.** Add a "Show only the basics" menu (localStorage). Use plain names: "Architecture requests" and "Things to approve". Effort 2.
-14. **The global text-xs is 13px and is used 520 times on board screens.** Raise it to 14px. Use line-clamp instead of truncate on addresses. Effort 2.
-15. **Single-key "g" shortcuts can be pressed by accident.** Drop the chords and keep "?" and "/". Effort 1.
+1. **BLOCKER: an expired or used invite link lands silently on a password form.** **Done 2026-10-31 (5ce3abeb).** HashSessionHandler.tsx:27-30 clears the error hash with no message. Show a plain "This link has expired" with "Email me a new link". The expired-link alert should not say "reset link" for an invite. Effort 1.
+2. **BLOCKER: invited people are never asked to choose a password.** **Done 2026-10-31 (5ce3abeb).** Their next visit opens on the password tab. After an invite session, offer "Choose a password (or skip and use email links)". Make the "Email me a link" tab the default for anyone without a password. Effort 2.
+3. **Raw Supabase errors on sign-in** **Done 2026-10-31 (5ce3abeb).** (PasswordForm.tsx:57, SignupForm.tsx:54, MagicLinkForm.tsx:58). Map each to plain words plus a next step. Effort 1.
+4. **No help before login.** **Done 2026-10-31 (5ce3abeb).** Add a "Need help? support@homeownerledger.com" line to the AuthShell footer and to the expired-link alert. Effort 1.
+5. **A link opened on another device fails as "expired".** **Done 2026-10-31 (5ce3abeb).** Explain that it was opened on a different phone or computer, and give one button to send a new link to the typed email. Effort 1.
+6. **Auth screens use 12-13px hints, and the show-password control is about 24px.** **Done 2026-10-31 (5ce3abeb).** There is no show-password on the reset screen. Raise the text floor on auth screens and add the toggle. Effort 1.
+7. **Announcements send to the whole community on one click** **Done 2026-10-31 (83d3e04c).** (NewCommunicationWizard.tsx:1611). Add "This goes to N homes by email/text. Send?". Effort 1.
+8. **ARC approve and deny fire on one click** **Done 2026-10-31 (83d3e04c).** and notify the resident (ArcDecisionForm.tsx:70-76). Add a confirm that names who will be told. Effort 1.
+9. **Success toasts vanish in 4.5 seconds and don't pause on touch** **Done 2026-10-31 (83d3e04c).** (Toast.tsx). Make it 8 seconds for success, keep errors until dismissed, and pause on touch. Effort 1.
+10. **Header controls go icon-only at zoom, and the logo isn't a link home.** **Done 2026-10-31 (83d3e04c, 3d06332c).** Show a visible "Menu" and "Help" at all widths, and link the logo to /. Effort 1.
+11. **The dashboard stacks about 20 blocks with no first step.** **Done 2026-10-31 (0066a392).** Add one "Do this next" card at the top, and collapse "Community health" for new orgs. A new invited board member sees one welcome card, not three. Effort 2.
+12. **The violation form uses legal jargon** **Done 2026-11-01 (67e8221d).** (Wizard.tsx:634-766). Use "Days to fix it", "Fine per day if not fixed (optional)" and "Write the notice for me", and add a reason why photos are required. Effort 1.
+13. **The sidebar has about 28 links.** **Done 2026-11-01 (67e8221d).** Add a "Show only the basics" menu (localStorage). Use plain names: "Architecture requests" and "Things to approve". Effort 2.
+14. **The global text-xs is 13px and is used 520 times on board screens.** **Done 2026-11-02 (94054814).** Raise it to 14px. Use line-clamp instead of truncate on addresses. Effort 2.
+15. **Single-key "g" shortcuts can be pressed by accident.** **Done 2026-11-01 (67e8221d).** Drop the chords and keep "?" and "/". Effort 1.
 
 **Owner actions:**
 - OA-41: the invite email template and link expiry, in the Supabase dashboard.
@@ -2129,12 +2129,12 @@ Asaf, 2026-10-31: "people that are running HOA in many cases are not young… th
 
 None of these needs a migration or an owner action, and nothing here moves money.
 
-1. **The AI rewrite dialog doesn't manage focus.** It is hand-rolled and used in 17 forms (AiRewriteButton.tsx:80-195). Move it to the kit Dialog, with status and alert roles. Effort 2.
-2. **The violation wizard's progress is silent to screen readers, and its photo Remove button is about 20px** (Wizard.tsx:413-423, 535-541, 725-735). Effort 1.
-3. **BUG: the inbox `c` shortcut drops errors and doesn't refresh** (InboxKeyboard.tsx:62-70). Show a toast and refresh. Effort 1.
-4. **Unlabelled checkboxes stay 18px on touch, including the approvals bulk-select** (Choice.tsx:47). Effort 1.
-5. **About 15 inline action errors have no `role="alert"`** (RFP, vendor, member, hearing and dashboard pages). Add the role and a ratchet. Effort 1.
-6. **Inputs in the task and action-item lists are 32px on phones** (TaskList.tsx:135, ActionItemsSection.tsx:253). Effort 1.
+1. **The AI rewrite dialog doesn't manage focus.** **Done 2026-10-31 (960b8deb).** It is hand-rolled and used in 17 forms (AiRewriteButton.tsx:80-195). Move it to the kit Dialog, with status and alert roles. Effort 2.
+2. **The violation wizard's progress is silent to screen readers, and its photo Remove button is about 20px** **Done 2026-10-31 (37187334).** (Wizard.tsx:413-423, 535-541, 725-735). Effort 1.
+3. **BUG: the inbox `c` shortcut drops errors and doesn't refresh** **Done 2026-10-31 (960b8deb).** (InboxKeyboard.tsx:62-70). Show a toast and refresh. Effort 1.
+4. **Unlabelled checkboxes stay 18px on touch, including the approvals bulk-select** **Done 2026-10-31 (37187334).** (Choice.tsx:47). Effort 1.
+5. **About 15 inline action errors have no `role="alert"`** **Done 2026-10-31 (960b8deb).** (RFP, vendor, member, hearing and dashboard pages). Add the role and a ratchet. Effort 1.
+6. **Inputs in the task and action-item lists are 32px on phones** **Done 2026-10-31 (37187334).** (TaskList.tsx:135, ActionItemsSection.tsx:253). Effort 1.
 
 **Dropped:**
 - Form labels, tables, filter chips, status badges and the kit dialogs: already sound.
@@ -2168,7 +2168,7 @@ None of these needs a migration or an owner action, and nothing here moves money
 4. ✅ DONE (4b80d0cd, deploys 09:02 UTC) **BUG: resident actions show raw database errors (7 sites).** Replace them with friendly text and add a ratchet. Effort 1.
 5. ✅ DONE (4b80d0cd, deploys 09:02 UTC) **Ticket form: tell residents they can add photos after sending.** Effort 1.
 6. ✅ DONE (e8b6c79f, deploys 09:02 UTC) **BL-172 SEO batch 23: Florida architectural review limits (§ 720.3035).** This is the first ARC guide. Effort 2.
-7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+7. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped:**
 - Meeting time and place: needs a migration.
@@ -2179,14 +2179,14 @@ None of these needs a migration or an owner action, and nothing here moves money
 
 None of these needs a migration or an owner action. Item 2 changes money display only. Item 4 is a read-only count, and the send path is unchanged.
 
-1. **BUG: an expired or already-used email link lands on a bare sign-in page.** Read `?error=` and offer a new reset link or account creation. Also check whether owner invites arrive as a code or hash tokens. Effort 1.
-2. **First dues run: preview homes x amount = total and the due date before posting.** Drop the hard-coded $250 default. Effort 2.
-3. **Roster import "Import finished": add next steps.** Invite owners, generate dues, send the first announcement. Effort 1.
-4. **First announcement: say up front when no home is reachable** (no email or phone on file). Effort 2.
-5. **New violation: fix the "No parsed CC&Rs" copy and link, and stop showing it on a failed read.** Effort 1.
-6. **Offline page: Retry reloads the current page instead of going to /.** Effort 1.
-7. **BL-172 SEO batch 22: does Georgia's POA Act apply to your HOA (§§ 44-3-222, 234, 235)?** Quote the 2026 version only. Effort 2.
-8. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+1. **BUG: an expired or already-used email link lands on a bare sign-in page.** **Done 2026-10-31 (457aa023, 1ca6333e).** Read `?error=` and offer a new reset link or account creation. Also check whether owner invites arrive as a code or hash tokens. Effort 1.
+2. **First dues run: preview homes x amount = total and the due date before posting.** **Done 2026-10-31 (698d72f3).** Drop the hard-coded $250 default. Effort 2.
+3. **Roster import "Import finished": add next steps.** **Done 2026-10-31 (0912c396).** Invite owners, generate dues, send the first announcement. Effort 1.
+4. **First announcement: say up front when no home is reachable** **Done 2026-10-31 (0912c396).** (no email or phone on file). Effort 2.
+5. **New violation: fix the "No parsed CC&Rs" copy and link, and stop showing it on a failed read.** **Done 2026-10-31 (457aa023).** Effort 1.
+6. **Offline page: Retry reloads the current page instead of going to /.** **Done 2026-10-31 (457aa023).** Effort 1.
+7. **BL-172 SEO batch 22: does Georgia's POA Act apply to your HOA (§§ 44-3-222, 234, 235)?** **Done 2026-10-31 (043142d1).** Quote the 2026 version only. Effort 2.
+8. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped (sound):** impersonation, the password reset form, onboarding and join, the setup checklist.
 
@@ -2194,13 +2194,13 @@ None of these needs a migration or an owner action. Item 2 changes money display
 
 None of these needs a migration or an owner action. Items 3 and 4 touch sends, but are report-only with no change in behaviour.
 
-1. **"Earlier violations at this home" on the violation page and in the new-violation wizard.** The board sees repeat offenses before fining. Effort 2.
-2. **/arc: "Approved, past completion date" tile and filter.** Effort 2.
-3. **BUG (job): dues reminders and the monthly board report hide per-association failures.** Report them with `reportJobFailures`. Effort 1.
-4. **BUG (job): failed scheduled announcements leave no trace and can stay "sending" forever.** Check the write error in `markFailed`, report failures, and add a stuck-row report. Effort 2.
-5. **Summary strip on /events.** Effort 1.
-6. **BL-172 SEO batch 21: Texas written ballots (§ 209.0058).** Optionally add § 209.017. The fixture has two versions of (a), so quote the S.B. 1168 form. Effort 2.
-7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+1. **"Earlier violations at this home" on the violation page and in the new-violation wizard.** **Done 2026-10-31 (67d2649e).** The board sees repeat offenses before fining. Effort 2.
+2. **/arc: "Approved, past completion date" tile and filter.** **Done 2026-10-31 (67d2649e).** Effort 2.
+3. **BUG (job): dues reminders and the monthly board report hide per-association failures.** **Done 2026-10-31 (3a0a5693).** Report them with `reportJobFailures`. Effort 1.
+4. **BUG (job): failed scheduled announcements leave no trace and can stay "sending" forever.** **Done 2026-10-31 (3a0a5693).** Check the write error in `markFailed`, report failures, and add a stuck-row report. Effort 2.
+5. **Summary strip on /events.** **Done 2026-10-31 (9af07760).** Effort 1.
+6. **BL-172 SEO batch 21: Texas written ballots (§ 209.0058).** **Done 2026-10-31 (9af07760).** Optionally add § 209.017. The fixture has two versions of (a), so quote the S.B. 1168 form. Effort 2.
+7. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped:**
 - Competitor gaps are closed, or need a migration or an owner action.
@@ -2211,14 +2211,14 @@ None of these needs a migration or an owner action. Items 3 and 4 touch sends, b
 
 None of these needs a migration or an owner action. Items 3, 4 and 5 touch sending or money, so their behaviour must not change.
 
-1. **BUG: Leases shows "No cap set" when the cap read fails.** `getLeaseCap` returns null on error, so the board can save a new cap over a real one it never saw. Effort 1.
-2. **BUG: the platform audit log and stats show empty or zero when a read fails.** Effort 2.
-3. **BUG: `auth.admin.listUsers()` is called unpaged in 5 places, so it only sees the first page of accounts.** Past about 50 accounts, inviting an existing user fails and member emails go missing. The fix uses a shared lookup helper. It changes no sends. Effort 2.
-4. **BUG (job): new-ticket board notifications fail silently when a read fails.** Throw so the step retries and the failure reaches Sentry. Existing dedupe stops a double notification. Push send. Effort 2.
-5. **Jobs: late-fee and recurring journal entry failures are never reported to Sentry.** Report only. Don't throw, and don't change any amount. Money. Effort 1.
-6. **Documents page summary strip.** Effort 1.
-7. **BL-172 SEO batch 20: Texas violation notice and hearing (§§ 209.006 and 209.007).** Use the unused pr209 fixture. Effort 2.
-8. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+1. **BUG: Leases shows "No cap set" when the cap read fails.** **Done 2026-10-31 (2164b09b).** `getLeaseCap` returns null on error, so the board can save a new cap over a real one it never saw. Effort 1.
+2. **BUG: the platform audit log and stats show empty or zero when a read fails.** **Done 2026-10-31 (2164b09b).** Effort 2.
+3. **BUG: `auth.admin.listUsers()` is called unpaged in 5 places, so it only sees the first page of accounts.** **Done 2026-10-31 (4fd3e5c7).** Past about 50 accounts, inviting an existing user fails and member emails go missing. The fix uses a shared lookup helper. It changes no sends. Effort 2.
+4. **BUG (job): new-ticket board notifications fail silently when a read fails.** **Done 2026-10-31 (5a6df7c2).** Throw so the step retries and the failure reaches Sentry. Existing dedupe stops a double notification. Push send. Effort 2.
+5. **Jobs: late-fee and recurring journal entry failures are never reported to Sentry.** **Done 2026-10-31 (5a6df7c2).** Report only. Don't throw, and don't change any amount. Money. Effort 1.
+6. **Documents page summary strip.** **Done 2026-10-31 (142ecebf).** Effort 1.
+7. **BL-172 SEO batch 20: Texas violation notice and hearing (§§ 209.006 and 209.007).** **Done 2026-10-31 (142ecebf).** Use the unused pr209 fixture. Effort 2.
+8. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped:**
 - No server actions trusting client-supplied ids.
@@ -2228,14 +2228,14 @@ None of these needs a migration or an owner action. Items 3, 4 and 5 touch sendi
 
 None of these needs a migration or an owner action. Nothing here moves money or sends anything.
 
-1. **BUG: the vendor page hides an expired COI when a read fails.** `getVendor` ignores errors on its documents and compliance reads, and a failed main read shows as a 404. Effort 2.
-2. **BUG: communications detail shows a 404 when a read fails, and the template picker silently drops the HOA's own templates.** Effort 2.
-3. **BUG: RFP invitations show "No invitations yet" or "none are eligible" when a read fails.** Effort 2.
-4. **Accessibility: label the line-item inputs on the public bid form, and number the Remove buttons.** Effort 1.
-5. **RFP invite panel: say why the list is empty** (no vendors, all invited, or no email on file). Effort 1.
-6. **BL-172 SEO 19a: FL assessment lien and foreclosure timeline (§ 720.3085).** Effort 2.
-7. **BL-172 SEO 19b: FL fine cap and daily fine checklist (§ 720.305(2)).** Confirm the quotes support the $1,000 aggregate cap first. Effort 2.
-8. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+1. **BUG: the vendor page hides an expired COI when a read fails.** **Done 2026-10-31 (26727206).** `getVendor` ignores errors on its documents and compliance reads, and a failed main read shows as a 404. Effort 2.
+2. **BUG: communications detail shows a 404 when a read fails, and the template picker silently drops the HOA's own templates.** **Done 2026-10-31 (26727206).** Effort 2.
+3. **BUG: RFP invitations show "No invitations yet" or "none are eligible" when a read fails.** **Done 2026-10-31 (95131514).** Effort 2.
+4. **Accessibility: label the line-item inputs on the public bid form, and number the Remove buttons.** **Done 2026-10-31 (95131514).** Effort 1.
+5. **RFP invite panel: say why the list is empty** **Done 2026-10-31 (95131514).** (no vendors, all invited, or no email on file). Effort 1.
+6. **BL-172 SEO 19a: FL assessment lien and foreclosure timeline (§ 720.3085).** **Done 2026-10-31 (01d16815).** Effort 2.
+7. **BL-172 SEO 19b: FL fine cap and daily fine checklist (§ 720.305(2)).** **Done 2026-10-31 (01d16815).** Confirm the quotes support the $1,000 aggregate cap first. Effort 2.
+8. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped:** checked and sound.
 - Read-failure handling on ARC, violations, meetings and properties, accounting, and AI ask.
@@ -2245,19 +2245,19 @@ None of these needs a migration or an owner action. Nothing here moves money or 
 
 None of these needs a migration or an owner action, and nothing here moves money or sends anything.
 
-1. **BUG: the board ticket page hides the conversation, or shows a 404, when a read fails.** `getTicketForBoard` ignores errors. This is the board side of the round 19 resident fix. Effort 2.
-2. **BUG: attachments silently disappear when their read fails.** `listSubmissionAttachments` ignores errors, and a failed signed URL becomes a dead link. Affects 8 call sites. Effort 2.
-3. **Money display:** route the stray `$${...}` templates through `usd()`.
+1. **BUG: the board ticket page hides the conversation, or shows a 404, when a read fails.** **Done 2026-10-31 (6a604486).** `getTicketForBoard` ignores errors. This is the board side of the round 19 resident fix. Effort 2.
+2. **BUG: attachments silently disappear when their read fails.** **Done 2026-10-31 (6a604486).** `listSubmissionAttachments` ignores errors, and a failed signed URL becomes a dead link. Affects 8 call sites. Effort 2.
+3. **Money display:** **Done 2026-10-31 (975ac502).** route the stray `$${...}` templates through `usd()`.
    - Missing thousands commas on dues balances.
    - "$12.5 a day" on fines.
    - Dropped cents on proposed fines.
    - Add a ratchet so it can't come back.
 
    Effort 1.
-4. **/events empty state:** "Common deadlines" starter chips. Effort 2.
-5. **BL-172 SEO 18a:** Florida elections and quorum (§ 720.306). Effort 2.
-6. **BL-172 SEO 18b:** California election rules (§§ 5100 to 5115). Effort 2.
-7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+4. **/events empty state:** **Done 2026-10-31 (3883a370).** "Common deadlines" starter chips. Effort 2.
+5. **BL-172 SEO 18a:** **Done 2026-10-31 (8fbbfb38).** Florida elections and quorum (§ 720.306). Effort 2.
+6. **BL-172 SEO 18b:** **Done 2026-10-31 (8fbbfb38).** California election rules (§§ 5100 to 5115). Effort 2.
+7. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped:** checked and sound. Money math, resident admin-client scoping, duplicate-submit guards, and bell and badge reads.
 
@@ -2265,13 +2265,13 @@ None of these needs a migration or an owner action, and nothing here moves money
 
 None of these needs a migration or an owner action. Nothing here moves money or sends anything.
 
-1. **BUG: a failed home lookup tells a resident "No home linked yet".** `lib/resident.ts` (getOwnedUnits, attachAssociationNames) ignores read errors. Effort 2.
-2. **BUG: resident request detail pages hide board replies, or show a 404, when a read fails.** Affects getMyTicket, getMyArcRequest and getMyViolationReport. Effort 2.
-3. **BUG: timestamps on resident and board pages show in server UTC, not Eastern.** date-fns `format(new Date())` appears in 51 files. Fix the resident files first, then the board lists, and add a ratchet. Effort 2.
-4. **Resident insurance:** show "In force through <date>". Effort 1.
-5. **BL-172 SEO 17a:** FL board meeting notice rules (§ 720.303(2)). Effort 2.
-6. **BL-172 SEO 17b:** FL director certification checklist (§ 720.3033). Effort 2.
-7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+1. **BUG: a failed home lookup tells a resident "No home linked yet".** **Done 2026-10-31 (24a9496a).** `lib/resident.ts` (getOwnedUnits, attachAssociationNames) ignores read errors. Effort 2.
+2. **BUG: resident request detail pages hide board replies, or show a 404, when a read fails.** **Done 2026-10-31 (24a9496a).** Affects getMyTicket, getMyArcRequest and getMyViolationReport. Effort 2.
+3. **BUG: timestamps on resident and board pages show in server UTC, not Eastern.** **Done 2026-10-31 (a3a82a7b).** date-fns `format(new Date())` appears in 51 files. Fix the resident files first, then the board lists, and add a ratchet. Effort 2.
+4. **Resident insurance:** **Done 2026-10-31 (51a30dfb).** show "In force through <date>". Effort 1.
+5. **BL-172 SEO 17a:** **Done 2026-10-31 (51a30dfb).** FL board meeting notice rules (§ 720.303(2)). Effort 2.
+6. **BL-172 SEO 17b:** **Done 2026-10-31 (51a30dfb).** FL director certification checklist (§ 720.3033). Effort 2.
+7. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped (checked, nothing to fix):**
 - Server actions already revalidate.
@@ -2283,13 +2283,13 @@ None of these needs a migration or an owner action. Nothing here moves money or 
 
 None of these needs a migration or an owner action. Nothing here moves money or sends anything.
 
-1. **BUG: the professionals portal (/pro) has no loading or error screens.** Add `(pro)/loading.tsx` and `(pro)/error.tsx`. Effort 1.
-2. **Law updates can't be edited.** Wire the orphaned `updateLawUpdate` to an Edit action, for platform admins only. Effort 2.
-3. **RFPs list:** summary strip, a bids-received column, and a "due in N days" chip. Effort 2.
-4. **Tasks:** summary strip (overdue, due in 7 days, unassigned, done in the last 30 days) and an "Unassigned" filter. Effort 1.
-5. **BL-172 SEO 16a:** CA hearing resolution letter template (§§ 5850, 5855). Effort 2.
-6. **BL-172 SEO 16b:** FL records request response checklist (§ 720.303(5)). Effort 2.
-7. **Weekly SEO audit,** due Mon Nov 2. Effort 1.
+1. **BUG: the professionals portal (/pro) has no loading or error screens.** **Done 2026-10-31 (5fcfe205).** Add `(pro)/loading.tsx` and `(pro)/error.tsx`. Effort 1.
+2. **Law updates can't be edited.** **Done 2026-10-31 (70ba9dec).** Wire the orphaned `updateLawUpdate` to an Edit action, for platform admins only. Effort 2.
+3. **RFPs list:** **Done 2026-10-31 (70ba9dec).** summary strip, a bids-received column, and a "due in N days" chip. Effort 2.
+4. **Tasks:** **Done 2026-10-31 (5fcfe205).** summary strip (overdue, due in 7 days, unassigned, done in the last 30 days) and an "Unassigned" filter. Effort 1.
+5. **BL-172 SEO 16a:** **Done 2026-10-31 (48651068).** CA hearing resolution letter template (§§ 5850, 5855). Effort 2.
+6. **BL-172 SEO 16b:** **Done 2026-10-31 (48651068).** FL records request response checklist (§ 720.303(5)). Effort 2.
+7. **Weekly SEO audit,** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** due Mon Nov 2. Effort 1.
 
 **Dropped:**
 - Dead-code orphans, with no user value: `recordVendorDocument`, `requireResident`, and plain-list wrappers whose `*Result` twins are the ones in use.
@@ -2300,13 +2300,13 @@ None of these needs a migration or an owner action. Nothing here moves money or 
 
 None of these needs a migration or an owner action. Billing, pricing, the pilot copy and vendor emails are off limits.
 
-1. **BUG: a collection case can't be written off or reopened, and closing it loses its date and reason.** Wire the orphaned `setCollectionStatus` with a confirm, and stamp `closed_on` and `closed_reason` when the case_closed event runs. Status and audit only, no money moves. Effort 2.
-2. **BUG: vendor documents (COI, W-9) can be deleted but never opened.** Wire the orphaned `getVendorDocumentSignedUrl` to a View button. Effort 1.
-3. **Bulk "set tenure" on properties**, starting from the "Tenure unknown" filter. Wire the orphaned `bulkSetPropertyTenure`. Effort 2.
-4. **Resident announcements:** New markers, category chips, and collapsing long messages. Effort 2.
-5. **Board communications:** subject search and a summary strip. Effort 2.
-6. **BL-172 SEO batch 15:** a GA certified board resolution template and a board-powers guide, built from existing fixture quotes. Effort 2.
-7. **Weekly SEO audit, due Mon Nov 2.** Effort 1.
+1. **BUG: a collection case can't be written off or reopened, and closing it loses its date and reason.** **Done 2026-10-31 (5b9a6f29).** Wire the orphaned `setCollectionStatus` with a confirm, and stamp `closed_on` and `closed_reason` when the case_closed event runs. Status and audit only, no money moves. Effort 2.
+2. **BUG: vendor documents (COI, W-9) can be deleted but never opened.** **Done 2026-10-31 (dd2ac58c).** Wire the orphaned `getVendorDocumentSignedUrl` to a View button. Effort 1.
+3. **Bulk "set tenure" on properties** **Done 2026-10-31 (7f9301b5, dada60ea).**, starting from the "Tenure unknown" filter. Wire the orphaned `bulkSetPropertyTenure`. Effort 2.
+4. **Resident announcements:** **Done 2026-10-31 (e55ac3f8).** New markers, category chips, and collapsing long messages. Effort 2.
+5. **Board communications:** **Done 2026-10-31 (4af9be95).** subject search and a summary strip. Effort 2.
+6. **BL-172 SEO batch 15:** **Done 2026-10-31 (b7218e62).** a GA certified board resolution template and a board-powers guide, built from existing fixture quotes. Effort 2.
+7. **Weekly SEO audit, due Mon Nov 2.** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** Effort 1.
 
 **Dropped:**
 - No broken links found.
@@ -2317,19 +2317,19 @@ None of these needs a migration or an owner action. Billing, pricing, the pilot 
 
 None of these needs a migration or an owner action. Billing and pricing belong to the other session.
 
-1. **BUG: scheduled meetings can't get their minutes approved.** Add an "Approve minutes" button (board only, with a confirm step) that sets `status='approved'` and `approved_at`. Until then, residents never see these minutes. Effort 2.
-2. **Letter history per property** in the Compliance tab. Read-only. Effort 2.
-3. **Email this statement to one owner. Touches money and sends email.** Reuse the receipt-run shape. Honor `email_opt_in`, the outbound guard, a dedupe window and an audit row. Effort 3.
-4. **Accounting reports index: a "this period at a glance" strip.** Effort 2.
-5. **Bank and reconciliation: a summary strip and the reconcile state for each account.** Effort 2.
-6. **Vendor detail: an "at a glance" header.** COI chip, days to expiry, linked tickets and RFPs. Effort 2.
-7. **BL-172 SEO batch 14: collections.**
+1. **BUG: scheduled meetings can't get their minutes approved.** **Done 2026-10-31 (1510dfeb).** Add an "Approve minutes" button (board only, with a confirm step) that sets `status='approved'` and `approved_at`. Until then, residents never see these minutes. Effort 2.
+2. **Letter history per property** **Done 2026-10-31 (aa0623c1).** in the Compliance tab. Read-only. Effort 2.
+3. **Email this statement to one owner. Touches money and sends email.** **Done 2026-10-31 (945876ef).** Reuse the receipt-run shape. Honor `email_opt_in`, the outbound guard, a dedupe window and an audit row. Effort 3.
+4. **Accounting reports index: a "this period at a glance" strip.** **Done 2026-10-31 (8cecaaf5).** Effort 2.
+5. **Bank and reconciliation: a summary strip and the reconcile state for each account.** **Done 2026-10-31 (8cecaaf5).** Effort 2.
+6. **Vendor detail: an "at a glance" header.** **Done 2026-10-31 (6939dae9).** COI chip, days to expiry, linked tickets and RFPs. Effort 2.
+7. **BL-172 SEO batch 14: collections.** **Done 2026-10-31 (db640333).**
    - TX § 209.0064 guide
    - FL § 720.3085 pre-lien notice
    - CA §§ 5650 to 5660 pre-lien guide
 
    Effort 2.
-8. **Weekly SEO audit, due Mon Nov 2.** Effort 1.
+8. **Weekly SEO audit, due Mon Nov 2.** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** Effort 1.
 
 **Dropped:**
 - Already exist: board contacts, document categories, resident meetings list.
@@ -2340,19 +2340,19 @@ None of these needs a migration or an owner action. Billing and pricing belong t
 
 None of these needs a migration or an owner action. Money items are read-only. OA-19 is decided, so item 2 is board-only.
 
-1. **Annual meeting checklist** on the meeting page: notice, quorum kit, proxies/election, annual report, minutes. Effort 2.
-2. **Daily digest: board-only vendor insurance line**, showing the expired and expiring counts with a link to /vendors. Effort 2.
-3. **Dues statement for one owner, from the board side.** A printable running ledger on the property page. Read-only, with a check of board RLS. Effort 2.
-4. **CSV exports for tickets, ARC and insurance.** Use `csvDocument` and paged reads. Effort 2.
-5. **Insurance page:** summary strip and status chips. Effort 1.
-6. **Keyboard shortcuts help across the board app**, opened with `?`. Effort 1.
-7. **BL-172 SEO batch 13:**
+1. **Annual meeting checklist** **Done 2026-10-30 (8b0d18bc).** on the meeting page: notice, quorum kit, proxies/election, annual report, minutes. Effort 2.
+2. **Daily digest: board-only vendor insurance line** **Done 2026-10-30 (091011ed).**, showing the expired and expiring counts with a link to /vendors. Effort 2.
+3. **Dues statement for one owner, from the board side.** **Done 2026-10-30 (72435afc).** A printable running ledger on the property page. Read-only, with a check of board RLS. Effort 2.
+4. **CSV exports for tickets, ARC and insurance.** **Done 2026-10-30 (ab783186).** Use `csvDocument` and paged reads. Effort 2.
+5. **Insurance page:** **Done 2026-10-30 (f09570ef).** summary strip and status chips. Effort 1.
+6. **Keyboard shortcuts help across the board app** **Done 2026-10-30 (f09570ef).**, opened with `?`. Effort 1.
+7. **BL-172 SEO batch 13:** **Done 2026-10-30 (60a725f3).**
    - TX payment plan template
    - FL fine hearing notice template
    - CA IDR guide (check the CA verification doc first)
 
    Effort 2.
-8. **Website:** search on /guides and /templates, and library entries in the Cmd-K palette. Effort 2.
+8. **Website:** **Done 2026-10-30 (60a725f3).** search on /guides and /templates, and library entries in the Cmd-K palette. Effort 2.
 
 **Dropped:**
 - Already built: hearing scheduler, resident statement, resident pay polish, journal filters, leases stats, document search.
@@ -2364,14 +2364,14 @@ None of these needs a migration or an owner action. Money items are read-only. O
 
 None of these needs a migration or an owner action. Money items are read-only.
 
-1. **Open collection cases overview, linked from /dues.** Shows each case's unit, rung, days open, last event and firm. Read-only. M1 to M7 are all true, so check the M7 flag in code, not the groomer's note. Effort 2.
-2. **Dues and who-owes CSV export.** Respects the aging filter. Use `csvDocument` and page the reads. Read-only. Effort 2.
-3. **Compliance deadlines and policy renewals as an .ics download** from /compliance. Effort 2.
-4. **People page summary strip:** board, owners with an account, owners not invited, pending invites. Effort 1.
-5. **Resident account status header:** chips for name, unit, email notices, texts and language. Effort 1.
-6. **Friendly app-wide 404** for the public and onboarding routes. Effort 1.
-7. **BL-172 SEO batch 12:** GA board powers (§ 44-3-231), a proxy and written-ballot form, and a payment plan agreement template. Quote fixtures only. Effort 2.
-8. **Branded 404 for the marketing site**, with noindex. Effort 1.
+1. **Open collection cases overview, linked from /dues.** **Done 2026-10-30 (100a35e8).** Shows each case's unit, rung, days open, last event and firm. Read-only. M1 to M7 are all true, so check the M7 flag in code, not the groomer's note. Effort 2.
+2. **Dues and who-owes CSV export.** **Done 2026-10-30 (72f1782e).** Respects the aging filter. Use `csvDocument` and page the reads. Read-only. Effort 2.
+3. **Compliance deadlines and policy renewals as an .ics download** **Done 2026-10-30 (e8267893).** from /compliance. Effort 2.
+4. **People page summary strip:** **Done 2026-10-30 (3905e513).** board, owners with an account, owners not invited, pending invites. Effort 1.
+5. **Resident account status header:** **Done 2026-10-30 (3905e513).** chips for name, unit, email notices, texts and language. Effort 1.
+6. **Friendly app-wide 404** **Done 2026-10-30 (d7a82ef2).** for the public and onboarding routes. Effort 1.
+7. **BL-172 SEO batch 12:** **Done 2026-10-30 (b6b3a85b).** GA board powers (§ 44-3-231), a proxy and written-ballot form, and a payment plan agreement template. Quote fixtures only. Effort 2.
+8. **Branded 404 for the marketing site** **Done 2026-10-30 (d7a82ef2).**, with noindex. Effort 1.
 
 **Dropped:**
 - Already exist: insurance renewals, violation escalation signals, election kit, global search, print styles, properties pages.
@@ -2382,13 +2382,13 @@ None of these needs a migration or an owner action. Money items are read-only.
 
 None of these needs a migration or an owner action.
 
-1. **Records your owners can see: a statutory records checklist on /compliance.** Florida § 720.303(4) first, then Georgia. Each category shows posted or missing and links to upload. This closes competitor gap 4a.5. Effort 2.
-2. **Resident home: Meetings and Announcements tiles with unread dots.** Fix the "seven tiles" comment while there. On the pay page, add the line "shows on your ledger once the board posts it". Effort 1.
-3. **Resident requests: a "Latest activity" list with status chips**, plus "Needs your attention" when the board has replied. Effort 2.
-4. **Board meetings list: a summary strip and Upcoming / Past / Needs minutes chips.** Effort 2.
-5. **BL-172 SEO batch 11.** Georgia estoppel/resale letter and a reserve and annual budget template. Add inbound links to attorney-fee-notice-checklist. Effort 2.
-6. **Weekly SEO audit, due Mon Nov 2.** Cover title and description lengths, sitemap URL checks (200 / canonical / og / JSON-LD), first-load JS, and internal-link counts, and propose the next 10 keywords. Effort 1.
-7. **Website: /templates and /guides index pages.** Add a state filter and footer and nav links. Effort 2.
+1. **Records your owners can see: a statutory records checklist on /compliance.** **Done 2026-10-30 (f0cb2008).** Florida § 720.303(4) first, then Georgia. Each category shows posted or missing and links to upload. This closes competitor gap 4a.5. Effort 2.
+2. **Resident home: Meetings and Announcements tiles with unread dots.** **Done 2026-10-30 (095bb0e1).** Fix the "seven tiles" comment while there. On the pay page, add the line "shows on your ledger once the board posts it". Effort 1.
+3. **Resident requests: a "Latest activity" list with status chips** **Done 2026-10-30 (f3d1c5d5).**, plus "Needs your attention" when the board has replied. Effort 2.
+4. **Board meetings list: a summary strip and Upcoming / Past / Needs minutes chips.** **Done 2026-10-30 (cbbb7bd9).** Effort 2.
+5. **BL-172 SEO batch 11.** **Done 2026-10-30 (cd525ee0).** Georgia estoppel/resale letter and a reserve and annual budget template. Add inbound links to attorney-fee-notice-checklist. Effort 2.
+6. **Weekly SEO audit, due Mon Nov 2.** **Done 2026-11-02 (7aeb22c6, docs/seo/2026-11-02-weekly-audit.md).** Cover title and description lengths, sitemap URL checks (200 / canonical / og / JSON-LD), first-load JS, and internal-link counts, and propose the next 10 keywords. Effort 1.
+7. **Website: /templates and /guides index pages.** **Done 2026-10-30 (ad89bd1d).** Add a state filter and footer and nav links. Effort 2.
 
 **Dropped:**
 - Stale (already shipped): credit on the resident pay and dues pages; the credit badge on /dues.
@@ -2400,14 +2400,14 @@ None of these needs a migration or an owner action.
 
 None of these need a migration or an owner action. OA-19 stays the owner's decision, so item 1 is view-only.
 
-1. **Vendor insurance (COI) attention strip and filter chips.** Expired, expiring within 30 days, missing, all clear. View only. Effort 2.
-2. **Board document library: search and type chips.** Reuse the resident `SearchForm` pattern. Effort 1.
-3. **Violation photo viewer with previous and next.** One viewer shared by the board and resident pages. Effort 2.
-4. **Tickets list: summary strip, search and an age column.** Effort 2.
-5. **Resident ARC form: a "what to include" checklist per category.** Effort 1.
-6. **Accounting overview: a budget-vs-actual mini panel.** Show the top 3 over-budget lines, with a link to the full report. Effort 2.
-7. **BL-172 SEO batch 10.** Florida official records (§ 720.303), California records (§ 5200 and following), and the Texas management certificate (§ 209.004). Effort 2.
-8. **Homepage FAQ with FAQPage JSON-LD.** Reuse the pricing FAQ. Effort 1.
+1. **Vendor insurance (COI) attention strip and filter chips.** **Done 2026-10-30 (b3024ebe).** Expired, expiring within 30 days, missing, all clear. View only. Effort 2.
+2. **Board document library: search and type chips.** **Done 2026-10-30 (f4bad954).** Reuse the resident `SearchForm` pattern. Effort 1.
+3. **Violation photo viewer with previous and next.** **Done 2026-10-30 (b2e606dd).** One viewer shared by the board and resident pages. Effort 2.
+4. **Tickets list: summary strip, search and an age column.** **Done 2026-10-30 (7c67b4a0).** Effort 2.
+5. **Resident ARC form: a "what to include" checklist per category.** **Done 2026-10-30 (5c5bc440).** Effort 1.
+6. **Accounting overview: a budget-vs-actual mini panel.** **Done 2026-10-30 (09ae4a54).** Show the top 3 over-budget lines, with a link to the full report. Effort 2.
+7. **BL-172 SEO batch 10.** **Done 2026-10-30 (e1b804e3).** Florida official records (§ 720.303), California records (§ 5200 and following), and the Texas management certificate (§ 209.004). Effort 2.
+8. **Homepage FAQ with FAQPage JSON-LD.** **Done 2026-10-30 (19aae617).** Reuse the pricing FAQ. Effort 1.
 
 **Dropped:**
 - Already exist: task assignment, budget-vs-actual report, resident document search, inbox empty states.
@@ -2418,14 +2418,14 @@ None of these need a migration or an owner action. OA-19 stays the owner's decis
 
 None of these needs a migration or an owner action. Product work and visible UI are mixed, per the owner.
 
-1. **Status timeline on the resident's ARC request.** Show Submitted, In review, Decision (with the board's note), or Withdrawn. Reuse `Timeline` from the resident violation view. Files: `resident/arc/[id]/page.tsx`, `lib/resident-submissions.ts`. Effort 1.
-2. **Agenda builder.** Add "Insert standard agenda" to the schedule and edit pages. It carries open action items in, and adds the § 44-3-230 owners' report line for Georgia annual meetings. Files: `ScheduleMeetingForm.tsx`, `meetings/[id]/edit/`, new `lib/meetings/agenda-template.ts`. Effort 2.
-3. **Printable payment receipt for residents.** Add a "Receipt" link on each payment in `/resident/dues/ledger`. It opens `/resident/dues/receipt/[id]`. Check resident RLS first. Effort 2.
-4. **Summary strips on /violations and /arc.** Counts link to their filters. Promote `SummaryStrip` to shared components. Effort 2.
-5. **Settings General as a setup hub.** Cards show each section's state with a link. Effort 2.
-6. **Meeting detail: two columns.** Agenda or minutes on the left, with a "Meeting kit" rail on the right. Builds on item 2. Effort 2.
-7. **BL-172 SEO batch 9: FL, CA and TX starters.** Quote fixtures only. Check the CA verification doc before making any CA claim. Effort 2.
-8. **Website state hubs `/states/[state]` for FL, CA and TX.** These replace the anchor links. Effort 2.
+1. **Status timeline on the resident's ARC request.** **Done 2026-10-30 (ef20183a).** Show Submitted, In review, Decision (with the board's note), or Withdrawn. Reuse `Timeline` from the resident violation view. Files: `resident/arc/[id]/page.tsx`, `lib/resident-submissions.ts`. Effort 1.
+2. **Agenda builder.** **Done 2026-10-30 (65708c7d).** Add "Insert standard agenda" to the schedule and edit pages. It carries open action items in, and adds the § 44-3-230 owners' report line for Georgia annual meetings. Files: `ScheduleMeetingForm.tsx`, `meetings/[id]/edit/`, new `lib/meetings/agenda-template.ts`. Effort 2.
+3. **Printable payment receipt for residents.** **Done 2026-10-30 (6feedc90).** Add a "Receipt" link on each payment in `/resident/dues/ledger`. It opens `/resident/dues/receipt/[id]`. Check resident RLS first. Effort 2.
+4. **Summary strips on /violations and /arc.** **Done 2026-10-30 (64f53599).** Counts link to their filters. Promote `SummaryStrip` to shared components. Effort 2.
+5. **Settings General as a setup hub.** **Done 2026-10-30 (711cfb96).** Cards show each section's state with a link. Effort 2.
+6. **Meeting detail: two columns.** **Done 2026-10-30 (7d126825).** Agenda or minutes on the left, with a "Meeting kit" rail on the right. Builds on item 2. Effort 2.
+7. **BL-172 SEO batch 9: FL, CA and TX starters.** **Done 2026-10-30 (eb6e0fc0).** Quote fixtures only. Check the CA verification doc before making any CA claim. Effort 2.
+8. **Website state hubs `/states/[state]` for FL, CA and TX.** **Done 2026-10-30 (d846462e).** These replace the anchor links. Effort 2.
 
 **Dropped:**
 - Cure-deadline reminder emails need a marker table.
@@ -2437,14 +2437,14 @@ None of these needs a migration or an owner action. Product work and visible UI 
 
 Checked at 929e9527. None of these needs a migration or an owner action. The order mixes product work with visible UI/UX, per the owner on 2026-10-30.
 
-1. **Dues aging buckets with "remind this bucket".** On /dues, add chips for Current, 1 to 30, 31 to 60 and 61+ days. Each chip filters the list, and the reminders dialog then starts with that bucket selected. Files: `dues/page.tsx`, `WhoOwesPanel.tsx`, `SendRemindersDialog.tsx`, `lib/dues/`. Effort 2.
-2. **Approve several items at once in the approvals queue, for sources that don't move money.** Covers violation drafts, ARC reviews and vendor results. Anything involving money stays one at a time, so dual control is unchanged. Before building, confirm that approving twice is harmless for each source. Files: `approvals/page.tsx`, `lib/approvals.ts`. Effort 3.
-3. **"Add to calendar" for residents on the Next meeting card and the meeting page.** Reuse the signed calendar route that already exists. Files: `app/resident/page.tsx`, `resident/meetings/[id]/page.tsx`. Effort 1.
-4. **Show the latest announcement on the resident home.** Replace the "N new" badge with a card showing the title, date and first line. Files: `app/resident/page.tsx`, `lib/resident-dashboard.ts`. Effort 1.
-5. **Summary strip on approvals; dues table polish.** Approvals gets three counts above the list: waiting, oldest wait, and AI-proposed share. The dues table gets status pills, a header that stays visible while scrolling, and the amount shown on phone cards. Effort 2.
-6. **Announcement composer: email and text-message previews side by side, plus a recipient count on Send.** Check first whether the review step already shows a preview. File: `AnnouncementFlow.tsx`. Effort 2.
-7. **BL-172 SEO batch 8: Georgia governance.** Topics: ballots by written consent (§ 14-3-708), conflict-of-interest disclosure, amending covenants (§ 44-3-226), and lien rules (§ 44-3-232). Also add inbound links to attorney-fee-notice-checklist. The weekly audit is due Nov 2. Effort 2.
-8. **Put the product tour on /hoa and /pricing.** Reuse `ProductTour`. Every tab must map to a shipped feature. Effort 2.
+1. **Dues aging buckets with "remind this bucket".** **Done 2026-10-30 (1fbe9792).** On /dues, add chips for Current, 1 to 30, 31 to 60 and 61+ days. Each chip filters the list, and the reminders dialog then starts with that bucket selected. Files: `dues/page.tsx`, `WhoOwesPanel.tsx`, `SendRemindersDialog.tsx`, `lib/dues/`. Effort 2.
+2. **Approve several items at once in the approvals queue, for sources that don't move money.** **Done 2026-10-30 (bb3e5959).** Covers violation drafts, ARC reviews and vendor results. Anything involving money stays one at a time, so dual control is unchanged. Before building, confirm that approving twice is harmless for each source. Files: `approvals/page.tsx`, `lib/approvals.ts`. Effort 3.
+3. **"Add to calendar" for residents on the Next meeting card and the meeting page.** **Done 2026-10-30 (6c878ac4).** Reuse the signed calendar route that already exists. Files: `app/resident/page.tsx`, `resident/meetings/[id]/page.tsx`. Effort 1.
+4. **Show the latest announcement on the resident home.** **Done 2026-10-30 (6c878ac4).** Replace the "N new" badge with a card showing the title, date and first line. Files: `app/resident/page.tsx`, `lib/resident-dashboard.ts`. Effort 1.
+5. **Summary strip on approvals; dues table polish.** **Done 2026-10-30 (3dba944f).** Approvals gets three counts above the list: waiting, oldest wait, and AI-proposed share. The dues table gets status pills, a header that stays visible while scrolling, and the amount shown on phone cards. Effort 2.
+6. **Announcement composer: email and text-message previews side by side, plus a recipient count on Send.** **Done 2026-10-30 (9bfd54b4).** Check first whether the review step already shows a preview. File: `AnnouncementFlow.tsx`. Effort 2.
+7. **BL-172 SEO batch 8: Georgia governance.** **Done 2026-10-30 (ee746956).** Topics: ballots by written consent (§ 14-3-708), conflict-of-interest disclosure, amending covenants (§ 44-3-226), and lien rules (§ 44-3-232). Also add inbound links to attorney-fee-notice-checklist. The weekly audit is due Nov 2. Effort 2.
+8. **Put the product tour on /hoa and /pricing.** **Done 2026-10-30 (3ba9ff34).** Reuse `ProductTour`. Every tab must map to a shipped feature. Effort 2.
 
 **Dropped:**
 - Already done: round-8 credit items, digest nudge, weekly analytics, fiscal-year rollover, GA BL-161 to 165 and 167.
@@ -2459,13 +2459,13 @@ Every item below was checked against the code at 4d123290. None needs a migratio
 0. **Visible brand and product refresh (owner: "still haven't seen major change").** Done 2026-10-30: violet brand in the app, product tour, dashboard polish, static assets. Items 1 to 7 below: Done 2026-10-30.
    - The app takes the website's violet brand and Be Vietnam Pro font, and gets a branded sign-in.
    - The website gets a product tour section that shows real screens.
-1. **BL-172 SEO batch 7: Georgia overpayments and credits.** 3 or more guides or templates on credits on account, how a board applies a credit, and the SB 406 payment order. Each quotes the fixtures and has a demo CTA. Files: `apps/marketing/src/app/georgia/`, `templates/`. Effort 2.
-2. **Hand-rolled tables at 375px (UI/UX item 5, the code half).** Wrap these in a scroller or move them onto `DataTable`: `BudgetEditor.tsx`, `RosterImportSteps.tsx`, `rfps/[id]/comparison/page.tsx`, `FinancialPacketView.tsx`. Effort 2.
-3. **Weekly analytics: leave `ai.usage.*` and `ai.spend.notice.*` rows out of "active boards".** Files: `packages/jobs/src/weekly-analytics.ts` and its test. Effort 1.
-4. **Fire Prevention Week uses the real Sunday to Saturday week.** Add a week-of rule kind in `apps/hoa/src/lib/announcements/nudge.ts`. Test with calendar-day addition, because of DST. Effort 1.
-5. **WU-1: move Nav and Footer out of `<main>`.** Start with the shared templates, then point the skip link back at `#main-content`. Effort 2.
-6. **`readAll` trailing-probe round trip.** Treat a short page as final only when it is shorter than the server cap. Keep the guard for a cap below `PAGE_ROWS`. File: `apps/hoa/src/lib/supabase/read-all.ts`. Effort 2.
-7. **WU-3 and WU-8: arrow keys in the Products dropdown; check the demo email when the field loses focus.** WU-7 is a Safari pass by Asaf. Effort 2.
+1. **BL-172 SEO batch 7: Georgia overpayments and credits.** **Done 2026-10-30 (9ab00b5f).** 3 or more guides or templates on credits on account, how a board applies a credit, and the SB 406 payment order. Each quotes the fixtures and has a demo CTA. Files: `apps/marketing/src/app/georgia/`, `templates/`. Effort 2.
+2. **Hand-rolled tables at 375px (UI/UX item 5, the code half).** **Done 2026-10-30 (e39d5f89).** Wrap these in a scroller or move them onto `DataTable`: `BudgetEditor.tsx`, `RosterImportSteps.tsx`, `rfps/[id]/comparison/page.tsx`, `FinancialPacketView.tsx`. Effort 2.
+3. **Weekly analytics: leave `ai.usage.*` and `ai.spend.notice.*` rows out of "active boards".** **Done 2026-10-30 (e17e50b6).** Files: `packages/jobs/src/weekly-analytics.ts` and its test. Effort 1.
+4. **Fire Prevention Week uses the real Sunday to Saturday week.** **Done 2026-10-30 (e17e50b6).** Add a week-of rule kind in `apps/hoa/src/lib/announcements/nudge.ts`. Test with calendar-day addition, because of DST. Effort 1.
+5. **WU-1: move Nav and Footer out of `<main>`.** **Done 2026-10-30 (330cfda7).** Start with the shared templates, then point the skip link back at `#main-content`. Effort 2.
+6. **`readAll` trailing-probe round trip.** **Done 2026-11-05 (53351a3d; made opt-in via POSTGREST_MAX_ROWS in efb1451c). The jobs twin is still open, see round 29.** Treat a short page as final only when it is shorter than the server cap. Keep the guard for a cap below `PAGE_ROWS`. File: `apps/hoa/src/lib/supabase/read-all.ts`. Effort 2.
+7. **WU-3 and WU-8: arrow keys in the Products dropdown; check the demo email when the field loses focus.** **Done 2026-10-30 (330cfda7); WU-7 stays a Safari pass by Asaf.** WU-7 is a Safari pass by Asaf. Effort 2.
 
 **Dropped or blocked:**
 - `mw.session`: needs a `PERF_LOG=1` window first.
@@ -2483,23 +2483,51 @@ Every item below was checked against the code at 4d123290. None needs a migratio
 
 Fixed this round (skip-link target, demo form echo/errors/focus/autocomplete, demo hero clipped under fixed header, footer and util-bar touch targets). Open items from the code-only audit, all migration: no.
 
-- **WU-1 Header and footer sit inside `<main>` on every page** (effort 2). Screen-reader landmarks list the nav and footer as main content. Fix: move `<Nav/>` and `<Footer/>` out of `<main>` in the ~26 page files and shared templates (`components/georgia/guide-page.tsx`, `checklist-page.tsx`), then point the skip link back at `#main-content`. Files: `apps/marketing/src/app/**/page.tsx`, `components/site/nav.tsx`.
-- **WU-2 Mobile menu has no focus management** (effort 1). Opening it does not move focus in or trap it, and Escape does not return focus to the toggle. Files: `components/site/nav.tsx`.
-- **WU-3 Desktop Products dropdown is hover-first** (effort 1). Latent while only one product is offered (BL-097); needs arrow-key support if more return. Files: `components/site/nav.tsx`.
-- **WU-4 Many `text-xs` / `text-[11px]` / `text-[13px]` captions** (effort 2). Below the 14px readable floor on mobile; audit and raise secondary copy to `text-sm`. Files: `app/**`, `components/site/*`.
-- **WU-5 Roadmap table at 375px** (effort 1). `<table className="w-full">` has no horizontal-scroll wrapper or stacked layout. Files: `app/roadmap/roadmap-table.tsx`.
-- **WU-6 Heading order check on pages using `eyebrow` as `<h2>`** (effort 1). Footer column titles are `<h2>` after page `<h2>`s; make them `<p>` or `<h2 class=sr-only>` consistently. Files: `components/site/footer.tsx`.
-- **WU-7 Pricing and /professionals not exercised in a browser** (effort 1). Needs a human pass at 375px for horizontal scroll and CLS (no raster images are used, so CLS risk is low). Files: `app/pricing/page.tsx`, `app/professionals/page.tsx`.
-- **WU-8 Demo form: inline field validation on blur** (effort 2). Today errors arrive only after submit (server-side). Optional client pre-check for email shape. Files: `app/demo/demo-form.tsx`.
+- **WU-1 Header and footer sit inside `<main>` on every page** **Done 2026-10-30 (330cfda7).** (effort 2). Screen-reader landmarks list the nav and footer as main content. Fix: move `<Nav/>` and `<Footer/>` out of `<main>` in the ~26 page files and shared templates (`components/georgia/guide-page.tsx`, `checklist-page.tsx`), then point the skip link back at `#main-content`. Files: `apps/marketing/src/app/**/page.tsx`, `components/site/nav.tsx`.
+- **WU-2 Mobile menu has no focus management** **Done 2026-10-30 (836b6f04).** (effort 1). Opening it does not move focus in or trap it, and Escape does not return focus to the toggle. Files: `components/site/nav.tsx`.
+- **WU-3 Desktop Products dropdown is hover-first** **Done 2026-10-30 (330cfda7).** (effort 1). Latent while only one product is offered (BL-097); needs arrow-key support if more return. Files: `components/site/nav.tsx`.
+- **WU-4 Many `text-xs` / `text-[11px]` / `text-[13px]` captions** **Done 2026-10-30 (3bbd1af0).** (effort 2). Below the 14px readable floor on mobile; audit and raise secondary copy to `text-sm`. Files: `app/**`, `components/site/*`.
+- **WU-5 Roadmap table at 375px** **Done 2026-10-30 (3bbd1af0).** (effort 1). `<table className="w-full">` has no horizontal-scroll wrapper or stacked layout. Files: `app/roadmap/roadmap-table.tsx`.
+- **WU-6 Heading order check on pages using `eyebrow` as `<h2>`** **Done 2026-10-30 (836b6f04).** (effort 1). Footer column titles are `<h2>` after page `<h2>`s; make them `<p>` or `<h2 class=sr-only>` consistently. Files: `components/site/footer.tsx`.
+- **WU-7 Pricing and /professionals not exercised in a browser** **Blocked on a Safari pass by Asaf.** (effort 1). Needs a human pass at 375px for horizontal scroll and CLS (no raster images are used, so CLS risk is low). Files: `app/pricing/page.tsx`, `app/professionals/page.tsx`.
+- **WU-8 Demo form: inline field validation on blur** **Done 2026-10-30 (330cfda7).** (effort 2). Today errors arrive only after submit (server-side). Optional client pre-check for email shape. Files: `app/demo/demo-form.tsx`.
 
 
 ## UI/UX round (ui-ux-pro-max audit, 2026-10-30)
 
 Found by reading code (no browser). Fixed in this round: coarse-pointer 44px targets on `Button` and the mobile top bar, `Field` error announcement, the nonexistent `text-muted-fg` class, org switcher and bell menu sizes and names, thread-list paperclip role. Open items, none needs a migration:
 
-1. **Checkbox, radio and switch rows: 44px tap area on touch.** The 18px box has a clickable label, but the row between box and label and the padding around them do not hit. Give `ChoiceRow` a `coarse:min-h-11` and move the label padding onto the label. User value: fewer mis-taps in bulk-select lists on phones. Files: `packages/ui/src/components/Choice.tsx`. Effort 1. Migration: no.
-2. **Sub-12px text in app chrome.** `text-[10px]`/`text-[11px]` remain in Copilot messages, the admin sidebar, the dashboard donut label and the avatar `xs` initials. User value: legible on phones and for low-vision users. Files: `apps/hoa/src/components/copilot/CopilotMessage.tsx`, `apps/hoa/src/components/layout/AdminSidebar.tsx`, `apps/hoa/src/components/dashboard/StatusDonut.tsx`, `packages/ui/src/components/Avatar.tsx`. Effort 1. Migration: no.
-3. **Ratchet for undefined colour classes.** `text-muted-fg` shipped unnoticed because Tailwind drops unknown classes silently. Add a test that scans `className` strings for `(text|bg|border)-<name>` where `<name>` is not in the preset colours. User value: stops invisible styling bugs. Files: `apps/hoa/src/ux-ratchet.test.ts`, `packages/ui/tailwind.config.ts`. Effort 2. Migration: no.
-4. **Hand-rolled small buttons below 44px on touch.** `UndoSendBanner`, filter chips and `TwoClickDelete` use raw buttons instead of `Button`, so they miss the coarse lift. Move them onto `Button` or add `coarse:min-h-11`. User value: reliable Undo within the send window on a phone. Files: `apps/hoa/src/app/(dashboard)/inbox/[id]/UndoSendBanner.tsx`, `apps/hoa/src/components/TwoClickDelete.tsx`, `apps/hoa/src/app/(dashboard)/properties/PropertyListFilters.tsx`. Effort 2. Migration: no. (Not individually verified; confirm before building.)
-5. **Visual check of tables at 375px.** `DataTable`, dues and properties lists were not verified for in-container horizontal scroll or card collapse; needs a browser pass (Safari, by Asaf). Files: `packages/ui/src/components/DataTable.tsx`, `apps/hoa/src/app/(dashboard)/dues/page.tsx`, `apps/hoa/src/app/(dashboard)/properties/PropertyList.tsx`. Effort 2. Migration: no.
-6. **Reduced-motion audit.** `animate-slide-up`, `animate-spin` and toast entry have no verified `motion-reduce:` guard. Add one global `@media (prefers-reduced-motion)` rule in the preset. User value: comfort for motion-sensitive users. Files: `packages/ui/tailwind.config.ts`. Effort 1. Migration: no.
+1. **Checkbox, radio and switch rows: 44px tap area on touch.** **Done 2026-10-30 (2af793a4).** The 18px box has a clickable label, but the row between box and label and the padding around them do not hit. Give `ChoiceRow` a `coarse:min-h-11` and move the label padding onto the label. User value: fewer mis-taps in bulk-select lists on phones. Files: `packages/ui/src/components/Choice.tsx`. Effort 1. Migration: no.
+2. **Sub-12px text in app chrome.** **Done 2026-10-30 (44de03a2).** `text-[10px]`/`text-[11px]` remain in Copilot messages, the admin sidebar, the dashboard donut label and the avatar `xs` initials. User value: legible on phones and for low-vision users. Files: `apps/hoa/src/components/copilot/CopilotMessage.tsx`, `apps/hoa/src/components/layout/AdminSidebar.tsx`, `apps/hoa/src/components/dashboard/StatusDonut.tsx`, `packages/ui/src/components/Avatar.tsx`. Effort 1. Migration: no.
+3. **Ratchet for undefined colour classes.** **Done 2026-10-30 (2281c566).** `text-muted-fg` shipped unnoticed because Tailwind drops unknown classes silently. Add a test that scans `className` strings for `(text|bg|border)-<name>` where `<name>` is not in the preset colours. User value: stops invisible styling bugs. Files: `apps/hoa/src/ux-ratchet.test.ts`, `packages/ui/tailwind.config.ts`. Effort 2. Migration: no.
+4. **Hand-rolled small buttons below 44px on touch.** **Done 2026-10-30 (44de03a2).** `UndoSendBanner`, filter chips and `TwoClickDelete` use raw buttons instead of `Button`, so they miss the coarse lift. Move them onto `Button` or add `coarse:min-h-11`. User value: reliable Undo within the send window on a phone. Files: `apps/hoa/src/app/(dashboard)/inbox/[id]/UndoSendBanner.tsx`, `apps/hoa/src/components/TwoClickDelete.tsx`, `apps/hoa/src/app/(dashboard)/properties/PropertyListFilters.tsx`. Effort 2. Migration: no. (Not individually verified; confirm before building.)
+5. **Visual check of tables at 375px.** **Code half done 2026-10-30 (e39d5f89); the visual check stays a Safari pass by Asaf.** `DataTable`, dues and properties lists were not verified for in-container horizontal scroll or card collapse; needs a browser pass (Safari, by Asaf). Files: `packages/ui/src/components/DataTable.tsx`, `apps/hoa/src/app/(dashboard)/dues/page.tsx`, `apps/hoa/src/app/(dashboard)/properties/PropertyList.tsx`. Effort 2. Migration: no.
+6. **Reduced-motion audit.** **Done 2026-10-30 (2af793a4).** `animate-slide-up`, `animate-spin` and toast entry have no verified `motion-reduce:` guard. Add one global `@media (prefers-reduced-motion)` rule in the preset. User value: comfort for motion-sensitive users. Files: `packages/ui/tailwind.config.ts`. Effort 1. Migration: no.
+
+## Ranked open work — round 29 (2026-11-06, code-verified)
+
+Checked against the code on 2026-11-06 at the tip of the quality-oracle branch. Migrations 0073 to 0082 are applied. Flags M9, M11, M12, M13, M14 and M16 are on; M8 (payments) and M10 (voting) are off pending the lawyer. There is no M15: vendor bill pay (B7) was designed but never built. Every item below needs no migration, is HOA-only (marketing only for SEO), and is not built. Ranked for a volunteer board and residents who may be 70 and on a phone, Georgia first, PayHOA parity.
+
+1. **User-guide articles for the features switched on 2026-11-05.** Polls (M9), amenity setup and booking (M11), the neighbors message board (M13), the public community page (M12), the sample community and print-yourself letters have no article. Verified: no file under `apps/hoa/content/guide` mentions polls, a "public page", a "community page" or a "sample community", and amenities appear only as a mention in `approvals-queue.md` and `accounting-budget-notice.md`. The help drawer is where a board member goes first, so these features are invisible without it. Files: `apps/hoa/content/guide/**` (new `.md` files with `shots`, `related` and `routes`), then `pnpm guide:build` and the committed `apps/hoa/src/generated/guide.ts`. Effort 2.
+2. **A "How to pay" screen for communities that take checks, not Zelle.** Today a board with no Zelle gets "Online payments aren't set up yet" on the resident pay page, and the free-text `instructions` (for example "We also accept checks at...") only shows once a Zelle recipient exists. Verified: `apps/hoa/src/lib/pay-by-zelle.ts:111` rejects a save with no recipient, and `apps/hoa/src/app/resident/dues/pay/page.tsx:185-191` renders `NotSetUp` otherwise. Let the board save "make checks payable to / mail to / drop at" with no Zelle recipient, kept in the same signed `compliance_settings` key (no migration), and show it on the pay page. Files: `apps/hoa/src/lib/pay-by-zelle.ts`, `apps/hoa/src/lib/pay-settings.ts`, `apps/hoa/src/app/resident/dues/pay/page.tsx`, the resident payments form under `apps/hoa/src/app/(dashboard)/settings/`. Effort 3.
+3. **A printable "How to join" notice for owners with no email.** The board can only invite by email, and the People page already counts "owners not invited", but nothing helps the board reach those owners on paper. Verified: no invitation letter or QR code exists in `apps/hoa/src` (searches return 0), while `/join` (`apps/hoa/src/app/join/page.tsx`, `AskToJoinForm.tsx`) and the approvals queue already handle ask-to-join. Add a one-page print view with the community name, the `/join` address in large type and three plain steps, plus a link from the People page and the roster-import next steps. Files: a new print page under `apps/hoa/src/app/(dashboard)/people/` (follow the `BudgetNotice.tsx` print pattern). Effort 2.
+4. **Show an open poll on the resident Community tile.** A poll goes unanswered unless the resident opens Community by chance. Verified: `apps/hoa/src/components/resident/QuickActions.tsx:61-69` gives the announcements tile a "N new" badge but the Community tile has none, and `apps/hoa/src/app/resident/page.tsx` has no poll reference. Add a badge ("1 poll to answer") using the existing polls reader, and a line on the resident home when a poll closes within 3 days. Files: `QuickActions.tsx`, `apps/hoa/src/lib/resident-community.ts`, `apps/hoa/src/lib/polls/`. Effort 2.
+5. **Subscribe to the community calendar from a phone.** Residents and boards can download one meeting or the compliance deadlines as a file, but cannot subscribe, so new events never reach their phone calendar. Verified: the only calendar routes are `apps/hoa/src/app/resident/meetings/[id]/calendar/route.ts` and `apps/hoa/src/app/(dashboard)/compliance/calendar/route.ts`, and no `webcal` code exists. Add one signed, read-only feed route (HMAC token, no table) for events and meetings, with an "Add to my calendar" button. Files: a new route under `apps/hoa/src/app/resident/calendar/`, `apps/hoa/src/lib/meetings/meeting-ics.ts`, `apps/hoa/src/lib/events.ts`. Effort 3.
+6. **A "Larger text" setting in the app.** Phone-level large text works, but a board member on a laptop has no in-app control, and the 14px floor is still small for some. Verified: no text-size or font-scale code exists in `apps/hoa/src` (0 matches). Add Normal, Large and Largest in the account menu, stored in localStorage and applied as a root font-size on `<html>`, with a UX ratchet so fixed-px widths do not break. Files: `apps/hoa/src/app/layout.tsx`, `apps/hoa/src/app/globals.css`, the account menu under `apps/hoa/src/components/layout/`. Effort 2.
+7. **SEO batch 30: three Georgia pages still missing.** Georgia has about 20 statute guides, but nothing on architectural review under the covenants (only Florida has an ARC guide), on short-term and Airbnb rentals (0 matches in `apps/marketing/src/lib` or `app/guides`), or on a board election and nominations checklist. Quote existing fixtures only, and check the fixture before claiming a statute. Each page needs a demo or tool CTA. Files: `apps/marketing/src/app/guides/`, `apps/marketing/src/app/templates/`. Effort 2.
+8. **Approvals guide: step 5 wording.** Step 5 says "Or select Reject and give a Reason" straight after the line listing every approve button, but ARC reviews use Deny and Request info (step 6), and the Reason also applies to contact updates and bookings. Reword so step 5 names which items it covers. Verified in `apps/hoa/content/guide/documents/approvals-queue.md` steps 4 to 6. Files: that article, then `pnpm guide:build`. Effort 1.
+9. **Configure ESLint for `apps/hoa` and add it to CI.** `next lint` has no config, so `pnpm lint` drops into an interactive prompt and nothing lints. Verified: no `eslint.config.*` or `.eslintrc*` exists in the repo, `apps/hoa/package.json:9` runs `next lint`, and `.github/workflows/ci.yml` has no lint step. Start with `next/core-web-vitals` plus `jsx-a11y`, fix or downgrade what it finds, then wire it in. Other apps stay out of scope. Files: new `apps/hoa/eslint.config.mjs`, `apps/hoa/package.json`, `.github/workflows/ci.yml`. Effort 3.
+10. **Jobs `readAll` twin: same page-length shortcut as the app.** The app helper treats a page shorter than a confirmed server cap as final and skips the trailing empty-page query (`apps/hoa/src/lib/supabase/read-all.ts:23-70`, opt-in via `POSTGREST_MAX_ROWS`, OA-47). The jobs copy still makes one extra round trip per list (`packages/jobs/src/read-all.ts:19-33`, the loop ends only on an empty page). Port the opt-in guard and its tests, keeping the throw past `maxRows`. Files: `packages/jobs/src/read-all.ts` and its test. Effort 1.
+
+### Waiting on owner or migration
+
+- **M8 online payments and autopay (BL-035, BL-036):** built and dark; waiting on the lawyer and on OA-40 (Stripe activation, Connect).
+- **M10 online voting (BL-156):** built and dark; waiting on the lawyer.
+- **B7 vendor bill pay and check mailing (BL-039):** design only (`docs/specs/2026-11-02-vendor-bill-pay-design.md`); needs a new migration, an M15 flag and Lob and Stripe keys.
+- **SMS and voice (B8, OA-11):** the SMS code is built; needs a Vonage account. Voice also needs a migration.
+- **Print-and-mail send panel (M14):** hidden until a provider and keys are wired.
+- **House photo (OA-46) and the readAll shortcut (OA-47):** owner environment settings; the Street View photo shows nothing until OA-46 is set.
+- **BL-160 (OA-32), BL-171 and BL-009 analytics (OA-35, OA-38), BL-031 (needs a real CINC export), BL-059, BL-061, BL-086:** owner actions or real data.
+- **Amenity space photo, resident quiet hours, reserves (BL-037), law-to-bylaw report (BL-033), per-state violation engine (BL-030), lockbox, native app (BL-040):** each needs a migration or store accounts.
+- **Safari passes by Asaf:** WU-7 (pricing and professionals at 375px), UI/UX item 5 (tables at 375px), and any UI claim on the new booking calendar.
+- **Real assets:** deck and site screenshots from a demo login, and written-permission testimonials.
