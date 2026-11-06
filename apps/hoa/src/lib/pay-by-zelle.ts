@@ -31,6 +31,16 @@ const INSTRUCTIONS_MAX = 500
 /** W18 auto-matches a deposit within this of the assessment's full amount. */
 const W18_AMOUNT_TOLERANCE = 0.5
 
+/** How to pay by check (round 29). Plain text the board types; residents read it. */
+export interface CheckSettings {
+  /** "Make checks payable to". */
+  payableTo: string
+  /** Mailing address for checks. */
+  mailTo: string
+  /** Optional place to hand a check in. */
+  dropOff: string | null
+}
+
 export interface ZelleSettings {
   /** Email or US mobile number registered with Zelle. */
   recipient: string
@@ -38,19 +48,38 @@ export interface ZelleSettings {
   recipientName: string | null
   /** Optional free text from the board (e.g. "We also accept checks at…"). */
   instructions: string | null
+  /** Present when the board also takes checks. */
+  checks?: CheckSettings | null
+}
+
+/**
+ * What the board saves under "How residents pay": Zelle, checks, or both.
+ * At least one must be present (validatePaymentSettingsInput enforces it).
+ */
+export interface PaymentSettings {
+  recipient: string | null
+  recipientName: string | null
+  instructions: string | null
+  checks: CheckSettings | null
 }
 
 /** The JSON object stored under compliance_settings.pay_by_zelle. */
 export interface StoredZelleSettings {
-  recipient: string
+  /** Null when the board takes checks only. */
+  recipient: string | null
   recipient_name: string | null
   instructions: string | null
+  check_payable_to?: string | null
+  check_mail_to?: string | null
+  check_drop_off?: string | null
   updated_at: string
   sig: string
 }
 
 export type ZelleReadResult =
   | { state: 'configured'; settings: ZelleSettings & { updatedAt: string } }
+  /** Verified, no Zelle recipient, checks only. Treat as "not Zelle" anywhere that needs a recipient. */
+  | { state: 'checks_only'; settings: { recipientName: string | null; instructions: string | null; checks: CheckSettings; updatedAt: string } }
   | { state: 'not_configured' }
   /** Present but not written by the signed board save (or no secret). Treat as not set up. */
   | { state: 'unverified' }
@@ -120,23 +149,91 @@ export function validateZelleInput(input: {
   return { ok: true, value: { recipient: recipient!, recipientName, instructions } }
 }
 
+const CHECK_FIELD_MAX = 160
+const CHECK_ADDRESS_MAX = 300
+
+/**
+ * The board's "How residents pay" form. Zelle is optional, checks are
+ * optional, but at least one way to pay is required. Messages are written
+ * for a volunteer who may be 70 and on a phone.
+ */
+export function validatePaymentSettingsInput(input: {
+  recipient?: string | null
+  recipientName?: string | null
+  instructions?: string | null
+  checkPayableTo?: string | null
+  checkMailTo?: string | null
+  checkDropOff?: string | null
+}): { ok: true; value: PaymentSettings } | { ok: false; fieldErrors: Record<string, string> } {
+  const recipient = clean(input.recipient)
+  const recipientName = clean(input.recipientName)
+  const instructions = clean(input.instructions)
+  const payableTo = clean(input.checkPayableTo)
+  const mailTo = clean(input.checkMailTo)
+  const dropOff = clean(input.checkDropOff)
+  const fieldErrors: Record<string, string> = {}
+
+  if (recipient && (recipient.length > 254 || !(EMAIL_RE.test(recipient) || isUsPhone(recipient))))
+    fieldErrors.recipient = 'Use an email address or a 10-digit US mobile number.'
+  if (recipientName && recipientName.length > RECIPIENT_NAME_MAX)
+    fieldErrors.recipientName = `Keep it under ${RECIPIENT_NAME_MAX} characters.`
+  if (instructions && instructions.length > INSTRUCTIONS_MAX)
+    fieldErrors.instructions = `Keep it under ${INSTRUCTIONS_MAX} characters.`
+
+  const anyCheck = Boolean(payableTo || mailTo || dropOff)
+  if (anyCheck) {
+    if (!payableTo) fieldErrors.checkPayableTo = 'Enter who checks should be made out to.'
+    else if (payableTo.length > CHECK_FIELD_MAX) fieldErrors.checkPayableTo = `Keep it under ${CHECK_FIELD_MAX} characters.`
+    if (!mailTo) fieldErrors.checkMailTo = 'Enter the address residents should mail checks to.'
+    else if (mailTo.length > CHECK_ADDRESS_MAX) fieldErrors.checkMailTo = `Keep it under ${CHECK_ADDRESS_MAX} characters.`
+    if (dropOff && dropOff.length > CHECK_ADDRESS_MAX) fieldErrors.checkDropOff = `Keep it under ${CHECK_ADDRESS_MAX} characters.`
+  }
+  if (!recipient && !anyCheck) {
+    fieldErrors.recipient = 'Add a Zelle email or number, or fill in the check details below, so residents know how to pay.'
+    fieldErrors.checkPayableTo = 'Fill this in if you take checks.'
+  }
+
+  if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors }
+  return {
+    ok: true,
+    value: {
+      recipient,
+      recipientName,
+      instructions,
+      checks: anyCheck ? { payableTo: payableTo!, mailTo: mailTo!, dropOff } : null,
+    },
+  }
+}
+
 // ─── signing ────────────────────────────────────────────────────────
 
-function signature(associationId: string, s: ZelleSettings, updatedAt: string, secret: string): string {
-  const message = JSON.stringify([
+type Signable = {
+  recipient: string | null
+  recipientName: string | null
+  instructions: string | null
+  checks?: CheckSettings | null
+}
+
+function signature(associationId: string, s: Signable, updatedAt: string, secret: string): string {
+  const parts: unknown[] = [
     SIGNATURE_DOMAIN,
     associationId,
-    s.recipient,
+    s.recipient ?? '',
     s.recipientName ?? '',
     s.instructions ?? '',
     updatedAt,
-  ])
+  ]
+  // Check fields join the signed message only when present, so a Zelle-only
+  // setup saved before checks existed still verifies, and adding or removing
+  // check fields outside the signed save breaks the signature.
+  if (s.checks) parts.push([s.checks.payableTo, s.checks.mailTo, s.checks.dropOff ?? ''])
+  const message = JSON.stringify(parts)
   return createHmac('sha256', secret).update(message).digest('base64url')
 }
 
 export function signZelleSettings(
   associationId: string,
-  settings: ZelleSettings,
+  settings: Signable,
   secret: string,
   updatedAt: string = new Date().toISOString(),
 ): StoredZelleSettings {
@@ -144,6 +241,13 @@ export function signZelleSettings(
     recipient: settings.recipient,
     recipient_name: settings.recipientName,
     instructions: settings.instructions,
+    ...(settings.checks
+      ? {
+          check_payable_to: settings.checks.payableTo,
+          check_mail_to: settings.checks.mailTo,
+          check_drop_off: settings.checks.dropOff,
+        }
+      : {}),
     updated_at: updatedAt,
     sig: signature(associationId, settings, updatedAt, secret),
   }
@@ -168,12 +272,19 @@ export function readZelleSettings(
   const recipient = strOrNull(raw.recipient)
   const updatedAt = strOrNull(raw.updated_at)
   const sig = strOrNull(raw.sig)
-  if (!recipient || !updatedAt || !sig || !secret) return { state: 'unverified' }
+  const payableTo = strOrNull(raw.check_payable_to)
+  const mailTo = strOrNull(raw.check_mail_to)
+  // Half-filled check details are never shown: both parts or none.
+  if ((payableTo == null) !== (mailTo == null)) return { state: 'unverified' }
+  const checks: CheckSettings | null =
+    payableTo && mailTo ? { payableTo, mailTo, dropOff: strOrNull(raw.check_drop_off) } : null
+  if ((!recipient && !checks) || !updatedAt || !sig || !secret) return { state: 'unverified' }
 
-  const settings: ZelleSettings = {
+  const settings = {
     recipient,
     recipientName: strOrNull(raw.recipient_name),
     instructions: strOrNull(raw.instructions),
+    checks,
   }
   const actual = Buffer.from(sig)
   const matches = (key: string) => {
@@ -182,7 +293,29 @@ export function readZelleSettings(
   }
   if (!matches(secret) && !(previousSecret && previousSecret !== secret && matches(previousSecret))) return { state: 'unverified' }
 
-  return { state: 'configured', settings: { ...settings, updatedAt } }
+  if (!recipient) {
+    return {
+      state: 'checks_only',
+      settings: { recipientName: settings.recipientName, instructions: settings.instructions, checks: checks!, updatedAt },
+    }
+  }
+  return {
+    state: 'configured',
+    settings: {
+      recipient,
+      recipientName: settings.recipientName,
+      instructions: settings.instructions,
+      ...(checks ? { checks } : {}),
+      updatedAt,
+    },
+  }
+}
+
+/** The check details to show residents, from either verified state. */
+export function checksOf(read: ZelleReadResult): CheckSettings | null {
+  if (read.state === 'checks_only') return read.settings.checks
+  if (read.state === 'configured') return read.settings.checks ?? null
+  return null
 }
 
 /** compliance_settings with pay_by_zelle replaced (or removed when null); other keys untouched. */

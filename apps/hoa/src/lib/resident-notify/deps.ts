@@ -1,7 +1,7 @@
 // What apps/hoa injects into the resident notification runner (BL-082).
 //
 // `sendEmail` / `sendSms` are the app's GUARDED senders: every recipient
-// passes the outbound safety guard (BL-004) before Resend / Vonage is
+// passes the outbound safety guard (BL-004) before Resend / Twilio is
 // called. Do not replace them with a raw transport; deps.test.ts pins this.
 
 import { appUrl, sendEmail } from '@/lib/email'

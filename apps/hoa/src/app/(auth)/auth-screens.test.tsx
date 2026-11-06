@@ -136,9 +136,9 @@ describe('ChoosePasswordPrompt', () => {
     getUser.mockResolvedValue({ data: { user: { id: 'u', user_metadata: {} } } })
     await mount(<ChoosePasswordPrompt />)
     expect(host!.textContent).toContain('Choose a password for next time (optional).')
-    expect(host!.textContent).toContain('Or skip; we can always email you a sign-in link.')
+    expect(host!.textContent).toContain('You can skip this. We can always email you a new sign-in link.')
     expect(host!.querySelector('a[href="/reset-password?welcome=1"]')).not.toBeNull()
-    const skip = [...host!.querySelectorAll('button')].find((b) => b.textContent === 'Skip')!
+    const skip = [...host!.querySelectorAll('button')].find((b) => b.textContent === 'Skip for now')!
     await act(async () => skip.click())
     expect(host!.textContent).not.toContain('Choose a password')
     expect(window.localStorage.getItem('hh:pw-prompt-dismissed')).toBe('1')

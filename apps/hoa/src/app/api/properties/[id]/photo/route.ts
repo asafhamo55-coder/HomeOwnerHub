@@ -22,6 +22,12 @@
 // AI ledger (lib/api/rate-limit.ts), and the day-long private cache plus the
 // membership gate keep repeat loads off Google. See OA-46 for the budget alert.
 //
+// Aiming: without a heading Google points the camera wherever the Street View
+// car faced, often the road or a neighbour. So the house is geocoded first
+// (precise results only), the nearest panorama is found, and the camera is
+// aimed from the panorama at the house. Every step fails safe to the older
+// address-only request. Geocoding is billed per request (OA-46).
+//
 // Never logged: the Google URLs (they carry the key) and the address.
 
 import { z } from 'zod'
@@ -32,7 +38,20 @@ import { logRouteFailure } from '@/lib/api/log'
 import { zUuid } from '@/lib/api/schemas'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
-import { streetViewLocation, streetViewUrls, type LocationFallback } from '@/lib/properties/street-view'
+import {
+  aimedImageUrl,
+  STREET_VIEW_PANO_MAX_M,
+  STREET_VIEW_PANO_MIN_M,
+  bearingDegrees,
+  distanceMeters,
+  geocodeUrl,
+  isPreciseGeocode,
+  panoMetadataUrl,
+  streetViewLocation,
+  streetViewUrls,
+  type LatLng,
+  type LocationFallback,
+} from '@/lib/properties/street-view'
 
 const FETCH_TIMEOUT_MS = 6000
 const CACHE_OK = 'private, max-age=86400'
@@ -44,6 +63,98 @@ const notFound = () => apiError('not_found', 'No picture is available for this h
 // every page view (each retry is another call to Google).
 const upstreamDown = () =>
   new ApiRouteError('upstream_unavailable', undefined, undefined, { 'Cache-Control': 'private, max-age=60' })
+
+// One overall budget across every Google call in a request, so a slow Google
+// cannot stack four 6 s calls. Each call gets the smaller of 6 s and what is
+// left, but never less than a 1.5 s floor so the old path still gets a chance.
+const TOTAL_BUDGET_MS = 10_000
+const MIN_CALL_MS = 1500
+const AIMED_MIN_LEFT_MS = 4000
+
+function makeClock() {
+  const end = Date.now() + TOTAL_BUDGET_MS
+  const left = () => end - Date.now()
+  const opts = () => ({
+    cache: 'no-store' as const,
+    redirect: 'error' as const,
+    signal: AbortSignal.timeout(Math.max(MIN_CALL_MS, Math.min(FETCH_TIMEOUT_MS, left()))),
+  })
+  return { left, opts }
+}
+type Clock = ReturnType<typeof makeClock>
+
+const geocodeBody = z.object({
+  status: z.string(),
+  results: z
+    .array(z.object({ partial_match: z.boolean().optional(), geometry: z.object({ location: z.object({ lat: z.number(), lng: z.number() }), location_type: z.string() }) }))
+    .optional(),
+})
+const panoBody = z.object({
+  status: z.string(),
+  pano_id: z.string().optional(),
+  location: z.object({ lat: z.number(), lng: z.number() }).optional(),
+})
+
+/**
+ * The aimed image URL, or null for "use the address-only request". Never throws;
+ * logs only a status code or error, never the address.
+ */
+async function aimedImage(
+  address: string,
+  key: string,
+  secret: string | null,
+  logCtx: { orgId: string; propertyId: string },
+  clock: Clock,
+): Promise<string | null> {
+  // Too little time for geocode + pano + image: go straight to the old path.
+  if (clock.left() < AIMED_MIN_LEFT_MS) return null
+  let house: LatLng
+  try {
+    const res = await fetch(geocodeUrl(address, key, secret), clock.opts())
+    if (!res.ok) {
+      logRouteFailure('properties.photo.geocode', { code: String(res.status) }, logCtx)
+      return null
+    }
+    const body = geocodeBody.safeParse(await res.json().catch(() => null))
+    if (!body.success || body.data.status !== 'OK') {
+      // REQUEST_DENIED until the Geocoding API is enabled (OA-46): a code only.
+      logRouteFailure('properties.photo.geocode', { code: body.success ? body.data.status : 'bad_body' }, logCtx)
+      return null
+    }
+    const first = body.data.results?.[0]
+    // A partial match means Google guessed at part of the address.
+    if (first?.partial_match === true) return null
+    const geometry = first?.geometry
+    if (!geometry || !isPreciseGeocode(geometry.location_type)) return null
+    house = geometry.location
+  } catch (err) {
+    logRouteFailure('properties.photo.geocode', err, logCtx)
+    return null
+  }
+
+  try {
+    if (clock.left() < MIN_CALL_MS * 2) return null
+    const res = await fetch(panoMetadataUrl(house, key, secret), clock.opts())
+    if (!res.ok) {
+      logRouteFailure('properties.photo.pano', { code: String(res.status) }, logCtx)
+      return null
+    }
+    const body = panoBody.safeParse(await res.json().catch(() => null))
+    if (!body.success || body.data.status !== 'OK' || !body.data.pano_id || !body.data.location) {
+      if (body.success && body.data.status !== 'ZERO_RESULTS') {
+        logRouteFailure('properties.photo.pano', { code: body.data.status }, logCtx)
+      }
+      return null
+    }
+    // Too close: inside the lot. Too far: a back alley or cross street, which would not face the front.
+    const dist = distanceMeters(body.data.location, house)
+    if (dist < STREET_VIEW_PANO_MIN_M || dist > STREET_VIEW_PANO_MAX_M) return null
+    return aimedImageUrl(body.data.pano_id, bearingDegrees(body.data.location, house), key, secret)
+  } catch (err) {
+    logRouteFailure('properties.photo.pano', err, logCtx)
+    return null
+  }
+}
 
 interface PropertyRow {
   address: string | null
@@ -94,42 +205,67 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   const location = streetViewLocation(property.address, unit)
   if (!location) return notFound()
 
-  const urls = streetViewUrls(location, key, process.env.GOOGLE_MAPS_URL_SIGNING_SECRET?.trim() || null)
+  const secret = process.env.GOOGLE_MAPS_URL_SIGNING_SECRET?.trim() || null
+  const urls = streetViewUrls(location, key, secret)
 
-  // 1. Free coverage check.
-  let meta: Response
-  try {
-    meta = await fetch(urls.metadata, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
-  } catch (err) {
-    logRouteFailure('properties.photo.metadata', err, { orgId, propertyId })
-    throw upstreamDown()
+  // 0. Aim at the house when we can (geocode, then nearest panorama; the
+  // panorama lookup doubles as the coverage check). Null means the older path.
+  const clock = makeClock()
+  const aimed = await aimedImage(location, key, secret, { orgId, propertyId }, clock)
+
+  // 0b. The aimed picture. Any failure (404, 5xx, not an image, timeout) falls
+  // back to the address-only flow below instead of giving up.
+  let image: Response | null = null
+  if (aimed) {
+    try {
+      const r = await fetch(aimed, clock.opts())
+      const t = r.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
+      if (r.ok && r.body && t.startsWith('image/')) image = r
+      else logRouteFailure('properties.photo.aimed', { code: String(r.status) }, { orgId, propertyId })
+    } catch (err) {
+      logRouteFailure('properties.photo.aimed', err, { orgId, propertyId })
+    }
   }
-  if (!meta.ok) {
-    logRouteFailure('properties.photo.metadata', { code: String(meta.status) }, { orgId, propertyId })
-    throw upstreamDown()
-  }
-  const status = z.object({ status: z.string() }).safeParse(await meta.json().catch(() => null))
-  if (!status.success) throw upstreamDown()
-  if (status.data.status === 'ZERO_RESULTS' || status.data.status === 'NOT_FOUND') return notFound()
-  if (status.data.status !== 'OK') {
-    // REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST, UNKNOWN_ERROR: a code, never Google's text.
-    logRouteFailure('properties.photo.metadata', { code: status.data.status }, { orgId, propertyId })
-    throw upstreamDown()
+
+  if (!image) {
+    // 1. Free coverage check.
+    let meta: Response
+    try {
+      meta = await fetch(urls.metadata, clock.opts())
+    } catch (err) {
+      logRouteFailure('properties.photo.metadata', err, { orgId, propertyId })
+      throw upstreamDown()
+    }
+    if (!meta.ok) {
+      logRouteFailure('properties.photo.metadata', { code: String(meta.status) }, { orgId, propertyId })
+      throw upstreamDown()
+    }
+    const status = z.object({ status: z.string() }).safeParse(await meta.json().catch(() => null))
+    if (!status.success) throw upstreamDown()
+    if (status.data.status === 'ZERO_RESULTS' || status.data.status === 'NOT_FOUND') return notFound()
+    if (status.data.status !== 'OK') {
+      // REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST, UNKNOWN_ERROR: a code, never Google's text.
+      logRouteFailure('properties.photo.metadata', { code: status.data.status }, { orgId, propertyId })
+      throw upstreamDown()
+    }
   }
 
   // 2. The picture (billed by Google), passed straight through.
-  let image: Response
-  try {
-    image = await fetch(urls.image, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
-  } catch (err) {
-    logRouteFailure('properties.photo.image', err, { orgId, propertyId })
-    throw upstreamDown()
-  }
-  if (image.status === 404) return notFound()
-  const type = image.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
-  if (!image.ok || !image.body || !type.startsWith('image/')) {
-    logRouteFailure('properties.photo.image', { code: String(image.status) }, { orgId, propertyId })
-    throw upstreamDown()
+  if (!image) {
+    let plain: Response
+    try {
+      plain = await fetch(urls.image, clock.opts())
+    } catch (err) {
+      logRouteFailure('properties.photo.image', err, { orgId, propertyId })
+      throw upstreamDown()
+    }
+    if (plain.status === 404) return notFound()
+    const type = plain.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
+    if (!plain.ok || !plain.body || !type.startsWith('image/')) {
+      logRouteFailure('properties.photo.image', { code: String(plain.status) }, { orgId, propertyId })
+      throw upstreamDown()
+    }
+    image = plain
   }
 
   return new Response(image.body, {

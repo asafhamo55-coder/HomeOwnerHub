@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Lock, Mail, MailCheck } from 'lucide-react'
 import { Alert, Button, Field, Input } from '@homeowner-portal/ui'
+import { signupNextPath } from '@/lib/safe-next-path'
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { AUTH_FIELD_CLASS, MIN_PASSWORD, PasswordRules, PasswordToggle, emailProblem } from '@/components/auth/auth-fields'
 import { friendlyAuthError } from '@/components/auth/auth-errors-shared'
@@ -14,7 +15,10 @@ import { PASSWORD_SET_FLAG } from '@/components/auth/sign-in-memory-shared'
 export function SignupForm({
   email: emailProp,
   onEmailChange,
+  next = '/onboarding',
 }: {
+  /** Same-site path to open after the email is confirmed. */
+  next?: string
   email?: string
   onEmailChange?: (email: string) => void
 } = {}) {
@@ -43,7 +47,7 @@ export function SignupForm({
     const supabase = getSupabaseBrowserClient()
     const origin = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
     const callbackUrl = new URL('/auth/callback', origin)
-    callbackUrl.searchParams.set('next', '/onboarding')
+    callbackUrl.searchParams.set('next', signupNextPath(next))
 
     const { error } = await supabase.auth.signUp({
       email: email.trim(),

@@ -14,7 +14,7 @@
 import { RESIDENT_VISIBLE_TYPES } from '@/lib/resident-documents/visibility'
 import { searchSections } from '@/lib/guide'
 import { articleHelpHref } from '@/lib/guide/ask-core'
-import { paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
+import { checksOf, paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
 import { redactContactPII } from '@homeowner-portal/ai/pii'
 import { ToolFailure, runDocsSearch, type ToolDefinition } from '@/lib/community-qa/tools'
 import type { LoopTool, ToolBudget } from '@/lib/community-qa/loop'
@@ -109,7 +109,9 @@ const myAccount: ResidentTool = {
         howToPay: {
           payPage: '/resident/dues/pay',
           statementPage: '/resident/dues/statement',
-          zelleSetUp: zelle,
+          zelleSetUp: zelle.zelle,
+          // Only a yes/no. The payee and address stay on the Pay dues screen.
+          checkSetUp: zelle.checks,
           onlineCardPayments: false,
         },
       }
@@ -118,19 +120,20 @@ const myAccount: ResidentTool = {
 }
 
 /** Whether the board has set up Pay by Zelle for the resident's association. Never the recipient itself. */
-async function zelleReady(scope: ResidentScope): Promise<boolean> {
+async function zelleReady(scope: ResidentScope): Promise<{ zelle: boolean; checks: boolean }> {
   const ids = [...new Set(scope.units.map((u) => u.association_id).filter((id): id is string => !!id))]
-  if (ids.length === 0) return false
+  if (ids.length === 0) return { zelle: false, checks: false }
   const { data, error } = await scope.db
     .from('associations')
     .select('id, compliance_settings')
     .in('id', ids)
     .eq('organization_id', scope.orgId)
-  if (error) return false
+  if (error) return { zelle: false, checks: false }
   const secret = paySettingsSecret()
-  return ((data ?? []) as Array<{ id: string; compliance_settings: unknown }>).some(
-    (r) => readZelleSettings(r.id, r.compliance_settings, secret).state === 'configured',
+  const reads = ((data ?? []) as Array<{ id: string; compliance_settings: unknown }>).map((r) =>
+    readZelleSettings(r.id, r.compliance_settings, secret),
   )
+  return { zelle: reads.some((r) => r.state === 'configured'), checks: reads.some((r) => checksOf(r) != null) }
 }
 
 // ─── my_requests ─────────────────────────────────────────────────────

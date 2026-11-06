@@ -6,8 +6,10 @@
  * The root of the sample data is the home (hoa_properties). A home is a
  * sample home only when BOTH hold:
  *   - its notes start with SAMPLE_NOTES_PREFIX, and
- *   - its owner email ends in SAMPLE_EMAIL_DOMAIN (example.com is reserved
- *     by RFC 2606, so it can never be a real mailbox).
+ *   - its owner email ends in SAMPLE_EMAIL_DOMAIN (example.invalid for new
+ *     fills, example.com for rows filled before 2026-11-06; both are reserved
+ *     by RFC 2606/6761, so neither can be a real mailbox, and the outbound
+ *     guard refuses to send to either).
  * Everything else hangs off those homes: units (bridged by
  * legacy_hoa_property_id), owners, dues, violations, tickets and ARC
  * requests are found through the sample homes, and each of them ALSO
@@ -20,7 +22,12 @@
  */
 
 export const SAMPLE_NOTES_PREFIX = 'Sample data:'
-export const SAMPLE_EMAIL_DOMAIN = '@example.com'
+export const SAMPLE_EMAIL_DOMAIN = '@example.invalid'
+/** Domain used by fills made before 2026-11-06. Still recognised, never written. */
+export const LEGACY_SAMPLE_EMAIL_DOMAIN = '@example.com'
+export const SAMPLE_EMAIL_DOMAINS: readonly string[] = [SAMPLE_EMAIL_DOMAIN, LEGACY_SAMPLE_EMAIL_DOMAIN]
+/** SQL narrowing for both domains. A narrowing only: isSampleHome is the rule. */
+export const SAMPLE_EMAIL_LIKE = '%@example.%'
 /** Prefix for the subject / summary / description of sample records. */
 export const SAMPLE_TEXT_PREFIX = 'Sample:'
 /** Prefix for the announcement draft subject. */
@@ -81,7 +88,7 @@ export function isSampleHome(row: { notes: string | null; owner_email: string | 
     typeof row.notes === 'string' &&
     row.notes.startsWith(SAMPLE_NOTES_PREFIX) &&
     typeof row.owner_email === 'string' &&
-    row.owner_email.toLowerCase().endsWith(SAMPLE_EMAIL_DOMAIN)
+    SAMPLE_EMAIL_DOMAINS.some((d) => row.owner_email!.toLowerCase().endsWith(d))
   )
 }
 

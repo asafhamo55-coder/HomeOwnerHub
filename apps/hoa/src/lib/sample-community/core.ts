@@ -32,7 +32,7 @@ import {
   SAMPLE_DRAFT_PREFIX,
   SAMPLE_DUES_AMOUNT,
   SAMPLE_DUES_RATE_NOTE,
-  SAMPLE_EMAIL_DOMAIN,
+  SAMPLE_EMAIL_LIKE,
   SAMPLE_MEETING,
   SAMPLE_MEMO_PREFIX,
   SAMPLE_NOTES_PREFIX,
@@ -79,7 +79,7 @@ async function readSampleHomes(db: Db, orgId: string): Promise<SampleHomeRow[]> 
         .select('id, notes, owner_email, deleted_at')
         .eq('org_id', orgId)
         .ilike('notes', `${SAMPLE_NOTES_PREFIX}%`)
-        .ilike('owner_email', `%${SAMPLE_EMAIL_DOMAIN}`)
+        .ilike('owner_email', SAMPLE_EMAIL_LIKE)
         .order('id')
         .range(from, to),
     (error) => Object.assign(new Error('sample homes read failed'), { code: error.code }),
@@ -510,7 +510,7 @@ export async function removeSampleCommunity(db: Db, orgId: string): Promise<Remo
         .delete()
         .eq('organization_id', orgId)
         .in('unit_id', ids)
-        .ilike('owner_email', `%${SAMPLE_EMAIL_DOMAIN}`)
+        .ilike('owner_email', SAMPLE_EMAIL_LIKE)
       if (owners.error) throw Object.assign(new Error('owners delete failed'), { code: owners.error.code })
     }
 
@@ -536,7 +536,7 @@ export async function removeSampleCommunity(db: Db, orgId: string): Promise<Remo
         .eq('org_id', orgId)
         .in('id', ids)
         .ilike('notes', `${SAMPLE_NOTES_PREFIX}%`)
-        .ilike('owner_email', `%${SAMPLE_EMAIL_DOMAIN}`)
+        .ilike('owner_email', SAMPLE_EMAIL_LIKE)
       if (p.error) throw Object.assign(new Error('homes delete failed'), { code: p.error.code })
     }
 

@@ -75,7 +75,7 @@ describe('/api/inngest', () => {
         .filter(([name]) => name.endsWith('Job') && !name.startsWith('create'))
         .map(([, fn]) => fn)
       for (const fn of exported) expect(opts.functions).toContain(fn)
-      expect(opts.functions.length).toBe(exported.length + 10)
+      expect(opts.functions.length).toBe(exported.length + 11)
       expect(ids).toContain('ai-spend-alert')
       expect(ids).toContain('weekly-analytics')
       expect(ids).toContain('billing-band-sync')
@@ -84,6 +84,7 @@ describe('/api/inngest', () => {
       expect(ids).toContain('monthly-board-report')
       expect(ids).toContain('vendor-coi-reminders')
       expect(ids).toContain('communications-scheduled-dispatch')
+      expect(ids).toContain('poll-results-email')
     } finally {
       vi.doUnmock('inngest/next')
     }

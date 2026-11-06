@@ -1,16 +1,15 @@
 /**
  * BL-111: inbound STOP / START / HELP from residents' phones.
  *
- * Vonage posts every text a resident sends to our number to
- * /api/webhooks/vonage/inbound (behind SMS_INBOUND_ENABLED). This module
+ * Twilio posts every text a resident sends to our Messaging Service to
+ * /api/webhooks/twilio/inbound (behind SMS_INBOUND_ENABLED). This module
  * is that route's logic, testable with fakes:
  *
- *   - verifyVonageSignedWebhook: Vonage "signed webhooks" — an
- *     `Authorization: Bearer <JWT>` signed HS256 with the account's
- *     signature secret, whose `payload_hash` claim is the SHA-256 of the
- *     exact body. Unsigned or mismatched requests are refused.
+ *   - verifyTwilioSignature: X-Twilio-Signature (HMAC-SHA1 of the public
+ *     URL plus the sorted form fields, keyed by the Auth Token).
+ *     Unsigned or mismatched requests are refused.
  *   - classifyKeyword: carrier-standard keywords. STOP-family stops, START
- *     restarts, HELP is answered by Vonage's own keyword config (we send
+ *     restarts, HELP is answered by Twilio's Advanced Opt-Out (we send
  *     nothing).
  *   - applyStop / applyStart: map the sender (E.164 → SHA-256) to
  *     residents through the consent ledger. Consent rows are the only
@@ -30,7 +29,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
 import { checkWrite } from '@/lib/api/db'
-import { SMS_CONSENT_GRANTED, SMS_CONSENT_REVOKED, sha256Hex } from './sms-consent'
+import { SMS_CONSENT_GRANTED, SMS_CONSENT_REVOKED } from './sms-consent'
 import { SMS_CONSENT_ENTITY, loadUserSmsConsent, phoneConsentHash } from './sms-consent-ledger'
 
 type Db = SupabaseClient<Database>
@@ -66,63 +65,35 @@ export function classifyKeyword(text: string | null | undefined): InboundKeyword
 
 // ─── signature ──────────────────────────────────────────────────────
 
-/** A signed request older than this is refused (replay window). */
-export const MAX_JWT_AGE_SECONDS = 24 * 60 * 60
-const MAX_FUTURE_SKEW_SECONDS = 5 * 60
-
-function b64urlDecode(part: string): Buffer | null {
-  if (!/^[A-Za-z0-9_-]*$/.test(part)) return null
-  return Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
-}
-
 export type SignatureCheck =
   | { ok: true }
-  | { ok: false; reason: 'missing_signature' | 'invalid_signature' | 'payload_mismatch' | 'expired' }
+  | { ok: false; reason: 'missing_signature' | 'invalid_signature' }
 
 /**
- * Verify Vonage's signed-webhook JWT (HS256 over header.payload with the
- * signature secret) and that its payload_hash is the SHA-256 of `rawBody`.
- * When `apiKey` is given, the token's api_key claim must equal it.
+ * Verify Twilio's X-Twilio-Signature: base64(HMAC-SHA1(authToken, url +
+ * each POST parameter's name then value, sorted by name)), compared in
+ * constant time. `url` must be the exact public URL Twilio requested
+ * (scheme, host, path and any query string); see the route for how it is
+ * built. Twilio signs the parsed form fields, so duplicate names
+ * are ordered by value.
  */
-export function verifyVonageSignedWebhook(args: {
-  authorization: string | null
-  rawBody: string
-  secret: string
-  nowSeconds: number
-  apiKey?: string | null
+export function verifyTwilioSignature(args: {
+  signature: string | null
+  url: string
+  params: Array<[string, string]>
+  authToken: string
 }): SignatureCheck {
-  const m = /^Bearer\s+([^\s]+)$/i.exec(args.authorization?.trim() ?? '')
-  if (!m) return { ok: false, reason: 'missing_signature' }
-  const parts = m[1].split('.')
-  if (parts.length !== 3) return { ok: false, reason: 'invalid_signature' }
-  const [h, p, sig] = parts
-
-  let header: { alg?: unknown }
-  let payload: { iat?: unknown; payload_hash?: unknown; api_key?: unknown }
-  try {
-    header = JSON.parse(b64urlDecode(h)?.toString('utf8') ?? 'null') ?? {}
-    payload = JSON.parse(b64urlDecode(p)?.toString('utf8') ?? 'null') ?? {}
-  } catch {
+  const given = args.signature?.trim()
+  if (!given) return { ok: false, reason: 'missing_signature' }
+  // Sort by name, then value, so repeated names match Twilio's reference implementation.
+  const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0)
+  const sorted = [...args.params].sort((x, y) => cmp(x[0], y[0]) || cmp(x[1], y[1]))
+  let data = args.url
+  for (const [k, v] of sorted) data += k + v
+  const expected = createHmac('sha1', args.authToken).update(data, 'utf8').digest()
+  const got = Buffer.from(given, 'base64')
+  if (got.length !== expected.length || !timingSafeEqual(got, expected)) {
     return { ok: false, reason: 'invalid_signature' }
-  }
-  if (header.alg !== 'HS256') return { ok: false, reason: 'invalid_signature' }
-
-  const expected = createHmac('sha256', args.secret).update(`${h}.${p}`).digest()
-  const given = b64urlDecode(sig)
-  if (!given || given.length !== expected.length || !timingSafeEqual(given, expected)) {
-    return { ok: false, reason: 'invalid_signature' }
-  }
-
-  if (typeof payload.iat !== 'number') return { ok: false, reason: 'invalid_signature' }
-  const age = args.nowSeconds - payload.iat
-  if (age > MAX_JWT_AGE_SECONDS || age < -MAX_FUTURE_SKEW_SECONDS) return { ok: false, reason: 'expired' }
-  if (args.apiKey && payload.api_key !== args.apiKey) return { ok: false, reason: 'invalid_signature' }
-
-  if (typeof payload.payload_hash !== 'string') return { ok: false, reason: 'payload_mismatch' }
-  const bodyHash = sha256Hex(args.rawBody)
-  const claimed = payload.payload_hash.toLowerCase()
-  if (claimed.length !== bodyHash.length || !timingSafeEqual(Buffer.from(claimed), Buffer.from(bodyHash))) {
-    return { ok: false, reason: 'payload_mismatch' }
   }
   return { ok: true }
 }
@@ -149,7 +120,7 @@ async function grantsForNumber(db: Db, phoneHash: string, ctx: { messageId: stri
     .order('created_at')
     .order('id')
     .limit(500)
-  checkWrite({ error }, 'webhooks.vonage_inbound.grant_lookup', ctx)
+  checkWrite({ error }, 'webhooks.twilio_inbound.grant_lookup', ctx)
   return ((data ?? []) as GrantRow[]).filter((r) => r.org_id && r.user_id)
 }
 
@@ -176,7 +147,7 @@ async function auditExists(
     .eq('action', action)
     .contains('metadata', { message_id: messageId })
     .limit(1)
-  checkWrite({ error }, 'webhooks.vonage_inbound.audit_dedupe', ctx)
+  checkWrite({ error }, 'webhooks.twilio_inbound.audit_dedupe', ctx)
   return ((data ?? []) as unknown[]).length > 0
 }
 
@@ -200,7 +171,7 @@ async function latestConsentEvent(
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(1)
-  checkWrite({ error }, 'webhooks.vonage_inbound.start_latest', ctx)
+  checkWrite({ error }, 'webhooks.twilio_inbound.start_latest', ctx)
   return ((data ?? []) as Array<{ action: string; metadata: unknown; created_at: string | null }>)[0] ?? null
 }
 
@@ -247,7 +218,7 @@ export async function applyStop(
       .eq('user_id', userId)
       .eq('sms_opt_in', true)
       .select('id')
-    checkWrite({ error }, 'webhooks.vonage_inbound.stop_update', ctx)
+    checkWrite({ error }, 'webhooks.twilio_inbound.stop_update', ctx)
     const rows = (data ?? []) as Array<{ id: string }>
     if (rows.length > 0) changed += 1
 
@@ -260,7 +231,7 @@ export async function applyStop(
       entity_id: rows[0]?.id ?? null,
       metadata: { method: 'sms_keyword', keyword: args.keyword, message_id: args.messageId, revoked_at: at },
     })
-    checkWrite({ error: auditError }, 'webhooks.vonage_inbound.stop_audit', ctx)
+    checkWrite({ error: auditError }, 'webhooks.twilio_inbound.stop_audit', ctx)
   }
   return { matched: residents.size, changed }
 }
@@ -296,7 +267,7 @@ export async function applyStart(
       .eq('organization_id', orgId)
       .eq('user_id', userId)
       .maybeSingle()
-    checkWrite({ error: prefError }, 'webhooks.vonage_inbound.start_read', ctx)
+    checkWrite({ error: prefError }, 'webhooks.twilio_inbound.start_read', ctx)
     const pref = prefRow as { id: string; sms_opt_in: boolean } | null
     if (!pref) continue
 
@@ -305,7 +276,7 @@ export async function applyStart(
 
     if (!(await auditExists(db, orgId, userId, SMS_CONSENT_GRANTED, args.messageId, ctx))) {
       const current = await loadUserSmsConsent(db, orgId, userId)
-      if (!current.ok) checkWrite({ error: { code: 'consent_read' } }, 'webhooks.vonage_inbound.start_ledger', ctx)
+      if (!current.ok) checkWrite({ error: { code: 'consent_read' } }, 'webhooks.twilio_inbound.start_ledger', ctx)
       const covered = new Set(current.ok ? current.phones : [])
       covered.add(hash)
       const prior = (g.metadata ?? {}) as { disclosure_version?: unknown; disclosure_sha256?: unknown }
@@ -326,7 +297,7 @@ export async function applyStart(
           consented_at: at,
         },
       })
-      checkWrite({ error: auditError }, 'webhooks.vonage_inbound.start_audit', ctx)
+      checkWrite({ error: auditError }, 'webhooks.twilio_inbound.start_audit', ctx)
     }
 
     if (pref.sms_opt_in === true) continue
@@ -336,7 +307,7 @@ export async function applyStart(
       .eq('id', pref.id)
       .eq('organization_id', orgId)
       .eq('user_id', userId)
-    checkWrite({ error }, 'webhooks.vonage_inbound.start_update', ctx)
+    checkWrite({ error }, 'webhooks.twilio_inbound.start_update', ctx)
     changed += 1
   }
   return { matched: residents.size, changed }

@@ -41,6 +41,41 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-49 · Put the association name and a big button in the invite email (Supabase dashboard)
+
+**Urgency:** Soon
+
+**Why it matters:** the app now sends the association name with every invitation, so the email can say who is inviting. The email wording lives in Supabase, not in the app, so it stays plain until you paste the new wording in. Many residents are older and read this on a phone, so the button is big and the words are plain. If the name is ever missing, the email says "your community" instead of showing a gap.
+
+**Steps:**
+
+1. In Supabase, open Authentication, then Email Templates, then "Invite user".
+2. Replace the subject with this:
+
+```
+Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }} on HomeownerHub
+```
+
+3. Replace the message body with this (switch the editor to its source or HTML view first):
+
+```
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#1a1a1a;max-width:560px;margin:0 auto;padding:16px">
+  <p style="font-size:20px;font-weight:bold;margin:0 0 16px">You are invited to {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }}.</p>
+  <p style="margin:0 0 16px">HomeownerHub is where you see your dues, ask the board a question, and find your community's rules and news. There is nothing to download.</p>
+  <p style="margin:0 0 24px">Tap the button below to get in. You do not need to make a password.</p>
+  <p style="margin:0 0 24px">
+    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:20px;font-weight:bold;text-decoration:none;padding:16px 28px;min-height:48px;line-height:1.2;border-radius:8px">Open HomeownerHub</a>
+  </p>
+  <p style="margin:0 0 16px">This link works for 24 hours. If it stops working, ask your board to send a new one, or email support@homeownerledger.com and we will help.</p>
+  <p style="margin:0;font-size:17px;color:#444444">If the button does not work, copy this address into your phone's browser:<br>{{ .ConfirmationURL }}</p>
+</div>
+```
+
+4. Save, then send yourself a test invite from the Members page and open it on a phone. Check that the subject names the association and the button is easy to tap. Also test once with a name that has an apostrophe, such as O'Brien Park, to make sure the subject and greeting show it correctly.
+5. Tell Claude when it is done.
+
+**Files:** `apps/hoa/src/lib/invite-data.ts`
+
 ### OA-46 · Turn on house pictures (Google Street View key)
 
 **Urgency:** Soon
@@ -51,15 +86,16 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 1. Go to console.cloud.google.com and sign in with the Google account that should own billing. Create a project, for example "HomeownerHub".
 2. In that project open APIs & Services, then Library. Search for "Street View Static API" and click Enable. Billing must be turned on for the project.
-3. Open APIs & Services, then Credentials. Click Create credentials, then API key.
-4. Click Edit on the new key. Under API restrictions choose "Restrict key" and tick only "Street View Static API". Leave the application restriction on "None": this is a server key, so a website (referrer) restriction would block it. If you want, add Vercel's IP addresses under IP addresses; skip this if unsure.
-5. Open Billing, then Budgets & alerts. Create a budget (for example $20 a month) with email alerts at 50%, 90% and 100%. A budget only sends an email; it does not stop spending.
-6. Set a daily limit, which is the real cap on cost. In APIs & Services, open "Street View Static API", then the Quotas & System Limits tab. Find the daily requests limit ("Requests per day"), click Edit quota, and enter a number you are happy to pay for in a day (for example 500). Google stops answering once the limit is reached, and the app then simply shows the house icon.
-7. Vercel dashboard, project home-owner-hub-hoa, Settings, Environment Variables. Add `GOOGLE_MAPS_API_KEY` with the key as its value, for Production only. Redeploy when Vercel offers it.
-8. Optional: for signed requests, on the same Google page create a URL signing secret and add it as `GOOGLE_MAPS_URL_SIGNING_SECRET` in the same place.
-9. Tell Claude when it's done. Never paste the key into a file in this repo or into a chat.
+3. Still in Library, search for "Geocoding API" and click Enable. The app uses it to find the exact spot of the house so the picture faces the front of the home instead of the street or a neighbour. Until it is enabled, pictures keep working the old way (they just may face the wrong direction).
+4. Open APIs & Services, then Credentials. Click Create credentials, then API key.
+5. Click Edit on the new key. Under API restrictions choose "Restrict key" and tick "Street View Static API" and "Geocoding API". Leave the application restriction on "None": this is a server key, so a website (referrer) restriction would block it. If you want, add Vercel's IP addresses under IP addresses; skip this if unsure. If you made the key earlier, edit it and tick Geocoding API too.
+6. Open Billing, then Budgets & alerts. Create a budget (for example $20 a month) with email alerts at 50%, 90% and 100%. A budget only sends an email; it does not stop spending.
+7. Set a daily limit, which is the real cap on cost. In APIs & Services, open "Street View Static API", then the Quotas & System Limits tab. Find the daily requests limit ("Requests per day"), click Edit quota, and enter a number you are happy to pay for in a day (for example 500). Google stops answering once the limit is reached, and the app then simply shows the house icon. Do the same for "Geocoding API": open it, Quotas & System Limits, and set a "Requests per day" cap (for example 500).
+8. Vercel dashboard, project home-owner-hub-hoa, Settings, Environment Variables. Add `GOOGLE_MAPS_API_KEY` with the key as its value, for Production only. Redeploy when Vercel offers it.
+9. Optional: for signed requests, on the same Google page create a URL signing secret and add it as `GOOGLE_MAPS_URL_SIGNING_SECRET` in the same place.
+10. Tell Claude when it's done. Never paste the key into a file in this repo or into a chat.
 
-**Cost:** the coverage check Google runs first is free. Each picture is billed per 1,000 after Google's monthly free allowance (check the current amount on the Google Maps Platform pricing page). The app tells the browser to keep each picture for a day, so reopening a property does not ask Google again. Pictures are never stored on our side, which is what Google's terms require.
+**Cost:** the coverage check Google runs first is free. The Geocoding API is billed per request (check the Google Maps Platform pricing page), at most once per home per browser per day. Each picture is billed per 1,000 after Google's monthly free allowance (check the current amount on the Google Maps Platform pricing page). The app tells the browser to keep each picture for a day, so reopening a property does not ask Google again. Pictures are never stored on our side, which is what Google's terms require.
 
 ### OA-47 · Check Supabase's "Max rows" and tell the app (saves a database call on small reads)
 
@@ -140,20 +176,25 @@ Set it on the home-owner-hub-hoa project itself, not as a team-level shared vari
 
 **Files:** `docs/specs/2026-10-19-domain-split.md`
 
-### OA-11 · Decide on text messages (Vonage and 10DLC)
-
-**Progress 2026-10-30:** Asaf chose "yes, start Vonage". Sign-up at dashboard.nexmo.com is blocked with "Issue With Your Account" (Vonage fraud screening). Asaf sent Vonage support an unlock request on 2026-10-30. The app needs `VONAGE_API_KEY`, `VONAGE_API_SECRET`, `VONAGE_FROM_NUMBER` and `VONAGE_SIGNATURE_SECRET`.
+### OA-50 · Turn on text messages with Twilio (replaces OA-11, OA-23, OA-27)
 
 **Urgency:** Whenever
 
-**Why it matters:** only needed if you want the app to send SMS. US carriers
-require a 10DLC registration before business texts are delivered.
+**Why it matters:** Vonage refused the account for good on 2026-11-05, so texting moves to Twilio (decided 2026-11-06). The app code is switched to Twilio and stays off until the steps below are done. With it, boards can text residents, replying STOP or START is recorded in HomeownerHub, and each text shows "delivered" or "not delivered".
 
-**Steps:**
+**Found 2026-11-06:** Vercel production already has `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM_NUMBER` from about 165 days ago, so a Twilio account may already exist. Sign in to that one rather than opening a second.
 
-1. Tell Claude whether texting is wanted.
-2. If yes: create the Vonage account, start the 10DLC brand and campaign registration, and add the Vonage keys as Vercel production environment variables.
-3. In Vonage, set a HELP auto-reply on the number or campaign (for example "HomeownerHub alerts for your HOA. Reply STOP to stop. Help: support@homeownerledger.com"). Residents' consent wording promises HELP works.
+**Steps (Claude walks you through each screen):**
+
+1. **EIN for Hamo Earny LLC.** The IRS online tool answered "reference 101", which usually means the LLC already has one. Look in the Northwest Registered Agent account and email for "CP 575", or call 1-800-829-4933 and ask for the number and a 147C letter.
+2. **Twilio account.** Sign in (or sign up) at twilio.com and upgrade it with a card.
+3. **A2P 10DLC registration.** Register the brand as a Low Volume Standard brand: legal name `Hamo Earny LLC`, the EIN, brand name `HomeownerHub`, and the address the IRS has. Then register one campaign for HOA account notifications. Expect about $4.50 + $15 one-time and a small monthly campaign fee; approval can take several business days.
+4. **Number and Messaging Service.** Buy one local number. Create a Messaging Service, put the number in its Sender Pool, and attach the approved campaign.
+5. **Messaging Service settings.** Integration → "Send a webhook" → `https://www.homeownerledger.com/api/webhooks/twilio/inbound` (HTTP POST). Opt-Out Management → turn on Advanced Opt-Out, keep STOP / START / HELP, and set the HELP reply, for example "HomeownerHub alerts for your HOA. Reply STOP to stop. Help: support@homeownerledger.com".
+6. **Vercel (project home-owner-hub-hoa, Production).** Check `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` hold this account's values, and add `TWILIO_MESSAGING_SERVICE_SID` (starts with `MG`). `TWILIO_FROM_NUMBER` is no longer used. Then set `SMS_INBOUND_ENABLED=true` and `SMS_STATUS_WEBHOOK_ENABLED=true`, and redeploy.
+7. Tell Claude. Claude checks `NEXT_PUBLIC_APP_URL` matches the webhook address above, then tests a text, STOP and START with you.
+
+**Files:** `apps/hoa/src/lib/sms.ts`, `docs/specs/2026-10-20-sms-inbound.md`, `docs/specs/2026-10-21-sms-delivery-receipts.md`
 
 ### OA-15 · Fill in the investor deck's traction numbers
 
@@ -170,38 +211,19 @@ prices; review it before pitching.
 1. Open `~/HomeownerHub-decks/HomeownerHub-Investor-Deck.pptx` on your Mac (it is not in the repo).
 2. Send Claude the real traction numbers, or tell Claude to remove the traction slide. Claude rebuilds the deck.
 
-### OA-23 · Let residents text STOP and START (Vonage setup)
-
-**Urgency:** Whenever
-
-**Why it matters:** do this together with OA-11 if you turn texting on. Residents can already stop texts in their portal. With this, replying STOP to a text also records the opt-out in HomeownerHub, and START turns texts back on, as US texting rules expect. The code is built but off until Vonage is set up.
-
-**Steps:**
-
-1. In the Vonage dashboard → Settings → API settings → SMS settings, switch to **Messages API**. Sending isn't affected.
-2. Copy Settings → **Signature secret** into the Vercel production env var `VONAGE_SIGNATURE_SECRET`.
-3. Create an Application with the Messages capability. Set its Inbound URL to `https://www.homeownerledger.com/api/webhooks/vonage/inbound` (POST), and link the sending number to it.
-4. Make sure the HELP and STOP auto-replies in the 10DLC campaign name the program and give a contact.
-5. Set `SMS_INBOUND_ENABLED=true` in Vercel production and tell Claude. Claude redeploys and tests STOP/START with you.
-
-**Files:** `docs/specs/2026-10-20-sms-inbound.md`
-
-### OA-27 · Show "delivered" on texts (Vonage delivery receipts)
-
-**Urgency:** Whenever
-
-**Why it matters:** today a text message only ever shows as "sent", never "delivered" or "not delivered". The app can now take Vonage's delivery receipts and mark each text as delivered, or as failed with the reason. The code is built but off. Texts now go through Vonage's Messages API (BL-146b) with your existing key and secret, so no new keys are needed and receipts can be matched once this is on.
-
-**Steps:**
-
-1. Do OA-23 first, or at least its steps 1 to 3: the Messages API setting, the signature secret in `VONAGE_SIGNATURE_SECRET`, and the Application.
-2. In that Vonage Application, set the **Status URL** to `https://www.homeownerledger.com/api/webhooks/vonage/status` (POST). Save.
-3. Also in the Vonage dashboard → **API Settings** → Messages API, set the account-level **Status URL** to the same address (POST). Save. Texts are sent with the key and secret, not the Application, so this is where Vonage sends their receipts.
-4. Set `SMS_STATUS_WEBHOOK_ENABLED=true` in Vercel production, then tell Claude. Claude redeploys and checks one test text shows "delivered".
-
-**Files:** `docs/specs/2026-10-21-sms-delivery-receipts.md`
-
 ## Done
+
+### OA-11 · Texting through Vonage · Closed 2026-11-06
+
+Vonage support (request #3167688) refused to activate the account on 2026-11-05 under its Acceptable Use Policy, with no appeal. Texting, STOP/START replies and delivery receipts move to Twilio in OA-50.
+
+### OA-23 · Texting through Vonage · Closed 2026-11-06
+
+Vonage support (request #3167688) refused to activate the account on 2026-11-05 under its Acceptable Use Policy, with no appeal. Texting, STOP/START replies and delivery receipts move to Twilio in OA-50.
+
+### OA-27 · Texting through Vonage · Closed 2026-11-06
+
+Vonage support (request #3167688) refused to activate the account on 2026-11-05 under its Acceptable Use Policy, with no appeal. Texting, STOP/START replies and delivery receipts move to Twilio in OA-50.
 
 ### OA-45 · Apply database update 0082 (money integrity) · Done 2026-11-05
 

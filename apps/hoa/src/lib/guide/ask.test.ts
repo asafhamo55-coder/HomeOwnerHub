@@ -27,7 +27,7 @@ describe('askGuide', () => {
 
   it('refuses a question the guide does not cover BEFORE calling the model', async () => {
     const complete = vi.fn(answering)
-    const r = await askGuide('Can residents book the clubhouse for a party?', { role: 'admin' }, complete)
+    const r = await askGuide('Can residents hire a snow plow through the app?', { role: 'admin' }, complete)
     expect(r.kind).toBe('not_covered')
     expect(complete).not.toHaveBeenCalled()
     expect(r.meta.modelCalled).toBe(false)

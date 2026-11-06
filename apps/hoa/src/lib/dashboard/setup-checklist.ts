@@ -302,7 +302,8 @@ async function paymentsConfigured(db: Db, orgId: string): Promise<number | null>
     }
     const row = data as { id: string; compliance_settings: unknown } | null
     if (!row) return 0
-    return readZelleSettings(row.id, row.compliance_settings, paySettingsSecret()).state === 'configured' ? 1 : 0
+    const state = readZelleSettings(row.id, row.compliance_settings, paySettingsSecret()).state
+    return state === 'configured' || state === 'checks_only' ? 1 : 0
   } catch (err) {
     logFailed('payments read', orgId, err instanceof Error ? err.name : undefined)
     return null

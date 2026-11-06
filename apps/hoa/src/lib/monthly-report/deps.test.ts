@@ -16,7 +16,7 @@ vi.mock('resend', () => ({
 }))
 
 const BLOCKED = 'chair@gmail.com'
-const ALLOWED = 'treasurer@example.test'
+const ALLOWED = 'treasurer@staging-hoa.com'
 
 async function freshDeps() {
   vi.resetModules()
@@ -53,7 +53,7 @@ describe('monthlyReportDeps — the guarded sender the job is registered with', 
     send.mockReset()
     send.mockResolvedValue({ data: { id: 'msg_1' }, error: null })
     vi.stubEnv('RESEND_API_KEY', 'test-key')
-    vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@example.test>')
+    vi.stubEnv('EMAIL_FROM', 'HomeownerHub <noreply@staging-hoa.com>')
     vi.stubEnv('OUTBOUND_ALLOWLIST', ALLOWED)
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })

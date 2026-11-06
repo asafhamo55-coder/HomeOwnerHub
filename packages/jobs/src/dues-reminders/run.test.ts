@@ -27,7 +27,7 @@ const SECRET = 's3cret'
 // 2026-10-06 10:00 EDT — +5 for a 2026-10-01 due date.
 const NOW = new Date('2026-10-06T14:00:00Z')
 const RESIDENT = 'owner@gmail.com'
-const ALLOWED = 'treasurer@example.test'
+const ALLOWED = 'treasurer@staging-hoa.com'
 
 afterEach(() => {
   vi.unstubAllEnvs()

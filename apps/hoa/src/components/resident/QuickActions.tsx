@@ -90,12 +90,12 @@ function ActionTile({
   return (
     <Link
       href={href}
-      className="relative flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 no-underline transition-colors duration-fast hover:border-border-strong hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="relative flex min-h-12 flex-col gap-3 rounded-xl border border-border bg-surface p-4 no-underline transition-colors duration-fast hover:border-border-strong hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <IconTile icon={icon} tone={tone} />
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-foreground">{label}</span>
-        <span className="mt-0.5 block truncate text-xs text-muted">{hint}</span>
+        <span className="block text-base font-semibold text-foreground">{label}</span>
+        <span className="mt-0.5 block text-sm text-muted">{hint}</span>
       </span>
       {badge ? (
         <span className="absolute right-3 top-3">

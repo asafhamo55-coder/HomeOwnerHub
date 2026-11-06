@@ -152,7 +152,7 @@ const CHANNEL_COPY: Record<(typeof CHANNELS)[number], { label: string; hint: str
   portal: { label: 'Portal', hint: "Shows in the resident's in-app inbox" },
 }
 
-/** Shown on the Text option when Vonage isn't configured (BL-102). */
+/** Shown on the Text option when Twilio isn't configured (BL-102). */
 export const SMS_NOT_SET_UP = 'Texting isn’t set up yet.'
 
 const STEPS = [
@@ -204,7 +204,7 @@ export function NewCommunicationWizard({
    */
   prefillFrom?: typeof BUDGET_NOTICE_FROM | typeof HEARING_NOTICE_FROM | typeof RATE_NOTICE_FROM | typeof HO6_NOTICE_FROM | typeof ANNUAL_REPORT_FROM | null
   /**
-   * BL-102: false when the Vonage keys are missing (lib/sms.ts
+   * BL-102: false when the Twilio keys are missing (lib/sms.ts
    * smsConfigured). The Text channel is then disabled with "Texting isn't
    * set up yet", instead of offering a send that can't go out.
    */

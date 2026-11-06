@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   sandbox: false,
   inviteErrors: {} as Record<string, { message?: string; code?: string; status?: number }>,
   invited: [] as string[],
+  inviteOpts: [] as unknown[],
   memberRole: 'resident' as string | null,
   authUser: { email: 'p@x.com', email_confirmed_at: null, last_sign_in_at: null } as Record<string, unknown> | null,
   hereMember: false,
@@ -41,7 +42,7 @@ vi.mock('@/lib/owner-invites', async (orig) => ({
 
 function chain(log: unknown[][], table: string, result: () => unknown) {
   const b: Record<string, unknown> = {}
-  for (const op of ['select', 'eq', 'is', 'ilike', 'limit', 'update', 'delete', 'upsert', 'insert']) {
+  for (const op of ['select', 'eq', 'is', 'ilike', 'order', 'limit', 'update', 'delete', 'upsert', 'insert']) {
     b[op] = (...a: unknown[]) => (log.push([table, op, ...a]), b)
   }
   b.maybeSingle = async () => result()
@@ -66,11 +67,14 @@ vi.mock('@homeowner-portal/db', () => ({
           return { data: h.memberRole ? { role: h.memberRole } : null, error: null }
         }
         if (t === 'profiles') return { data: [{ id: 'existing-user' }], error: null }
+        if (t === 'associations') return { data: [{ name: 'Madison Park' }], error: null }
+        if (t === 'orgs') return { data: { name: 'Madison Park HOA' }, error: null }
         return { data: null, error: null }
       }),
     auth: {
       admin: {
-        inviteUserByEmail: vi.fn(async (email: string) => {
+        inviteUserByEmail: vi.fn(async (email: string, opts?: unknown) => {
+          h.inviteOpts.push(opts)
           const err = h.inviteErrors[email]
           if (err) return { data: { user: null }, error: err }
           h.invited.push(email)
@@ -88,7 +92,7 @@ import { createAdminClient } from '@homeowner-portal/db'
 import { INVITE_BATCH } from './owner-invites'
 import { inviteAllOwners, listPendingInvitations, previewOwnerInvites, resendInvitation, revokeInvitation } from './owner-invites-actions'
 
-const owner = (i: number, domain = 'example.com') => ({ email: `o${i}@${domain}`, name: null, unitIds: [`u${i}`, `v${i}`] })
+const owner = (i: number, domain = 'acme-hoa.com') => ({ email: `o${i}@${domain}`, name: null, unitIds: [`u${i}`, `v${i}`] })
 const P1 = '11111111-1111-4111-8111-111111111111'
 const savedEnv = { ...process.env }
 
@@ -101,6 +105,7 @@ beforeEach(() => {
   h.sandbox = false
   h.inviteErrors = {}
   h.invited = []
+  h.inviteOpts = []
   h.memberRole = 'resident'
   h.authUser = { email: 'p@x.com', email_confirmed_at: null, last_sign_in_at: null }
   h.hereMember = false
@@ -135,7 +140,9 @@ describe('inviteAllOwners', () => {
   it('sends the confirmed batch, links every home, audits counts only', async () => {
     const r = await inviteAllOwners(2)
     expect(r).toEqual({ ok: true, data: { invited: 2, failed: 0, held: 0, remaining: 0, rateLimited: false } })
-    expect(h.invited).toEqual(['o1@example.com', 'o2@example.com'])
+    expect(h.invited).toEqual(['o1@acme-hoa.com', 'o2@acme-hoa.com'])
+    // The email's subject and greeting read these from the invite data.
+    expect(h.inviteOpts[0]).toMatchObject({ data: { org_name: 'Madison Park HOA', association_name: 'Madison Park' } })
     expect(h.linked).toHaveLength(4)
     const memberInserts = h.userCalls.filter((c) => c[0] === 'org_members' && c[1] === 'insert')
     expect(memberInserts.map((c) => (c[2] as { role: string }).role)).toEqual(['resident', 'resident'])
@@ -151,13 +158,13 @@ describe('inviteAllOwners', () => {
 
   it('the outbound guard holds back non-allowlisted owners outside production', async () => {
     process.env.VERCEL_ENV = 'preview'
-    process.env.OUTBOUND_ALLOWLIST = '@team.test'
-    h.owners = [owner(1), owner(2, 'team.test')]
+    process.env.OUTBOUND_ALLOWLIST = '@team-hoa.com'
+    h.owners = [owner(1), owner(2, 'team-hoa.com')]
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const r = await inviteAllOwners(1)
     spy.mockRestore()
     expect(r).toMatchObject({ ok: true, data: { invited: 1, held: 1 } })
-    expect(h.invited).toEqual(['o2@team.test'])
+    expect(h.invited).toEqual(['o2@team-hoa.com'])
   })
 
   it('a sandboxed org sends nothing', async () => {
@@ -173,25 +180,25 @@ describe('inviteAllOwners', () => {
 
   it(`sends at most ${INVITE_BATCH} a click and stops at the first rate limit`, async () => {
     h.owners = Array.from({ length: INVITE_BATCH + 5 }, (_, i) => owner(i))
-    h.inviteErrors['o3@example.com'] = { status: 429, message: 'email rate limit exceeded' }
+    h.inviteErrors['o3@acme-hoa.com'] = { status: 429, message: 'email rate limit exceeded' }
     const r = await inviteAllOwners(INVITE_BATCH)
     expect(r).toMatchObject({ ok: true, data: { invited: 3, rateLimited: true, remaining: 5 + INVITE_BATCH - 3 } })
     expect(h.invited).toHaveLength(3)
   })
 
   it('SEC-N4: a confirmed account elsewhere is not attached, and is reported as invited like everyone else', async () => {
-    h.inviteErrors['o1@example.com'] = { code: 'email_exists', message: 'already been registered' }
+    h.inviteErrors['o1@acme-hoa.com'] = { code: 'email_exists', message: 'already been registered' }
     const r = await inviteAllOwners(2)
     expect(r).toEqual({ ok: true, data: { invited: 2, failed: 0, held: 0, remaining: 0, rateLimited: false } })
     expect(JSON.stringify(r)).not.toMatch(/linked/)
     const memberInserts = h.userCalls.filter((c) => c[0] === 'org_members' && c[1] === 'insert')
-    expect(memberInserts.map((c) => (c[2] as { user_id: string }).user_id)).toEqual(['user-o2@example.com'])
-    expect(h.linked.map((l) => (l as { userId: string }).userId)).toEqual(['user-o2@example.com', 'user-o2@example.com'])
+    expect(memberInserts.map((c) => (c[2] as { user_id: string }).user_id)).toEqual(['user-o2@acme-hoa.com'])
+    expect(h.linked.map((l) => (l as { userId: string }).userId)).toEqual(['user-o2@acme-hoa.com', 'user-o2@acme-hoa.com'])
     expect(h.adminCalls.some((c) => c[0] === 'profiles' && c[1] === 'upsert' && (c[2] as { id: string }).id === 'existing-user')).toBe(false)
   })
 
   it('SEC-N4: a confirmed account that is already a member here gets its homes linked (same uniform count)', async () => {
-    h.inviteErrors['o1@example.com'] = { code: 'email_exists', message: 'already been registered' }
+    h.inviteErrors['o1@acme-hoa.com'] = { code: 'email_exists', message: 'already been registered' }
     h.hereMember = true
     const r = await inviteAllOwners(2)
     expect(r).toMatchObject({ ok: true, data: { invited: 2, failed: 0 } })
@@ -199,10 +206,10 @@ describe('inviteAllOwners', () => {
   })
 
   it('SEC-N1: a new account gets its profile written; a pre-existing (unconfirmed) one is left untouched', async () => {
-    h.preExisting['o1@example.com'] = true
+    h.preExisting['o1@acme-hoa.com'] = true
     await inviteAllOwners(2)
     const upserts = h.adminCalls.filter((c) => c[0] === 'profiles' && c[1] === 'upsert').map((c) => (c[2] as { id: string }).id)
-    expect(upserts).toEqual(['user-o2@example.com'])
+    expect(upserts).toEqual(['user-o2@acme-hoa.com'])
   })
 })
 

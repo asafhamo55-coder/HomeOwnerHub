@@ -11,6 +11,7 @@ vi.mock('@homeowner-portal/workflows/W1', () => W1)
 vi.mock('@homeowner-portal/ai', async (orig) => ({ ...(await orig<object>()), resolveModel: () => 'test-model' }))
 
 const { RESIDENT_TOOLS } = await import('./tools')
+const { signZelleSettings } = await import('@/lib/pay-by-zelle')
 const { TOOLS: BOARD_TOOLS } = await import('@/lib/community-qa/tools')
 
 const ORG = 'org-1'
@@ -253,5 +254,43 @@ describe('docs, guide and hand-offs', () => {
   it('the resident tool budget caps calls per step, per run, docs searches and state-law questions', async () => {
     const { RESIDENT_TOOL_BUDGET } = await import('./tools')
     expect(RESIDENT_TOOL_BUDGET).toEqual({ perStep: 4, perRun: 6, perTool: { search_governing_docs: 2, state_law: 1 } })
+  })
+})
+
+describe('my_account howToPay with checks', () => {
+  const ASSOC = '11111111-1111-4111-8111-111111111111'
+  const SECRET = 'assistant-test-secret'
+  const withAssoc = () => {
+    const c = ctx()
+    c.scope.units = [{ ...c.scope.units[0]!, association_id: ASSOC } as never]
+    return c
+  }
+  const howToPay = async (settings: unknown) => {
+    process.env.PAY_SETTINGS_SECRET = SECRET
+    TABLES.associations = [{ id: ASSOC, compliance_settings: settings }]
+    const r = (await tool('my_account').execute({}, withAssoc())) as { howToPay: Record<string, unknown> }
+    TABLES.associations = []
+    return r
+  }
+  const stored = (input: Parameters<typeof signZelleSettings>[1]) => ({
+    pay_by_zelle: signZelleSettings(ASSOC, input, SECRET, '2026-11-06T00:00:00.000Z'),
+  })
+  const checks = { payableTo: 'PAYEE-SECRET', mailTo: 'ADDRESS-SECRET', dropOff: null }
+
+  it('checks only: checkSetUp true, Zelle false, and the payee and address never reach the model', async () => {
+    const r = await howToPay(stored({ recipient: null, recipientName: null, instructions: null, checks }))
+    expect(r.howToPay).toMatchObject({ zelleSetUp: false, checkSetUp: true, payPage: '/resident/dues/pay' })
+    expect(JSON.stringify(r)).not.toContain('PAYEE-SECRET')
+    expect(JSON.stringify(r)).not.toContain('ADDRESS-SECRET')
+  })
+
+  it('Zelle only, and tampered or empty settings', async () => {
+    const z = await howToPay(stored({ recipient: 'pay@maple.example', recipientName: null, instructions: null }))
+    expect(z.howToPay).toMatchObject({ zelleSetUp: true, checkSetUp: false })
+    expect(JSON.stringify(z)).not.toContain('pay@maple.example')
+    const tampered = stored({ recipient: null, recipientName: null, instructions: null, checks })
+    ;(tampered.pay_by_zelle as { check_payable_to: string }).check_payable_to = 'Mallory'
+    expect((await howToPay(tampered)).howToPay).toMatchObject({ zelleSetUp: false, checkSetUp: false })
+    expect((await howToPay({})).howToPay).toMatchObject({ zelleSetUp: false, checkSetUp: false })
   })
 })

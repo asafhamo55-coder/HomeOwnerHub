@@ -34,6 +34,7 @@ import { VIOLATION_STATUSES, type ViolationStatus } from '@/lib/violation-status
 import { VIOLATION_SEVERITY, VIOLATION_STATUS } from '@/lib/status/community'
 import { ViolationStatusEditor } from './ViolationStatusEditor'
 import { ViolationActions } from './ViolationActions'
+import { PrintNoticeLink } from './PrintNoticeLink'
 import { CureCommitmentCard } from './CureCommitmentCard'
 import { FollowUpLetterDialog } from './FollowUpLetterDialog'
 import { FOLLOW_UP_AWAITING_SAVE_PATH, followUpLabel, followUpOfRunInput } from '@/lib/violation-follow-up'
@@ -422,9 +423,14 @@ export default async function ViolationDetailPage({
             </CardHeader>
             <CardContent>
               {v.approved_letter ? (
-                <div className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-subtle p-4 text-sm leading-relaxed text-foreground">
-                  {v.approved_letter}
-                </div>
+                <>
+                  <div className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-subtle p-4 text-sm leading-relaxed text-foreground">
+                    {v.approved_letter}
+                  </div>
+                  <div className="mt-4">
+                    <PrintNoticeLink violationId={v.id} />
+                  </div>
+                </>
               ) : (
                 <p className="text-sm text-muted">
                   No approved letter on file. Violations reported before the notice wizard, or still awaiting

@@ -9,6 +9,7 @@ import {
   isWithinFirstWeeks,
   recordResidentVisit,
 } from '@/lib/guide/first-week'
+import { WELCOME_DISMISSED_EVENT, shouldShowWelcome } from '@/lib/resident-welcome'
 import { FirstWeekCard } from './FirstWeekCard'
 
 /**
@@ -55,12 +56,19 @@ export function BoardFirstWeek({
  */
 export function ResidentFirstWeek({ scope }: { scope: string }) {
   const [show, setShow] = useState(false)
+  // The welcome card goes first: until it is dismissed, this one stays hidden.
+  const [welcomePending, setWelcomePending] = useState(true)
 
   useEffect(() => {
-    setShow(recordResidentVisit(browserStorage(), scope, Date.now()).show)
+    const storage = browserStorage()
+    setShow(recordResidentVisit(storage, scope, Date.now()).show)
+    setWelcomePending(shouldShowWelcome(storage, scope))
+    const onDismissed = () => setWelcomePending(false)
+    window.addEventListener(WELCOME_DISMISSED_EVENT, onDismissed)
+    return () => window.removeEventListener(WELCOME_DISMISSED_EVENT, onDismissed)
   }, [scope])
 
-  if (!show) return null
+  if (!show || welcomePending) return null
   return (
     <FirstWeekCard
       variant="resident"

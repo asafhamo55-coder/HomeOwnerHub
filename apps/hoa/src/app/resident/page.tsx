@@ -43,6 +43,7 @@ import { BoardContactsCard } from '@/components/resident/BoardContactsCard'
 import { readBoardContacts, type BoardContact } from '@/lib/association-contacts'
 import { residentCalendarHref } from '@/lib/meetings/resident-calendar-link'
 import { LatestAnnouncementCard } from '@/components/resident/LatestAnnouncementCard'
+import { ResidentWelcome } from '@/components/resident/WelcomeCard'
 import { QuickActions } from '@/components/resident/QuickActions'
 import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 import { formatShortDate } from '@/lib/format-datetime'
@@ -100,10 +101,9 @@ export default async function ResidentDashboard() {
         <Panel className="flex flex-col items-center gap-3 py-10 text-center">
           <IconTile icon={<Home />} size="lg" />
           <div className="space-y-1">
-            <p className="text-base font-semibold text-foreground">No home linked to your account yet</p>
-            <p className="mx-auto max-w-sm text-sm text-muted">
-              Your community manager hasn&apos;t linked this account to a unit. Reach out to them and
-              the rest of your portal will light up.
+            <p className="text-lg font-semibold text-foreground">No home linked to your account yet</p>
+            <p className="mx-auto max-w-sm text-base text-muted">
+              Your community manager has not linked this account to a home yet. Ask them to, or use the button below to ask to join. Once it is linked, the rest of your portal will open up.
             </p>
           </div>
           <AskToJoinLink />
@@ -188,6 +188,9 @@ export default async function ResidentDashboard() {
           <NextMeetingCard next={nextMeeting} />
         </Section>
       ) : null}
+
+      {/* Welcome, then the home-screen helper: once each, until dismissed. */}
+      {data.orgId ? <ResidentWelcome scope={data.orgId} /> : null}
 
       {/* First visits only, until dismissed; after the account's standing, never above it. */}
       {data.orgId ? <ResidentFirstWeek scope={data.orgId} /> : null}

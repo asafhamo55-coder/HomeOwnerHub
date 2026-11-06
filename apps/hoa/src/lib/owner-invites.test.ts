@@ -16,19 +16,19 @@ describe('groupOwners', () => {
   it('one invitation per address across homes; members and bad addresses dropped', () => {
     const owners = groupOwners(
       [
-        { unit_id: 'u1', owner_email: 'Ann@Example.com ', owner_name: 'Ann' },
-        { unit_id: 'u2', owner_email: 'ann@example.com', owner_name: null },
-        { unit_id: 'u3', owner_email: 'member@example.com', owner_name: 'Member' },
+        { unit_id: 'u1', owner_email: 'Ann@acme-hoa.com ', owner_name: 'Ann' },
+        { unit_id: 'u2', owner_email: 'ann@acme-hoa.com', owner_name: null },
+        { unit_id: 'u3', owner_email: 'member@acme-hoa.com', owner_name: 'Member' },
         { unit_id: 'u4', owner_email: 'not-an-email', owner_name: 'Typo' },
         { unit_id: 'u5', owner_email: null, owner_name: 'No email' },
       ],
-      new Set(['member@example.com']),
+      new Set(['member@acme-hoa.com']),
     )
-    expect(owners).toEqual([{ email: 'ann@example.com', name: 'Ann', unitIds: ['u1', 'u2'] }])
+    expect(owners).toEqual([{ email: 'ann@acme-hoa.com', name: 'Ann', unitIds: ['u1', 'u2'] }])
   })
 })
 
-const owners = (n: number, domain = 'example.com') =>
+const owners = (n: number, domain = 'acme-hoa.com') =>
   Array.from({ length: n }, (_, i) => ({ email: `o${String(i).padStart(3, '0')}@${domain}`, name: null, unitIds: [`u${i}`] }))
 
 describe('planOwnerInvites (outbound guard + batching)', () => {
@@ -40,9 +40,9 @@ describe('planOwnerInvites (outbound guard + batching)', () => {
 
   it('outside production only allowlisted addresses are sent', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const list = [...owners(3), { email: 'me@team.test', name: null, unitIds: ['x'] }]
-    const plan = planOwnerInvites(list, { orgSandbox: false, env: { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: '@team.test' } })
-    expect(plan.batch.map((o) => o.email)).toEqual(['me@team.test'])
+    const list = [...owners(3), { email: 'me@team-hoa.com', name: null, unitIds: ['x'] }]
+    const plan = planOwnerInvites(list, { orgSandbox: false, env: { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: '@team-hoa.com' } })
+    expect(plan.batch.map((o) => o.email)).toEqual(['me@team-hoa.com'])
     expect(plan.held).toBe(3)
     // The guard's log line carries counts, never an address.
     expect(JSON.stringify(spy.mock.calls)).not.toMatch(/example\.com|team\.test/)

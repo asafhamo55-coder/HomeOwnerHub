@@ -33,7 +33,7 @@ describe('sendEmail From header', () => {
     process.env.EMAIL_FROM = ENV_FROM
     process.env.RESEND_API_KEY = 'test-key'
     // These cases pin the production transport. The outbound guard
-    // (BL-004) would block every @example.com address outside production;
+    // (BL-004) would block every @acme-hoa.com address outside production;
     // its own wiring is covered in outbound-guard-wiring.test.ts.
     vi.stubEnv('VERCEL_ENV', 'production')
   })
@@ -46,7 +46,7 @@ describe('sendEmail From header', () => {
     }
   })
 
-  const base = { to: 'r@example.com', subject: 's', html: '<p>h</p>' }
+  const base = { to: 'r@acme-hoa.com', subject: 's', html: '<p>h</p>' }
 
   it('sends as the community when senderName is supplied', async () => {
     const sendEmail = await freshSendEmail()

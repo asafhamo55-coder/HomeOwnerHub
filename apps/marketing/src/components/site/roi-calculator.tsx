@@ -113,7 +113,7 @@ function Slider({
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-valuetext={display}
-        className="mt-2 h-11 w-full cursor-pointer accent-[#4b27c9]"
+        className="mt-2 h-11 w-full cursor-pointer accent-[#6d28d9]"
       />
       {hint && <p className="text-base text-muted">{hint}</p>}
     </div>
