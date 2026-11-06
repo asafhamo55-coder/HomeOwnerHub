@@ -66,6 +66,7 @@ export function SavedReplyPicker({ threadId, disabled }: { threadId: string; dis
         Saved replies
       </Button>
       {open ? (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape handler on the list container catches keys bubbling from the reply buttons
         <ul
           id={listId}
           className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border bg-surface p-1.5"

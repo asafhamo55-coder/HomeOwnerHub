@@ -37,6 +37,7 @@ export function TicketReplyForm({ ticketId }: { ticketId: string }) {
   }
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- form-level shortcut catches keys bubbling from the fields
     <form
       ref={formRef}
       action={handleSubmit}

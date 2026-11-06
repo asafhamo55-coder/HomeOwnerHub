@@ -89,7 +89,6 @@ function parseDays(v: unknown): number | null {
 /** Control and bidi characters out, whitespace collapsed. */
 function cleanRef(v: unknown): string | null {
   if (typeof v !== 'string') return null
-  // eslint-disable-next-line no-control-regex
   const t = v.replace(/[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g, ' ').replace(/\s+/g, ' ').trim()
   return t === '' ? null : t
 }

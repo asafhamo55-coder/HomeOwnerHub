@@ -92,7 +92,6 @@ export const EMPTY_ELECTION: Election = {
 /** A name as typed: trimmed, inner whitespace collapsed; null when empty, too long or not text. */
 export function cleanName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
-  // eslint-disable-next-line no-control-regex
   const s = raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()
   if (s.length === 0 || s.length > MAX_NAME_LENGTH) return null
   return s

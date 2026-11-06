@@ -65,9 +65,9 @@ describe('colour classes resolve to real tokens', () => {
 describe('choice rows (checkbox / radio / switch)', () => {
   it('lift the whole row to 44px on touch and stretch the label hit area', () => {
     for (const el of [
-      <Checkbox label="Send copy" />,
-      <Radio label="Email" name="x" />,
-      <Switch label="Alerts" />,
+      <Checkbox key="c" label="Send copy" />,
+      <Radio key="r" label="Email" name="x" />,
+      <Switch key="s" label="Alerts" />,
     ]) {
       const m = html(el)
       expect(m).toMatch(/coarse:min-h-11/)

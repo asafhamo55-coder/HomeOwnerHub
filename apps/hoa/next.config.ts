@@ -71,6 +71,8 @@ const SECURITY_HEADERS = [
 ]
 
 const config: NextConfig = {
+  // CI runs `pnpm --filter hoa lint` as its own gate; a lint error must not block a deploy.
+  eslint: { ignoreDuringBuilds: true },
   // next build's type check reads tsconfig.build.json: the same compiler
   // options and every shipped source file, minus *.test.ts(x). Tests never
   // ship, and `pnpm typecheck` (tsconfig.json) still checks all of them in

@@ -57,6 +57,7 @@ export default function WelcomePage() {
       <div className="mt-6">
         {/* Phones get the vertical cut, wide screens the landscape cut. The hidden one never downloads (preload none).
             The words on screen are open captions, so there is no caption track. */}
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption -- open captions burned in */}
         <video
           className="mx-auto w-full max-w-sm rounded-2xl bg-black md:hidden"
           controls
@@ -67,6 +68,7 @@ export default function WelcomePage() {
         >
           <source src="/welcome/welcome.mp4" type="video/mp4" />
         </video>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption -- open captions burned in */}
         <video
           className="hidden w-full rounded-2xl bg-black md:block"
           controls

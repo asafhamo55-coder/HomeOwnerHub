@@ -94,7 +94,7 @@ export function PhotoPicker({
               {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL, not a remote asset */}
               <img
                 src={previews[i]}
-                alt={file.name}
+                alt={`Attachment ${i + 1}`}
                 className="h-20 w-20 rounded-md border border-border object-cover"
               />
               <button

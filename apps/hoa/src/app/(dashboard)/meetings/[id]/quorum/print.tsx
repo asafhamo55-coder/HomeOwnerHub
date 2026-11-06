@@ -37,6 +37,7 @@ export function SignInSheet({ header, homes, showShares }: { header: PrintHeader
       <div
         role="region"
         aria-label="Sign-in sheet table"
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable so a keyboard user can scroll the wide table
         tabIndex={0}
         className="max-w-full overflow-x-auto print:overflow-visible"
       >

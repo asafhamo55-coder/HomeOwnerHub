@@ -248,8 +248,10 @@ read root `pnpm lint` output.
 (after starting Supabase and replaying the schema) `pnpm test:integration`.
 Both suites — unit and integration — now gate merges.
 
-CI also runs `pnpm --filter hoa lint` right after typecheck (errors fail the
-job). Lint for the other apps is still not run: see §4, their `next lint` has
+CI also runs `pnpm --filter hoa lint` after Build (errors fail the job; it runs
+last so a lint failure never hides the build result). `next build` itself does
+not lint (`eslint.ignoreDuringBuilds` in `apps/hoa/next.config.ts`), so a lint
+error can never block a Vercel deploy; the CI step is the only lint gate. Lint for the other apps is still not run: see §4, their `next lint` has
 no ESLint config and drops into an interactive prompt.
 
 (This section previously said "CI runs neither tests nor lint." That was

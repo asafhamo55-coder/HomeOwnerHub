@@ -29,7 +29,6 @@ export interface IcsEvent {
 export function escapeIcsText(value: string): string {
   return value
     .replace(/\r\n?/g, '\n')
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '')
     .replace(/\\/g, '\\\\')
     .replace(/;/g, '\\;')

@@ -63,7 +63,6 @@ export function GuideShot({ name, alt }: { name: string; alt: string }) {
     <figure className="my-2">
       <picture>
         <source media="(min-width: 640px)" srcSet={`/guide/shots/${name}--1440.webp`} />
-        {/* eslint-disable-next-line @next/next/no-img-element -- static, pre-sized webp from ui:shots --guide */}
         <img
           src={`/guide/shots/${name}--375.webp`}
           alt={alt}

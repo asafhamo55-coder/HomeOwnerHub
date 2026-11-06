@@ -141,7 +141,7 @@ export function InspectView(p: InspectViewProps) {
                 {photo.previewUrl ? (
                   // Local object URL of a photo just taken; nothing for next/image to optimise.
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photo.previewUrl} alt={`Photo ${i + 1}`} className="size-full object-cover" />
+                  <img src={photo.previewUrl} alt={`Attachment ${i + 1}`} className="size-full object-cover" />
                 ) : (
                   <span className="flex size-full items-center justify-center text-xs text-muted">Photo {i + 1}</span>
                 )}
