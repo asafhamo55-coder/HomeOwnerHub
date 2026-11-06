@@ -52,7 +52,7 @@ function ConsentBox() {
           </p>
           <p className="mt-1 text-xs text-muted">Not your mobile number? Change it under My contact details above first.</p>
           <div className="mt-4 flex items-start gap-3">
-            <span aria-hidden className="mt-0.5 inline-block size-5 shrink-0 rounded border-2 border-border bg-white" />
+            <span aria-hidden className="mt-0.5 inline-block size-5 shrink-0 rounded border-2 border-border bg-surface" />
             <div>
               <p className="text-sm font-medium text-foreground">I agree to receive text messages</p>
               <p className="mt-1 text-xs leading-relaxed text-muted">
