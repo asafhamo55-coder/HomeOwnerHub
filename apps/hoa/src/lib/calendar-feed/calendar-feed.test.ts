@@ -25,6 +25,9 @@ describe('feed token', () => {
     expect(verifyFeedToken(SECRET, [u, o, '1', s].join('.'))).toBeNull()
     expect(verifyFeedToken(SECRET, [u, o, v, s!.slice(0, -1) + (s!.endsWith('A') ? 'B' : 'A')].join('.'))).toBeNull()
     expect(verifyFeedToken(SECRET, 'garbage')).toBeNull()
+    // a leading-zero version is a different spelling of the same number: refused
+    expect(verifyFeedToken(SECRET, [u, o, '00', s].join('.'))).toBeNull()
+    expect(verifyFeedToken(SECRET, [u, o, '01', s].join('.'))).toBeNull()
     expect(verifyFeedToken(SECRET, `${t}.extra`)).toBeNull()
   })
 
@@ -70,6 +73,8 @@ describe('feed content and ICS validity', () => {
     { id: 'm-old', meeting_date: '2026-08-01', meeting_type: 'regular', status: 'approved', deleted_at: null },
     { id: 'm-pastdraft', meeting_date: '2026-10-25', meeting_type: 'regular', status: 'draft', deleted_at: null },
     { id: 'm-gone', meeting_date: '2026-11-25', meeting_type: 'special', status: 'draft', deleted_at: '2026-11-01T00:00:00Z' },
+    // deleted but never visible: a past draft
+    { id: 'm-hidden', meeting_date: '2026-10-25', meeting_type: 'special', status: 'draft', deleted_at: '2026-10-26T00:00:00Z' },
   ]
   const events = [
     { id: 'e1', title: 'Pool opens; bring ID, please', event_date: '2026-12-01', is_active: true, notify_audience: { kind: 'everyone' } },
@@ -112,7 +117,7 @@ describe('feed content and ICS validity', () => {
 })
 
 // A tiny fake admin client: tables of rows, filters recorded.
-function fakeAdmin(opts: { metadata?: unknown; member?: unknown; userExists?: boolean }) {
+function fakeAdmin(opts: { metadata?: unknown; member?: unknown; userExists?: boolean; bannedUntil?: string }) {
   const calls: Array<{ table: string; filters: Record<string, unknown> }> = []
   const tables: Record<string, unknown> = {
     org_members: opts.member === undefined ? { role: 'resident', access_expires_at: null } : opts.member,
@@ -136,7 +141,7 @@ function fakeAdmin(opts: { metadata?: unknown; member?: unknown; userExists?: bo
   const getUserById = vi.fn(async (id: string) =>
     opts.userExists === false
       ? { data: { user: null }, error: { status: 404 } }
-      : { data: { user: { id, user_metadata: opts.metadata ?? {} } }, error: null },
+      : { data: { user: { id, user_metadata: opts.metadata ?? {}, banned_until: opts.bannedUntil ?? null } }, error: null },
   )
   return { admin: { from, auth: { admin: { getUserById } } }, calls }
 }
@@ -162,6 +167,11 @@ describe('route data load: revocation and isolation', () => {
       ok: false,
       reason: 'denied',
     })
+  })
+
+  it('refuses a suspended account, allows a lapsed suspension', async () => {
+    expect(await loadFeedData(fakeAdmin({ bannedUntil: '2027-01-01T00:00:00Z' }).admin, claims, NOW)).toEqual({ ok: false, reason: 'denied' })
+    expect((await loadFeedData(fakeAdmin({ bannedUntil: '2026-01-01T00:00:00Z' }).admin, claims, NOW)).ok).toBe(true)
   })
 
   it('pins every query to the token org and the org association ids', async () => {

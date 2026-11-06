@@ -52,7 +52,7 @@ export function verifyFeedToken(secret: string | null, token: string): FeedToken
   const parts = token.split('.')
   if (parts.length !== 4) return null
   const [userId, orgId, v, sig] = parts as [string, string, string, string]
-  if (!UUID.test(userId) || !UUID.test(orgId) || !/^\d{1,7}$/.test(v) || !SIG.test(sig)) return null
+  if (!UUID.test(userId) || !UUID.test(orgId) || !/^(0|[1-9]\d{0,6})$/.test(v) || !SIG.test(sig)) return null
   const version = Number(v)
   if (version > MAX_FEED_VERSION) return null
   const claims = { userId, orgId, version }

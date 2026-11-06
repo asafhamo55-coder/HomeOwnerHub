@@ -71,7 +71,12 @@ export function feedEvents(input: FeedInput): IcsEvent[] {
     const cancelled = m.deleted_at !== null || m.status === 'cancelled'
     const upcoming = m.status === 'draft' && date >= input.today
     const recent = m.status === 'approved' && date < input.today
-    if (!cancelled && !upcoming && !recent) continue
+    // A deleted or cancelled meeting is shown (as cancelled) only if it would
+    // otherwise have been visible: approved, or a draft dated today or later.
+    const wasVisible = cancelled
+      ? m.status === 'approved' || ((m.status === 'draft' || m.status === 'cancelled') && date >= input.today)
+      : upcoming || recent
+    if (!wasVisible) continue
     out.push(
       meetingIcsEvent({
         meetingId: m.id,

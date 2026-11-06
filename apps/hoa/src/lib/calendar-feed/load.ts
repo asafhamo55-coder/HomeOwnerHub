@@ -38,6 +38,9 @@ export async function loadFeedData(admin: AnyAdmin, claims: FeedTokenClaims, now
   const user = userRes.data?.user
   if (!user || user.id !== userId) return { ok: false, reason: 'denied' }
   if (feedVersionOf(user.user_metadata) !== claims.version) return { ok: false, reason: 'denied' }
+  // A suspended account's link stops too.
+  const bannedUntil = (user as { banned_until?: string | null }).banned_until
+  if (bannedUntil && new Date(bannedUntil).getTime() > now.getTime()) return { ok: false, reason: 'denied' }
 
   // 2. The user must still belong to this org, as a member (not an outside professional).
   const memberRes = await admin
@@ -53,7 +56,8 @@ export async function loadFeedData(admin: AnyAdmin, claims: FeedTokenClaims, now
     return { ok: false, reason: 'denied' }
   }
 
-  // 3. The org's associations. Their ids scope the events below.
+  // 3. The org's associations. The events below are community-wide for the org
+  //    (like the resident portal), not limited to one unit's association.
   const assocRes = await admin.from('associations').select('id, name, state').eq('organization_id', orgId)
   if (assocRes.error) return { ok: false, reason: 'error' }
   const assocs = ((assocRes.data ?? []) as Array<{ id: string; name: string | null; state: string | null }>).sort((a, b) =>
@@ -78,7 +82,7 @@ export async function loadFeedData(admin: AnyAdmin, claims: FeedTokenClaims, now
     .gte('event_date', from)
     .order('event_date', { ascending: true })
     .limit(ROW_CAP)
-  // Org-wide reminders (no association) or ones for this user's own associations.
+  // Org-wide reminders (no association) or ones for any association of the token's org.
   eventsQ = ids.length > 0 ? eventsQ.or(`association_id.is.null,association_id.in.(${ids.join(',')})`) : eventsQ.is('association_id', null)
 
   const [meetings, events] = await Promise.all([meetingsP, eventsQ])
