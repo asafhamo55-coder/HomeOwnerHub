@@ -23,8 +23,8 @@ The AI prepares work for the board, but it never posts or sends anything on its 
 2. Pick a tab to see one kind: Deposits, Bills, Violation letters, Collections letters, ARC reviews, Contact updates, Amenity bookings or Vendors.
 3. Read the item. For a scanned bill, compare it with the bill itself.
 4. Approve it: [[Approve & post]] for a deposit, [[Approve & enter]] for a bill, [[Approve letter]] for a violation or collections letter, [[Approve & update]] for a contact update, [[Approve booking]] for an amenity booking, or [[Approve]] for a vendor.
-5. Or select [[Reject]] and give a **Reason**. The reason is kept in the audit trail.
-6. For an ARC review, select [[Approve]], [[Deny]] or [[Request info]].
+5. To say no to any item except an ARC review, select [[Reject]] and give a **Reason**. The reason is kept in the audit trail. For a contact update, the resident sees it in their request. For an amenity booking, the resident reads it in their email.
+6. An ARC review has no Reject button. Select [[Approve]], [[Deny]] or [[Request info]] instead.
 
 ![[guide-approvals]]
 

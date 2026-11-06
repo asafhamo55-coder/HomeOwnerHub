@@ -25,6 +25,9 @@ topics:
   - id: communications
     label: Messages
     description: Announcements to many homes, urgent texts, drafts and the inbox.
+  - id: community
+    label: Community life
+    description: Polls, shared spaces to book and the neighbors' message board.
   - id: people
     label: Properties & people
     description: Homes, owners, residents, members and roles.

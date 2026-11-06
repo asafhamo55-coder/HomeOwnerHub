@@ -110,7 +110,9 @@ describe('search over the real corpus', () => {
     // "Open the books", and the suffix stripper folds booking and books
     // into one stem. Then "clubhouse reservation calendar": since BL-118
     // the meeting notice adds a calendar invite, so "calendar" is covered.
-    // Clubhouse reservations are still a topic the guide does not cover.
-    expect(searchSections('clubhouse reservation', 'board')).toEqual([])
+    // Then "clubhouse reservation": since the amenities articles (2026-11-06)
+    // the guide really does cover booking the clubhouse. Snow plowing is
+    // still a topic it does not cover.
+    expect(searchSections('snow plow', 'board')).toEqual([])
   })
 })

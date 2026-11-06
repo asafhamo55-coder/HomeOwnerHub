@@ -44,7 +44,7 @@ const modelReply = JSON.stringify({
 })
 const strip = <T extends { meta?: unknown }>({ meta: _m, ...r }: T) => r
 const answer = strip(await askGuide('How do I record a check payment?', { role: 'admin' }, async () => modelReply))
-const refused = strip(await askGuide('Can residents book the clubhouse for a party?', { role: 'admin' }, async () => modelReply))
+const refused = strip(await askGuide('Can residents hire a snow plow through the app?', { role: 'admin' }, async () => modelReply))
 const rules = strip(await askGuide('Can I paint my front door red?', { role: 'resident' }, async () => modelReply))
 const unavailable = strip(
   await askGuide('How do I record a check payment?', { role: 'admin' }, async () => {
@@ -61,7 +61,7 @@ const PREVIEWS: Record<string, { title: string; body: React.ReactElement }> = {
     title: 'Ask about this page (drawer, compact) — answer',
     body: <AskGuide compact heading="Ask about this page" initialQuestion="How do I record a check payment?" initialState={{ status: 'done', result: answer as never }} />,
   },
-  'ask-refusal': { title: 'Ask the guide — refusal (not covered)', body: <AskGuide initialQuestion="Can residents book the clubhouse for a party?" initialState={{ status: 'done', result: refused as never }} /> },
+  'ask-refusal': { title: 'Ask the guide — refusal (not covered)', body: <AskGuide initialQuestion="Can residents hire a snow plow through the app?" initialState={{ status: 'done', result: refused as never }} /> },
   'ask-rules': { title: 'Ask the guide — rules question → Ask the Docs', body: <AskGuide initialQuestion="Can I paint my front door red?" initialState={{ status: 'done', result: rules as never }} /> },
   'ask-unavailable': { title: 'Ask the guide — model unavailable → matching articles', body: <AskGuide initialQuestion="How do I record a check payment?" initialState={{ status: 'done', result: unavailable as never }} /> },
   'ask-idle': { title: 'Ask the guide — empty box', body: <AskGuide /> },
