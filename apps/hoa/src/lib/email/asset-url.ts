@@ -14,7 +14,7 @@
 
 const ASSET_PATH = 'email/v1'
 
-export function emailAssetUrl(filename: string): string {
+export function emailAssetUrl(filename: string, dir: string = ASSET_PATH): string {
   const base = process.env.EMAIL_ASSET_BASE_URL
   if (!base) {
     throw new Error(
@@ -31,5 +31,5 @@ export function emailAssetUrl(filename: string): string {
   if (/\.vercel\.app/.test(base)) {
     throw new Error(`EMAIL_ASSET_BASE_URL points at a Vercel preview host (${base}); use the production domain`)
   }
-  return `${base.replace(/\/+$/, '')}/${ASSET_PATH}/${filename}`
+  return `${base.replace(/\/+$/, '')}/${dir}/${filename}`
 }

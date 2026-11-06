@@ -128,7 +128,7 @@ describe('render', () => {
     expect(html).toContain('One-click approvals &amp; search')
     expect(subject).toBe('HomeownerHub release: One-click approvals & search (c56061f)')
     // Header: the HomeownerHub logo PNG (absolute https, with alt text and size), royal purple accents.
-    expect(html).toMatch(/<img src="https:\/\/[^"]+\/email\/v1\/homeownerhub-logo\.png" alt="HomeownerHub" width="180" height="30"/)
+    expect(html).toMatch(/<img src="https:\/\/[^"]+\/email\/v2\/homeownerhub-logo\.png" alt="HomeownerHub" width="180" height="30"/)
     expect(html).toContain('#6D28D9')
     expect(html).not.toContain('Ledger')
     expect(html).not.toContain('HOA Hub')
@@ -435,7 +435,7 @@ describe('brand colours stay in sync with the product email palette (royal purpl
   })
 
   it('the logo is the same file and size the product emails use', () => {
-    expect(BRAND.logoUrl.endsWith(`/email/v1/${LOGO_FILE}`)).toBe(true)
+    expect(BRAND.logoUrl.endsWith(`/email/v2/${LOGO_FILE}`)).toBe(true)
     expect(BRAND.logoUrl.startsWith('https://')).toBe(true)
     expect(BRAND.logoWidth).toBe(LOGO_WIDTH)
     expect(BRAND.logoHeight).toBe(LOGO_HEIGHT)

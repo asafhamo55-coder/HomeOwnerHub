@@ -11,7 +11,7 @@
  */
 
 import { emailAssetUrl } from './asset-url'
-import { BRAND, EMAIL_FONT, LOGO_FILE, logoHeaderRowsHtml } from './brand'
+import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_FILE, logoHeaderRowsHtml } from './brand'
 
 export interface EmailBand {
   text: string
@@ -99,11 +99,21 @@ function bandRow(band: EmailBand): string {
  * deployment host. If that variable is missing the header degrades to the
  * styled wordmark in text, loudly, rather than failing the whole send.
  */
+let logoWarned = false
+
+/** Test hook: lets a test see the once-per-process warning again. */
+export function resetLogoWarning(): void {
+  logoWarned = false
+}
+
 export function logoUrl(): string | null {
   try {
-    return emailAssetUrl(LOGO_FILE)
+    return emailAssetUrl(LOGO_FILE, LOGO_DIR)
   } catch (err) {
-    console.error(`[email] logo unavailable, sending text header: ${err instanceof Error ? err.message : String(err)}`)
+    if (!logoWarned) {
+      logoWarned = true
+      console.error(`[email] logo unavailable, sending text header: ${err instanceof Error ? err.message : String(err)}`)
+    }
     return null
   }
 }

@@ -21,6 +21,8 @@ const BRAND_MARKER = 'class="eh-logo"'
 
 export function ensureBranded(html: string, logoUrl?: string | null): string {
   if (html.includes(BRAND_MARKER)) return html
-  if (/^\s*<!doctype|^\s*<html/i.test(html)) return html
+  // Look past a BOM and leading comments (conditional comments included).
+  const head = html.replace(/^\uFEFF/, '').replace(/^(\s|<!--[\s\S]*?-->)+/, '')
+  if (/^<!doctype|^<html/i.test(head)) return html
   return wrapBrandedEmail({ bodyHtml: html, logoUrl })
 }

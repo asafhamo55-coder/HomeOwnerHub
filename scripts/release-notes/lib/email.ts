@@ -4,8 +4,8 @@
 // explicit bgcolor on every coloured cell (Gmail's dark mode recolours
 // backgrounds it can see and leaves the rest alone, so nothing is left
 // transparent), no SVG (Gmail strips it — the logo is the app's hosted PNG with alt
-// text), no web fonts, images as CID attachments rather than remote
-// URLs (no tracking pixels, shows without "load images"), 600px column.
+// text), no web fonts, screenshots as CID attachments rather than remote
+// URLs (no tracking pixels; the one remote image is the header logo, which has alt text), 600px column.
 
 import { BRAND } from './brand'
 import { blocksToHtml, blocksToText, escapeHtml, inlineText } from './markdown'

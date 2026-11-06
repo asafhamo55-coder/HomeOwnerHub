@@ -8,10 +8,12 @@ export {
   BRAND,
   EMAIL_FONT,
   LOGO_ALT,
+  LOGO_DIR,
   LOGO_FILE,
   LOGO_HEIGHT,
   LOGO_WIDTH,
   brandButtonHtml,
+  safeLogoUrlFromOrigin,
   logoHeaderRowsHtml,
   wrapBrandedEmail,
 } from '@homeowner-portal/workflows/email-brand'

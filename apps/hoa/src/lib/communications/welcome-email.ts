@@ -36,7 +36,7 @@
  * step 1 names neither.
  */
 
-import { BRAND, EMAIL_FONT, LOGO_FILE } from '@/lib/email/brand'
+import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_FILE, safeLogoUrlFromOrigin } from '@/lib/email/brand'
 import { emailAssetUrl } from '@/lib/email/asset-url'
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
 import { assertAccent } from '@/lib/email/palette'
@@ -95,11 +95,12 @@ export function communityLine(m: WelcomeModules): string | null {
  * when it is missing the logo comes from the app's own origin (the same
  * public/email/v1 folder, and the same host the /welcome link already uses).
  */
-function welcomeLogoUrl(origin: string): string {
+function welcomeLogoUrl(origin: string): string | null {
   try {
-    return emailAssetUrl(LOGO_FILE)
+    return emailAssetUrl(LOGO_FILE, LOGO_DIR)
   } catch {
-    return `${origin.replace(/\/+$/, '')}/email/v1/${LOGO_FILE}`
+    // Never bake a localhost or preview host into a stored template: text wordmark instead.
+    return safeLogoUrlFromOrigin(origin)
   }
 }
 

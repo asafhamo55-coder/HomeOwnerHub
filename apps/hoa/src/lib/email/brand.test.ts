@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { BRAND, wrapBrandedEmail } from './brand'
+import { BRAND, safeLogoUrlFromOrigin, wrapBrandedEmail } from './brand'
 import { ensureBranded } from './ensure-branded'
 import { isValidAccent, relativeLuminance } from './palette'
 import { renderEmailDocument } from './shell'
@@ -66,7 +66,7 @@ describe('the brand header in every renderer', () => {
     try {
       const html = renderEmailDocument({ bodyHtml: '<p>x</p>', footerHtml: 'y' })
       const img = html.match(/<img[^>]*>/)?.[0] ?? ''
-      expect(img).toContain('src="https://app.homeownerhub.test/email/v1/homeownerhub-logo.png"')
+      expect(img).toContain('src="https://app.homeownerhub.test/email/v2/homeownerhub-logo.png"')
       expect(img).toContain('alt="HomeownerHub"')
       expect(img).toContain('width="180"')
       expect(img).toContain('height="30"')
@@ -81,7 +81,7 @@ describe('the brand header in every renderer', () => {
     process.env.EMAIL_ASSET_BASE_URL = 'https://app.homeownerhub.test'
     try {
       const html = wrapBrandedEmail({ bodyHtml: '<p>Hello</p>', footerHtml: 'Sent by HomeownerHub', title: 'T' })
-      expect(html).toContain('src="https://app.homeownerhub.test/email/v1/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"')
+      expect(html).toContain('src="https://app.homeownerhub.test/email/v2/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"')
       expect(html).toContain('lang="en"')
       expect(html).toContain('<title>T</title>')
       expect(html).toContain('<meta name="color-scheme" content="light" />')
@@ -115,7 +115,7 @@ describe('the brand header in every renderer', () => {
 
 describe('ensureBranded (the send-time safety net)', () => {
   it('wraps a bare fragment in the brand frame', () => {
-    const out = ensureBranded('<p>Your booking is confirmed.</p>', 'https://a.test/email/v1/homeownerhub-logo.png')
+    const out = ensureBranded('<p>Your booking is confirmed.</p>', 'https://a.test/email/v2/homeownerhub-logo.png')
     expect(out).toContain('alt="HomeownerHub"')
     expect(out).toContain('Your booking is confirmed.')
     expect(out).toMatch(/^<!DOCTYPE/i)
@@ -126,6 +126,23 @@ describe('ensureBranded (the send-time safety net)', () => {
     expect(ensureBranded(once)).toBe(once)
     const twice = ensureBranded(ensureBranded('<p>hi</p>', null), null)
     expect(twice.match(/class="eh-logo"/g)).toHaveLength(1)
+  })
+
+  it('sees a document behind a BOM or leading comments', () => {
+    for (const doc of [
+      '\uFEFF<!doctype html><html><body>hi</body></html>',
+      '<!-- x -->\n<!--[if mso]>y<![endif]--><HTML><body>hi</body></HTML>',
+    ]) {
+      expect(ensureBranded(doc)).toBe(doc)
+    }
+  })
+
+  it('welcome and preview drop to text, never a localhost or vercel host', () => {
+    expect(safeLogoUrlFromOrigin('http://localhost:3000')).toBeNull()
+    expect(safeLogoUrlFromOrigin('https://x-git-abc.vercel.app')).toBeNull()
+    expect(safeLogoUrlFromOrigin('https://www.homeownerledger.com/')).toBe(
+      'https://www.homeownerledger.com/email/v2/homeownerhub-logo.png',
+    )
   })
 
   it('leaves a foreign full document alone rather than nesting documents', () => {
@@ -177,9 +194,9 @@ describe('no old brand colours in any email renderer', () => {
     }
   })
 
-  it('has no old green (#1F6F5C) and no old violet (#4B27C9)', () => {
+  it('has no old green, old violet or old slate (#1F6F5C, #4B27C9, #0A0F1A, #111827, #1E293B, #94A3B8)', () => {
     const offenders = files
-      .filter((f) => /#1F6F5C|#4B27C9/i.test(readFileSync(f, 'utf8')))
+      .filter((f) => /#1F6F5C|#4B27C9|#0A0F1A|#111827|#1E293B|#94A3B8/i.test(readFileSync(f, 'utf8')))
       .map((f) => path.relative(REPO, f))
     expect(offenders).toEqual([])
   })

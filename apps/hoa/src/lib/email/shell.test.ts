@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { renderEmailDocument } from './shell'
+import { renderEmailDocument, resetLogoWarning } from './shell'
 
 const ORIGINAL_BASE = process.env.EMAIL_ASSET_BASE_URL
 
@@ -102,7 +102,7 @@ describe('the brand header', () => {
     withBase('https://app.homeownerhub.test/', () => {
       const html = renderEmailDocument(BASE)
       expect(html).toContain(
-        '<img src="https://app.homeownerhub.test/email/v1/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"',
+        '<img src="https://app.homeownerhub.test/email/v2/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"',
       )
       // White band, then the royal purple rule.
       expect(html).toMatch(/class="eh-logo" bgcolor="#FFFFFF" style="background-color:#FFFFFF;color:#211B2C/)
@@ -114,8 +114,8 @@ describe('the brand header', () => {
 
   it('can be given its own URL (the browser-built welcome email), and null forces the text wordmark', () => {
     withBase(undefined, () => {
-      expect(renderEmailDocument({ ...BASE, logoUrl: 'https://x.test/email/v1/homeownerhub-logo.png' })).toContain(
-        'src="https://x.test/email/v1/homeownerhub-logo.png"',
+      expect(renderEmailDocument({ ...BASE, logoUrl: 'https://x.test/email/v2/homeownerhub-logo.png' })).toContain(
+        'src="https://x.test/email/v2/homeownerhub-logo.png"',
       )
       const text = renderEmailDocument({ ...BASE, logoUrl: null })
       expect(text).not.toContain('<img')
@@ -125,6 +125,7 @@ describe('the brand header', () => {
 
   it('falls back to the text wordmark, and says so, when EMAIL_ASSET_BASE_URL is missing', () => {
     withBase(undefined, () => {
+      resetLogoWarning()
       const errors: string[] = []
       const spy = vi.spyOn(console, 'error').mockImplementation((m: string) => void errors.push(String(m)))
       const html = renderEmailDocument(BASE)
@@ -132,6 +133,11 @@ describe('the brand header', () => {
       expect(html).not.toContain('<img')
       expect(html).toContain('>HomeownerHub</span>')
       expect(errors.join(' ')).toMatch(/EMAIL_ASSET_BASE_URL/)
+      // A second email in the same process does not log again.
+      const again = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      renderEmailDocument(BASE)
+      expect(again).not.toHaveBeenCalled()
+      again.mockRestore()
     })
   })
 

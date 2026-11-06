@@ -59,7 +59,7 @@ describe('welcome email: render', () => {
   it('is branded HomeownerHub: the logo header with alt text, royal purple accent', () => {
     const { html } = madison()
     // No EMAIL_ASSET_BASE_URL in tests, so the logo comes from the app origin.
-    expect(html).toContain(`<img src="${ORIGIN}/email/v1/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"`)
+    expect(html).toContain(`<img src="${ORIGIN}/email/v2/homeownerhub-logo.png" alt="HomeownerHub" width="180" height="30"`)
     expect(isValidAccent('#6D28D9')).toBe(true)
   })
 

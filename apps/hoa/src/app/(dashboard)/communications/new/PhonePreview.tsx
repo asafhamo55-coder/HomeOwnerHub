@@ -4,7 +4,7 @@ import { useEffect, useId, useState, useTransition } from 'react'
 import { Loader2, Send } from 'lucide-react'
 import { Alert, Button, cn } from '@homeowner-portal/ui'
 import { appOrigin } from '@/lib/app-origin'
-import { LOGO_FILE } from '@/lib/email/brand'
+import { safeLogoUrlFromOrigin } from '@/lib/email/brand'
 import { ensureBranded } from '@/lib/email/ensure-branded'
 import {
   previewForSample,
@@ -22,7 +22,7 @@ const TAB_LABEL: Record<Tab, string> = { email: 'Email', text: 'Text', portal: '
  *  can't touch the app. */
 /** What the resident gets: a bare body is wrapped in the brand frame at send time (email/ensure-branded.ts), so the preview wraps it too. */
 function previewHtml(html: string): string {
-  return ensureBranded(html, `${appOrigin()}/email/v1/${LOGO_FILE}`)
+  return ensureBranded(html, safeLogoUrlFromOrigin(appOrigin()))
 }
 
 function frameDoc(html: string): string {

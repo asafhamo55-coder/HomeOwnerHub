@@ -52,7 +52,9 @@ export const BRAND = {
 
 export const EMAIL_FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
-/** File name of the header logo inside apps/hoa/public/email/v1/. */
+/** Folder of the header logo under the app's public root. v2: bumped so caches drop the old violet PNG. */
+export const LOGO_DIR = 'email/v2'
+/** File name of the header logo inside apps/hoa/public/email/v2/. */
 export const LOGO_FILE = 'homeownerhub-logo.png'
 /** Displayed size. The PNG itself is 2x (360 wide) for retina screens. */
 export const LOGO_WIDTH = 180
@@ -69,6 +71,17 @@ export function escapeEmailHtml(s: string): string {
 }
 
 /**
+ * The logo URL on an app origin, or null when the origin is a host that must
+ * never be baked into a stored template or a sent email: not https,
+ * localhost, or a *.vercel.app preview. Null means the text wordmark.
+ */
+export function safeLogoUrlFromOrigin(origin: string): string | null {
+  if (!origin.startsWith('https://')) return null
+  if (/localhost|127\.0\.0\.1|\.vercel\.app/.test(origin)) return null
+  return `${origin.replace(/\/+$/, '')}/${LOGO_DIR}/${LOGO_FILE}`
+}
+
+/**
  * The logo's absolute URL from EMAIL_ASSET_BASE_URL, or null when that is
  * unset or unusable (not https, localhost, a Vercel preview host). Null
  * makes the header fall back to the styled text wordmark. The app's own
@@ -78,7 +91,7 @@ export function brandLogoUrl(env: Record<string, string | undefined> = process.e
   const base = env.EMAIL_ASSET_BASE_URL
   if (!base || !base.startsWith('https://')) return null
   if (/localhost|127\.0\.0\.1|\.vercel\.app/.test(base)) return null
-  return `${base.replace(/\/+$/, '')}/email/v1/${LOGO_FILE}`
+  return `${base.replace(/\/+$/, '')}/${LOGO_DIR}/${LOGO_FILE}`
 }
 
 /**
