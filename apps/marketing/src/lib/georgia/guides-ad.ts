@@ -52,7 +52,7 @@ export const GA_ARC: Guide = {
     {
       heading: 'What your declaration usually controls',
       body: [
-        'The Act gives the power and leaves the process to the instrument. Unless the Act, the nonprofit corporation chapters, the instrument, the articles or the bylaws say otherwise, the board of directors exercises the association’s powers, so whether the board or a committee reviews applications is also a question for your documents. Declarations commonly say what kinds of changes need approval, who sits on the committee and how members are chosen, what an application must include, how long the committee has to answer, what happens if it does not answer, whether a denial can be appealed to the board, and whether a fee or deposit is charged. That is a description of what such documents often contain, not a statement of Georgia law, and your declaration may say something different.',
+        'The Act gives the power and leaves the process to the instrument. Unless the Act, the Georgia corporation chapters in Title 14, the instrument, the articles or the bylaws say otherwise, the board of directors exercises the association’s powers, so whether the board or a committee reviews applications is also a question for your documents. Declarations commonly say what kinds of changes need approval, who sits on the committee and how members are chosen, what an application must include, how long the committee has to answer, what happens if it does not answer, whether a denial can be appealed to the board, and whether a fee or deposit is charged. That is a description of what such documents often contain, not a statement of Georgia law, and your declaration may say something different.',
         'Read your own documents for each of those points. If the declaration is silent or unclear on one, do not fill the gap with a rule that sounds sensible. Ask your attorney.',
       ],
     },
@@ -65,17 +65,17 @@ export const GA_ARC: Guide = {
     {
       heading: 'Owners must comply, and the rules must be reasonable',
       body: [
-        'Section 44-3-223 puts the duty on owners and occupants. They must comply with the lawful provisions of the instrument and with reasonable rules or regulations the association adopted under the instrument, if those rules have been provided to the lot owners. Architectural guidelines are the kind of rule this sentence is aimed at, so the practical checks are whether the guideline is authorized by the declaration, whether it is reasonable, and whether owners received it.',
+        'Section 44-3-223 puts the duty on owners and occupants. They must comply with the lawful provisions of the instrument and with reasonable rules or regulations the association adopted under the instrument, if those rules have been provided to the lot owners. Architectural guidelines may be rules of this kind if the declaration authorizes them, so the practical checks are whether the guideline is authorized by the declaration, whether it is reasonable, and whether owners received it.',
       ],
       quotes: ['complyDuty', 'reasonableRules'],
     },
     {
       heading: 'Enforcement',
       body: [
-        'The same section says a lack of compliance is grounds for an action to recover sums due, for damages, for injunctive relief or for another remedy at law or in equity.  For an injunction, the association gives the notice its instrument calls for, or ten days’ written notice if the instrument is silent, with exceptions.',
+        'The same section says a lack of compliance is grounds for an action to recover sums due, for damages, for injunctive relief or for another remedy at law or in equity. For an injunction, the association gives the notice its instrument calls for, or ten days’ written notice if the instrument is silent, with exceptions.',
         'A fine for building without approval is possible only if and to the extent the instrument provides, and no suspension may deny access to the lot. Our guide on fines and violation hearings covers the process side.',
       ],
-      quotes: ['complyRemedies'],
+      quotes: ['complyRemedies', 'fineAuth'],
     },
     {
       heading: 'Changing the review rules',
@@ -133,7 +133,7 @@ export const GA_SHORT_TERM_RENTALS: Guide = {
   title: 'Short-term and Airbnb rentals in a Georgia HOA: what the covenants control',
   metaTitle: 'Georgia HOA short-term rentals and Airbnb',
   description:
-    'Georgia’s HOA Act does not mention short-term rentals or Airbnb. What 44-3-223 and 44-3-226 say, what your declaration controls and when to call an attorney.',
+    'The Georgia HOA Act text we hold does not mention short-term rentals or Airbnb. What 44-3-223 and 44-3-226 say and what your declaration controls.',
   eyebrow: 'Georgia · Rentals',
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
@@ -175,7 +175,7 @@ export const GA_SHORT_TERM_RENTALS: Guide = {
     {
       heading: 'The one rental sentence in the Act',
       body: [
-        'Section 44-3-226 is about amendments. It says no amendment may prohibit or restrict a nonowner occupied lot from continuing to be leased or rented for an initial term of six months or longer under the preamended instrument. The words are about a term of six months or longer. The text does not say whether a stay shorter than six months is protected or not, so a community that wants to restrict short stays should not assume either answer without advice from its attorney.',
+        'Section 44-3-226 is about amendments. It says no amendment may prohibit or restrict a nonowner occupied lot from continuing to be leased or rented for an initial term of six months or longer under the preamended instrument. It says nothing about shorter stays, so a community that wants to restrict short stays should not assume either answer without advice from its attorney.',
         'Our guide on rental amendments covers the protection, and when a protected lot must conform after a conveyance for value, in full.',
       ],
       quotes: ['amendRental'],
@@ -192,7 +192,7 @@ export const GA_SHORT_TERM_RENTALS: Guide = {
       body: [
         'The remedies in § 44-3-223 apply to lack of compliance with the instrument. Before an injunction, the association gives the notice its instrument calls for, or ten days’ written notice if the instrument is silent, with exceptions. A fine is possible only if and to the extent the instrument provides, and no suspension may deny access to the lot.',
       ],
-      quotes: ['complyRemedies'],
+      quotes: ['complyRemedies', 'fineAuth'],
     },
     {
       heading: 'Other rules that may apply',
@@ -257,7 +257,7 @@ export const GA_BOARD_ELECTION: Guide = {
   summary: [
     'The statute we hold sets the frame for an election: an annual meeting, at least 21 days’ notice, a default quorum of more than one-third of the votes, and rules for proxies and ballots.',
     'It does not describe how candidates are nominated, when nominations close, how long a term lasts or who counts the votes. Your bylaws and declaration decide those.',
-    'A ballot that elects directors must let owners vote for, or withhold a vote for, each candidate, and a fine may not take away the right to vote in board elections.',
+    'A written or electronic ballot used to elect directors without a meeting must let owners vote for, or withhold a vote for, each candidate, and fines may not impact voting rights. A suspension for unpaid fines may not deny the right to vote in board elections.',
     'This is a plain-language guide to the text we hold, not legal advice. Ask your attorney about any dispute over an election.',
   ],
   sections: [
@@ -272,7 +272,7 @@ export const GA_BOARD_ELECTION: Guide = {
       body: [
         'Your bylaws say whether directors are elected at the annual meeting, which seats are up and for what term. If the association misses its fiscal-year deadline, owners holding a set share of the votes can call the meeting; our guide on owners calling the annual meeting has the text.',
       ],
-      quotes: ['nonprofitAnnual'],
+      quotes: ['meetingAnnual', 'nonprofitAnnual'],
     },
     {
       heading: '2. Send notice on time',
@@ -285,13 +285,13 @@ export const GA_BOARD_ELECTION: Guide = {
       heading: '3. Settle nominations from your bylaws',
       body: [
         'In the sections we hold, there is no rule on nominations: no nominating committee, no deadline to run, no candidate statement, no nomination from the floor. If your bylaws set a process, follow it exactly and give every owner the same chance to run. If they are silent, ask your attorney before you invent a process in the middle of an election.',
-        'Also confirm who may serve. If the instrument requires a director to be a lot owner, the Act widens “lot owner” in that context. Our guide on who can serve on the board has the text.',
+        'Also confirm who may serve. If the instrument requires a director to be a lot owner, the Act widens “lot owner” in that context unless the instrument says otherwise. Our guide on who can serve on the board has the text.',
       ],
     },
     {
       heading: '4. Check who can vote',
       body: [
-        'A fine may not take away the right to vote in board elections. Suspending voting rights for unpaid assessments is possible only if and to the extent the instrument provides, so check before you remove anyone from the voter list. For a lot with more than one owner, see our guide on joint owners.',
+        'Under § 44-3-223, fines do not impact voting rights, and a suspension for unpaid fines may not deny the right to vote in board elections. A temporary suspension of voting rights for unpaid assessments is possible only if and to the extent the instrument provides, and the text we hold does not say whether that reaches board elections, so ask your attorney before you remove anyone from the voter list. For a lot with more than one owner, see our guide on joint owners.',
       ],
       quotes: ['fineAuth'],
     },
@@ -305,21 +305,21 @@ export const GA_BOARD_ELECTION: Guide = {
     {
       heading: '6. Handle proxies',
       body: [
-        'Under the nonprofit chapter a member may vote in person or by proxy unless the articles or bylaws prohibit or limit it. Check each proxy against these two rules before the meeting starts.',
+        'Under the nonprofit chapter a member may vote in person or by proxy unless the articles or bylaws prohibit or limit it. Two rules to check: § 44-3-224(b), which applies to every Georgia POA, and § 14-3-724, which applies if the association is a nonprofit corporation. If it is a business corporation, ask your attorney which proxy rules apply. Your articles and bylaws can also limit proxies.',
       ],
       quotes: ['proxyVoid', 'proxy11'],
     },
     {
       heading: '7. If you vote by ballot',
       body: [
-        'Unless the articles or bylaws prohibit or limit it, a member action can be taken by ballot without a meeting. A ballot for a director election must give this choice. The solicitation must also say how many responses are needed for a quorum and when a ballot must be received. Our guide on written ballots has more.',
+        'Unless the articles or bylaws prohibit or limit it, a member action can be taken by ballot without a meeting. A written or electronic ballot used to elect directors without a meeting must let owners vote for, or withhold a vote for, each candidate. The solicitation must also say how many responses are needed for a quorum and when a ballot must be received. These ballot rules are for written or electronic ballots without a meeting. The sections we hold do not set a ballot form for votes cast at a meeting. Our guide on written ballots has more.',
       ],
       quotes: ['ballotDirector', 'ballotSolicit3'],
     },
     {
       heading: '8. Record the result and update the state registration',
       body: [
-        'Record who was elected, the quorum and how the votes were counted. Your bylaws say when and how officers are chosen. A corporation’s annual registration lists its chief executive officer, chief financial officer and secretary, so correct it after officers change. Our guide on the annual registration covers the window.',
+        'Record who was elected, the quorum and how the votes were counted. Your bylaws say when and how officers are chosen. A corporation’s annual registration lists its chief executive officer, chief financial officer and secretary, and the information must be current on the date the registration is executed. So check the officer names when you prepare the next filing. Our guide on the annual registration covers the window.',
       ],
       quotes: ['powMinutes', 'annualRegCurrent'],
     },
@@ -328,10 +328,10 @@ export const GA_BOARD_ELECTION: Guide = {
     'Find the election, nomination, term and voting provisions in your bylaws and declaration.',
     'Set the meeting date and send notice at least 21 days ahead, with any nomination call your bylaws require.',
     'Open and close nominations the way the bylaws say, and confirm each candidate is eligible to serve.',
-    'Prepare the voter list, check proxies, and prepare ballots that let owners vote for or withhold a vote for each candidate.',
+    'Prepare the voter list and check proxies. If you vote by ballot without a meeting, prepare ballots that let owners vote for or withhold a vote for each candidate and state when ballots must be received.',
     'Take the quorum count at the start of the meeting and record it.',
     'Count the votes, announce the result and record it in the minutes.',
-    'Update the Secretary of State registration if an officer changed.',
+    'Before the next annual registration is filed, check that the officer names on it are current.',
   ],
   faqs: [
     {
@@ -344,11 +344,11 @@ export const GA_BOARD_ELECTION: Guide = {
     },
     {
       q: 'What is the quorum for an owners’ meeting?',
-      a: 'Unless the instrument or bylaws provide otherwise, persons entitled to cast more than one-third of the votes present at the beginning of the meeting.',
+      a: 'Unless the instrument or bylaws provide otherwise, a quorum is present if persons entitled to cast more than one-third of the votes are present at the beginning of the meeting.',
     },
     {
       q: 'Can an owner who owes fines still vote for the board?',
-      a: 'The statute says no suspension may deny the right to vote in board elections based on failure to pay outstanding fines.',
+      a: 'Fines do not impact voting rights, and a suspension for unpaid fines may not deny the right to vote in board elections. A temporary suspension for unpaid assessments is allowed only if the instrument provides, so check yours and ask your attorney.',
     },
   ],
   related: [
