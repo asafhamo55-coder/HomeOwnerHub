@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og'
 import type { NextRequest } from 'next/server'
 import { SITE_DISPLAY_HOST } from '@/lib/site'
 
-// Per-page share image: the page title on the brand violet card, 1200x630.
+// Per-page share image: the page title on the brand evergreen card, 1200x630.
 // pageMetadata() (lib/site.ts) points every page's Open Graph and Twitter
 // image here as /og?title=<page title>. System font only, so there is no
 // font fetch at request time. The title is clamped so a long or hostile
@@ -26,17 +26,17 @@ export function GET(req: NextRequest) {
           flexDirection: 'column',
           justifyContent: 'space-between',
           padding: '72px 80px',
-          background: 'linear-gradient(135deg, #3b1fa8 0%, #4B27C9 55%, #6d4be0 100%)',
+          background: 'linear-gradient(135deg, #0F3425 0%, #1F5A43 60%, #174632 100%)',
           color: '#ffffff',
           fontFamily: 'sans-serif',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 40, fontWeight: 700 }}>
           <span>Homeowner</span>
-          <span style={{ color: '#d9ceff' }}>Hub</span>
+          <span style={{ color: '#F2A583' }}>Hub</span>
         </div>
         <div style={{ display: 'flex', fontSize, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{title}</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 28, color: '#e7e0ff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 28, color: '#DCEFE3' }}>
           <span>AI for self-managed HOA boards</span>
           <span>{SITE_DISPLAY_HOST}</span>
         </div>

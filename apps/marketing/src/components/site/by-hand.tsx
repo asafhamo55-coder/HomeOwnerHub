@@ -52,7 +52,7 @@ export function ByHand() {
                   <Icon className="h-6 w-6" aria-hidden />
                 </span>
                 <div>
-                  <p className="text-lg text-muted line-through decoration-[#6b6880]/50">{before}</p>
+                  <p className="text-lg text-muted line-through decoration-[#7a7266]/50">{before}</p>
                   <p className="mt-2 text-lg font-medium leading-snug text-foreground">{after}</p>
                 </div>
               </li>

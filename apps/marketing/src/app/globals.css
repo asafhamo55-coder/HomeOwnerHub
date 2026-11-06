@@ -4,85 +4,99 @@
 
 @layer base {
   /* ─────────────────────────────────────────────────────────────────────────
-     Marketing palette (BL-174, docs/decisions/2026-10-26-website-nice-
-     inspired-design.md). Inspired by the look of large enterprise-software
-     sites: white and cool-grey pages, deep violet-to-blue gradient panels,
-     near-black pill buttons, one mint accent. Every value is our own.
+     Marketing palette: "Georgia evergreen". Warm cream pages, white cards,
+     deep pine-green panels, warm charcoal text, one Georgia-peach accent.
+     Every value is our own.
 
      Colours stay semantic tokens (HSL channels) so every component picks
      them up. The shared preset (packages/ui/src/tokens.ts, used by apps/hoa)
      is NOT touched: marketing overrides its channels here, after the preset's
      own :root block.
 
-       light   white page · lavender-grey wells · ink #22212B text
-               violet #4B27C9 links and accents (8.6:1 on white)
+       light   cream #FBF7F0 page · white cards · tan wells #F3EDE1
+               charcoal #23201C text · pine #1F5A43 links and buttons
+               peach #E07A4F fills only; text on peach tint uses #8A3512
        dark    scope class .on-dark (heroes, closing bands, footer) re-points
-               the same tokens to a light-on-dark set, so components written
-               with text-foreground / text-muted / border-border just work.
-     Contrast (WCAG 2.2 AA) measured: ink/white 15.9 · secondary/white 9.5 ·
-     muted/white 6.6 · muted/well 6.0 · violet/white 8.6 · white/#3B1AB5 10.5.
+               the same tokens to a light-on-dark set (forest #0F2E22 base,
+               mint #BDE3CB links, peach #F4A47F accent), so components
+               written with text-foreground / text-muted / border-border
+               just work. .section-night does the same on warm charcoal.
+     Contrast (WCAG 2.2 AA) measured:
+       charcoal/cream 15.2 · charcoal/white 16.2 · secondary #4A443C/cream 9.0
+       muted #5C554A/cream 6.9 · muted/white 7.4 · muted/well 6.3
+       pine/cream 7.6 · pine/white 8.1 · pine/pale-green tint #E3EFE7 6.8
+       white/pine 8.1 · white/pine-hover #174632 10.7
+       peach-text #8A3512 on cream 7.6 · on peach tint #FBE5D8 6.7
+       charcoal on peach fill #E07A4F 5.5 (peach never carries white text)
+       form-field border #80766A on cream 4.2 · on white 4.5 (3:1 needed)
+       on-dark: white/forest 14.6 · muted #C9DDD0/forest 10.3 · /well 6.6
+       mint #BDE3CB/forest 10.5 · peach #F4A47F/forest 7.3
+       peach text #F7B999 on dark tint #3A2A1C 8.1
+       panel stops: white/#0F3425 13.7 · white/#1F5A43 8.1 · white/#174632 10.7
+       panel with glow (worst point) white 7.4 · muted 5.2
+       night: white/#1F1C18 17.0 · muted #D8D0C2 11.1
      ───────────────────────────────────────────────────────────────────────── */
   :root,
   .card,
   .app-window,
   .theme-light {
-    --background: 250 60% 98.4%;
+    --background: 38.2 57.9% 96.3%;
     --surface: 0 0% 100%;
     --elevated: 0 0% 100%;
-    --subtle: 250 33.3% 96.5%;
-    --border: 250.9 24.4% 91.2%;
-    --border-strong: 249.5 21.8% 82.9%;
-    --input: 248.2 8.7% 49.4%;
-    --ring: 253.3 67.5% 47.1%;
-    --foreground: 246 13.2% 14.9%;
-    --foreground-secondary: 245.5 14.1% 30.6%;
-    --muted: 245 11.8% 40%;
-    --primary: 253.3 67.5% 47.1%;
-    --primary-hover: 253.4 72% 37.8%;
+    --subtle: 40 42.9% 91.8%;
+    --border: 39.1 32.4% 86.1%;
+    --border-strong: 38.7 25.6% 76.3%;
+    --input: 32.7 9.4% 45.9%;
+    --ring: 156.6 48.8% 23.7%;
+    --foreground: 34.3 11.1% 12.4%;
+    --foreground-secondary: 34.3 10.4% 26.3%;
+    --muted: 36.7 10.8% 32.5%;
+    --primary: 156.6 48.8% 23.7%;
+    --primary-hover: 154.5 50.5% 18.2%;
     --primary-fg: 0 0% 100%;
-    --primary-subtle: 252.6 100% 96.3%;
-    --accent: 163.4 73.3% 45.5%;
-    --accent-subtle: 160.9 68.7% 93.7%;
-    --accent-fg: 164.2 81.2% 22.9%;
+    --primary-subtle: 140 27.3% 91.4%;
+    --accent: 17.8 70% 59.4%;
+    --accent-subtle: 22.3 81.4% 91.6%;
+    --accent-fg: 17.5 76.9% 30.6%;
   }
 
   :root {
     --font-sans: var(--font-be-vietnam), system-ui, sans-serif;
     --font-mono: var(--font-jetbrains-mono), monospace;
-    --ink: #16141f;
+    --ink: #1c1a16;
     /* Panel gradient stops (decorative fills, never behind small text unless
-       measured: white >= 8:1 on every stop that text can reach). */
-    --panel-a: #2a1288;
-    --panel-b: #4a1dc2;
-    --panel-c: #2b3cc4;
-    --panel-glow: #22c7c0;
+       measured: white >= 7:1 on every stop that text can reach). */
+    --panel-a: #0f3425;
+    --panel-b: #1f5a43;
+    --panel-c: #174632;
+    --panel-glow: #25664a;
     --radius-panel: 2.5rem;
-    --warm: #f2f0eb;
-    --night: #22212b;
+    --warm: #f1e9da;
+    --night: #1f1c18;
     --bar-h: 0rem;
   }
 
   .hero-wash,
   .section-ink,
   .on-dark {
-    --background: 250.9 21.6% 10%;
-    --surface: 250.6 23.9% 13.9%;
-    --elevated: 248.2 25% 17.3%;
-    --subtle: 249.2 25.5% 20%;
-    --border: 252 40% 44%;
-    --border-strong: 252 55% 62%;
-    --input: 247.5 19.6% 60%;
-    --ring: 249.8 100% 83.1%;
+    --background: 156.8 50.8% 12%;
+    --surface: 153.3 47.4% 14.9%;
+    --elevated: 151.4 45.7% 18%;
+    --subtle: 153.1 45% 21.4%;
+    --border: 151.5 31.9% 36.3%;
+    --border-strong: 148.4 24.7% 54.7%;
+    --input: 148.5 21.3% 63.1%;
+    --ring: 142.1 40.4% 81.6%;
     --foreground: 0 0% 100%;
-    --foreground-secondary: 248.6 51.9% 92%;
-    --muted: 247.5 39.2% 86%;
-    --primary: 249.2 100% 88%;
-    --primary-hover: 250.4 100% 93%;
-    --primary-fg: 250.9 21.6% 10%;
-    --primary-subtle: 252 55% 34%;
-    --accent: 162.2 72.3% 56.1%;
-    --accent-subtle: 168.6 56.8% 14.5%;
-    --accent-fg: 161.2 79.3% 71.6%;
+    --foreground-secondary: 143.1 30.2% 91.6%;
+    --muted: 141 22.7% 82.7%;
+    --primary: 142.1 40.4% 81.6%;
+    --primary-hover: 144.5 40.7% 89.4%;
+    --primary-fg: 156.8 50.8% 12%;
+    --primary-subtle: 153.8 43.2% 29%;
+    --accent: 19 84.2% 72.7%;
+    --accent-subtle: 28 34.9% 16.9%;
+    --accent-fg: 20.4 85.5% 78.4%;
     color: hsl(var(--foreground));
   }
 
@@ -120,10 +134,10 @@
   /* The HomeownerHub mark and wordmark keep their shape (packages/ui
      BrandLogo); only the colours move to the marketing palette. */
   svg[viewBox='0 0 32 32'] > rect:first-child {
-    fill: #4b27c9;
+    fill: #1f5a43;
   }
   svg[viewBox='0 0 32 32'] > rect:last-child {
-    fill: #d9cfff;
+    fill: #f2a583;
   }
   svg g[class*='2563EB'] {
     color: hsl(var(--primary));
@@ -135,7 +149,7 @@
    Type scale   display 40→64 · h2 32→48 · h3 20 · lead 17→20 · body 16
                 Be Vietnam Pro, weight 500 headlines, tight tracking
    Rhythm       section 72→128px · container 1200px · gutter 20→32px
-   Radius       panels 40px · cards 24px · buttons and chips full (pill)
+   Radius       panels 40px · cards 24px · buttons 12px (48px tall), chips full
    Motion       150-200ms colour/transform only; all off under reduced motion
    ─────────────────────────────────────────────────────────────────────────── */
 @layer components {
@@ -199,7 +213,7 @@
     border-radius: var(--radius-panel);
     overflow: hidden;
     background:
-      radial-gradient(42% 70% at 100% 0%, color-mix(in srgb, var(--panel-glow) 70%, transparent), transparent 72%),
+      radial-gradient(42% 70% at 100% 0%, color-mix(in srgb, var(--panel-glow) 55%, transparent), transparent 72%),
       radial-gradient(60% 80% at 0% 100%, var(--panel-b), transparent 75%),
       linear-gradient(135deg, var(--panel-a) 0%, var(--panel-b) 48%, var(--panel-c) 100%);
   }
@@ -239,10 +253,10 @@
   }
   .section-night {
     background: var(--night);
-    --background: 246 13.2% 14.9%;
-    --surface: 246 13% 19%;
-    --elevated: 246 13% 22%;
-    --subtle: 246 12% 24%;
+    --background: 34.3 12.7% 10.8%;
+    --surface: 33.3 12% 14.7%;
+    --elevated: 32.7 12.4% 17.5%;
+    --subtle: 35 11.5% 20.4%;
   }
 
   /* Features mega-menu: fade and rise on open, instant under reduced motion. */
@@ -306,7 +320,7 @@
     padding: 0.8rem 1.75rem;
     font-size: 1rem;
   }
-  /* Near-black pill; on dark panels it flips to a white pill. */
+  /* Pine button; on dark panels it flips to a white pill. */
   .btn-primary {
     background: hsl(var(--primary));
     color: #fff;
@@ -336,14 +350,14 @@
   .on-dark .btn-primary,
   .btn-on-ink {
     background: #fff;
-    color: #3b1ab5;
-    box-shadow: 0 10px 24px -10px rgb(10 5 60 / 0.6);
+    color: #174632;
+    box-shadow: 0 10px 24px -10px rgb(5 30 20 / 0.6);
   }
   .hero-wash .btn-primary:hover,
   .section-ink .btn-primary:hover,
   .on-dark .btn-primary:hover,
   .btn-on-ink:hover {
-    background: #e9e3ff;
+    background: #e3efe7;
   }
   .hero-wash .btn-secondary,
   .section-ink .btn-secondary,
@@ -390,7 +404,7 @@
   }
 
   /* Product-mockup window chrome (HTML/CSS stand-ins for real app screens).
-     Floats on the gradient panel with a deep violet-tinted shadow. */
+     Floats on the evergreen panel with a deep green-tinted shadow. */
   .app-window {
     background: #fff;
     color: hsl(var(--foreground));
@@ -398,9 +412,9 @@
     border-radius: 1.25rem;
     overflow: hidden;
     box-shadow:
-      0 1px 2px rgb(22 20 31 / 0.08),
-      0 36px 70px -28px rgb(22 12 90 / 0.55),
-      0 14px 28px -16px rgb(22 12 90 / 0.3);
+      0 1px 2px rgb(35 32 28 / 0.08),
+      0 36px 70px -28px rgb(10 40 28 / 0.55),
+      0 14px 28px -16px rgb(10 40 28 / 0.3);
   }
 }
 
@@ -477,14 +491,14 @@
   .section-ink {
     --background: 0 0% 100%;
     --surface: 0 0% 100%;
-    --subtle: 250 33.3% 96.5%;
-    --border: 250.9 24.4% 91.2%;
-    --border-strong: 249.5 21.8% 82.9%;
-    --foreground: 246 13.2% 14.9%;
-    --foreground-secondary: 245.5 14.1% 30.6%;
-    --muted: 245 11.8% 40%;
-    --primary: 253.3 67.5% 47.1%;
-    --primary-subtle: 252.6 100% 96.3%;
+    --subtle: 40 42.9% 91.8%;
+    --border: 39.1 32.4% 86.1%;
+    --border-strong: 38.7 25.6% 76.3%;
+    --foreground: 34.3 11.1% 12.4%;
+    --foreground-secondary: 34.3 10.4% 26.3%;
+    --muted: 36.7 10.8% 32.5%;
+    --primary: 156.6 48.8% 23.7%;
+    --primary-subtle: 140 27.3% 91.4%;
     background: #fff;
     margin: 0;
     border-radius: 0;
@@ -552,7 +566,7 @@
   height: 22px;
   margin: -3px 0 0 -3px;
   pointer-events: none;
-  filter: drop-shadow(0 2px 3px rgb(22 12 90 / 0.35));
+  filter: drop-shadow(0 2px 3px rgb(10 40 28 / 0.35));
   transition:
     left 900ms cubic-bezier(0.22, 0.8, 0.3, 1),
     top 900ms cubic-bezier(0.22, 0.8, 0.3, 1);

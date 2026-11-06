@@ -1,7 +1,7 @@
 import { HeroCtas } from './hero-ctas'
 import { AskAnswerCard, WorkspaceApprovalsPanel } from './mockups'
 
-// Home hero: a violet slab with the headline, two CTAs, a 2x2 checklist and
+// Home hero: an evergreen slab with the headline, two CTAs, a 2x2 checklist and
 // a cropped app window. Server component, so the copy paints with the HTML.
 //
 

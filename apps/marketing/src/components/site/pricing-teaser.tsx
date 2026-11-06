@@ -77,7 +77,7 @@ export function PricingTeaser() {
                     onClick={() => setYearly(o.y)}
                     className={cn(
                       'min-h-[44px] rounded-lg px-4 text-base font-semibold transition-colors',
-                      yearly === o.y ? 'bg-[#fff] text-[#3b1ab5]' : 'text-foreground hover:bg-[rgb(255_255_255/0.1)]',
+                      yearly === o.y ? 'bg-[#fff] text-[#174632]' : 'text-foreground hover:bg-[rgb(255_255_255/0.1)]',
                     )}
                   >
                     {o.label}

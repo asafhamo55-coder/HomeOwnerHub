@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og'
 import { SITE_DISPLAY_HOST } from '@/lib/site'
 
 // The default share image for every marketing page (file convention: it
-// applies to this segment and all below it). Text only, in the brand blue,
+// applies to this segment and all below it). Text only, in the brand evergreen,
 // so it needs no font or image fetch at build time.
 
 export const alt = 'HomeownerHub: AI for self-managed HOA boards'
@@ -20,14 +20,14 @@ export default function OpengraphImage() {
           flexDirection: 'column',
           justifyContent: 'space-between',
           padding: '72px 80px',
-          background: '#ffffff',
-          color: '#0f172a',
+          background: '#FBF7F0',
+          color: '#23201C',
           fontFamily: 'sans-serif',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 44, fontWeight: 700 }}>
           <span>Homeowner</span>
-          <span style={{ color: '#4B27C9' }}>Hub</span>
+          <span style={{ color: '#1F5A43' }}>Hub</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontSize: 68, fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
@@ -36,11 +36,11 @@ export default function OpengraphImage() {
           <div style={{ fontSize: 68, fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.02em' }}>
             The board runs the HOA.
           </div>
-          <div style={{ marginTop: 28, fontSize: 30, color: '#475569' }}>
+          <div style={{ marginTop: 28, fontSize: 30, color: '#5C554A' }}>
             {`For self-managed HOA boards · Georgia first · ${SITE_DISPLAY_HOST}`}
           </div>
         </div>
-        <div style={{ display: 'flex', height: 12, width: '100%', background: '#4B27C9', borderRadius: 6 }} />
+        <div style={{ display: 'flex', height: 12, width: '100%', background: '#1F5A43', borderRadius: 6 }} />
       </div>
     ),
     size,
