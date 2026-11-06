@@ -43,6 +43,7 @@ const company = [
 const tail = [
   { label: 'Privacy', href: '/privacy' },
   { label: 'Terms', href: '/terms' },
+  { label: 'Text alerts', href: '/text-messages' },
   { label: 'DPA', href: '/dpa' },
   { label: 'Status', href: '/status' },
 ]

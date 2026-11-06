@@ -84,6 +84,7 @@ export const SITEMAP_PATHS: readonly string[] = [
   '/docs',
   '/blog',
   '/status',
+  '/text-messages',
   '/privacy',
   '/terms',
   '/dpa',
