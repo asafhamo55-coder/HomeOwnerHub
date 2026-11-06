@@ -29,6 +29,7 @@ export async function loadBookingDays(input: z.input<typeof Schema>): Promise<Bo
   const failed = { ok: false, error: 'We could not load more days. Please try again.' } as const
   if (!M11_APPLIED) return failed
   const actor = await getResidentActor()
+  if (!actor.id) return failed
   const parsed = Schema.safeParse(input)
   if (!parsed.success) return failed
   const v = parsed.data
