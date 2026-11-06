@@ -120,7 +120,7 @@ describe('the gate', () => {
   })
 
   it('refuses features the guide does not describe, before any model call', () => {
-    for (const q of ['Can residents book the clubhouse for a party?', 'How do I sync our books with QuickBooks?', 'Is there a forum where neighbors can chat?']) {
+    for (const q of ['Can residents hire a snow plow through the app?', 'How do I sync our books with QuickBooks?', 'Can I livestream the board meeting on YouTube?']) {
       const s = retrieve(q, 'admin')
       expect(topScore(s), q).toBeLessThan(MIN_SCORE)
       expect(passesGate(s), q).toBe(false)
@@ -133,7 +133,7 @@ describe('the gate', () => {
   })
 
   it('coverage counts a word the guide never uses against the section', () => {
-    expect(coverageScore('record payment', 'dues-record-payment#steps')).toBeGreaterThan(coverageScore('record payment clubhouse', 'dues-record-payment#steps'))
+    expect(coverageScore('record payment', 'dues-record-payment#steps')).toBeGreaterThan(coverageScore('record payment snowplow', 'dues-record-payment#steps'))
   })
 })
 

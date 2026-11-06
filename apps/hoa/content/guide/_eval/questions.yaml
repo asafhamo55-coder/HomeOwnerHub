@@ -89,7 +89,9 @@ questions:
   - { id: r09, role: resident, expect: resident-meetings-notices, q: "Can I read the minutes from last month's meeting?", route: /resident/meetings }
 
   # ── Refusal canaries: features HomeownerHub does not have ─────────────
-  - { id: c01, role: admin, expect: refuse, q: "Can residents book the clubhouse for a party?" }
+  # c01 was a refusal canary until the amenities articles (2026-11-06) said
+  # how to set up and book the clubhouse; the guide now answers it.
+  - { id: c01, role: admin, expect: amenities-set-up-and-approve, q: "Can residents book the clubhouse for a party?" }
   # c02 was a refusal canary until settings-resident-payments said plainly
   # that there is no autopay and no card payment; the guide now answers it.
   - { id: c02, role: admin, expect: settings-resident-payments, q: "How do I turn on autopay by credit card?" }
@@ -100,8 +102,12 @@ questions:
   # c07 was a refusal canary until BL-087 shipped the estoppel certificate.
   - { id: c07, role: admin, expect: properties-estoppel-certificate, q: "How do I order an estoppel certificate for a home sale?" }
   - { id: c08, role: resident, expect: refuse, q: "Can I switch the portal to Spanish?" }
-  - { id: c09, role: resident, expect: refuse, q: "Is there a forum where neighbors can chat?" }
+  # c09 was a refusal canary until the community board shipped (M13) and
+  # resident-neighbors-board described it; the guide now answers it.
+  - { id: c09, role: resident, expect: resident-neighbors-board, q: "Is there a forum where neighbors can chat?" }
   - { id: c10, role: admin, expect: refuse, q: "How do I run a background check on a new tenant?" }
+  - { id: c11, role: admin, expect: refuse, q: "Can residents hire a snow plow through the app?" }
+  - { id: c12, role: resident, expect: refuse, q: "Can I livestream the board meeting on YouTube?" }
 
   # ── Rules questions: Ask the Docs, not the guide ──────────────────────
   - { id: d01, role: resident, expect: rules, q: "Can I paint my front door red?" }

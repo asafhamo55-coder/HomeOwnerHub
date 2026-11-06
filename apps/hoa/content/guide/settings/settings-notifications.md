@@ -6,7 +6,7 @@ topic: settings
 roles: [admin, board]
 routes: ["/settings/notifications", "/settings"]
 primary_route: /settings/notifications
-keywords: [notifications, email notifications, emails, unsubscribe, stop emails, too many emails, monthly report, board report, month-end report, opt out, turn off, settings, preferences, profile, change my name, resident emails, notify residents, tell residents, decision email, reply email, arc decision email, ticket reply email, text residents, sms, resident assistant, resident chat, ai assistant, turn off assistant, ask tab, resident portal]
+keywords: [notifications, email notifications, emails, unsubscribe, stop emails, too many emails, monthly report, board report, month-end report, month-end summary, stopped receiving, turn it back on, opt out, turn off, settings, preferences, profile, change my name, resident emails, notify residents, tell residents, decision email, reply email, arc decision email, ticket reply email, text residents, sms, resident assistant, resident chat, ai assistant, turn off assistant, ask tab, resident portal]
 related: [accounting-monthly-board-report, settings-dues-reminders, arc-review-application, tickets-board]
 reviewed: 2026-10-19
 ---
