@@ -19,6 +19,8 @@ export interface IcsEvent {
   location?: string | null
   description?: string | null
   url?: string | null
+  /** CANCELLED tells a subscribed calendar to drop the event. Default CONFIRMED. */
+  status?: 'CONFIRMED' | 'CANCELLED'
   /** DTSTAMP; injectable for tests. */
   now?: Date
 }
@@ -83,6 +85,12 @@ function eventLines(event: IcsEvent): string[] {
     lines.push(`DTSTART;VALUE=DATE:${compactDay(event.date)}`, `DTEND;VALUE=DATE:${compactDay(nextDay(event.date))}`)
   }
   lines.push(`SUMMARY:${escapeIcsText(event.summary)}`)
+  if (event.status === 'CANCELLED') {
+    // A higher SEQUENCE is what makes a calendar replace its earlier copy.
+    lines.push('STATUS:CANCELLED', 'SEQUENCE:1')
+  } else if (event.status === 'CONFIRMED') {
+    lines.push('STATUS:CONFIRMED')
+  }
   if (event.location?.trim()) lines.push(`LOCATION:${escapeIcsText(event.location.trim())}`)
   if (event.description?.trim()) lines.push(`DESCRIPTION:${escapeIcsText(event.description.trim())}`)
   if (event.url?.trim()) lines.push(`URL:${event.url.trim().replace(/[\r\n]/g, '')}`)
@@ -91,13 +99,34 @@ function eventLines(event: IcsEvent): string[] {
 }
 
 /** The .ics text (CRLF line endings) for any number of events. */
-export function buildIcsCalendar(events: readonly IcsEvent[], opts: { prodId?: string } = {}): string {
+export function buildIcsCalendar(
+  events: readonly IcsEvent[],
+  opts: {
+    prodId?: string
+    /** Subscription feeds: the calendar's display name. */
+    name?: string
+    /** Subscription feeds: IANA zone, written as X-WR-TIMEZONE. */
+    timeZone?: string
+    /** Subscription feeds: how often a client should re-fetch. */
+    refreshMinutes?: number
+  } = {},
+): string {
+  const feed: string[] = []
+  if (opts.name) feed.push(`X-WR-CALNAME:${escapeIcsText(opts.name)}`)
+  if (opts.timeZone && /^[A-Za-z0-9_+\-/]+$/.test(opts.timeZone)) feed.push(`X-WR-TIMEZONE:${opts.timeZone}`)
+  if (opts.refreshMinutes && opts.refreshMinutes > 0) {
+    const h = Math.floor(opts.refreshMinutes / 60)
+    const m = opts.refreshMinutes % 60
+    const dur = `PT${h ? `${h}H` : ''}${m ? `${m}M` : ''}`
+    feed.push(`REFRESH-INTERVAL;VALUE=DURATION:${dur}`, `X-PUBLISHED-TTL:${dur}`)
+  }
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     `PRODID:${opts.prodId ?? '-//HomeownerHub//Meeting notice//EN'}`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    ...feed,
     ...events.flatMap(eventLines),
     'END:VCALENDAR',
   ]

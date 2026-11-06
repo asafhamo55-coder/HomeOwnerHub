@@ -41,6 +41,19 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-52 · Turn on "Add to my calendar" (Vercel, hoa project)
+
+**Urgency:** Whenever
+
+**Why it matters:** residents can subscribe their phone calendar to their association's meetings and community events, so new ones appear by themselves. The feature is built and stays hidden (no button, no feed) until this secret exists. Nothing else is affected.
+
+**Steps:**
+
+1. Make a random secret of at least 32 characters, for example by running `openssl rand -base64 48` in Terminal.
+2. Open Vercel, project **home-owner-hub-hoa**, Settings, Environment Variables (Production). Add `CALENDAR_FEED_SECRET` with that value. Use a different value from every other secret.
+3. Redeploy production.
+4. Tell Claude. Changing this secret later stops every resident's calendar link at once, so keep it.
+
 ### OA-49 · Put the association name and a big button in the invite email (Supabase dashboard)
 
 **Urgency:** Soon
