@@ -18,9 +18,28 @@ describe('safeNextPath', () => {
 describe('signupNextPath', () => {
   it('keeps a same-site path such as /join', () => {
     expect(signupNextPath('/join')).toBe('/join')
+    expect(signupNextPath('/loginhelp')).toBe('/loginhelp')
   })
 
-  it.each(['https://evil.com', '//evil.com', '/\\evil.com', 'javascript:alert(1)', '', null, undefined])(
+  it.each([
+    'https://evil.com',
+    '//evil.com',
+    '/\\evil.com',
+    'javascript:alert(1)',
+    '',
+    null,
+    undefined,
+    '/%2F%2Fevil.com',
+    '/\t/evil',
+    ' /join',
+    '/\\evil',
+    '/',
+    '/signup',
+    '/signup?redirect=/join',
+    '/login',
+    '/login?redirect=/join',
+    '/auth/callback',
+  ])(
     'sends %s to /onboarding',
     (v) => {
       expect(signupNextPath(v)).toBe('/onboarding')

@@ -50,7 +50,7 @@ export const NOTICE_STEPS = [
   },
   {
     title: 'No email? Open the web address below.',
-    body: 'Type it, or point your phone camera at the square code. Tap "Create an account", then confirm your email. A family member\'s email works.',
+    body: 'Type it, or point your phone camera at the square code. Tap "Create an account", then confirm your email. Use an email address only you can open. If you don\'t have one, ask a family member to help you set one up, or call the board contact below. Open the confirmation email on the same phone or computer you used to sign up.',
   },
   {
     title: 'Ask to join your home.',

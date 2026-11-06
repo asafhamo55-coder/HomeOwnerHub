@@ -63,6 +63,13 @@ export default async function JoinNoticePage() {
               Owners who open the address will be told it is not available. Use the email invitations until it is on.
             </Alert>
           ) : null}
+          <p className="text-sm text-foreground-secondary">
+            Phone numbers and emails you list under{' '}
+            <Link href="/settings/association" className="font-medium text-primary underline">
+              Contacts
+            </Link>{' '}
+            will be printed and visible to anyone who picks this up.
+          </p>
           <PrintButton />
         </div>
         <JoinNotice

@@ -15,5 +15,15 @@ export function safeNextPath(value: string | null): string {
  */
 export function signupNextPath(value: string | null | undefined): string {
   const safe = safeNextPath(value ?? null)
-  return safe === '/' ? '/onboarding' : safe
+  if (safe === '/' || /^\/(signup|login|auth)(?![A-Za-z0-9_-])/i.test(safe)) return '/onboarding'
+  // An encoded slash or backslash right after the first slash could be
+  // decoded downstream into //evil.com.
+  let decoded = safe
+  try {
+    decoded = decodeURIComponent(safe)
+  } catch {
+    return '/onboarding'
+  }
+  if (/^\/[/\\]/.test(decoded)) return '/onboarding'
+  return safe
 }

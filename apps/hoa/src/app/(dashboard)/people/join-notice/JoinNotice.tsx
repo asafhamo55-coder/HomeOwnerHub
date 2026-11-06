@@ -22,16 +22,16 @@ export function JoinNotice({
   return (
     <article
       aria-label="How to join HomeownerHub notice"
-      className="join-notice mx-auto max-w-[8.5in] bg-white p-6 text-[16pt] leading-snug text-black print:max-w-none print:p-0"
+      className="join-notice [print-color-adjust:exact] mx-auto max-w-[8.5in] bg-white p-6 text-[16pt] leading-snug text-black print:max-w-none print:p-0"
     >
       <style>{'@media print { @page { size: letter; margin: 0.5in; } }'}</style>
-      <header className="border-b-4 border-black pb-2">
+      <header className="break-inside-avoid border-b-4 border-black pb-2">
         <p className="text-[16pt] font-bold uppercase tracking-wide">{associationName}</p>
         <h1 className="text-[30pt] font-bold leading-tight">{associationName} is now on HomeownerHub</h1>
       </header>
 
       <h2 className="mt-4 text-[28pt] font-bold leading-tight">How to join</h2>
-      <ol className="mt-2 space-y-2">
+      <ol className="mt-2 space-y-2 break-inside-avoid">
         {NOTICE_STEPS.map((s, i) => (
           <li key={s.title} className="flex gap-3">
             <span aria-hidden className="w-10 shrink-0 text-[28pt] font-bold leading-none">
@@ -44,7 +44,7 @@ export function JoinNotice({
         ))}
       </ol>
 
-      <section aria-label="Web address and code" className="mt-4 flex items-center gap-5 border-4 border-black p-3">
+      <section aria-label="Web address and code" className="mt-4 flex break-inside-avoid items-center gap-5 border-4 border-black p-3">
         <div
           role="img"
           aria-label={`QR code that opens ${address}`}
@@ -62,7 +62,7 @@ export function JoinNotice({
       <p>Android: tap the menu with three dots, then &quot;Add to Home screen&quot;.</p>
 
       {contacts.length > 0 ? (
-        <section aria-label="Need help" className="mt-4">
+        <section aria-label="Need help" className="mt-4 break-inside-avoid">
           <h2 className="text-[28pt] font-bold leading-tight">Need help? Call or email</h2>
           <ul className="mt-1">
             {contacts.map((c) => (
@@ -83,7 +83,7 @@ export function JoinNotice({
         </section>
       ) : null}
 
-      <p className="mt-4 border-t-4 border-black pt-2">
+      <p className="mt-4 break-inside-avoid border-t-4 border-black pt-2">
         A 1-minute video shows how it works. Watch it at <span className="break-all font-bold">{displayAddress(welcomeUrl)}</span>
       </p>
     </article>
