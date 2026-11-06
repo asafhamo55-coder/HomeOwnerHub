@@ -25,7 +25,7 @@ export default async function ResidentPaymentsSettingsPage() {
     <Page
       width="narrow"
       title="Resident payments"
-      description="Let residents pay dues with Zelle. Each charge gets a memo code, so deposits match to the right home automatically."
+      description="Tell residents how to pay dues: Zelle, a check, or both. With Zelle, each charge gets a memo code so deposits match to the right home."
       tabs={<SettingsTabs current="/settings/payments" role={role} />}
       linkAs={Link}
     >
@@ -49,15 +49,15 @@ export default async function ResidentPaymentsSettingsPage() {
   return page(
     <>
       {data.read.state === 'unverified' ? (
-        <Alert variant="warning" title="Residents can’t see your Zelle details right now">
+        <Alert variant="warning" title="Residents can’t see your payment details right now">
           The saved details were changed outside this screen, so they’re hidden from residents. Check them below and
           save again.
         </Alert>
       ) : null}
       <ZelleSettingsForm
         initial={data.initial}
-        configured={data.read.state === 'configured'}
-        updatedAt={data.read.state === 'configured' ? data.read.settings.updatedAt : null}
+        configured={data.read.state === 'configured' || data.read.state === 'checks_only'}
+        updatedAt={data.read.state === 'configured' || data.read.state === 'checks_only' ? data.read.settings.updatedAt : null}
         sampleMemoCode={data.sampleMemoCode}
       />
       <PaymentReceiptsCard receipts={receipts} />

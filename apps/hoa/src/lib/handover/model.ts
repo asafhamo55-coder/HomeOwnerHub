@@ -109,12 +109,12 @@ export interface PlaidItemInput {
   last_synced_at: string | null
 }
 
-export type ZelleState = 'configured' | 'not_configured' | 'unverified' | 'no_association'
+export type ZelleState = 'configured' | 'checks_only' | 'not_configured' | 'unverified' | 'no_association'
 
 export interface ConnectionsInput {
   mailbox: MailboxInput | null
   plaidItems: PlaidItemInput[]
-  zelle: { state: ZelleState; updatedAt: string | null }
+  zelle: { state: ZelleState; updatedAt: string | null; /** Check payee and address are also saved. */ hasChecks?: boolean }
   /** Only whether a Stripe customer exists — never the id itself. */
   hasStripeCustomer: boolean
 }
@@ -191,20 +191,22 @@ export function buildConnections(input: ConnectionsInput, boardIds: ReadonlySet<
   out.push({
     key: 'zelle',
     kind: 'zelle',
-    label: 'Zelle payment details',
-    status: z.state === 'configured' ? 'connected' : z.state === 'unverified' ? 'needs_attention' : 'not_connected',
+    label: 'Payment details (Zelle and checks)',
+    status: z.state === 'configured' || z.state === 'checks_only' ? 'connected' : z.state === 'unverified' ? 'needs_attention' : 'not_connected',
     // The signed Zelle save does not record who saved it.
     ownerUserId: null,
     ownerGone: false,
     detail:
       z.state === 'configured'
-        ? 'Residents are told to pay this Zelle recipient. Check it is the HOA’s account, not a departing member’s own phone or email.'
+        ? `Residents are told to pay this Zelle recipient${z.hasChecks ? ' and to mail checks to the saved payee and address' : ''}. Check ${z.hasChecks ? 'they are' : 'it is'} the HOA’s, not a departing member’s own phone, email or address.`
+        : z.state === 'checks_only'
+          ? 'Residents are told to mail checks to this payee and address. Check it is the HOA’s, not a departing member’s.'
         : z.state === 'unverified'
           ? 'The saved details were changed outside the app and are hidden from residents. Check and save them again.'
           : z.state === 'no_association'
             ? 'Your association isn’t set up yet, so there is nothing to check.'
-            : 'Zelle isn’t set up. Nothing to hand over.',
-    since: z.state === 'configured' ? z.updatedAt : null,
+            : 'Payment details aren’t set up. Nothing to hand over.',
+    since: z.state === 'configured' || z.state === 'checks_only' ? z.updatedAt : null,
     href: '/settings/payments',
     action: 'Transfer',
     adminOnly: false,
