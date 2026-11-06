@@ -92,16 +92,16 @@ const tenant = (email: string) =>
 
 describe('createTenant initial-admin invite: outbound guard', () => {
   it('production, org not sandboxed: invites and adds the admin', async () => {
-    const res = await tenant('admin@example.com')
+    const res = await tenant('admin@acme-hoa.com')
     expect(res).toEqual({ ok: true, data: { orgId: 'org-new', inviteHeld: false } })
-    expect(h.invited).toEqual(['admin@example.com'])
+    expect(h.invited).toEqual(['admin@acme-hoa.com'])
     expect(h.sandboxReads).toEqual(['org-new'])
     expect(writesTo('org_members', 'insert')).toHaveLength(1)
   })
 
   it('sandboxed org: tenant is created, but no invitation and no membership', async () => {
     h.sandbox = true
-    const res = await tenant('admin@example.com')
+    const res = await tenant('admin@acme-hoa.com')
     expect(res).toEqual({ ok: true, data: { orgId: 'org-new', inviteHeld: true } })
     expect(h.invited).toEqual([])
     expect(writesTo('org_members', 'insert')).toHaveLength(0)
@@ -111,7 +111,7 @@ describe('createTenant initial-admin invite: outbound guard', () => {
   it('outside production: an address not on OUTBOUND_ALLOWLIST is held', async () => {
     process.env.VERCEL_ENV = 'preview'
     process.env.OUTBOUND_ALLOWLIST = '@team.test'
-    const res = await tenant('admin@example.com')
+    const res = await tenant('admin@acme-hoa.com')
     expect(res.ok && res.data.inviteHeld).toBe(true)
     expect(h.invited).toEqual([])
   })
@@ -125,10 +125,10 @@ describe('createTenant initial-admin invite: outbound guard', () => {
 
   it('the held-send log line carries counts and the org id, never the address', async () => {
     h.sandbox = true
-    await tenant('admin@example.com')
+    await tenant('admin@acme-hoa.com')
     expect(h.warn).toHaveBeenCalledTimes(1)
     const logged = JSON.stringify(h.warn.mock.calls)
-    expect(logged).not.toContain('admin@example.com')
+    expect(logged).not.toContain('admin@acme-hoa.com')
     expect(logged).toContain('invite_tenant_admin:org-new')
   })
 
@@ -142,23 +142,23 @@ describe('createTenant initial-admin invite: outbound guard', () => {
 
 describe('inviteOrPromotePlatformAdmin: outbound guard', () => {
   it('production: a new address is invited and granted', async () => {
-    const res = await inviteOrPromotePlatformAdmin('new@example.com')
+    const res = await inviteOrPromotePlatformAdmin('new@acme-hoa.com')
     expect(res).toEqual({ ok: true, data: { userId: 'new-user', alreadyExisted: false } })
-    expect(h.invited).toEqual(['new@example.com'])
+    expect(h.invited).toEqual(['new@acme-hoa.com'])
     expect(writesTo('platform_admins', 'upsert')).toHaveLength(1)
   })
 
   it('outside production: a held address gets no account, no grant and no email', async () => {
     process.env.VERCEL_ENV = 'preview'
     process.env.OUTBOUND_ALLOWLIST = '@team.test'
-    const res = await inviteOrPromotePlatformAdmin('new@example.com')
+    const res = await inviteOrPromotePlatformAdmin('new@acme-hoa.com')
     expect(res.ok).toBe(false)
     expect(res).toMatchObject({ error: expect.stringContaining('no invitation was sent') })
     expect(h.invited).toEqual([])
     expect(writesTo('platform_admins', 'upsert')).toHaveLength(0)
     expect(h.sent).toEqual([])
     const logged = JSON.stringify(h.warn.mock.calls)
-    expect(logged).not.toContain('new@example.com')
+    expect(logged).not.toContain('new@acme-hoa.com')
     expect(logged).toContain('invite_platform_admin')
   })
 

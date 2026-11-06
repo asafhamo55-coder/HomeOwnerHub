@@ -135,6 +135,32 @@ export function isAllowlisted(
   return allowlist.domains.has(address.slice(at + 1))
 }
 
+// ─── Reserved test domains ──────────────────────────────────────────
+
+const RESERVED_DOMAINS: ReadonlySet<string> = new Set(['example.com', 'example.net', 'example.org'])
+const RESERVED_TLDS = ['example', 'invalid', 'test', 'localhost']
+
+/**
+ * RFC 2606 / 6761 names that can never receive mail: example.com/.net/.org
+ * (and subdomains) plus anything under .example, .invalid, .test, .localhost.
+ * Sending to one bounces and damages sender reputation, so these are refused
+ * even in production (sample-community owners, fixtures, typos). Email only.
+ */
+export function isReservedTestAddress(recipient: string | null | undefined): boolean {
+  if (!recipient) return false
+  const address = normalizeEmail(recipient)
+  const at = address.lastIndexOf('@')
+  if (at <= 0) return false
+  const domain = address.slice(at + 1).replace(/\.$/, '')
+  if (!domain) return false
+  const labels = domain.split('.')
+  if (RESERVED_TLDS.includes(labels[labels.length - 1])) return true
+  for (let i = 0; i < labels.length - 1; i++) {
+    if (RESERVED_DOMAINS.has(labels.slice(i).join('.'))) return true
+  }
+  return false
+}
+
 // ─── Policy ─────────────────────────────────────────────────────────
 
 export function resolveOutboundPolicy(
@@ -177,14 +203,17 @@ export function guardRecipients<T>(
   opts: GuardOptions = {},
 ): GuardResult<T> {
   const policy = resolveOutboundPolicy({ env: opts.env, orgSandbox: opts.orgSandbox })
-  if (!policy.enforce) {
-    return { allowed: [...items], blocked: [], allowedMask: items.map(() => true), policy }
-  }
+  const isEmail = channel === 'email' || channel === 'gmail'
 
   const allowed: T[] = []
   const blocked: T[] = []
   const allowedMask = items.map((item) => {
-    const ok = isAllowlisted(channel, recipientOf(item), policy.allowlist)
+    // Reserved test domains are refused when the policy is not enforcing
+    // (production). Under enforcement the allowlist is the explicit,
+    // deliberate decision and already blocks everything not listed.
+    const ok = policy.enforce
+      ? isAllowlisted(channel, recipientOf(item), policy.allowlist)
+      : !(isEmail && isReservedTestAddress(recipientOf(item)))
     ;(ok ? allowed : blocked).push(item)
     return ok
   })
@@ -196,7 +225,7 @@ export function guardRecipients<T>(
         channel,
         blocked: blocked.length,
         total: items.length,
-        reason: policy.reason,
+        reason: policy.enforce ? policy.reason : 'reserved_domain',
         ref: opts.ref ?? null,
       },
     )

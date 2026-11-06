@@ -50,11 +50,11 @@ beforeEach(() => {
 })
 
 describe('sample data content', () => {
-  it('has 12 homes on 2 streets, all on the reserved example.com domain', () => {
+  it('has 12 homes on 2 streets, all on the reserved example.invalid domain', () => {
     const homes = sampleHomes()
     expect(homes).toHaveLength(SAMPLE_HOME_COUNT)
     expect(new Set(homes.map((h) => h.address.split(' ').slice(1).join(' '))).size).toBe(2)
-    for (const h of homes) expect(h.ownerEmail.endsWith('@example.com')).toBe(true)
+    for (const h of homes) expect(h.ownerEmail.endsWith('@example.invalid')).toBe(true)
   })
 
   it('the banner says what the owner asked for', () => {
@@ -74,6 +74,10 @@ describe('sample data content', () => {
     expect(isSampleHome({ notes: 'Sample data: x', owner_email: 'a@gmail.com' })).toBe(false)
     expect(isSampleHome({ notes: 'Corner lot', owner_email: 'a@example.com' })).toBe(false)
     expect(isSampleHome({ notes: null, owner_email: null })).toBe(false)
+    // New fills use example.invalid; both are recognised, in any case.
+    expect(isSampleHome({ notes: 'Sample data: x', owner_email: 'a@example.invalid' })).toBe(true)
+    expect(isSampleHome({ notes: 'Sample data: x', owner_email: 'A@EXAMPLE.INVALID' })).toBe(true)
+    expect(isSampleHome({ notes: 'Sample data: x', owner_email: 'a@example.net' })).toBe(false)
   })
 })
 
@@ -136,7 +140,7 @@ describe('fillSampleCommunity', () => {
     expect(written.some((r) => Object.values(r).includes(OTHER))).toBe(false)
   })
 
-  it('gives sample residents no auth account and uses only example.com emails', async () => {
+  it('gives sample residents no auth account and uses only example.invalid emails', async () => {
     const m = memorySupabase(seed())
     await fillSampleCommunity(db(m), ctx)
     expect(m.calls.some((c) => c.table === 'profiles' || c.table === 'org_members')).toBe(false)
@@ -145,7 +149,7 @@ describe('fillSampleCommunity', () => {
       ...m.rows('ownerships').map((r) => r.owner_email),
     ]
     expect(emails.length).toBeGreaterThan(0)
-    for (const e of emails) expect(String(e).endsWith('@example.com')).toBe(true)
+    for (const e of emails) expect(String(e).endsWith('@example.invalid')).toBe(true)
     expect(m.rows('ownerships').every((o) => o.owner_user_id === undefined || o.owner_user_id === null)).toBe(true)
   })
 
@@ -289,6 +293,34 @@ describe('removeSampleCommunity', () => {
     const r = await removeSampleCommunity(db(live), ORG)
     expect(r).toEqual({ ok: true, removedHomes: 11 })
     expect(live.rows('hoa_properties').map((p) => p.id)).toEqual([adopted.id])
+  })
+
+  it('removes rows filled before the domain change (example.com) and new ones (example.invalid)', async () => {
+    const m = memorySupabase(seed())
+    await fillSampleCommunity(db(m), ctx)
+    const legacy = (e: unknown) => String(e).replace('@example.invalid', '@example.com')
+    // Half the homes (and their owners) look like an old fill.
+    const old = new Set(m.rows('hoa_properties').slice(0, 6).map((p) => p.owner_email))
+    const swap = (r: Row) => (old.has(r.owner_email) ? { ...r, owner_email: legacy(r.owner_email) } : r)
+    const mixed = memorySupabase({
+      ...seed(),
+      hoa_properties: m.rows('hoa_properties').map(swap),
+      units: m.rows('units'),
+      ownerships: m.rows('ownerships').map(swap),
+      assessments: m.rows('assessments'),
+      hoa_violations: m.rows('hoa_violations'),
+      tickets: m.rows('tickets'),
+      ticket_messages: m.rows('ticket_messages'),
+      arc_requests: m.rows('arc_requests'),
+      communications: m.rows('communications'),
+      hoa_meeting_minutes: m.rows('hoa_meeting_minutes'),
+      dues_rates: m.rows('dues_rates'),
+    })
+    expect(mixed.rows('hoa_properties').some((p) => String(p.owner_email).endsWith('@example.com'))).toBe(true)
+    expect(await loadSampleState(db(mixed), ORG)).toEqual({ sampleHomes: 12, realHomes: 0 })
+    expect(await removeSampleCommunity(db(mixed), ORG)).toEqual({ ok: true, removedHomes: 12 })
+    expect(mixed.rows('hoa_properties')).toHaveLength(0)
+    expect(mixed.rows('ownerships')).toHaveLength(0)
   })
 
   it('sample state: reports sample homes and real homes separately', async () => {

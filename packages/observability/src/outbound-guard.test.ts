@@ -5,6 +5,7 @@ import {
   guardRecipients,
   isAllowlisted,
   isOrgSandbox,
+  isReservedTestAddress,
   parseAllowlist,
   resolveOutboundPolicy,
 } from './outbound-guard'
@@ -228,5 +229,55 @@ describe('org sandbox flag', () => {
       }),
     }
     expect(await fetchOrgSandbox(db, 'org-1', quietLogger())).toBe(true)
+  })
+})
+
+describe('reserved test domains', () => {
+  const RESERVED = [
+    'a@example.com', 'a@example.net', 'a@example.org', 'a@example.invalid',
+    'a@x.example', 'a@x.invalid', 'a@x.test', 'a@x.localhost', 'a@localhost',
+    'A@EXAMPLE.COM', 'a@Mail.Example.Org', 'a@deep.sub.example.net',
+    'Sample <sample.home1@example.invalid>', 'a@example.com.',
+  ]
+  const NORMAL = [
+    'resident@gmail.com', 'a@notexample.com', 'a@example.com.au', 'a@myexample.org',
+    'a@testing.com', 'a@invalid.com', 'a@example.co', 'a@homeownerledger.com',
+  ]
+
+  it.each(RESERVED)('flags %s', (addr) => {
+    expect(isReservedTestAddress(addr)).toBe(true)
+  })
+  it.each(NORMAL)('allows %s', (addr) => {
+    expect(isReservedTestAddress(addr)).toBe(false)
+  })
+  it('ignores empty and malformed input', () => {
+    expect(isReservedTestAddress(null)).toBe(false)
+    expect(isReservedTestAddress('')).toBe(false)
+    expect(isReservedTestAddress('no-at-sign')).toBe(false)
+  })
+
+  it('in production skips reserved email recipients, keeps the rest, logs counts only', () => {
+    const logger = quietLogger()
+    const items = ['sample.home1@example.invalid', RESIDENT, 'old@EXAMPLE.com', 'b@x.test']
+    const r = guardRecipients('email', items, (x) => x, { env: PROD, logger, ref: 'comm_1' })
+    expect(r.allowed).toEqual([RESIDENT])
+    expect(r.blocked).toHaveLength(3)
+    expect(r.allowedMask).toEqual([false, true, false, false])
+    expect(logger.warn).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toMatch(/example|resident@|gmail/)
+    expect(logger.warn.mock.calls[0][1]).toMatchObject({ channel: 'email', blocked: 3, total: 4, ref: 'comm_1' })
+  })
+
+  it('applies to the gmail channel too, but never to sms', () => {
+    expect(guardRecipients('gmail', ['a@example.org'], (x) => x, { env: PROD, logger: quietLogger() }).blocked).toHaveLength(1)
+    expect(guardRecipients('sms', ['+15550001111'], (x) => x, { env: PROD, logger: quietLogger() }).allowed).toHaveLength(1)
+  })
+
+  it('an explicit allowlist entry still wins under enforcement (preview fixtures)', () => {
+    const r = guardRecipients('email', ['owner@example.test'], (x) => x, {
+      env: { VERCEL_ENV: 'preview', OUTBOUND_ALLOWLIST: '@example.test' },
+      logger: quietLogger(),
+    })
+    expect(r.allowed).toHaveLength(1)
   })
 })
