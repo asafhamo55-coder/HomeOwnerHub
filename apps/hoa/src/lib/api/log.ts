@@ -21,3 +21,12 @@ export function logRouteFailure(where: string, err: unknown, context: LogContext
   const name = err instanceof Error ? err.name : typeof err
   console.error(`[api:${where}] failed`, { ...context, errorName: name, errorCode: errorCode(err) ?? null })
 }
+
+/**
+ * One structured info line for a non-error outcome worth diagnosing (a 404
+ * with a cause, a fallback taken). Ids, counts and reason codes only, never
+ * an address, URL, key or body.
+ */
+export function logRouteEvent(where: string, context: LogContext = {}): void {
+  console.info(`[api:${where}]`, JSON.stringify(context))
+}
