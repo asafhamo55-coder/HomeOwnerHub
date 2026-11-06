@@ -16,7 +16,7 @@ export function TextSizeControl() {
   return (
     <fieldset className="min-w-0">
       <legend className="text-sm font-semibold text-foreground">Text size</legend>
-      <p className="mb-2 text-xs text-muted">Makes everything in the app bigger</p>
+      <p className="mb-2 text-xs text-muted">Makes text bigger</p>
       <div className="grid grid-cols-3 gap-2">
         {TEXT_SIZES.map((s) => (
           <label

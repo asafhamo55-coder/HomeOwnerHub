@@ -135,7 +135,7 @@ export function NotificationBellMenu({ items, unreadCount, badge }: Props) {
           align="end"
           sideOffset={6}
           className={cn(
-            'z-50 w-[340px] overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-lg',
+            'z-50 w-[min(340px,calc(100vw-1rem))] overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-lg',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           )}
         >
