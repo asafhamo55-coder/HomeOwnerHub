@@ -24,7 +24,7 @@ Do this once so residents can pay their dues from their phone. Until you do, res
 3. Optional: in **Name Zelle shows**, enter the account name residents will see before they confirm. It starts as your association's name.
 4. Optional: in **Note to residents**, add other ways to pay or who to call.
 5. Check **What residents see**. It's a live preview of the Pay screen for a sample $325.00 charge.
-6. Select [[Turn on Pay by Zelle]].
+6. Select [[Save how residents pay]].
 
 ## What happens next
 - The status changes to **On — residents can pay**, and residents see a **Pay** button with the steps.
