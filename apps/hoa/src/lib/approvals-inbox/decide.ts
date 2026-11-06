@@ -48,6 +48,13 @@
 //                        function itself refuses anyone but the request
 //                        org's board/admin (42501).
 //
+//   amenity approve/   → decideReservation (lib/amenities/actions.ts, BL-034),
+//     turn down          bound in actions.ts: the board/admin check, the
+//                        pending-and-not-started claim, the database's
+//                        no-overlap guard (a clash is refused with a plain
+//                        sentence), the email to the resident and the
+//                        decided_by / decided_at record all live there.
+//
 // Pure (relative imports + workspace packages only) so tests/integration
 // can drive the exact composition the server action uses.
 
@@ -93,6 +100,8 @@ export interface InboxDecisionHandlers {
   rejectContact(ticketId: string, reason: string): Promise<Simple & { message?: string }>
   approveJoin(requestId: string): Promise<InboxDecisionOutcome>
   rejectJoin(requestId: string, reason: string): Promise<InboxDecisionOutcome>
+  approveAmenity(reservationId: string): Promise<InboxDecisionOutcome>
+  rejectAmenity(reservationId: string, reason: string): Promise<InboxDecisionOutcome>
   approvePro(approvalRequestId: string): Promise<DecisionResult>
   rejectPro(approvalRequestId: string, reason: string): Promise<DecisionResult>
   /**
@@ -107,7 +116,7 @@ export interface InboxDecisionHandlers {
 export type InboxDecisionOutcome = { ok: true; message: string } | { ok: false; error: string }
 
 const DecisionSchema = z.object({
-  kind: z.enum(['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact', 'join', 'pro']),
+  kind: z.enum(['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact', 'join', 'amenity', 'pro']),
   id: z.string().uuid(),
   decision: z.enum(['approve', 'reject']),
   reason: z.string().max(1000).optional(),
@@ -309,6 +318,10 @@ export async function decideApprovalFor(
     const r = decision === 'reject' ? await handlers.rejectContact(id, reason) : await handlers.approveContact(id)
     if (!r.ok) return { ok: false, error: r.error }
     return { ok: true, message: r.message ?? (decision === 'reject' ? 'Rejected.' : 'Contact details updated.') }
+  }
+
+  if (kind === 'amenity') {
+    return decision === 'reject' ? handlers.rejectAmenity(id, reason) : handlers.approveAmenity(id)
   }
 
   if (kind === 'join') {

@@ -36,6 +36,8 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
     rejectContact: vi.fn(async () => ({ ok: true as const, message: 'Rejected. Nothing on file changed; the resident sees your reason.' })),
     approveJoin: vi.fn(async () => ({ ok: true as const, message: 'Approved.' })),
     rejectJoin: vi.fn(async () => ({ ok: true as const, message: 'Request rejected.' })),
+    approveAmenity: vi.fn(async () => ({ ok: true as const, message: 'Booking approved.' })),
+    rejectAmenity: vi.fn(async () => ({ ok: true as const, message: 'Booking turned down.' })),
     approvePro: vi.fn(async () => ({ ok: true as const, status: 'posted' as const, resultRef: 'je', alreadyDecided: false })),
     rejectPro: vi.fn(async () => ({ ok: true as const, status: 'rejected' as const, resultRef: null, alreadyDecided: false })),
     ...over,
@@ -45,7 +47,7 @@ function handlers(over: Partial<InboxDecisionHandlers> = {}): InboxDecisionHandl
 describe('decideApprovalFor — role gate', () => {
   it.each(['resident', null, 'owner'])('refuses %s before touching any module action', async (role) => {
     const h = handlers()
-    for (const kind of ['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact'] as const) {
+    for (const kind of ['w18', 'bill', 'opening', 'w3', 'collections', 'vendor', 'contact', 'amenity'] as const) {
       for (const decision of ['approve', 'reject'] as const) {
         const r = await decideApprovalFor(role, { kind, id: ID, decision, reason: 'x' }, h)
         expect(r.ok).toBe(false)
@@ -422,5 +424,36 @@ describe('decideApprovalFor — BL-143 join requests', () => {
     expect((await decideApprovalFor('board', { kind: 'join', id: ID, decision: 'reject', reason: ' ' }, h)).ok).toBe(false)
     expect(h.approveJoin).not.toHaveBeenCalled()
     expect(h.rejectJoin).not.toHaveBeenCalled()
+  })
+})
+
+describe('decideApprovalFor: BL-034 amenity bookings', () => {
+  it('approve and turn down go to the amenity handlers only, with the trimmed reason', async () => {
+    const h = handlers()
+    expect(await decideApprovalFor('board', { kind: 'amenity', id: ID, decision: 'approve' }, h)).toEqual({ ok: true, message: 'Booking approved.' })
+    expect(h.approveAmenity).toHaveBeenCalledWith(ID)
+    expect(await decideApprovalFor('admin', { kind: 'amenity', id: ID, decision: 'reject', reason: ' Closed that day ' }, h)).toEqual({
+      ok: true,
+      message: 'Booking turned down.',
+    })
+    expect(h.rejectAmenity).toHaveBeenCalledWith(ID, 'Closed that day')
+    expect(h.approveJoin).not.toHaveBeenCalled()
+    expect(h.approvePosting).not.toHaveBeenCalled()
+  })
+
+  it('a refusal from the shared core (the time was taken) is passed on as the error', async () => {
+    const h = handlers({ approveAmenity: vi.fn(async () => ({ ok: false as const, error: 'Someone else just booked that time. Pick another time.' })) })
+    expect(await decideApprovalFor('board', { kind: 'amenity', id: ID, decision: 'approve' }, h)).toEqual({
+      ok: false,
+      error: 'Someone else just booked that time. Pick another time.',
+    })
+  })
+
+  it('a resident is refused, and a turn down without a reason never reaches the handler', async () => {
+    const h = handlers()
+    expect((await decideApprovalFor('resident', { kind: 'amenity', id: ID, decision: 'approve' }, h)).ok).toBe(false)
+    expect((await decideApprovalFor('board', { kind: 'amenity', id: ID, decision: 'reject', reason: ' ' }, h)).ok).toBe(false)
+    expect(h.approveAmenity).not.toHaveBeenCalled()
+    expect(h.rejectAmenity).not.toHaveBeenCalled()
   })
 })

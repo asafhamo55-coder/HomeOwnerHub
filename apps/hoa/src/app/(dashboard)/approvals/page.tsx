@@ -23,7 +23,7 @@ import { requireBoardOrAdmin } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { authSubmitterEmails } from '@/lib/contact-updates/submitter-email'
 import { listVendorsResult } from '@/lib/vendors'
-import { loadArcSection, loadBillSection, loadContactSection, loadJoinSection, loadLetterSection, loadOpeningSection, loadProSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
+import { loadAmenitySection, loadArcSection, loadBillSection, loadContactSection, loadJoinSection, loadLetterSection, loadOpeningSection, loadProSection, loadVendorCountsByAssociation, loadW18Section, loadW3Section } from '@/lib/approvals-inbox/load'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import {
   APPROVAL_SOURCES,
@@ -45,6 +45,7 @@ import { vendorLabel } from '@/lib/bill-scan/proposal'
 import { SummaryStrip } from './SummaryStrip'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { DEFAULT_ASSOCIATION_TIME_ZONE } from '@/lib/association-time'
+import { currentTimeZone } from '@/lib/association-time-current'
 import { ApprovalActions } from '@/components/approvals/ApprovalActions'
 import { BulkApproveProvider, BulkRowCheckbox, BulkSelectAll } from '@/components/approvals/BulkApprove'
 import { isBulkEligible, isBulkSource } from '@/lib/approvals-inbox/bulk'
@@ -90,6 +91,9 @@ const SOURCE_LOADERS: Record<ApprovalSource, (orgId: string, orgName: string) =>
   ),
   contact: cache((orgId: string) => timed(R, 'approvals.contact', async () => loadContactSection(await db(), orgId, { submitterEmails: authSubmitterEmails }))),
   join: cache((orgId: string) => timed(R, 'approvals.join', async () => loadJoinSection(await db(), orgId))),
+  amenity: cache((orgId: string) =>
+    timed(R, 'approvals.amenity', async () => loadAmenitySection(await db(), orgId, await currentTimeZone())),
+  ),
   pro: cache((orgId: string) => timed(R, 'approvals.pro', async () => loadProSection(await db(), orgId))),
   vendor: cache(() =>
     timed(R, 'approvals.vendor', () =>
@@ -127,7 +131,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <Page
       title="Things to approve"
-      description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, vendors. Nothing here happens until someone approves it."
+      description="Everything waiting on a board decision — deposits to post, bills to enter, violation and collections letters, ARC reviews, residents’ contact updates, requests to join, amenity bookings, vendors. Nothing here happens until someone approves it."
       linkAs={Link}
       meta={
         <Suspense fallback={null}>

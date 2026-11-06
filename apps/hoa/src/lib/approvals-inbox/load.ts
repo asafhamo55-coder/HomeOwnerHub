@@ -18,9 +18,12 @@ import { TREASURER_ROUTED_ACTIONS, treasurerRecipientIds, type MemberLike } from
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { FOLLOW_UP_AWAITING_SAVE_PATH } from '../violation-follow-up'
 import { contactTicketsQuery, loadContactEntries, type ContactDeps, type ContactTicketRow } from '../contact-updates/apply'
+import { M11_APPLIED } from '@homeowner-portal/db/m11'
+import { countPendingBookings, loadPendingBookings, type LooseDb as AmenityDb } from '../amenities/queries'
 import { countPendingJoins, loadPendingJoins, type JoinDb } from '../owner-join/board'
 import {
   SECTION_LIMIT,
+  amenityItems,
   arcItems,
   billItems,
   contactItems,
@@ -237,6 +240,22 @@ export async function loadJoinSection(db: InboxDb, orgId: string, live: boolean 
 }
 
 /**
+ * BL-034: amenity booking requests waiting on the board, oldest request
+ * first, on the board member's own RLS client. Times are shown in
+ * `timeZone` (the association's). Flag off: empty, without a query.
+ */
+export async function loadAmenitySection(
+  db: InboxDb,
+  orgId: string,
+  timeZone: string,
+  opts: { live?: boolean; now?: Date } = {},
+): Promise<InboxSection> {
+  const found = await loadPendingBookings(db as unknown as AmenityDb, orgId, (opts.now ?? new Date()).toISOString(), SECTION_LIMIT, opts.live ?? M11_APPLIED)
+  if (!found) return { source: 'amenity', ok: false }
+  return { source: 'amenity', ok: true, items: amenityItems(found.rows, timeZone), total: found.total }
+}
+
+/**
  * Vendors needing the board in ONE association: two index-backed head
  * counts mirroring vendorNeedsBoard (yellow/red/missing, or green on a
  * prospect; deleted vendors excluded). Scoped to an association because
@@ -318,14 +337,14 @@ async function countProBadge(db: InboxDb, orgId: string, viewerId?: string) {
  * means the vendor list is empty, so 0. A failed count is null — unknown,
  * never 0.
  */
-export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { m5?: boolean; m6?: boolean; viewerId?: string } = {}): Promise<SourceCounts> {
+export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { m5?: boolean; m6?: boolean; m11?: boolean; viewerId?: string; now?: Date } = {}): Promise<SourceCounts> {
   const vendorCount = async (): Promise<number | null> => {
     const assocs = await loadAssociations(db, orgId)
     if (!assocs.ok) return null
     const primary = (assocs.data ?? [])[0]
     return primary ? countVendorsNeedingBoard(db, orgId, primary.id) : 0
   }
-  const [w18, bill, opening, w3, collections, arc, contact, join, pro, vendor] = await Promise.all([
+  const [w18, bill, opening, w3, collections, arc, contact, join, amenity, pro, vendor] = await Promise.all([
     loadOrFail(
       'approvals badge: postings',
       db
@@ -383,11 +402,12 @@ export async function countPendingApprovals(db: InboxDb, orgId: string, opts: { 
     ),
     loadOrFail('approvals badge: contact updates', contactTicketsQuery(db, orgId, { head: true })),
     countPendingJoins(db as unknown as JoinDb, orgId, opts.m5 ?? M5_APPLIED),
+    countPendingBookings(db as unknown as AmenityDb, orgId, (opts.now ?? new Date()).toISOString(), opts.m11 ?? M11_APPLIED),
     (opts.m6 ?? M6_APPLIED) ? countProBadge(db, orgId, opts.viewerId) : Promise.resolve({ ok: true as const, count: 0 }),
     vendorCount(),
   ])
   const count = (r: { ok: true; count: number | null } | { ok: false }) => (r.ok ? (r.count ?? 0) : null)
-  return { w18: count(w18), bill: count(bill), opening: count(opening), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), join, pro: count(pro), vendor }
+  return { w18: count(w18), bill: count(bill), opening: count(opening), w3: count(w3), collections: count(collections), arc: count(arc), contact: count(contact), join, amenity, pro: count(pro), vendor }
 }
 
 /**
