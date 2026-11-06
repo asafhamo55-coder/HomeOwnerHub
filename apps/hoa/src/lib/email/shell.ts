@@ -22,6 +22,8 @@ export interface EmailDocumentOptions {
   band?: EmailBand
   /** Inbox preview line. Hidden in the body, shown in the list view. */
   previewText?: string
+  /** The document title (the subject, for mail that has one). Read by screen readers and the browser view. */
+  title?: string
   /**
    * Shrink to the screen on phones instead of a fixed 600px card. Uses the
    * "ghost table" hybrid: a 100%-wide card capped at 600px by max-width for
@@ -41,7 +43,7 @@ export interface EmailDocumentOptions {
 const PAGE_BG = '#F1F3F5'
 const CARD_BG = '#FFFFFF'
 const TEXT = '#1A1D21'
-const MUTED = '#8A939B'
+const MUTED = '#5B646C'
 const LINE = '#E8EBED'
 const FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
@@ -59,7 +61,7 @@ function bandRow(band: EmailBand): string {
   // honours, the inline style is what everything else honours. `color` is
   // set in the same declaration because partial-inversion engines flip a
   // background without its foreground and produce white-on-white.
-  return `<tr><td bgcolor="${band.color}" style="background-color:${band.color};color:#ffffff;padding:13px 22px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">${escapeHtml(band.text)}</td></tr>`
+  return `<tr><td bgcolor="${band.color}" style="background-color:${band.color};color:#ffffff;padding:13px 22px;font-family:${FONT};font-size:14px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">${escapeHtml(band.text)}</td></tr>`
 }
 
 function preheader(text: string): string {
@@ -68,12 +70,12 @@ function preheader(text: string): string {
 
 export function renderEmailDocument(opts: EmailDocumentOptions): string {
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="color-scheme" content="light" />
 <meta name="supported-color-schemes" content="light" />
-<title></title>
+<title>${opts.title ? escapeHtml(opts.title) : ''}</title>
 ${opts.extraCss ? `<style type="text/css">${opts.extraCss}</style>\n` : ''}</head>
 <body style="margin:0;padding:0;background-color:${PAGE_BG};color:${TEXT};">
 ${opts.previewText ? preheader(opts.previewText) : ''}
@@ -89,7 +91,7 @@ ${opts.band ? bandRow(opts.band) : ''}
 <tr><td class="eh-body" bgcolor="${CARD_BG}" style="padding:22px;font-family:${FONT};color:${TEXT};background-color:${CARD_BG};">
 ${opts.bodyHtml}
 </td></tr>
-<tr><td bgcolor="#FAFAFA" style="background-color:#FAFAFA;color:${MUTED};padding:14px 22px;border-top:1px solid ${LINE};font-family:${FONT};font-size:10px;line-height:1.6;">
+<tr><td bgcolor="#FAFAFA" style="background-color:#FAFAFA;color:${MUTED};padding:14px 22px;border-top:1px solid ${LINE};font-family:${FONT};font-size:14px;line-height:1.6;">
 ${opts.footerHtml}
 </td></tr>
 </table>

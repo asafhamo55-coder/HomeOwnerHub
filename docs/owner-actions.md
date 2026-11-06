@@ -76,6 +76,23 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
 
 **Files:** `apps/hoa/src/lib/invite-data.ts`
 
+### OA-51 · Send sign-in emails from HomeownerHub (Supabase custom SMTP)
+
+**Urgency:** Soon
+
+**Do this before inviting all owners.**
+
+**Why it matters:** Supabase's built-in mail is for testing. It sends as "Supabase Auth" and allows only a few emails an hour, so inviting a whole community fails partway, and older residents may think "Supabase Auth" is spam. With your own sender, invitations and sign-in links come from "HomeownerHub" and the whole community can be invited in one go.
+
+**Steps:**
+
+1. In Resend, create an API key with "Sending access" only, for the homeownerledger.com domain.
+2. In Supabase, open Authentication, then Emails (or Settings), then SMTP Settings, and turn on Custom SMTP.
+3. Enter: sender email noreply@homeownerledger.com (or the address EMAIL_FROM uses), sender name "HomeownerHub", host smtp.resend.com, port 465, username "resend", and the new key as the password.
+4. Raise the auth email rate limit (Authentication, then Rate Limits) to fit a community invite, for example 100 an hour.
+5. Send yourself a test invite from the Members page and check the sender shows "HomeownerHub".
+6. Never paste the key into the repo. Tell Claude when it is done.
+
 ### OA-46 · Turn on house pictures (Google Street View key)
 
 **Urgency:** Soon

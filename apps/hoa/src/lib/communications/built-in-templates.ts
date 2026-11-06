@@ -21,6 +21,8 @@
  */
 
 import type { TemplateQuestion } from '@/lib/community-templates/types'
+import { appOrigin } from '@/lib/app-origin'
+import { WELCOME_SUBJECT, WELCOME_TEMPLATE_ID, buildWelcomeEmailHtml } from './welcome-email'
 
 export type BuiltInCategory = 'dues' | 'meeting' | 'emergency' | 'announcement' | 'welcome'
 
@@ -245,6 +247,34 @@ export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
         required: false,
         help: 'Start with a verb. For example: email the board at board@lakesidehoa.example',
         fallback: 'just reply to this email',
+      },
+    ],
+  },
+  {
+    id: WELCOME_TEMPLATE_ID,
+    name: 'Welcome to HomeownerHub',
+    description:
+      'Tell residents the association is on HomeownerHub, in three steps. Send the invitations first (Settings, Members, Invite owners), then send this email within a few minutes.',
+    category: 'welcome',
+    channels: ['email'],
+    subject: WELCOME_SUBJECT,
+    // Links and the poster use the app's own origin (NEXT_PUBLIC_APP_URL).
+    bodyHtml: buildWelcomeEmailHtml(appOrigin()),
+    questions: [
+      {
+        id: 'city',
+        label: 'City and state',
+        type: 'text',
+        required: true,
+        help: 'Where the community is. For example: Johns Creek, Georgia',
+      },
+      {
+        id: 'board_signature',
+        label: 'Sign-off',
+        type: 'text',
+        required: false,
+        help: 'How the email is signed. For example: The Madison Park Board',
+        fallback: 'The Board of Directors',
       },
     ],
   },

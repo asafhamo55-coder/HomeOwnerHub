@@ -73,4 +73,12 @@ describe('renderEmailDocument', () => {
     const html = renderEmailDocument({ ...BASE, band: { text: 'X', color: '#2F8F5B' } })
     expect(html).not.toContain('gradient')
   })
+
+  it('escapes the title, and an empty or missing title gives an empty <title></title>', () => {
+    const doc = (title?: string) => renderEmailDocument({ bodyHtml: 'x', footerHtml: 'y', title })
+    expect(doc('Oak & <b>Vine</b> "hi"')).toContain('<title>Oak &amp; &lt;b&gt;Vine&lt;/b&gt; &quot;hi&quot;</title>')
+    expect(doc('')).toContain('<title></title>')
+    expect(doc()).toContain('<title></title>')
+    expect(doc()).toContain('lang="en" xml:lang="en"')
+  })
 })
