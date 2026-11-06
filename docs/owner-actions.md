@@ -99,6 +99,8 @@ Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your c
 
 **Why it matters:** each property page can show a street picture of the home, taken from Google Street View. Until the key below is added, the page shows a plain house icon instead and makes no request to Google. Nothing else is affected.
 
+**Progress (2026-11-06):** Done: the key is set in Vercel and restricted to Street View Static API and Geocoding API, the Geocoding API is enabled, and both have daily quotas (300) and a $5 budget. Left: in Association settings, fill in "Where the community is" (city and ZIP), so homes whose address is only the street can be found on the map.
+
 **Steps:**
 
 1. Go to console.cloud.google.com and sign in with the Google account that should own billing. Create a project, for example "HomeownerHub".
