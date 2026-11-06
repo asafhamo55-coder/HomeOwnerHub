@@ -178,7 +178,7 @@ export function RecordCollectionEvent({
                     </Field>
                     {mailings.length > 0 ? (
                       <Field label="This is the delivery of (optional)">
-                        <select name="deliveryForEventId" defaultValue="" className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm">
+                        <select name="deliveryForEventId" defaultValue="" className="h-10 w-full rounded-md border border-border bg-surface px-3 text-base sm:text-sm">
                           <option value="">An entry of its own</option>
                           {mailings.map((m) => (
                             <option key={m.id} value={m.id}>

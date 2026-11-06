@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   sandbox: false,
   invited: [] as string[],
+  inviteOpts: [] as unknown[],
   userWrites: [] as unknown[][],
   adminWrites: [] as unknown[][],
   sandboxReads: [] as string[],
@@ -32,7 +33,7 @@ vi.mock('@homeowner-portal/observability/outbound-guard', async (orig) => ({
 
 function chain(log: unknown[][], table: string) {
   const b: Record<string, unknown> = {}
-  for (const op of ['select', 'eq', 'is', 'ilike', 'limit', 'update', 'delete', 'upsert', 'insert']) {
+  for (const op of ['select', 'eq', 'is', 'ilike', 'order', 'limit', 'update', 'delete', 'upsert', 'insert']) {
     b[op] = (...a: unknown[]) => (log.push([table, op, ...a]), b)
   }
   b.maybeSingle = async () =>
@@ -49,7 +50,8 @@ vi.mock('@homeowner-portal/db', () => ({
     from: (t: string) => chain(h.adminWrites, t),
     auth: {
       admin: {
-        inviteUserByEmail: vi.fn(async (email: string) => {
+        inviteUserByEmail: vi.fn(async (email: string, opts?: unknown) => {
+          h.inviteOpts.push(opts)
           if (h.inviteError) return { data: { user: null }, error: h.inviteError }
           h.invited.push(email)
           return { data: { user: { id: 'new-user', created_at: h.createdAt ?? new Date().toISOString() } }, error: null }
@@ -71,6 +73,7 @@ beforeEach(() => {
   delete process.env.OUTBOUND_ALLOWLIST
   h.sandbox = false
   h.invited = []
+  h.inviteOpts = []
   h.userWrites = []
   h.adminWrites = []
   h.sandboxReads = []
@@ -97,6 +100,8 @@ describe('inviteMember outbound guard (BL-135)', () => {
     const res = await inviteMember({ email: 'owner@acme-hoa.com', role: 'resident' })
     expect(res).toEqual({ ok: true, data: { userId: 'new-user', alreadyExisted: false } })
     expect(h.invited).toEqual(['owner@acme-hoa.com'])
+    // org_name / association_name reach the email template (org falls back for the association).
+    expect(h.inviteOpts[0]).toMatchObject({ data: { org_name: 'Test HOA', association_name: 'Test HOA' } })
     expect(memberInserts()).toHaveLength(1)
     expect(h.sandboxReads).toEqual(['org-1'])
   })

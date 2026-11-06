@@ -131,6 +131,20 @@ export default async function MembersPage() {
         </CardContent>
       </Card>
 
+      <Card id="join-notice">
+        <CardHeader className="pb-4">
+          <CardTitle as="h2">Owners who do not read email</CardTitle>
+          <CardDescription>
+            Print a one-page notice in large type, with a QR code, to leave in mailboxes or hand out at a meeting.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/people/join-notice" className="font-medium text-primary underline">
+            Print a how-to-join notice
+          </Link>
+        </CardContent>
+      </Card>
+
       {M5_APPLIED ? (
         <Card id="join-codes">
           <CardHeader className="pb-4">

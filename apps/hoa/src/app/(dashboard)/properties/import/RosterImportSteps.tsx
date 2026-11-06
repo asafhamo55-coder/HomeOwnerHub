@@ -582,6 +582,12 @@ export function WhatsNext({ emailCount }: { emailCount: number }) {
           </li>
         ) : null}
         <li>
+          <Link href="/people/join-notice" className="font-medium text-primary underline">
+            Print a how-to-join notice
+          </Link>{' '}
+          <span className="text-muted">(for owners who do not read email)</span>
+        </li>
+        <li>
           <Link href="/dues" className="font-medium text-primary underline">
             Generate dues
           </Link>
