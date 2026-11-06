@@ -214,7 +214,17 @@ applied. Afterwards, diff the result rather than assuming: compare **columns**,
 not table names. A table-level comparison cannot detect deleted columns inside
 an existing table, and will hand you a false pass.
 
-## 4. `pnpm lint` has never worked here, and says the wrong thing
+## 4. Root `pnpm lint` is still broken; `apps/hoa` lints on its own
+
+**`apps/hoa` now lints.** It has `eslint.config.mjs` (flat config: `next/core-web-vitals`,
+`next/typescript`, jsx-a11y recommended) and its `lint` script is a plain,
+non-interactive `eslint .`. Run it truthfully with `pnpm --filter hoa lint`;
+exit 0 means zero errors. Existing violations are downgraded to warnings in the
+config (each with a reason), so read the error count, not the warning count.
+If rtk summarises the output, use `rtk proxy pnpm --filter hoa lint`.
+
+Everything below is about the **other apps and the root command**, which are
+still unconfigured:
 
 The Bash hook rewrites `pnpm lint` to rtk's own root ESLint invocation, which
 reports:
@@ -228,18 +238,19 @@ That is not out of memory. `rtk pnpm lint` tells the truth: all four apps run
 "How would you like to configure ESLint?" prompt and dies. Tasks: 0 successful,
 4 total.
 
-Nobody has ever successfully linted this repo. Do not read `pnpm lint` output.
+Apart from `apps/hoa`, nobody has ever successfully linted this repo. Do not
+read root `pnpm lint` output.
 
-## 5. CI now runs tests, but lint is still unconfigured
+## 5. CI runs tests and lints apps/hoa; other apps are unlinted
 
 `.github/workflows/ci.yml` runs `pnpm turbo run typecheck`,
 `pnpm typecheck:integration`, `pnpm turbo run build`, `pnpm test:unit`, and
 (after starting Supabase and replaying the schema) `pnpm test:integration`.
 Both suites — unit and integration — now gate merges.
 
-Lint is the one thing CI still does not run. See §4: `next lint` has no
-ESLint config in any app and drops into an interactive prompt, so it was
-never wired in. That has not changed.
+CI also runs `pnpm --filter hoa lint` right after typecheck (errors fail the
+job). Lint for the other apps is still not run: see §4, their `next lint` has
+no ESLint config and drops into an interactive prompt.
 
 (This section previously said "CI runs neither tests nor lint." That was
 true before both suites were wired in; it no longer is for tests.)
@@ -252,7 +263,7 @@ the failure:
 ```
 pnpm typecheck          rtk pnpm -r typecheck
 pnpm test:unit          rtk pnpm vitest run
-rtk pnpm build          rtk pnpm lint   (truthfully reports that lint is unconfigured)
+rtk pnpm build          pnpm --filter hoa lint   (apps/hoa only; root rtk pnpm lint reports the others unconfigured)
 pnpm typecheck:integration
 ```
 

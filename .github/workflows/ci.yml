@@ -33,6 +33,11 @@ jobs:
       - name: Typecheck
         run: pnpm turbo run typecheck
 
+      # apps/hoa only (eslint.config.mjs). Errors fail the job; existing
+      # violations are warnings. Other apps have no ESLint config.
+      - name: Lint (apps/hoa)
+        run: pnpm --filter hoa lint
+
       # No tsconfig.json in this repo includes tests/integration/, so the
       # step above never compiles it — a type error there would pass
       # every check in this job while being invisible to CI. This is a
