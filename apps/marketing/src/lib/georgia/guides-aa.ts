@@ -229,6 +229,7 @@ export const GA_ANNUAL_MEETING: Guide = {
     'annual-meeting-notice-checklist',
     'certified-mail-collections-notices',
     'self-managed-hoa-georgia-first-90-days',
+    'georgia-hoa-board-election-and-nominations-checklist',
   ],
   hoaDoes: [],
   hoaDoesNot:

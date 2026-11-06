@@ -129,6 +129,7 @@ export const GA_POA_APPLY: Guide = {
     'georgia-hoa-board-powers-44-3-231',
     'georgia-hoa-who-can-serve-on-the-board-44-3-229',
     'readiness',
+    'georgia-hoa-architectural-review-covenants-44-3-231',
   ],
   hoaDoes: [],
   hoaDoesNot:
@@ -232,6 +233,7 @@ export const GA_LOT_OWNER_BOARD: Guide = {
     'georgia-hoa-board-powers-44-3-231',
     'condo-vs-hoa-law',
     'hoa-board-conflict-of-interest-disclosure-checklist',
+    'georgia-hoa-board-election-and-nominations-checklist',
   ],
   hoaDoes: [],
   hoaDoesNot:
