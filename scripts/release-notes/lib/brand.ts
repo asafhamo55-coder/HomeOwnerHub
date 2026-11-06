@@ -7,7 +7,7 @@
 // runs under plain tsx in CI and must not pull in a package build graph. If
 // the palette moves, update these; release-notes.test.ts fails on drift.
 // The logo is the HomeownerHub PNG the app serves from its public origin
-// (apps/hoa/public/email/v2/homeownerhub-logo.png), 2x, opaque white field.
+// (apps/hoa/public/email/v3/homeownerhub-logo.png), 2x, purple badge with transparent corners.
 
 export const BRAND = {
   productName: 'HomeownerHub',
@@ -29,9 +29,9 @@ export const BRAND = {
   accentSubtle: '#FFF6E5',
   accentFg: '#93370D',
   /** Absolute https URL of the header logo, served by the app (middleware leaves /email/ public). */
-  logoUrl: `${process.env.APP_ORIGIN || 'https://www.homeownerledger.com'}/email/v2/homeownerhub-logo.png`,
-  logoWidth: 180,
-  logoHeight: 30,
+  logoUrl: `${process.env.APP_ORIGIN || 'https://www.homeownerledger.com'}/email/v3/homeownerhub-logo.png`,
+  logoWidth: 200,
+  logoHeight: 48,
   font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",
   mono: "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace",
 } as const
