@@ -1,4 +1,4 @@
-// Weekly SEO audit, second half (2026-11-05): checks seo-audit.test.ts does
+// Weekly SEO audit, second half (2026-11-05; the structured-data date check uses the real date, or SEO_AUDIT_TODAY): checks seo-audit.test.ts does
 // not make. Internal links resolve to real pages (not redirects), the sitemap
 // has no redirect sources, no guide is an orphan, structured data is
 // well formed for every guide and checklist, images carry alt text, and the
@@ -156,7 +156,8 @@ describe('SEO audit: images', () => {
 
 describe('SEO audit: structured data', () => {
   const pages = [...ALL_GUIDES, ...Object.values(CHECKLISTS)]
-  const today = '2026-11-05'
+  // datePublished must be the real publish date: a guide dated after today fails. SEO_AUDIT_TODAY overrides for tests.
+  const today = process.env.SEO_AUDIT_TODAY ?? new Date().toISOString().slice(0, 10)
   const ISO = /^\d{4}-\d{2}-\d{2}$/
 
   it('Article data: headline within 110 characters, ISO dates, modified on or after published, none in the future', () => {

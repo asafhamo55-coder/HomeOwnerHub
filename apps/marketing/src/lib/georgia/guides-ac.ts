@@ -8,7 +8,7 @@
 
 import type { Guide } from './types'
 
-const PUBLISHED = '2026-11-05'
+const PUBLISHED = '2026-11-06'
 
 export const GA_CONDO_FINES: Guide = {
   slug: 'georgia-condo-fines-and-suspensions-44-3-76',
@@ -37,7 +37,7 @@ export const GA_CONDO_FINES: Guide = {
     {
       heading: 'The duty to comply, and the rules behind a fine',
       body: [
-        'Section 44-3-76 starts with the owner’s side. Owners and occupants comply with the condominium instruments and with reasonable rules that were provided to the unit owners. A board that wants to fine for a rule violation should be able to show the rule was adopted under the instruments and sent to owners.',
+        'Section 44-3-76 starts with the owner’s side. Owners and occupants comply with the condominium instruments and with reasonable rules that were provided to the unit owners. The text says the rules must be reasonable, adopted under the instruments and provided to the unit owners.',
       ],
       quotes: ['condoComply', 'condoRules'],
     },
@@ -59,7 +59,7 @@ export const GA_CONDO_FINES: Guide = {
     {
       heading: 'Utility services',
       body: [
-        'The association sometimes provides services such as water or heat as part of the common expenses. The section allows termination for unpaid assessments only if the instruments provide for it, only subject to the suspension standards and notice requirements imposed on institutional providers, and only after final judgments above a total of $750.00.',
+        'The section covers water, gas, electricity, heat and air conditioning services that the association provides to a unit or unit owner. It allows termination for unpaid assessments only if the instruments provide for it, only subject to the suspension standards and notice requirements imposed on institutional providers, and only after final judgments above a total of $750.00.',
         'After a termination, the text says the services need not be restored until the judgment and the reasonable costs of suspending and restoring are paid. Those costs are an assessment and a lien against the unit.',
       ],
       quotes: ['condoUtility', 'condoUtilityRestore', 'condoUtilityLien'],
@@ -134,6 +134,12 @@ export const GA_LIEN_PAYOFF: Guide = {
   ],
   sections: [
     {
+      heading: 'Which law this is',
+      body: [
+        'This page is about the Georgia Property Owners’ Association Act, Article 6 of Title 44, Chapter 3, which uses the words lot and lot owner. A condominium association is under the Condominium Act instead, and its statement of amounts due is in Code Section 44-3-109. Check your declaration to see which Act you are under. Our guide on condominium fines and suspensions covers the condo side of enforcement.',
+      ],
+    },
+    {
       heading: 'What the lien is, and how it is noticed',
       body: [
         'Georgia’s assessment lien arises by statute. Our guide on assessment lien rules covers its contents. For payoff questions, the notable point is that the text does not require a separate recorded claim of lien.',
@@ -151,7 +157,7 @@ export const GA_LIEN_PAYOFF: Guide = {
     {
       heading: 'Timing: five business days',
       body: [
-        'The deadline is five business days from receipt. The text spells out what a missed deadline does, and only as to the title or interest acquired by the purchaser or lender in the transaction the request was made for. It does not say the debt is erased as to the owner. Ask your attorney about any request that is close to the deadline.',
+        'The deadline is five business days from receipt. The text spells out what a missed deadline does, and only as to the title or interest acquired by the purchaser or lender in the transaction the request was made for. The text ties that result to the purchaser or lender in the transaction the request was made for, and we do not read it as erasing what the owner owes. Ask your attorney about any request that is close to the deadline.',
       ],
       quotes: ['stmtFiveDays'],
     },
@@ -163,16 +169,16 @@ export const GA_LIEN_PAYOFF: Guide = {
       quotes: ['stmtBinding', 'stmtFee'],
     },
     {
-      heading: 'What a buyer is protected from',
+      heading: 'What a buyer can rely on',
       body: [
-        'Section 44-3-225(c) ties to the statement. If the grantor or grantee requests it, the grantee is not liable for unpaid assessments beyond the amount in the statement. Our guide on unpaid assessments when a lot is sold covers that section.',
+        'Section 44-3-225(c) ties to the statement. Unless the instrument provides otherwise, a grantee is jointly and severally liable with the grantor for unpaid assessments up to the conveyance. If the grantor or grantee requests the statement, the grantee is not liable for, and the lot is not subject to a lien for, unpaid assessments against the grantor above the amount in the statement. Our guide on unpaid assessments when a lot is sold covers that section.',
       ],
       quotes: ['saleStatement'],
     },
     {
       heading: 'How long the lien lasts',
       body: [
-        'The lien lapses by the passage of time. The text in force until December 31, 2026 says four years. The revised text from January 1, 2027, under Senate Bill 406, says six years. Which one applies to an assessment depends on dates, so ask your attorney.',
+        'The lien lapses by the passage of time. The text in force until December 31, 2026 says four years. The revised text from January 1, 2027, under Senate Bill 406, says six years. The text we hold has no transition rule for assessments that came due before 2027, so ask your attorney which period applies to an older assessment.',
       ],
       quotes: ['lapse2026', 'lapse2027'],
     },
@@ -219,6 +225,7 @@ export const GA_LIEN_PAYOFF: Guide = {
     'georgia-hoa-unpaid-assessments-when-a-lot-is-sold-44-3-225',
     'georgia-hoa-lien-priority-taxes-and-mortgages-44-3-232',
     'certified-mail-collections-notices',
+    'georgia-condo-fines-and-suspensions-44-3-76',
   ],
   hoaDoes: [],
   hoaDoesNot:
@@ -259,7 +266,7 @@ export const GA_CONDO_EXPENSES: Guide = {
     {
       heading: 'Expenses that benefit only some units',
       body: [
-        'Subsection (b) has further special assessments, each of which applies only to the extent the instruments expressly so provide. One example is expenses benefiting less than all of the units. Another covers expenses caused by the conduct of an occupant, licensee or invitee. The full subsection also has a third paragraph and a fourth that limits special allocation of periodic maintenance, which we do not quote here.',
+        'Subsection (b) lists other special assessments, and each applies only to the extent the instruments expressly so provide. One example is expenses benefiting less than all of the units. Another covers expenses caused by the conduct of an occupant, licensee or invitee. The full subsection also has a third paragraph and a fourth that limits special allocation of periodic maintenance, which we do not quote here.',
       ],
       quotes: ['condoBenefitLess1'],
     },
