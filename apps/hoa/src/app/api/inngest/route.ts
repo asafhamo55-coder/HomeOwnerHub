@@ -27,6 +27,7 @@ import {
   ticketNotificationsJob,
   recurringJeJob,
   plaidSyncJob,
+  createPollResultsJob,
 } from '@homeowner-portal/jobs'
 import { sendEmail, appUrl } from '@/lib/email'
 import { duesReminderDeps } from '@/lib/dues-reminders/auto-deps'
@@ -35,6 +36,7 @@ import { vendorCoiReminderDeps } from '@/lib/vendor-coi-reminders/deps'
 import { dispatchScheduledCommunication } from '@/lib/communications/scheduled-dispatch'
 import { AI_SPEND_ALERT_COST_PER_CALL_USD, PLATFORM_AI_DAILY_ALERT_USD } from '@/lib/api/ai-limits'
 import { billingStripePort } from '@/lib/billing-stripe-port'
+import { deliverEndedPollResults } from '@/lib/polls/email/notify'
 import { autopayDeps } from '@/lib/online-payments/autopay-deps'
 
 // The morning mailbox check emails the board when sync is broken (BL-003).
@@ -92,7 +94,12 @@ const billingRenewalJob = createBillingRenewalJob({ stripe: billingStripePort, s
 // M8_APPLIED. Inngest Hobby caps executions, so never one job per enrollment.
 const autopayJob = createAutopayJob(autopayDeps)
 
-// Twenty-six functions (crons and event listeners) mount in the HOA app. Inngest is a single
+// Poll results by email (M9): ONE daily run emails the results of polls whose
+// end date passed, only where the board chose to email residents when it
+// opened the poll. The guarded batch sender and render are app-side.
+const pollResultsJob = createPollResultsJob({ deliver: (poll) => deliverEndedPollResults(poll) })
+
+// Twenty-seven functions (crons and event listeners) mount in the HOA app. Inngest is a single
 // app-id ("homeownerhub") so it doesn't matter where the handler lives —
 // scheduled invocations target the function id, not the host. Apps/eviction
 // and apps/pm could mount the same handler if they need their own
@@ -150,5 +157,6 @@ export const { GET, POST, PUT } = serve({
     ticketNotificationsJob,
     recurringJeJob,
     plaidSyncJob,
+    pollResultsJob,
   ],
 })
