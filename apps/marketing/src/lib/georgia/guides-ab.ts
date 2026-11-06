@@ -314,6 +314,7 @@ export const GA_RENTAL_AMENDMENT: Guide = {
     'georgia-hoa-owner-compliance-and-remedies-44-3-223',
     'fines-and-violation-hearings',
     'georgia-hoa-board-powers-44-3-231',
+    'georgia-hoa-short-term-rentals-and-airbnb-44-3-226',
   ],
   hoaDoes: [],
   hoaDoesNot:
