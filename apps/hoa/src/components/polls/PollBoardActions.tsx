@@ -37,15 +37,26 @@ function EmailCheckbox({
   )
 }
 
+function homesPhrase(n: number | null): string {
+  if (n === null) return 'the homes with an email address on file'
+  return `${n} ${n === 1 ? 'home' : 'homes'}`
+}
+
 export function PollBoardActions({
   id,
   status,
   resultsEmailed = false,
+  openedEmailed = false,
+  emailHomes = null,
 }: {
   id: string
   status: PollStatus
   /** The results email already went out (by the board or the daily job). */
   resultsEmailed?: boolean
+  /** The board emailed this poll when it opened it (the opened email exists and was not held). */
+  openedEmailed?: boolean
+  /** Homes an email would reach now; null when it could not be counted. */
+  emailHomes?: number | null
 }) {
   const router = useRouter()
   const confirm = useConfirm()
@@ -53,7 +64,9 @@ export function PollBoardActions({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<PollEmailMessage | null>(null)
   const [emailOpen, setEmailOpen] = useState(true)
-  const [emailResults, setEmailResults] = useState(true)
+  // Default follows what the board chose at open: no email then, none now unless they tick it.
+  const [emailResults, setEmailResults] = useState(openedEmailed)
+  const [confirming, setConfirming] = useState<'open' | 'close' | null>(null)
 
   function run(
     fn: (id: string) => Promise<PollActionResult>,
@@ -62,6 +75,7 @@ export function PollBoardActions({
   ) {
     setError(null)
     setNotice(null)
+    setConfirming(null)
     start(async () => {
       const r = await fn(id)
       if (!r.ok) return setError(r.error ?? 'Something went wrong.')
@@ -69,6 +83,11 @@ export function PollBoardActions({
       after()
     })
   }
+
+  const doOpen = (email: boolean) =>
+    run((pollId) => openPollAction(pollId, { emailResidents: email }), () => router.refresh(), 'opened')
+  const doClose = (email: boolean) =>
+    run((pollId) => closePollAction(pollId, { emailResidents: email }), () => router.refresh(), 'results')
 
   return (
     <div className="space-y-4">
@@ -82,34 +101,55 @@ export function PollBoardActions({
         />
       ) : null}
       {status === 'open' && !resultsEmailed ? (
-        <EmailCheckbox
-          checked={emailResults}
-          onChange={setEmailResults}
-          disabled={pending}
-          label="Email residents the results"
-          hint="Each home gets the results with a bar for every answer, counted by home and never by name."
-        />
+        <div className="space-y-2">
+          <EmailCheckbox
+            checked={emailResults}
+            onChange={setEmailResults}
+            disabled={pending}
+            label="Email residents the results"
+            hint="Each home gets the results with a bar for every answer, counted by home and never by name."
+          />
+          {!openedEmailed ? <p className="text-base text-foreground-secondary">You did not email this poll when you opened it.</p> : null}
+        </div>
       ) : null}
+
+      {confirming ? (
+        <div role="group" aria-label="Confirm email" className="space-y-3 rounded-xl border border-border bg-subtle p-4">
+          <p className="text-base font-semibold text-foreground">This will email {homesPhrase(emailHomes)}.</p>
+          <p className="text-base text-foreground-secondary">
+            {confirming === 'open'
+              ? 'Residents who turned off email are skipped. "Don’t email" still opens the poll.'
+              : 'Residents who turned off email are skipped. "Don’t email" still closes the poll.'}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button size="lg" disabled={pending} onClick={() => (confirming === 'open' ? doOpen(true) : doClose(true))}>
+              Send
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => (confirming === 'open' ? doOpen(false) : doClose(false))}
+            >
+              Don&rsquo;t email
+            </Button>
+            <Button size="lg" variant="ghost" disabled={pending} onClick={() => setConfirming(null)}>
+              Go back
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-3">
         {status === 'draft' ? (
           <>
-            <Button
-              size="lg"
-              disabled={pending}
-              onClick={() =>
-                run(
-                  (pollId) => openPollAction(pollId, { emailResidents: emailOpen }),
-                  () => router.refresh(),
-                  'opened',
-                )
-              }
-            >
+            <Button size="lg" disabled={pending || confirming !== null} onClick={() => (emailOpen ? setConfirming('open') : doOpen(false))}>
               Open for answers
             </Button>
             <Button
               size="lg"
               variant="destructive-ghost"
-              disabled={pending}
+              disabled={pending || confirming !== null}
               onClick={async () => {
                 const ok = await confirm({
                   title: 'Delete this draft?',
@@ -127,21 +167,15 @@ export function PollBoardActions({
           <Button
             size="lg"
             variant="secondary"
-            disabled={pending}
+            disabled={pending || confirming !== null}
             onClick={async () => {
+              if (emailResults && !resultsEmailed) return setConfirming('close')
               const ok = await confirm({
                 title: 'Close this poll?',
-                description:
-                  'Residents will not be able to answer or change answers.' +
-                  (emailResults && !resultsEmailed ? ' The results will be emailed to residents.' : ''),
+                description: 'Residents will not be able to answer or change answers.',
                 confirmLabel: 'Close the poll',
               })
-              if (ok)
-                run(
-                  (pollId) => closePollAction(pollId, { emailResidents: emailResults && !resultsEmailed }),
-                  () => router.refresh(),
-                  'results',
-                )
+              if (ok) doClose(false)
             }}
           >
             Close the poll

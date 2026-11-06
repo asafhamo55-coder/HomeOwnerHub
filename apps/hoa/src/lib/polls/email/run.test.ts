@@ -218,6 +218,16 @@ describe('runPollEmail: the outbound guard', () => {
     expect(await runPollEmail(store, d, opened, logger())).toMatchObject({ status: 'sent', sent: 1, failed: 1 })
   })
 
+  it('a bookkeeping failure after the batch went out still reports sent, with the real counts', async () => {
+    const { store, finished } = fakeStore(ctx())
+    vi.mocked(store.markRecipient).mockRejectedValue(new Error('db down'))
+    const log = logger()
+    const res = await runPollEmail(store, deps(), opened, log)
+    expect(res).toMatchObject({ status: 'sent', sent: 2, failed: 0 })
+    expect(finished[0]![1]).toBe('sent')
+    expect(log.error).toHaveBeenCalled()
+  })
+
   it('logs carry ids and counts only: no address, title, or answer', async () => {
     const { store } = fakeStore(ctx())
     const log = logger()

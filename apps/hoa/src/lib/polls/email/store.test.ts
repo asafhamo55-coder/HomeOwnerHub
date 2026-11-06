@@ -8,7 +8,7 @@ vi.mock('@/lib/communications/preferences', async (orig) => ({
   loadPreferenceMap: (...a: unknown[]) => loadPreferenceMap(...a),
 }))
 
-import { supabasePollEmailStore, tallyFromTables, loadPollEmailSummary } from './store'
+import { supabasePollEmailStore, tallyFromTables, loadPollEmailSummary, loadAssociationZone } from './store'
 import { pollEmailCommunicationId } from './run'
 
 const ASSOC = 'aaaaaaaa-0000-4000-8000-000000000001'
@@ -177,5 +177,119 @@ describe('loadPollEmailSummary (the board’s "Emailed N homes on <date>")', () 
   it('a failed read shows nothing instead of breaking the page', async () => {
     const broken = { from: () => { throw new Error('x') } }
     expect(await loadPollEmailSummary(broken, 'p1')).toBeNull()
+  })
+})
+
+// A fake db over in-memory tables that honours order and range, like PostgREST.
+function tableDb(opts: { options: Array<{ id: string; label: string; position: number }>; responses: Array<{ id: string; choices: string[] }> }) {
+  const rangeCalls: Array<[number, number]> = []
+  const db = {
+    from: (t: string) => {
+      if (t === 'poll_options') {
+        const q = { select: () => q, eq: () => q, order: () => Promise.resolve({ data: opts.options, error: null }) }
+        return q
+      }
+      let from = 0
+      let to = 0
+      const q = {
+        select: () => q,
+        eq: () => q,
+        order: () => q,
+        range: (f: number, e: number) => {
+          from = f
+          to = e
+          rangeCalls.push([f, e])
+          // PostgREST caps a page at 1000 rows whatever range is asked for.
+          const page = opts.responses.slice(from, Math.min(to, from + 999) + 1)
+          return Promise.resolve({
+            data: page.map((r) => ({ id: r.id, poll_response_choices: r.choices.map((option_id) => ({ option_id })) })),
+            error: null,
+          })
+        },
+      }
+      return q
+    },
+  }
+  return { db, rangeCalls }
+}
+
+// The SQL of poll_results() (migration 0074), written out over plain arrays:
+// votes = choice rows per option, homes_answered = response rows for the poll,
+// ordered by option position.
+function referencePollResults(
+  options: Array<{ id: string; label: string; position: number }>,
+  responses: Array<{ id: string; choices: string[] }>,
+) {
+  return [...options]
+    .sort((a, b) => a.position - b.position)
+    .map((o) => ({
+      option_id: o.id,
+      label: o.label,
+      option_position: o.position,
+      votes: responses.reduce((n, r) => n + r.choices.filter((c) => c === o.id).length, 0),
+      homes_answered: responses.length,
+    }))
+}
+
+describe('tallyFromTables: pagination', () => {
+  it('reads every page past 1000 rows and counts them all', async () => {
+    const options = [{ id: 'a', label: 'Yes', position: 0 }, { id: 'b', label: 'No', position: 1 }]
+    const responses = Array.from({ length: 2500 }, (_, i) => ({ id: `r${i}`, choices: [i % 5 === 0 ? 'b' : 'a'] }))
+    const { db, rangeCalls } = tableDb({ options, responses })
+    const rows = await tallyFromTables(db, 'p1')
+    expect(rows[0]!.homes_answered).toBe(2500)
+    expect(rows[1]!.votes).toBe(500)
+    expect(rows[0]!.votes).toBe(2000)
+    expect(rangeCalls.length).toBe(3)
+  })
+
+  it('stops after an exactly full last page when the next page is empty', async () => {
+    const responses = Array.from({ length: 1000 }, (_, i) => ({ id: `r${i}`, choices: ['a'] }))
+    const { db, rangeCalls } = tableDb({ options: [{ id: 'a', label: 'Yes', position: 0 }], responses })
+    const rows = await tallyFromTables(db, 'p1')
+    expect(rows[0]!.votes).toBe(1000)
+    expect(rangeCalls.length).toBe(2)
+  })
+})
+
+describe('tallyFromTables: parity with poll_results()', () => {
+  it('matches the SQL on a fixture with multiple choice, an unanswered option and out-of-order positions', async () => {
+    const options = [
+      { id: 'c', label: 'Third', position: 2 },
+      { id: 'a', label: 'First', position: 0 },
+      { id: 'b', label: 'Second', position: 1 },
+      { id: 'd', label: 'Nobody picks this', position: 3 },
+    ]
+    const responses = [
+      { id: 'r1', choices: ['a'] },
+      { id: 'r2', choices: ['a', 'b'] },
+      { id: 'r3', choices: ['b', 'c'] },
+      { id: 'r4', choices: ['a', 'b', 'c'] },
+    ]
+    const { db } = tableDb({ options: [...options].sort((x, y) => x.position - y.position), responses })
+    expect(await tallyFromTables(db, 'p1')).toEqual(referencePollResults(options, responses))
+  })
+
+  it('matches on a poll nobody answered', async () => {
+    const options = [{ id: 'a', label: 'Yes', position: 0 }, { id: 'b', label: 'No', position: 1 }]
+    const { db } = tableDb({ options, responses: [] })
+    expect(await tallyFromTables(db, 'p1')).toEqual(referencePollResults(options, []))
+  })
+})
+
+describe('loadAssociationZone', () => {
+  const dbFor = (state: string | null, error: unknown = null) => ({
+    from: () => {
+      const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve({ data: { state }, error }) }
+      return q
+    },
+  })
+  it('uses the poll’s own association, by its state', async () => {
+    expect(await loadAssociationZone(dbFor('CA'), 'a1')).toBe('America/Los_Angeles')
+    expect(await loadAssociationZone(dbFor('GA'), 'a1')).toBe('America/New_York')
+  })
+  it('falls back to the default zone on an error', async () => {
+    expect(await loadAssociationZone(dbFor('CA', { code: 'x' }), 'a1')).toBe('America/New_York')
+    expect(await loadAssociationZone({ from: () => { throw new Error('x') } }, 'a1')).toBe('America/New_York')
   })
 })

@@ -261,3 +261,28 @@ export async function loadPollEmailSummary(db: Db, pollId: string): Promise<Poll
     return null
   }
 }
+
+/** The poll's own association time zone, for dates shown to the board. Falls back to the default zone. */
+export async function loadAssociationZone(db: Db, associationId: string): Promise<string> {
+  try {
+    const { data, error } = await db.from('associations').select('state').eq('id', associationId).maybeSingle()
+    if (error) return associationTimeZone(null)
+    return associationTimeZone(data as { state: string | null } | null)
+  } catch {
+    return associationTimeZone(null)
+  }
+}
+
+/** How many homes an email would reach right now (for the board's confirm step). Null when it can't be counted. */
+export async function countPollEmailHomes(
+  db: Db,
+  association: { id: string; organizationId: string },
+): Promise<number | null> {
+  try {
+    const { recipients } = await supabasePollEmailStore(db, async () => []).loadRecipients(association)
+    return recipients.length
+  } catch (err) {
+    console.error('[poll-email] count failed', { error: err instanceof Error ? err.name : 'unknown' })
+    return null
+  }
+}

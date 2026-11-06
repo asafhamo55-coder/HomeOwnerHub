@@ -30,6 +30,16 @@
 import { createAdminClient } from '@homeowner-portal/db'
 import { inngest } from './client'
 
+/**
+ * Most emails one run sends. A run reads up to LIST_LIMIT candidates (cheap:
+ * polls the board never emailed, or already sent, cost one lookup and no
+ * email) but stops after this many that actually go out, so one run can never
+ * mass-mail the whole backlog. The next day's run picks up the rest inside
+ * the catch-up window.
+ */
+export const MAX_SENDS_PER_RUN = 10
+const LIST_LIMIT = 200
+
 /** Days after the end date during which a missed results email is still sent. */
 export const RESULTS_CATCH_UP_DAYS = 3
 
@@ -63,7 +73,7 @@ export async function listDuePolls(db: Db, now: Date): Promise<DuePoll[]> {
     .lte('closes_at', now.toISOString())
     .gte('closes_at', since)
     .order('closes_at', { ascending: true })
-    .limit(200)
+    .limit(LIST_LIMIT)
   if (error) throw new Error(`poll-results: list failed (${error.code ?? 'unknown'})`)
   return ((data ?? []) as Array<{ id: string; association_id: string }>).map((r) => ({
     pollId: r.id,
@@ -81,9 +91,13 @@ export async function runPollResults(
   let sent = 0
   let skipped = 0
   for (const poll of due) {
+    if (sent >= MAX_SENDS_PER_RUN) {
+      skipped += 1
+      continue
+    }
     try {
       const r = await deps.deliver(poll)
-      if (r.status === 'sent' || r.status === 'held') sent += 1
+      if (r.status === 'sent' || r.status === 'held' || r.status === 'failed') sent += 1
       else skipped += 1
     } catch (err) {
       skipped += 1

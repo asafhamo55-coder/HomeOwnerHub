@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RESULTS_CATCH_UP_DAYS, listDuePolls, runPollResults } from './poll-results'
+import { MAX_SENDS_PER_RUN, RESULTS_CATCH_UP_DAYS, listDuePolls, runPollResults } from './poll-results'
 
 const NOW = new Date('2026-11-06T14:00:00Z')
 
@@ -70,5 +70,28 @@ describe('runPollResults', () => {
     const deliver = vi.fn()
     expect(await runPollResults(db, { deliver }, NOW, logger())).toEqual({ due: 0, sent: 0, skipped: 0 })
     expect(deliver).not.toHaveBeenCalled()
+  })
+})
+
+describe('batch cap', () => {
+  it('sends at most MAX_SENDS_PER_RUN per run; the rest wait for the next day', async () => {
+    const rows = Array.from({ length: 25 }, (_, i) => ({ id: `p${i}`, association_id: 'a' }))
+    const { db } = fakeDb(rows)
+    const deliver = vi.fn(async () => ({ status: 'sent', sent: 3 }))
+    const res = await runPollResults(db, { deliver }, NOW, logger())
+    expect(MAX_SENDS_PER_RUN).toBe(10)
+    expect(deliver).toHaveBeenCalledTimes(10)
+    expect(res).toEqual({ due: 25, sent: 10, skipped: 15 })
+  })
+
+  it('polls that are skipped cheaply (not emailed at open, already sent) do not use up the cap', async () => {
+    const rows = Array.from({ length: 30 }, (_, i) => ({ id: `p${i}`, association_id: 'a' }))
+    const { db } = fakeDb(rows)
+    const deliver = vi.fn(async (p: { pollId: string }) =>
+      Number(p.pollId.slice(1)) < 20 ? { status: 'not_opted_in', sent: 0 } : { status: 'sent', sent: 1 },
+    )
+    const res = await runPollResults(db, { deliver }, NOW, logger())
+    expect(res.sent).toBe(10)
+    expect(deliver).toHaveBeenCalledTimes(30)
   })
 })

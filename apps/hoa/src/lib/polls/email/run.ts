@@ -339,13 +339,20 @@ export async function runPollEmail(
         else if (outcome.status === 'suppressed') held += 1
         else failed += 1
       }
-      for (let i = 0; i < outcomes.length; i += MARK_CHUNK) {
-        await Promise.all(
-          outcomes
-            .slice(i, i + MARK_CHUNK)
-            .filter((o) => o.rowId)
-            .map((o) => store.markRecipient(o.rowId as string, o.outcome, email.subject)),
-        )
+      // The batch has already gone out. A bookkeeping failure here must not
+      // turn a delivered email into a reported failure: the counts above are
+      // the truth, and the communications row still finishes below.
+      try {
+        for (let i = 0; i < outcomes.length; i += MARK_CHUNK) {
+          await Promise.all(
+            outcomes
+              .slice(i, i + MARK_CHUNK)
+              .filter((o) => o.rowId)
+              .map((o) => store.markRecipient(o.rowId as string, o.outcome, email.subject)),
+          )
+        }
+      } catch (err) {
+        logger.error(`${tag}: ${communicationId} recipient bookkeeping failed after send`, { error: errName(err) })
       }
     } finally {
       // All held becomes `cancelled`, which the communications screens read
