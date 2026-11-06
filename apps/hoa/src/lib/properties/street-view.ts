@@ -90,6 +90,19 @@ export interface LatLng {
   lng: number
 }
 
+/** A panorama closer than this to the house is likely inside the lot; farther than this is a back alley or cross street. */
+export const STREET_VIEW_PANO_MIN_M = 5
+export const STREET_VIEW_PANO_MAX_M = 45
+
+/** Great-circle (haversine) distance in metres. */
+export function distanceMeters(a: LatLng, b: LatLng): number {
+  const rad = Math.PI / 180
+  const dLat = (b.lat - a.lat) * rad
+  const dLng = (b.lng - a.lng) * rad
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
+  return 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
 /** Initial great-circle bearing from `from` to `to`, in degrees, 0 (north) up to but not including 360. */
 export function bearingDegrees(from: LatLng, to: LatLng): number {
   const rad = Math.PI / 180

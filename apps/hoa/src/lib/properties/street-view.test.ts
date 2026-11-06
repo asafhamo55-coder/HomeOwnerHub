@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aimedImageUrl, bearingDegrees, geocodeUrl, isPreciseGeocode, panoMetadataUrl, signStreetViewUrl, streetViewConfigured, streetViewLocation, streetViewUrls } from './street-view'
+import { aimedImageUrl, bearingDegrees, distanceMeters, geocodeUrl, isPreciseGeocode, panoMetadataUrl, signStreetViewUrl, streetViewConfigured, streetViewLocation, streetViewUrls } from './street-view'
 
 describe('streetViewConfigured', () => {
   it('is true only with a non-blank key', () => {
@@ -107,5 +107,13 @@ describe('aimed URL builders', () => {
     for (const u of [geocodeUrl('1 Main St', 'k', 'c2VjcmV0'), panoMetadataUrl(house, 'k', 'c2VjcmV0'), aimedImageUrl('P1', 1, 'k', 'c2VjcmV0')]) {
       expect(new URL(u).searchParams.get('signature')).toBeTruthy()
     }
+  })
+})
+
+describe('distanceMeters', () => {
+  it('measures short distances', () => {
+    expect(distanceMeters({ lat: 33, lng: -84 }, { lat: 33.0001, lng: -84 })).toBeCloseTo(11.1, 0)
+    expect(distanceMeters({ lat: 33, lng: -84 }, { lat: 33, lng: -84 })).toBe(0)
+    expect(distanceMeters({ lat: 0, lng: 0 }, { lat: 0, lng: 1 })).toBeCloseTo(111195, -2)
   })
 })

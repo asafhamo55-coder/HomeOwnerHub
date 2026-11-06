@@ -40,7 +40,10 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
 import {
   aimedImageUrl,
+  STREET_VIEW_PANO_MAX_M,
+  STREET_VIEW_PANO_MIN_M,
   bearingDegrees,
+  distanceMeters,
   geocodeUrl,
   isPreciseGeocode,
   panoMetadataUrl,
@@ -61,12 +64,29 @@ const notFound = () => apiError('not_found', 'No picture is available for this h
 const upstreamDown = () =>
   new ApiRouteError('upstream_unavailable', undefined, undefined, { 'Cache-Control': 'private, max-age=60' })
 
-const fetchOpts = () => ({ cache: 'no-store' as const, redirect: 'error' as const, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+// One overall budget across every Google call in a request, so a slow Google
+// cannot stack four 6 s calls. Each call gets the smaller of 6 s and what is
+// left, but never less than a 1.5 s floor so the old path still gets a chance.
+const TOTAL_BUDGET_MS = 10_000
+const MIN_CALL_MS = 1500
+const AIMED_MIN_LEFT_MS = 4000
+
+function makeClock() {
+  const end = Date.now() + TOTAL_BUDGET_MS
+  const left = () => end - Date.now()
+  const opts = () => ({
+    cache: 'no-store' as const,
+    redirect: 'error' as const,
+    signal: AbortSignal.timeout(Math.max(MIN_CALL_MS, Math.min(FETCH_TIMEOUT_MS, left()))),
+  })
+  return { left, opts }
+}
+type Clock = ReturnType<typeof makeClock>
 
 const geocodeBody = z.object({
   status: z.string(),
   results: z
-    .array(z.object({ geometry: z.object({ location: z.object({ lat: z.number(), lng: z.number() }), location_type: z.string() }) }))
+    .array(z.object({ partial_match: z.boolean().optional(), geometry: z.object({ location: z.object({ lat: z.number(), lng: z.number() }), location_type: z.string() }) }))
     .optional(),
 })
 const panoBody = z.object({
@@ -84,10 +104,13 @@ async function aimedImage(
   key: string,
   secret: string | null,
   logCtx: { orgId: string; propertyId: string },
+  clock: Clock,
 ): Promise<string | null> {
+  // Too little time for geocode + pano + image: go straight to the old path.
+  if (clock.left() < AIMED_MIN_LEFT_MS) return null
   let house: LatLng
   try {
-    const res = await fetch(geocodeUrl(address, key, secret), fetchOpts())
+    const res = await fetch(geocodeUrl(address, key, secret), clock.opts())
     if (!res.ok) {
       logRouteFailure('properties.photo.geocode', { code: String(res.status) }, logCtx)
       return null
@@ -98,7 +121,10 @@ async function aimedImage(
       logRouteFailure('properties.photo.geocode', { code: body.success ? body.data.status : 'bad_body' }, logCtx)
       return null
     }
-    const geometry = body.data.results?.[0]?.geometry
+    const first = body.data.results?.[0]
+    // A partial match means Google guessed at part of the address.
+    if (first?.partial_match === true) return null
+    const geometry = first?.geometry
     if (!geometry || !isPreciseGeocode(geometry.location_type)) return null
     house = geometry.location
   } catch (err) {
@@ -107,7 +133,8 @@ async function aimedImage(
   }
 
   try {
-    const res = await fetch(panoMetadataUrl(house, key, secret), fetchOpts())
+    if (clock.left() < MIN_CALL_MS * 2) return null
+    const res = await fetch(panoMetadataUrl(house, key, secret), clock.opts())
     if (!res.ok) {
       logRouteFailure('properties.photo.pano', { code: String(res.status) }, logCtx)
       return null
@@ -119,6 +146,9 @@ async function aimedImage(
       }
       return null
     }
+    // Too close: inside the lot. Too far: a back alley or cross street, which would not face the front.
+    const dist = distanceMeters(body.data.location, house)
+    if (dist < STREET_VIEW_PANO_MIN_M || dist > STREET_VIEW_PANO_MAX_M) return null
     return aimedImageUrl(body.data.pano_id, bearingDegrees(body.data.location, house), key, secret)
   } catch (err) {
     logRouteFailure('properties.photo.pano', err, logCtx)
@@ -180,13 +210,28 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
 
   // 0. Aim at the house when we can (geocode, then nearest panorama; the
   // panorama lookup doubles as the coverage check). Null means the older path.
-  const aimed = await aimedImage(location, key, secret, { orgId, propertyId })
+  const clock = makeClock()
+  const aimed = await aimedImage(location, key, secret, { orgId, propertyId }, clock)
 
-  if (!aimed) {
+  // 0b. The aimed picture. Any failure (404, 5xx, not an image, timeout) falls
+  // back to the address-only flow below instead of giving up.
+  let image: Response | null = null
+  if (aimed) {
+    try {
+      const r = await fetch(aimed, clock.opts())
+      const t = r.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
+      if (r.ok && r.body && t.startsWith('image/')) image = r
+      else logRouteFailure('properties.photo.aimed', { code: String(r.status) }, { orgId, propertyId })
+    } catch (err) {
+      logRouteFailure('properties.photo.aimed', err, { orgId, propertyId })
+    }
+  }
+
+  if (!image) {
     // 1. Free coverage check.
     let meta: Response
     try {
-      meta = await fetch(urls.metadata, fetchOpts())
+      meta = await fetch(urls.metadata, clock.opts())
     } catch (err) {
       logRouteFailure('properties.photo.metadata', err, { orgId, propertyId })
       throw upstreamDown()
@@ -206,18 +251,21 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   }
 
   // 2. The picture (billed by Google), passed straight through.
-  let image: Response
-  try {
-    image = await fetch(aimed ?? urls.image, fetchOpts())
-  } catch (err) {
-    logRouteFailure('properties.photo.image', err, { orgId, propertyId })
-    throw upstreamDown()
-  }
-  if (image.status === 404) return notFound()
-  const type = image.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
-  if (!image.ok || !image.body || !type.startsWith('image/')) {
-    logRouteFailure('properties.photo.image', { code: String(image.status) }, { orgId, propertyId })
-    throw upstreamDown()
+  if (!image) {
+    let plain: Response
+    try {
+      plain = await fetch(urls.image, clock.opts())
+    } catch (err) {
+      logRouteFailure('properties.photo.image', err, { orgId, propertyId })
+      throw upstreamDown()
+    }
+    if (plain.status === 404) return notFound()
+    const type = plain.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
+    if (!plain.ok || !plain.body || !type.startsWith('image/')) {
+      logRouteFailure('properties.photo.image', { code: String(plain.status) }, { orgId, propertyId })
+      throw upstreamDown()
+    }
+    image = plain
   }
 
   return new Response(image.body, {

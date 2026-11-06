@@ -52,6 +52,9 @@ let geoType = 'ROOFTOP'
 let geoHttp = 200
 let geoThrow = false
 let panoStatus = 'OK'
+let panoLoc = { lat: 33.0, lng: -84.0 }
+let partial = false
+let aimedStatus = 200
 let metaStatus = 'OK'
 let imageStatus = 200
 let metaHttp = 200
@@ -70,6 +73,9 @@ beforeEach(() => {
   geoHttp = 200
   geoThrow = false
   panoStatus = 'OK'
+  panoLoc = { lat: 33.0, lng: -84.0 }
+  partial = false
+  aimedStatus = 200
   metaStatus = 'OK'
   imageStatus = 200
   metaHttp = 200
@@ -85,14 +91,17 @@ beforeEach(() => {
         return new Response(
           JSON.stringify({
             status: geoStatus,
-            results: geoStatus === 'OK' ? [{ geometry: { location: { lat: 33.0001, lng: -84.0 }, location_type: geoType } }] : [],
+            results: geoStatus === 'OK' ? [{ partial_match: partial || undefined, geometry: { location: { lat: 33.0001, lng: -84.0 }, location_type: geoType } }] : [],
           }),
           { status: geoHttp },
         )
       }
       calls.push(url)
       if (url.includes('radius=')) {
-        return new Response(JSON.stringify({ status: panoStatus, pano_id: 'PANO123', location: { lat: 33.0, lng: -84.0 } }))
+        return new Response(JSON.stringify({ status: panoStatus, pano_id: 'PANO123', location: panoLoc }))
+      }
+      if (url.includes('pano=PANO123') && aimedStatus !== 200) {
+        return new Response(aimedStatus === 0 ? 'html' : 'err', { status: aimedStatus === 0 ? 200 : aimedStatus, headers: { 'content-type': 'text/html' } })
       }
       const isMeta = url.includes('/streetview/metadata')
       if (throwOn === (isMeta ? 'metadata' : 'image')) throw new Error('boom')
@@ -293,7 +302,7 @@ describe('GET /api/properties/:id/photo', () => {
       expect(res.status).toBe(200)
       // The last two calls are the address-only coverage check and image (a failed pano lookup may precede them).
       const [metaUrl, imgUrl] = calls.slice(-2)
-      expect(calls.length).toBeLessThanOrEqual(3)
+      expect(calls.length).toBeLessThanOrEqual(4)
       expect(new URL(metaUrl).searchParams.get('location')).toBe('1234 Peachtree St NE, Atlanta, GA 30309')
       const img = new URL(imgUrl)
       expect(img.searchParams.get('location')).toBe('1234 Peachtree St NE, Atlanta, GA 30309')
@@ -330,6 +339,46 @@ describe('GET /api/properties/:id/photo', () => {
       await expectOldPath()
       panoStatus = 'OVER_QUERY_LIMIT'
       await expectOldPath()
+    })
+
+    it('skips the aimed attempt when little of the overall 10 s budget is left', async () => {
+      let t = 1_000_000
+      vi.spyOn(Date, 'now').mockImplementation(() => {
+        t += 7000
+        return t
+      })
+      const res = await call()
+      expect(res.status).toBe(200)
+      expect(geoCalls).toHaveLength(0)
+      expect(new URL(calls[1]).searchParams.get('heading')).toBeNull()
+    })
+
+    it('falls back on a partial_match geocode', async () => {
+      partial = true
+      await expectOldPath()
+    })
+
+    it('falls back when the panorama is too far (alley or cross street, about 60 m)', async () => {
+      panoLoc = { lat: 33.0001 - 0.00054, lng: -84.0 }
+      await expectOldPath()
+    })
+
+    it('falls back when the panorama is too close (under 5 m)', async () => {
+      panoLoc = { lat: 33.0001 - 0.00002, lng: -84.0 }
+      await expectOldPath()
+    })
+
+    it('falls back to the address-only flow when the aimed image is 404, 5xx or not an image', async () => {
+      for (const st of [404, 500, 0]) {
+        aimedStatus = st
+        await expectOldPath()
+      }
+    })
+
+    it('returns 503 only if the address-only fallback also fails after the aimed image failed', async () => {
+      aimedStatus = 500
+      imageStatus = 500
+      expect((await call()).status).toBe(503)
     })
 
     it('never logs the address on any path', async () => {
