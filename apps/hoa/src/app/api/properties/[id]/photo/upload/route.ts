@@ -134,13 +134,30 @@ export const POST = withRoute('properties.photo.upload', async (request: Request
 export const DELETE = withRoute('properties.photo.remove', async (_request: Request, ctx: Ctx) => {
   const { supabase, orgId, propertyId } = await gate(ctx)
 
-  // The row first: once it points nowhere, Street View shows again.
+  // The file first: if it is still there, the row keeps pointing at it and the
+  // owner can retry, instead of leaving a picture nothing points at.
+  const folder = `${orgId}/${propertyId}`
+  const path = uploadedPhotoPath(orgId, propertyId)
+  const bucket = supabase.storage.from(PHOTO_BUCKET)
+  let removed = await bucket.remove([path])
+  if (!removed.error && (removed.data?.length ?? 0) === 0) {
+    // Storage can answer "nothing removed" without an error. Try once more.
+    removed = await bucket.remove([path])
+  }
+  if (removed.error || (removed.data?.length ?? 0) === 0) {
+    // Nothing removed. Fine only if the file is truly gone already (the row would
+    // otherwise be stuck); if it is still there, keep the row and let them retry.
+    const listed = await bucket.list(folder, { limit: 10 })
+    const stillThere = Boolean(listed.error) || (listed.data ?? []).some((f) => f.name === 'front.jpg')
+    if (stillThere) {
+      logRouteFailure('properties.photo.remove.file', removed.error ?? { name: 'nothing_removed' }, { orgId, propertyId })
+      throw new ApiRouteError('internal', undefined, { reason: 'file_not_removed' })
+    }
+  }
+
+  // Now the row: it points nowhere, so Street View shows again.
   const set = await supabase.rpc('set_property_photo', { p_property_id: propertyId, p_path: null })
   checkWrite(set, 'properties.photo.remove.set', { orgId, propertyId })
-
-  // A leftover file is harmless (nothing points at it) and is overwritten by the next upload.
-  const removed = await supabase.storage.from(PHOTO_BUCKET).remove([uploadedPhotoPath(orgId, propertyId)])
-  if (removed.error) logRouteFailure('properties.photo.remove.file', removed.error, { orgId, propertyId })
 
   logRouteEvent('properties.photo.upload', { event: 'photo_removed', orgId, propertyId })
   return NextResponse.json({ removed: true })

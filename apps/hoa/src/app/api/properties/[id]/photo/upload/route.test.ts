@@ -17,6 +17,8 @@ const h = vi.hoisted(() => ({
   removes: [] as string[],
   rpcCalls: [] as { fn: string; args: unknown }[],
   rpcError: false,
+  removeNothing: false,
+  stillListed: false,
 }))
 
 vi.mock('@homeowner-portal/db/m20', () => ({
@@ -60,8 +62,9 @@ vi.mock('@/lib/supabase/server', () => ({
         },
         remove: async (paths: string[]) => {
           h.removes.push(...paths)
-          return { error: null }
+          return { data: h.removeNothing ? [] : paths.map((name) => ({ name })), error: null }
         },
+        list: async () => ({ data: h.stillListed ? [{ name: 'front.jpg' }] : [], error: null }),
       }),
     },
   })),
@@ -95,6 +98,8 @@ beforeEach(() => {
   h.removes = []
   h.rpcCalls = []
   h.rpcError = false
+  h.removeNothing = false
+  h.stillListed = false
 })
 
 describe('flag off hides everything', () => {
@@ -186,6 +191,22 @@ describe('remove falls back to Street View', () => {
     expect(res.status).toBe(200)
     expect(h.rpcCalls.find((c) => c.fn === 'set_property_photo')?.args).toEqual({ p_property_id: ID, p_path: null })
     expect(h.removes).toEqual([`${ORG}/${ID}/front.jpg`])
+  })
+
+  it('keeps the row when the file could not be removed and is still there', async () => {
+    h.photoPath = `${ORG}/${ID}/front.jpg`
+    h.removeNothing = true
+    h.stillListed = true
+    const res = await del()
+    expect(res.status).toBe(500)
+    expect(h.rpcCalls.some((c) => c.fn === 'set_property_photo')).toBe(false)
+  })
+
+  it('clears the row when the file was already gone', async () => {
+    h.photoPath = `${ORG}/${ID}/front.jpg`
+    h.removeNothing = true
+    expect((await del()).status).toBe(200)
+    expect(h.rpcCalls.some((c) => c.fn === 'set_property_photo')).toBe(true)
   })
 
   it('lets the board remove an owner upload but not an owner remove another home', async () => {

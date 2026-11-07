@@ -58,6 +58,10 @@ USING (
   AND public.storage_object_org_id(name) = ANY (public.auth_org_ids())
 );
 
+-- Writes are pinned to the one legal name, {org}/{property}/front.jpg, for a
+-- home that really belongs to that org. Without the pin a resident could push
+-- an unprocessed file (EXIF, a huge or odd image) straight through Storage
+-- under any other name, skipping the route's re-encode.
 CREATE POLICY "org_can_insert_property_photos"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
@@ -67,6 +71,10 @@ WITH CHECK (
     public.auth_is_board_or_admin(public.storage_object_org_id(name))
     OR public.property_photo_property_id(name) = ANY (public.auth_resident_property_ids())
   )
+  AND name = public.storage_object_org_id(name)::text || '/' || public.property_photo_property_id(name)::text || '/front.jpg'
+  AND EXISTS (SELECT 1 FROM public.hoa_properties hp
+               WHERE hp.id = public.property_photo_property_id(name)
+                 AND hp.org_id = public.storage_object_org_id(name))
 );
 
 CREATE POLICY "org_can_update_property_photos"
@@ -78,6 +86,10 @@ USING (
     public.auth_is_board_or_admin(public.storage_object_org_id(name))
     OR public.property_photo_property_id(name) = ANY (public.auth_resident_property_ids())
   )
+  AND name = public.storage_object_org_id(name)::text || '/' || public.property_photo_property_id(name)::text || '/front.jpg'
+  AND EXISTS (SELECT 1 FROM public.hoa_properties hp
+               WHERE hp.id = public.property_photo_property_id(name)
+                 AND hp.org_id = public.storage_object_org_id(name))
 )
 WITH CHECK (
   bucket_id = 'property-photos'
@@ -86,6 +98,10 @@ WITH CHECK (
     public.auth_is_board_or_admin(public.storage_object_org_id(name))
     OR public.property_photo_property_id(name) = ANY (public.auth_resident_property_ids())
   )
+  AND name = public.storage_object_org_id(name)::text || '/' || public.property_photo_property_id(name)::text || '/front.jpg'
+  AND EXISTS (SELECT 1 FROM public.hoa_properties hp
+               WHERE hp.id = public.property_photo_property_id(name)
+                 AND hp.org_id = public.storage_object_org_id(name))
 );
 
 CREATE POLICY "org_can_delete_property_photos"
@@ -97,6 +113,10 @@ USING (
     public.auth_is_board_or_admin(public.storage_object_org_id(name))
     OR public.property_photo_property_id(name) = ANY (public.auth_resident_property_ids())
   )
+  AND name = public.storage_object_org_id(name)::text || '/' || public.property_photo_property_id(name)::text || '/front.jpg'
+  AND EXISTS (SELECT 1 FROM public.hoa_properties hp
+               WHERE hp.id = public.property_photo_property_id(name)
+                 AND hp.org_id = public.storage_object_org_id(name))
 );
 
 -- 4. The narrow writer -------------------------------------------------------
@@ -106,7 +126,7 @@ CREATE OR REPLACE FUNCTION public.set_property_photo(p_property_id uuid, p_path 
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $fn$
 DECLARE
   v_org uuid;
@@ -133,7 +153,9 @@ BEGIN
   UPDATE public.hoa_properties
      SET photo_path = p_path,
          photo_updated_at = CASE WHEN p_path IS NULL THEN NULL ELSE now() END,
-         photo_updated_by = CASE WHEN p_path IS NULL THEN NULL ELSE auth.uid() END
+         -- NULL, not an error, for a caller with no profile row (the FK needs one)
+         photo_updated_by = CASE WHEN p_path IS NULL THEN NULL
+                                 ELSE (SELECT pr.id FROM public.profiles pr WHERE pr.id = auth.uid()) END
    WHERE id = p_property_id;
 END
 $fn$;

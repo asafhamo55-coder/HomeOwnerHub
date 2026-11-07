@@ -3886,6 +3886,14 @@ export type Database = {
             referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
+          // M20 (0086) hand-added: keep through the next gen:types.
+          {
+            foreignKeyName: "hoa_properties_photo_updated_by_fkey"
+            columns: ["photo_updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       hoa_recurring_events: {

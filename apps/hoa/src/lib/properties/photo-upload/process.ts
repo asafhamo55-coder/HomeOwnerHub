@@ -10,8 +10,8 @@ export type ProcessResult =
   | { ok: false; reason: 'too_large' | 'not_an_image' | 'wrong_format' }
 
 const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp'])
-/** 60 megapixels covers any phone camera and stops a decompression bomb. */
-const MAX_INPUT_PIXELS = 60_000_000
+/** 40 megapixels covers any phone camera and stops a decompression bomb. */
+const MAX_INPUT_PIXELS = 40_000_000
 
 export async function processPhoto(input: Buffer | Uint8Array): Promise<ProcessResult> {
   if (input.byteLength > PHOTO_MAX_BYTES) return { ok: false, reason: 'too_large' }

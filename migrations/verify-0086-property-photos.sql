@@ -21,6 +21,24 @@ SELECT 'bucket exists and is private',
        CASE WHEN count(*) = 1 THEN 'PASS' ELSE 'FAIL: property-photos missing or public' END
 FROM storage.buckets WHERE id = 'property-photos' AND public = false
 UNION ALL
+SELECT 'bucket limits (5242880 bytes, image/jpeg only)',
+       CASE WHEN count(*) = 1 THEN 'PASS' ELSE 'FAIL' END
+FROM storage.buckets
+WHERE id = 'property-photos' AND public = false AND file_size_limit = 5242880
+  AND allowed_mime_types = ARRAY['image/jpeg']
+UNION ALL
+SELECT 'helper exists',
+       CASE WHEN to_regprocedure('public.property_photo_property_id(text)') IS NOT NULL THEN 'PASS' ELSE 'FAIL' END
+UNION ALL
+SELECT 'write policies carry the role rule and the name pin',
+       CASE WHEN count(*) = 3 THEN 'PASS' ELSE 'FAIL: ' || count(*) END
+FROM pg_policies
+WHERE schemaname = 'storage' AND tablename = 'objects'
+  AND policyname IN ('org_can_insert_property_photos', 'org_can_update_property_photos', 'org_can_delete_property_photos')
+  AND coalesce(qual, '') || coalesce(with_check, '') LIKE '%auth_is_board_or_admin%'
+  AND coalesce(qual, '') || coalesce(with_check, '') LIKE '%auth_resident_property_ids%'
+  AND coalesce(qual, '') || coalesce(with_check, '') LIKE '%front.jpg%'
+UNION ALL
 SELECT 'four storage policies on the bucket',
        CASE WHEN count(*) = 4 THEN 'PASS' ELSE 'FAIL: expected 4, got ' || count(*) END
 FROM pg_policies
@@ -40,7 +58,7 @@ SELECT 'set_property_photo is security definer with a fixed search_path',
        CASE WHEN count(*) = 1 THEN 'PASS' ELSE 'FAIL: missing, not definer or no search_path' END
 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'set_property_photo'
-  AND p.prosecdef AND p.proconfig::text LIKE '%search_path=public%'
+  AND p.prosecdef AND p.proconfig::text LIKE '%search_path=public, pg_temp%'
 UNION ALL
 SELECT 'set_property_photo not callable by anon',
        CASE WHEN NOT has_function_privilege('anon', 'public.set_property_photo(uuid, text)', 'EXECUTE')
