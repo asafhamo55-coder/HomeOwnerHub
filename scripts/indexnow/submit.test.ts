@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -5,6 +6,8 @@ import {
   INDEXNOW_ENDPOINT,
   INDEXNOW_KEY,
   KEY_LOCATION,
+  LIB_RULES,
+  SITE_ORIGIN,
   SITE_HOST,
   buildPayload,
   chunk,
@@ -13,7 +16,7 @@ import {
   submitUrls,
   urlForPath,
   urlsFromSitemap,
-} from './indexnow-submit'
+} from './submit'
 
 const ALL = ['/', '/hoa', '/pricing', '/features/violations', '/georgia', '/georgia/a', '/guides/x', '/states/ga', '/professionals', '/about'].map(urlForPath)
 
@@ -40,9 +43,21 @@ describe('mapChangedFilesToUrls', () => {
     expect(m(['apps/marketing/src/lib/professionals.ts'])).toEqual(['/professionals'])
     expect(m(['apps/marketing/src/lib/hoa-pricing.ts'])).toEqual(['/hoa', '/pricing'])
   })
-  it('shared files and the root layout mean every page', () => {
+  it('shared files and the root layout without date data fall back to every page', () => {
     expect(mapChangedFilesToUrls(['apps/marketing/src/lib/site.ts'], ALL)).toEqual(ALL)
     expect(mapChangedFilesToUrls(['apps/marketing/src/app/layout.tsx'], ALL)).toEqual(ALL)
+  })
+  it('shared files narrow to URLs modified on or after the previous deploy', () => {
+    const lastModified = new Map<string, Date>([
+      [urlForPath('/'), new Date('2026-10-01T00:00:00Z')],
+      [urlForPath('/hoa'), new Date('2026-11-05T00:00:00Z')],
+      [urlForPath('/pricing'), new Date('2026-11-07T00:00:00Z')],
+    ])
+    const out = mapChangedFilesToUrls(['apps/marketing/src/lib/jsonld.ts'], ALL, {
+      lastModified,
+      since: new Date('2026-11-05T00:00:00Z'),
+    }).map((u) => new URL(u).pathname)
+    expect(out).toEqual(['/hoa', '/pricing'])
   })
   it('maps app route files, including dynamic segments, to their section', () => {
     expect(m(['apps/marketing/src/app/features/violations/page.tsx'])).toEqual(['/features/violations'])
@@ -65,6 +80,40 @@ describe('mapChangedFilesToUrls', () => {
     expect(out).toEqual(['/hoa', '/pricing', '/features/violations'])
   })
 })
+
+describe('real sitemap', () => {
+  const run = (script: string, args: string[] = []) =>
+    spawnSync('pnpm', ['exec', 'tsx', '--tsconfig', 'apps/marketing/tsconfig.json', script, ...args], {
+      encoding: 'utf8',
+      cwd: new URL('../../', import.meta.url),
+    })
+  const urls: string[] = JSON.parse(
+    execFileSync('pnpm', ['exec', 'tsx', '--tsconfig', 'apps/marketing/tsconfig.json', 'scripts/indexnow/list-urls.ts'], {
+      encoding: 'utf8',
+      cwd: new URL('../../', import.meta.url),
+    }),
+  )
+  it('every URL is on the site origin', () => {
+    expect(urls.length).toBeGreaterThan(100)
+    for (const u of urls) expect(u.startsWith(SITE_ORIGIN)).toBe(true)
+  })
+  it('every LIB_RULES route prefix matches at least one URL', () => {
+    for (const rule of LIB_RULES) {
+      if (rule.routes === 'ALL') continue
+      for (const prefix of rule.routes) {
+        const hit = urls.some((u) => {
+          const p = new URL(u).pathname
+          return prefix === '/' ? p === '/' : p === prefix || p.startsWith(`${prefix}/`)
+        })
+        expect(hit, prefix).toBe(true)
+      }
+    }
+  })
+  it('a bad ref still exits 0', () => {
+    const r = run('scripts/indexnow/run.ts', ['--changed', 'no-such-ref-xyz', '--dry-run'])
+    expect(r.status).toBe(0)
+  })
+}, 120_000)
 
 describe('chunk', () => {
   it('batches at the 10,000 protocol limit', () => {
@@ -99,6 +148,14 @@ describe('payload and submission', () => {
     expect(r.statuses).toEqual(['error', 202])
     expect(r.submitted).toBe(1)
   })
+  it('aborts a hung request at the timeout and does not throw', async () => {
+    const hung = (_url: string, init: RequestInit) =>
+      new Promise<{ status: number }>((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+      })
+    const r = await submitUrls(['u'], hung, 25)
+    expect(r).toMatchObject({ ok: false, submitted: 0, statuses: ['error'] })
+  })
   it('records non-accepted statuses without throwing', async () => {
     const r = await submitUrls(['u'], vi.fn().mockResolvedValue({ status: 429 }))
     expect(r).toMatchObject({ ok: false, submitted: 0, statuses: [429] })
@@ -107,8 +164,9 @@ describe('payload and submission', () => {
 
 describe('parseArgs', () => {
   it('reads modes', () => {
-    expect(parseArgs(['--all'])).toEqual({ mode: 'all', ref: null, dryRun: false })
-    expect(parseArgs(['--changed', 'abc', '--dry-run'])).toEqual({ mode: 'changed', ref: 'abc', dryRun: true })
+    expect(parseArgs(['--all'])).toEqual({ mode: 'all', ref: null, dryRun: false, since: null })
+    expect(parseArgs(['--changed', 'abc', '--dry-run'])).toEqual({ mode: 'changed', ref: 'abc', dryRun: true, since: null })
+    expect(parseArgs(['--changed', 'abc', '--since', '2026-11-05']).since?.toISOString()).toBe('2026-11-05T00:00:00.000Z')
     expect(parseArgs(['--changed']).ref).toBeNull()
     expect(parseArgs([]).mode).toBeNull()
   })
@@ -116,12 +174,12 @@ describe('parseArgs', () => {
 
 describe('key file', () => {
   it('is served from public/ named <key>.txt and contains the key', () => {
-    const dir = new URL('../apps/marketing/public/', import.meta.url)
+    const dir = new URL('../../apps/marketing/public/', import.meta.url)
     expect(readdirSync(dir)).toContain(`${INDEXNOW_KEY}.txt`)
     expect(readFileSync(new URL(`${INDEXNOW_KEY}.txt`, dir), 'utf8').trim()).toBe(INDEXNOW_KEY)
   })
   it('robots.ts does not disallow anything but the whole site on previews', () => {
-    const robots = readFileSync(new URL('../apps/marketing/src/app/robots.ts', import.meta.url), 'utf8')
+    const robots = readFileSync(new URL('../../apps/marketing/src/app/robots.ts', import.meta.url), 'utf8')
     expect(robots).toContain("allow: '/'")
     expect(robots).not.toMatch(/disallow: '\/[^']/)
   })

@@ -45,15 +45,17 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 **Urgency:** Soon
 
-**Why it matters:** 132 pages are live with a correct sitemap, but almost no one finds them because search engines have barely indexed the site. After each deploy that changes the marketing site, a workflow now tells Bing and other engines about the changed pages (IndexNow, no account needed). Google does not support that, so it needs the steps below. Bing also feeds ChatGPT search.
+**Why it matters:** 138 URLs are in the sitemap and live, but almost no one finds them because search engines have barely indexed the site. After each deploy that changes the marketing site, a workflow now tells Bing and other engines about the changed pages (IndexNow, no account needed). Google does not support that, so it needs the steps below. Bing data is one input to ChatGPT search.
 
 **Steps:**
 
-1. In Bing Webmaster Tools, add `https://www.homeownerledger.online` and submit `https://www.homeownerledger.online/sitemap.xml`, if not done already.
-2. In Google Search Console, open the Pages report for the site and note how many pages are indexed and the main reasons others are not. Submit the sitemap there too if it is not listed.
-3. Tell Claude the indexed count from each.
+1. Bing Webmaster Tools: import from Google Search Console, or add `https://www.homeownerledger.online` and verify it. Then submit `https://www.homeownerledger.online/sitemap.xml`.
+2. Google Search Console: add and verify the property if absent, then open Sitemaps (submit `sitemap.xml` if it is not listed), then Pages. Note how many pages are indexed and the main reasons others are not.
+3. Open `https://www.homeownerledger.online/1ed9f14deb9b5e5a4c8de362a01b6fae.txt` in a browser. It should show only the 32 characters `1ed9f14deb9b5e5a4c8de362a01b6fae`.
+4. A day or two after the first deploy, check the IndexNow section in Bing Webmaster Tools for received submissions.
+5. Tell Claude the indexed count from each. After the first deploy that serves the key file, Claude runs `gh workflow run indexnow.yml -f mode=all` once to submit every URL.
 
-**Files:** `.github/workflows/indexnow.yml`, `scripts/indexnow-submit.ts`
+**Files:** `.github/workflows/indexnow.yml`, `scripts/indexnow/submit.ts`
 
 ### OA-53 · Read the real monthly job count from the Inngest dashboard
 

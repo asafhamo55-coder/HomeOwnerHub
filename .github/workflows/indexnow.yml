@@ -3,27 +3,33 @@ name: IndexNow
 # After a successful production deploy of the marketing site, tell Bing,
 # Yandex and other engines which URLs changed (https://www.indexnow.org).
 # Same trigger as release-notes.yml (deployment_status on prod). Runs only
-# when apps/marketing changed in the deployed commit. Never fails: the
-# script exits 0 and prints a warning on any error. Logs counts only.
+# when apps/marketing changed since the previous successful production
+# deploy. Never fails: the script exits 0 and prints a warning on any error,
+# and the job is continue-on-error. Logs counts only.
+#
+# First full submit: after the first deploy that serves the key file, run
+#   gh workflow run indexnow.yml -f mode=all
 
 on:
   deployment_status: {}
   workflow_dispatch:
     inputs:
       mode:
-        description: 'changed = since the deployed commit parent, all = every sitemap URL'
+        description: 'changed = since the previous production deploy, all = every sitemap URL'
         type: choice
         options: [changed, all]
         default: changed
 
 permissions:
   contents: read
+  deployments: read
 
 jobs:
   submit:
     name: Submit changed URLs
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    continue-on-error: true
     # Vercel environment names look like "Production – <project>" (en-dash),
     # so match by prefix and the marketing project name, as release-notes.yml
     # does for hoa.
@@ -36,50 +42,99 @@ jobs:
     concurrency:
       group: indexnow-${{ github.event.deployment.sha || github.sha }}
       cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      MODE: ${{ inputs.mode || 'changed' }}
+      SITE: https://www.homeownerledger.online
+      INDEXNOW_KEY: 1ed9f14deb9b5e5a4c8de362a01b6fae
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.deployment.sha || github.sha }}
-          fetch-depth: 2
+          fetch-depth: 0
 
-      - name: Did apps/marketing change?
-        id: changed
+      - name: Previous production deploy
+        id: prev
         env:
-          MODE: ${{ inputs.mode || 'changed' }}
+          DEPLOY_ENV: ${{ github.event.deployment.environment }}
         run: |
-          if [ "$MODE" = "all" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if git diff --quiet HEAD^ HEAD -- apps/marketing; then
-            echo "::notice::apps/marketing unchanged in this deploy; nothing to submit."
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
+          set -uo pipefail
+          SHA=$(git rev-parse HEAD)
+          if [ "$MODE" = "all" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
           fi
+          # Newest earlier deployment of this environment that is an ancestor
+          # of this one and whose latest status is success (the same idea as
+          # release-notes.yml "Previous production SHA").
+          PREV=""
+          if [ -n "$DEPLOY_ENV" ]; then
+            env_q=$(jq -rn --arg e "$DEPLOY_ENV" '$e|@uri')
+            rows=$(gh api "repos/$REPO/deployments?environment=$env_q&per_page=50" --jq '.[] | "\(.sha) \(.id)"' 2>/dev/null | awk '!seen[$1]++') || rows=""
+            while read -r c id; do
+              [ -z "${c:-}" ] && continue
+              [ "$c" = "$SHA" ] && continue
+              git merge-base --is-ancestor "$c" "$SHA" 2>/dev/null || continue
+              st=$(gh api "repos/$REPO/deployments/$id/statuses?per_page=1" --jq '.[0].state' 2>/dev/null || true)
+              if [ "$st" = "success" ]; then PREV="$c"; break; fi
+            done <<< "$rows"
+          fi
+          if [ -z "$PREV" ]; then PREV=$(git rev-parse HEAD^ 2>/dev/null || true); echo "::notice::No earlier successful deployment found; falling back to HEAD^."; fi
+          echo "Previous production SHA: ${PREV:-none}"
+          if [ -z "$PREV" ] || [ "$PREV" = "$SHA" ]; then
+            echo "::notice::No previous deploy to compare with; nothing to submit."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git diff --quiet "$PREV" "$SHA" -- apps/marketing; then
+            echo "::notice::apps/marketing unchanged since $PREV; nothing to submit."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          {
+            echo "run=true"
+            echo "sha=$PREV"
+            echo "since=$(git show -s --format=%cI "$PREV")"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Install pnpm
-        if: steps.changed.outputs.run == 'true'
+        if: steps.prev.outputs.run == 'true'
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           version: 10.33.0
 
       - name: Setup Node 24
-        if: steps.changed.outputs.run == 'true'
+        if: steps.prev.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
-        if: steps.changed.outputs.run == 'true'
+        if: steps.prev.outputs.run == 'true'
         run: pnpm install --frozen-lockfile
 
+      # The key file must be live before engines try to verify it. A deploy
+      # event can arrive a moment before the alias serves the new build.
+      - name: Wait for the key file
+        id: key
+        if: steps.prev.outputs.run == 'true'
+        run: |
+          for i in $(seq 1 24); do
+            body=$(curl -fsS --max-time 10 "$SITE/$INDEXNOW_KEY.txt" 2>/dev/null || true)
+            if [ "$body" = "$INDEXNOW_KEY" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 5
+          done
+          echo "::warning::Key file not served after about 2 minutes; skipping IndexNow."
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+
       - name: Submit to IndexNow
-        if: steps.changed.outputs.run == 'true'
+        if: steps.prev.outputs.run == 'true' && steps.key.outputs.ok == 'true'
         env:
-          MODE: ${{ inputs.mode || 'changed' }}
+          PREV: ${{ steps.prev.outputs.sha }}
+          SINCE: ${{ steps.prev.outputs.since }}
         run: |
           if [ "$MODE" = "all" ]; then
             pnpm indexnow --all || echo "::warning::IndexNow step failed (deploy unaffected)"
           else
-            pnpm indexnow --changed HEAD^ || echo "::warning::IndexNow step failed (deploy unaffected)"
+            pnpm indexnow --changed "$PREV" --since "$SINCE" || echo "::warning::IndexNow step failed (deploy unaffected)"
           fi
