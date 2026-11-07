@@ -109,8 +109,6 @@ export const GA_CONDO_FINES: Guide = {
     'georgia-hoa-owner-compliance-and-remedies-44-3-223',
     'georgia-hoa-assessment-lien-rules',
     'violation-notice-checklist',
-    'georgia-hoa-rules-adoption-resolution',
-    'georgia-hoa-new-owner-welcome-letter',
   ],
   hoaDoes: [],
   hoaDoesNot:
