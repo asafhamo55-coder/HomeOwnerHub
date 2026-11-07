@@ -34,6 +34,8 @@ export default defineConfig({
       // tests/stripe-sandbox/*.sandbox.test.ts and runs only under its own
       // config (it needs a Stripe test key and the network).
       'tests/stripe-sandbox/lib/**/*.test.ts',
+      // HeyGen welcome-video tooling (mocked fetch, no network).
+      'tools/welcome-video-heygen/**/*.test.ts',
     ],
     environment: 'node',
     // Mirrors production: the apps import this for side effects

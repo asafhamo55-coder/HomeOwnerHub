@@ -1,0 +1,114 @@
+{
+  "speed": 0.9,
+  "note": "Same content and order as apps/hoa/src/app/welcome/transcript.ts. Seconds are targets; HeyGen sets the real length from the speech.",
+  "scenes": [
+    {
+      "id": "welcome",
+      "number": 1,
+      "title": "Welcome",
+      "line": "Madison Park is moving to HomeownerHub. One easy place for your dues, your requests, and your news.",
+      "seconds": 10,
+      "caption": "Welcome to HomeownerHub",
+      "background": {
+        "portrait": "01-welcome-portrait.png",
+        "landscape": "01-welcome-landscape.png"
+      }
+    },
+    {
+      "id": "setup",
+      "number": 2,
+      "title": "Step 1: Sign in",
+      "line": "Open the invitation email from HomeownerHub, sent by your board, and tap the button. That signs you in. No password needed. Next time, tap Email me a link. Or choose a password.",
+      "seconds": 19,
+      "caption": "Step 1: Sign in",
+      "background": {
+        "portrait": "02-setup-portrait.png",
+        "landscape": "02-setup-landscape.png"
+      }
+    },
+    {
+      "id": "install",
+      "number": 3,
+      "title": "Step 2: Add it to your phone",
+      "line": "Add it to your home screen, so it opens like any app. On iPhone, use Safari. Tap Share, then Add to Home Screen. On Android, use Chrome. Tap the menu. Then tap Add to Home screen, or Install app.",
+      "seconds": 23,
+      "caption": "Step 2: Add it to your phone",
+      "background": {
+        "portrait": "03-install-portrait.png",
+        "landscape": "03-install-landscape.png"
+      }
+    },
+    {
+      "id": "dues",
+      "number": 4,
+      "title": "Dues and statement",
+      "line": "Tap Dues to see what you owe, and your statement. Tap Pay to see how your board takes payment.",
+      "seconds": 11,
+      "caption": "Dues and statement",
+      "background": {
+        "portrait": "04-dues-portrait.png",
+        "landscape": "04-dues-landscape.png"
+      }
+    },
+    {
+      "id": "requests",
+      "number": 5,
+      "title": "Ask the board",
+      "line": "Need something fixed? Tap Requests, then New support request. Write a note, and tap Send request.",
+      "seconds": 10,
+      "caption": "Ask the board",
+      "background": {
+        "portrait": "05-requests-portrait.png",
+        "landscape": "05-requests-landscape.png"
+      }
+    },
+    {
+      "id": "booking",
+      "number": 6,
+      "title": "Book a space",
+      "line": "To book the clubhouse or the pool, tap Community, then Book a space. Pick a space, a day, and a time. Then check your booking, and tap Book it.",
+      "seconds": 16,
+      "caption": "Book a space",
+      "background": {
+        "portrait": "06-booking-portrait.png",
+        "landscape": "06-booking-landscape.png"
+      }
+    },
+    {
+      "id": "community",
+      "number": 7,
+      "title": "News and neighbors",
+      "line": "On Home, you will find Announcements and Documents. Under Community, answer polls and talk with your neighbors.",
+      "seconds": 10,
+      "caption": "News and neighbors",
+      "background": {
+        "portrait": "07-community-portrait.png",
+        "landscape": "07-community-landscape.png"
+      }
+    },
+    {
+      "id": "help",
+      "number": 8,
+      "title": "If you get stuck",
+      "line": "Stuck? Tap the Help button. It says Hello, and your first name. Or tap Ask, to chat with your assistant.",
+      "seconds": 13,
+      "caption": "If you get stuck",
+      "background": {
+        "portrait": "08-help-portrait.png",
+        "landscape": "08-help-landscape.png"
+      }
+    },
+    {
+      "id": "closing",
+      "number": 9,
+      "title": "You are ready",
+      "line": "Welcome to HomeownerHub, Madison Park. Your board is glad to help.",
+      "seconds": 7,
+      "caption": "You are ready",
+      "background": {
+        "portrait": "09-closing-portrait.png",
+        "landscape": "09-closing-landscape.png"
+      }
+    }
+  ]
+}
