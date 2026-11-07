@@ -43,7 +43,7 @@ async function mount(props: Partial<React.ComponentProps<typeof PropertyPhoto>> 
 
 describe('PropertyPhoto fetch', () => {
   it('fetches once and shows the picture from a blob URL, revoked on unmount', async () => {
-    fetchMock.mockResolvedValue(new Response(new Blob(['x'], { type: 'image/jpeg' }), { status: 200 }))
+    fetchMock.mockResolvedValue(new Response(new Uint8Array([120]), { status: 200 }))
     await mount()
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0]![0]).toBe(`/api/properties/${ID}/photo`)
@@ -99,7 +99,7 @@ describe('PropertyPhoto fetch', () => {
         disconnect = disconnect
       },
     )
-    fetchMock.mockResolvedValue(new Response(new Blob(['x']), { status: 200 }))
+    fetchMock.mockResolvedValue(new Response(new Uint8Array([120]), { status: 200 }))
     await mount()
     expect(fetchMock).not.toHaveBeenCalled()
     await act(async () => {
@@ -130,7 +130,7 @@ describe('PropertyPhoto fetch', () => {
     root = null
     expect(signal?.aborted).toBe(true)
     await act(async () => {
-      resolve(new Response(new Blob(['x']), { status: 200 }))
+      resolve(new Response(new Uint8Array([120]), { status: 200 }))
     })
     expect(URL.createObjectURL).not.toHaveBeenCalled()
     expect(errors).not.toHaveBeenCalled()
