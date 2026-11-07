@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Loader2, Mail } from 'lucide-react'
 import { Alert, Button, Dialog, DialogContent, Field, Textarea } from '@homeowner-portal/ui'
 import { usd } from '@/lib/money/format'
@@ -197,7 +198,10 @@ export function SendRemindersDialog({
             {preview.skipped.length > 0 ? (
               <Alert variant="warning">
                 {preview.skipped.length} {preview.skipped.length === 1 ? 'owner' : 'owners'} skipped &mdash; no email on
-                file: {preview.skipped.map((s) => s.ownerName).join(', ')}
+                file: {preview.skipped.map((s) => s.ownerName).join(', ')}{' '}
+                <Link href="/dues/paper-reminders" className="inline-flex min-h-11 items-center font-medium underline">
+                  Print reminders for owners who get paper
+                </Link>
               </Alert>
             ) : null}
 
