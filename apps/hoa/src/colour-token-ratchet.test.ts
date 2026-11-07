@@ -99,6 +99,8 @@ const RE = new RegExp(
 const NOT_CLASSES = new Set([
   'fill-in', 'text-message', 'text-messages', 'text-only', 'text-extracts',
   'text-passthrough-1', 'text-embedding-3-small', 'from-inbox', 'accent-folded',
+  // `box-sizing: border-box` inside a print stylesheet string (LabelSheets.tsx).
+  'border-box',
 ])
 /** Files whose strings are token names / CSS values, not class lists. */
 const SKIP_FILES = new Set(['packages/ui/src/tokens.ts'])

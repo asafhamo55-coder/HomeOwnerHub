@@ -84,7 +84,7 @@ export default async function MailingLabelsPage({
     <div className="space-y-5 print:space-y-0">
       <div className="space-y-4 print:hidden">
         <ol
-          className="list-decimal space-y-1 rounded-lg border-2 border-foreground/30 bg-surface-subtle p-4 pl-9 text-base text-foreground"
+          className="list-decimal space-y-1 rounded-lg border-2 border-foreground/30 bg-subtle p-4 pl-9 text-base text-foreground"
           aria-label="How to print"
         >
           <li>Print one test page on plain paper and hold it against a label sheet to check it lines up.</li>
