@@ -17,24 +17,28 @@ In plain words:
 - The link is a recorded **management agreement** (pending, active, ended). An active agreement gives assigned staff a **manager** seat inside the HOA. Ending the agreement removes the seats.
 - The HOA owns its records the whole time. Switching companies, or going back to self-managing, moves nothing.
 
-**An earlier draft said this needs "no policy changes". That was wrong and is withdrawn.** A new `manager` role is not free: database policies and app code check "admin or board" in about 30 places (inventory in section 11.1). Mapping `manager` into the existing board helper would hand managers every board power, including adding and removing board members and the second signature on money approvals. The design now uses a separate helper and an explicit allow-list of what a manager may do, plus a generated test that checks every policy and every app role check.
+**An earlier draft said this needs "no policy changes". That was wrong and is withdrawn.** A new `manager` role is not free: database policies and app code check "admin or board" in about 30 places (inventory in section 11.1). Mapping `manager` into the existing board helper would hand managers every board power, including adding and removing board members and the second signature on money approvals. The design now uses a separate helper, `auth_manager_can(org, area, level)`, driven by a **per-agreement responsibility matrix** (13 areas, levels none, view, prepare, act) and a fixed security floor, plus a generated test that checks every policy and app role check per area and level.
 
-**Step one (Phase 0, no new tables): Homeside-ready.** Lift the 20-organization cap and add the searchable switcher (being built on `claude/org-switcher-scale`); the platform admin creates each HOA organization by hand; each HOA's board invites Homeside staff using the existing roles; each HOA pays its own subscription; a free-text "managed by" line goes in the footer. **The cost, stated plainly: until the manager role ships, Homeside staff hold board powers in each HOA.** That is acceptable for one trusted customer onboarded by hand, and it teaches us what a manager really needs before we build it. Company-pays billing waits until a customer asks (section 7).
+**Step one (Phase 0, no new tables): Homeside-ready.** Lift the 20-organization cap and add the searchable switcher (being built on `claude/org-switcher-scale`); the platform admin creates each HOA organization by hand; each HOA's board invites Homeside staff using the existing roles; each HOA pays its own subscription; a free-text "managed by" line goes in the footer. **The cost, stated plainly: until the manager role ships, Homeside staff hold board powers in each HOA, and a per-HOA split of responsibilities is not possible.** An HOA that wants a narrower split can invite Homeside staff as `board` only where it is comfortable with that; otherwise it waits for step two. That is acceptable for one trusted customer onboarded by hand, and it teaches us what a manager really needs before we build it. Company-pays billing waits until a customer asks (section 7).
 
 ### Decisions the owner must make (ranked)
 
 | # | Decision | My recommendation |
 |---|---|---|
-| 1 | **Hand-onboard Homeside first with board powers (Phase 0), or build the manager role first?** | Hand-onboard first. Fast, no migration, and the risk is one known customer for a limited time. |
-| 2 | **Manager powers.** What may a manager do, and what stays with the board only (bank details, board roster, second signature on money, ending the agreement)? | The default-deny table in section 3.2. Fines and letters to owners need board release (section 11.6). |
-| 3 | **Leaving rights.** Can an HOA end the relationship alone, instantly? Can the company? What does the company hand back? | Either side, one button, no approval from the other. Departing-company checklist and export (section 11.5). |
-| 4 | **Handover.** Immediate cut-off, or a read-only period of up to 30 days chosen by the board? | Immediate by default, optional board-chosen read-only handover. |
-| 5 | **Inngest capacity.** The job runner's free tier allows 50,000 runs a month and mail sync alone uses about half. Gate onboarding of 100 HOAs on measured headroom, or pay for a bigger plan? | Gate on measurement; plan the upgrade before the 20th HOA (section 11.4). |
-| 6 | **Company-pays billing now or later?** | Later, when a customer asks. The unique `stripe_customer_id` and the webhook's customer lookup make it a real project (section 7). |
-| 7 | **Overlap.** May one HOA have two companies active at once? | No. One active company per HOA (section 11.7). |
-| 8 | **Lawyer gate.** Must a lawyer approve the signature wording and attestation before the agreement flow launches? | Yes, a hard gate on Phase 4. |
-| 9 | **Timeout for an unconfirmed company-created HOA.** | 30 days to confirm, then it freezes (section 11.7). |
-| 10 | **Role precedence** when someone is both company staff and a resident or board member of a managed HOA. | Highest of their own roles in that HOA, with the audit trail showing the capacity they acted in (section 11.7). |
+| 1 | **Hand-onboard Homeside first with board powers (Phase 0), or build the manager role first?** | Hand-onboard first. Fast, no migration, and the risk is one known customer for a limited time. Per-HOA splits of responsibility are only possible from step 2 (section 3.2). |
+| 2 | **Approve the capability areas, levels, presets and the security floor** (section 3.2): 13 areas, levels none, view, prepare, act; four presets; five things that stay board-only. | Approve as written, then adjust areas after Homeside's first HOAs. |
+| 3 | **May the board reduce the matrix alone, or does every change need both sides?** | The board can always reduce alone and immediately; any increase needs both sides. |
+| 4 | **Should residents see the agreed matrix?** | No. The board sees it, with its history. |
+| 5 | **Leaving rights.** Can an HOA end the relationship alone, instantly? Can the company? What does the company hand back? | Either side, one button, no approval from the other. Departing-company checklist and export (section 11.5). |
+| 6 | **Handover.** Immediate cut-off, or a read-only period of up to 30 days chosen by the board? | Immediate by default, optional board-chosen read-only handover. |
+| 7 | **Inngest capacity.** The job runner's free tier allows 50,000 runs a month and mail sync alone uses about half. Gate onboarding of 100 HOAs on measured headroom, or pay for a bigger plan? | Gate on measurement; plan the upgrade before the 20th HOA (section 11.4). |
+| 8 | **Company-pays billing now or later?** | Later, when a customer asks. The unique `stripe_customer_id` and the webhook's customer lookup make it a real project (section 7). |
+| 9 | **Overlap.** May one HOA have two companies active at once? | No. One active company per HOA (section 11.7). |
+| 10 | **Lawyer gate.** Must a lawyer approve the signature wording and attestation before the agreement flow launches? | Yes, a hard gate on Phase 4. |
+| 11 | **Timeout for an unconfirmed company-created HOA.** | 30 days to confirm, then it freezes (section 11.7). |
+| 12 | **Role precedence** when someone is both company staff and a resident or board member of a managed HOA. | Highest of their own roles in that HOA, with the audit trail showing the capacity they acted in (section 11.7). |
+
+**Not our business: what the company charges the HOA.** Management fees and how a company prices a heavier or lighter split are between them. HomeownerHub does not bill, mediate or even see them; the agreement has only an optional free-text "service notes" field for the parties' own reference. Our subscription stays per HOA.
 
 Smaller open questions are in section 9.
 
@@ -107,7 +111,7 @@ The company is a new entity with its own staff. A `management_agreements` row li
 | **HOA leaves or switches companies and keeps all data** | Hard. Every row is in the company's tenant. Leaving means a data migration that rewrites `organization_id` on dozens of tables, under live use. | **Trivial.** Data never moved. End the agreement, seats disappear. A new company links in. | Hard for company-created HOAs, easy for claimed ones. Two paths to test and explain. |
 | **Board's own access next to the manager's** | The board are residents or board members of the company's tenant. They share a tenant with 99 other HOAs' managers, so isolation between HOAs depends on new association-level rules. | **Natural.** Board are `admin` or `board` in their own org, manager is `manager` in the same org. Today's role model. | As A until claimed. |
 | **Per-HOA billing vs company billing** | Billing is on the org row, so one subscription for the whole company, with no per-HOA record. Hard to price per HOA and impossible to hand an HOA its own bill later. | Each HOA keeps its own subscription record. Company-pays is a payer setting on top. HOA can take over its bill without data change. | Mixed. |
-| **RLS complexity and isolation** | Every policy is `org_id = ANY(auth_org_ids())` (`0070`). A company staff member in the company org would see all 100 HOAs, and "only my assigned HOAs" needs a second layer on every table. Migration 0070 and 0081 were large, careful efforts to make exactly this single layer trustworthy; A would reopen all of it. | **Org scoping needs no change** (a manager is a member of exactly the HOA orgs they are assigned to, so `auth_org_ids()` scopes them), but **role checks do**: a separate `auth_is_manager_or_board` helper opted in table by table (section 11.1). | As A plus extra. |
+| **RLS complexity and isolation** | Every policy is `org_id = ANY(auth_org_ids())` (`0070`). A company staff member in the company org would see all 100 HOAs, and "only my assigned HOAs" needs a second layer on every table. Migration 0070 and 0081 were large, careful efforts to make exactly this single layer trustworthy; A would reopen all of it. | **Org scoping needs no change** (a manager is a member of exactly the HOA orgs they are assigned to, so `auth_org_ids()` scopes them), but **role checks do**: a separate `auth_manager_can(org, area, level)` helper driven by a per-agreement responsibility matrix, opted in table by table (sections 3.2 and 11.1). | As A plus extra. |
 | **Stripe Connect per association** | One org, many accounts. Doable (the design already allows it, section 1.2) but every payments code path must pick an association first. | One org, one association, one account. Matches the design as written. | Mixed. |
 | **State-law records ownership (association owns its records)** | Records sit in the company's tenant. Easy to argue the company owns them, and a contract dispute traps the HOA's records. | **Records sit in the association's own tenant**, which is the legal truth. The company is a delegate. | Ambiguous. |
 | **Reporting across many HOAs** | Easy: one tenant, query all. | Needs a cross-tenant read for the portfolio page (section 5). One RPC and an index. | Mixed. |
@@ -144,26 +148,69 @@ B's cost is the cross-tenant read for a portfolio dashboard, plus switching betw
 
 Company roles live in `management_company_members` (role `admin` or `manager`); a person can be staff in one company.
 
-### 3.2 What each can see and do (inside one HOA)
+### 3.2 What a manager can see and do: a responsibility matrix agreed per agreement
 
-"Manager" means a company staff seat. The aim: a manager can run day-to-day operations like a board officer, but cannot take decisions that belong to the association itself.
+HOAs and companies split the work differently, and the split is negotiable. Some boards hand over everything; others keep violations and the money and want only help with communications. So there is **no single fixed manager table**. Each management agreement carries its own **responsibility matrix**, agreed by the board and the company, versioned and audited.
 
-| Area | Board admin | Board member | Manager (company) | Company admin outside any HOA |
-|---|---|---|---|---|
-| Residents, units, violations, ARC, tickets, announcements, vendors, calendar | full | as today | **full** | nothing (portfolio totals only) |
-| Accounting: read books, enter invoices, reconcile | full | as today | **full** | none |
-| Approve money above the dual-control amount | full | per role | **cannot be the only approver** (needs a board sign-off; the dual-control rule in 0071 already supports this, and the generated test in 11.1 proves a manager cannot supply a second signature) | none |
-| Letters, email, SMS to residents | full | as today | **full** (sent as the HOA, section 6) | none |
-| Stripe Connect onboarding, bank details, payout changes | treasurer or admin | treasurer | **blocked** (per `docs/decisions/2026-10-31-online-dues-payments-design.md` 1.3) | none |
-| Governing documents, board roster, officer titles | full | read | read; edit only if board allows | none |
-| Invite or remove board members | full | none | **blocked** | none |
-| Invite CPA or attorney | full | none | **blocked** | none |
-| End or change the management agreement | full | none | **blocked** | can end from the company side |
-| HOA subscription and card | full | none | only if company is the payer | billing for company-paid HOAs |
-| Voting, polls | as today | as today | run and tally; cannot vote | none |
-| Board-only items (for example vendor insurance reminders, which are board-only by decision `docs/decisions/2026-10-20-vendor-coi-reminders-board-only.md`) | yes | yes | **no, unless the board ticks "share with manager"** | none |
+**Capability areas.** Based on the real areas of the app (`apps/hoa/src/app/(dashboard)/`):
 
-Anything not listed defaults to **blocked for manager** until deliberately opened; that default is the safe direction. The permission table lives in one pure TypeScript file so tests can pin it, in the same style as `apps/hoa/src/lib/roles.ts`.
+| # | Area | Covers (app sections) |
+|---|---|---|
+| 1 | `dues_collections` | dues, late fees, collection cases |
+| 2 | `accounting_books` | accounting, invoices, bank import, journal entries, fiscal periods |
+| 3 | `payments` | online payments and refunds (only exists when M8 is on) |
+| 4 | `violations_fines` | violations, hearings, fines |
+| 5 | `arc_reviews` | architectural review requests |
+| 6 | `communications` | announcements, email, SMS, mailed letters, inbox, community board |
+| 7 | `meetings_voting` | meetings, minutes, events, polls, ballots, elections |
+| 8 | `amenities_bookings` | amenities and reservations |
+| 9 | `vendors_workorders` | vendors, RFPs, service tickets, tasks, insurance certificates |
+| 10 | `documents_records` | governing documents, records, records requests |
+| 11 | `compliance_legal` | compliance deadlines, state registrations |
+| 12 | `resident_directory` | people, properties, units, ownership, leases |
+| 13 | `reports` | board reports, analytics, exports |
+
+**Levels.** For each area the company's level is one of:
+
+| Level | Meaning |
+|---|---|
+| `none` | The area is invisible to the company. |
+| `view` | The company can read it, change nothing. |
+| `prepare` | The company drafts; the board **releases**. The company can create proposals (a draft letter, a proposed fine, a proposed payment, a draft invoice) but nothing takes effect or leaves the system until a board member releases it. Proposals use the existing approvals inbox (`approval_requests`, migration 0060) and its "can only be inserted as proposed" rule. |
+| `act` | The company acts directly. |
+
+Levels are ordered: `act` includes `prepare` includes `view`. A missing cell means `none`, so an area added to the app later starts closed.
+
+**Presets.** The two sides start from a preset and adjust any cell. A preset is a starting point only; the agreement stores the resulting cells, not the preset name.
+
+| Preset | dues | books | payments | violations | arc | comms | meetings | amenities | vendors | docs | compliance | directory | reports |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Full service** | act | act | prepare | act | act | act | act | act | act | act | act | act | act |
+| **Shared (company prepares, board approves)** | prepare | prepare | prepare | prepare | prepare | prepare | prepare | act | prepare | prepare | prepare | act | act |
+| **Financial only** | act | act | prepare | none | none | view | none | none | view | view | none | view | act |
+| **Advisory / view only** | view | view | none | view | view | view | view | view | view | view | view | view | view |
+
+Money-moving areas (`payments`, and the payment steps inside `dues_collections` and `accounting_books`) are capped at `prepare` in every preset; a board that wants `act` there chooses it deliberately, and the second signature stays with the board in all cases (floor below).
+
+**Who agrees, and who may change it.**
+- The matrix is set together: one side proposes, the other accepts, and only then does it take effect (version 1 at agreement start).
+- **The board can reduce the company's levels alone, immediately, at any time.** Nothing the company has queued under a reduced level is lost: pending proposals stay for the board to release or discard.
+- **Any increase needs both sides to accept.** The company can also reduce its own levels alone.
+- Every version is stored with who proposed it, who accepted it, and when. The board sees the matrix and its history in Settings; the company admin sees the same.
+
+**The security floor: no matrix can override it.** These stay board-only whatever the cells say:
+
+1. Bank and Stripe account details: Connect onboarding, payout destination, the Plaid bank link and any change to them.
+2. The board roster and roles: adding, removing or changing board members, officer titles, and who is an admin.
+3. The second signature on money: a manager can never be the approver or second signer of a money action, and cannot release their own proposal.
+4. Ending the agreement (the company may end from its own side, but cannot end it on the board's behalf) and approving any increase to the matrix on the board's behalf.
+5. Granting outside professionals (CPA or attorney) access.
+
+Also fixed: the HOA's own subscription and card (unless company-pays is later built), and the audit log, which nobody can edit. The floor is enforced in code and policies, not by cells in the matrix, so there is no cell to misconfigure.
+
+**What a managed HOA's board sees:** the matrix, its history, and everything managers did. **Residents do not see the matrix** (recommended; the board sees it).
+
+**Enforcement summary.** The helper `auth_manager_can(org, area, level)` reads the matrix of the agreement that issued the manager's seat (section 11.1). Without the matrix, a seat grants nothing.
 
 ### 3.3 Assignment
 
@@ -199,7 +246,7 @@ A short wizard, each step skippable and resumable:
 1. **Name and basics:** HOA name, state (Georgia first), number of homes, type (HOA, condo, co-op). Creates a new `orgs` row (`hub_type='hoa'`, `organization_type='self_managed_hoa'`, because as an HOA tenant it is its own tenant) with its one `associations` row, the same way onboarding does today (`apps/hoa/src/app/onboarding/actions.ts:56`, then association setup). Creates an **active agreement** and assigns the creator.
 2. **Attestation:** "We have a signed management agreement with this association." Recorded with date and person. This is a statement by the company, not verified by us.
 3. **Roster import:** the existing importers (`apps/hoa/src/app/admin/import-units`, `(dashboard)/properties/import`) run in the context of the HOA once the manager has entered it. The wizard just links to them with the HOA already selected.
-4. **Invite the board:** the existing member invite flow; the email says "Homeside has set up a community workspace for Creek Valley HOA. You are being invited as president." The first board person to accept becomes `admin` of the HOA org and the board confirms the agreement (decision 9 and section 11.7).
+4. **Invite the board:** the existing member invite flow; the email says "Homeside has set up a community workspace for Creek Valley HOA. You are being invited as president." The first board person to accept becomes `admin` of the HOA org and the board confirms the agreement (decision 11 and section 11.7).
 5. **Assign managers.**
 
 Until the board confirms, the HOA is marked "pending board confirmation": a manager can load data but cannot turn on online payments, cannot mail letters, and cannot invite a CPA or attorney. Payments are the line the owner insists on; this keeps an unconfirmed claim of authority from ever reaching money.
@@ -218,7 +265,7 @@ Bulk onboarding of 50 HOAs: a CSV (name, state, homes, board contact email) crea
 
 Either side, one button, no approval from the other: HOA Settings, Management company, **End this agreement**; or company side, the HOA row, **Stop managing**.
 
-- Default (decision 4): all `manager` seats for that agreement are removed immediately, in one transaction.
+- Default (decision 6): all `manager` seats for that agreement are removed immediately, in one transaction.
 - Optional read-only handover for up to 30 days, chosen by the HOA board only (the manager seats become read-only with an end date, mirroring the CPA and attorney expiry).
 - HOA keeps everything; nothing is copied or deleted. The board can export everything with the existing data export (`apps/hoa/src/lib/data-export/`).
 - If the company was paying (section 5): the HOA gets a clear banner and a 30-day grace to add a card before the normal billing-failure path starts (decision D2 follow-up, question Q3).
@@ -308,8 +355,8 @@ Numbering: the last applied migration is `0082_money_integrity.sql` (flag M16, `
 
 | Migration | Flag | Contents | Phase |
 |---|---|---|---|
-| none | none | Phase 0 needs no migration at all. | 0 |
-| `0083_management_companies.sql` | **M17** | Tables `management_companies`, `management_company_members` (role `admin` or `manager`), `management_agreements` (status `pending`, `active`, `ended`; initiated by; attestation date and person; started, ended, ended by, reason; `board_confirmed_at`; `confirm_by`; `handover_until`), `management_assignments`. `org_members.role` CHECK gains `manager`; `org_members.source_agreement_id` with the bindings in 11.2; `org_members.access_expires_at` is reused for manager seats. New helper `auth_is_manager_or_board(org)` and the allow-listed policy changes in 11.1 (`auth_is_board_or_admin` itself is **not** edited). Guard trigger and policies so only service-role agreement functions create or delete manager seats. Actor-name snapshot columns (11.5). Audit columns `acting_company_id`, `acting_role`. `company_portfolio_summary()` (11.3). Verify script `verify-0083-management-companies.sql` in the style of `verify-0082-money-integrity.sql`. | 2 |
+| none | none | Phase 0 needs no migration at all and cannot express per-HOA splits. | 0 |
+| `0083_management_companies.sql` | **M17** | Tables `management_companies`, `management_company_members` (role `admin` or `manager`), `management_agreements` (status `pending`, `active`, `ended`; initiated by; attestation date and person; started, ended, ended by, reason; `board_confirmed_at`; `confirm_by`; `handover_until`), `management_assignments`, `agreement_responsibilities` and `agreement_responsibility_changes` (11.8), and a free-text `service_notes` on the agreement. `org_members.role` CHECK gains `manager`; `org_members.source_agreement_id` with the bindings in 11.2; `org_members.access_expires_at` is reused for manager seats. New helper `auth_manager_can(org, area, level)` and the per-area policy changes in 11.1 (`auth_is_board_or_admin` itself is **not** edited). Guard trigger and policies so only service-role agreement functions create or delete manager seats. Actor-name snapshot columns (11.5). Audit columns `acting_company_id`, `acting_role`. `company_portfolio_summary()` (11.3). Verify script `verify-0083-management-companies.sql` in the style of `verify-0082-money-integrity.sql`. | 2 |
 | `0084_company_billing.sql` | **M18** | **Deferred until a customer asks** (section 7). Company Stripe customer id, `orgs.billing_payer`, grace columns. | 5 |
 | `0085_portfolio_rollup.sql` | **M19** (optional) | Cached summary table, only if the live function is measured slow at 300 HOAs. | 6 |
 
@@ -327,7 +374,7 @@ Each phase ships on its own and changes nothing for existing self-managed HOAs.
 |---|---|---|---|
 | **0. Homeside-ready, no new tables** | Lift the 20-org cap and the lazy searchable switcher (branch `claude/org-switcher-scale`). Platform admin creates each HOA org by hand (existing `apps/hoa/src/app/admin/tenants` tooling). Board invites Homeside staff with existing roles. Each HOA pays itself. Free-text "managed by" footer line. 300-org fixture and measurements. | none | Homeside and its HOAs only |
 | **1. Groundwork** | Permission module (default-deny), role inventory and generated test harness, flags. | none | no one |
-| **2. Core tenancy** | Tables, `manager` role, allow-listed policies, seat bindings, audit, verify and rollback scripts. Manager replaces the borrowed board powers for Homeside's staff. | **0083** | allow-listed companies |
+| **2. Core tenancy** | Tables, `manager` role, per-area policies, seat bindings, audit, verify and rollback scripts. Manager replaces the borrowed board powers for Homeside's staff. | **0083** | allow-listed companies |
 | **3. Company signup, add-an-HOA, portfolio** | Company sign-up, add-HOA wizard, staff invites, assignment, portfolio, "working as" bar. | none | allow-listed companies |
 | **4. Agreements for existing HOAs** | Invite and accept, board confirmation and timeout, end agreement, handover, leaving checklist, board release, "managed by" lines. **Gated on lawyer approval.** | none | managed boards |
 | **5. Company-pays billing (deferred)** | Only when a customer asks. | **0084** | companies |
@@ -342,7 +389,7 @@ Each phase ships on its own and changes nothing for existing self-managed HOAs.
 | # | Risk | Mitigation |
 |---|---|---|
 | R1 | A stale `manager` seat leaves a former company with access. | The control is the database: seat bound to its agreement by foreign key with cascade, check constraint and the end-of-agreement trigger (11.2). The nightly sweep is only an alarm that pages if the control failed. |
-| R2 | A manager is allowed an action reserved for the board (roster, bank, second signature). | Separate helper, per-table allow-list, generated test over every policy and role check (11.1). |
+| R2 | A manager is allowed an action reserved for the board (roster, bank, second signature). | Separate helper `auth_manager_can`, per-area and level opt-in, generated test over every policy and role check (11.1), security floor in code (3.2). |
 | R3 | Company-paid subscriptions break the unique `stripe_customer_id` and the webhook lookup. | Deferred (section 7). |
 | R4 | The 20-membership ceiling hides orgs. | Phase 0, with 25, 150 and 300 org tests (11.3). |
 | R5 | A company claims an HOA it does not manage. | Attestation, board confirmation before payments, mailed letters or pro invites, 30-day timeout (11.7), platform-admin freeze. |
@@ -380,7 +427,7 @@ Sizes: S under half a day, M about a day, L two to three days. Follow the repo r
 | T4 | 300-org test fixture and a measurement of `auth_org_ids()` with 300 elements. | `tests/integration/` fixture, a note in this doc | M |
 | T5 | Free-text "managed by" footer line in email and letters, settable by the board. | `apps/hoa/src/lib/email/shell.ts`, `apps/hoa/src/lib/mailed-letters/`, settings page | M |
 | T6 | Inngest usage table measured from the dashboard; go/no-go sheet. | this doc, `docs/owner-actions.md` | S |
-| T7 | Runbook for the platform admin to create and hand over an HOA org, and a list of Homeside staff holding board powers. | `docs/` runbook, `apps/hoa/src/app/admin/tenants/` | S |
+| T7 | Runbook for the platform admin to create and hand over an HOA org, a list of Homeside staff holding board powers, and the rule that a narrower split means inviting staff as `board` only where the HOA is comfortable, otherwise waiting for Phase 2. | `docs/` runbook, `apps/hoa/src/app/admin/tenants/` | S |
 
 ### Phase 1: Groundwork (no migration)
 
@@ -388,16 +435,17 @@ Sizes: S under half a day, M about a day, L two to three days. Follow the repo r
 |---|---|---|---|
 | T8 | Default-deny permission module and the role inventory as data. | `apps/hoa/src/lib/roles.ts`, `apps/hoa/src/lib/management/permissions.ts` (new) and test | M |
 | T9 | Flag files and UI hide switch, all false. | `packages/db/src/m17.ts`, `packages/ui/src/` | S |
-| T10 | Generated test: enumerate every policy and every role check, assert the manager result (11.1). Runs "red" against today's tree to list what must be opted in. | `tests/integration/role-matrix.test.ts` (new) | L |
+| T10 | Generated test: enumerate every policy and every role check, assert the manager result for every area and level (11.1). Runs "red" against today's tree to list what must be opted in. | `tests/integration/role-matrix.test.ts` (new) | L |
 
 ### Phase 2: Core tenancy (migration 0083, flag M17)
 
 | ID | Task | Files | Size |
 |---|---|---|---|
 | T11 | Migration 0083, verify and rollback scripts. | `migrations/0083_management_companies.sql`, `migrations/verify-0083-management-companies.sql`, `migrations/rollback-0083.sql` | L |
-| T12 | Allow-listed policies using `auth_is_manager_or_board` on the opted-in tables only. | in 0083 | L |
+| T12 | Per-area policies using `auth_manager_can` on the opted-in tables only, plus the `prepare` propose function over `approval_requests`. | in 0083 | L |
 | T13 | App guards: `Role`, `getCurrentUserRoleInOrg`, `requireBoardOrAdmin`, and the guards named in 11.1 learn `manager` explicitly. | `apps/hoa/src/lib/auth.ts`, `roles.ts`, the files in 11.1 | L |
 | T14 | Seat integration tests: invites, queued sends, concurrent grant, cascade on end, expiry (11.2). | `tests/integration/management-seats.test.ts` | L |
+| T15a | Responsibility matrix: presets, versioning, propose and accept, board-alone reduce, pure `managerCan`, per-request cache. | `apps/hoa/src/lib/management/responsibilities.ts` (new) and test, `apps/hoa/src/lib/management/presets.ts` | L |
 | T15 | Audit writers, actor-name snapshots, type regeneration only after 0083 is applied (see the `gen:types` footgun). | audit writer (find first), `packages/db/src/database.types.ts` | M |
 
 ### Phase 3: Company, add-an-HOA, portfolio
@@ -417,6 +465,7 @@ Sizes: S under half a day, M about a day, L two to three days. Follow the repo r
 | T21 | Invite a company, plain-language accept screen, from either side. | `apps/hoa/src/app/(dashboard)/settings/management/`, `apps/hoa/src/lib/email/` | L |
 | T22 | End agreement, read-only handover, invite and pending-send revocation, departing-company checklist and export (11.5). | `apps/hoa/src/lib/management/agreements.ts`, settings page | L |
 | T23 | Board confirmation gate and 30-day timeout; board release for owner-facing actions (11.6, 11.7). | `settings/online-payments/`, `lib/mailed-letters/config.ts`, `lib/professionals/guard.ts` | L |
+| T23a | Matrix screen for board and company: presets, per-cell edit, pending changes, history. | `apps/hoa/src/app/(dashboard)/settings/management/responsibilities/` | L |
 | T24 | Board activity view; "managed by" lines now driven by the agreement. | `settings/activity/`, `lib/email/shell.ts` | M |
 
 ### Phase 5 (deferred) and Phase 6
@@ -428,29 +477,33 @@ Sizes: S under half a day, M about a day, L two to three days. Follow the repo r
 | T27 | Platform admin Companies tab and freeze switch. | `apps/hoa/src/app/admin/tenants/`, `lib/platform-admin.ts` | M |
 | T28 | Rollup table (0085) only if measured slow. | `migrations/0085_portfolio_rollup.sql` | M |
 
-**Total:** 28 tasks: 13 large, 12 medium, 3 small. Phase 0 alone is roughly one to two weeks and needs no owner migration step.
+**Total:** 30 tasks: 15 large, 12 medium, 3 small. Phase 0 alone is roughly one to two weeks and needs no owner migration step.
 
 ---
 
 ## 11. Hardening added after the architecture review
 
-### 11.1 Making `manager` safe (replaces "RLS works unchanged")
+### 11.1 Making `manager` safe, per area and level (replaces "RLS works unchanged")
 
-**Rule.** Do not map `manager` into `auth_is_board_or_admin`. Add a separate helper `auth_is_manager_or_board(org)` and use it, table by table, only where the allow-list says a manager may act. Anything not on the allow-list behaves as it does today, which means a manager is denied.
+**Rule.** Never map `manager` into `auth_is_board_or_admin`. The separate helper is now **`auth_manager_can(org, area, level)`**: true when the caller holds a manager seat in `org` (unexpired, agreement active) and the matrix of the agreement that issued the seat gives the company at least `level` in `area`. Each opted-in policy names its area and level, for example `violations_fines` + `view` for reads and `violations_fines` + `act` for direct writes. A table not opted in behaves as today, so a manager is denied.
 
-**Why.** Mapping it in would give managers the `org_members` write policies at `migrations/0071_m6_roles.sql:187-208` (they could add and remove board members and professionals) and the second sign-off on money approvals (`0071` around line 66). Both are reserved for the association.
+**Why.** Mapping a manager in would give them the `org_members` write policies at `migrations/0071_m6_roles.sql:187-208` (add and remove board members and professionals) and the second sign-off on money approvals (`0071` around line 66). Both sit in the security floor (3.2) and are never reachable from any cell.
+
+**How `prepare` works.** Tables mostly have no draft state, so SQL policies grant a manager `view` and `act` only. `prepare` is delivered by a `SECURITY DEFINER` propose function that stores the proposal in `approval_requests` (migration 0060) tagged with area, agreement and author; a board member's release executes it. The release check refuses a releaser who is a manager. Raising a level from `prepare` to `act` therefore changes which path a manager's request takes, nothing else.
+
+**Reading the matrix.** `auth_manager_can` is a `STABLE` function doing one indexed lookup from `org_members.source_agreement_id` to `agreement_responsibilities` (11.8), so it is evaluated once per statement. In the app, the matrix is loaded once per request in the same React `cache` pattern as `membershipRows` in `apps/hoa/src/lib/orgs.ts`, and every guard calls a pure `managerCan(matrix, area, level)`.
 
 **Inventory of places that must be reviewed (from the architecture review; line numbers are the reviewer's and are re-checked in task T10):**
 
 | Kind | Where |
 |---|---|
 | Inlined `role IN ('admin','board')` in migrations | `0012:228-255`, `0040:134`, `0045:197`, `0046:182`, `0051:195`, `0070:190`, `0071:949`, `0071:233`, `0071:1051` |
-| Policies on `org_members` writes | `0071:187-208` (must exclude `manager`) |
+| Policies on `org_members` writes | `0071:187-208` (must exclude `manager`; floor) |
 | App guards | `lib/auth.ts` `getCurrentUserRoleInOrg` (about lines 27-30) and `requireBoardOrAdmin` (about 57); `lib/approvals-inbox/model.ts:317`; `lib/community-board/rules.ts:26`; `lib/ga-registration/model.ts:357`; `lib/contact-updates/apply.ts:70`; `lib/board-in-app-notify.ts:23`; `lib/communications/audience.ts:714` |
 
-**Generated test (task T10).** A test that reads the live catalog (`pg_policies`, function bodies) and the TypeScript guards, enumerates every policy and every role check, and asserts the result for a `manager`: allowed only for entries on the explicit allow-list file, denied otherwise. Adding a new policy or guard that mentions a role without a matching allow-list line fails CI. This replaces trust in a hand-made list.
+**Generated test (task T10).** A test reads the live catalog (`pg_policies`, function bodies) and the TypeScript guards, enumerates every policy and every role check, and, for a `manager`, asserts the result **for every area and level combination**: allowed exactly where the opt-in file maps that check to an area and a level at or below the one tested, denied otherwise, and always denied for floor items. A new policy or guard that mentions a role without a mapping line fails CI. Fixtures cover each preset and each single-cell change.
 
-**Who creates and removes seats.** Only service-role agreement functions create or delete `manager` rows. The 0071 insert and update policies exclude `manager`, and a guard trigger rejects any manager insert, update or delete not coming from those functions, even from `admin`.
+**Who creates and removes seats.** Only service-role agreement functions create or delete `manager` rows. The 0071 insert and update policies exclude `manager`, and a guard trigger rejects any manager insert, update or delete not coming from those functions, even from `admin`. Matrix changes also go only through service-role functions, never through direct table writes.
 
 ### 11.2 Binding each seat to its agreement
 
@@ -497,7 +550,7 @@ That matches the release note ("usage drops to about half"). What I did not trac
 
 ### 11.6 Board release for owner-facing manager actions
 
-Letters, fines and notices that change an owner's position (violation fines, mailed letters, collection steps) need a **board release** from a board member before they go out, when sent by a manager. Releases are logged. Whether this is on by default or a per-HOA setting is part of decision 2; my recommendation is on by default for fines and collection steps, optional for routine notices and announcements.
+Letters, fines and notices that change an owner's position (violation fines, mailed letters, collection steps) need a **board release** from a board member before they go out, when sent by a manager. Releases are logged. Whether this is on by default or a per-HOA setting is part of decision 2; this is now simply the `prepare` level (section 3.2): wherever the matrix says `prepare`, owner-facing items wait for board release; where it says `act`, the board has chosen to let the company send directly. Recommended preset default: `prepare` for violations, fines, collections and letters.
 
 ### 11.7 Rules for edge cases
 
@@ -506,6 +559,20 @@ Letters, fines and notices that change an owner's position (violation fines, mai
 - **Unconfirmed company-created HOA.** `confirm_by` is 30 days after creation. If the board has not confirmed by then, the HOA is frozen: managers lose write access (the board, if any has joined, keeps it), a notice goes to the company admin, and the platform admin can review. Online payments and mailed letters stay off in the meantime.
 - **Lawyer review as a gate.** Phase 4 does not launch until a lawyer has approved the attestation text, the "on behalf of the association" signature wording and the accept screen for Georgia.
 - **The dormant `organization_type='management_company'`.** The company is its own table, so this value is **unused and left alone** (dropping a CHECK value gives no benefit and risks the platform-admin badge at `apps/hoa/src/app/admin/tenants/[id]/page.tsx:63`). Migration 0083 documents it as reserved and unused.
+
+---
+
+### 11.8 Data model for the matrix, and pricing between the parties
+
+**Choice: one row per agreement and area, plus an append-only change log, not a jsonb blob.**
+
+- `agreement_responsibilities (agreement_id, area, level)`, primary key `(agreement_id, area)`, `CHECK` on the 13 area names and on the four levels. The current state. No row means `none`.
+- `agreement_responsibility_changes (id, agreement_id, version, area, old_level, new_level, status, proposed_by, proposed_by_side, accepted_by_board, accepted_by_company, applied_at)`, append-only (no update or delete policy; status moves `pending` to `applied` or `declined` through service-role functions). `management_agreements.matrix_version` increments on each applied change.
+- A board reduction (and a company self-reduction) writes a change and applies it in one transaction; an increase stays `pending` until both sides have accepted.
+
+**Why rows.** The database itself enforces valid areas and levels (a typo in jsonb silently grants or denies nothing); `auth_manager_can` is a single indexed lookup in the hot path of every policy; each change is naturally one auditable line ("board reduced violations from act to view") rather than a diff of two documents; and adding an area is a deliberate migration, so a new app feature starts closed. The cost is more rows (13 per agreement, trivial) and a service-role function for writes. A jsonb column would be shorter to write but loses all four properties.
+
+**What the parties charge each other is theirs.** HomeownerHub does not bill, mediate or display the company's management fee or how it varies with the split. The agreement has an optional free-text `service_notes` field for the parties' reference only; nothing reads it. Our own subscription is per HOA as in section 7.
 
 ---
 
