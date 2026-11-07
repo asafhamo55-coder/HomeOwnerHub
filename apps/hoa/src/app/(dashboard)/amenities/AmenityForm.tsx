@@ -242,14 +242,23 @@ export function AmenityForm({ amenity, associations = [] }: { amenity: Amenity |
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
       {summary ? (
-        <div ref={summaryRef} tabIndex={-1} className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Alert variant="error" title={summary.title}>
+        <div
+          ref={summaryRef}
+          tabIndex={-1}
+          role="group"
+          aria-labelledby="amenity-summary-title"
+          className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Alert variant="error" role="none">
+            <p id="amenity-summary-title" className="font-semibold leading-snug text-foreground">
+              {summary.title}
+            </p>
             <p>{summary.message}</p>
             {summary.links.length > 0 ? (
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {summary.links.map((l) => (
                   <li key={l.id}>
-                    <a href={`#${l.id}`} onClick={goTo(l.id)}>
+                    <a href={`#${l.id}`} onClick={goTo(l.id)} className="inline-flex min-h-11 items-center">
                       {l.label}
                     </a>
                   </li>

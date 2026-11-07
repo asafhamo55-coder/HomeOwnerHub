@@ -158,12 +158,12 @@ export function Field({
         </div>
         {body}
         {hint ? (
-          <p id={hintId} className="text-xs text-muted">
+          <p id={hintId} className="text-sm text-muted">
             {hint}
           </p>
         ) : null}
         {error ? (
-          <p id={errorId} role="alert" className="flex items-start gap-1.5 text-xs font-medium text-danger">
+          <p id={errorId} role="alert" className="flex items-start gap-1.5 text-sm font-medium text-danger">
             <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden />
             <span>{error}</span>
           </p>
@@ -194,15 +194,15 @@ export function Fieldset({
       aria-describedby={[hint ? `${id}-hint` : '', error ? `${id}-error` : ''].filter(Boolean).join(' ') || undefined}
       aria-invalid={error ? true : undefined}
     >
-      <legend className="mb-1 text-sm font-medium text-foreground">{legend}</legend>
+      <legend className="mb-1 text-base font-medium text-foreground">{legend}</legend>
       {hint ? (
-        <p id={`${id}-hint`} className="-mt-1 text-xs text-muted">
+        <p id={`${id}-hint`} className="-mt-1 text-sm text-muted">
           {hint}
         </p>
       ) : null}
       {children}
       {error ? (
-        <p id={`${id}-error`} className="flex items-start gap-1.5 text-xs font-medium text-danger">
+        <p id={`${id}-error`} className="flex items-start gap-1.5 text-sm font-medium text-danger">
           <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden />
           <span>{error}</span>
         </p>

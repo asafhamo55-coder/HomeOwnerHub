@@ -15,7 +15,13 @@ const DESCRIPTION = 'Changes apply to new bookings. You choose what happens to b
 export default async function EditAmenityPage({ params }: { params: Promise<{ id: string }> }) {
   const { org } = await requireBoardOrAdmin()
   const { id } = await params
-  if (!M11_APPLIED) notFound()
+  if (!M11_APPLIED) {
+    return (
+      <Page width="narrow" title="Edit amenity" description={DESCRIPTION} breadcrumbs={[{ label: 'Amenities', href: '/amenities' }, { label: 'Edit' }]} linkAs={Link}>
+        <LoadFailed what="the amenity form" retryHref="/amenities" />
+      </Page>
+    )
+  }
   const db = createAdminClient() as unknown as LooseDb
   // loadAmenities filters by the caller's organization, so another
   // organization's amenity id is simply not found.
