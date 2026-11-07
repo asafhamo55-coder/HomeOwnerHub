@@ -4,10 +4,10 @@ title: Invite every owner to the portal at once
 summary: Send the portal invitation to every owner on your roster who has an email and no account, then resend or revoke invitations nobody has accepted.
 topic: setup
 roles: [admin, board]
-routes: ["/settings/members"]
+routes: ["/settings/members", "/welcome"]
 primary_route: /settings/members
 keywords: [invite owners, invite all, bulk invite, portal invitation, owners without account, adoption, onboarding owners, pending invitations, resend invitation, revoke invitation, not signed in, hasn't joined, roster]
-related: [members-invite-board, setup-import-roster, setup-properties-residents]
+related: [members-invite-board, setup-import-roster, setup-properties-residents, people-print-join-notice]
 reviewed: 2026-10-20
 ---
 
@@ -37,3 +37,8 @@ Each owner gets the same invitation email as a single invite. Owners who already
 - **Resend:** under **Pending invitations**, select [[Resend]] on a row to send the email again.
 - **Revoke:** select [[Revoke]] and confirm. The invitation no longer gives them access to your HOA, and the owner's name and email stay on your roster, so you can invite them again later.
 - Board members can resend or revoke resident invitations. Only admins can do it for board and admin invitations.
+- **Share the welcome video.** New residents can watch a short video before they sign in. It shows how to sign in, add the app to a phone, see dues, send a request and book a space.
+- To share it, take the web address you use to sign in and put `/welcome` on the end. Paste that link into an email, a newsletter or a text.
+- Anyone with the link can open the page. They do not need to sign in. It has the video, six plain steps and a sign-in button.
+- Under the steps, **Read the video instead** gives the whole video in words. The words are also on the screen in the video.
+- The video is the same for every community. Only its first and last cards say "Madison Park". The screens in it use pretend names and amounts.
