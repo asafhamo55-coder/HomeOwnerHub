@@ -400,6 +400,7 @@ export async function computeIncomeStatement(
     .from('fiscal_periods')
     .select('id, start_date, end_date')
     .eq('id', periodId)
+    .eq('association_id', associationId)
     .maybeSingle()
   if (periodErr) throw queryFailed(periodErr)
   if (!period) {
@@ -632,6 +633,7 @@ export async function computeCashFlow(
     .from('fiscal_periods')
     .select('id, start_date, end_date')
     .eq('id', periodId)
+    .eq('association_id', associationId)
     .maybeSingle()
   if (periodErr) throw queryFailed(periodErr)
   if (!period) {

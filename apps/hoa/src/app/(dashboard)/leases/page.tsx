@@ -34,6 +34,7 @@ import { AddToWaitingList } from './AddToWaitingList'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadPropertyScope } from '@/lib/property-scope'
+import { getCurrentOrg } from '@/lib/orgs'
 import { PropertyScopeBanner } from '@/components/PropertyScopeBanner'
 import { plural } from '@/lib/money/format'
 import { formatShortDate } from '@/lib/format-datetime'
@@ -70,6 +71,7 @@ export default async function LeasesPage({
   const scope = await loadPropertyScope(
     (await getSupabaseServerClient()) as unknown as SupabaseClient,
     (await searchParams).property,
+    (await getCurrentOrg())?.id ?? null,
   )
 
   const [stats, capRes, allWaiting, candidates] = await Promise.all([

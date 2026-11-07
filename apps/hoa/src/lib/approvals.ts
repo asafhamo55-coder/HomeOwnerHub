@@ -6,6 +6,7 @@ import { createAdminClient } from '@homeowner-portal/db'
 import {
   approveRequest,
   rejectRequest,
+  W18_CASH_RECEIPT,
   type DecisionResult,
 } from '@homeowner-portal/workflows'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
@@ -35,6 +36,29 @@ const RejectSchema = z.object({
   reason: z.string().trim().min(1, 'A reason is required to reject.').max(1000),
 })
 
+const NOT_IN_THIS_ORG = { ok: false as const, error: 'That approval item isn’t a bank deposit match in this community.' }
+
+/**
+ * Before any claim, on BOTH approve and reject and whatever M6 is: the
+ * request must be a W18 deposit match of the ACTIVE org. The decide RPC lets
+ * a board member of several orgs decide any of them, so a request id from
+ * another org they belong to would otherwise be claimed from here.
+ */
+async function isW18InOrg(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  id: string,
+  orgId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('approval_requests')
+    .select('id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .eq('action_type', W18_CASH_RECEIPT)
+    .maybeSingle()
+  return !error && !!data
+}
+
 export async function approvePosting(input: {
   approvalRequestId: string
 }): Promise<DecisionResult> {
@@ -45,6 +69,7 @@ export async function approvePosting(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
   const supabase = await getSupabaseServerClient()
+  if (!(await isW18InOrg(supabase, parsed.data.approvalRequestId, gate.orgId))) return NOT_IN_THIS_ORG
   // BL-168: the matching queue is a second door to the same approval, so it
   // goes through the same Treasurer-first / dual-control gate.
   if (M6_APPLIED) {
@@ -73,6 +98,7 @@ export async function rejectPosting(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid input' }
   }
   const supabase = await getSupabaseServerClient()
+  if (!(await isW18InOrg(supabase, parsed.data.approvalRequestId, gate.orgId))) return NOT_IN_THIS_ORG
   const result = await rejectRequest(supabase, parsed.data.approvalRequestId, parsed.data.reason)
   revalidate()
   return result

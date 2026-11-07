@@ -118,6 +118,7 @@ export async function enterBill(input: {
     .from('vendors')
     .select('id, organization_id')
     .eq('id', value.vendorId)
+    .eq('organization_id', assocRow.organization_id)
     .single()
   if (!vendor || vendor.organization_id !== assocRow.organization_id) {
     return { ok: false, error: 'Vendor not found in this organization.' }

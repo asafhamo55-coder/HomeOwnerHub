@@ -37,6 +37,9 @@ vi.mock('./queries', async (importOriginal) => ({
 }))
 vi.mock('@/lib/communications/send', () => ({ sendCommunication: mockSend }))
 vi.mock('next/cache', () => ({ revalidatePath: mockRevalidate }))
+vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: async () => ({}) }))
+const mockManagedBy = vi.hoisted(() => vi.fn(async () => ''))
+vi.mock('@/lib/managed-by-load', () => ({ loadManagedByLine: mockManagedBy }))
 
 import { previewDuesReminders, sendDuesReminders } from './actions'
 
@@ -124,6 +127,15 @@ describe('previewDuesReminders', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.packets.map((p) => p.email)).toEqual(['sam@example.com'])
+  })
+
+  it('shows the association\'s Managed by line in the preview, read for that association', async () => {
+    mockManagedBy.mockResolvedValueOnce('Managed by Homeside, (404) 555-0100')
+    const result = await previewDuesReminders()
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.previewHtml).toContain('Managed by Homeside, (404) 555-0100')
+    expect(mockManagedBy).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.anything())
   })
 
   it('renders a real preview body for the first recipient', async () => {

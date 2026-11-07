@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { CalendarDays } from 'lucide-react'
-import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
+import { CalendarDays, Pencil, Plus } from 'lucide-react'
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState, LoadFailed, Page } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
 import { M11_APPLIED } from '@homeowner-portal/db/m11'
 import { requireBoardOrAdmin } from '@/lib/auth'
@@ -8,7 +8,6 @@ import { currentTimeZone } from '@/lib/association-time-current'
 import { formatSlot, isRealDay, rulesSummary } from '@/lib/amenities/model'
 import { loadAmenities, loadAmenityReservations, loadBoardReservations, type LooseDb } from '@/lib/amenities/queries'
 import { addCalendarDays, todayIn } from '@/lib/association-time'
-import { AmenityDialog } from './AmenityDialog'
 import { BoardCalendar } from './BoardCalendar'
 import { CancelButton, DecideButtons, HoldDialog, RetireButton } from './ReservationButtons'
 
@@ -45,15 +44,11 @@ export default async function AmenitiesPage({
   const db = createAdminClient() as unknown as LooseDb
   const timeZone = await currentTimeZone()
   const now = new Date()
-  const [allAmenities, reservations, associations] = await Promise.all([
+  const [allAmenities, reservations] = await Promise.all([
     loadAmenities(db, org.id),
     loadBoardReservations(db, org.id, now.toISOString()),
-    db.from('associations').select('id, name').eq('organization_id', org.id).order('created_at', { ascending: true }).range(0, 99) as Promise<{
-      data: { id: string; name: string }[] | null
-      error: { code?: string } | null
-    }>,
   ])
-  if (allAmenities === null || reservations === null || associations.error) {
+  if (allAmenities === null || reservations === null) {
     return (
       <Page title="Amenities" description={DESCRIPTION} linkAs={Link}>
         <LoadFailed what="your amenities" retryHref="/amenities" />
@@ -61,7 +56,6 @@ export default async function AmenitiesPage({
     )
   }
 
-  const associationOptions = (associations.data ?? []).map((a) => ({ id: a.id, name: a.name }))
   const amenities = allAmenities.filter((a) => !a.retiredAt)
   const retired = allAmenities.filter((a) => a.retiredAt)
   const names = new Map(allAmenities.map((a) => [a.id, a.name]))
@@ -96,7 +90,12 @@ export default async function AmenitiesPage({
     <Page title="Amenities" description={DESCRIPTION} linkAs={Link} actions={
         <div className="flex flex-wrap gap-2">
           <HoldDialog amenities={amenities.map((a) => ({ id: a.id, name: a.name }))} />
-          <AmenityDialog amenity={null} associations={associationOptions} />
+          <Button asChild>
+            <Link href="/amenities/new">
+              <Plus aria-hidden />
+              Add an amenity
+            </Link>
+          </Button>
         </div>
       }
     >
@@ -179,7 +178,12 @@ export default async function AmenitiesPage({
                     <p className="text-sm text-foreground-secondary">{rulesSummary(a)}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <AmenityDialog amenity={a} associations={associationOptions} />
+                    <Button asChild variant="secondary" size="sm">
+                      <Link href={`/amenities/${a.id}/edit`} aria-label={`Edit ${a.name}`}>
+                        <Pencil aria-hidden />
+                        Edit
+                      </Link>
+                    </Button>
                     <RetireButton amenityId={a.id} name={a.name} upcoming={upcomingBy.get(a.id) ?? 0} />
                   </div>
                 </div>

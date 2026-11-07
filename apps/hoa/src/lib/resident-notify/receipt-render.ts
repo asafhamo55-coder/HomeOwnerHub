@@ -54,6 +54,8 @@ export function balanceLabel(balance: number): string {
 
 export function renderPaymentReceiptEmail(i: {
   associationName: string
+  /** The association's "Managed by" line (plain text), shown in the footer. */
+  managedBy?: string | null
   amount: number
   /** yyyy-mm-dd in the association's zone. */
   paidDay: string
@@ -94,6 +96,7 @@ ${balanceNote ? `<p style="margin:12px 0 0;font-size:14px;color:${BRAND.muted};"
 ${button(i.portalUrl, 'View your ledger')}
 </div>`,
     footerHtml: `You’re receiving this because ${escapeHtml(i.associationName)} emails owners a receipt when the board records a payment. Keep it for your records. Replies to this email may not be read. Use the resident portal to contact the board.`,
+    managedBy: i.managedBy,
   })
 
   const lines = [

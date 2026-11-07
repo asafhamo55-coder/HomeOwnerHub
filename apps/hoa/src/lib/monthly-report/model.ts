@@ -220,6 +220,8 @@ export interface UpcomingMeeting {
 
 export interface MonthlyReportData {
   associationName: string
+  /** The association's "Managed by" line (plain text), shown in the footer. */
+  managedBy?: string | null
   period: PacketPeriod
   cash: Section<CashPosition>
   /** BL-120. */

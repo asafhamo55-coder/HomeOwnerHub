@@ -9,6 +9,8 @@ import { readBoardContacts, type BoardContact } from '@/lib/association-contacts
 import { AssociationSettingsForm, type AssociationRow } from './AssociationSettingsForm'
 import { BoardContactsForm } from './BoardContactsForm'
 import { CommunityLocationForm } from './CommunityLocationForm'
+import { ManagedByForm } from './ManagedByForm'
+import { readManagedBy } from '@/lib/managed-by'
 import { readCommunityLocation } from '@/lib/association-location'
 
 export const metadata = { title: 'Association' }
@@ -53,6 +55,7 @@ export default async function AssociationSettingsPage() {
     compliance_settings: unknown
   }>
   const contactsById = new Map<string, BoardContact[]>(raw.map((r) => [r.id, readBoardContacts(r.compliance_settings)]))
+  const managedById = new Map(raw.map((r) => [r.id, readManagedBy(r.compliance_settings)]))
   const locById = new Map(raw.map((r) => [r.id, readCommunityLocation(r.compliance_settings)]))
   const rows = raw.map(
     (r): AssociationRow => ({
@@ -84,6 +87,7 @@ export default async function AssociationSettingsPage() {
             initialCity={locById.get(a.id)?.city ?? ''}
             initialZip={locById.get(a.id)?.zip ?? ''}
           />
+          <ManagedByForm associationId={a.id} associationName={a.name} initial={managedById.get(a.id) ?? ''} />
           <BoardContactsForm associationId={a.id} associationName={a.name} initial={contactsById.get(a.id) ?? []} />
         </div>
       ))}

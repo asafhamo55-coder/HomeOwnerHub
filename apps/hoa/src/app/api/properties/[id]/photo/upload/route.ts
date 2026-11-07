@@ -1,7 +1,7 @@
 // POST   /api/properties/:id/photo/upload — set the home's own photo (M20)
 // DELETE /api/properties/:id/photo/upload — remove it; Street View shows again
 //
-// Dark until M20_APPLIED (migration 0086, OA-54): with the flag off both
+// Dark until M20_APPLIED (migration 0086, OA-55): with the flag off both
 // answer 404, exactly like a route that does not exist.
 //
 // Who (RC-4): board and admin for any home in their org; an owner or resident
@@ -25,6 +25,7 @@
 // a file name, address or any picture content.
 
 import { NextResponse } from 'next/server'
+
 import { M20_APPLIED } from '@homeowner-portal/db/m20'
 import { withRoute } from '@/lib/api/handler'
 import { ApiRouteError } from '@/lib/api/errors'
@@ -42,6 +43,9 @@ import {
   resolvePhotoType,
   uploadedPhotoPath,
 } from '@/lib/properties/photo-upload/rules'
+
+// sharp is native code: this route must run on Node, never the edge runtime.
+export const runtime = 'nodejs'
 
 type Ctx = { params: Promise<{ id: string }> }
 

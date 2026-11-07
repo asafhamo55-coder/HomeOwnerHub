@@ -50,6 +50,8 @@ function head(v: string, align: 'left' | 'right' = 'left'): string {
 
 export function renderStatementEmail(i: {
   associationName: string
+  /** The association's "Managed by" line (plain text), shown in the footer. */
+  managedBy?: string | null
   /** Display text, e.g. "Oct 1, 2025 – Sep 30, 2026". */
   period: string
   /** yyyy-mm-dd, the association's today. */
@@ -100,6 +102,7 @@ ${omittedNote ? `<p style="margin:8px 0 0;font-size:14px;color:${BRAND.muted};">
 ${emailButton(i.portalUrl, 'View your statement')}
 </div>`,
     footerHtml: `You’re receiving this because a board member of ${escapeHtml(i.associationName)} sent you your statement. Payments appear once they are approved, so anything received in the last few days may not be listed yet. Replies to this email may not be read. Use the resident portal to contact the board.`,
+    managedBy: i.managedBy,
   })
 
   const textLines = shown.map((l) => {

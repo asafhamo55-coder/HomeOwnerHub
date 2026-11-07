@@ -8,7 +8,7 @@
  * Street View only.
  *
  * Flip to true in its own commit, after the owner applies 0086 and every
- * verify-0086 check reads PASS (OA-54). Covers:
+ * verify-0086 check reads PASS (OA-55). Covers:
  *   upload your own house photo
  *      hoa_properties.photo_path / photo_updated_at / photo_updated_by,
  *      set_property_photo(), the private property-photos bucket:

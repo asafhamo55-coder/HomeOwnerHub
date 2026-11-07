@@ -41,7 +41,7 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
-### OA-54 · Turn on "upload your own house photo" (database change 0086)
+### OA-55 · Turn on "upload your own house photo" (database change 0086)
 
 **Urgency:** Whenever
 
@@ -54,6 +54,22 @@ easier. Never paste a key or password into a file in this repo; it is public.
 3. Tell Claude. It switches the feature on in a separate commit (flag M20) and deploys.
 
 **Files:** `migrations/0086_property_photos.sql`, `migrations/verify-0086-property-photos.sql`, `migrations/rollback-0086-property-photos.sql`
+
+### OA-54 · Get the marketing site indexed (Bing and Google)
+
+**Urgency:** Soon
+
+**Why it matters:** 138 URLs are in the sitemap and live, but almost no one finds them because search engines have barely indexed the site. After each deploy that changes the marketing site, a workflow now tells Bing and other engines about the changed pages (IndexNow, no account needed). Google does not support that, so it needs the steps below. Bing data is one input to ChatGPT search.
+
+**Steps:**
+
+1. Bing Webmaster Tools: import from Google Search Console, or add `https://www.homeownerledger.online` and verify it. Then submit `https://www.homeownerledger.online/sitemap.xml`.
+2. Google Search Console: add and verify the property if absent, then open Sitemaps (submit `sitemap.xml` if it is not listed), then Pages. Note how many pages are indexed and the main reasons others are not.
+3. Open `https://www.homeownerledger.online/1ed9f14deb9b5e5a4c8de362a01b6fae.txt` in a browser. It should show only the 32 characters `1ed9f14deb9b5e5a4c8de362a01b6fae`.
+4. A day or two after the first deploy, check the IndexNow section in Bing Webmaster Tools for received submissions.
+5. Tell Claude the indexed count from each. After the first deploy that serves the key file, Claude runs `gh workflow run indexnow.yml -f mode=all` once to submit every URL.
+
+**Files:** `.github/workflows/indexnow.yml`, `scripts/indexnow/submit.ts`
 
 ### OA-53 · Read the real monthly job count from the Inngest dashboard
 

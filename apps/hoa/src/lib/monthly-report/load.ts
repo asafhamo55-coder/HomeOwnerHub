@@ -171,6 +171,8 @@ export interface MonthlyReportContext {
   associationName: string
   timeZone: string
   period: PacketPeriod
+  /** The association's "Managed by" line, shown in the email footer. */
+  managedBy?: string | null
   /** The association's today — "next meeting" is the first on or after it. */
   today: string
 }
@@ -195,6 +197,7 @@ export async function loadMonthlyReportData(db: AccountingDb, ctx: MonthlyReport
   const ok = <T>(r: { ok: true; data: T } | { ok: false }) => r as { ok: true; data: T } | { ok: false }
   return {
     associationName: ctx.associationName,
+    managedBy: ctx.managedBy ?? null,
     period,
     cash: mapSection(ok(s.balance), cashPosition),
     reserves: mapSection(ok(s.reserves), reserveReport),

@@ -7,10 +7,11 @@ import {
   AppShellMain,
   AppShellSearchTrigger,
   AppShellSidebar,
+  OTHER_HUBS_ENABLED,
 } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
-import { getCurrentOrg, getMembershipDetail, getSignedInUser, getUserHoaOrgs, getUserHubs } from '@/lib/orgs'
+import { getCurrentOrg, getMembershipDetail, getSignedInUser, getUserHoaOrgs, getUserHubs, getUserOrgCount } from '@/lib/orgs'
 import { getEffectiveRoleInOrg } from '@/lib/role-override'
 import { isProfessionalRole } from '@/lib/roles'
 import { isPlatformAdmin } from '@/lib/platform-admin'
@@ -40,10 +41,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const [supabase, user] = await Promise.all([getSupabaseServerClient(), getSignedInUser()])
   if (!user) redirect('/login')
 
-  const [org, userHubs, hoaOrgs, firstName] = await Promise.all([
+  const [org, userHubs, hoaOrgs, orgCount, firstName] = await Promise.all([
     getCurrentOrg(),
-    getUserHubs(),
+    // Only the admin's hub switcher uses this, and only when other hubs are offered.
+    OTHER_HUBS_ENABLED ? getUserHubs() : Promise.resolve([]),
     getUserHoaOrgs(),
+    getUserOrgCount(),
     getSignedInFirstName(user.id),
   ])
 
@@ -103,7 +106,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <HoaSidebar
             currentOrgId={org.id}
             currentOrgName={org.name}
-            hoaOrgs={role === 'admin' ? hoaOrgs : hoaOrgs.filter((o) => o.id === org.id)}
+            hoaOrgs={hoaOrgs}
+            orgCount={orgCount}
             role={role}
             badges={badges}
             version={appVersion()}

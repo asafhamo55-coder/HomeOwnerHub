@@ -22,6 +22,7 @@
  * swallowed there. Logs nothing — the job logs ids and counts.
  */
 
+import { readManagedBy } from '@/lib/managed-by'
 import { createAdminClient } from '@homeowner-portal/db'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
@@ -67,7 +68,7 @@ async function dispatch(db: Db, communicationId: string): Promise<ScheduledDeliv
 
   const { data: assoc, error: assocErr } = await db
     .from('associations')
-    .select('name, type')
+    .select('name, type, compliance_settings')
     .eq('id', comm.association_id)
     .eq('organization_id', comm.organization_id)
     .maybeSingle()
@@ -129,6 +130,7 @@ async function dispatch(db: Db, communicationId: string): Promise<ScheduledDeliv
           organizationId: comm.organization_id,
           associationName: assoc.name,
           associationType: assoc.type,
+          managedBy: readManagedBy(assoc.compliance_settings),
           subject: comm.subject,
           bodyHtml: comm.body_html,
           bodyText: comm.body_text,

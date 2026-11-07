@@ -104,7 +104,7 @@ export async function openBallot(
   }
   const supabase = (await getSupabaseServerClient()) as unknown as Loose
   // The state rule is read from the ballot's own association, not sent by the browser.
-  const { data: b } = await supabase.from('ballots').select('association_id').eq('id', ballotId).maybeSingle()
+  const { data: b } = await supabase.from('ballots').select('association_id').eq('id', ballotId).eq('organization_id', gate.orgId).maybeSingle()
   const { data: a } = b
     ? await supabase.from('associations').select('state').eq('id', b.association_id).maybeSingle()
     : { data: null }

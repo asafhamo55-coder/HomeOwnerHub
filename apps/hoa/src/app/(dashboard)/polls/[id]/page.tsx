@@ -17,10 +17,10 @@ export const dynamic = 'force-dynamic'
 
 export default async function PollDetailPage({ params }: { params: Promise<{ id: string }> }) {
   if (!pollsAvailable()) notFound()
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const { id } = await params
   const supabase = (await getSupabaseServerClient()) as unknown as PollsClient
-  const res = await getPoll(supabase, id)
+  const res = await getPoll(supabase, id, org.id)
   if (!res.ok) return <LoadFailed what="this poll" retryHref={`/polls/${id}`} />
   if (!res.data) notFound()
   const { poll, options } = res.data

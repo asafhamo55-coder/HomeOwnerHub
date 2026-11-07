@@ -153,7 +153,7 @@ const config: NextConfig = {
   // pdfjs-dist (SEC-L7 PDF text extraction): its legacy build and worker
   // module are loaded at runtime from node_modules, not bundled; the worker
   // is imported explicitly (lib/pdf/extract-text.ts) so tracing sees it.
-  serverExternalPackages: ['pdfkit', 'pdfjs-dist'],
+  serverExternalPackages: ['pdfkit', 'pdfjs-dist', 'sharp'],
   images: {
     remotePatterns: [
       // Supabase Storage signed URLs for violation photos.

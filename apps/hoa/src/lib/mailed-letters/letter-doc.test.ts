@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildLetter, letterTotals, usdCents, type LetterInput } from '@/lib/collections/letters/model'
 import { FL_LATE_NOTICE_BODY } from '@/lib/collections/letters/law'
-import { blanksLeft, letterDocument } from './letter-doc'
+import { blanksLeft, letterDocument, withManagedByBlock } from './letter-doc'
 import { renderLetterPdf, winAnsi } from './pdf'
 import { checkAddress, guessAddress } from './address'
 import { describeMailedLetter, type MailedLetterView } from './status'
@@ -108,5 +108,15 @@ describe('config', () => {
   it('rejects bad pricing', () => {
     expect(readMailPricing({ MAIL_PRICING_JSON: '{"baseCents":-1}' })).toBeNull()
     expect(readMailPricing({ MAIL_PRICING_JSON: 'nope' })).toBeNull()
+  })
+})
+
+describe('withManagedByBlock', () => {
+  it('appends a muted plain-text block, and nothing for an empty line', () => {
+    const base = [{ kind: 'text' as const, text: 'Dear owner' }]
+    const out = withManagedByBlock(base, 'Managed by <b>Homeside</b>, (404) 555-0100')
+    expect(out.at(-1)).toEqual({ kind: 'text', text: 'Managed by Homeside , (404) 555-0100', muted: true, size: 9 })
+    expect(withManagedByBlock(base, '')).toBe(base)
+    expect(withManagedByBlock(base, null)).toBe(base)
   })
 })

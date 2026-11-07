@@ -1,7 +1,7 @@
 -- 0086_property_photos.sql  (M20)
 --
 -- Upload your own house photo. Ships dark: the app ignores all of this until
--- packages/db/src/m20.ts is flipped (OA-54).
+-- packages/db/src/m20.ts is flipped (OA-55).
 --
 -- 1. hoa_properties gets three nullable columns for the uploaded photo.
 -- 2. A PRIVATE storage bucket, property-photos, holding {org_id}/{property_id}/front.jpg.

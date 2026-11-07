@@ -29,10 +29,12 @@ function log(what: string, error: { code?: string } | null) {
 
 export const pollsAvailable = (): boolean => M9_APPLIED
 
-export async function listPolls(client: PollsClient, statuses?: string[]): Promise<StoreResult<PollRow[]>> {
+export async function listPolls(client: PollsClient, statuses?: string[], orgId?: string): Promise<StoreResult<PollRow[]>> {
   if (!M9_APPLIED) return OFF
   let q = client.from('polls').select('*').order('created_at', { ascending: false }).limit(100)
   if (statuses) q = q.in('status', statuses)
+  // Board screens pass the active org: RLS alone shows every org the person belongs to.
+  if (orgId) q = q.eq('organization_id', orgId)
   const { data, error }: Resp<PollRow[]> = await q
   if (error) return log('list', error), FAILED
   return { ok: true, data: data ?? [] }
@@ -41,9 +43,12 @@ export async function listPolls(client: PollsClient, statuses?: string[]): Promi
 export async function getPoll(
   client: PollsClient,
   id: string,
+  orgId?: string,
 ): Promise<StoreResult<{ poll: PollRow; options: PollOptionRow[] } | null>> {
   if (!M9_APPLIED) return OFF
-  const p: Resp<PollRow> = await client.from('polls').select('*').eq('id', id).maybeSingle()
+  let pq = client.from('polls').select('*').eq('id', id)
+  if (orgId) pq = pq.eq('organization_id', orgId)
+  const p: Resp<PollRow> = await pq.maybeSingle()
   if (p.error) return log('get', p.error), FAILED
   if (!p.data) return { ok: true, data: null }
   const o: Resp<PollOptionRow[]> = await client

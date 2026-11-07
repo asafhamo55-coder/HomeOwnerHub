@@ -6,6 +6,8 @@ import { getResidentZelleSettings } from '@/lib/pay-settings'
 import { payLinesFor } from '@/lib/pay-by-zelle'
 import { StatementHowToPay } from '@/components/resident/StatementHowToPay'
 import { sameDayLastYear, statementWindow } from '@/lib/resident-ledger'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadManagedByLine } from '@/lib/managed-by-load'
 import { getCurrentOrg } from '@/lib/orgs'
 import { PrintStatementButton } from '@/components/resident/PrintStatementButton'
 import { ScreenEmpty, ScreenHeader } from '@/components/resident/screen'
@@ -82,6 +84,7 @@ export default async function ResidentStatementPage({
 
   const associationIds = [...new Set(units.map((u) => u.association_id).filter((id): id is string => id != null))]
   const associationName = units.find((u) => u.association_name)?.association_name ?? org?.name ?? null
+  const managedBy = org ? await loadManagedByLine(await getSupabaseServerClient(), org.id, associationIds.length === 1 ? associationIds[0] : null) : ''
   const zelle = associationIds.length === 1 ? await getResidentZelleSettings(associationIds) : null
   const zelleRead = zelle?.ok ? zelle.byAssociation[associationIds[0]!] : null
   const payLines = !open.failed && zelleRead?.state === 'configured' ? payLinesFor(open.dues.charges, {
@@ -114,6 +117,7 @@ export default async function ResidentStatementPage({
         truncated={truncated}
         truncatedNote="This statement shows the most recent entries only. Ask your board for older history."
         emptyHint="Switch to All time to see older charges and payments."
+        managedBy={managedBy}
         footer="Payments appear after your board approves them, so anything sent in the last few days may not be listed yet."
       >
         <StatementHowToPay read={zelleRead ?? null} payLines={payLines} />

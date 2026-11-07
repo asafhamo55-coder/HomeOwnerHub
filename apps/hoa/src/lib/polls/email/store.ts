@@ -14,6 +14,7 @@
  * message can echo row values.
  */
 
+import { readManagedBy } from '@/lib/managed-by'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PollResultRow } from '@homeowner-portal/db/polls-types'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
@@ -97,11 +98,11 @@ export function supabasePollEmailStore(
 
       const a = await db
         .from('associations')
-        .select('id, name, type, organization_id, state')
+        .select('id, name, type, organization_id, state, compliance_settings')
         .eq('id', poll.association_id)
         .maybeSingle()
       if (a.error) throw fail('association read', a.error)
-      const assoc = a.data as { id: string; name: string; type: string | null; organization_id: string; state: string | null } | null
+      const assoc = a.data as { id: string; name: string; type: string | null; organization_id: string; state: string | null; compliance_settings?: unknown } | null
       if (!assoc || assoc.organization_id !== poll.organization_id) return null
 
       const o = await db.from('poll_options').select('label, position').eq('poll_id', pollId).order('position', { ascending: true })
@@ -114,6 +115,7 @@ export function supabasePollEmailStore(
           type: assoc.type,
           organizationId: assoc.organization_id,
           timeZone: associationTimeZone(assoc),
+          managedBy: readManagedBy(assoc.compliance_settings),
         },
         poll: {
           id: poll.id,

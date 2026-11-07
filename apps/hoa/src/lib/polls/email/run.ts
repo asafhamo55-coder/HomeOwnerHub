@@ -84,7 +84,7 @@ export function pollEmailCommunicationId(pollId: string, kind: PollEmailKind): s
 }
 
 export interface PollEmailContext {
-  association: { id: string; name: string; type: string | null; organizationId: string; timeZone: string }
+  association: { id: string; name: string; type: string | null; organizationId: string; timeZone: string; managedBy?: string | null }
   poll: {
     id: string
     associationId: string
@@ -206,6 +206,7 @@ function render(event: PollEmailEvent, ctx: PollEmailContext, tally: PollResultR
   if (event.kind === 'opened') {
     return renderPollOpenedEmail({
       associationName: ctx.association.name,
+      managedBy: ctx.association.managedBy,
       title: ctx.poll.title,
       description: ctx.poll.description,
       options: ctx.options,
@@ -217,6 +218,7 @@ function render(event: PollEmailEvent, ctx: PollEmailContext, tally: PollResultR
   const t = buildTally(tally)
   return renderPollResultsEmail({
     associationName: ctx.association.name,
+    managedBy: ctx.association.managedBy,
     title: ctx.poll.title,
     rows: t.rows,
     homesAnswered: t.homesAnswered,

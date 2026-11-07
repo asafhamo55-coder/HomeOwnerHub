@@ -16,15 +16,17 @@ import type { MonthlyReportDeps } from '@homeowner-portal/jobs'
 import { todayIn } from '@/lib/association-time'
 import type { AccountingDb } from '@/lib/accounting/queries'
 import { appUrl, sendEmail } from '@/lib/email'
+import { loadManagedByLine } from '@/lib/managed-by-load'
 import { buildMonthlyReport, periodForMonth } from './load'
 
 export const monthlyReportDeps: MonthlyReportDeps = {
   sendEmail,
   // sendEmail no-ops and reports success without a key (see email.ts).
   emailConfigured: () => Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
-  buildReport: (input) =>
-    buildMonthlyReport(
-      createAdminClient() as unknown as AccountingDb,
+  buildReport: async (input) => {
+    const admin = createAdminClient()
+    return buildMonthlyReport(
+      admin as unknown as AccountingDb,
       {
         orgId: input.orgId,
         associationId: input.associationId,
@@ -32,7 +34,9 @@ export const monthlyReportDeps: MonthlyReportDeps = {
         timeZone: input.timeZone,
         period: periodForMonth(input.month.after),
         today: todayIn(input.timeZone),
+        managedBy: await loadManagedByLine(admin, input.orgId, input.associationId),
       },
       appUrl,
-    ),
+    )
+  },
 }

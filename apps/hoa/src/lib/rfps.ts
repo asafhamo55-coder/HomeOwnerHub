@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { rfpComposer, type RfpComposerOutput } from '@homeowner-portal/workflows'
 import { getPrimaryAssociation } from '@/lib/vendors'
+import { getCurrentOrg } from '@/lib/orgs'
 import { readAllResult } from '@/lib/supabase/read-all'
 import { countBidsByRfp } from '@/lib/rfps-list'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
@@ -60,6 +61,8 @@ export async function listRfps(): Promise<RfpRow[]> {
 
 /** Same read, but a failure is reported instead of becoming "no RFPs". Paged, so nothing is cut off. */
 export async function listRfpsResult(): Promise<{ ok: true; data: RfpRow[] } | { ok: false }> {
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false }
   const supabase = await getSupabaseServerClient()
   const res = await readAllResult<RfpRow>((from, to) =>
     supabase
@@ -67,6 +70,7 @@ export async function listRfpsResult(): Promise<{ ok: true; data: RfpRow[] } | {
       .select(
         'id, rfp_number, title, status, submission_deadline, budget_min, budget_max, ai_generated, created_at',
       )
+      .eq('organization_id', org.id)
       .order('created_at', { ascending: false })
       .order('id')
       .range(from, to) as never,
@@ -102,6 +106,8 @@ export async function listBidCountsByRfpResult(
 }
 
 export async function getRfp(id: string): Promise<RfpDetail | null> {
+  const org = await getCurrentOrg()
+  if (!org) return null
   const supabase = await getSupabaseServerClient()
   const { data: rfp } = await supabase
     .from('rfps' as never)
@@ -109,6 +115,7 @@ export async function getRfp(id: string): Promise<RfpDetail | null> {
       'id, rfp_number, title, status, submission_deadline, budget_min, budget_max, scope, evaluation_criteria, insurance_requirements, ai_generated, ai_workflow_id, awarded_to_vendor_id, awarded_at, created_at',
     )
     .eq('id', id)
+    .eq('organization_id', org.id)
     .single()
 
   if (!rfp) return null

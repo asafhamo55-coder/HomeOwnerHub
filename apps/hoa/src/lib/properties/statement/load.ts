@@ -20,6 +20,8 @@ export interface OwnerStatementData {
   /** The association's today. */
   today: string
   associationName: string | null
+  /** The home's association, or null when none was found. */
+  associationId?: string | null
   /** The owner of record, name only. */
   ownerName: string | null
   /** "Unit · address", as the resident statement prints it. */
@@ -81,6 +83,7 @@ export async function loadOwnerStatement(
     truncated: rows.truncated,
     today: todayIn(assoc.timeZone),
     associationName: a?.name ?? null,
+    associationId: a?.id ?? null,
     ownerName: prop.owner_name?.trim() || null,
     home: [prop.unit_number?.trim(), prop.address?.trim()].filter(Boolean).join(' · ') || 'This home',
     hasUnit: unitRes.unitId !== null,

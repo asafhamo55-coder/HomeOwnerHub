@@ -36,6 +36,8 @@ export interface PreviewSource {
   extraFields?: MergeBag
   associationName: string
   senderName?: string | null
+  /** The association's "Managed by" line, so the preview shows the footer row. */
+  managedBy?: string | null
   /** The portal link a long text ends with. */
   portalLink: string
 }
@@ -77,6 +79,7 @@ export function buildPreview(recipient: RecipientIdentity, src: PreviewSource): 
     associationName: src.associationName,
     senderName: src.senderName,
     extraFields,
+    managedBy: src.managedBy,
   })
   const email = payloads[0]
   // Every field now has a value, so the payload always builds; the guard is

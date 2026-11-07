@@ -240,6 +240,9 @@ importers:
       resend:
         specifier: ^6.12.3
         version: 6.12.3(@react-email/render@1.1.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
+      sharp:
+        specifier: 0.35.5
+        version: 0.35.5(@types/node@22.19.17)
       stripe:
         specifier: ^17.0.0
         version: 17.7.0

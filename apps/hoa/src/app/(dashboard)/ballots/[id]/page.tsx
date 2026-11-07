@@ -18,10 +18,10 @@ const OUTCOME = { elected: 'Most votes', tied: 'Tied: board decides', not_electe
 
 export default async function BallotDetailPage({ params }: { params: Promise<{ id: string }> }) {
   if (!onlineVotingAvailable()) notFound()
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const { id } = await params
   const supabase = (await getSupabaseServerClient()) as unknown as BallotClient
-  const res = await getBallot(supabase, id)
+  const res = await getBallot(supabase, id, undefined, org.id)
   if (!res.ok) return <LoadFailed what="this ballot" retryHref={`/ballots/${id}`} />
   if (!res.data) notFound()
   const { ballot, options } = res.data

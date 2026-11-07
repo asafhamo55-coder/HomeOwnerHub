@@ -124,6 +124,11 @@ const DecisionSchema = z.object({
 
 export type InboxDecisionInput = z.input<typeof DecisionSchema>
 
+// Every kind check below is also an ACTIVE-ORG check: the row is read with
+// `organization_id = orgId`, so a request id from another org the decider
+// belongs to reads as "not that kind" and is refused before anything is
+// claimed or executed (a person in several orgs sees all their rows via RLS).
+
 /**
  * The approval layer's two calls for W18 cash receipts, bound to a decider
  * and an executor client. SEC-N8: same shape as billHandlers — the row's
@@ -135,9 +140,15 @@ export type InboxDecisionInput = z.input<typeof DecisionSchema>
 export function postingHandlers(
   userDb: InboxDb,
   adminDb: InboxDb,
+  orgId: string,
 ): Pick<InboxDecisionHandlers, 'approvePosting' | 'rejectPosting'> {
   const isW18 = async (id: string): Promise<boolean> => {
-    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    const { data, error } = await userDb
+      .from('approval_requests')
+      .select('action_type')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .maybeSingle()
     return !error && data?.action_type === W18_CASH_RECEIPT
   }
   const notW18 = { ok: false as const, error: 'That approval item isn’t a bank deposit match.' }
@@ -158,9 +169,15 @@ export function billHandlers(
   userDb: InboxDb,
   adminDb: InboxDb,
   executor: ApprovalExecutor,
+  orgId: string,
 ): Pick<InboxDecisionHandlers, 'approveBill' | 'rejectBill'> {
   const isBill = async (id: string): Promise<boolean> => {
-    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    const { data, error } = await userDb
+      .from('approval_requests')
+      .select('action_type')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .maybeSingle()
     return !error && data?.action_type === BILL_ACTION
   }
   const notBill = { ok: false as const, error: 'That approval item isn’t a scanned bill.' }
@@ -176,9 +193,14 @@ export function billHandlers(
  * holds only the letter executor, so no other proposal can be claimed as
  * a letter.
  */
-export function letterHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDecisionHandlers, 'approveLetter' | 'rejectLetter'> {
+export function letterHandlers(userDb: InboxDb, adminDb: InboxDb, orgId: string): Pick<InboxDecisionHandlers, 'approveLetter' | 'rejectLetter'> {
   const isLetter = async (id: string): Promise<boolean> => {
-    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    const { data, error } = await userDb
+      .from('approval_requests')
+      .select('action_type')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .maybeSingle()
     return !error && data?.action_type === LETTER_ACTION
   }
   const notLetter = { ok: false as const, error: 'That approval item isn’t a collections letter.' }
@@ -193,9 +215,14 @@ export function letterHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDec
  * runs on the decider's RLS client before the claim, and the executor map
  * holds only the opening-balance executor.
  */
-export function openingHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDecisionHandlers, 'approveOpening' | 'rejectOpening'> {
+export function openingHandlers(userDb: InboxDb, adminDb: InboxDb, orgId: string): Pick<InboxDecisionHandlers, 'approveOpening' | 'rejectOpening'> {
   const isOpening = async (id: string): Promise<boolean> => {
-    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    const { data, error } = await userDb
+      .from('approval_requests')
+      .select('action_type')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .maybeSingle()
     return !error && data?.action_type === OPENING_ACTION
   }
   const notOpening = { ok: false as const, error: 'That approval item isn’t an opening balance.' }
@@ -212,10 +239,15 @@ export function openingHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDe
  * action), and the executor map holds only the pro executor for each pro
  * action type, so no other proposal can be claimed through here.
  */
-export function proHandlers(userDb: InboxDb, adminDb: InboxDb): Pick<InboxDecisionHandlers, 'approvePro' | 'rejectPro'> {
+export function proHandlers(userDb: InboxDb, adminDb: InboxDb, orgId: string): Pick<InboxDecisionHandlers, 'approvePro' | 'rejectPro'> {
   const executors = Object.fromEntries(PRO_ACTION_LIST.map((a) => [a, proExecutor]))
   const isPro = async (id: string): Promise<boolean> => {
-    const { data, error } = await userDb.from('approval_requests').select('action_type').eq('id', id).maybeSingle()
+    const { data, error } = await userDb
+      .from('approval_requests')
+      .select('action_type')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .maybeSingle()
     return !error && typeof data?.action_type === 'string' && PRO_ACTION_LIST.includes(data.action_type)
   }
   const notPro = { ok: false as const, error: 'That approval item isn’t from a professional.' }

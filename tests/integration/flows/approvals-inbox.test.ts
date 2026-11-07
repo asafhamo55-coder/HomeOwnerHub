@@ -152,7 +152,7 @@ describe('approvals inbox: W18 via /approvals', () => {
     expect(await ledgerState(s)).toMatchObject({ journalEntries: 0, payments: 0, assessmentStatus: 'open' })
 
     const handlers = {
-      ...postingHandlers(board.client, adminDb()),
+      ...postingHandlers(board.client, adminDb(), s.org.orgId),
       ...OTHER_HANDLERS,
     }
     const input = { kind: 'w18' as const, id: item.id, decision: 'approve' as const }
@@ -184,8 +184,8 @@ describe('approvals inbox: W18 via /approvals', () => {
     const id = result.output.approvalRequestId!
 
     const outcomes = await Promise.all([
-      decideApprovalFor('board', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(board.client, adminDb()), ...OTHER_HANDLERS }),
-      decideApprovalFor('admin', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(admin.client, adminDb()), ...OTHER_HANDLERS }),
+      decideApprovalFor('board', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(board.client, adminDb(), s.org.orgId), ...OTHER_HANDLERS }),
+      decideApprovalFor('admin', { kind: 'w18', id, decision: 'approve' }, { ...postingHandlers(admin.client, adminDb(), s.org.orgId), ...OTHER_HANDLERS }),
     ])
     expect(outcomes.every((o) => o.ok)).toBe(true)
     expect(await ledgerState(s)).toMatchObject({ journalEntries: 1, payments: 1 })
@@ -204,7 +204,7 @@ describe('approvals inbox: W18 via /approvals', () => {
     const forged = await decideApprovalFor(
       'board',
       { kind: 'w18', id, decision: 'approve' },
-      { ...postingHandlers(resident.client, adminDb()), ...OTHER_HANDLERS, approveVendor: async () => ({ ok: true as const }) },
+      { ...postingHandlers(resident.client, adminDb(), s.org.orgId), ...OTHER_HANDLERS, approveVendor: async () => ({ ok: true as const }) },
     )
     expect(forged.ok).toBe(false)
     expect(await ledgerState(s)).toMatchObject({ journalEntries: 0, payments: 0, assessmentStatus: 'open' })

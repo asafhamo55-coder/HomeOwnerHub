@@ -3,6 +3,7 @@
 import { Printer } from 'lucide-react'
 import { Alert, Button } from '@homeowner-portal/ui'
 import { Letterhead } from '@/components/print/Letterhead'
+import { ManagedByFooter } from '@/components/print/ManagedByFooter'
 
 export interface HearingNoticeView {
   association: string
@@ -17,6 +18,8 @@ export interface HearingNoticeView {
   bodyHtml: string
   /** Shown above the letter and never printed. */
   warnings?: string[]
+  /** The board's "Managed by" line, printed at the foot. */
+  managedBy?: string | null
 }
 
 /**
@@ -58,6 +61,7 @@ export function HearingNoticePrint({ view }: { view: HearingNoticeView }) {
           <h1 className="text-[14pt] font-bold">{view.subject}</h1>
         </header>
         <div className="[overflow-wrap:anywhere] [&_p]:mb-3" dangerouslySetInnerHTML={{ __html: view.bodyHtml }} />
+        <ManagedByFooter line={view.managedBy} />
       </article>
     </div>
   )

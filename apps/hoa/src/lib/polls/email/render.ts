@@ -95,6 +95,8 @@ function footer(associationName: string): string {
 
 export interface PollOpenedInput {
   associationName: string
+  /** The association's "Managed by" line (plain text), shown in the footer. */
+  managedBy?: string | null
   title: string
   description: string | null
   options: string[]
@@ -125,6 +127,7 @@ ${renderButtonHtml(i.pollUrl, 'Answer the poll')}
 <p style="margin:16px 0 0;font-size:16px;color:${MUTED};">${escapeHtml(POLL_NOT_A_VOTE)}</p>
 </div>`,
     footerHtml: footer(i.associationName),
+    managedBy: i.managedBy,
   })
 
   const text = `${i.associationName}: a short poll from your board
@@ -145,6 +148,8 @@ ${POLL_NOT_A_VOTE}`
 
 export interface PollResultsInput {
   associationName: string
+  /** The association's "Managed by" line (plain text), shown in the footer. */
+  managedBy?: string | null
   title: string
   rows: readonly TallyRow[]
   homesAnswered: number
@@ -174,6 +179,7 @@ ${renderButtonHtml(i.resultsUrl, 'See the results')}
 <p style="margin:16px 0 0;font-size:16px;color:${MUTED};">${escapeHtml(POLL_NOT_A_VOTE)} Answers are counted by home and are never shown by name.</p>
 </div>`,
     footerHtml: footer(i.associationName),
+    managedBy: i.managedBy,
   })
 
   const text = `${i.associationName}: poll results

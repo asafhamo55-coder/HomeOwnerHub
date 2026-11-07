@@ -1,3 +1,4 @@
+import { readManagedBy } from '@/lib/managed-by'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Alert, LoadFailed } from '@homeowner-portal/ui'
@@ -150,6 +151,7 @@ export default async function HearingNoticePage({ params }: { params: Promise<{ 
           subject: draft.subject,
           bodyHtml: draft.bodyHtml,
           warnings,
+          managedBy: readManagedBy(settingsRow?.compliance_settings),
         }}
       />
     </div>

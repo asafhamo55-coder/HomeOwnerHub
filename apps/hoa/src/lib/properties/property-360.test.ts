@@ -36,7 +36,7 @@ function fixture(scale: number) {
       { id: 'u1b', organization_id: ORG, legacy_hoa_property_id: P, created_at: '2021-01-01T00:00:00Z' },
     ],
     hoa_property_list_v: [{ id: P, org_id: ORG, balance: 120, days_overdue: 30, open_violations: 1, violations_past_cure: 0, threads_needing_reply: 0 }],
-    hoa_violations: n(4).map((i) => ({ id: `v${i}`, property_id: P, deleted_at: null, description: 'x', status: 'open', severity: null, created_at: '2026-09-01T00:00:00Z', cure_period_days: 14, notice_sent_at: null, resolved_at: null })),
+    hoa_violations: n(4).map((i) => ({ id: `v${i}`, org_id: ORG, property_id: P, deleted_at: null, description: 'x', status: 'open', severity: null, created_at: '2026-09-01T00:00:00Z', cure_period_days: 14, notice_sent_at: null, resolved_at: null })),
     lease_waiting_list: n(2).map((i) => ({ id: `w${i}`, organization_id: ORG, status: 'waiting', property_id: i === 0 ? P : `p${i + 10}`, requested_at: `2026-0${(i % 9) + 1}-01T00:00:00Z` })),
     assessments: n(6).map((i) => ({ id: `a${i}`, unit_id: i % 2 ? 'u1' : 'u1b', deleted_at: null, status: i % 3 ? 'open' : 'paid', due_date: '2026-09-01', amount: 100, assessment_type: 'regular', payments: [] })),
     payments: n(6).map((i) => ({ id: `pm${i}`, unit_id: 'u1', amount: 50, paid_at: '2026-09-02T00:00:00Z', payment_method: 'check' })),

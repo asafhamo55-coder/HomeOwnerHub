@@ -14,9 +14,9 @@ const STATUS_LABEL = { draft: 'Draft', open: 'Open', closed: 'Finished' } as con
 
 export default async function BallotsPage() {
   if (!onlineVotingAvailable()) notFound()
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = (await getSupabaseServerClient()) as unknown as BallotClient
-  const res = await listBallots(supabase)
+  const res = await listBallots(supabase, undefined, undefined, org.id)
   const zoneOf = await currentScopeZones()
 
   return (

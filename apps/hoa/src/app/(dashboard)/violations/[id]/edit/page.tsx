@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getCurrentOrg } from '@/lib/orgs'
 import { LoadFailed, Page } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
@@ -18,6 +19,8 @@ export default async function EditViolationPage({
 }) {
   const { id } = await params
   const supabase = await getSupabaseServerClient()
+  const org = await getCurrentOrg()
+  if (!org) notFound()
 
   const result = await loadOrFail(
     'this violation',
@@ -25,6 +28,7 @@ export default async function EditViolationPage({
       .from('hoa_violations')
       .select('id, description, violation_type, ccr_section, severity, cure_period_days, fine_amount')
       .eq('id', id)
+      .eq('org_id', org.id)
       .is('deleted_at', null)
       .maybeSingle(),
   )

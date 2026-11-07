@@ -116,7 +116,7 @@ async function changeAndEmail(
   const changed = await setPollStatus(client, id, status)
   let email: PollEmailOutcome | undefined
   if (changed.ok && emailResidents) {
-    const found = await getPoll(client, id)
+    const found = await getPoll(client, id, gate.orgId)
     if (found.ok && found.data) {
       const r = await sendPollEmailNow(
         supabase,
