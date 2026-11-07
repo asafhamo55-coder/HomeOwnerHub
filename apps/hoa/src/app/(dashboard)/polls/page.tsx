@@ -16,10 +16,10 @@ const STATUS_LABEL = { draft: 'Draft', open: 'Open', closed: 'Closed' } as const
 
 export default async function PollsPage() {
   if (!pollsAvailable()) notFound()
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const assoc = await getPrimaryAssociation()
   const supabase = await getSupabaseServerClient()
-  const res = await listPolls(supabase as unknown as PollsClient)
+  const res = await listPolls(supabase as unknown as PollsClient, undefined, org.id)
   const now = new Date()
 
   return (

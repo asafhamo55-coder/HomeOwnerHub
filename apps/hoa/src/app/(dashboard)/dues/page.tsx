@@ -131,7 +131,7 @@ export default async function DuesPage({
   // Charges hang off units, so the scope resolves to the units bridged to
   // the property. A failed unit lookup fails the list — it must never
   // silently widen to the whole association.
-  const scope = await timed(R, 'dues.propertyScope', () => loadPropertyScope(supabase as unknown as SupabaseClient, sp.property))
+  const scope = await timed(R, 'dues.propertyScope', () => loadPropertyScope(supabase as unknown as SupabaseClient, sp.property, org?.id ?? null))
   // Every unit bridged to the home (duplicates included), via the one resolver.
   const scopeUnits: { ok: boolean } | null = scope
     ? scope.orgId

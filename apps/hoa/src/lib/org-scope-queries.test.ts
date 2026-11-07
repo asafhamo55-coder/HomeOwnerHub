@@ -9,7 +9,8 @@ const ORG = 'org-active'
 
 const h = vi.hoisted(() => ({ queries: [] as Recorded[] }))
 
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }))
+vi.mock('@/lib/dashboard/cached', () => ({ DASHBOARD_TAG_ALL: 'all' }))
 vi.mock('next/navigation', () => ({
   unstable_rethrow: (e: unknown) => {
     throw e
@@ -44,7 +45,18 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
-import { countArcOverdueCompletion, getArcRequestForBoard, listArcRequestsForBoard, readArcStatusRows } from './board-review'
+import {
+  countArcOverdueCompletion,
+  countViolationReportsByStatus,
+  getArcRequestForBoard,
+  getResidentViolationReportForBoard,
+  listArcRequestsForBoard,
+  listResidentViolationReportsForBoard,
+  readArcStatusRows,
+} from './board-review'
+import { getEvent, listEvents, loadEvent, loadEvents } from './events'
+import { getRfp, listRfpsResult } from './rfps'
+import { getBid, listBidsForRfpResult } from './bids'
 import { getTicketForBoard, listTicketActionItems, listTicketsForBoard } from './tickets'
 import { listUnfinishedDrafts, loadDraft } from './drafts'
 import { getVendor } from './vendors'
@@ -130,5 +142,39 @@ describe('vendor and property detail carry the org', () => {
     const q = read('hoa_properties')
     expect(hasEq(q, 'id', 'p-1')).toBe(true)
     expect(hasEq(q, 'org_id', ORG)).toBe(true)
+  })
+})
+
+describe('events, RFPs, bids and resident reports (board) carry the org', () => {
+  it('events: list, load, get and loadEvent', async () => {
+    await listEvents()
+    await loadEvents()
+    await getEvent('e-1')
+    await loadEvent('e-1')
+    const reads = h.queries.filter((q) => q.table === 'hoa_recurring_events')
+    expect(reads).toHaveLength(4)
+    for (const q of reads) expect(hasEq(q, 'organization_id', ORG)).toBe(true)
+  })
+  it('rfps: list and one', async () => {
+    await listRfpsResult()
+    await getRfp('r-1')
+    const reads = h.queries.filter((q) => q.table === 'rfps')
+    expect(reads.length).toBeGreaterThanOrEqual(2)
+    for (const q of reads) expect(hasEq(q, 'organization_id', ORG)).toBe(true)
+  })
+  it('bids: for an rfp, and one', async () => {
+    await listBidsForRfpResult('r-1')
+    await getBid('b-1')
+    const reads = h.queries.filter((q) => q.table === 'bids')
+    expect(reads).toHaveLength(2)
+    for (const q of reads) expect(hasEq(q, 'organization_id', ORG)).toBe(true)
+  })
+  it('resident violation reports: list, counts, one', async () => {
+    await listResidentViolationReportsForBoard()
+    await countViolationReportsByStatus()
+    await getResidentViolationReportForBoard('rv-1').catch(() => undefined)
+    const reads = h.queries.filter((q) => q.table === 'resident_violation_reports')
+    expect(reads).toHaveLength(3)
+    for (const q of reads) expect(hasEq(q, 'organization_id', ORG)).toBe(true)
   })
 })

@@ -34,9 +34,32 @@ describe('loadPropertyScope', () => {
     chain.is = () => chain
     chain.maybeSingle = async () => ({ data: row, error: null })
     const supabase = { from: () => chain } as unknown as SupabaseClient
-    const scope = await loadPropertyScope(supabase, ID)
+    const scope = await loadPropertyScope(supabase, ID, 'org-1')
     expect(selected.split(',').map((c) => c.trim())).toContain('org_id')
     expect(selected).not.toContain('organization_id')
     expect(scope).toEqual({ id: ID, address: '1 Main St', unitNumber: null, orgId: 'org-1' })
+  })
+
+  // A database that honours eq(): the home exists, but in org-B.
+  const dbWithHomeIn = (homeOrg: string) => {
+    const f: Record<string, unknown> = {}
+    const chain: Record<string, unknown> = {}
+    chain.select = () => chain
+    chain.eq = (c: string, v: unknown) => { f[c] = v; return chain }
+    chain.is = () => chain
+    chain.maybeSingle = async () => ({
+      data: f.id === ID && f.org_id === homeOrg ? { address: '1 Main St', unit_number: null, org_id: homeOrg } : null,
+      error: null,
+    })
+    return { from: () => chain } as unknown as SupabaseClient
+  }
+
+  it('filters on the active org: a home from another org reads as unnamed, with no orgId', async () => {
+    expect(await loadPropertyScope(dbWithHomeIn('org-B'), ID, 'org-A')).toEqual({ id: ID, address: null, unitNumber: null, orgId: null })
+    expect((await loadPropertyScope(dbWithHomeIn('org-A'), ID, 'org-A'))?.address).toBe('1 Main St')
+  })
+
+  it('with no active org nothing matches', async () => {
+    expect((await loadPropertyScope(dbWithHomeIn('org-A'), ID, null))?.address).toBeNull()
   })
 })

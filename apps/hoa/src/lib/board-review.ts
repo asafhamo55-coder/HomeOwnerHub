@@ -525,12 +525,13 @@ export interface ViolationReportBoardDetail extends ViolationReportBoardRow {
 export async function listResidentViolationReportsForBoard(
   opts?: BoardListOptions<ViolationReportStatus>,
 ): Promise<BoardList<ViolationReportBoardRow>> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   // Was a silent `.limit(200)`; now paged with an exact count.
   let query = supabase
     .from('resident_violation_reports' as never)
     .select('id, category, about_address, occurred_at, status, submitted_at', { count: 'exact' })
+    .eq('organization_id', org.id)
     .order('submitted_at', { ascending: false })
     .range(opts?.from ?? 0, opts?.to ?? 99)
   if (typeof opts?.status === 'string') query = query.eq('status', opts.status)
@@ -542,11 +543,11 @@ export async function listResidentViolationReportsForBoard(
 }
 
 export async function countViolationReportsByStatus(): Promise<StatusCounts> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const res = await loadOrFail(
     'report status counts',
-    supabase.from('resident_violation_reports' as never).select('status'),
+    supabase.from('resident_violation_reports' as never).select('status').eq('organization_id', org.id),
   )
   return res.ok ? tally(res.data as unknown as Array<{ status: string }>) : null
 }
@@ -554,7 +555,7 @@ export async function countViolationReportsByStatus(): Promise<StatusCounts> {
 export async function getResidentViolationReportForBoard(
   id: string,
 ): Promise<ViolationReportBoardDetail | null> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('resident_violation_reports' as never)
@@ -562,6 +563,7 @@ export async function getResidentViolationReportForBoard(
       'id, category, description, about_address, about_unit_id, occurred_at, evidence_photo_path, status, board_note, reviewed_at, reviewed_by, hoa_violation_id, submitted_at, reported_by, about_unit:units!resident_violation_reports_about_unit_id_fkey(unit_number), reporter:profiles!resident_violation_reports_reported_by_fkey(full_name, email)',
     )
     .eq('id', id)
+    .eq('organization_id', org.id)
     .maybeSingle()
   if (error) throw new Error(`Failed to load resident report (${error.code ?? 'no code'})`)
   if (!data) return null

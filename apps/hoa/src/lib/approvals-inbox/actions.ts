@@ -38,11 +38,11 @@ async function buildHandlers(gate: Gate): Promise<{ ok: true; handlers: InboxDec
     enterBill,
   })
   const handlers: InboxDecisionHandlers = {
-    ...postingHandlers(supabase, adminDb),
-    ...billHandlers(supabase, adminDb, billExecutor),
-    ...letterHandlers(supabase, adminDb),
-    ...openingHandlers(supabase, adminDb),
-    ...proHandlers(supabase, adminDb),
+    ...postingHandlers(supabase, adminDb, gate.orgId),
+    ...billHandlers(supabase, adminDb, billExecutor, gate.orgId),
+    ...letterHandlers(supabase, adminDb, gate.orgId),
+    ...openingHandlers(supabase, adminDb, gate.orgId),
+    ...proHandlers(supabase, adminDb, gate.orgId),
     approveVendor,
     rejectVendor,
     approveViolationDraft,

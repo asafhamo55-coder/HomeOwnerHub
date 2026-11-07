@@ -97,7 +97,7 @@ export default async function ViolationsListPage({
 
   const supabase = await getSupabaseServerClient()
   // Opened from a property page: that home's violations only.
-  const scope = await loadPropertyScope(supabase as unknown as SupabaseClient, propertyParam)
+  const scope = await loadPropertyScope(supabase as unknown as SupabaseClient, propertyParam, org.id)
   let query = supabase
     .from('hoa_violations')
     .select(

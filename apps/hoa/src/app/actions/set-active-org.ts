@@ -23,7 +23,7 @@ export async function setActiveOrg(orgId: string): Promise<
   // match someone else's membership.
   const { data, error } = await supabase
     .from('org_members')
-    .select('org_id, org:orgs(hub_type)')
+    .select('org_id, org:orgs(hub_type, suspended_at, archived_at)')
     .eq('user_id', user.id)
     .eq('org_id', orgId)
     .limit(1)
@@ -31,9 +31,13 @@ export async function setActiveOrg(orgId: string): Promise<
   if (error) return { ok: false, reason: error.message }
   if (!data) return { ok: false, reason: 'not a member of that org' }
 
-  const org = data.org as { hub_type: string } | null
+  const org = data.org as { hub_type: string; suspended_at: string | null; archived_at: string | null } | null
   if (!org || org.hub_type !== 'hoa') {
     return { ok: false, reason: 'org is not an HOA' }
+  }
+  // Suspended and archived communities cannot be switched into.
+  if (org.suspended_at || org.archived_at) {
+    return { ok: false, reason: 'that community is not active' }
   }
 
   const cookieStore = await cookies()

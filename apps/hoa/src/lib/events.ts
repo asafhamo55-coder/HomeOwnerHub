@@ -66,10 +66,13 @@ const SELECT_COLUMNS =
   'id, title, description, event_date, recurrence, alert_days_before, notify_channels, notify_audience, last_alert_sent_at, last_alert_sent_for, is_active, association_id, created_at'
 
 export async function listEvents(): Promise<RecurringEvent[]> {
+  const org = await getCurrentOrg()
+  if (!org) return []
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
     .from('hoa_recurring_events' as never)
     .select(SELECT_COLUMNS)
+    .eq('organization_id', org.id)
     .order('event_date', { ascending: true })
     .limit(500)
 
@@ -77,11 +80,14 @@ export async function listEvents(): Promise<RecurringEvent[]> {
 }
 
 export async function getEvent(id: string): Promise<RecurringEvent | null> {
+  const org = await getCurrentOrg()
+  if (!org) return null
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
     .from('hoa_recurring_events' as never)
     .select(SELECT_COLUMNS)
     .eq('id', id)
+    .eq('organization_id', org.id)
     .maybeSingle<RecurringEvent>()
   return data ? normalizeEvent(data) : null
 }
@@ -91,10 +97,13 @@ export async function getEvent(id: string): Promise<RecurringEvent | null> {
  * page can say "couldn't load" rather than "no events yet".
  */
 export async function loadEvents(): Promise<RecurringEvent[] | null> {
+  const org = await getCurrentOrg()
+  if (!org) return null
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('hoa_recurring_events' as never)
     .select(SELECT_COLUMNS)
+    .eq('organization_id', org.id)
     .order('event_date', { ascending: true })
     .limit(500)
   if (error) {
@@ -108,11 +117,14 @@ export async function loadEvents(): Promise<RecurringEvent[] | null> {
 export async function loadEvent(
   id: string,
 ): Promise<{ ok: false } | { ok: true; event: RecurringEvent | null }> {
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false }
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('hoa_recurring_events' as never)
     .select(SELECT_COLUMNS)
     .eq('id', id)
+    .eq('organization_id', org.id)
     .maybeSingle<RecurringEvent>()
   if (error) {
     console.error('[events] get failed', error.code)

@@ -2,6 +2,8 @@
 import * as React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { act } from 'react'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const search = vi.hoisted(() => vi.fn())
@@ -114,3 +116,84 @@ describe('OrgSwitcher with many communities', () => {
     expect(host!.querySelector('input')).toBeNull()
   })
 })
+
+describe('who gets a switcher', () => {
+  it('a board member in 2 HOAs gets the dropdown: the switcher does not look at the role', async () => {
+    await mount(2, [hit(1), hit(2)])
+    const trigger = host!.querySelector('button')!
+    expect(trigger.getAttribute('aria-haspopup')).toBe('menu')
+    expect(trigger.getAttribute('aria-label')).toBe('Switch HOA, current: Community 1')
+  })
+  it('one HOA stays plain text', async () => {
+    await mount(1, [hit(1)])
+    expect(host!.querySelector('button')).toBeNull()
+  })
+  it('the dashboard layout hands every role the list and the count (only admin-only actions stay admin-only)', () => {
+    const src = readFileSync(path.resolve(process.cwd(), 'apps/hoa/src/app/(dashboard)/layout.tsx'), 'utf8')
+    expect(src).toMatch(/hoaOrgs=\{hoaOrgs\}/)
+    expect(src).toMatch(/orgCount=\{orgCount\}/)
+    expect(src).not.toMatch(/role === 'admin' \? hoaOrgs/)
+    expect(src).toMatch(/\{role === 'admin' && <PlatformAdminLink \/>\}/)
+  })
+})
+
+describe('OrgSearchSwitcher accessibility', () => {
+  async function open() {
+    search.mockResolvedValue(page(1, 3, false))
+    await mount(300)
+    const trigger = host!.querySelector('button')!
+    await act(async () => trigger.click())
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20))
+    })
+    return trigger
+  }
+
+  it('aria-controls only while open; announces a listbox popup; keeps the visible name in the label', async () => {
+    await mount(300)
+    const trigger = host!.querySelector('button')!
+    expect(trigger.getAttribute('aria-haspopup')).toBe('listbox')
+    expect(trigger.getAttribute('aria-controls')).toBeNull()
+    expect(trigger.getAttribute('aria-label')).toContain(trigger.textContent!.trim())
+    search.mockResolvedValue(page(1, 3, false))
+    await act(async () => trigger.click())
+    await act(async () => {})
+    expect(trigger.getAttribute('aria-controls')).toBe(host!.querySelector('[role="group"]')!.id)
+  })
+
+  it('says how many communities were found', async () => {
+    await open()
+    expect(host!.querySelector('[role="status"]')!.textContent).toBe('3 communities found')
+  })
+
+  it('says "and more" when another page exists', async () => {
+    search.mockResolvedValue(page(1, 20, true))
+    await mount(300)
+    await act(async () => host!.querySelector('button')!.click())
+    await act(async () => {})
+    expect(host!.querySelector('[role="status"]')!.textContent).toBe('20 communities found, and more')
+  })
+
+  it('closes when focus tabs out of the panel', async () => {
+    await open()
+    const outside = document.createElement('button')
+    document.body.appendChild(outside)
+    const input = host!.querySelector('input')!
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: outside }))
+    })
+    expect(host!.querySelector('input')).toBeNull()
+    outside.remove()
+  })
+
+  it('stays open when focus moves between its own controls', async () => {
+    await open()
+    const firstResult = host!.querySelector<HTMLElement>('[data-org-option]')!
+    const input = host!.querySelector('input')!
+    await act(async () => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: firstResult }))
+    })
+    expect(host!.querySelector('input')).not.toBeNull()
+  })
+})
+

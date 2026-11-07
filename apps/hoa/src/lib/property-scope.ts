@@ -35,13 +35,18 @@ export interface PropertyScope {
 export async function loadPropertyScope(
   supabase: SupabaseClient,
   raw: string | string[] | undefined,
+  orgId: string | null,
 ): Promise<PropertyScope | null> {
   const id = parsePropertyParam(raw)
   if (!id) return null
+  // Filtered on the ACTIVE org: a home id from another org the person also
+  // belongs to must read as "could not name the home" (address and orgId
+  // null), not as that home. With no active org nothing matches (nil uuid).
   const { data } = await supabase
     .from('hoa_properties')
     .select('address, unit_number, org_id')
     .eq('id', id)
+    .eq('org_id', orgId ?? '00000000-0000-0000-0000-000000000000')
     .is('deleted_at', null)
     .maybeSingle()
   const row = data as { address: string; unit_number: string | null; org_id: string } | null

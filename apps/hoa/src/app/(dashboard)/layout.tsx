@@ -7,6 +7,7 @@ import {
   AppShellMain,
   AppShellSearchTrigger,
   AppShellSidebar,
+  OTHER_HUBS_ENABLED,
 } from '@homeowner-portal/ui'
 import { createAdminClient } from '@homeowner-portal/db'
 import { M6_APPLIED } from '@homeowner-portal/db/m6'
@@ -42,7 +43,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const [org, userHubs, hoaOrgs, orgCount, firstName] = await Promise.all([
     getCurrentOrg(),
-    getUserHubs(),
+    // Only the admin's hub switcher uses this, and only when other hubs are offered.
+    OTHER_HUBS_ENABLED ? getUserHubs() : Promise.resolve([]),
     getUserHoaOrgs(),
     getUserOrgCount(),
     getSignedInFirstName(user.id),
@@ -104,8 +106,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <HoaSidebar
             currentOrgId={org.id}
             currentOrgName={org.name}
-            hoaOrgs={role === 'admin' ? hoaOrgs : hoaOrgs.filter((o) => o.id === org.id)}
-            orgCount={role === 'admin' ? orgCount : 0}
+            hoaOrgs={hoaOrgs}
+            orgCount={orgCount}
             role={role}
             badges={badges}
             version={appVersion()}

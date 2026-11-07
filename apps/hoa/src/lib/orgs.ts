@@ -69,12 +69,17 @@ interface MembershipRow {
   /** BL-168 (M6_APPLIED only): a board member's officer title. */
   officer_title?: string | null
   general_counsel?: boolean | null
-  org: { id: string; name: string; hub_type: string; plan: string; doors_count: number | null } | null
+  org: (CurrentOrg & { suspended_at?: string | null; archived_at?: string | null }) | null
+}
+
+/** A suspended or archived org is not one to land in or switch to. */
+export function isActiveOrg(org: { suspended_at?: string | null; archived_at?: string | null } | null | undefined): boolean {
+  return !!org && !org.suspended_at && !org.archived_at
 }
 
 const MEMBER_SELECT = M6_APPLIED
-  ? 'org_id, role, access_expires_at, officer_title, general_counsel, org:orgs(id, name, hub_type, plan, doors_count)'
-  : 'org_id, role, org:orgs(id, name, hub_type, plan, doors_count)'
+  ? 'org_id, role, access_expires_at, officer_title, general_counsel, org:orgs(id, name, hub_type, plan, doors_count, suspended_at, archived_at)'
+  : 'org_id, role, org:orgs(id, name, hub_type, plan, doors_count, suspended_at, archived_at)'
 
 /**
  * BL-168: a professional cannot read the orgs table (every column of it,
@@ -201,49 +206,69 @@ export const getMembershipDetail = cache(async (orgId: string): Promise<Membersh
 
 // Resolution order for the active HOA org:
 //   1. Cookie `hoa_active_org_id` (set by the switcher), iff the user is
-//      a member of that org and it's an HOA hub. Checked with ONE
-//      membership lookup filtered on that org id, so a user in hundreds of
-//      orgs does not load them all to find the one they are in.
-//   2. First HOA org by `joined_at` ascending (legacy default).
+//      a member of that org, it's an HOA hub and it is not suspended or
+//      archived. The first page of memberships (already read for the
+//      switcher, shared per request) answers it when the org is on it or the
+//      page is the whole list; only otherwise ONE lookup filtered on that
+//      org id, so a user in hundreds of orgs never loads them all.
+//   2. First active HOA org by `joined_at` ascending (legacy default).
+//   3. Last resort, so a person whose only communities are suspended or
+//      archived lands where they did before rather than in onboarding: the
+//      first HOA org of any state.
 // Returns null if the user has no HOA org membership.
+const usableHoa = (o: MembershipRow['org']): o is NonNullable<MembershipRow['org']> =>
+  !!o && o.hub_type === 'hoa' && isActiveOrg(o)
+
 export async function getCurrentOrg(): Promise<CurrentOrg | null> {
   const cookieStore = await cookies()
   const wanted = cookieStore.get(ACTIVE_ORG_COOKIE)?.value
+  const page = await membershipPage()
+
   if (wanted) {
-    const row = await membershipIn(wanted)
-    if (row?.org && row.org.hub_type === 'hoa') return row.org
+    const onPage = page?.rows?.find((r) => r.org_id === wanted)
+    if (onPage) {
+      if (usableHoa(onPage.org)) return onPage.org
+    } else if (!page?.rows || !page.complete) {
+      const row = await membershipIn(wanted)
+      if (usableHoa(row?.org ?? null)) return row!.org
+    }
     // Cookie points to an org the user no longer has access to (or one that
-    // is not an HOA) — ignore and fall through. The next setActiveOrg call
-    // will replace it.
+    // is not an HOA, or is suspended) — ignore and fall through. The next
+    // setActiveOrg call will replace it.
   }
 
-  const page = await membershipPage()
   if (!page?.rows) return null
+  for (const row of page.rows) {
+    if (usableHoa(row.org)) return row.org
+  }
+
+  if (!page.complete) {
+    // None of the oldest few memberships is an active HOA (a user with many
+    // other hubs): ask for the first one directly.
+    const supabase = await getSupabaseServerClient()
+    const { data } = await supabase
+      .from('org_members')
+      .select('org_id, org:orgs!inner(id, name, hub_type, plan, doors_count)')
+      .eq('user_id', page.userId)
+      .eq('org.hub_type', 'hoa')
+      .is('org.suspended_at', null)
+      .is('org.archived_at', null)
+      .order('joined_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    const org = (data as unknown as { org: CurrentOrg | null } | null)?.org
+    if (org) return org
+  }
+
   for (const row of page.rows) {
     if (row.org && row.org.hub_type === 'hoa') return row.org
   }
-  if (page.complete) return null
-
-  // None of the oldest few memberships is an HOA (a user with many other
-  // hubs): ask for the first HOA directly.
-  const user = await getSignedInUser()
-  if (!user) return null
-  const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('org_members')
-    .select('org_id, org:orgs!inner(id, name, hub_type, plan, doors_count)')
-    .eq('user_id', user.id)
-    .eq('org.hub_type', 'hoa')
-    .order('joined_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-  const org = (data as unknown as { org: CurrentOrg | null } | null)?.org
-  return org ?? null
+  return null
 }
 
-// The first few HOA orgs the user belongs to (all of them when they have
-// eight or fewer). Powers the in-app org switcher's plain list; a user in
-// more orgs than that gets the search box instead (see getUserOrgCount).
+// The first few active HOA orgs the user belongs to (all of them when they
+// have eight or fewer). Powers the in-app org switcher's plain list; a user
+// in more orgs than that gets the search box instead (see getUserOrgCount).
 export async function getUserHoaOrgs(): Promise<UserHoaOrg[]> {
   const page = await membershipPage()
   if (!page?.rows) return []
@@ -252,7 +277,7 @@ export async function getUserHoaOrgs(): Promise<UserHoaOrg[]> {
   const out: UserHoaOrg[] = []
   for (const row of page.rows) {
     const org = row.org
-    if (!org || org.hub_type !== 'hoa' || seen.has(org.id)) continue
+    if (!usableHoa(org) || seen.has(org.id)) continue
     seen.add(org.id)
     out.push({ id: org.id, name: org.name, doors_count: org.doors_count })
   }

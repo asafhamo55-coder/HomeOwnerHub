@@ -110,13 +110,24 @@ export function OrgSearchSwitcher({ currentOrgId, currentOrgName }: Props) {
   return (
     // role="presentation": the wrapper only catches keys bubbling up from the
     // real controls inside it (Escape, arrows); it is not itself a control.
-    <div ref={rootRef} role="presentation" className="relative" onKeyDown={onPanelKeyDown}>
+    <div
+      ref={rootRef}
+      role="presentation"
+      className="relative"
+      onKeyDown={onPanelKeyDown}
+      onBlur={(e) => {
+        // Tabbing out of the panel closes it. (Focus moving between the
+        // controls inside it has relatedTarget inside the wrapper.)
+        if (open && !e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false)
+      }}
+    >
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-controls={panelId}
+        aria-haspopup="listbox"
+        aria-controls={open ? panelId : undefined}
         className={cn(
           'flex min-h-11 w-full items-center gap-1 rounded-md py-0.5 text-left sm:min-h-0 transition-colors',
           'hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
@@ -197,7 +208,9 @@ export function OrgSearchSwitcher({ currentOrgId, currentOrgName }: Props) {
                 ? text
                   ? 'No community matches that. Check the spelling.'
                   : 'No communities to show.'
-                : ''}
+                : !loading && !error
+                  ? `${hits.length} ${hits.length === 1 ? 'community' : 'communities'} found${hasMore ? ', and more' : ''}`
+                  : ''}
           </div>
 
           {hasMore && (

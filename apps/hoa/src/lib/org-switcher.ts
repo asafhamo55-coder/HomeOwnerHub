@@ -8,6 +8,9 @@ export const SWITCHER_SEARCH_THRESHOLD = 8
 /** Most results one search page returns. */
 export const SWITCHER_SEARCH_PAGE_SIZE = 20
 
+/** Pages the search will serve (50 x 20); past it, type more of the name. */
+export const SWITCHER_SEARCH_MAX_PAGES = 50
+
 /** Longest search text sent to the server. */
 export const SWITCHER_SEARCH_MAX_CHARS = 80
 
