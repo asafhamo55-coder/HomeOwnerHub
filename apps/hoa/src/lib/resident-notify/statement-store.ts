@@ -9,6 +9,7 @@
  * only, because a PostgrestError message can echo row values.
  */
 
+import { readManagedBy } from '@/lib/managed-by'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { formatDay } from '@/lib/money/format'
@@ -87,17 +88,23 @@ export function supabaseStatementEmailStore(db: Db): StatementEmailStore {
 
       const a = await db
         .from('associations')
-        .select('id, name, type, organization_id')
+        .select('id, name, type, organization_id, compliance_settings')
         .eq('id', associationId)
         .eq('organization_id', event.organizationId)
         .maybeSingle()
       if (a.error) throw fail('association read', a.error)
-      const assoc = a.data as { id: string; name: string; type: string | null; organization_id: string } | null
+      const assoc = a.data as { id: string; name: string; type: string | null; organization_id: string; compliance_settings?: unknown } | null
       if (!assoc) return null
 
       const w = statementBetween(statement.ledger, event.from, event.to)
       return {
-        association: { id: assoc.id, name: assoc.name, type: assoc.type, organizationId: assoc.organization_id },
+        association: {
+          id: assoc.id,
+          name: assoc.name,
+          type: assoc.type,
+          organizationId: assoc.organization_id,
+          managedBy: readManagedBy(assoc.compliance_settings),
+        },
         unitId: unit.unitId,
         home: statement.home,
         statementDate: statement.today,

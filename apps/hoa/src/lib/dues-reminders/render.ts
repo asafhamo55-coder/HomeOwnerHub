@@ -10,6 +10,7 @@
  * due is always marked with TEXT as well as colour for the same reason.
  */
 
+import { cleanManagedBy, MAX_MANAGED_BY_LENGTH } from '@/lib/managed-by'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { BRAND } from '@/lib/email/brand'
 import { emailButton } from '@/lib/email/components'
@@ -163,7 +164,7 @@ export function renderNoteHtml(note: string | undefined): string {
 <tr><td style="padding:12px 14px;font-size:15px;line-height:1.5;color:${TEXT};">${body}</td></tr></table>`
 }
 
-export function renderShellHtml(opts: { note?: string; portalUrl: string }): string {
+export function renderShellHtml(opts: { note?: string; portalUrl: string; managedBy?: string | null }): string {
   const body = `<div style="font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:${MUTED};font-weight:700;">{{association_name}}</div>
 <p style="margin:12px 0 4px;font-size:17px;font-weight:700;color:${TEXT};">Hi {{owner_name}},</p>
 <p style="margin:0 0 18px;font-size:15px;line-height:1.5;color:${BRAND.body};">Here&rsquo;s everything currently outstanding on your account.</p>
@@ -181,11 +182,14 @@ ${emailButton(opts.portalUrl, 'View my dues')}
     // the /dues preview frame). Fluid keeps Outlook at 600 through the
     // MSO-only ghost table and lets every other client shrink to the screen.
     fluid: true,
+    // Merge syntax made inert: the shell is run through renderTemplate later.
+    managedBy: opts.managedBy ? neutralizeMergeSyntax(opts.managedBy) : undefined,
   })
 }
 
-export function renderShellText(opts: { note?: string; portalUrl: string }): string {
+export function renderShellText(opts: { note?: string; portalUrl: string; managedBy?: string | null }): string {
   const note = opts.note?.trim()
+  const managedBy = opts.managedBy ? neutralizeMergeSyntax(cleanManagedBy(opts.managedBy).slice(0, MAX_MANAGED_BY_LENGTH).trim()) : ''
   return [
     // The raw variant, not {{association_name}}: renderTemplate does not
     // escape, and the HTML-escaped value would read as literal "&amp;" in
@@ -204,5 +208,6 @@ export function renderShellText(opts: { note?: string; portalUrl: string }): str
     'To pay or request a detailed statement, reply to this email or contact your community manager.',
     '',
     'Sent by {{association_name_text}} because you are an owner of record.',
+    ...(managedBy ? ['', managedBy] : []),
   ].join('\n')
 }

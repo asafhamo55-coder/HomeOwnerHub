@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { renderEmailDocument, resetLogoWarning } from './shell'
+import { applyManagedBy, renderEmailDocument, resetLogoWarning } from './shell'
 
 const ORIGINAL_BASE = process.env.EMAIL_ASSET_BASE_URL
 
@@ -149,5 +149,30 @@ describe('the brand header', () => {
 
   it('keeps the original EMAIL_ASSET_BASE_URL untouched', () => {
     expect(process.env.EMAIL_ASSET_BASE_URL).toBe(ORIGINAL_BASE)
+  })
+})
+
+describe('managed by footer line', () => {
+  it('renders the line, escaped, inside the footer after the footer text', () => {
+    const html = renderEmailDocument({ ...BASE, managedBy: 'Managed by Homeside & Sons <img src=x onerror=alert(1)>, (404) 555-0100' })
+    expect(html).toContain('data-managed-by')
+    expect(html).toContain('Managed by Homeside &amp; Sons')
+    expect(html).not.toContain('<img')
+    expect(html.indexOf('Sent by Madison Park')).toBeLessThan(html.indexOf('data-managed-by'))
+  })
+  it('escapes quotes and ampersands', () => {
+    expect(renderEmailDocument({ ...BASE, managedBy: `Tom & "Jerry" O'Neil` })).toContain('Tom &amp; &quot;Jerry&quot; O&#39;Neil')
+  })
+  it('renders nothing when the line is empty, null or missing', () => {
+    for (const managedBy of [undefined, null, '', '   \n']) {
+      expect(renderEmailDocument({ ...BASE, managedBy })).not.toContain('data-managed-by')
+    }
+  })
+  it('applyManagedBy adds the row to an already-rendered shell document', () => {
+    const doc = renderEmailDocument(BASE)
+    expect(applyManagedBy(doc, 'Managed by Homeside')).toContain('Managed by Homeside')
+    expect(applyManagedBy(doc, '')).toBe(doc)
+    expect(applyManagedBy('<p>no shell</p>', '')).toBe('<p>no shell</p>')
+    expect(applyManagedBy('<p>no shell</p>', 'x')).toContain('data-managed-by')
   })
 })

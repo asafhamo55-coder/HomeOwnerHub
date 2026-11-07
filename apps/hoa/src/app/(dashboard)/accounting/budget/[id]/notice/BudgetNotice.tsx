@@ -1,6 +1,7 @@
 'use client'
 
 import { Letterhead } from '@/components/print/Letterhead'
+import { ManagedByFooter } from '@/components/print/ManagedByFooter'
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Megaphone, Printer } from 'lucide-react'
@@ -40,7 +41,7 @@ import { BUDGET_NOTICE_WIZARD_HREF, sessionStore, writeBudgetNoticeDraft } from 
  * BLANK is left. Nothing is sent from this page: the wizard's normal,
  * board-reviewed send is the only way the notice reaches owners.
  */
-export function BudgetNotice({ input, today }: { input: BudgetNoticeInput; today: string }) {
+export function BudgetNotice({ input, today, managedBy }: { input: BudgetNoticeInput; today: string; managedBy?: string | null }) {
   const router = useRouter()
   const toast = useToast()
   const [values, setValues] = useState<FieldValues>({})
@@ -115,6 +116,7 @@ export function BudgetNotice({ input, today }: { input: BudgetNoticeInput; today
         {/* Logo only: the notice body already names the association under the title. */}
         <Letterhead className="mb-2" />
         <div dangerouslySetInnerHTML={{ __html: html }} />
+        <ManagedByFooter line={managedBy} />
       </article>
 
       <div className="space-y-3 print:hidden">

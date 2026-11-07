@@ -1,3 +1,4 @@
+import { cleanManagedBy, MAX_MANAGED_BY_LENGTH } from '@/lib/managed-by'
 import { ReceiptText } from 'lucide-react'
 import { Letterhead } from '@/components/print/Letterhead'
 import { DataTable, EmptyState, type DataTableColumn } from '@homeowner-portal/ui'
@@ -43,6 +44,8 @@ export interface StatementDocumentProps {
   truncatedNote: string
   emptyHint: string
   footer: string
+  /** The board's "Managed by" line, shown under the footer text. */
+  managedBy?: string | null
   /** Extra sections after the table (the resident page's "How to pay"). */
   children?: React.ReactNode
 }
@@ -50,6 +53,7 @@ export interface StatementDocumentProps {
 export function StatementDocument(props: StatementDocumentProps) {
   const { window: w, all, from } = props
   const rows = statementRows(w, from, all)
+  const managedByText = cleanManagedBy(props.managedBy).slice(0, MAX_MANAGED_BY_LENGTH).trim()
   const columns: DataTableColumn<StatementRow>[] = [
     { key: 'date', header: 'Date', cell: (r) => formatDay(r.date), className: `whitespace-nowrap ${PRINT_CELL}` },
     { key: 'description', header: 'Description', mobilePrimary: true, cell: (r) => r.description, className: PRINT_CELL },
@@ -127,7 +131,14 @@ export function StatementDocument(props: StatementDocumentProps) {
 
       {props.children}
 
-      <footer className="border-t border-border pt-3 text-xs text-muted">{props.footer}</footer>
+      <footer className="border-t border-border pt-3 text-xs text-muted">
+        {props.footer}
+        {managedByText ? (
+          <p data-managed-by className="mt-1">
+            {managedByText}
+          </p>
+        ) : null}
+      </footer>
     </article>
   )
 }

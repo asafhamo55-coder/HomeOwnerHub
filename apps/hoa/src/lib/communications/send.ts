@@ -1,5 +1,6 @@
 'use server'
 
+import { readManagedBy } from '@/lib/managed-by'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { Database } from '@homeowner-portal/db/types'
@@ -223,7 +224,7 @@ export async function sendCommunication(
 
   const { data: assocRow } = await supabase
     .from('associations')
-    .select('organization_id, name, type')
+    .select('organization_id, name, type, compliance_settings')
     .eq('id', assoc.id)
     .single()
   if (!assocRow) return { ok: false, error: 'Association not found.' }
@@ -501,6 +502,7 @@ export async function sendCommunication(
     organizationId: assocRow.organization_id,
     associationName: assocRow.name,
     associationType: assocRow.type,
+    managedBy: readManagedBy(assocRow.compliance_settings),
     subject: value.subject,
     bodyHtml,
     bodyText,
@@ -729,7 +731,7 @@ export async function resendFailedRecipients(
 
   const { data: assocRow } = await supabase
     .from('associations')
-    .select('name, type')
+    .select('name, type, compliance_settings')
     .eq('id', comm.association_id)
     .eq('organization_id', org.id)
     .maybeSingle()
@@ -798,6 +800,7 @@ export async function resendFailedRecipients(
     associationName: assocRow.name,
     senderName: buildSenderName(assocRow.name, assocRow.type),
     extraFields: supplied,
+    managedBy: readManagedBy(assocRow.compliance_settings),
   })
 
   const results = await sendEmailBatch(payloads, {

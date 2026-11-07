@@ -1,7 +1,8 @@
 'use client'
 
 import { Letterhead } from '@/components/print/Letterhead'
-import { useMemo, useState, useTransition } from 'react'
+import { ManagedByFooter } from '@/components/print/ManagedByFooter'
+import { createContext, useContext, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Printer, Send } from 'lucide-react'
@@ -81,7 +82,11 @@ export interface LetterRequestView {
  *              shows a DRAFT banner instead.
  * Nothing is emailed or texted at any point.
  */
+/** The board's "Managed by" line, read by the printed letter's footer. */
+const ManagedByContext = createContext<string | null>(null)
+
 export function CollectionsLetter({
+  managedBy = null,
   input,
   today,
   events,
@@ -96,11 +101,14 @@ export function CollectionsLetter({
   approved: LetterRequestView | null
   /** BL-130: the case's letters already printed, for the state law check. */
   printed?: PrintedLetterRecord[]
+  managedBy?: string | null
 }) {
   const [drafting, setDrafting] = useState(false)
-  if (pending) return <Pending input={input} today={today} events={events} printed={printed} request={pending} />
-  if (approved && !drafting) return <Approved input={input} today={today} events={events} printed={printed} request={approved} onDraftNew={() => setDrafting(true)} />
-  return <Draft input={input} today={today} events={events} printed={printed} />
+  let body: React.ReactNode
+  if (pending) body = <Pending input={input} today={today} events={events} printed={printed} request={pending} />
+  else if (approved && !drafting) body = <Approved input={input} today={today} events={events} printed={printed} request={approved} onDraftNew={() => setDrafting(true)} />
+  else body = <Draft input={input} today={today} events={events} printed={printed} />
+  return <ManagedByContext.Provider value={managedBy}>{body}</ManagedByContext.Provider>
 }
 
 // ─── draft ───────────────────────────────────────────────────────────
@@ -473,6 +481,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
   const k = letter.kind
   const field = (key: string) => letter.fields.find((x) => x.key === key)
   const totals = letterTotals(letter, values)
+  const managedBy = useContext(ManagedByContext)
   const association = valueOf(field('associationName')!, values) ?? '[[BLANK: Association name]]'
   const home = [input.address, input.unitNumber ? `Unit ${input.unitNumber}` : null].filter(Boolean).join(', ')
   const isFl = k === 'fl_late_notice' || k === 'fl_intent_to_lien'
@@ -706,6 +715,7 @@ function LetterDocument({ letter, input, values, printClass }: { letter: Letter;
         </p>
         <p className="text-foreground-secondary">{association}</p>
       </section>
+      <ManagedByFooter line={managedBy} />
     </article>
   )
 }

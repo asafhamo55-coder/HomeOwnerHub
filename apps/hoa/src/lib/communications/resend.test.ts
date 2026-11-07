@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   results: [] as Array<{ ok: true; messageId: string } | { ok: false; error: string }>,
   failedRows: [] as Array<{ id: string; email: string | null; recipient_name: string | null; unit_id: string | null }>,
   allRows: [] as Array<{ delivery_status: string; error_message: string | null }>,
+  payloads: [] as Array<{ html: string; text?: string }>,
+  settings: {} as Record<string, unknown>,
 }))
 
 vi.mock('next/cache', () => ({ revalidatePath: () => {} }))
@@ -25,7 +27,10 @@ vi.mock('@/lib/accounting/guard', () => ({
 vi.mock('@/lib/vendors', () => ({ getPrimaryAssociation: async () => null }))
 vi.mock('@homeowner-portal/observability/outbound-guard', () => ({ fetchOrgSandbox: async () => false }))
 vi.mock('@/lib/email', () => ({
-  sendEmailBatch: async (payloads: unknown[]) => payloads.map((_, i) => h.results[i]),
+  sendEmailBatch: async (payloads: Array<{ html: string; text?: string }>) => {
+    h.payloads.push(...payloads)
+    return payloads.map((_, i) => h.results[i])
+  },
 }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: async () => fakeClient() }))
 
@@ -45,7 +50,7 @@ function fakeClient() {
             error: null,
           }
         }
-        if (table === 'associations') return { data: { name: 'Maple Court', type: 'hoa' }, error: null }
+        if (table === 'associations') return { data: { name: 'Maple Court', type: 'hoa', compliance_settings: h.settings }, error: null }
         if (table === 'communication_recipients') {
           const failedOnly = filters.some(([c, v]) => c === 'delivery_status' && v === 'failed')
           return { data: failedOnly ? h.failedRows : h.allRows, error: null }
@@ -81,6 +86,8 @@ const parentWrites = () => h.writes.filter((w) => w.table === 'communications')
 beforeEach(() => {
   h.writes = []
   h.failedRows = ROWS
+  h.payloads = []
+  h.settings = {}
 })
 
 describe('resendFailedRecipients — guard-held rows (BL-109)', () => {
@@ -137,5 +144,25 @@ describe('resendFailedRecipients — guard-held rows (BL-109)', () => {
     expect(r).toEqual({ ok: true, sentCount: 0, failedCount: 2, heldCount: 0 })
     expect(recipientWrites().map((w) => w.payload.delivery_status)).toEqual(['failed', 'failed'])
     expect(parentWrites()).toHaveLength(0)
+  })
+})
+
+describe('resendFailedRecipients, Managed by line', () => {
+  it('passes the association line through to the resent html and text', async () => {
+    h.settings = { managed_by_line: 'Managed by Homeside, (404) 555-0100' }
+    h.results = [
+      { ok: true, messageId: 'm1' },
+      { ok: true, messageId: 'm2' },
+    ]
+    h.allRows = [
+      { delivery_status: 'sent', error_message: null },
+      { delivery_status: 'sent', error_message: null },
+    ]
+    await resendFailedRecipients('comm-1')
+    expect(h.payloads).toHaveLength(2)
+    for (const p of h.payloads) {
+      expect(p.html).toContain('Managed by Homeside, (404) 555-0100')
+      expect(p.text).toContain('Managed by Homeside, (404) 555-0100')
+    }
   })
 })

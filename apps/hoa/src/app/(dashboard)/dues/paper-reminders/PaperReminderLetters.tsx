@@ -1,4 +1,5 @@
 import { chargeTypeLabel } from '@/lib/assessment-labels'
+import { ManagedByFooter } from '@/components/print/ManagedByFooter'
 import { telHref, type BoardContact } from '@/lib/association-contacts'
 import { formatDueDate, formatUsd } from '@/lib/dues-reminders/render'
 import type { PaperLetter } from '@/lib/dues-reminders/paper'
@@ -41,12 +42,14 @@ export function PaperReminderLetters({
   dateLabel,
   pay,
   contacts,
+  managedBy,
 }: {
   letters: PaperLetter[]
   associationName: string
   dateLabel: string
   pay: PayHow
   contacts: BoardContact[]
+  managedBy?: string | null
 }) {
   return (
     <div className="print:m-0 print:p-0">
@@ -125,6 +128,7 @@ export function PaperReminderLetters({
                 <p>Please ask the board for contact details.</p>
               )}
             </section>
+            <ManagedByFooter line={managedBy} compact />
           </article>
         )
       })}

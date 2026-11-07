@@ -28,6 +28,7 @@
  * counts only — never an address, a name, an amount or a body.
  */
 
+import { readManagedBy } from '@/lib/managed-by'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
 import { finalSendStatus } from '@homeowner-portal/observability/send-status'
 import { deterministicUuid } from '@homeowner-portal/jobs/deterministic-id'
@@ -210,6 +211,7 @@ export async function runPaymentReceipt(
 
     const receipt = renderPaymentReceiptEmail({
       associationName: association.name,
+      managedBy: readManagedBy(association.complianceSettings),
       amount: payment.amount,
       paidDay: payment.paidDay,
       method: payment.method,

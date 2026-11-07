@@ -13,6 +13,7 @@ import { buildPaperReminders } from '@/lib/dues-reminders/paper'
 import { loadOpenChargesByProperty } from '@/lib/dues-reminders/paper-load'
 import { paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
 import { readBoardContacts } from '@/lib/association-contacts'
+import { readManagedBy } from '@/lib/managed-by'
 import { MAX_NOTICE_CONTACTS } from '@/lib/join-notice'
 import { PaperReminderLetters, payHowFrom } from './PaperReminderLetters'
 import { PrintRemindersButton } from './PrintRemindersButton'
@@ -201,6 +202,7 @@ export default async function PaperRemindersPage() {
             dateLabel={longDate(asOf)}
             pay={pay}
             contacts={contacts}
+            managedBy={readManagedBy(primary.compliance_settings)}
           />
         </div>
       )}

@@ -10,8 +10,9 @@
  * `linear-gradient` entirely, leaving no background at all.
  */
 
+import { cleanManagedBy, MAX_MANAGED_BY_LENGTH } from '@/lib/managed-by'
 import { emailAssetUrl } from './asset-url'
-import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_DARK_CSS, LOGO_FILE, logoHeaderRowsHtml } from './brand'
+import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_DARK_CSS, LOGO_FILE, logoHeaderRowsHtml, wrapBrandedEmail } from './brand'
 
 export interface EmailBand {
   text: string
@@ -23,6 +24,13 @@ export interface EmailDocumentOptions {
   bodyHtml: string
   footerHtml: string
   band?: EmailBand
+  /**
+   * The association's "Managed by" line (Settings, Association). Plain text:
+   * it is cleaned, capped and HTML-escaped here, so a caller passes the raw
+   * stored value. Empty or omitted renders nothing and the footer is exactly
+   * what it was.
+   */
+  managedBy?: string | null
   /** Inbox preview line. Hidden in the body, shown in the list view. */
   previewText?: string
   /** The document title (the subject, for mail that has one). Read by screen readers and the browser view. */
@@ -126,8 +134,61 @@ function preheader(text: string): string {
   return `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${PAGE_BG};">${escapeHtml(text)}</div>`
 }
 
+/**
+ * Where the "Managed by" row goes. Every shell document carries this comment
+ * at the end of its footer, so a message built from a template (merge fields
+ * filled in later, per association) can have the row added at send time with
+ * applyManagedBy, without the template knowing the association.
+ */
+export const MANAGED_BY_MARKER = '<!--eh-managed-by-->'
+
+/**
+ * Put the association's "Managed by" row into an email body at send time.
+ *
+ * - No line: unchanged. Row already there (data-managed-by): unchanged, so
+ *   applying twice gives one row.
+ * - A shell document: the row goes at the LAST footer marker. A merge value
+ *   rendered earlier in the body that happens to contain the marker text
+ *   cannot move it, because the real marker is the final one.
+ * - A full document whose marker did not survive (an editor or a paste may
+ *   drop HTML comments): the row goes just before the closing body tag.
+ * - A fragment (an announcement or free-form board email, no document
+ *   around it): wrapped in the same brand frame ensureBranded would use,
+ *   with the row as its footer.
+ */
+export function applyManagedBy(html: string, line: string | null | undefined): string {
+  const row = managedByFooterHtml(line)
+  if (!row || html.includes('data-managed-by')) return html
+  const at = html.lastIndexOf(MANAGED_BY_MARKER)
+  if (at >= 0) return html.slice(0, at) + row + html.slice(at)
+  const head = html.replace(/^\uFEFF/, '').replace(/^(\s|<!--[\s\S]*?-->)+/, '')
+  if (/^<!doctype|^<html/i.test(head)) {
+    const body = html.toLowerCase().lastIndexOf('</body>')
+    return body >= 0 ? html.slice(0, body) + row + html.slice(body) : html
+  }
+  return wrapBrandedEmail({ bodyHtml: html, footerHtml: row })
+}
+
+/** The plain-text part's closing "Managed by" line. Same rules: none when empty, once when applied twice. */
+export function applyManagedByText(text: string, line: string | null | undefined): string {
+  const clean = cleanManagedBy(line).slice(0, MAX_MANAGED_BY_LENGTH).trim()
+  if (!clean) return text
+  // Already there, either as typed or with merge braces made inert (the dues
+  // shell does that): do not append it a second time.
+  const inert = clean.replace(/\{{2,}/g, '{').replace(/\}{2,}/g, '}')
+  if (text.includes(clean) || text.includes(inert)) return text
+  return `${text.trimEnd()}\n\n${clean}`
+}
+
+/** The footer's "Managed by" row, or '' when there is no line. */
+export function managedByFooterHtml(line: string | null | undefined): string {
+  const text = cleanManagedBy(line).slice(0, MAX_MANAGED_BY_LENGTH).trim()
+  if (!text) return ''
+  return `<div data-managed-by style="margin-top:10px;padding-top:10px;border-top:1px solid ${LINE};font-family:${FONT};font-size:14px;line-height:1.6;color:${MUTED};">${escapeHtml(text)}</div>`
+}
+
 export function renderEmailDocument(opts: EmailDocumentOptions): string {
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+  const html = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -152,10 +213,11 @@ ${opts.band ? bandRow(opts.band) : ''}
 ${opts.bodyHtml}
 </td></tr>
 <tr><td bgcolor="${FOOTER_BG}" style="background-color:${FOOTER_BG};color:${MUTED};padding:14px 22px;border-top:1px solid ${LINE};font-family:${FONT};font-size:14px;line-height:1.6;">
-${opts.footerHtml}
+${opts.footerHtml}${MANAGED_BY_MARKER}
 </td></tr>
 </table>
 ${opts.fluid ? '<!--[if mso]></td></tr></table><![endif]-->' : ''}
 </td></tr></table>
 </body></html>`
+  return applyManagedBy(html, opts.managedBy)
 }

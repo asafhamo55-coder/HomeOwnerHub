@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Alert, Button, Field, Input, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadManagedByLine } from '@/lib/managed-by-load'
 import { tryLoad } from '@/lib/load-or-fail'
 import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
@@ -110,6 +111,7 @@ export default async function OwnerStatementPage({
           truncated={d.truncated}
           truncatedNote="This statement shows the most recent entries only; older history is not included."
           emptyHint="Choose a wider period to see older charges and payments."
+          managedBy={await loadManagedByLine(supabase, ctx.org.id, d.associationId)}
           footer="Payments appear once they are approved, so anything received in the last few days may not be listed yet."
         />
       </div>

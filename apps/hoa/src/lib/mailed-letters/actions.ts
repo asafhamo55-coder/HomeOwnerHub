@@ -16,7 +16,8 @@ import { valueOf } from '@/lib/properties/estoppel/model'
 import { checkAddress, guessAddress } from './address'
 import { formatCents } from './cost'
 import { getMailProvider, readMailPricing } from './config'
-import { blanksLeft, letterDocument } from './letter-doc'
+import { blanksLeft, letterDocument, withManagedByBlock } from './letter-doc'
+import { loadManagedByLine } from '@/lib/managed-by-load'
 import { renderLetterPdf } from './pdf'
 import { MAIL_SERVICES, type PostalAddress } from './provider'
 import { previewCost, sendApprovedLetterByMail, type Preview } from './send'
@@ -100,7 +101,7 @@ async function prepare(propertyId: string, approvalRequestId: string) {
   const letter = buildLetter(ctx.input, request.payload.kind, ctx.today, ctx.events, request.payload.values)
   const blocked = letterBlocked(letter, request.payload.values, true)
   if (blocked) return { ok: false as const, error: blocked }
-  const blocks = letterDocument(letter, ctx.input, request.payload.values)
+  const blocks = withManagedByBlock(letterDocument(letter, ctx.input, request.payload.values), await loadManagedByLine(supabase, gate.orgId, ctx.associationId))
   const blanks = blanksLeft(blocks)
   if (blanks.length > 0) return { ok: false as const, error: `Fill in every blank before mailing: ${blanks.join(', ')}.` }
   const rendered = await renderLetterPdf(blocks)
