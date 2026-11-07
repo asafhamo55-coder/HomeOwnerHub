@@ -183,6 +183,9 @@ export function shareLabel(pct: number | null, ownerCount: number): string {
   return `${Number(pct.toFixed(2))}%`
 }
 
+/** Placeholder shown when an owner has no name on file. */
+export const OWNER_NAME_MISSING = 'Name not recorded'
+
 export function mailingAddressFromNotes(notes: string | null | undefined): string | null {
   const m = notes ? MAILING_NOTE.exec(notes) : null
   const text = m?.[1]?.trim()
@@ -234,7 +237,7 @@ function ownersFor(home: RosterHome, history: RosterOwnership[], asOf: string): 
     )
   if (current.length === 0) return { owners: [], source: 'none', sharesWarning: null }
   const owners = current.map((o) => ({
-    name: o.ownerName?.trim() || 'Name not recorded',
+    name: o.ownerName?.trim() || OWNER_NAME_MISSING,
     email: o.ownerEmail?.trim() || null,
     phone: o.ownerPhone?.trim() || null,
     share: shareLabel(o.ownershipPct, current.length),
