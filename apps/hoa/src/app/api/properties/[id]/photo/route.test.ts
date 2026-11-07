@@ -1,3 +1,4 @@
+import { PHOTO_REASONS } from '@/lib/properties/photo-reason'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const ID_CONST = '11111111-1111-4111-8111-111111111111'
@@ -168,6 +169,7 @@ describe('GET /api/properties/:id/photo', () => {
     delete process.env.GOOGLE_MAPS_API_KEY
     const res = await call()
     expect(res.status).toBe(404)
+    expect(res.headers.get('X-Photo-Reason')).toBe('no_key')
     expect(calls).toHaveLength(0)
   })
 
@@ -177,6 +179,7 @@ describe('GET /api/properties/:id/photo', () => {
     expect(res.status).toBe(404)
     expect(calls).toHaveLength(1)
     expect(calls[0]).toContain('/streetview/metadata')
+    expect(res.headers.get('X-Photo-Reason')).toBe('no_street_view')
     const body = await res.json()
     expect(body.error.code).toBe('not_found')
   })
@@ -223,6 +226,7 @@ describe('GET /api/properties/:id/photo', () => {
     metaStatus = 'REQUEST_DENIED'
     const res = await call()
     expect(res.status).toBe(503)
+    expect(res.headers.get('X-Photo-Reason')).toBe('upstream')
     const text = await res.text()
     expect(text).toContain('upstream_unavailable')
     expect(text).not.toContain('test-key-not-real')
@@ -273,18 +277,21 @@ describe('GET /api/properties/:id/photo', () => {
     })
     it('row_not_visible', async () => {
       h.property = null
-      await call()
+      const res = await call()
+      expect(res.headers.get('X-Photo-Reason')).toBe('not_visible')
       expect(infoLines()[0]).toMatchObject({ event: 'property_photo', outcome: 'miss', reason: 'row_not_visible', propertyId: ID })
     })
     it('no_address', async () => {
       h.property = { address: null }
-      await call()
+      const res = await call()
+      expect(res.headers.get('X-Photo-Reason')).toBe('no_address')
       expect(reasons()).toEqual(['no_address'])
     })
     it('no_location when the address has no street line', async () => {
       h.property = { address: ',' }
       const res = await call()
       expect(res.status).toBe(404)
+      expect(res.headers.get('X-Photo-Reason')).toBe('needs_location')
       expect(reasons()).toEqual(['no_location'])
     })
     it('meta_zero_results and meta_not_found, with the geocode status', async () => {
@@ -298,8 +305,24 @@ describe('GET /api/properties/:id/photo', () => {
     })
     it('image_404', async () => {
       imageStatus = 404
-      await call()
+      const res = await call()
+      expect(res.headers.get('X-Photo-Reason')).toBe('no_street_view')
       expect(reasons()).toContain('image_404')
+    })
+    it('the header is always one of the known codes, never the address', async () => {
+      const seen: (string | null)[] = []
+      h.property = null
+      seen.push((await call()).headers.get('X-Photo-Reason'))
+      h.property = { address: null }
+      seen.push((await call()).headers.get('X-Photo-Reason'))
+      h.property = { address: ',' }
+      seen.push((await call()).headers.get('X-Photo-Reason'))
+      h.property = { address: '105 Springwood Parkway' }
+      h.unit = { city: null, state: null, postal_code: null }
+      seen.push((await call()).headers.get('X-Photo-Reason'))
+      expect((await call('not-a-uuid')).headers.get('X-Photo-Reason')).toBe('not_visible')
+      for (const v of seen) expect(PHOTO_REASONS as readonly string[]).toContain(v)
+      expect(seen.join(' ')).not.toMatch(/Springwood|Peachtree/)
     })
     it('geocode and pano reasons', async () => {
       geoStatus = 'OK'
@@ -388,6 +411,7 @@ describe('GET /api/properties/:id/photo', () => {
       expect(res.status).toBe(404)
       expect(calls).toHaveLength(0)
       expect(geoCalls).toHaveLength(0)
+      expect(res.headers.get('X-Photo-Reason')).toBe('needs_location')
       expect(reasons()).toEqual(['state_only_location'])
       expect(infoLines()[0]).toMatchObject({ outcome: 'miss', propertyId: ID })
     })
