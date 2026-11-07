@@ -59,6 +59,10 @@ describe('PropertyPhoto fetch', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(host!.querySelector('img')).toBeNull()
     expect(host!.textContent).toContain('Google has no street picture for this address.')
+    await act(async () => {
+      root!.render(<PropertyPhoto propertyId={ID} address="1 Main St, Atlanta, GA 30309" enabled />)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('shows the board link for needs_location, and none for a resident', async () => {
@@ -80,5 +84,56 @@ describe('PropertyPhoto fetch', () => {
   it('makes no request when a server-known reason is given', async () => {
     await mount({ knownReason: 'no_address' })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('waits for the box to intersect before fetching, and disconnects on unmount', async () => {
+    let trigger: ((e: { isIntersecting: boolean }[]) => void) | null = null
+    const disconnect = vi.fn()
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(cb: (e: { isIntersecting: boolean }[]) => void) {
+          trigger = cb
+        }
+        observe() {}
+        disconnect = disconnect
+      },
+    )
+    fetchMock.mockResolvedValue(new Response(new Blob(['x']), { status: 200 }))
+    await mount()
+    expect(fetchMock).not.toHaveBeenCalled()
+    await act(async () => {
+      trigger!([{ isIntersecting: false }])
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+    await act(async () => {
+      trigger!([{ isIntersecting: true }])
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    act(() => root!.unmount())
+    root = null
+    expect(disconnect).toHaveBeenCalled()
+  })
+
+  it('aborts a pending fetch on unmount and makes no state update afterwards', async () => {
+    let signal: AbortSignal | undefined
+    let resolve!: (r: Response) => void
+    fetchMock.mockImplementation((_u: string, init?: RequestInit) => {
+      signal = init?.signal ?? undefined
+      return new Promise<Response>((r) => {
+        resolve = r
+      })
+    })
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await mount()
+    act(() => root!.unmount())
+    root = null
+    expect(signal?.aborted).toBe(true)
+    await act(async () => {
+      resolve(new Response(new Blob(['x']), { status: 200 }))
+    })
+    expect(URL.createObjectURL).not.toHaveBeenCalled()
+    expect(errors).not.toHaveBeenCalled()
+    errors.mockRestore()
   })
 })
