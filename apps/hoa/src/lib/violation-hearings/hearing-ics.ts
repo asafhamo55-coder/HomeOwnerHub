@@ -6,8 +6,10 @@
  * home address, no resident, no board member, no link. The resident has
  * already been shown exactly these on their home page.
  */
-import { buildIcs, type IcsEvent } from '@/lib/ics'
+import { buildIcsCalendar, type IcsEvent } from '@/lib/ics'
 import { DEFAULT_HEARING_MINUTES, HEARING_ICS_TITLE, hearingStartsAt, type UpcomingHearing } from './upcoming'
+
+const HEARING_PRODID = '-//HomeownerHub//Violation hearing//EN'
 
 export interface HearingIcsInput
   extends Pick<UpcomingHearing, 'violationId' | 'hearingOn' | 'hearingTime' | 'location' | 'timeZone'> {
@@ -37,5 +39,5 @@ export function hearingIcsEvent(input: HearingIcsInput): IcsEvent {
 }
 
 export function buildHearingIcs(input: HearingIcsInput): string {
-  return buildIcs(hearingIcsEvent(input))
+  return buildIcsCalendar([hearingIcsEvent(input)], { prodId: HEARING_PRODID })
 }

@@ -22,7 +22,7 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }))
 vi.mock('@/lib/impersonation', async () => {
-  const { fakeDb } = await import('@/lib/violation-hearings/fake-hearing-db')
+  const { fakeDb } = await import('@/lib/violation-hearings/__tests__/fake-hearing-db')
   return { getResidentActor: vi.fn(async () => ({ id: 'user-1', orgId: 'org-1', client: fakeDb({ hoa_violations: h.violations }) })) }
 })
 vi.mock('@/lib/resident', () => ({
@@ -35,7 +35,7 @@ vi.mock('@/lib/violation-response', async (orig) => ({
   homePropertiesForUnits: vi.fn(async () => h.homes),
 }))
 vi.mock('@homeowner-portal/db', async () => {
-  const { fakeDb } = await import('@/lib/violation-hearings/fake-hearing-db')
+  const { fakeDb } = await import('@/lib/violation-hearings/__tests__/fake-hearing-db')
   return { createAdminClient: () => fakeDb({ violation_hearings: h.hearings }) }
 })
 

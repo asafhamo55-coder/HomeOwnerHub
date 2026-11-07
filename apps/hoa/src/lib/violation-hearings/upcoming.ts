@@ -60,6 +60,16 @@ export function isUpcomingHearing(
   return h.hearingOn >= todayIn(timeZone, now)
 }
 
+/**
+ * True once the notice date has arrived in the association's zone. A
+ * notice dated in the future (typed ahead) must not show the hearing early;
+ * a missing or malformed date means the notice has not gone out.
+ */
+export function noticeIsOut(noticeSentOn: unknown, timeZone: string, now: Date): boolean {
+  if (typeof noticeSentOn !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(noticeSentOn)) return false
+  return noticeSentOn.slice(0, 10) <= todayIn(timeZone, now)
+}
+
 /** Order key: start instant when known, else the end of that day. */
 function sortKey(h: UpcomingHearing): number {
   const at = hearingStartsAt(h.hearingOn, h.hearingTime, h.timeZone)

@@ -16,6 +16,8 @@ describe('buildHearingIcs', () => {
   it('has the title, the association-zone time in UTC, the place and the association name', () => {
     const ics = buildHearingIcs(base)
     expect(ics).toContain('BEGIN:VCALENDAR')
+    expect(ics).toContain('PRODID:-//HomeownerHub//Violation hearing//EN')
+    expect(ics).not.toContain('Meeting notice')
     expect(ics).toContain('SUMMARY:Violation hearing')
     expect(ics).toContain('DTSTART:20261120T233000Z')
     expect(ics).toContain('DTEND:20261121T003000Z')

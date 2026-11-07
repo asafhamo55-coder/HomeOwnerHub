@@ -8,6 +8,7 @@ import {
   hearingToUpcoming,
   isUpcomingHearing,
   nextHearingsFirst,
+  noticeIsOut,
   remoteAttendanceText,
   type UpcomingHearing,
 } from './upcoming'
@@ -127,5 +128,23 @@ describe('copy', () => {
     expect(fl).not.toMatch(/—|–/)
     expect(remoteAttendanceText('GA')).toBeNull()
     expect(remoteAttendanceText(null)).toBeNull()
+  })
+})
+
+describe('noticeIsOut (association zone)', () => {
+  it('is out on or after the notice date, not before', () => {
+    const now = new Date('2026-11-10T15:00:00Z')
+    expect(noticeIsOut('2026-11-10', 'America/New_York', now)).toBe(true)
+    expect(noticeIsOut('2026-11-09', 'America/New_York', now)).toBe(true)
+    expect(noticeIsOut('2026-11-11', 'America/New_York', now)).toBe(false)
+  })
+  it('uses the association day: 02:00Z on the 11th is still the 10th in New York', () => {
+    const now = new Date('2026-11-11T02:00:00Z')
+    expect(noticeIsOut('2026-11-11', 'America/New_York', now)).toBe(false)
+    expect(noticeIsOut('2026-11-11', 'Pacific/Auckland', now)).toBe(true)
+  })
+  it('a missing or bad date means not sent', () => {
+    expect(noticeIsOut(null, 'America/New_York', new Date())).toBe(false)
+    expect(noticeIsOut('soon', 'America/New_York', new Date())).toBe(false)
   })
 })

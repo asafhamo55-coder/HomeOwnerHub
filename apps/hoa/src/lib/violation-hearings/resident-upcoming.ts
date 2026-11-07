@@ -19,7 +19,7 @@ import { M4_APPLIED } from '@homeowner-portal/db/m4'
 import { CLOSED_VIOLATION_STATUSES, homePropertiesForUnits, type Db } from '@/lib/violation-response'
 import { residentTimeZone } from '@/lib/resident-dues'
 import { HEARING_TABLE, RESIDENT_HEARING_COLUMNS, residentHearingView } from './rules'
-import { hearingSummary, hearingToUpcoming, nextHearingsFirst, type UpcomingHearing } from './upcoming'
+import { hearingSummary, hearingToUpcoming, nextHearingsFirst, noticeIsOut, type UpcomingHearing } from './upcoming'
 
 export interface HearingUnit {
   unit_id: string
@@ -97,12 +97,15 @@ export async function loadUpcomingHearings(
     if (!violation || !violation.property_id) continue
     const unit = input.units.find((u) => u.unit_id === unitByProperty.get(violation.property_id!))
     if (!unit) continue
+    const timeZone = residentTimeZone([unit])
+    // The notice date must have arrived in the association's zone.
+    if (!noticeIsOut(row.notice_sent_on, timeZone, now)) continue
     const item = hearingToUpcoming(residentHearingView(row), {
       violationId: violation.id,
       summary: hearingSummary(violation.violation_type),
       associationName: unit.association_name,
       state: unit.association_state ?? null,
-      timeZone: residentTimeZone([unit]),
+      timeZone,
     })
     if (item) out.push(item)
   }

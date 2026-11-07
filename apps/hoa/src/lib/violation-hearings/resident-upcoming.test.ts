@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fakeDb, type Row } from './fake-hearing-db'
+import { fakeDb, type Row } from './__tests__/fake-hearing-db'
 
 const homes = vi.hoisted(() => ({ map: [] as Array<{ unitId: string; propertyId: string }> | null }))
 vi.mock('@/lib/violation-response', async (orig) => ({
@@ -95,6 +95,7 @@ describe('loadUpcomingHearings', () => {
     ['requested only', { status: 'requested' }],
     ['past', { hearing_on: '2026-11-05' }],
     ['not noticed yet', { notice_sent_on: null }],
+    ['notice dated in the future', { notice_sent_on: '2026-11-11' }],
   ])('hides a %s hearing', async (_n, over) => {
     homes.map = [{ unitId: 'u1', propertyId: 'p1' }]
     const { result } = run([violation('v1', 'p1')], [hearing('v1', over as Row)])

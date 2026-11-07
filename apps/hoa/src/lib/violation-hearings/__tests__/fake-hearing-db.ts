@@ -20,6 +20,12 @@ export function fakeDb(tables: Record<string, Row[]>, log: Array<{ table: string
         rows = rows.filter((r) => (r[col] ?? null) === val)
         return q
       }
+      q.order = () => q
+      q.maybeSingle = async () => ({ data: rows[0] ?? null, error: null })
+      q.ilike = (col: string, pat: string) => {
+        rows = rows.filter((r) => String(r[col] ?? '').toLowerCase() === pat.toLowerCase())
+        return q
+      }
       q.then = (resolve: (v: unknown) => void) => resolve({ data: rows, error: null })
       return q
     },
