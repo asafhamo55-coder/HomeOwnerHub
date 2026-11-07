@@ -7,6 +7,7 @@ import {
   type BidComparatorOutput,
 } from '@homeowner-portal/workflows'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getCurrentOrg } from '@/lib/orgs'
 import { chargeAiActionQuota } from '@/lib/api/ai-action-quota'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { checkOrgOwned } from '@/lib/org-owned'
@@ -84,6 +85,8 @@ export async function listBidsForRfp(rfpId: string): Promise<BidRow[]> {
 export async function listBidsForRfpResult(
   rfpId: string,
 ): Promise<{ ok: true; data: BidRow[] } | { ok: false }> {
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false }
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('bids' as never)
@@ -91,6 +94,7 @@ export async function listBidsForRfpResult(
       'id, vendor_id, total_amount, payment_terms, warranty, start_date, completion_date, status, submitted_at, raw_document_path, vendor:vendors(legal_name)',
     )
     .eq('rfp_id', rfpId)
+    .eq('organization_id', org.id)
     .order('total_amount', { ascending: true })
   if (error) {
     console.error('listBidsForRfp failed', { code: error.code, message: error.message })
@@ -117,6 +121,8 @@ export async function listBidsForRfpResult(
 }
 
 export async function getBid(bidId: string): Promise<BidDetail | null> {
+  const org = await getCurrentOrg()
+  if (!org) return null
   const supabase = await getSupabaseServerClient()
   const { data: bid } = await supabase
     .from('bids' as never)
@@ -124,6 +130,7 @@ export async function getBid(bidId: string): Promise<BidDetail | null> {
       'id, vendor_id, total_amount, payment_terms, warranty, start_date, completion_date, status, submitted_at, raw_document_path, parsed_pdf_text, parsed_pdf_at, vendor:vendors(legal_name)',
     )
     .eq('id', bidId)
+    .eq('organization_id', org.id)
     .single()
 
   if (!bid) return null
@@ -260,6 +267,7 @@ export async function awardBid(
     .from('bids' as never)
     .select('id, vendor_id, status, rfp_id')
     .eq('id', bidId)
+    .eq('organization_id', gate.orgId)
     .maybeSingle<{
       id: string
       vendor_id: string
@@ -301,6 +309,7 @@ export async function awardBid(
     .from('bids' as never)
     .update({ status: 'awarded' } as never)
     .eq('id', bidId)
+    .eq('organization_id', gate.orgId)
   if (winErr) return { ok: false, error: winErr.message }
 
   // Other submitted bids on this RFP become 'declined'. Withdrawn /

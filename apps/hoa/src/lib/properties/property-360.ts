@@ -176,6 +176,7 @@ export async function loadProperty360(
           .from('hoa_violations')
           .select('id, description, status, severity, created_at, cure_period_days, notice_sent_at, resolved_at')
           .eq('property_id', propertyId)
+          .eq('org_id', orgId)
           .is('deleted_at', null)
           .order('id', { ascending: true })
           .range(from, to) as never,

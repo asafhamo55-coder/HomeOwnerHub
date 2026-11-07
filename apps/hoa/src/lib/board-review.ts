@@ -112,7 +112,7 @@ export interface ArcRequestBoardDetail extends ArcRequestBoardRow {
 export async function listArcRequestsForBoard(
   opts?: BoardListOptions<ArcStatus> & { oldestFirst?: boolean; completionBefore?: string },
 ): Promise<BoardList<ArcRequestBoardRow>> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   // Was a silent `.limit(200)`; now paged with an exact count.
   let query = supabase
@@ -121,6 +121,7 @@ export async function listArcRequestsForBoard(
       'id, association_id, unit_id, submitted_by, category, summary, status, submitted_at, board_response_at, proposed_completion, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
       { count: 'exact' },
     )
+    .eq('organization_id', org.id)
     .is('deleted_at', null)
     // Oldest first is most urgent on the decision clock (BL-113).
     .order('submitted_at', { ascending: opts?.oldestFirst === true })
@@ -176,13 +177,14 @@ export async function listArcRequestsForBoard(
  * says "Not available" rather than 0.
  */
 export async function countArcOverdueCompletion(today: string): Promise<number | null> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const res = await loadOrFail(
     'ARC overdue completions',
     supabase
       .from('arc_requests' as never)
       .select('id', { count: 'exact', head: true })
+      .eq('organization_id', org.id)
       .eq('status', 'approved')
       .lt('proposed_completion', today)
       .is('deleted_at', null),
@@ -196,11 +198,15 @@ export async function countArcOverdueCompletion(today: string): Promise<number |
  * read failed.
  */
 export async function readArcStatusRows(): Promise<Array<{ status: string; association_id: string; submitted_at: string }> | null> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const res = await loadOrFail(
     'ARC status counts',
-    supabase.from('arc_requests' as never).select('status, association_id, submitted_at').is('deleted_at', null),
+    supabase
+      .from('arc_requests' as never)
+      .select('status, association_id, submitted_at')
+      .eq('organization_id', org.id)
+      .is('deleted_at', null),
   )
   return res.ok ? (res.data as unknown as Array<{ status: string; association_id: string; submitted_at: string }>) : null
 }
@@ -213,7 +219,7 @@ export async function countArcRequestsByStatus(): Promise<StatusCounts> {
 export async function getArcRequestForBoard(
   id: string,
 ): Promise<ArcRequestBoardDetail | null> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('arc_requests' as never)
@@ -221,6 +227,7 @@ export async function getArcRequestForBoard(
       'id, association_id, unit_id, submitted_by, category, summary, scope_description, proposed_start, proposed_completion, contractor_name, contractor_license, status, board_response, board_response_at, board_response_by, submitted_at, unit:units(unit_number), submitter:profiles!arc_requests_submitted_by_fkey(full_name, email)',
     )
     .eq('id', id)
+    .eq('organization_id', org.id)
     .is('deleted_at', null)
     .maybeSingle()
   // A failed read used to come back as null → "not found". Throw instead so
@@ -518,12 +525,13 @@ export interface ViolationReportBoardDetail extends ViolationReportBoardRow {
 export async function listResidentViolationReportsForBoard(
   opts?: BoardListOptions<ViolationReportStatus>,
 ): Promise<BoardList<ViolationReportBoardRow>> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   // Was a silent `.limit(200)`; now paged with an exact count.
   let query = supabase
     .from('resident_violation_reports' as never)
     .select('id, category, about_address, occurred_at, status, submitted_at', { count: 'exact' })
+    .eq('organization_id', org.id)
     .order('submitted_at', { ascending: false })
     .range(opts?.from ?? 0, opts?.to ?? 99)
   if (typeof opts?.status === 'string') query = query.eq('status', opts.status)
@@ -535,11 +543,11 @@ export async function listResidentViolationReportsForBoard(
 }
 
 export async function countViolationReportsByStatus(): Promise<StatusCounts> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const res = await loadOrFail(
     'report status counts',
-    supabase.from('resident_violation_reports' as never).select('status'),
+    supabase.from('resident_violation_reports' as never).select('status').eq('organization_id', org.id),
   )
   return res.ok ? tally(res.data as unknown as Array<{ status: string }>) : null
 }
@@ -547,7 +555,7 @@ export async function countViolationReportsByStatus(): Promise<StatusCounts> {
 export async function getResidentViolationReportForBoard(
   id: string,
 ): Promise<ViolationReportBoardDetail | null> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('resident_violation_reports' as never)
@@ -555,6 +563,7 @@ export async function getResidentViolationReportForBoard(
       'id, category, description, about_address, about_unit_id, occurred_at, evidence_photo_path, status, board_note, reviewed_at, reviewed_by, hoa_violation_id, submitted_at, reported_by, about_unit:units!resident_violation_reports_about_unit_id_fkey(unit_number), reporter:profiles!resident_violation_reports_reported_by_fkey(full_name, email)',
     )
     .eq('id', id)
+    .eq('organization_id', org.id)
     .maybeSingle()
   if (error) throw new Error(`Failed to load resident report (${error.code ?? 'no code'})`)
   if (!data) return null

@@ -12,7 +12,7 @@ vi.mock('@homeowner-portal/workflows', () => ({
   APPROVAL_EXECUTORS: { 'w18.cash_receipt': w18Executor },
 }))
 
-import { billHandlers, decideApprovalFor, letterHandlers, openingHandlers, postingHandlers, type InboxDecisionHandlers } from './decide'
+import { billHandlers, decideApprovalFor, letterHandlers, openingHandlers, postingHandlers, proHandlers, type InboxDecisionHandlers } from './decide'
 import { letterExecutor } from '../collections/letters/executor'
 import { openingExecutor } from '../accounting/opening-balances/executor'
 
@@ -209,7 +209,7 @@ describe('postingHandlers', () => {
     const adminDb = { tag: 'admin' }
     approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'je', alreadyDecided: false })
     rejectRequest.mockResolvedValueOnce({ ok: true, status: 'rejected', resultRef: null, alreadyDecided: false })
-    const h = postingHandlers(userDb as never, adminDb as never)
+    const h = postingHandlers(userDb as never, adminDb as never, 'org-A')
     await h.approvePosting(ID)
     await h.rejectPosting(ID, 'why')
     expect(approveRequest).toHaveBeenCalledWith(userDb, adminDb, ID, { 'w18.cash_receipt': w18Executor })
@@ -221,7 +221,7 @@ describe('postingHandlers', () => {
     async (t) => {
       approveRequest.mockClear()
       rejectRequest.mockClear()
-      const h = postingHandlers(kindDb(t) as never, {} as never)
+      const h = postingHandlers(kindDb(t) as never, {} as never, 'org-A')
       expect((await h.approvePosting(ID)).ok).toBe(false)
       expect((await h.rejectPosting(ID, 'x')).ok).toBe(false)
       expect(approveRequest).not.toHaveBeenCalled()
@@ -287,7 +287,7 @@ describe('billHandlers', () => {
     const u = userDb('w36.ap_bill')
     const adminDb = { tag: 'admin' }
     approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'inv', alreadyDecided: false })
-    const r = await billHandlers(u as never, adminDb as never, executor).approveBill(ID)
+    const r = await billHandlers(u as never, adminDb as never, executor, 'org-A').approveBill(ID)
     expect(r.ok).toBe(true)
     expect(approveRequest).toHaveBeenCalledWith(u, adminDb, ID, { 'w36.ap_bill': executor })
   })
@@ -295,12 +295,12 @@ describe('billHandlers', () => {
   it('rejects through the approval layer', async () => {
     const u = userDb('w36.ap_bill')
     rejectRequest.mockResolvedValueOnce({ ok: true, status: 'rejected', resultRef: null, alreadyDecided: false })
-    await billHandlers(u as never, {} as never, executor).rejectBill(ID, 'why')
+    await billHandlers(u as never, {} as never, executor, 'org-A').rejectBill(ID, 'why')
     expect(rejectRequest).toHaveBeenCalledWith(u, ID, 'why')
   })
 
   it.each([['w18.cash_receipt'], [null]])('refuses a request that is not a scanned bill (%s) before deciding it', async (t) => {
-    const h = billHandlers(userDb(t) as never, {} as never, executor)
+    const h = billHandlers(userDb(t) as never, {} as never, executor, 'org-A')
     expect((await h.approveBill(ID)).ok).toBe(false)
     expect((await h.rejectBill(ID, 'x')).ok).toBe(false)
     expect(approveRequest).not.toHaveBeenCalled()
@@ -308,7 +308,7 @@ describe('billHandlers', () => {
   })
 
   it('refuses when the kind check fails to load', async () => {
-    const h = billHandlers(userDb(null, { code: '500' }) as never, {} as never, executor)
+    const h = billHandlers(userDb(null, { code: '500' }) as never, {} as never, executor, 'org-A')
     expect((await h.approveBill(ID)).ok).toBe(false)
     expect(approveRequest).not.toHaveBeenCalled()
   })
@@ -347,7 +347,7 @@ describe('letterHandlers', () => {
     const u = userDb('collections.letter')
     const adminDb = { tag: 'admin' }
     approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'case', alreadyDecided: false })
-    const r = await letterHandlers(u as never, adminDb as never).approveLetter(ID)
+    const r = await letterHandlers(u as never, adminDb as never, 'org-A').approveLetter(ID)
     expect(r.ok).toBe(true)
     expect(approveRequest).toHaveBeenCalledWith(u, adminDb, ID, { 'collections.letter': letterExecutor })
   })
@@ -355,7 +355,7 @@ describe('letterHandlers', () => {
   it.each([['w36.ap_bill'], ['w18.cash_receipt'], [null]])('refuses a request that is not a letter (%s) before deciding it', async (t) => {
     approveRequest.mockClear()
     rejectRequest.mockClear()
-    const h = letterHandlers(userDb(t) as never, {} as never)
+    const h = letterHandlers(userDb(t) as never, {} as never, 'org-A')
     expect((await h.approveLetter(ID)).ok).toBe(false)
     expect((await h.rejectLetter(ID, 'x')).ok).toBe(false)
     expect(approveRequest).not.toHaveBeenCalled()
@@ -389,14 +389,14 @@ describe('opening balances (BL-126)', () => {
     const u = userDb('accounting.opening_balances')
     const adminDb = { tag: 'admin' }
     approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'je', alreadyDecided: false })
-    expect((await openingHandlers(u as never, adminDb as never).approveOpening(ID)).ok).toBe(true)
+    expect((await openingHandlers(u as never, adminDb as never, 'org-A').approveOpening(ID)).ok).toBe(true)
     expect(approveRequest).toHaveBeenCalledWith(u, adminDb, ID, { 'accounting.opening_balances': openingExecutor })
   })
 
   it.each([['w18.cash_receipt'], ['collections.letter'], [null]])('refuses a request that is not an opening balance (%s) before deciding it', async (t) => {
     approveRequest.mockClear()
     rejectRequest.mockClear()
-    const h = openingHandlers(userDb(t) as never, {} as never)
+    const h = openingHandlers(userDb(t) as never, {} as never, 'org-A')
     expect((await h.approveOpening(ID)).ok).toBe(false)
     expect((await h.rejectOpening(ID, 'x')).ok).toBe(false)
     expect(approveRequest).not.toHaveBeenCalled()
@@ -455,5 +455,47 @@ describe('decideApprovalFor: BL-034 amenity bookings', () => {
     expect((await decideApprovalFor('board', { kind: 'amenity', id: ID, decision: 'reject', reason: ' ' }, h)).ok).toBe(false)
     expect(h.approveAmenity).not.toHaveBeenCalled()
     expect(h.rejectAmenity).not.toHaveBeenCalled()
+  })
+})
+
+describe('a request from another org is refused while this org is active', () => {
+  // A real filter: the row exists, but only in org-B. RLS would show it to a
+  // person who belongs to both orgs; the handlers must not.
+  const dbWith = (actionType: string, orgOfRow: string) => {
+    const filters: Record<string, unknown> = {}
+    const q: Record<string, unknown> = {
+      select: () => q,
+      eq: (c: string, v: unknown) => {
+        filters[c] = v
+        return q
+      },
+      maybeSingle: async () => ({
+        data: filters.id === ID && filters.organization_id === orgOfRow ? { action_type: actionType } : null,
+        error: null,
+      }),
+    }
+    return { from: vi.fn(() => q) }
+  }
+
+  it.each([
+    ['w18', 'w18.cash_receipt', (db: unknown) => postingHandlers(db as never, {} as never, 'org-A'), 'Posting'],
+    ['bill', 'w36.ap_bill', (db: unknown) => billHandlers(db as never, {} as never, vi.fn(), 'org-A'), 'Bill'],
+    ['letter', 'collections.letter', (db: unknown) => letterHandlers(db as never, {} as never, 'org-A'), 'Letter'],
+    ['opening', 'accounting.opening_balances', (db: unknown) => openingHandlers(db as never, {} as never, 'org-A'), 'Opening'],
+    ['pro', 'pro.journal_entry', (db: unknown) => proHandlers(db as never, {} as never, 'org-A'), 'Pro'],
+  ] as const)('%s: nothing is claimed or executed', async (_k, actionType, make, name) => {
+    approveRequest.mockClear()
+    rejectRequest.mockClear()
+    const h = make(dbWith(actionType, 'org-B')) as unknown as Record<string, (...a: string[]) => Promise<{ ok: boolean }>>
+    expect((await h[`approve${name}`](ID)).ok).toBe(false)
+    expect((await h[`reject${name}`](ID, 'x')).ok).toBe(false)
+    expect(approveRequest).not.toHaveBeenCalled()
+    expect(rejectRequest).not.toHaveBeenCalled()
+  })
+
+  it('the same request in the active org still goes through', async () => {
+    approveRequest.mockResolvedValueOnce({ ok: true, status: 'posted', resultRef: 'je', alreadyDecided: false })
+    const r = await postingHandlers(dbWith('w18.cash_receipt', 'org-A') as never, {} as never, 'org-A').approvePosting(ID)
+    expect(r.ok).toBe(true)
   })
 })

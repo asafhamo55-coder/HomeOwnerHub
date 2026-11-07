@@ -8,6 +8,7 @@ import { fakeSupabase, hasEq, type Recorded } from './test-utils/fake-supabase'
 const h = vi.hoisted(() => ({
   userId: 'user-1' as string | null,
   queries: [] as unknown[],
+  rows: null as unknown,
 }))
 
 vi.mock('next/headers', () => ({
@@ -16,7 +17,7 @@ vi.mock('next/headers', () => ({
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => {
     const { client, queries } = fakeSupabase(() => ({
-      data: [{ org: { id: 'org-1', name: 'HOA', hub_type: 'hoa', plan: 'pro', doors_count: 1 } }],
+      data: h.rows ?? [{ org: { id: 'org-1', name: 'HOA', hub_type: 'hoa', plan: 'pro', doors_count: 1 } }],
       error: null,
     }))
     return {
@@ -36,6 +37,7 @@ import { getCurrentOrg, getUserHoaOrgs, getUserHubs } from './orgs'
 beforeEach(() => {
   h.userId = 'user-1'
   h.queries = []
+  h.rows = null
 })
 
 function membershipQuery(): Recorded {
@@ -69,3 +71,32 @@ describe('org_members reads are filtered to the signed-in user', () => {
     expect((h.queries as Recorded[]).some((q) => q.table === 'org_members')).toBe(false)
   })
 })
+
+describe('suspended and archived orgs', () => {
+  const org = (id: string, extra: Record<string, unknown> = {}) => ({
+    org_id: id,
+    role: 'admin',
+    org: { id, name: id, hub_type: 'hoa', plan: 'pro', doors_count: 1, suspended_at: null, archived_at: null, ...extra },
+  })
+
+  it('only org suspended: that org is still returned (last resort, same as before)', async () => {
+    h.rows = [org('only', { suspended_at: '2026-01-01T00:00:00Z' })]
+    expect(await getCurrentOrg()).toMatchObject({ id: 'only' })
+  })
+
+  it('only org archived: also still returned', async () => {
+    h.rows = [org('only', { archived_at: '2026-01-01T00:00:00Z' })]
+    expect(await getCurrentOrg()).toMatchObject({ id: 'only' })
+  })
+
+  it('an active org wins over an older suspended one', async () => {
+    h.rows = [org('old', { suspended_at: '2026-01-01T00:00:00Z' }), org('new')]
+    expect(await getCurrentOrg()).toMatchObject({ id: 'new' })
+  })
+
+  it('the switcher list leaves the suspended one out', async () => {
+    h.rows = [org('old', { suspended_at: '2026-01-01T00:00:00Z' }), org('new')]
+    expect((await getUserHoaOrgs()).map((o) => o.id)).toEqual(['new'])
+  })
+})
+

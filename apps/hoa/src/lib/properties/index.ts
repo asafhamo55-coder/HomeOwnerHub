@@ -234,6 +234,8 @@ export interface PropertyDetail {
 export async function getPropertyDetail(
   propertyId: string,
 ): Promise<PropertyDetail | null> {
+  const org = await getCurrentOrg()
+  if (!org) return null
   const supabase = await getSupabaseServerClient()
   const { data: property } = await supabase
     .from('hoa_properties')
@@ -241,6 +243,7 @@ export async function getPropertyDetail(
       'id, address, unit_number, owner_name, owner_email, owner_phone, notes, tenure, tenure_updated_at, tenure_updated_by, created_at',
     )
     .eq('id', propertyId)
+    .eq('org_id', org.id)
     .is('deleted_at', null)
     .maybeSingle()
 
@@ -397,6 +400,7 @@ export async function setPropertyTenure(
     .from('hoa_properties')
     .select('id, tenure')
     .eq('id', parsed.data.property_id)
+    .eq('org_id', org.id)
     .maybeSingle<{ id: string; tenure: PropertyTenure | null }>()
   if (!existing) return { ok: false, error: 'Property not found.' }
 

@@ -1,6 +1,7 @@
 import { formatDay } from '@/lib/money/format'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getCurrentOrg } from '@/lib/orgs'
 import { LoadFailed, Page } from '@homeowner-portal/ui'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail } from '@/lib/load-or-fail'
@@ -14,6 +15,8 @@ export const metadata = { title: 'Edit meeting' }
 export default async function EditMeetingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await getSupabaseServerClient()
+  const org = await getCurrentOrg()
+  if (!org) notFound()
 
   const result = await loadOrFail(
     'meeting',
@@ -21,6 +24,7 @@ export default async function EditMeetingPage({ params }: { params: Promise<{ id
       .from('hoa_meeting_minutes')
       .select('id, meeting_date, meeting_type, attendees, ai_summary')
       .eq('id', id)
+      .eq('org_id', org.id)
       .is('deleted_at', null)
       .maybeSingle(),
   )

@@ -47,7 +47,7 @@ export type RecordsRequestList =
 
 export async function loadRecordsRequests(): Promise<RecordsRequestList | null> {
   if (!RECORDS_REQUESTS_LIVE) return null
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const assoc = await getPrimaryAssociation()
   const timeZone = assoc?.timeZone ?? 'America/New_York'
@@ -70,6 +70,7 @@ export async function loadRecordsRequests(): Promise<RecordsRequestList | null> 
       .select(
         'id, subject, description, status, created_at, closed_at, records_due_at, unit:units(unit_number), submitter:profiles!tickets_submitted_by_fkey(full_name)',
       )
+      .eq('organization_id', org.id)
       .eq('category' as never, RECORDS_CATEGORY)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })

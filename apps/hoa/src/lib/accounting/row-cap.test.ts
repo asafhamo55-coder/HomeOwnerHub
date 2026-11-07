@@ -104,7 +104,7 @@ describe('computeCashFlow', () => {
     lines: current.lines.filter((l) => l.journal_entry_id === je.id),
   }))
   const tables = () => ({
-    fiscal_periods: [{ id: 'p1', start_date: '2026-09-01', end_date: '2026-09-30' }],
+    fiscal_periods: [{ id: 'p1', association_id: A, start_date: '2026-09-01', end_date: '2026-09-30' }],
     chart_of_accounts: coa,
     journal_entries: [...prior.jes, ...periodJes],
     ledger_entries: [...prior.lines, ...current.lines],

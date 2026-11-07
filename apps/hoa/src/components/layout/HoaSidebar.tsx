@@ -37,6 +37,8 @@ interface HoaSidebarProps {
   currentOrgId: string
   currentOrgName: string
   hoaOrgs: UserHoaOrg[]
+  /** All orgs the person belongs to; past 8 the switcher searches. */
+  orgCount?: number
   role: 'admin' | 'board'
   /**
    * Count badges keyed by nav href (e.g. pending approvals). Null/absent = no
@@ -50,7 +52,7 @@ interface HoaSidebarProps {
   whatsNewLatestId?: string | null
 }
 
-export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges, version, whatsNewLatestId = null }: HoaSidebarProps) {
+export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, orgCount = 0, role, badges, version, whatsNewLatestId = null }: HoaSidebarProps) {
   const pathname = usePathname()
   const [resolvedBadges, setResolvedBadges] = useState<Record<string, string | null> | null>(
     badges && !isPromise(badges) ? badges : null,
@@ -126,7 +128,7 @@ export function HoaSidebar({ currentOrgId, currentOrgName, hoaOrgs, role, badges
       >
         <div className="min-w-0 flex-1 leading-tight">
           <p className="truncate text-sm font-semibold text-foreground">HomeownerHub</p>
-          <OrgSwitcher currentOrgId={currentOrgId} currentOrgName={currentOrgName} orgs={hoaOrgs} />
+          <OrgSwitcher currentOrgId={currentOrgId} currentOrgName={currentOrgName} orgs={hoaOrgs} orgCount={orgCount} />
         </div>
       </SidebarBrand>
 

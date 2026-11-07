@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getCurrentOrg } from '@/lib/orgs'
 import { format } from 'date-fns'
 import { CheckCircle2, Clock, Gavel, ScrollText } from 'lucide-react'
 import {
@@ -76,12 +77,15 @@ function motionTone(result: string | undefined): 'success' | 'danger' | 'neutral
 export default async function MeetingDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params
   const supabase = await getSupabaseServerClient()
+  const org = await getCurrentOrg()
+  if (!org) notFound()
   const result = await loadOrFail(
     'meeting',
     supabase
       .from('hoa_meeting_minutes')
       .select(meetingDetailColumns(M1_APPLIED))
       .eq('id', id)
+      .eq('org_id', org.id)
       .is('deleted_at', null)
       .maybeSingle(),
   )

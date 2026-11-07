@@ -7,17 +7,29 @@ import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@homeowner-portal/ui'
 import { setActiveOrg } from '@/app/actions/set-active-org'
 import type { UserHoaOrg } from '@/lib/orgs'
+import { SWITCHER_SEARCH_THRESHOLD } from '@/lib/org-switcher'
+import { OrgSearchSwitcher } from './OrgSearchSwitcher'
 
 interface Props {
   currentOrgId: string
   currentOrgName: string
   orgs: UserHoaOrg[]
+  /** How many orgs the person belongs to in all. Past the threshold the
+   *  list gives way to a search box; `orgs` only holds the first few then. */
+  orgCount?: number
 }
 
 // Sidebar-brand org switcher. The trigger looks like static org-name text
 // when there's only one HOA org (no chevron, no interaction). When there
 // are 2+ orgs, it becomes a dropdown.
-export function OrgSwitcher({ currentOrgId, currentOrgName, orgs }: Props) {
+export function OrgSwitcher({ currentOrgId, currentOrgName, orgs, orgCount = 0 }: Props) {
+  if (orgCount > SWITCHER_SEARCH_THRESHOLD) {
+    return <OrgSearchSwitcher currentOrgId={currentOrgId} currentOrgName={currentOrgName} />
+  }
+  return <OrgListSwitcher currentOrgId={currentOrgId} currentOrgName={currentOrgName} orgs={orgs} />
+}
+
+function OrgListSwitcher({ currentOrgId, currentOrgName, orgs }: Omit<Props, 'orgCount'>) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)

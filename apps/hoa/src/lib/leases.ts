@@ -695,6 +695,7 @@ export async function approveWaitingListEntry(
     .from('lease_waiting_list' as never)
     .select('id, property_id, status')
     .eq('id', entryId)
+    .eq('organization_id' as never, org.id)
     .maybeSingle<{ id: string; property_id: string; status: WaitingListStatus }>()
   if (!entry) return { ok: false, error: 'Waiting-list entry not found.' }
   if (entry.status !== 'waiting') {
@@ -708,6 +709,7 @@ export async function approveWaitingListEntry(
     .from('hoa_properties')
     .select('id, tenure')
     .eq('id', entry.property_id)
+    .eq('org_id', org.id)
     .maybeSingle<{ id: string; tenure: PropertyTenure | null }>()
   const prevTenure: PropertyTenure = (prop?.tenure ?? 'unknown') as PropertyTenure
 
@@ -825,6 +827,7 @@ export async function denyWaitingListEntry(
     .from('lease_waiting_list' as never)
     .select('id, property_id, status')
     .eq('id', entryId)
+    .eq('organization_id' as never, org.id)
     .maybeSingle<{ id: string; property_id: string; status: WaitingListStatus }>()
   if (!entry) return { ok: false, error: 'Waiting-list entry not found.' }
   if (entry.status !== 'waiting') {
@@ -892,6 +895,7 @@ export async function withdrawWaitingListEntry(
     .from('lease_waiting_list' as never)
     .select('id, property_id, status')
     .eq('id', entryId)
+    .eq('organization_id' as never, org.id)
     .maybeSingle<{ id: string; property_id: string; status: WaitingListStatus }>()
   if (!entry) return { ok: false, error: 'Waiting-list entry not found.' }
   if (entry.status !== 'waiting') {

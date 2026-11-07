@@ -154,6 +154,7 @@ export async function listTicketsForBoard(opts: {
       'id, unit_id, submitted_by, category, subject, status, priority, created_at, unit:units(unit_number), submitter:profiles!tickets_submitted_by_fkey(full_name, email)',
       { count: 'exact' },
     )
+    .eq('organization_id', org.id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
   const filtered = await applyTicketFilters(supabase, query, { status: opts.status, q: opts.q })
@@ -170,6 +171,7 @@ export async function listTicketsForBoard(opts: {
       supabase
         .from('tickets' as never)
         .select('id', { count: 'exact', head: true })
+        .eq('organization_id', org.id)
         .is('deleted_at', null)
         .eq('status', status),
     )
@@ -275,7 +277,7 @@ export type BoardTicketLoad =
  * conversation did not (`ok` with `messagesFailed`, messages empty).
  */
 export async function getTicketForBoard(id: string): Promise<BoardTicketLoad> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const parent = await loadOrFail(
     'board ticket',
@@ -285,6 +287,7 @@ export async function getTicketForBoard(id: string): Promise<BoardTicketLoad> {
         'id, unit_id, submitted_by, category, subject, description, status, priority, created_at, closed_at, closed_by, unit:units(unit_number), submitter:profiles!tickets_submitted_by_fkey(full_name, email)',
       )
       .eq('id', id)
+      .eq('organization_id', org.id)
       .is('deleted_at', null)
       .maybeSingle(),
   )
@@ -517,12 +520,13 @@ export async function createActionItemFromTicket(input: {
 export async function listTicketActionItems(
   ticketId: string,
 ): Promise<TicketActionItem[]> {
-  await requireBoardOrAdmin()
+  const { org } = await requireBoardOrAdmin()
   const supabase = await getSupabaseServerClient()
   const { data, error } = await supabase
     .from('meeting_action_items' as never)
     .select('id, title, status, priority, assignee_name, due_date, created_at')
     .eq('ticket_id' as never, ticketId)
+    .eq('org_id' as never, org.id)
     .order('created_at' as never, { ascending: true })
   // Throw to the route error boundary rather than render "No action items"
   // for a failed read (UX audit finding 1).
