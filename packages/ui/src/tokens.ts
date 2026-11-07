@@ -12,7 +12,11 @@
  * pair below against WCAG 2.2 AA, so a value here cannot drift below
  * contrast without a red test.
  *
- * Brand direction: violet (2026-10-30, matches the redesigned marketing site,
+ * Brand history: Blue #2563EB with green #047857 from 2026-11-07, owner
+ * decision (docs/decisions/2026-11-07-brand-blue-green.md). Green marks
+ * done/safe states and is never the primary action fill.
+ *
+ * Earlier direction: violet (2026-10-30, matches the redesigned marketing site,
  * whose globals.css carries the same HSL values). The HOA app, the marketing
  * site and the HomeownerHub logo share violet #4B27C9 with light-violet
  * tints and cool slate neutrals. (Blue-600 #2563EB until 2026-10-30, see
@@ -94,9 +98,9 @@ const neutral: Record<ThemeMode, NeutralPalette> = {
     accent: '#F79009',
     'accent-subtle': '#FFF6E5',
     'accent-fg': '#93370D',
-    success: '#067647',
-    'success-solid': '#067647',
-    'success-subtle': '#ECFDF3',
+    success: '#047857',
+    'success-solid': '#047857',
+    'success-subtle': '#ECFDF5',
     warning: '#A6420A',
     'warning-solid': '#B54708',
     'warning-subtle': '#FFF8E6',
@@ -123,7 +127,7 @@ const neutral: Record<ThemeMode, NeutralPalette> = {
     'accent-subtle': '#2B2110',
     'accent-fg': '#FEC84B',
     success: '#4ACB8B',
-    'success-solid': '#067647',
+    'success-solid': '#047857',
     'success-subtle': '#0D2419',
     warning: '#FDB022',
     'warning-solid': '#B54708',
@@ -146,18 +150,18 @@ const neutral: Record<ThemeMode, NeutralPalette> = {
 export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
   hoa: {
     light: {
-      primary: '#4B27C9', // website violet (apps/marketing globals.css)
-      'primary-hover': '#3A1BA6',
+      primary: '#2563EB', // brand blue; white text 5.2:1
+      'primary-hover': '#1D4ED8',
       'primary-fg': '#FFFFFF',
-      'primary-subtle': '#F0ECFF', // light-violet tint
-      ring: '#4B27C9',
+      'primary-subtle': '#EFF6FF',
+      ring: '#2563EB',
     },
     dark: {
-      primary: '#CBC2FF',
-      'primary-hover': '#E1DBFF',
-      'primary-fg': '#16141F',
-      'primary-subtle': '#3A2786',
-      ring: '#B7A9FF',
+      primary: '#60A5FA',
+      'primary-hover': '#93C5FD',
+      'primary-fg': '#0A0F1A',
+      'primary-subtle': '#172554',
+      ring: '#60A5FA',
     },
   },
   pm: {
@@ -204,10 +208,10 @@ export const BRANDS: Record<HubKey, Record<ThemeMode, BrandPalette>> = {
  * (WCAG 1.4.11, ≥3:1) and the wordmark text (≥4.5:1).
  */
 export const LOGO = {
-  light: { tile: '#4B27C9', glyph: '#FFFFFF', line: '#DDD6FE', text: '#0F172A', accent: '#4B27C9' },
+  light: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#0F172A', accent: '#2563EB' },
   // The dark tile lifts one step so it keeps 3:1 against the dark canvas
-  // (#4B27C9 alone is ~2.2:1); "Hub" lifts to the dark primary.
-  dark: { tile: '#6340E0', glyph: '#FFFFFF', line: '#DDD6FE', text: '#F1F5F9', accent: '#CBC2FF' },
+  // (#1E40AF alone is too dark); "Hub" lifts to the dark primary.
+  dark: { tile: '#2563EB', glyph: '#FFFFFF', line: '#BFDBFE', text: '#F1F5F9', accent: '#60A5FA' },
 } as const
 
 export function palette(hub: HubKey, mode: ThemeMode): Palette {

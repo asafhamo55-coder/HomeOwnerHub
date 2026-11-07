@@ -20,19 +20,19 @@ import { packetPeriodLabel, sourceLabel, summarizePacket, type PacketPdfInput } 
 export type { PacketPdfInput } from './pdf-summary'
 
 const C = {
-  primary: '#4B27C9',
-  primarySubtle: '#F0ECFF',
+  primary: '#2563EB',
+  primarySubtle: '#EFF6FF',
   text: '#0F172A',
   text2: '#334155',
   muted: '#526077',
   line: '#E2E8F0',
   tint: '#F5F8FC',
   danger: '#C4261B',
-  success: '#067647',
+  success: '#047857',
   warnBg: '#FFF8E6',
   warnEdge: '#F79009',
   warnText: '#93370D',
-  door: '#DDD6FE',
+  door: '#BFDBFE',
 }
 
 const MARGIN = 48
