@@ -4,6 +4,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { resolveLogo } from '../../release-notes/lib/logo'
 import { parseArgs } from '../../release-notes/lib/build'
 import { ConfigError, readSendEnv, sendViaResend, type SendEnv } from '../../release-notes/lib/send'
 import { DOC_PATH, renderOwnerActionsEmail } from './email'
@@ -13,6 +14,8 @@ export interface RunDeps {
   env: NodeJS.ProcessEnv
   cwd: string
   fetch?: typeof fetch
+  /** Set by the CLI entry points: enables the logo URL check (logo.ts). Left unset in tests. */
+  logoFetch?: typeof fetch
   log?: (line: string) => void
 }
 
@@ -87,6 +90,7 @@ export async function runOwnerActions(argv: readonly string[], deps: RunDeps): P
     return 0
   }
 
+  if (deps.logoFetch) await resolveLogo(deps.logoFetch, deps.log)
   const email = renderOwnerActionsEmail(actions, { branch: str(args.branch) })
   log(`${open} open (${urgent} urgent), ${actions.done.length} done · hash ${hash}`)
 

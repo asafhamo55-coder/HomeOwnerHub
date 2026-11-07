@@ -8,6 +8,7 @@
 // URLs (no tracking pixels; the one remote image is the header logo, which has alt text), 600px column.
 
 import { BRAND } from './brand'
+import { getLogoUrl } from './logo'
 import { blocksToHtml, blocksToText, escapeHtml, inlineText } from './markdown'
 import { formatDeployedAt } from './fallback'
 import type { InlineImage } from './images'
@@ -111,12 +112,21 @@ ${extraCss}</style>
 `
 }
 
+/** The header logo image, or the text wordmark when no logo URL answered (see logo.ts). */
+function logoCell(): string {
+  const url = getLogoUrl()
+  if (!url) {
+    return `<span class="rn-link" style="display:block;font-family:${BRAND.font};font-size:22px;line-height:30px;font-weight:700;color:${BRAND.primary};">${BRAND.productName}</span>`
+  }
+  return `<img class="rn-link" src="${escapeHtml(url)}" alt="${BRAND.productName}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" border="0" style="display:block;border:0;background:none;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;font-family:${BRAND.font};font-size:20px;line-height:30px;font-weight:700;color:${BRAND.primary};" />`
+}
+
 /** The logo row at the top of the 600px column, with a right-aligned label. */
 export function wordmarkHeader(label: string): string {
   return `<!-- Header: logo -->
 <tr><td style="padding:0 4px 18px 4px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-    <td valign="middle"><img src="${escapeHtml(BRAND.logoUrl)}" alt="${BRAND.productName}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" border="0" style="display:block;border:0;background:none;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;font-family:${BRAND.font};font-size:20px;line-height:30px;font-weight:700;color:${BRAND.primary};" /></td>
+    <td valign="middle">${logoCell()}</td>
     <td valign="middle" align="right" class="rn-muted" style="font-size:13px;line-height:16px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${BRAND.muted};">${escapeHtml(label)}</td>
   </tr></table>
 </td></tr>`

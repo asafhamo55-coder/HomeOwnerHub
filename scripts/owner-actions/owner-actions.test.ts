@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resetLogo } from '../release-notes/lib/logo'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { blocksToHtml, blocksToText } from '../release-notes/lib/markdown'
 import { renderOwnerActionsEmail, subjectFor } from './lib/email'
@@ -178,6 +179,20 @@ describe('send', () => {
   function okFetch() {
     return vi.fn(async () => new Response(JSON.stringify({ id: 'email_123' }), { status: 200 }))
   }
+
+  it('uses the previous logo folder when only v3 answers', async () => {
+    const out = path.join(docDir(), 'preview.html')
+    const logoFetch = vi.fn(async (u: RequestInfo | URL) =>
+      new Response(null, { status: String(u).includes('/email/v3/') ? 200 : 404, headers: { 'content-type': 'image/png' } }),
+    ) as unknown as typeof fetch
+    const code = await runOwnerActions(['--dry-run', '--out', out], { env: {}, cwd: docDir(), logoFetch })
+    resetLogo()
+    expect(code).toBe(0)
+    expect(logoFetch).toHaveBeenCalled()
+    const html = readFileSync(out, 'utf8')
+    expect(html).toContain('/email/v3/homeownerhub-logo.png')
+    expect(html).not.toContain('/email/v4/homeownerhub-logo.png')
+  })
 
   it.each([['RESEND_API_KEY'], ['OWNER_ACTIONS_TO'], ['RELEASE_NOTES_FROM']])(
     'refuses with exit 2 and sends nothing when %s is missing',
