@@ -6,7 +6,7 @@ import { useTextSize } from './useTextSize'
 
 /**
  * Text size picker for the resident Account page: a native radio group
- * (arrow keys move and select), 48px targets, and a polite live region that
+ * (arrow keys move and select), 48px targets (never under 44px), and a polite live region that
  * announces the choice.
  */
 export function TextSizeControl() {
@@ -21,7 +21,7 @@ export function TextSizeControl() {
         {TEXT_SIZES.map((s) => (
           <label
             key={s.value}
-            className="flex min-h-12 cursor-pointer items-center justify-center rounded-lg border border-border px-2 py-2 text-center text-sm font-medium text-foreground has-[:checked]:border-primary has-[:checked]:bg-primary-subtle has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary"
+            className="flex min-h-12 cursor-pointer items-center justify-center rounded-lg border border-border px-2 py-2 text-center text-sm font-medium text-foreground has-[:checked]:border-primary has-[:checked]:bg-primary-subtle has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary forced-colors:has-[:focus-visible]:outline forced-colors:has-[:focus-visible]:outline-2 forced-colors:has-[:checked]:border-2 forced-colors:has-[:checked]:border-[Highlight]"
           >
             <input
               type="radio"

@@ -210,7 +210,7 @@ export function AudienceStep({
         htmlFor={id}
         className={cn(
           'flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors duration-fast',
-          'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
+          'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring forced-colors:has-[:focus-visible]:outline forced-colors:has-[:focus-visible]:outline-2',
           selected ? 'border-primary bg-primary-subtle' : 'border-border bg-surface hover:bg-subtle',
           disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
         )}

@@ -1,5 +1,6 @@
 import { FileCheck2, Lock, ShieldCheck, Users } from 'lucide-react'
 import { cn, BrandLogo, BrandMark } from '@homeowner-portal/ui'
+import { TextSizeControl } from '@/components/theme/TextSizeControl'
 import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from './auth-errors-shared'
@@ -45,6 +46,10 @@ export function AuthShell({
             </div>
           )}
           {children}
+          {/* Works signed out: the choice lives in localStorage only. */}
+          <div className="mx-auto max-w-xs" data-testid="auth-text-size">
+            <TextSizeControl />
+          </div>
           <div className="text-center text-sm text-muted">
             {footer ?? (
               <p className="inline-flex items-center gap-1.5">

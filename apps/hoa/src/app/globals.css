@@ -26,6 +26,27 @@
   }
 }
 
+/* Windows High Contrast / forced-colors: box-shadow rings and tinted
+   borders are removed by the browser, so keyboard focus and control edges
+   vanish. Give focus a real outline and controls a system-colour border.
+   Normal-mode visuals are untouched. Unlayered on purpose, so it beats the
+   `focus-visible:outline-none` utilities. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+  button,
+  [role='button'],
+  [role='checkbox'],
+  [role='radio'],
+  [role='switch'],
+  input[type='checkbox'],
+  input[type='radio'] {
+    border: 1px solid ButtonText;
+  }
+}
+
 /* NavigationProgress — top-of-viewport loading bar shown while a same-
    origin link navigation is in flight. Starts at 20% width so the bar
    is visible the FRAME the user clicks (not invisibly tiny). Width

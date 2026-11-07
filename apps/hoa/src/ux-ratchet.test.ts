@@ -657,3 +657,43 @@ describe('no developer instructions in user-facing text (BL-072)', () => {
     expect(src).toMatch(/<BooksNotOpenNotice\b/)
   })
 })
+
+// Round 30 item 5: Windows High Contrast / forced-colors removes box-shadow
+// rings, so every ring-only focus style needs an outline fallback. The global
+// rule in globals.css covers :focus-visible; custom focus styles that move
+// the ring onto a parent (has-[:focus-visible], focus-within) are not matched
+// by it, so they must carry their own forced-colors: outline.
+describe('forced-colors keeps focus and control edges visible', () => {
+  const css = readFileSync(path.join(repoRoot, 'apps/hoa/src/app/globals.css'), 'utf8')
+  const block = css.slice(css.indexOf('@media (forced-colors: active)'))
+
+  it('globals.css draws a real outline on :focus-visible', () => {
+    expect(css).toMatch(/@media \(forced-colors: active\)/)
+    expect(block).toMatch(/:focus-visible\s*{[^}]*outline:\s*2px solid Highlight/)
+  })
+
+  it('globals.css gives buttons, checkboxes and radios a system border', () => {
+    expect(block).toMatch(/border:\s*1px solid ButtonText/)
+  })
+
+  it('the shared Button has a forced-colors outline and border', () => {
+    const src = readFileSync(path.join(repoRoot, 'packages/ui/src/components/Button.tsx'), 'utf8')
+    expect(src).toMatch(/forced-colors:focus-visible:outline/)
+    expect(src).toMatch(/forced-colors:border/)
+  })
+
+  it('a ring moved onto a parent (has-[:focus-visible]:ring, focus-within:ring) has a forced-colors outline', () => {
+    const bad: string[] = []
+    for (const d of [path.join(repoRoot, 'apps/hoa/src'), path.join(repoRoot, 'packages/ui/src')]) {
+      for (const file of walkSource(d)) {
+        if (!file.endsWith('.tsx')) continue
+        const src = readFileSync(file, 'utf8')
+        if (!/(has-\[:focus-visible\]|focus-within):ring/.test(src)) continue
+        // Input wraps a native control, whose own :focus-visible gets the global outline.
+        if (/(components\/Input\.tsx|inbox\/\[id\]\/RecipientFields\.tsx)$/.test(file)) continue
+        if (!/forced-colors:(has-\[:focus-visible\]|focus-within):outline/.test(src)) bad.push(path.relative(repoRoot, file))
+      }
+    }
+    expect(bad).toEqual([])
+  })
+})
