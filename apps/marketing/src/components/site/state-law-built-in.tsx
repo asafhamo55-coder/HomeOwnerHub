@@ -13,7 +13,7 @@ export function StateLawBuiltIn({ id = 'state-law' }: { id?: string }) {
   const ga = STATE_CARDS.find((s) => s.state === 'GA')!
   const others = STATE_CARDS.filter((s) => s.state !== 'GA')
   return (
-    <section className="section section-warm scroll-mt-16" id={id}>
+    <section className="section section-green scroll-mt-16" id={id}>
       <div className="container-page">
         <header className="reveal mx-auto max-w-3xl text-center">
           <p className="eyebrow !text-sm">State law built in</p>

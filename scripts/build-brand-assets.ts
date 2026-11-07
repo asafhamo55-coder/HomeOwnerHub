@@ -37,13 +37,13 @@ type Palette = Record<Mode, { tile: string; glyph: string; line: string; text: s
 
 /**
  * Per-target colours. The app keeps the shared LOGO token. The website is
- * Royal purple (docs/decisions/2026-11-06-website-royal-purple.md): tile
- * #6D28D9 and door #E9D5FF in both modes, as the site CSS paints them; dark
- * variants use the site's on-dark tokens (white text, orchid "Hub").
+ * blue and green (docs/decisions/2026-11-07-website-blue-green.md): tile
+ * #2563EB and a white mark in both modes, as the site CSS paints them; dark
+ * variants use white text and a light-blue "Hub".
  */
 const MARKETING_LOGO: Palette = {
-  light: { tile: '#6D28D9', glyph: '#FFFFFF', line: '#E9D5FF', text: '#211B2C', accent: '#6D28D9' },
-  dark: { tile: '#6D28D9', glyph: '#FFFFFF', line: '#E9D5FF', text: '#FFFFFF', accent: '#E9D5FF' },
+  light: { tile: '#2563EB', glyph: '#FFFFFF', line: '#FFFFFF', text: '#0F172A', accent: '#2563EB' },
+  dark: { tile: '#2563EB', glyph: '#FFFFFF', line: '#FFFFFF', text: '#FFFFFF', accent: '#BFDBFE' },
 }
 
 const TARGETS: { dir: string; logo: Palette; conventions: string[] }[] = [

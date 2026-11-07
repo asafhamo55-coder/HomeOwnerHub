@@ -280,9 +280,9 @@ export function Nav() {
                 </div>
                 <div className="tile-grad flex flex-col justify-between rounded-2xl p-6 text-[#fff]">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#e9d5ff]">Built in</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#dbeafe]">Built in</p>
                     <p className="mt-3 text-xl font-semibold leading-snug">Georgia law, cited in every answer</p>
-                    <p className="mt-2 text-sm leading-relaxed text-[#e9d5ff]">
+                    <p className="mt-2 text-sm leading-relaxed text-[#dbeafe]">
                       Read what SB 406 and the Georgia POA Act mean for your board, in plain English.
                     </p>
                   </div>
@@ -290,7 +290,7 @@ export function Nav() {
                     <Link
                       href="/georgia"
                       onClick={() => setFeaturesOpen(false)}
-                      className="inline-flex min-h-11 items-center justify-between rounded-xl bg-[#fff] px-4 text-[15px] font-semibold text-[#3b0764] transition-colors hover:bg-[#f0e8ff]"
+                      className="inline-flex min-h-11 items-center justify-between rounded-xl bg-[#fff] px-4 text-[15px] font-semibold text-[#1e40af] transition-colors hover:bg-[#f0e8ff]"
                     >
                       See Georgia guides
                       <ArrowRight className="h-4 w-4" aria-hidden />
