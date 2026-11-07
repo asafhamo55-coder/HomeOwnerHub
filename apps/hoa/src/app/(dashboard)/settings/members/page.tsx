@@ -142,6 +142,9 @@ export default async function MembersPage() {
           <Link href="/people/join-notice" className="font-medium text-primary underline">
             Print a how-to-join notice
           </Link>
+          <Link href="/properties/roster/labels?paper=1" className="mt-2 flex min-h-11 items-center font-medium text-primary underline">
+            Print mailing labels for owners who get notices on paper
+          </Link>
         </CardContent>
       </Card>
 

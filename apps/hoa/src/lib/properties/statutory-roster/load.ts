@@ -32,7 +32,7 @@ function readTable<T>(db: Loose, table: string, columns: string, orgColumn: stri
 interface AssocRow { id: string; name: string | null; state: string | null; governing_law_state: string | null; type?: string | null }
 interface PropRow { id: string; address: string | null; unit_number: string | null; owner_name: string | null; owner_email: string | null; owner_phone: string | null }
 interface UnitRow { id: string; association_id: string | null; lot_number: string | null; notes: string | null }
-interface OwnRow { id: string; unit_id: string; owner_name: string | null; owner_email: string | null; owner_phone: string | null; ownership_pct: number | null; valid_from: string; valid_to: string | null }
+interface OwnRow { id: string; unit_id: string; owner_name: string | null; owner_email: string | null; owner_phone: string | null; owner_user_id: string | null; ownership_pct: number | null; valid_from: string; valid_to: string | null }
 interface ResRow { id: string; property_id: string; role: string; notes: string | null; moved_out_at: string | null }
 interface ChargeRow { id: string; unit_id: string; amount: number; due_date: string; status: string }
 interface PayRow { id: string; assessment_id: string | null; unit_id: string | null; amount: number; paid_at: string }
@@ -77,7 +77,7 @@ export async function loadRosterInput(
     readTable<UnitRow>(db, 'units', 'id, association_id, lot_number, notes', 'organization_id', orgId),
     // Which units belong to which home: resolve.ts owns the bridge.
     unitPropertyIndex(supabase as never, orgId),
-    readTable<OwnRow>(db, 'ownerships', 'id, unit_id, owner_name, owner_email, owner_phone, ownership_pct, valid_from, valid_to', 'organization_id', orgId),
+    readTable<OwnRow>(db, 'ownerships', 'id, unit_id, owner_name, owner_email, owner_phone, owner_user_id, ownership_pct, valid_from, valid_to', 'organization_id', orgId),
     readTable<ResRow>(db, 'property_residents', 'id, property_id, role, notes, moved_out_at', 'organization_id', orgId, (q) => q.is('deleted_at', null)),
     kind === 'voters'
       ? readTable<ChargeRow>(db, 'assessments', 'id, unit_id, amount, due_date, status', 'organization_id', orgId, (q) => q.is('deleted_at', null).lt('due_date', asOf))
@@ -125,6 +125,7 @@ export async function loadRosterInput(
         ownerName: o.owner_name,
         ownerEmail: o.owner_email,
         ownerPhone: o.owner_phone,
+        ownerUserId: o.owner_user_id,
         ownershipPct: o.ownership_pct == null ? null : Number(o.ownership_pct),
         validFrom: o.valid_from,
         validTo: o.valid_to,

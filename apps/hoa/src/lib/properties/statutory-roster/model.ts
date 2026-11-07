@@ -60,6 +60,8 @@ export interface RosterOwnership {
   ownerName: string | null
   ownerEmail: string | null
   ownerPhone: string | null
+  /** ownerships.owner_user_id: the owner's portal account, when they have one. */
+  ownerUserId?: string | null
   ownershipPct: number | null
   validFrom: string
   validTo: string | null
@@ -107,6 +109,8 @@ export interface RosterOwner {
   name: string
   email: string | null
   phone: string | null
+  /** Portal account id (ownerships.owner_user_id); null for a home-record owner or one without an account. */
+  userId?: string | null
   share: string
   /** YYYY-MM-DD, or null when the owner comes from the home record. */
   since: string | null
@@ -183,6 +187,9 @@ export function shareLabel(pct: number | null, ownerCount: number): string {
   return `${Number(pct.toFixed(2))}%`
 }
 
+/** Placeholder shown when an owner has no name on file. */
+export const OWNER_NAME_MISSING = 'Name not recorded'
+
 export function mailingAddressFromNotes(notes: string | null | undefined): string | null {
   const m = notes ? MAILING_NOTE.exec(notes) : null
   const text = m?.[1]?.trim()
@@ -215,6 +222,7 @@ function ownersFor(home: RosterHome, history: RosterOwnership[], asOf: string): 
           name,
           email: home.recordOwner?.email ?? null,
           phone: home.recordOwner?.phone ?? null,
+          userId: null,
           share: '100%',
           since: null,
           sharingOptOut: home.recordOwner?.sharingOptOut ?? null,
@@ -234,9 +242,10 @@ function ownersFor(home: RosterHome, history: RosterOwnership[], asOf: string): 
     )
   if (current.length === 0) return { owners: [], source: 'none', sharesWarning: null }
   const owners = current.map((o) => ({
-    name: o.ownerName?.trim() || 'Name not recorded',
+    name: o.ownerName?.trim() || OWNER_NAME_MISSING,
     email: o.ownerEmail?.trim() || null,
     phone: o.ownerPhone?.trim() || null,
+    userId: o.ownerUserId ?? null,
     share: shareLabel(o.ownershipPct, current.length),
     since: day(o.validFrom),
     sharingOptOut: o.sharingOptOut ?? null,
