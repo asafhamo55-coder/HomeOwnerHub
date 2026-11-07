@@ -15,24 +15,22 @@ Some owners never read email. This page makes one printed sheet in large type th
 
 ## Before you start
 - Board members and admins can open this page. Residents cannot.
-- Add your board contacts first. Open **Settings**, then **Association**, and fill in **Contacts**. The notice prints up to two contacts that have a phone number or an email. Anyone who picks up the sheet can read them.
+- Add your board contacts first. Open **Settings**, then **Association**, and fill in **Board and emergency contacts**. The notice prints up to two contacts that have a phone number or an email. Anyone who picks up the sheet can read them.
 - **Ask to join** must be switched on. If it is not, a yellow note on the page says so, and owners who open the address are told it is not available yet. Use the email invitations until it is on.
 
 ## Steps
-1. Open the page at `/people/join-notice`, under **Settings** then **How to join notice**.
+1. Open **Settings**, then **Members**. In the box **Owners who do not read email**, select **Print a how-to-join notice**. The page is at `/people/join-notice`.
 2. Look at the sheet on the screen. Check that your community name and your contacts are right.
-3. Select the print button.
+3. Select [[Print this notice]].
 4. Print on plain white letter paper. Black ink is enough.
 
 ## What happens next
 Each owner who asks to join appears in your **Approvals** list under **Requests to join**. The article "Link an owner who asks to join" shows how to approve.
 
 ## Good to know
-- The sheet tells owners three things. First, look for our email: if the board has the owner's email, the invitation is waiting.
-- Second, if there is no email, open the web address, or point a phone camera at the square code, then tap **Create an account**.
-- Third, ask to join your home. The owner types the street address and ZIP code. The board checks it and approves.
+- The sheet gives owners three steps. Step 1: look for our email. If the board has the owner's email, an invitation is waiting. Step 2: if there is no email, open the web address, or point a phone camera at the square code, then tap **Create an account** and confirm the email. Step 3: ask to join your home. The owner types the street address and ZIP code, and the board checks it and approves.
 - It also shows how to add the app to a phone home screen, for iPhone and Android.
-- Your contacts print on it, if you listed any.
+- The contacts section is left out of the sheet if no contact has a phone number or an email.
 - A last line points to the `/welcome` video.
 - The sheet fits on one page. The words print in black, so a black and white printer works.
 - If you change your contacts, open the page again before you print more copies.
