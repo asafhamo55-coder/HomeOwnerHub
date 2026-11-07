@@ -220,7 +220,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
         </div>
       }
     >
-      <PropertyPhoto propertyId={p.id} address={p.address} enabled={photoEnabled} canManage={canManage} className="w-48 sm:w-72" />
+      <PropertyPhoto propertyId={p.id} address={p.address} enabled={photoEnabled} knownReason={p.address?.trim() ? null : "no_address"} canManage={canManage} className="w-48 sm:w-72" />
 
       <ActionBar
         propertyId={p.id}
