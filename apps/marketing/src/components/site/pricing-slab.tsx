@@ -82,7 +82,7 @@ export function PricingSlab({ headline }: { headline: string }) {
                   onClick={() => setYearly(o.y)}
                   className={cn(
                     'min-h-[44px] rounded-lg px-4 text-base font-semibold transition-colors',
-                    yearly === o.y ? 'bg-[#fff] text-[#3b0764]' : 'text-foreground hover:bg-[rgb(255_255_255/0.1)]',
+                    yearly === o.y ? 'bg-[#fff] text-[#1e40af]' : 'text-foreground hover:bg-[rgb(255_255_255/0.1)]',
                   )}
                 >
                   {o.label}

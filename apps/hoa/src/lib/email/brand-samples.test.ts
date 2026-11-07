@@ -52,7 +52,7 @@ describe.skipIf(!OUT)('brand samples', () => {
     writeFileSync(path.join(dir, 'welcome-email-madison-park.html'), local(welcome))
     writeFileSync(path.join(dir, 'poll-results-sample.html'), local(poll))
     writeFileSync(path.join(dir, 'receipt-sample.html'), local(receipt))
-    copyFileSync(path.resolve(__dirname, '../../../public/email/v3', LOGO_FILE), path.join(dir, LOGO_FILE))
+    copyFileSync(path.resolve(__dirname, '../../../public/email/v4', LOGO_FILE), path.join(dir, LOGO_FILE))
     expect(receipt.length).toBeGreaterThan(1000)
   })
 })

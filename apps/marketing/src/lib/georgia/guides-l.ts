@@ -116,7 +116,7 @@ export const GA_ESTOPPEL: Guide = {
       a: 'The statute says the request shall be in writing and delivered to the registered office of the association. Ask your attorney whether an email to the board meets that, and treat anything that reaches the registered office as the start of the clock.',
     },
   ],
-  related: ['georgia-hoa-assessment-lien-rules', 'attorney-fee-notice-checklist', 'florida-hoa-estoppel-certificate-rules', 'texas-hoa-resale-certificate-chapter-207'],
+  related: ['georgia-hoa-assessment-lien-rules', 'attorney-fee-notice-checklist', 'florida-hoa-estoppel-certificate-rules', 'texas-hoa-resale-certificate-chapter-207', 'georgia-hoa-estoppel-statement-request-checklist'],
   hoaDoes: [
     {
       text: 'On a property, the board can prepare the paperwork a sale needs. For Georgia it is built on the statement of amounts due, with the five-business-day deadline and the $10.00 fee limit shown, and a warning that missing the deadline loses the lien against the buyer.',

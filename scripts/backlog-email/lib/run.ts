@@ -4,6 +4,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { resolveLogo } from '../../release-notes/lib/logo'
 import { parseArgs } from '../../release-notes/lib/build'
 import { ConfigError, readSendEnv, sendViaResend, type SendEnv } from '../../release-notes/lib/send'
 import { parseOwnerActions } from '../../owner-actions/lib/parse'
@@ -18,6 +19,8 @@ export interface RunDeps {
   env: NodeJS.ProcessEnv
   cwd: string
   fetch?: typeof fetch
+  /** Set by the CLI entry points: enables the logo URL check (logo.ts). Left unset in tests. */
+  logoFetch?: typeof fetch
   log?: (line: string) => void
 }
 
@@ -90,6 +93,7 @@ export async function runBacklogEmail(argv: readonly string[], deps: RunDeps): P
     return 0
   }
 
+  if (deps.logoFetch) await resolveLogo(deps.logoFetch, deps.log)
   const email = renderBacklogEmail(backlog, { branch: str(args.branch) })
   const groups = backlog.groups.map((g) => `${g.name} ${g.items.length}`).join(', ')
   log(`${open} open (${countPartly(backlog.open)} partly done), ${backlog.closed.length} closed · ${groups} · hash ${hash}`)

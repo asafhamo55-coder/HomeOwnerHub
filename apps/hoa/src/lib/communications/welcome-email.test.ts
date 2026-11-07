@@ -30,7 +30,7 @@ const madison = () =>
   })
 
 /** Just the card body: between the shell's body cell and its footer cell. */
-const bodyOf = (html: string) => html.slice(html.indexOf('class="eh-body"'), html.indexOf('bgcolor="#FBF8FD"'))
+const bodyOf = (html: string) => html.slice(html.indexOf('class="eh-body"'), html.indexOf('bgcolor="#F8FAFC"'))
 
 const stripTags = (html: string) =>
   html
@@ -56,11 +56,11 @@ describe('welcome email: render', () => {
     expect(extractMergeFields(`${t.subject}\n${t.bodyHtml}`).sort()).toEqual(['association_name', 'board_signature', 'city'])
   })
 
-  it('is branded HomeownerHub: the logo header with alt text, royal purple accent', () => {
+  it('is branded HomeownerHub: the logo header with alt text, primary blue accent', () => {
     const { html } = madison()
     // No EMAIL_ASSET_BASE_URL in tests, so the logo comes from the app origin.
-    expect(html).toContain(`<img src="${ORIGIN}/email/v3/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48"`)
-    expect(isValidAccent('#6D28D9')).toBe(true)
+    expect(html).toContain(`<img src="${ORIGIN}/email/v4/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48"`)
+    expect(isValidAccent('#2563EB')).toBe(true)
   })
 
   it('shell: lang attributes and a title equal to the subject', () => {
@@ -69,12 +69,12 @@ describe('welcome email: render', () => {
     expect(html).toContain(`<title>${subject}</title>`)
   })
 
-  it('shell: footer and band are 14px, footer in #5C5469 (about 6.8:1 on #FBF8FD)', () => {
+  it('shell: footer and band are 14px, footer in #526077 (about 6.8:1 on #F8FAFC)', () => {
     const { html } = madison()
-    expect(html).toMatch(/bgcolor="#FBF8FD" style="[^"]*color:#5C5469;[^"]*font-size:14px/)
-    expect(html).toMatch(/bgcolor="#6D28D9" style="[^"]*font-size:14px/)
+    expect(html).toMatch(/bgcolor="#F8FAFC" style="[^"]*color:#526077;[^"]*font-size:14px/)
+    expect(html).toMatch(/bgcolor="#2563EB" style="[^"]*font-size:14px/)
     const lum = (hex: string) => relativeLuminance(hex)
-    const ratio = (lum('#FBF8FD') + 0.05) / (lum('#5C5469') + 0.05)
+    const ratio = (lum('#F8FAFC') + 0.05) / (lum('#526077') + 0.05)
     expect(ratio).toBeGreaterThanOrEqual(4.5)
   })
 
@@ -99,7 +99,7 @@ describe('welcome email: render', () => {
     expect(html).toContain('Watch a short video about getting started')
     // The only image is the header logo, which has alt text.
     expect(html.match(/<img/g)).toHaveLength(1)
-    expect(html).not.toMatch(/bgcolor="#6D28D9" height="(?!4")|\/login/)
+    expect(html).not.toMatch(/bgcolor="#1E40AF" height="(?!4")|\/login/)
     expect(buildWelcomeEmailHtml(`${ORIGIN}/`)).toContain(`href="${ORIGIN}/welcome"`)
   })
 
@@ -182,7 +182,7 @@ describe('welcome email: render', () => {
 
   it('survives dark mode and Outlook: bgcolor attributes, no gradients, no external css', () => {
     const html = madison().html
-    expect(html).toMatch(/<td[^>]*bgcolor="#6D28D9"/)
+    expect(html).toMatch(/<td[^>]*bgcolor="#2563EB"/)
     expect(html).toContain('bgcolor="#FFFFFF"')
     expect(html).not.toMatch(/linear-gradient|<link |@import|<script/i)
     expect(html).toContain('<!--[if mso]>')

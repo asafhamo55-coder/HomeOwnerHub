@@ -57,7 +57,7 @@ export default function DemoPage() {
                 {steps.map((s, i) => (
                   <li key={s.title} className="flex gap-4">
                     <span
-                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-[#fff]"
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-lg font-semibold text-[#fff]"
                       aria-hidden
                     >
                       {i + 1}

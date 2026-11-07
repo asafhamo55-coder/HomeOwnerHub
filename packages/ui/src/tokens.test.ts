@@ -58,22 +58,28 @@ describe.each(HUBS)('%s hub', (hub) => {
   })
 })
 
-it('HOA brand is the website violet — code, logo and docs agree', () => {
-  expect(palette('hoa', 'light').primary).toBe('#4B27C9')
-  expect(palette('hoa', 'dark').primary).toBe('#CBC2FF')
+it('HOA brand is blue #2563EB with green #047857, code and logo agree', () => {
+  expect(palette('hoa', 'light').primary).toBe('#2563EB')
+  expect(palette('hoa', 'dark').primary).toBe('#60A5FA')
   expect(LOGO.light.tile).toBe(palette('hoa', 'light').primary)
+  expect(palette('hoa', 'light')['primary-hover']).toBe('#1D4ED8')
+  expect(palette('hoa', 'light')['primary-subtle']).toBe('#EFF6FF')
+  expect(palette('hoa', 'dark')['primary-subtle']).toBe('#172554')
+  expect(palette('hoa', 'dark')['primary-fg']).toBe('#0A0F1A')
+  expect(palette('hoa', 'light').success).toBe('#047857')
 })
 
 // BL-095 key pairs, stated as explicit ratios so a palette change that
 // only just squeaks past AA is visible in review, not just "green".
-describe('HOA violet palette — key pairs', () => {
+describe('HOA blue palette — key pairs', () => {
   const hex = (mode: ThemeMode, role: ColorRole) => hexToRgb(palette('hoa', mode)[role])
   it.each([
     ['light', 'primary-fg', 'primary', 5.1],
     ['light', 'primary-fg', 'primary-hover', 6.6],
     ['light', 'primary', 'surface', 5.1],
     ['light', 'primary', 'background', 4.8],
-    ['light', 'primary', 'primary-subtle', 4.5],
+    ['light', 'primary', 'primary-subtle', 4.7],
+    ['light', 'primary', 'subtle', 4.5],
     ['light', 'foreground', 'background', 16],
     ['light', 'muted', 'subtle', 5.5],
     ['light', 'ring', 'background', 3.4],
@@ -81,6 +87,7 @@ describe('HOA violet palette — key pairs', () => {
     ['dark', 'primary-fg', 'primary-hover', 10.5],
     ['dark', 'primary', 'surface', 6.9],
     ['dark', 'primary', 'primary-subtle', 5.5],
+    ['dark', 'primary-hover', 'background', 4.5],
     ['dark', 'foreground', 'background', 17],
     ['dark', 'muted', 'subtle', 5.5],
   ] as const)('%s: %s on %s ≥ %s:1', (mode, fg, bg, min) => {
@@ -93,7 +100,7 @@ describe('HomeownerHub logo colours (BL-098)', () => {
   it('"Hub" is the HOA primary in each mode', () => {
     expect(LOGO.light.accent).toBe(palette('hoa', 'light').primary)
     expect(LOGO.dark.accent).toBe(palette('hoa', 'dark').primary)
-    expect(LOGO.dark.accent).toBe('#CBC2FF')
+    expect(LOGO.dark.accent).toBe('#60A5FA')
   })
   it('the wordmark\'s literal "Hub" classes match LOGO.accent', () => {
     expect(HUB_ACCENT_CLASS).toBe(`text-[${LOGO.light.accent}] dark:text-[${LOGO.dark.accent}]`)

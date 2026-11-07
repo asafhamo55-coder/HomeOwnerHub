@@ -15,12 +15,12 @@ const BRAND = palette('hoa', 'light').primary
 // colour wheel so adjacent slices on the donut never read as the same
 // colour even for users with mild colour-vision deficiency.
 const TONE_FILL: Record<DonutSegment['tone'], string> = {
-  primary: BRAND,         // brand violet — open / needs board
+  primary: BRAND,         // brand blue — open / needs board
   warning: '#f59e0b',     // amber-500    — notice / cure window
   success: '#10b981',     // emerald-500  — cured / positive
   muted: '#64748b',       // slate-500    — resolved / archival
   destructive: '#ef4444', // red-500      — fined / non-compliant
-  severe: '#db2777',      // pink-600     — escalated / legal (apart from the violet brand)
+  severe: '#f472b6',      // pink-400     — escalated / legal (apart from the blue brand)
 }
 
 interface StatusDonutProps {

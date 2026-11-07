@@ -1,6 +1,6 @@
 /**
- * The colours every HomeownerHub email uses: the marketing site's "Royal
- * purple" palette. The values live in one place shared with the background
+ * The colours every HomeownerHub email uses: the owner-approved
+ * "Option B, blue and green" palette. The values live in one place shared with the background
  * jobs, packages/workflows/src/email-brand, because packages cannot import
  * from an app; this module is the app's door to them.
  */

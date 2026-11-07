@@ -401,6 +401,24 @@ describe('batch 27 pages are in the library', () => {
   })
 })
 
+describe('batch 34 pages are in the library', () => {
+  const pages = [
+    '/templates/georgia-hoa-fine-hearing-notice',
+    '/templates/georgia-hoa-records-inspection-response-checklist',
+    '/templates/georgia-hoa-estoppel-statement-request-checklist',
+  ]
+
+  it('are in the palette feed, the sitemap and the template list, with a page file each', () => {
+    const templates = templateGroups().flatMap((g) => g.items.map((i) => i.path))
+    for (const page of pages) {
+      expect(libraryEntries().map((e) => e.path)).toContain(page)
+      expect(SITEMAP_PATHS).toContain(page)
+      expect(templates).toContain(page)
+      expect(read(`app${page}/page.tsx`)).toContain('pageMetadata(')
+    }
+  })
+})
+
 describe('batch 32 pages are in the library', () => {
   const pages = [
     '/templates/georgia-hoa-architectural-change-request-form',

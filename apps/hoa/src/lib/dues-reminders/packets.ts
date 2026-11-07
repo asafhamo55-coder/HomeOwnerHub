@@ -45,6 +45,76 @@ function toProperty(
   }
 }
 
+/** The fields a charge needs from an assessment row (with its payments). */
+export interface ChargeSource {
+  id: string
+  amount: number
+  due_date: string
+  assessment_type: string
+  payments: { amount: number }[] | null
+}
+
+/** One open charge with its remaining balance, or null when nothing is left to pay.
+ *  Shared by the emailed reminder and the paper reminder so the amounts agree. */
+export function chargeFromAssessment(a: ChargeSource, today: string): ReminderCharge | null {
+  const paid = (a.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
+  const balance = round(Number(a.amount) - paid)
+  if (balance <= 0) return null
+  const pastDue = a.due_date < today
+  return {
+    id: a.id,
+    assessmentType: a.assessment_type,
+    dueDate: a.due_date,
+    amount: round(Number(a.amount)),
+    paid: round(paid),
+    balance,
+    pastDue,
+    daysLate: pastDue ? daysBetween(a.due_date, today) : 0,
+  }
+}
+
+/** Past-due charges first (oldest first), then upcoming by due date. */
+export function sortCharges(charges: ReminderCharge[]): void {
+  charges.sort((x, y) => {
+    if (x.pastDue !== y.pastDue) return x.pastDue ? -1 : 1
+    return x.dueDate.localeCompare(y.dueDate)
+  })
+}
+
+/** Fill in a packet's totals and put properties with arrears first. */
+export function finishPacket(p: ReminderPacket): void {
+  let total = 0
+  let pastDue = 0
+  let oldest = 0
+  let count = 0
+  for (const prop of p.properties) {
+    for (const c of prop.charges) {
+      total += c.balance
+      count += 1
+      if (c.pastDue) {
+        pastDue += c.balance
+        if (c.daysLate > oldest) oldest = c.daysLate
+      }
+    }
+  }
+  p.totalDue = round(total)
+  p.pastDueTotal = round(pastDue)
+  p.oldestDaysLate = oldest
+  p.chargeCount = count
+
+  // Properties carrying arrears lead; then the largest balance.
+  p.properties.sort((x, y) => {
+    const xLate = x.charges.some((c) => c.pastDue)
+    const yLate = y.charges.some((c) => c.pastDue)
+    if (xLate !== yLate) return xLate ? -1 : 1
+    return y.subtotal - x.subtotal
+  })
+}
+
+export function propertyFrom(unitId: string, label: string, charges: ReminderCharge[]): ReminderProperty {
+  return toProperty(unitId, label, charges)
+}
+
 interface AssessmentRow {
   id: string
   unit_id: string
@@ -106,21 +176,8 @@ export async function buildReminderPackets(
   const unitLabels = new Map<string, string>()
 
   for (const a of assessments) {
-    const paid = (a.payments ?? []).reduce((s, p) => s + Number(p.amount), 0)
-    const balance = round(Number(a.amount) - paid)
-    if (balance <= 0) continue
-
-    const pastDue = a.due_date < today
-    const charge: ReminderCharge = {
-      id: a.id,
-      assessmentType: a.assessment_type,
-      dueDate: a.due_date,
-      amount: round(Number(a.amount)),
-      paid: round(paid),
-      balance,
-      pastDue,
-      daysLate: pastDue ? daysBetween(a.due_date, today) : 0,
-    }
+    const charge = chargeFromAssessment(a, today)
+    if (!charge) continue
 
     if (!chargesByUnit.has(a.unit_id)) chargesByUnit.set(a.unit_id, [])
     chargesByUnit.get(a.unit_id)!.push(charge)
@@ -130,13 +187,7 @@ export async function buildReminderPackets(
   const unitIds = [...chargesByUnit.keys()]
   if (unitIds.length === 0) return { packets: [], skipped: [] }
 
-  // Past-due first (oldest first), then upcoming by due date.
-  for (const charges of chargesByUnit.values()) {
-    charges.sort((x, y) => {
-      if (x.pastDue !== y.pastDue) return x.pastDue ? -1 : 1
-      return x.dueDate.localeCompare(y.dueDate)
-    })
-  }
+  for (const charges of chargesByUnit.values()) sortCharges(charges)
 
   // Same reasoning as the assessments read above: swallowing this error
   // would mail nobody and report it as "all caught up". The unit list is
@@ -207,34 +258,7 @@ export async function buildReminderPackets(
   }
 
   const packets = [...byEmail.values()]
-  for (const p of packets) {
-    let total = 0
-    let pastDue = 0
-    let oldest = 0
-    let count = 0
-    for (const prop of p.properties) {
-      for (const c of prop.charges) {
-        total += c.balance
-        count += 1
-        if (c.pastDue) {
-          pastDue += c.balance
-          if (c.daysLate > oldest) oldest = c.daysLate
-        }
-      }
-    }
-    p.totalDue = round(total)
-    p.pastDueTotal = round(pastDue)
-    p.oldestDaysLate = oldest
-    p.chargeCount = count
-
-    // Properties carrying arrears lead; then the largest balance.
-    p.properties.sort((x, y) => {
-      const xLate = x.charges.some((c) => c.pastDue)
-      const yLate = y.charges.some((c) => c.pastDue)
-      if (xLate !== yLate) return xLate ? -1 : 1
-      return y.subtotal - x.subtotal
-    })
-  }
+  for (const p of packets) finishPacket(p)
 
   packets.sort((x, y) => y.pastDueTotal - x.pastDueTotal || y.totalDue - x.totalDue)
 

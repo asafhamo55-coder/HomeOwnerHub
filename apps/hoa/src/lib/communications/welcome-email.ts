@@ -52,7 +52,7 @@ export const WELCOME_EMAIL_HREF = `/communications/new?from=${WELCOME_EMAIL_FROM
 
 export const WELCOME_SUBJECT = '{{ association_name }} is moving to HomeownerHub'
 
-/** Royal purple, the marketing site's primary (email/brand.ts). Inside the dark-mode luminance window. */
+/** primary blue, the app and email primary (email/brand.ts) (email/brand.ts). Inside the dark-mode luminance window. */
 const ACCENT: string = BRAND.primary
 const TEXT = BRAND.ink
 const BODY = BRAND.body

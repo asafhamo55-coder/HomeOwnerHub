@@ -31,7 +31,7 @@ export interface DonutSegment {
     | 'success'      // emerald — resolved positive (cured)
     | 'muted'        // slate — closed / archival
     | 'destructive'  // red — fined / non-compliant
-    | 'severe'       // violet — escalated / legal hearing
+    | 'severe'       // pink — escalated / legal hearing
 }
 
 export interface DonutData {
@@ -127,7 +127,7 @@ export async function getViolationStatusDonut(
     ['cured', 'success', 'Cured'],          // emerald — resident fixed
     ['resolved', 'muted', 'Resolved'],      // slate — closed / archival
     ['fined', 'destructive', 'Fined'],      // red — monetary penalty
-    ['escalated', 'severe', 'Escalated'],   // violet — legal / hearing
+    ['escalated', 'severe', 'Escalated'],   // pink — legal / hearing
   ]
 
   const segments: DonutSegment[] = []

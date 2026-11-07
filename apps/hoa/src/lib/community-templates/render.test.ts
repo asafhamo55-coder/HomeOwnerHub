@@ -33,8 +33,8 @@ const T: CommunityTemplate = {
 describe('renderCommunityEmailHtml', () => {
   it('puts the community name in an accent band above the body', () => {
     const html = renderCommunityEmailHtml(T)
-    // The band is royal purple like every other email; the topic colour lives on the pictogram.
-    expect(html).toContain('bgcolor="#6D28D9"')
+    // The band is primary blue like every other email; the topic colour lives on the pictogram.
+    expect(html).toContain('bgcolor="#2563EB"')
     expect(html).toContain('{{association_name}}')
   })
 

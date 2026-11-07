@@ -5,11 +5,12 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildEmail, notesAddedInRange, toPayload } from './lib/build'
 import { renderEmail } from './lib/email'
+import { resetLogo } from './lib/logo'
 import { formatDeployedAt, noteFromCommits, parseSubject, toNewYorkIso } from './lib/fallback'
 import { MAX_SCREENSHOTS, prepareImages, type ImageProcessor, type InlineImage } from './lib/images'
 import { inline } from './lib/markdown'
 import { combineNotes, parseNote, selectNotes } from './lib/note'
-import { runSend } from './lib/run'
+import { runRender, runSend } from './lib/run'
 import { readSendEnv } from './lib/send'
 import { BRAND } from './lib/brand'
 import { BRAND as EMAIL_BRAND, LOGO_FILE, LOGO_HEIGHT, LOGO_WIDTH } from '../../packages/workflows/src/email-brand'
@@ -127,9 +128,9 @@ describe('render', () => {
     expect(html).toContain('role="presentation"')
     expect(html).toContain('One-click approvals &amp; search')
     expect(subject).toBe('HomeownerHub release: One-click approvals & search (c56061f)')
-    // Header: the HomeownerHub logo PNG (absolute https, with alt text and size), royal purple accents.
-    expect(html).toMatch(/<img src="https:\/\/[^"]+\/email\/v3\/homeownerhub-logo\.png" alt="HomeownerHub" width="200" height="48"/)
-    expect(html).toContain('#6D28D9')
+    // Header: the HomeownerHub logo PNG (absolute https, with alt text and size), primary blue accents.
+    expect(html).toMatch(/<img class="rn-link" src="https:\/\/[^"]+\/email\/v4\/homeownerhub-logo\.png" alt="HomeownerHub" width="200" height="48"/)
+    expect(html).toContain('#2563EB')
     expect(html).not.toContain('Ledger')
     expect(html).not.toContain('HOA Hub')
     expect(html).toContain('Saturday, October 17, 2026 at 3:55 PM EDT')
@@ -391,6 +392,26 @@ describe('send', () => {
     expect(readFileSync(out, 'utf8')).toContain('Hostile')
   })
 
+  it('runRender uses the previous logo folder when only v3 answers', async () => {
+    const { root, shas } = repoWithHostileNote()
+    const out = path.join(root, 'out', 'logo.html')
+    const logoFetch = vi.fn(async (u: RequestInfo | URL) =>
+      new Response(null, { status: String(u).includes('/email/v3/') ? 200 : 404, headers: { 'content-type': 'image/png' } }),
+    ) as unknown as typeof fetch
+    const code = await runRender(['--sha', shas[1]!, '--prev', shas[0]!, '--out', out], {
+      env: {},
+      cwd: root,
+      logoFetch,
+      imageProcessor: fakeProcessor,
+    })
+    resetLogo()
+    expect(code).toBe(0)
+    expect(logoFetch).toHaveBeenCalled()
+    const html = readFileSync(out, 'utf8')
+    expect(html).toContain('/email/v3/homeownerhub-logo.png')
+    expect(html).not.toContain('/email/v4/homeownerhub-logo.png')
+  })
+
   it('--dry-run needs no secrets', async () => {
     const { root, shas } = repo([{ subject: 'fix: a' }])
     const out = path.join(root, 'p.html')
@@ -411,7 +432,7 @@ describe('send', () => {
   })
 })
 
-describe('brand colours stay in sync with the product email palette (royal purple)', () => {
+describe('brand colours stay in sync with the product email palette (blue and green)', () => {
   it('BRAND matches packages/workflows/src/email-brand', () => {
     expect({
       primary: BRAND.primary,
@@ -435,7 +456,7 @@ describe('brand colours stay in sync with the product email palette (royal purpl
   })
 
   it('the logo is the same file and size the product emails use', () => {
-    expect(BRAND.logoUrl.endsWith(`/email/v3/${LOGO_FILE}`)).toBe(true)
+    expect(BRAND.logoUrl.endsWith(`/email/v4/${LOGO_FILE}`)).toBe(true)
     expect(BRAND.logoUrl.startsWith('https://')).toBe(true)
     expect(BRAND.logoWidth).toBe(LOGO_WIDTH)
     expect(BRAND.logoHeight).toBe(LOGO_HEIGHT)
@@ -448,12 +469,12 @@ describe('brand colours stay in sync with the product email palette (royal purpl
       return (hi! + 0.05) / (lo! + 0.05)
     }
     const pairs: Array<[string, string]> = [
-      ['#1A0E2B', '#F6F2FB'], // page bg, headings
-      ['#261540', '#F6F2FB'], // card, headings
-      ['#261540', '#DDD3EE'], // card, body
-      ['#261540', '#BDB3D0'], // card, muted
-      ['#261540', '#CBC2FF'], // card, links
-      ['#33204F', '#F6F2FB'], // code
+      ['#0F172A', '#F1F5F9'], // page bg, headings
+      ['#172554', '#F1F5F9'], // card, headings
+      ['#172554', '#CBD5E1'], // card, body
+      ['#172554', '#B6C4DA'], // card, muted
+      ['#172554', '#93C5FD'], // card, links
+      ['#1E3A8A', '#F1F5F9'], // code
     ]
     for (const [bg, fg] of pairs) {
       expect(src, bg).toContain(`${bg} !important`)

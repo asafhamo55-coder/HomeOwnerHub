@@ -3,66 +3,67 @@
  * (apps/hoa/src/lib/email/*), the background jobs (packages/jobs) and the
  * other workflow mailers, none of which can import from an app.
  *
- * Pure: no database, no clock, no dependencies. The palette is the marketing
- * site's "Royal purple" (apps/marketing/src/app/globals.css) as flat hex,
- * because email cannot use CSS variables.
+ * Pure: no database, no clock, no dependencies. The palette is the owner-approved
+ * "Option B, blue and green" as flat hex, because email cannot use CSS
+ * variables.
  *
  * Contrast (WCAG relative luminance, asserted by
  * apps/hoa/src/lib/email/brand.test.ts):
- *   ink/white 16.7 · body/white 10.4 · muted/white 7.2 · muted/page 6.4
- *   primary/white 7.1 · white/primary 7.1 · white/hover 9.0
- *   primary/tint 6.0 · deep/white 15.0
+ *   ink/white 17.9 · body/white 10.4 · muted/white 7.2 · primary/white 5.2
+ *   white/primary 5.2 · white/deep 8.7 · primary/tint 4.8 · green/white 5.5
  *
- * Mint is decoration only. As text on white it is 1.9:1; the text version
+ * Mint is decoration only. As text on white it is 2.5:1; the text version
  * is `mintText`, which clears AA.
  */
 
 export const BRAND = {
-  /** Royal purple: links, buttons, accents, the rule under the logo. */
-  primary: '#6D28D9',
+  /** Primary blue: links, buttons, accents, the logo badge. White on it is 5.2:1. */
+  primary: '#2563EB',
   /** Hover / pressed. Email has no hover; kept for the sample sheet. */
-  primaryHover: '#5B21B6',
-  /** Light purple wash for callouts and pills. */
-  tint: '#F0E8FF',
-  /** Empty part of a bar chart. Lilac. */
-  track: '#E4DAF5',
-  /** Deep purple panel stop. */
-  deep: '#3B0764',
+  primaryHover: '#1D4ED8',
+  /** Light blue wash for callouts and pills (primary-subtle). */
+  tint: '#EFF6FF',
+  /** Empty part of a bar chart. */
+  track: '#DBEAFE',
+  /** Deep blue: the rule under the logo and large bands. */
+  deep: '#1E40AF',
   /** Headings and strong text. */
-  ink: '#211B2C',
-  /** Body paragraphs. */
-  body: '#423A50',
+  ink: '#0F172A',
+  /** Body paragraphs (secondary). */
+  body: '#334155',
   /** Secondary text, labels, footer. */
-  muted: '#5C5469',
-  /** Hairlines. */
-  line: '#E9E3EE',
+  muted: '#526077',
+  /** Hairlines (border). */
+  line: '#E2E8F0',
   /** Stronger hairline for table headers. */
-  lineStrong: '#D3CADD',
-  /** Page background behind the card (the site's lilac well). */
-  page: '#F6F2FB',
+  lineStrong: '#CBD5E1',
+  /** Page background behind the card. */
+  page: '#F1F5F9',
   /** Footer and panel wash, a hair off pure white. */
-  panel: '#FBF8FD',
+  panel: '#F8FAFC',
   card: '#FFFFFF',
-  /** Mint accent. Decoration only. */
-  mint: '#1FC99A',
-  mintTint: '#E4FAF3',
-  /** Mint that is allowed to carry text. */
-  mintText: '#0B6A51',
+  /** Green accent. Decoration only (fills, bars). Never the main button. */
+  mint: '#10B981',
+  /** Green-subtle wash for success pills. */
+  mintTint: '#ECFDF5',
+  /** Green that is allowed to carry text: success, approved, done. 5.5:1 on white. */
+  mintText: '#047857',
 } as const
 
 export const EMAIL_FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
-/** Folder of the header logo under the app's public root. v2: bumped so caches drop the old violet PNG. */
-export const LOGO_DIR = 'email/v3'
-/** File name of the header logo inside apps/hoa/public/email/v3/. */
+// Bump LOGO_DIR only in the same deploy that ships the file; scripted emails fall back automatically.
+/** Folder of the header logo under the app's public root. v4: blue badge; v3 (purple) stays on disk for emails already sent. */
+export const LOGO_DIR = 'email/v4'
+/** File name of the header logo inside apps/hoa/public/email/v4/. */
 export const LOGO_FILE = 'homeownerhub-logo.png'
 /** Displayed size. The PNG itself is 2x (400 wide) for retina screens. */
 export const LOGO_WIDTH = 200
 export const LOGO_HEIGHT = 48
 export const LOGO_ALT = 'HomeownerHub'
-/** Dark ink behind the badge where a client honours prefers-color-scheme: dark. */
-export const LOGO_BAND_DARK = '#1f1033'
-/** Head CSS for the logo band. Light mode keeps the inline white; dark gets ink. */
+/** Deep navy behind the badge where a client honours prefers-color-scheme: dark. */
+export const LOGO_BAND_DARK = '#172554'
+/** Head CSS for the logo band. Light mode keeps the inline white; dark gets navy. */
 export const LOGO_DARK_CSS = `@media (prefers-color-scheme: dark){.eh-logo{background-color:${LOGO_BAND_DARK} !important;} }`
 
 export function escapeEmailHtml(s: string): string {
@@ -99,10 +100,10 @@ export function brandLogoUrl(env: Record<string, string | undefined> = process.e
 }
 
 /**
- * The call-to-action button: royal purple, white 17px bold text (7.1:1),
+ * The call-to-action button: primary blue, white 17px bold text (5.2:1),
  * 52px tall. The td carries bgcolor AND an inline background so Outlook
  * (which ignores border-radius and CSS padding on anchors) still shows a
- * solid purple block. The 2px border matches the fill so the shape holds
+ * solid blue block. The 2px border matches the fill so the shape holds
  * where the engine drops padding.
  */
 export function brandButtonHtml(href: string, label: string, color: string = BRAND.primary): string {
@@ -111,11 +112,11 @@ export function brandButtonHtml(href: string, label: string, color: string = BRA
 
 /**
  * The brand header, two table rows: the logo badge on a white band, then a
- * 4px royal purple rule. The logo PNG (email/v3) is a purple rounded badge
+ * 4px primary blue rule. The logo PNG (email/v4) is a blue rounded badge
  * with the white wordmark and TRANSPARENT corners, so it looks deliberate on
  * a white band and on a darkened one (clients invert backgrounds but never
  * image pixels). The img carries no background of its own. Clients that
- * honour prefers-color-scheme: dark get the band in dark ink (LOGO_DARK_CSS).
+ * honour prefers-color-scheme: dark get the band in deep navy (LOGO_DARK_CSS).
  *
  * `url` null renders the wordmark as styled text, which is also what shows
  * through `alt` when a client blocks images.
@@ -126,13 +127,13 @@ export function logoHeaderRowsHtml(url: string | null): string {
     ? `<img src="${escapeEmailHtml(url)}" alt="${LOGO_ALT}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" border="0" style="display:block;border:0;outline:none;background:none;width:${LOGO_WIDTH}px;height:${LOGO_HEIGHT}px;${textStyle}" />`
     : `<span style="${textStyle}">${LOGO_ALT}</span>`
   return `<tr><td class="eh-logo" bgcolor="${BRAND.card}" style="background-color:${BRAND.card};color:${BRAND.ink};padding:18px 22px 16px;">${inner}</td></tr>
-<tr><td bgcolor="${BRAND.primary}" height="4" style="background-color:${BRAND.primary};color:${BRAND.primary};height:4px;font-size:1px;line-height:4px;mso-line-height-rule:exactly;">&nbsp;</td></tr>`
+<tr><td bgcolor="${BRAND.deep}" height="4" style="background-color:${BRAND.deep};color:${BRAND.deep};height:4px;font-size:1px;line-height:4px;mso-line-height-rule:exactly;">&nbsp;</td></tr>`
 }
 
 /**
  * A branded document around an existing HTML fragment, for mailers that
  * build their own body (digests, invitations, alerts). Same frame as the
- * app shell: lilac page, 600px white card (fluid), logo header, footer in
+ * app shell: light slate page, 600px white card (fluid), logo header, footer in
  * 14px muted text, bgcolor plus inline background on every cell.
  */
 export function wrapBrandedEmail(opts: {

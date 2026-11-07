@@ -12,7 +12,7 @@
 
 import { runRender } from './lib/run'
 
-runRender(process.argv.slice(2), { env: process.env, cwd: process.cwd(), log: (l) => console.log(l) })
+runRender(process.argv.slice(2), { env: process.env, cwd: process.cwd(), logoFetch: fetch, log: (l) => console.log(l) })
   .then((code) => process.exit(code))
   .catch((err: unknown) => {
     console.error(err instanceof Error ? err.message : err)

@@ -28,8 +28,8 @@ describe('generated email assets', () => {
   })
 })
 
-describe('the v3 email logo badge', () => {
-  const file = path.join(process.cwd(), 'apps/hoa/public/email/v3/homeownerhub-logo.png')
+describe('the v4 email logo badge', () => {
+  const file = path.join(process.cwd(), 'apps/hoa/public/email/v4/homeownerhub-logo.png')
   it('is an RGBA PNG (transparent corners) at 400x96', () => {
     const buf = readFileSync(file)
     expect(buf[25], 'colour type 6 = RGBA').toBe(6)
