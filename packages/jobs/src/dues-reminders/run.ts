@@ -70,6 +70,8 @@ export interface ReminderRenderInput {
   charges: PlannedCharge[]
   note: string | null
   portalUrl: string
+  /** The association's "Managed by" line, shown in the email footer. */
+  managedBy?: string | null
 }
 
 export interface DuesRemindersDeps {
@@ -199,10 +201,16 @@ function stepLabel(step: number): string {
   return step < 0 ? `${-step} day${step === -1 ? '' : 's'} before due` : `${step} day${step === 1 ? '' : 's'} after due`
 }
 
+/** The board's "Managed by" line as stored; the app's renderer cleans and escapes it. */
+function managedByOf(complianceSettings: unknown): string | null {
+  const raw = typeof complianceSettings === 'object' && complianceSettings !== null ? (complianceSettings as Record<string, unknown>).managed_by_line : null
+  return typeof raw === 'string' && raw.trim() !== '' ? raw : null
+}
+
 async function deliver(
   store: DuesReminderStore,
   deps: DuesRemindersDeps,
-  ctx: { organizationId: string; associationId: string; associationName: string; note: string | null },
+  ctx: { organizationId: string; associationId: string; associationName: string; note: string | null; managedBy?: string | null },
   send: PlannedSend,
   orgSandbox: boolean,
 ): Promise<{ claimed: boolean; sent: number; suppressed: number; failed: number }> {
@@ -216,6 +224,7 @@ async function deliver(
     charges: send.charges,
     note: ctx.note,
     portalUrl,
+    managedBy: ctx.managedBy ?? null,
   }
   // The audit copy on communications is rendered for a neutral "Owner";
   // each recipient's own copy is rendered with their name below.
@@ -280,6 +289,7 @@ export async function runDuesRemindersForAssociation(
     associationName: string
     settings: DuesReminderSettings
     today: string
+    managedBy?: string | null
   },
   logger: ReminderLogger,
 ): Promise<AssociationRunResult> {
@@ -323,6 +333,7 @@ export async function runDuesRemindersForAssociation(
           associationId: ctx.associationId,
           associationName: ctx.associationName,
           note: ctx.settings.note,
+          managedBy: ctx.managedBy ?? null,
         },
         send,
         orgSandbox,
@@ -425,7 +436,7 @@ export async function runDuesReminders(
         runDuesRemindersForAssociation(
           store,
           deps,
-          { associationId: a.id, organizationId: a.organizationId, associationName: a.name, settings, today },
+          { associationId: a.id, organizationId: a.organizationId, associationName: a.name, settings, today, managedBy: managedByOf(a.complianceSettings) },
           logger,
         ),
       )

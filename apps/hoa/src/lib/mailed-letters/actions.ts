@@ -101,7 +101,7 @@ async function prepare(propertyId: string, approvalRequestId: string) {
   const letter = buildLetter(ctx.input, request.payload.kind, ctx.today, ctx.events, request.payload.values)
   const blocked = letterBlocked(letter, request.payload.values, true)
   if (blocked) return { ok: false as const, error: blocked }
-  const blocks = withManagedByBlock(letterDocument(letter, ctx.input, request.payload.values), await loadManagedByLine(supabase, gate.orgId))
+  const blocks = withManagedByBlock(letterDocument(letter, ctx.input, request.payload.values), await loadManagedByLine(supabase, gate.orgId, ctx.associationId))
   const blanks = blanksLeft(blocks)
   if (blanks.length > 0) return { ok: false as const, error: `Fill in every blank before mailing: ${blanks.join(', ')}.` }
   const rendered = await renderLetterPdf(blocks)

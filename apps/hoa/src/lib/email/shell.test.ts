@@ -172,6 +172,7 @@ describe('managed by footer line', () => {
     const doc = renderEmailDocument(BASE)
     expect(applyManagedBy(doc, 'Managed by Homeside')).toContain('Managed by Homeside')
     expect(applyManagedBy(doc, '')).toBe(doc)
-    expect(applyManagedBy('<p>no shell</p>', 'x')).toBe('<p>no shell</p>')
+    expect(applyManagedBy('<p>no shell</p>', '')).toBe('<p>no shell</p>')
+    expect(applyManagedBy('<p>no shell</p>', 'x')).toContain('data-managed-by')
   })
 })

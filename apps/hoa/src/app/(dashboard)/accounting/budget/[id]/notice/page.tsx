@@ -73,7 +73,7 @@ export default async function BudgetNoticePage({ params }: { params: Promise<{ i
 
   return page(
     <div className="space-y-5">
-      <BudgetNotice input={input} today={today} managedBy={await loadManagedByLine(await getSupabaseServerClient(), role.org.id)} />
+      <BudgetNotice input={input} today={today} managedBy={await loadManagedByLine(await getSupabaseServerClient(), role.org.id, ctx.associationId)} />
       <div className="print:hidden">
         <LegalDisclaimer>{VERIFY_DISCLAIMER}</LegalDisclaimer>
       </div>

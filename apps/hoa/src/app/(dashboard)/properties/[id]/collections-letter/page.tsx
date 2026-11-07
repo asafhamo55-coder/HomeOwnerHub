@@ -114,7 +114,7 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
         pending={pending ? view(pending) : null}
         approved={approved ? view(approved) : null}
         printed={printed.map((r) => ({ kind: r.payload.kind, printedAt: r.printedAt! }))}
-        managedBy={await loadManagedByLine(supabase, ctx.org.id)}
+        managedBy={await loadManagedByLine(supabase, ctx.org.id, loaded.data.associationId)}
       />
       {M14_APPLIED && canMail && mailedLoad && !mailedLoad.ok ? (
         <Alert variant="warning" title="Couldn’t check the mailing status" className="print:hidden">

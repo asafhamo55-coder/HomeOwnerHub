@@ -84,7 +84,7 @@ export default async function ResidentStatementPage({
 
   const associationIds = [...new Set(units.map((u) => u.association_id).filter((id): id is string => id != null))]
   const associationName = units.find((u) => u.association_name)?.association_name ?? org?.name ?? null
-  const managedBy = org ? await loadManagedByLine(await getSupabaseServerClient(), org.id) : ''
+  const managedBy = org ? await loadManagedByLine(await getSupabaseServerClient(), org.id, associationIds.length === 1 ? associationIds[0] : null) : ''
   const zelle = associationIds.length === 1 ? await getResidentZelleSettings(associationIds) : null
   const zelleRead = zelle?.ok ? zelle.byAssociation[associationIds[0]!] : null
   const payLines = !open.failed && zelleRead?.state === 'configured' ? payLinesFor(open.dues.charges, {

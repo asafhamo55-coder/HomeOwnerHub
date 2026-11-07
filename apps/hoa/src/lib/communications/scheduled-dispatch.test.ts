@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   emailFails: false,
   emailBlocked: false,
   smsConsentRows: [] as Array<Record<string, unknown>>,
+  settings: {} as Record<string, unknown>,
 }))
 
 vi.mock('@homeowner-portal/db', () => ({ createAdminClient: () => fakeClient() }))
@@ -49,7 +50,7 @@ function fakeClient() {
       const resolve = () => {
         const ops = calls.map((c) => c[0])
         if (table === 'communications' && ops.includes('select') && !ops.includes('update')) return { data: h.comm, error: null }
-        if (table === 'associations') return { data: { name: 'Lakeside HOA', type: 'hoa' }, error: null }
+        if (table === 'associations') return { data: { name: 'Lakeside HOA', type: 'hoa', compliance_settings: h.settings }, error: null }
         if (table === 'communication_recipients' && ops.includes('select')) return { data: h.queued, error: null }
         if (table === 'audit_log') {
           const range = calls.find((c) => c[0] === 'range') as [string, [number]]
@@ -111,6 +112,7 @@ beforeEach(() => {
   h.prefsRows = [{ user_id: 'user-a', email_opt_in: true, sms_opt_in: true }]
   h.emailFails = false
   h.emailBlocked = false
+  h.settings = {}
   // BL-111: Ana agreed to texts at the queued number.
   h.smsConsentRows = [
     { id: 'g1', user_id: 'user-a', action: 'sms_consent_granted', metadata: { phone_sha256: [sha256Hex('+15550100001')] }, created_at: '2026-10-01T00:00:00Z' },
@@ -144,6 +146,21 @@ describe('dispatchScheduledCommunication', () => {
     const final = updatesTo('communications').at(-1)!
     expect(final).toContainEqual(['eq', ['status', 'sending']])
     expect((final.find((c) => c[0] === 'update')![1][0] as { status: string }).status).toBe('sent')
+  })
+
+  it('passes the association\'s Managed by line through to the email html and text', async () => {
+    h.settings = { managed_by_line: 'Managed by Homeside & Sons, (404) 555-0100' }
+    await dispatchScheduledCommunication('comm-9', fakeClient() as never)
+    const batch = h.trace.find((t) => (t as [string])[0] === 'sendEmailBatch') as [string, Array<{ html: string; text?: string }>, unknown]
+    expect(batch[1][0].html).toContain('data-managed-by')
+    expect(batch[1][0].html).toContain('Managed by Homeside &amp; Sons, (404) 555-0100')
+    expect(batch[1][0].text).toContain('Managed by Homeside & Sons, (404) 555-0100')
+  })
+
+  it('adds no Managed by row when the association has no line', async () => {
+    await dispatchScheduledCommunication('comm-9', fakeClient() as never)
+    const batch = h.trace.find((t) => (t as [string])[0] === 'sendEmailBatch') as [string, Array<{ html: string }>, unknown]
+    expect(batch[1][0].html).not.toContain('data-managed-by')
   })
 
   it('does nothing for a row it did not claim (cancelled, still scheduled, finished)', async () => {

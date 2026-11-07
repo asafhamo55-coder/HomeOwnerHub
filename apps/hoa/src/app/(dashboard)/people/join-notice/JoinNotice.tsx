@@ -91,7 +91,7 @@ export function JoinNotice({
       <p className="mt-3 break-inside-avoid border-t-4 border-black pt-2">
         A 1-minute video shows how it works. Watch it at <span className="break-all font-bold">{displayAddress(welcomeUrl)}</span>
       </p>
-      <ManagedByFooter line={managedBy} />
+      <ManagedByFooter line={managedBy} compact />
     </article>
   )
 }

@@ -111,7 +111,7 @@ export default async function OwnerStatementPage({
           truncated={d.truncated}
           truncatedNote="This statement shows the most recent entries only; older history is not included."
           emptyHint="Choose a wider period to see older charges and payments."
-          managedBy={await loadManagedByLine(supabase, ctx.org.id)}
+          managedBy={await loadManagedByLine(supabase, ctx.org.id, d.associationId)}
           footer="Payments appear once they are approved, so anything received in the last few days may not be listed yet."
         />
       </div>

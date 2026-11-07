@@ -18,6 +18,7 @@
  * …"), and its numbers are never shown as zeros.
  */
 
+import { cleanManagedBy, MAX_MANAGED_BY_LENGTH } from '@/lib/managed-by'
 import { BRAND } from '@/lib/email/brand'
 import { emailButton } from '@/lib/email/components'
 import { escapeHtml, renderEmailDocument } from '@/lib/email/shell'
@@ -233,9 +234,11 @@ ${view.sections.map(blockHtml).join('\n')}`
     extraCss: EMAIL_CSS,
     previewText: `${d.period.label}: ${view.summary.headline}`,
     bodyHtml,
+    managedBy: d.managedBy,
     footerHtml: `<div style="font-family:${FONT};font-size:14px;line-height:20px;color:${MUTED};">Sent by HomeownerHub to board members of ${escapeHtml(d.associationName)}. Board only, please don’t forward to residents.<br /><a href="${escapeHtml(settingsUrl)}" style="color:${MUTED};text-decoration:underline;">Turn off the monthly board report</a></div>`,
   })
 
+  const managedByLine = cleanManagedBy(d.managedBy).slice(0, MAX_MANAGED_BY_LENGTH).trim()
   const text = [
     `${d.associationName}: ${d.period.label} board report`,
     '',
@@ -248,6 +251,7 @@ ${view.sections.map(blockHtml).join('\n')}`
     ...view.sections.flatMap((b) => [blockText(b), '']),
     `Sent by HomeownerHub to board members of ${d.associationName}. Board only, please don’t forward to residents.`,
     `Turn off the monthly board report: ${settingsUrl}`,
+    ...(managedByLine ? ['', managedByLine] : []),
   ].join('\n')
 
   return { subject, html, text }

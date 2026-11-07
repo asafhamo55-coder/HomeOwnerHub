@@ -185,16 +185,6 @@ export function letterDocument(letter: Letter, input: LetterInput, values: Field
 }
 
 /** Any [[BLANK: ...]] left in the document. The send path refuses a letter with one. */
-/**
- * The board's "Managed by" line as a last, muted block. Plain text (the PDF
- * has no markup), cleaned and capped again here. An empty line adds nothing.
- */
-export function withManagedByBlock(blocks: DocBlock[], line: string | null | undefined): DocBlock[] {
-  const text = cleanManagedBy(line).slice(0, MAX_MANAGED_BY_LENGTH).trim()
-  if (!text) return blocks
-  return [...blocks, { kind: 'gap', height: 12 }, { kind: 'text', text, muted: true, size: 9 }]
-}
-
 export function blanksLeft(blocks: DocBlock[]): string[] {
   const found: string[] = []
   const scan = (s: string) => {
@@ -206,4 +196,14 @@ export function blanksLeft(blocks: DocBlock[]): string[] {
     else if (b.kind === 'bullets') b.items.forEach(scan)
   }
   return found
+}
+
+/**
+ * The board's "Managed by" line as a last, muted block. Plain text (the PDF
+ * has no markup), cleaned and capped again here. An empty line adds nothing.
+ */
+export function withManagedByBlock(blocks: DocBlock[], line: string | null | undefined): DocBlock[] {
+  const text = cleanManagedBy(line).slice(0, MAX_MANAGED_BY_LENGTH).trim()
+  if (!text) return blocks
+  return [...blocks, { kind: 'gap', height: 12 }, { kind: 'text', text, muted: true, size: 9 }]
 }

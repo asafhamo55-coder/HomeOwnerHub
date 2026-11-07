@@ -12,7 +12,7 @@
 
 import { cleanManagedBy, MAX_MANAGED_BY_LENGTH } from '@/lib/managed-by'
 import { emailAssetUrl } from './asset-url'
-import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_DARK_CSS, LOGO_FILE, logoHeaderRowsHtml } from './brand'
+import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_DARK_CSS, LOGO_FILE, logoHeaderRowsHtml, wrapBrandedEmail } from './brand'
 
 export interface EmailBand {
   text: string
@@ -142,11 +142,38 @@ function preheader(text: string): string {
  */
 export const MANAGED_BY_MARKER = '<!--eh-managed-by-->'
 
-/** Put the association's "Managed by" row into a shell document. No line, or no marker: unchanged. */
+/**
+ * Put the association's "Managed by" row into an email body at send time.
+ *
+ * - No line: unchanged. Row already there (data-managed-by): unchanged, so
+ *   applying twice gives one row.
+ * - A shell document: the row goes at the LAST footer marker. A merge value
+ *   rendered earlier in the body that happens to contain the marker text
+ *   cannot move it, because the real marker is the final one.
+ * - A full document whose marker did not survive (an editor or a paste may
+ *   drop HTML comments): the row goes just before the closing body tag.
+ * - A fragment (an announcement or free-form board email, no document
+ *   around it): wrapped in the same brand frame ensureBranded would use,
+ *   with the row as its footer.
+ */
 export function applyManagedBy(html: string, line: string | null | undefined): string {
   const row = managedByFooterHtml(line)
-  if (!row || !html.includes(MANAGED_BY_MARKER)) return html
-  return html.replace(MANAGED_BY_MARKER, () => row + MANAGED_BY_MARKER)
+  if (!row || html.includes('data-managed-by')) return html
+  const at = html.lastIndexOf(MANAGED_BY_MARKER)
+  if (at >= 0) return html.slice(0, at) + row + html.slice(at)
+  const head = html.replace(/^\uFEFF/, '').replace(/^(\s|<!--[\s\S]*?-->)+/, '')
+  if (/^<!doctype|^<html/i.test(head)) {
+    const body = html.toLowerCase().lastIndexOf('</body>')
+    return body >= 0 ? html.slice(0, body) + row + html.slice(body) : html
+  }
+  return wrapBrandedEmail({ bodyHtml: html, footerHtml: row })
+}
+
+/** The plain-text part's closing "Managed by" line. Same rules: none when empty, once when applied twice. */
+export function applyManagedByText(text: string, line: string | null | undefined): string {
+  const clean = cleanManagedBy(line).slice(0, MAX_MANAGED_BY_LENGTH).trim()
+  if (!clean || text.trimEnd().endsWith(clean)) return text
+  return `${text.trimEnd()}\n\n${clean}`
 }
 
 /** The footer's "Managed by" row, or '' when there is no line. */

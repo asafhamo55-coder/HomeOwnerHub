@@ -101,7 +101,7 @@ async function prepare(violationId: string) {
   }
   if (!associationId) return { ok: false as const, error: 'This home has no association on file, so the mailing can’t be recorded.' }
 
-  const rendered = await renderLetterPdf(withManagedByBlock(violationLetterBlocks(v.approved_letter!), await loadManagedByLine(supabase, gate.orgId)))
+  const rendered = await renderLetterPdf(withManagedByBlock(violationLetterBlocks(v.approved_letter!), await loadManagedByLine(supabase, gate.orgId, associationId)))
   const property = Array.isArray(v.property) ? (v.property[0] ?? null) : v.property
   return { ok: true as const, gate, user, rendered, associationId, property }
 }

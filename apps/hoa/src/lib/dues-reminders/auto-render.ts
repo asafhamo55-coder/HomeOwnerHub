@@ -53,12 +53,12 @@ export function renderAutoReminder(input: ReminderRenderInput): { subject: strin
     association_name_text: input.associationName,
     amount_summary: amountSummary(packet),
   })
-  const html = substitute(renderShellHtml({ note, portalUrl: input.portalUrl }), {
+  const html = substitute(renderShellHtml({ note, portalUrl: input.portalUrl, managedBy: input.managedBy }), {
     association_name: escapeHtml(input.associationName),
     owner_name: escapeHtml(input.ownerName),
     dues_table: renderDuesTableHtml(packet),
   })
-  const text = substitute(renderShellText({ note, portalUrl: input.portalUrl }), {
+  const text = substitute(renderShellText({ note, portalUrl: input.portalUrl, managedBy: input.managedBy }), {
     association_name_text: input.associationName,
     owner_name_text: input.ownerName,
     dues_text: renderDuesTableText(packet),

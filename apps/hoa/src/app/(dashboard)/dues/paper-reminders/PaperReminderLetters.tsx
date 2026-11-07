@@ -128,7 +128,7 @@ export function PaperReminderLetters({
                 <p>Please ask the board for contact details.</p>
               )}
             </section>
-            <ManagedByFooter line={managedBy} />
+            <ManagedByFooter line={managedBy} compact />
           </article>
         )
       })}

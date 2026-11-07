@@ -1,5 +1,7 @@
 'use server'
 
+import { loadManagedByLine } from '@/lib/managed-by-load'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getCurrentOrg } from '@/lib/orgs'
 import { getCurrentUserRoleInOrg } from '@/lib/auth'
@@ -74,7 +76,7 @@ function portalUrl(): string {
 }
 
 async function loadContext(): Promise<
-  { ok: true; associationId: string; associationName: string; timeZone: string } | { ok: false; error: string }
+  { ok: true; associationId: string; associationName: string; timeZone: string; managedBy: string } | { ok: false; error: string }
 > {
   const org = await getCurrentOrg()
   if (!org) return { ok: false, error: 'No organization found.' }
@@ -85,7 +87,8 @@ async function loadContext(): Promise<
   const assoc = await getPrimaryAssociation()
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
 
-  return { ok: true, associationId: assoc.id, associationName: assoc.name, timeZone: assoc.timeZone }
+  const managedBy = await loadManagedByLine(await getSupabaseServerClient(), org.id, assoc.id)
+  return { ok: true, associationId: assoc.id, associationName: assoc.name, timeZone: assoc.timeZone, managedBy }
 }
 
 /** Bulk targets past-due owners only; an explicit email list targets
@@ -154,7 +157,7 @@ export async function previewDuesReminders(
   // interprets `$&` and friends — and these values carry currency and
   // escaped entities.
   const previewHtml = first
-    ? renderShellHtml({ note: prepareNote(input?.note), portalUrl: portalUrl() })
+    ? renderShellHtml({ note: prepareNote(input?.note), portalUrl: portalUrl(), managedBy: ctx.managedBy })
         .replace(/\{\{dues_table\}\}/g, () => renderDuesTableHtml(first))
         .replace(/\{\{owner_name\}\}/g, () => escapeHtml(first.ownerName))
         .replace(/\{\{association_name\}\}/g, () => escapeHtml(ctx.associationName))

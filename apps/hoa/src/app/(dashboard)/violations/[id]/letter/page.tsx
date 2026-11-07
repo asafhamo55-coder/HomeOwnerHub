@@ -82,7 +82,7 @@ export default async function ViolationLetterPage({ params }: { params: Promise<
           ownerName: v.property?.owner_name ?? null,
           addressLines,
           letter: v.approved_letter,
-          managedBy: await loadManagedByLine(supabase, ctx.org.id),
+          managedBy: await loadManagedByLine(supabase, ctx.org.id, assoc.ok && assoc.data ? assoc.data.id : null),
         }}
       />
     </div>
