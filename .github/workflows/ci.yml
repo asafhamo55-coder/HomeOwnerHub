@@ -82,7 +82,8 @@ jobs:
           NEXT_PUBLIC_EVICTION_URL: https://ci-placeholder.vercel.app
           NEXT_PUBLIC_PM_URL: https://ci-placeholder.vercel.app
 
-      # After Build so a lint failure never hides the build result. apps/hoa only (eslint.config.mjs). Errors fail the job; existing
+      # After Build so a lint failure never hides the build result.
+      # apps/hoa only (eslint.config.mjs). Errors fail the job; existing
       # violations are warnings. Other apps have no ESLint config.
       - name: Lint (apps/hoa)
         run: pnpm --filter hoa lint

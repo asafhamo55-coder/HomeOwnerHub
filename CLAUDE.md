@@ -221,6 +221,12 @@ an existing table, and will hand you a false pass.
 non-interactive `eslint .`. Run it truthfully with `pnpm --filter hoa lint`;
 exit 0 means zero errors. Existing violations are downgraded to warnings in the
 config (each with a reason), so read the error count, not the warning count.
+Four rules are set to warn by that config: `@typescript-eslint/no-explicit-any`,
+`react/no-unescaped-entities`, `jsx-a11y/no-autofocus` and
+`@next/next/no-html-link-for-pages`. The Next presets add a fifth group that is
+already warn by default (`@typescript-eslint/no-unused-vars`,
+`react-hooks/exhaustive-deps`, `@next/next/no-img-element` and two others);
+every other rule is an error.
 If rtk summarises the output, use `rtk proxy pnpm --filter hoa lint`.
 
 Everything below is about the **other apps and the root command**, which are
@@ -251,8 +257,9 @@ Both suites — unit and integration — now gate merges.
 CI also runs `pnpm --filter hoa lint` after Build (errors fail the job; it runs
 last so a lint failure never hides the build result). `next build` itself does
 not lint (`eslint.ignoreDuringBuilds` in `apps/hoa/next.config.ts`), so a lint
-error can never block a Vercel deploy; the CI step is the only lint gate. Lint for the other apps is still not run: see §4, their `next lint` has
-no ESLint config and drops into an interactive prompt.
+error can never block a Vercel deploy; the CI step is the only lint gate.
+Lint for the other apps is still not run: see §4, their `next lint` has no
+ESLint config and drops into an interactive prompt.
 
 (This section previously said "CI runs neither tests nor lint." That was
 true before both suites were wired in; it no longer is for tests.)

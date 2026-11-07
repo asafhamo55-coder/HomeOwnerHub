@@ -775,7 +775,7 @@ export function AnnouncementFlow({
 
       {step === 'review' ? (
         <div className="space-y-5">
-          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- labelled radio group keeps its region landmark */}
+          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- labelled radio group labelled radio group of native radios */}
           <section role="radiogroup" aria-labelledby="announce-audience-h" className="space-y-3 rounded-xl border border-border bg-surface p-4">
             <h2 id="announce-audience-h" data-step-heading tabIndex={-1} className="text-base font-semibold text-foreground focus:outline-none">
               Who gets it
@@ -861,7 +861,7 @@ export function AnnouncementFlow({
             disabled={sending}
           />
 
-          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- labelled radio group keeps its region landmark */}
+          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- labelled radio group labelled radio group of native radios */}
           <section role="radiogroup" aria-labelledby="announce-when-h" className="space-y-3 rounded-xl border border-border bg-surface p-4">
             <h2 id="announce-when-h" className="text-base font-semibold text-foreground">When</h2>
             <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-foreground">

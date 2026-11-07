@@ -251,6 +251,7 @@ function PendingRunCard({ run, photos }: { run: PendingRun; photos: string[] }) 
                   <a href={src} target="_blank" rel="noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed storage URL */}
                     <img src={src} alt={`Attachment ${i + 1}`} className="size-full object-cover" />
+                    <span className="sr-only">, opens full size in a new tab</span>
                   </a>
                 </li>
               ))}
