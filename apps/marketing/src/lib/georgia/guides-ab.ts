@@ -108,6 +108,7 @@ export const GA_RECORDS_KEPT: Guide = {
     'hoa-treasurer-duties',
     'georgia-hoa-annual-registration-secretary-of-state-14-3-1622',
     'georgia-hoa-incorporation-name-and-bylaws-44-3-227',
+    'georgia-hoa-records-inspection-response-checklist',
   ],
   hoaDoes: [],
   hoaDoesNot:

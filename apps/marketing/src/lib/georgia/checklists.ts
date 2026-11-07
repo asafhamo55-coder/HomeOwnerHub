@@ -17,6 +17,7 @@ import { FL_FINE_CAP_CHECKLIST } from './checklists-o'
 import { FL_ESTOPPEL_CHECKLIST } from './checklists-p'
 import { TX_VIOLATION_CHECKLIST } from './checklists-q'
 import { GA_ARC_REQUEST_FORM, GA_NEW_OWNER_WELCOME, GA_RULES_ADOPTION_RESOLUTION } from './checklists-r'
+import { GA_ESTOPPEL_CHECKLIST, GA_FINE_HEARING_NOTICE, GA_RECORDS_RESPONSE } from './checklists-s'
 
 export interface Checklist {
   slug: string
@@ -139,4 +140,7 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [GA_ARC_REQUEST_FORM.slug]: GA_ARC_REQUEST_FORM,
   [GA_NEW_OWNER_WELCOME.slug]: GA_NEW_OWNER_WELCOME,
   [GA_RULES_ADOPTION_RESOLUTION.slug]: GA_RULES_ADOPTION_RESOLUTION,
+  [GA_FINE_HEARING_NOTICE.slug]: GA_FINE_HEARING_NOTICE,
+  [GA_RECORDS_RESPONSE.slug]: GA_RECORDS_RESPONSE,
+  [GA_ESTOPPEL_CHECKLIST.slug]: GA_ESTOPPEL_CHECKLIST,
 }

@@ -226,7 +226,7 @@ export const RECORDS_REQUESTS: Guide = {
       a: 'SB 406 requires at least ten years for records relating to assessments, fines, fees, liens and foreclosures, from January 1, 2027.',
     },
   ],
-  related: ['owners-rights-2027', 'complaint-process', 'registration-2027', 'annual-meeting-quorum-proxies'],
+  related: ['owners-rights-2027', 'complaint-process', 'registration-2027', 'annual-meeting-quorum-proxies', 'georgia-hoa-records-inspection-response-checklist'],
   hoaDoes: [
     {
       text: 'Records requests are listed under Tickets, with Georgia’s five-business-day rule shown on each request. Minutes, financial records and the owner list also show that they need a stated purpose.',
@@ -348,7 +348,7 @@ export const FINES_HEARINGS: Guide = {
       a: 'An unregistered association may not collect fines, and a complaint to the Secretary of State pauses collection of the related fines and fees until the hearing officer’s conclusions, which can be extended by 15 days.',
     },
   ],
-  related: ['violation-notice-checklist', 'hoa-violation-letter-georgia', 'late-fee-limits', 'complaint-process'],
+  related: ['violation-notice-checklist', 'hoa-violation-letter-georgia', 'late-fee-limits', 'complaint-process', 'georgia-hoa-fine-hearing-notice'],
   hoaDoes: [
     {
       text: 'On a violation’s page, the board can draft a second notice, a hearing notice, a fine notice or a decision letter. Every letter waits in Approvals, and nothing is sent to the homeowner.',
