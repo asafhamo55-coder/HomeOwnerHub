@@ -41,6 +41,20 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-53 · Read the real monthly job count from the Inngest dashboard
+
+**Urgency:** Soon
+
+**Why it matters:** the free Inngest plan stops every background job (dues reminders, late fees, mail sync) at 50,000 runs a month. The management-company plan will add many communities, and the number of communities we can safely add depends on how close we already are. Claude estimated about 25,000 a month from the code, but only the dashboard shows the true figure.
+
+**Steps:**
+
+1. Open the Inngest dashboard, then Billing or Usage.
+2. Send Claude the total for the last full month, the count so far this month, and which functions use the most runs if the page shows that.
+3. Claude updates the go or no-go sheet in `docs/decisions/2026-11-07-management-company-tenancy-design.md` (section 11.4) with the real numbers.
+
+**Files:** `docs/decisions/2026-11-07-management-company-tenancy-design.md`
+
 ### OA-52 · Turn on "Add to my calendar" (Vercel, hoa project)
 
 **Urgency:** Whenever
