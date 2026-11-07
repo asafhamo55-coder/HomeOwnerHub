@@ -11,9 +11,9 @@ export const LABELS_PER_SHEET = 30
 
 /** Font steps, largest first, and how many characters fit on one printed line at each. */
 export const FONT_STEPS = [
-  { pt: 10, chars: 28 },
-  { pt: 9, chars: 31 },
-  { pt: 8, chars: 35 },
+  { pt: 10, chars: 26 },
+  { pt: 9, chars: 29 },
+  { pt: 8, chars: 33 },
 ] as const
 
 export type FontPt = (typeof FONT_STEPS)[number]['pt']
@@ -50,19 +50,28 @@ export function fitFont(lines: readonly string[]): { fontPt: FontPt; shortened: 
 }
 
 /**
- * Owners who cannot be reached by email: no usable address (blank or spaces
- * only) or, where e-consent applies, no consent to electronic notices.
- * `noConsentEmails` holds lowercased addresses of owners the notice rules
- * (planOfficialNotice) would not email.
+ * Where e-consent applies (California with M1 on) and which portal accounts
+ * have granted it. Built by loadPaperRule from the consent store.
  */
-export function isUnreachableByEmail(owner: OwnerRosterRow['owners'][number], noConsentEmails: ReadonlySet<string> = new Set()): boolean {
-  const email = owner.email?.trim().toLowerCase()
-  return !email || noConsentEmails.has(email)
+export interface PaperRule {
+  consentApplies(state: string | null): boolean
+  granted: ReadonlySet<string>
+}
+
+/**
+ * An owner who cannot be reached by email: no usable address (blank or
+ * spaces only) or, in a state where consent applies, no consent on record.
+ * No portal account counts as no consent. Home-record owners have no account.
+ */
+export function isUnreachableByEmail(owner: OwnerRosterRow['owners'][number], state: string | null, rule?: PaperRule): boolean {
+  if (!owner.email?.trim()) return true
+  if (rule?.consentApplies(state)) return !owner.userId || !rule.granted.has(owner.userId)
+  return false
 }
 
 /** True when the home has an owner on file and every owner is unreachable by email: a paper-only home. */
-export function isPaperOnly(row: OwnerRosterRow, noConsentEmails: ReadonlySet<string> = new Set()): boolean {
-  return row.owners.length > 0 && row.owners.every((o) => isUnreachableByEmail(o, noConsentEmails))
+export function isPaperOnly(row: OwnerRosterRow, rule?: PaperRule): boolean {
+  return row.owners.length > 0 && row.owners.every((o) => isUnreachableByEmail(o, row.state, rule))
 }
 
 /**
@@ -92,13 +101,13 @@ export interface LabelSet {
 
 export function buildLabels(
   rows: readonly OwnerRosterRow[],
-  opts: { onlyPaper?: boolean; noConsentEmails?: ReadonlySet<string> } = {},
+  opts: { onlyPaper?: boolean; rule?: PaperRule } = {},
 ): LabelSet {
   const labels: MailingLabel[] = []
   const seen = new Set<string>()
   let duplicates = 0
   for (const row of rows) {
-    if (opts.onlyPaper && !isPaperOnly(row, opts.noConsentEmails)) continue
+    if (opts.onlyPaper && !isPaperOnly(row, opts.rule)) continue
     const label = labelFor(row)
     if (!label) continue
     const key = normalize(label.lines)

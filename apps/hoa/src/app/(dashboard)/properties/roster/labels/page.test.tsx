@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 ;(globalThis as { React?: typeof React }).React = React
 
-const m = vi.hoisted(() => ({ role: vi.fn(), client: vi.fn(), assoc: vi.fn(), load: vi.fn(), consent: vi.fn(), primary: vi.fn() }))
+const m = vi.hoisted(() => ({ role: vi.fn(), client: vi.fn(), assoc: vi.fn(), load: vi.fn(), consent: vi.fn() }))
 
 vi.mock('next/navigation', () => ({
   unstable_rethrow: () => {},
@@ -18,8 +18,7 @@ vi.mock('next/link', () => ({
 }))
 vi.mock('@/lib/auth', () => ({ getCurrentUserRole: m.role }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: m.client }))
-vi.mock('@/lib/vendors', () => ({ getPrimaryAssociation: m.primary }))
-vi.mock('@/lib/properties/roster/label-consent', () => ({ loadNoConsentEmails: m.consent }))
+vi.mock('@/lib/properties/roster/label-consent', () => ({ loadPaperRule: m.consent }))
 vi.mock('@/lib/properties/statutory-roster/load', () => ({
   readRosterAssociations: m.assoc,
   loadRosterInput: m.load,
@@ -45,9 +44,9 @@ function home(i: number, email: string | null, address = `${100 + i} Oak Street,
   }
 }
 
-function seed(homes: ReturnType<typeof home>[]) {
+function seed(homes: ReturnType<typeof home>[], ownerships: unknown[] = []) {
   m.assoc.mockResolvedValue({ rows: [], primary: { state: 'GA' }, timeZone: 'America/New_York' })
-  m.load.mockResolvedValue({ input: { homes, ownerships: [], residents: [], charges: [], payments: [], timeZone: 'America/New_York' } })
+  m.load.mockResolvedValue({ states: ['CA'], input: { homes, ownerships, residents: [], charges: [], payments: [], timeZone: 'America/New_York' } })
 }
 
 /** True when `needle` sits inside an element whose class list has print:hidden. */
@@ -64,8 +63,7 @@ function insidePrintHidden(html: string, needle: string): boolean {
 beforeEach(() => {
   vi.clearAllMocks()
   m.client.mockResolvedValue({})
-  m.primary.mockResolvedValue({ id: 'a1' })
-  m.consent.mockResolvedValue(new Set())
+  m.consent.mockResolvedValue({ consentApplies: () => false, granted: new Set() })
 })
 
 describe('mailing labels page', () => {
@@ -138,8 +136,12 @@ describe('mailing labels page', () => {
 
   it('treats an owner who has not agreed to electronic notices as paper', async () => {
     m.role.mockResolvedValue({ role: 'board', org })
-    seed([home(1, 'one@example.test'), home(2, 'two@example.test')])
-    m.consent.mockResolvedValue(new Set(['one@example.test']))
+    const own = (i: number, userId: string) => ({
+      unitId: `u${i}`, ownerName: `Owner ${i}`, ownerEmail: `o${i}@example.test`, ownerPhone: null, ownerUserId: userId,
+      ownershipPct: 100, validFrom: '2020-01-01', validTo: null,
+    })
+    seed([home(1, null), home(2, null)], [own(1, 'u-no'), own(2, 'u-yes')])
+    m.consent.mockResolvedValue({ consentApplies: () => true, granted: new Set(['u-yes']) })
     const only = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ paper: '1' }) }))
     expect(only).toContain('Owner 1')
     expect(only).not.toContain('Owner 2')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FONT_STEPS, LABELS_PER_SHEET, addressee, buildLabels, fitFont, isPaperOnly, labelFor, paginate } from './labels'
+import { FONT_STEPS, LABELS_PER_SHEET, addressee, buildLabels, fitFont, isPaperOnly, labelFor, paginate, type PaperRule } from './labels'
 import { OWNER_NAME_MISSING, type OwnerRosterRow } from '../statutory-roster/model'
 
 type Owner = OwnerRosterRow['owners'][number]
@@ -59,17 +59,40 @@ describe('paper-notice filter', () => {
     expect(isPaperOnly(row({ owners: [owner('Pat', '   ')] }))).toBe(true)
   })
 
-  it('treats an owner with an email but no consent as paper, matching case and spaces', () => {
-    const noConsent = new Set(['pat@example.test'])
-    const r = row({ owners: [owner('Pat', ' Pat@Example.test ')] })
+  const ca: PaperRule = { consentApplies: (st) => st === 'CA', granted: new Set(['u-yes']) }
+  const caOwner = (name: string, email: string | null, userId: string | null) => ({ ...owner(name, email), userId })
+
+  it('in a consent state, an owner without consent is paper', () => {
+    const r = row({ state: 'CA', owners: [caOwner('Pat', 'p@example.test', 'u-no')] })
     expect(isPaperOnly(r)).toBe(false)
-    expect(isPaperOnly(r, noConsent)).toBe(true)
+    expect(isPaperOnly(r, ca)).toBe(true)
   })
 
-  it('still needs every owner unreachable: one consenting owner keeps the home off the list', () => {
-    const noConsent = new Set(['a@example.test'])
-    const r = row({ owners: [owner('A', 'a@example.test'), owner('B', 'b@example.test')] })
-    expect(isPaperOnly(r, noConsent)).toBe(false)
+  it('in a consent state, an owner with consent is not paper', () => {
+    expect(isPaperOnly(row({ state: 'CA', owners: [caOwner('Pat', 'p@example.test', 'u-yes')] }), ca)).toBe(false)
+  })
+
+  it('in a consent state, an owner with no portal account is paper', () => {
+    expect(isPaperOnly(row({ state: 'CA', owners: [caOwner('Pat', 'p@example.test', null)] }), ca)).toBe(true)
+  })
+
+  it('co-owners: one consented and one did not keeps the home off the list only if every owner is reachable', () => {
+    const both = row({ state: 'CA', owners: [caOwner('A', 'a@example.test', 'u-yes'), caOwner('B', 'b@example.test', 'u-no')] })
+    expect(isPaperOnly(both, ca)).toBe(false)
+    const none = row({ state: 'CA', owners: [caOwner('A', 'a@example.test', 'u-no'), caOwner('B', null, 'u-yes')] })
+    expect(isPaperOnly(none, ca)).toBe(true)
+  })
+
+  it('outside a consent state only a missing email makes paper', () => {
+    expect(isPaperOnly(row({ state: 'GA', owners: [caOwner('Pat', 'p@example.test', null)] }), ca)).toBe(false)
+  })
+
+  it('judges a mixed-state org home by home', () => {
+    const rows = [
+      row({ propertyId: 'ca', state: 'CA', owners: [caOwner('A', 'a@example.test', 'u-no')] }),
+      row({ propertyId: 'ga', state: 'GA', owners: [caOwner('B', 'b@example.test', 'u-no')] }),
+    ]
+    expect(buildLabels(rows, { onlyPaper: true, rule: ca }).labels.map((l) => l.propertyId)).toEqual(['ca'])
   })
 
   it('without the filter prints every home that has a street', () => {
@@ -114,9 +137,10 @@ describe('fit', () => {
   })
 
   it('flags a 60-character name that fits no step on two lines', () => {
-    // 60 fits two lines at 8pt (70), so it is not shortened but is small.
-    expect(fitFont(['A'.repeat(60), 's', 'c'])).toEqual({ fontPt: 9, shortened: false })
+    // 60 fits two lines at 8pt (66), so it is small but not cut.
+    expect(fitFont(['A'.repeat(60), 's', 'c'])).toEqual({ fontPt: 8, shortened: false })
     expect(fitFont(['A'.repeat(80), 's', 'c'])).toEqual({ fontPt: 8, shortened: true })
+    expect(fitFont(['n', 's', 'C'.repeat(FONT_STEPS[2].chars + 1)])).toEqual({ fontPt: 8, shortened: true })
   })
 
   it('reports a long street as shortened and keeps the city line', () => {

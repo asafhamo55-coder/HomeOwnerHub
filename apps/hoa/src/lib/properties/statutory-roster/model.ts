@@ -60,6 +60,8 @@ export interface RosterOwnership {
   ownerName: string | null
   ownerEmail: string | null
   ownerPhone: string | null
+  /** ownerships.owner_user_id: the owner's portal account, when they have one. */
+  ownerUserId?: string | null
   ownershipPct: number | null
   validFrom: string
   validTo: string | null
@@ -107,6 +109,8 @@ export interface RosterOwner {
   name: string
   email: string | null
   phone: string | null
+  /** Portal account id (ownerships.owner_user_id); null for a home-record owner or one without an account. */
+  userId?: string | null
   share: string
   /** YYYY-MM-DD, or null when the owner comes from the home record. */
   since: string | null
@@ -218,6 +222,7 @@ function ownersFor(home: RosterHome, history: RosterOwnership[], asOf: string): 
           name,
           email: home.recordOwner?.email ?? null,
           phone: home.recordOwner?.phone ?? null,
+          userId: null,
           share: '100%',
           since: null,
           sharingOptOut: home.recordOwner?.sharingOptOut ?? null,
@@ -240,6 +245,7 @@ function ownersFor(home: RosterHome, history: RosterOwnership[], asOf: string): 
     name: o.ownerName?.trim() || OWNER_NAME_MISSING,
     email: o.ownerEmail?.trim() || null,
     phone: o.ownerPhone?.trim() || null,
+    userId: o.ownerUserId ?? null,
     share: shareLabel(o.ownershipPct, current.length),
     since: day(o.validFrom),
     sharingOptOut: o.sharingOptOut ?? null,

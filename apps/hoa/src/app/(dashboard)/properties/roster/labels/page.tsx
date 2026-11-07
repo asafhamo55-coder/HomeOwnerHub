@@ -5,11 +5,10 @@ import { getCurrentUserRole } from '@/lib/auth'
 import { todayIn } from '@/lib/association-time'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { tryLoad } from '@/lib/load-or-fail'
-import { getPrimaryAssociation } from '@/lib/vendors'
-import { loadNoConsentEmails } from '@/lib/properties/roster/label-consent'
+import { loadPaperRule } from '@/lib/properties/roster/label-consent'
 import { loadRosterInput, readRosterAssociations } from '@/lib/properties/statutory-roster/load'
 import { buildOwnerRoster } from '@/lib/properties/statutory-roster/model'
-import { LABELS_PER_SHEET, buildLabels, paginate } from '@/lib/properties/roster/labels'
+import { LABELS_PER_SHEET, buildLabels, paginate, type PaperRule } from '@/lib/properties/roster/labels'
 import { LabelSheets } from './LabelSheets'
 import { PrintLabelsButton } from './PrintLabelsButton'
 
@@ -66,24 +65,19 @@ export default async function MailingLabelsPage({
   const loaded = await tryLoad('mailing labels roster', () => loadRosterInput(supabase, ctx.org.id, 'owners', asOf, assoc.data))
   if (!loaded.ok) return page(<LoadFailed what="the owner list" retryHref={retryHref} />)
 
-  let noConsentEmails: Set<string> | undefined
+  let rule: PaperRule | undefined
   if (onlyPaper) {
-    const primary = await getPrimaryAssociation()
     const consent = await tryLoad('mailing labels consent', async () => {
-      const set = await loadNoConsentEmails(supabase, {
-        orgId: ctx.org.id,
-        associationId: primary?.id ?? null,
-        state: assoc.data.primary?.governing_law_state ?? assoc.data.primary?.state,
-      })
-      if (!set) throw new Error('consent unavailable')
-      return set
+      const r = await loadPaperRule(supabase, ctx.org.id, loaded.data.states)
+      if (!r) throw new Error('consent unavailable')
+      return r
     })
     if (!consent.ok) return page(<LoadFailed what="who agreed to electronic notices" retryHref={retryHref} />)
-    noConsentEmails = consent.data
+    rule = consent.data
   }
 
   const roster = buildOwnerRoster(loaded.data.input, asOf)
-  const { labels, duplicates, shortened } = buildLabels(roster.rows, { onlyPaper, noConsentEmails })
+  const { labels, duplicates, shortened } = buildLabels(roster.rows, { onlyPaper, rule })
   const sheets = paginate(labels, LABELS_PER_SHEET)
 
   return page(
