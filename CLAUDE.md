@@ -264,6 +264,23 @@ ESLint config and drops into an interactive prompt.
 (This section previously said "CI runs neither tests nor lint." That was
 true before both suites were wired in; it no longer is for tests.)
 
+# Demo data rule (owner standard, 2026-11-07)
+
+Every change to the app that a person can see ships with demo data in the
+**Creek Valley** demo HOA, so it can be shown to a management company or a
+self-managed board the same day.
+
+- Add or extend a fragment in `migrations/demo/creek-valley/` (one file per
+  area, numbered). Each fragment starts with the shared org guard, is
+  idempotent, tags its rows, and uses fake people only (`@example.com`,
+  555-01xx phones).
+- Run `pnpm demo:build` to regenerate `migrations/seed-creek-valley-demo.sql`
+  and its verify file, and commit both. A test fails when they are stale.
+- Never run the seed yourself. The owner pastes it into Supabase; add or
+  update an owner action when a new fragment needs applying.
+- Data must never trigger a send (email, SMS, push). Check triggers first.
+- If a feature is behind an off flag, seed it only once the flag is on.
+
 ## Commands you can actually trust
 
 Verified by deliberately forcing each one to fail and confirming it reported
