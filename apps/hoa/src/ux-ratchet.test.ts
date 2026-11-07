@@ -665,10 +665,21 @@ describe('no developer instructions in user-facing text (BL-072)', () => {
 // by it, so they must carry their own forced-colors: outline.
 describe('forced-colors keeps focus and control edges visible', () => {
   const css = readFileSync(path.join(repoRoot, 'apps/hoa/src/app/globals.css'), 'utf8')
-  const block = css.slice(css.indexOf('@media (forced-colors: active)'))
+  // The @media block up to its matching closing brace, not to the end of the file.
+  const block = (() => {
+    const start = css.indexOf('@media (forced-colors: active)')
+    if (start < 0) return ''
+    let depth = 0
+    for (let i = css.indexOf('{', start); i < css.length; i++) {
+      if (css[i] === '{') depth++
+      else if (css[i] === '}' && --depth === 0) return css.slice(start, i + 1)
+    }
+    return ''
+  })()
+  const buttonSrc = readFileSync(path.join(repoRoot, 'packages/ui/src/components/Button.tsx'), 'utf8')
 
   it('globals.css draws a real outline on :focus-visible', () => {
-    expect(css).toMatch(/@media \(forced-colors: active\)/)
+    expect(block).not.toBe('')
     expect(block).toMatch(/:focus-visible\s*{[^}]*outline:\s*2px solid Highlight/)
   })
 
@@ -676,22 +687,42 @@ describe('forced-colors keeps focus and control edges visible', () => {
     expect(block).toMatch(/border:\s*1px solid ButtonText/)
   })
 
-  it('the shared Button has a forced-colors outline and border', () => {
-    const src = readFileSync(path.join(repoRoot, 'packages/ui/src/components/Button.tsx'), 'utf8')
-    expect(src).toMatch(/forced-colors:focus-visible:outline/)
-    expect(src).toMatch(/forced-colors:border/)
+  it('the shared Button base has a forced-colors outline', () => {
+    expect(buttonSrc).toMatch(/forced-colors:focus-visible:outline-2/)
   })
 
-  it('a ring moved onto a parent (has-[:focus-visible]:ring, focus-within:ring) has a forced-colors outline', () => {
+  it.each(['default', 'primary', 'ghost', 'subtle', 'destructive', "'destructive-ghost'", 'secondary', 'outline'])(
+    'Button variant %s carries a border in forced-colors',
+    (v) => {
+      const m = new RegExp(`(?:^|\\s)${v}:\\s*'([^']*)'`, 'm').exec(buttonSrc)
+      expect(m, `variant ${v} not found`).not.toBeNull()
+      expect(m![1]).toMatch(/forced-colors:border\b|(^|\s)border\s/)
+    },
+  )
+
+  // A ring drawn on a parent or pseudo-element is invisible in forced-colors
+  // and is not matched by the global :focus-visible rule. Every such class
+  // token needs a forced-colors outline of the same kind in the SAME string.
+  const PARENT_RING =
+    /(?<![\w-])(peer-focus-visible|group-focus-within|group-focus-visible|has-\[:focus-visible\]|focus-within|focus-visible:after):ring/g
+  // These wrap a native input, which gets the global :focus-visible outline.
+  const EXEMPT = /(components\/Input\.tsx|inbox\/\[id\]\/RecipientFields\.tsx)$/
+
+  it('every parent or pseudo-element focus ring has a forced-colors outline in its own class string', () => {
     const bad: string[] = []
     for (const d of [path.join(repoRoot, 'apps/hoa/src'), path.join(repoRoot, 'packages/ui/src')]) {
       for (const file of walkSource(d)) {
-        if (!file.endsWith('.tsx')) continue
+        if (!file.endsWith('.tsx') || EXEMPT.test(file)) continue
         const src = readFileSync(file, 'utf8')
-        if (!/(has-\[:focus-visible\]|focus-within):ring/.test(src)) continue
-        // Input wraps a native control, whose own :focus-visible gets the global outline.
-        if (/(components\/Input\.tsx|inbox\/\[id\]\/RecipientFields\.tsx)$/.test(file)) continue
-        if (!/forced-colors:(has-\[:focus-visible\]|focus-within):outline/.test(src)) bad.push(path.relative(repoRoot, file))
+        for (const m of src.matchAll(PARENT_RING)) {
+          const at = m.index!
+          const start = Math.max(src.lastIndexOf("'", at), src.lastIndexOf('"', at), src.lastIndexOf('`', at))
+          const ends = ["'", '"', '`'].map((q) => src.indexOf(q, at)).filter((n) => n >= 0)
+          const literal = src.slice(start, Math.min(...ends))
+          if (!literal.includes(`forced-colors:${m[1]}:outline`)) {
+            bad.push(`${path.relative(repoRoot, file)}:${src.slice(0, at).split('\n').length} ${m[1]}:ring`)
+          }
+        }
       }
     }
     expect(bad).toEqual([])

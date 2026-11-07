@@ -58,6 +58,12 @@ describe('AuthShell text size (signed out)', () => {
     expect(host.textContent).toContain('Text size')
   })
 
+  it('sits above the form so it is reachable without scrolling', () => {
+    const control = host.querySelector('[data-testid="auth-text-size"]')!
+    const form = [...host.querySelectorAll('p')].find((p) => p.textContent === 'form')!
+    expect(control.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('choosing Largest scales the page and saves to localStorage only', async () => {
     const radio = host.querySelector<HTMLInputElement>('input[value="largest"]')!
     await act(async () => radio.click())

@@ -45,11 +45,13 @@ export function AuthShell({
               <BrandLogo size="lg" />
             </div>
           )}
-          {children}
-          {/* Works signed out: the choice lives in localStorage only. */}
-          <div className="mx-auto max-w-xs" data-testid="auth-text-size">
-            <TextSizeControl />
+          {/* Above the form on purpose: the person who cannot read the form
+              needs this first. One compact row, so the sign-in button stays
+              near the top. Works signed out (localStorage only). */}
+          <div data-testid="auth-text-size">
+            <TextSizeControl compact />
           </div>
+          {children}
           <div className="text-center text-sm text-muted">
             {footer ?? (
               <p className="inline-flex items-center gap-1.5">

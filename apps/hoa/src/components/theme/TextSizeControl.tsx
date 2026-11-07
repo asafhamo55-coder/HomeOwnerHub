@@ -5,19 +5,27 @@ import { TEXT_SIZES } from '@/lib/larger-text'
 import { useTextSize } from './useTextSize'
 
 /**
- * Text size picker for the resident Account page: a native radio group
- * (arrow keys move and select), 48px targets (never under 44px), and a polite live region that
- * announces the choice.
+ * Text size picker: a native radio group (arrow keys move and select) with
+ * 48px targets (never under 44px) and a polite live region that announces
+ * the choice. Used on the resident Account page and, in `compact` form (one
+ * row, no hint line), above the form on the signed-out sign-in and /join
+ * screens. It needs no account: the choice lives in localStorage only.
  */
-export function TextSizeControl() {
+export function TextSizeControl({ compact = false }: { compact?: boolean }) {
   const name = useId()
   const { size, choose, message } = useTextSize()
 
   return (
-    <fieldset className="min-w-0">
-      <legend className="text-sm font-semibold text-foreground">Text size</legend>
-      <p className="mb-2 text-xs text-muted">Makes text bigger</p>
-      <div className="grid grid-cols-3 gap-2">
+    <fieldset className={compact ? 'flex min-w-0 items-center gap-3' : 'min-w-0'}>
+      <legend className={compact ? 'sr-only' : 'text-sm font-semibold text-foreground'}>Text size</legend>
+      {compact ? (
+        <span aria-hidden className="shrink-0 text-sm font-semibold text-foreground">
+          Text size
+        </span>
+      ) : (
+        <p className="mb-2 text-xs text-muted">Makes text bigger</p>
+      )}
+      <div className="grid flex-1 grid-cols-3 gap-2">
         {TEXT_SIZES.map((s) => (
           <label
             key={s.value}
