@@ -63,4 +63,19 @@ describe('PropertyPhoto', () => {
     const off = renderToStaticMarkup(React.createElement(PropertyPhoto, { propertyId: ID, address: ADDRESS, enabled: false }))
     expect(off).not.toContain('<img')
   })
+
+  it('shows the reason and the fix link under the placeholder', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(PropertyPhotoView, { propertyId: ID, address: ADDRESS, enabled: true, state: 'failed', reason: 'needs_location', canManage: true }),
+    )
+    expect(html).toContain('we need your community&#x27;s city and ZIP')
+    expect(html).toContain('href="/settings/association#community-location"')
+    expect(html).toContain('min-h-11')
+  })
+
+  it('says photos are turned off, with no request, when there is no key', () => {
+    const html = renderToStaticMarkup(React.createElement(PropertyPhoto, { propertyId: ID, address: ADDRESS, enabled: false }))
+    expect(html).toContain('Photos are turned off.')
+    expect(html).not.toContain('<img')
+  })
 })

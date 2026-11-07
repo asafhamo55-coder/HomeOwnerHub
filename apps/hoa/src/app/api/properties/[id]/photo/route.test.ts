@@ -168,6 +168,7 @@ describe('GET /api/properties/:id/photo', () => {
     delete process.env.GOOGLE_MAPS_API_KEY
     const res = await call()
     expect(res.status).toBe(404)
+    expect(res.headers.get('X-Photo-Reason')).toBe('no_key')
     expect(calls).toHaveLength(0)
   })
 
@@ -177,6 +178,7 @@ describe('GET /api/properties/:id/photo', () => {
     expect(res.status).toBe(404)
     expect(calls).toHaveLength(1)
     expect(calls[0]).toContain('/streetview/metadata')
+    expect(res.headers.get('X-Photo-Reason')).toBe('no_street_view')
     const body = await res.json()
     expect(body.error.code).toBe('not_found')
   })
@@ -223,6 +225,7 @@ describe('GET /api/properties/:id/photo', () => {
     metaStatus = 'REQUEST_DENIED'
     const res = await call()
     expect(res.status).toBe(503)
+    expect(res.headers.get('X-Photo-Reason')).toBe('upstream')
     const text = await res.text()
     expect(text).toContain('upstream_unavailable')
     expect(text).not.toContain('test-key-not-real')
@@ -388,6 +391,7 @@ describe('GET /api/properties/:id/photo', () => {
       expect(res.status).toBe(404)
       expect(calls).toHaveLength(0)
       expect(geoCalls).toHaveLength(0)
+      expect(res.headers.get('X-Photo-Reason')).toBe('needs_location')
       expect(reasons()).toEqual(['state_only_location'])
       expect(infoLines()[0]).toMatchObject({ outcome: 'miss', propertyId: ID })
     })

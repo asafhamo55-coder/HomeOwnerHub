@@ -37,6 +37,7 @@ import { requireRouteMember } from '@/lib/api/auth'
 import { logRouteEvent, logRouteFailure } from '@/lib/api/log'
 import { zUuid } from '@/lib/api/schemas'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { PHOTO_REASON_HEADER, type PhotoReason } from '@/lib/properties/photo-reason'
 import { formatAddress } from '@/lib/properties/address-format'
 import { readCommunityLocation } from '@/lib/association-location'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
@@ -71,12 +72,20 @@ function logPhoto(outcome: 'miss' | 'fallback', reason: string, ctx: { propertyI
   logRouteEvent('properties.photo', { event: 'property_photo', outcome, reason, propertyId: ctx.propertyId, ...extra })
 }
 
-const notFound = () => apiError('not_found', 'No picture is available for this home.', undefined, { 'Cache-Control': CACHE_MISS })
+// The reason code rides in a header so the page can say why (never the address).
+const notFound = (reason: PhotoReason = 'unknown') =>
+  apiError('not_found', 'No picture is available for this home.', undefined, {
+    'Cache-Control': CACHE_MISS,
+    [PHOTO_REASON_HEADER]: reason,
+  })
 
 // A short private cache, so a Google outage or a refused key is not retried on
 // every page view (each retry is another call to Google).
 const upstreamDown = () =>
-  new ApiRouteError('upstream_unavailable', undefined, undefined, { 'Cache-Control': 'private, max-age=60' })
+  new ApiRouteError('upstream_unavailable', undefined, undefined, {
+    'Cache-Control': 'private, max-age=60',
+    [PHOTO_REASON_HEADER]: 'upstream',
+  })
 
 // One overall budget across every Google call in a request, so a slow Google
 // cannot stack four 6 s calls. Each call gets the smaller of 6 s and what is
@@ -199,13 +208,13 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   const { orgId } = await requireRouteMember()
 
   const parsedId = zUuid.safeParse((await ctx.params).id)
-  if (!parsedId.success) return notFound()
+  if (!parsedId.success) return notFound('not_visible')
   const propertyId = parsedId.data
 
   const key = process.env.GOOGLE_MAPS_API_KEY?.trim()
   if (!key) {
     logPhoto('miss', 'no_key', { propertyId })
-    return notFound()
+    return notFound('no_key')
   }
 
   const supabase = await getSupabaseServerClient()
@@ -222,11 +231,11 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   }
   if (!property) {
     logPhoto('miss', 'row_not_visible', { propertyId })
-    return notFound()
+    return notFound('not_visible')
   }
   if (!property.address) {
     logPhoto('miss', 'no_address', { propertyId })
-    return notFound()
+    return notFound('no_address')
   }
 
   // A street-only address borrows the community's city, state and ZIP.
@@ -269,7 +278,7 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   const location = streetViewLocation(property.address, fallback)
   if (!location) {
     logPhoto('miss', 'no_location', { propertyId })
-    return notFound()
+    return notFound('needs_location')
   }
   // A street with at most a bare state ("105 Springwood Pkwy, GA") can come
   // back as a confident photo of the wrong house in another city, and neither
@@ -278,7 +287,7 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   const placed = own.city || own.zip || fallback?.city?.trim() || fallback?.postal_code?.trim()
   if (!placed) {
     logPhoto('miss', 'state_only_location', { propertyId })
-    return notFound()
+    return notFound('needs_location')
   }
 
   const secret = process.env.GOOGLE_MAPS_URL_SIGNING_SECRET?.trim() || null
@@ -324,7 +333,7 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     if (!status.success) throw upstreamDown()
     if (status.data.status === 'ZERO_RESULTS' || status.data.status === 'NOT_FOUND') {
       logPhoto('miss', status.data.status === 'ZERO_RESULTS' ? 'meta_zero_results' : 'meta_not_found', { propertyId }, { metaStatus: known(status.data.status, PANO_STATUSES) })
-      return notFound()
+      return notFound('no_street_view')
     }
     if (status.data.status !== 'OK') {
       // REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST, UNKNOWN_ERROR: a code, never Google's text.
@@ -344,7 +353,7 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
     }
     if (plain.status === 404) {
       logPhoto('miss', 'image_404', { propertyId }, { imageHttp: 404 })
-      return notFound()
+      return notFound('no_street_view')
     }
     const type = plain.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? ''
     if (!plain.ok || !plain.body || !type.startsWith('image/')) {
