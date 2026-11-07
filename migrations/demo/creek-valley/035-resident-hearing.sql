@@ -1,0 +1,52 @@
+-- Creek Valley demo fragment 035: a scheduled violation hearing on the
+-- resident home ("Your hearing" card with "Add to my calendar").
+--
+-- OFF BY DEFAULT. Every statement below is commented out and the seed build
+-- does not include it. Uncomment only when the demo needs the card. Not a
+-- migration: run by hand, never by an agent.
+--
+-- Schedules a hearing 10 days out (6:30 PM, clubhouse) on ONE open
+-- violation that sits on a demo owner's home, and marks the notice sent so
+-- the owner can see the date and place. Fake data only. It sends nothing:
+-- violation_hearings has no send trigger; notice_sent_on is only a date.
+-- Idempotent: one hearing per violation (unique index), re-running updates
+-- the same row. Tagged by the location text 'Creek Valley clubhouse (demo)'.
+-- Aborts unless exactly one org is named 'Creek Valley'.
+
+-- DO $$
+-- DECLARE
+--   n int;
+--   org uuid;
+--   viol uuid;
+-- BEGIN
+--   SELECT count(*) INTO n FROM orgs WHERE name = 'Creek Valley';
+--   IF n <> 1 THEN
+--     RAISE EXCEPTION 'Expected exactly one org named Creek Valley, found %', n;
+--   END IF;
+--   SELECT id INTO org FROM orgs WHERE name = 'Creek Valley';
+--
+--   -- One open violation on a home (the earliest, so re-runs pick the same one).
+--   SELECT v.id INTO viol
+--   FROM hoa_violations v
+--   WHERE v.org_id = org
+--     AND v.property_id IS NOT NULL
+--     AND v.deleted_at IS NULL
+--     AND v.status NOT IN ('resolved', 'dismissed', 'waived', 'cured')
+--   ORDER BY v.created_at, v.id
+--   LIMIT 1;
+--   IF viol IS NULL THEN
+--     RAISE NOTICE 'No open Creek Valley violation on a home; nothing scheduled.';
+--     RETURN;
+--   END IF;
+--
+--   INSERT INTO violation_hearings
+--     (organization_id, violation_id, status, hearing_on, hearing_time, location, notice_sent_on)
+--   VALUES
+--     (org, viol, 'scheduled', CURRENT_DATE + 10, '18:30', 'Creek Valley clubhouse (demo)', CURRENT_DATE)
+--   ON CONFLICT (violation_id) DO UPDATE
+--   SET status = 'scheduled',
+--       hearing_on = CURRENT_DATE + 10,
+--       hearing_time = '18:30',
+--       location = 'Creek Valley clubhouse (demo)',
+--       notice_sent_on = CURRENT_DATE;
+-- END $$;

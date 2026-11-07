@@ -50,6 +50,9 @@ import { AskToJoinLink } from '@/components/resident/AskToJoinLink'
 import { formatShortDate } from '@/lib/format-datetime'
 import { M9_APPLIED } from '@homeowner-portal/db/m9'
 import type { PollsClient } from '@/lib/polls/store'
+import { HearingCard } from '@/components/resident/HearingCard'
+import { loadUpcomingHearings, type UpcomingHearingsLoad } from '@/lib/violation-hearings/resident-upcoming'
+import { createAdminClient } from '@homeowner-portal/db'
 import { closingSoonText, loadPollsToAnswer, NO_POLLS_TO_ANSWER } from '@/lib/polls/resident-badge'
 
 export const metadata = { title: 'My Home' }
@@ -74,7 +77,7 @@ export default async function ResidentDashboard() {
   // The next meeting needs only the org and the units' zone — both
   // memoized reads the dashboard makes too — so it runs alongside the
   // dashboard instead of after it (BL-099).
-  const [data, nextMeeting, offerTexts, contactGroups, polls] = await Promise.all([
+  const [data, nextMeeting, offerTexts, contactGroups, polls, hearings] = await Promise.all([
     timed('/resident', 'resident.dashboard', () => getResidentDashboard()),
     timed('/resident', 'resident.nextMeeting', async () => {
       const [org, units] = await Promise.all([getCurrentOrg(), getResidentUnits()])
@@ -91,6 +94,7 @@ export default async function ResidentDashboard() {
         return NO_POLLS_TO_ANSWER
       }
     }),
+    timed('/resident', 'resident.hearings', () => loadMyHearings()),
   ])
 
   const hasUnit = data.units.length > 0
@@ -157,6 +161,8 @@ export default async function ResidentDashboard() {
               </RowGroup>
             </Section>
           ) : null}
+
+          {hearings.kind === 'ok' ? <HearingCard hearings={hearings.hearings} /> : null}
 
           {data.failed.requests ? (
             <Section label="Your open requests">
@@ -237,6 +243,28 @@ export default async function ResidentDashboard() {
       ) : null}
     </div>
   )
+}
+
+// ── Upcoming hearing (round 31) ─────────────────────────────────────────
+// Scheduled, noticed, still ahead in the association's zone, on the
+// resident's own home. Any failed read hides the card: it is a pointer,
+// and the violation page shows the hearing too.
+
+async function loadMyHearings(): Promise<UpcomingHearingsLoad> {
+  try {
+    const [actor, org, units] = await Promise.all([getResidentActor(), getCurrentOrg(), getResidentUnits()])
+    const orgId = actor.orgId ?? org?.id ?? null
+    if (!orgId) return { kind: 'off' }
+    return await loadUpcomingHearings(
+      { residentDb: actor.client, admin: createAdminClient() as never },
+      { orgId, units },
+    )
+  } catch (e) {
+    console.error('[resident-home] hearings read failed', {
+      code: e instanceof Error && 'code' in e ? (e as { code?: string }).code ?? null : null,
+    })
+    return { kind: 'failed' }
+  }
 }
 
 // ── Texts prompt (BL-110) ───────────────────────────────────────────────
