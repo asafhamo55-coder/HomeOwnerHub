@@ -395,7 +395,7 @@ export function HearingCard({ violation, state, associationName, hearing, loadFa
                   The email notice opens in Messages for this home. Read it, fill in anything in brackets, and send it from there. Then
                   enter the day it went out above.
                 </p>
-                {!violation.closed ? (
+                {!violation.closed && hearing?.hearingOn ? (
                   <p className="text-sm text-muted">
                     For owners who get notices on paper, print the notice instead and mail it or hand it over. It prints the hearing as
                     last saved, so save any changes first.

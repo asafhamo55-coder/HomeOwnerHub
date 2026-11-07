@@ -15,6 +15,8 @@ export interface HearingNoticeView {
   subject: string
   /** The body from buildHearingNoticeDraft. Every value in it is escaped by the builder. */
   bodyHtml: string
+  /** Shown above the letter and never printed. */
+  warnings?: string[]
 }
 
 /**
@@ -26,17 +28,22 @@ export function HearingNoticePrint({ view }: { view: HearingNoticeView }) {
   return (
     <div className="space-y-5">
       <div className="space-y-3 print:hidden" data-testid="hearing-notice-header">
-        <Alert variant="info" title="This is the same notice the email option sends">
+        <Alert variant="info" title="The paper copy of the hearing notice">
           Print it on your association’s paper to mail or hand-deliver to an owner who does not read email, or choose Save as PDF in
           the print window.
         </Alert>
+        {(view.warnings ?? []).map((w) => (
+          <Alert key={w} variant="warning" title="Check before you print">
+            {w}
+          </Alert>
+        ))}
         <Button type="button" size="lg" className="min-h-12" icon={<Printer aria-hidden />} onClick={() => window.print()}>
           Print / Save as PDF
         </Button>
       </div>
       <article
         aria-label="Hearing notice"
-        className="hearing-notice mx-auto max-w-[8.5in] space-y-4 rounded-lg border border-border bg-white p-6 text-[12pt] leading-snug text-black [print-color-adjust:exact] print:max-w-none print:rounded-none print:border-0 print:p-0"
+        className="hearing-notice mx-auto [overflow-wrap:anywhere] max-w-[8.5in] space-y-4 rounded-lg border border-border bg-white p-6 text-[12pt] leading-snug text-black [print-color-adjust:exact] print:max-w-none print:rounded-none print:border-0 print:p-0"
       >
         <style>{'@media print { @page { size: letter; margin: 0.75in; } }'}</style>
         <header className="space-y-3">
@@ -50,7 +57,7 @@ export function HearingNoticePrint({ view }: { view: HearingNoticeView }) {
           </div>
           <h1 className="text-[14pt] font-bold">{view.subject}</h1>
         </header>
-        <div className="[&_p]:mb-3" dangerouslySetInnerHTML={{ __html: view.bodyHtml }} />
+        <div className="[overflow-wrap:anywhere] [&_p]:mb-3" dangerouslySetInnerHTML={{ __html: view.bodyHtml }} />
       </article>
     </div>
   )

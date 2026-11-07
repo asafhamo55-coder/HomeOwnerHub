@@ -12,6 +12,9 @@ const h = vi.hoisted(() => ({
   rulesFail: false,
   queried: 0,
   orgFilters: [] as unknown[],
+  contacts: [{ label: 'President', name: 'Pat Board', phone: '404-555-0100', email: '' }] as unknown[],
+  settingsError: null as unknown,
+  today: '2026-11-07',
 }))
 
 class NotFound extends Error {}
@@ -29,7 +32,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
-    from: () => {
+    from: (table: string) => {
       h.queried += 1
       const chain: Record<string, unknown> = {
         select: () => chain,
@@ -38,11 +41,20 @@ vi.mock('@/lib/supabase/server', () => ({
           return chain
         },
         is: () => chain,
+        order: () => chain,
+        range: async () =>
+          table === 'associations'
+            ? { data: h.settingsError ? null : [{ compliance_settings: { board_contacts: h.contacts } }], error: h.settingsError }
+            : { data: null, error: null },
         maybeSingle: async () => ({ data: h.rowError ? null : h.row, error: h.rowError }),
       }
       return chain
     },
   })),
+}))
+vi.mock('@/lib/association-time', async (orig) => ({
+  ...(await orig<typeof import('@/lib/association-time')>()),
+  todayIn: () => h.today,
 }))
 vi.mock('@/lib/primary-association', () => ({
   getPrimaryAssociationResult: vi.fn(async () => ({ ok: true, data: { id: 'a1', name: 'Peachtree Fixture HOA', timeZone: 'America/New_York' }, count: null })),
@@ -67,12 +79,14 @@ import { buildHearingNoticeDraft } from '@/lib/violation-hearings/rules'
 
 const VIOLATION = {
   id: ID,
+  status: 'open',
   violation_type: 'unapproved_fence',
   description: 'A fence was built without approval.',
   ccr_section: 'Section 4.2',
   property: { address: '1234 PEACHTREE STREET NORTHEAST, ATLANTA, GA 30309', unit_number: '5', owner_name: 'Jane Owner' },
 }
-const HEARING = { hearingOn: '2026-12-10', hearingTime: '19:00', location: 'Clubhouse <Room 2>' }
+const HEARING = {
+  status: 'scheduled', hearingOn: '2026-12-10', hearingTime: '19:00', location: 'Clubhouse <Room 2>' }
 
 async function render() {
   const el = await Page({ params: Promise.resolve({ id: ID }) })
@@ -89,26 +103,109 @@ beforeEach(() => {
   h.rulesFail = false
   h.queried = 0
   h.orgFilters = []
+  h.contacts = [{ label: 'President', name: 'Pat Board', phone: '404-555-0100', email: '' }]
+  h.settingsError = null
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
+const PRINT_INPUT = (state: string | null) => ({
+  state,
+  associationName: 'Peachtree Fixture HOA',
+  violationType: VIOLATION.violation_type,
+  description: VIOLATION.description,
+  ruleCited: VIOLATION.ccr_section,
+  hearingOn: HEARING.hearingOn,
+  hearingTime: HEARING.hearingTime,
+  location: HEARING.location,
+})
+
 describe('hearing notice print view', () => {
-  it.each(['FL', 'CA', 'GA', null])('prints exactly the email draft body for state %s', async (state) => {
+  it.each(['FL', 'CA', 'GA', null])('prints the print draft for state %s, with no brackets', async (state) => {
     h.state = state
     const html = await render()
-    const draft = buildHearingNoticeDraft({
-      state,
-      associationName: 'Peachtree Fixture HOA',
-      violationType: VIOLATION.violation_type,
-      description: VIOLATION.description,
-      ruleCited: VIOLATION.ccr_section,
-      hearingOn: HEARING.hearingOn,
-      hearingTime: HEARING.hearingTime,
-      location: HEARING.location,
-    })
+    const draft = buildHearingNoticeDraft({ ...PRINT_INPUT(state), mode: 'print', contactLines: ['President, Pat Board, 404-555-0100'] })
     expect(html).toContain(draft.bodyHtml)
     expect(html).toContain(draft.subject)
     expect(html).toContain('Clubhouse &lt;Room 2&gt;')
+    expect(draft.bodyHtml).not.toMatch(/\[[^\]]*\]/)
+    expect(html.replace(/<[^>]*>/g, '')).not.toMatch(/[[\]]/)
+    expect(html).not.toContain('Check before you print')
+  })
+
+  it('shares the email draft wording and leaves the email output unchanged', () => {
+    const email = buildHearingNoticeDraft(PRINT_INPUT('FL'))
+    const paper = buildHearingNoticeDraft({ ...PRINT_INPUT('FL'), mode: 'print', contactLines: [] })
+    expect(buildHearingNoticeDraft({ ...PRINT_INPUT('FL'), mode: 'email' })).toEqual(email)
+    expect(email.bodyHtml).toContain('[')
+    expect(email.subject).toBe(paper.subject)
+    for (const shared of ['<p>Dear Homeowner,</p>', 'The violation:</strong> A fence was built without approval. (Section 4.2)', 'no fine may be imposed']) {
+      expect(email.bodyHtml).toContain(shared)
+      expect(paper.bodyHtml).toContain(shared)
+    }
+    expect(paper.bodyHtml).not.toMatch(/reply/i)
+  })
+
+  it('FL names section 720.305(2) and the no-fine line', () => {
+    const b = buildHearingNoticeDraft({ ...PRINT_INPUT('FL'), mode: 'print' }).bodyHtml
+    expect(b).toContain('720.305(2)')
+    expect(b).toContain('no fine may be imposed')
+    expect(b).not.toContain('5855')
+  })
+  it('CA names section 5855 only', () => {
+    const b = buildHearingNoticeDraft({ ...PRINT_INPUT('CA'), mode: 'print' }).bodyHtml
+    expect(b).toContain('5855')
+    expect(b).not.toContain('720.305')
+    expect(b).not.toContain('no fine may be imposed')
+  })
+  it.each(['GA', null])('state %s names neither statute', (state) => {
+    const b = buildHearingNoticeDraft({ ...PRINT_INPUT(state), mode: 'print' }).bodyHtml
+    for (const t of ['720.305', '5855', 'no fine may be imposed']) expect(b).not.toContain(t)
+  })
+
+  it('prints the board contacts, or "Please contact the board." with a warning', async () => {
+    let html = await render()
+    expect(html).toContain('President, Pat Board, 404-555-0100')
+    h.contacts = []
+    html = await render()
+    expect(html).toContain('Please contact the board.')
+    expect(html).toContain('No board contacts are set')
+  })
+
+  it('keeps the signature and statute block together and wraps long text', async () => {
+    h.row = { ...VIOLATION, description: 'x'.repeat(600) }
+    const html = await render()
+    expect(html).toContain('break-inside:avoid')
+    expect(html).toContain('[overflow-wrap:anywhere]')
+    expect(html).toContain('x'.repeat(600))
+  })
+
+  it('warns, print-hidden, about a past date, a short notice and a non-scheduled hearing', async () => {
+    h.today = '2026-12-09'
+    let html = await render()
+    expect(html).toContain('less than 14 days away')
+    h.today = '2026-12-20'
+    html = await render()
+    expect(html).toContain('The hearing date has passed.')
+    h.today = '2026-11-07'
+    h.hearing = { ...HEARING, status: 'cancelled' }
+    html = await render()
+    expect(html).toContain('marked cancelled, not scheduled')
+    expect(html.indexOf('Check before you print')).toBeLessThan(html.indexOf('aria-label="Hearing notice"'))
+  })
+
+  it('refuses without a place or a time, and for a closed violation', async () => {
+    h.hearing = { ...HEARING, location: '  ' }
+    let html = await render()
+    expect(html).toContain('Add the hearing place first')
+    expect(html).not.toContain('Dear Homeowner')
+    h.hearing = { ...HEARING, hearingTime: null }
+    html = await render()
+    expect(html).toContain('Add the hearing time first')
+    h.hearing = HEARING
+    h.row = { ...VIOLATION, status: 'resolved' }
+    html = await render()
+    expect(html).toContain('This violation is closed')
+    expect(html).not.toContain('Dear Homeowner')
   })
 
   it('shows letterhead, owner and the standard USPS address', async () => {
@@ -179,6 +276,7 @@ describe('fail closed', () => {
     ['the violation read fails', () => (h.rowError = { code: '57014', message: 'timeout' })],
     ['the hearing read fails', () => (h.hearingKind = 'failed')],
     ['the state read fails', () => (h.rulesFail = true)],
+    ['the contacts read fails', () => (h.settingsError = { code: '57014', message: 'timeout' })],
   ])('shows LoadFailed and no letter when %s', async (_name, arrange) => {
     arrange()
     const html = await render()

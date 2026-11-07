@@ -667,6 +667,14 @@ export interface HearingNoticeInput {
   hearingOn: string | null
   hearingTime: string | null
   location: string | null
+  /**
+   * 'print' builds the paper version: no bracketed fill-in lines (paper has
+   * no edit step), no "reply" wording, and the board's contacts in place of
+   * "reply to this message". Omitted, the output is the email draft, unchanged.
+   */
+  mode?: 'email' | 'print'
+  /** Print only: one plain-text line per board contact. Empty prints "Please contact the board." */
+  contactLines?: string[]
 }
 
 function escapeHtml(s: string): string {
@@ -705,6 +713,7 @@ export function buildHearingNoticeDraft(input: HearingNoticeInput): { subject: s
   const what = input.violationType.replace(/_/g, ' ').trim() || 'violation'
   const assoc = input.associationName.trim() || 'the association'
   const p = (s: string) => `<p>${s}</p>`
+  if (input.mode === 'print') return buildPrintedHearingNotice(input, state, what, assoc)
   const lines: string[] = [
     p('Dear Homeowner,'),
     p(
@@ -731,5 +740,43 @@ export function buildHearingNoticeDraft(input: HearingNoticeInput): { subject: s
   lines.push(p('If you have questions, reply to this message.'), p(`Sincerely,<br />The Board of Directors, ${escapeHtml(assoc)}`))
   if (state === 'FL') lines.push(p('<em>This notice is given under section 720.305(2), Florida Statutes.</em>'))
   if (state === 'CA') lines.push(p('<em>This notice is given under California Civil Code section 5855.</em>'))
+  return { subject: `Notice of hearing: ${what}`, bodyHtml: lines.join('\n') }
+}
+
+/** The paper version of the hearing notice. Same wording as the email draft, minus anything the board would have to fill in or reply to. */
+function buildPrintedHearingNotice(
+  input: HearingNoticeInput,
+  state: ReturnType<typeof normaliseState>,
+  what: string,
+  assoc: string,
+): { subject: string; bodyHtml: string } {
+  const p = (s: string) => `<p>${s}</p>`
+  const contacts = (input.contactLines ?? []).map((l) => l.trim()).filter(Boolean)
+  const contactHtml = contacts.length > 0 ? contacts.map(escapeHtml).join('<br />') : null
+  const lines: string[] = [
+    p('Dear Homeowner,'),
+    p(
+      state === 'CA'
+        ? `The Board of Directors of ${escapeHtml(assoc)} will meet to consider the violation described below. You have the right to attend this meeting and may address the board.`
+        : `${escapeHtml(assoc)} has scheduled a hearing on the violation described below. You have the right to attend and be heard.`,
+    ),
+    p(`<strong>The violation:</strong> ${escapeHtml(input.description.trim())}${input.ruleCited ? ` (${escapeHtml(input.ruleCited.trim())})` : ''}`),
+    p(
+      `<strong>When:</strong> ${escapeHtml(longDay(input.hearingOn))} at ${escapeHtml(clock(input.hearingTime))}<br /><strong>Where:</strong> ${escapeHtml(input.location?.trim() ?? '')}`,
+    ),
+  ]
+  if (state === 'FL') {
+    lines.push(
+      p('You have the right to attend the hearing by telephone or other electronic means. Contact the board to arrange it.'),
+      p('The hearing is before a committee of owners appointed by the board who are not officers, directors or employees of the association. If the violation is fixed before the hearing, no fine may be imposed.'),
+    )
+  } else if (state === 'CA') {
+    lines.push(p('You may fix the violation before the meeting. If you would like the board to meet with you in executive session, contact the board and ask.'))
+  }
+  lines.push(p(contactHtml ? `If you have questions, contact the board:<br />${contactHtml}` : 'Please contact the board.'))
+  const tail: string[] = [p(`Sincerely,<br />The Board of Directors, ${escapeHtml(assoc)}`)]
+  if (state === 'FL') tail.push(p('<em>This notice is given under section 720.305(2), Florida Statutes.</em>'))
+  if (state === 'CA') tail.push(p('<em>This notice is given under California Civil Code section 5855.</em>'))
+  lines.push(`<div style="break-inside:avoid">${tail.join('\n')}</div>`)
   return { subject: `Notice of hearing: ${what}`, bodyHtml: lines.join('\n') }
 }
