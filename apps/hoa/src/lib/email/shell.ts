@@ -82,17 +82,17 @@ function bandRow(band: EmailBand): string {
 }
 
 /**
- * The brand header: the full-colour logo on a WHITE band, with a 4px royal
- * purple rule under it.
+ * The brand header: the full-colour logo on a WHITE band, with a 4px deep blue
+ * rule under it.
  *
- * Why white and not a deep-purple band with the white logo: dark-mode
+ * Why white and not a deep-blue band with the white logo: dark-mode
  * engines (Gmail iOS, Outlook.com, Apple Mail) invert or partially invert
  * backgrounds but never touch image pixels. A white band is already the
  * "light" case, so it stays put (the document declares color-scheme: light),
- * and where an engine does darken it the PNG is a purple badge with
+ * and where an engine does darken it the PNG is a blue badge with
  * transparent corners, so it still reads as deliberate on dark. A
- * deep-purple band would invert unpredictably and could leave the white logo
- * on white. The purple rule keeps the royal purple at the very top of every
+ * deep-blue band would invert unpredictably and could leave the white logo
+ * on white. The deep blue rule keeps the deep blue at the very top of every
  * message, which is what the site does.
  *
  * The URL is built from EMAIL_ASSET_BASE_URL (asset-url.ts), never from the

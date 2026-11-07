@@ -250,7 +250,7 @@ describe('render', () => {
     expect(e.html).toContain('12 backlog items left')
     expect(e.html).toContain(`${12 - countPartly(b.open)} not started, ${countPartly(b.open)} partly done`)
     expect(e.html).toContain('alt="HomeownerHub"')
-    expect(e.html).toContain('#6D28D9')
+    expect(e.html).toContain('#2563EB')
     expect(e.html).toContain('Blocked on OA-9')
     expect(e.text).toContain('GEORGIA (2)')
     expect(e.text).toContain('BL-035 · Refresh the Georgia snapshot before 2027-01-01 (deadline item)')

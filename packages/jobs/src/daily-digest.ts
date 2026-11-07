@@ -3,7 +3,7 @@ import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { inngest } from './client'
 import { BRAND, wrapBrandedEmail } from '@homeowner-portal/workflows/email-brand'
 
-// Royal purple, the marketing site's primary (packages/workflows/src/email-brand).
+// primary blue, the marketing site's primary (packages/workflows/src/email-brand).
 const HOA_BRAND_PRIMARY: string = BRAND.primary
 // Dependency-free (no imports of its own), shared with the inbox list so the
 // digest's "waiting" means exactly what the badge means. Same relative-path
