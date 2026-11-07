@@ -43,7 +43,7 @@ export function CommunityLocationForm({
   }
 
   return (
-    <Card>
+    <Card id="community-location">
       <CardHeader>
         <CardTitle>Where the community is · {associationName}</CardTitle>
       </CardHeader>
@@ -52,7 +52,7 @@ export function CommunityLocationForm({
           <p className="text-sm text-muted">{COMMUNITY_LOCATION_HELP}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="City" error={fieldErrors.city}>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={80} disabled={pending} autoComplete="address-level2" />
+              <Input value={city} onChange={(e) => setCity(e.target.value)} maxLength={80} disabled={pending} autoComplete="address-level2" className="min-h-11" />
             </Field>
             <Field label="ZIP code" error={fieldErrors.zip}>
               <Input
@@ -62,6 +62,7 @@ export function CommunityLocationForm({
                 inputMode="numeric"
                 disabled={pending}
                 autoComplete="postal-code"
+                className="min-h-11"
               />
             </Field>
           </div>
@@ -70,7 +71,7 @@ export function CommunityLocationForm({
               {error}
             </Alert>
           ) : null}
-          <Button type="submit" loading={pending}>
+          <Button type="submit" size="lg" loading={pending}>
             Save location
           </Button>
         </form>

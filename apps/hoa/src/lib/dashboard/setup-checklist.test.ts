@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { withCommunityLocation } from '@/lib/association-location'
 import { GUIDE_ARTICLES } from '@/generated/guide'
 import { signZelleSettings, withZelleSettings } from '@/lib/pay-by-zelle'
 import {
@@ -8,9 +9,14 @@ import {
   buildSetupChecklist,
   isChecklistDismissible,
   loadSetupChecklist,
+  ownersInvitedState,
   stepStateFrom,
   type SetupFacts,
 } from './setup-checklist'
+
+const mocks = vi.hoisted(() => ({ loadOwnersWithoutAccount: vi.fn() }))
+vi.mock('@homeowner-portal/db', () => ({ createAdminClient: () => ({}) }))
+vi.mock('@/lib/owner-invites', () => ({ loadOwnersWithoutAccount: mocks.loadOwnersWithoutAccount }))
 
 const ALL_DONE: SetupFacts = {
   association: [1],
@@ -18,6 +24,8 @@ const ALL_DONE: SetupFacts = {
   properties: [3, 0],
   residents: [0, 2],
   board: [2],
+  ownersToInvite: 0,
+  location: [1],
   dues: [12],
   payments: [1],
   governingDocs: [1],
@@ -30,7 +38,7 @@ const NOTHING: SetupFacts = {
   books: [0],
   properties: [0, 0],
   residents: [0, 0],
-  board: [1],
+  board: [1], ownersToInvite: 3, location: [0],
   dues: [0],
   payments: [0],
   governingDocs: [0],
@@ -82,6 +90,7 @@ describe('buildSetupChecklist', () => {
       'properties',
       'residents',
       'board',
+      'invite_owners',
       'dues',
       'payments',
       'governing_docs',
@@ -106,7 +115,7 @@ describe('buildSetupChecklist', () => {
     expect(byKey.association!.href).toBe('/accounting/periods')
     expect(byKey.association!.secondary).toEqual({
       href: '/settings/association',
-      label: 'Confirm your state and association type',
+      label: 'Confirm your state, type, city and ZIP',
     })
     expect(byKey.payments!.href).toBe('/settings/payments')
     expect(byKey.bank!.href).toBe('/accounting/bank')
@@ -115,10 +124,10 @@ describe('buildSetupChecklist', () => {
   it('counts progress from done steps only', () => {
     const c = buildSetupChecklist({ ...NOTHING, mailbox: [1], dues: [5] })
     expect(c.doneCount).toBe(2)
-    expect(c.total).toBe(9)
-    expect(c.percent).toBe(22)
+    expect(c.total).toBe(10)
+    expect(c.percent).toBe(20)
     expect(c.requiredDone).toBe(1)
-    expect(c.requiredTotal).toBe(7)
+    expect(c.requiredTotal).toBe(8)
     expect(c.complete).toBe(false)
   })
 
@@ -131,21 +140,21 @@ describe('buildSetupChecklist', () => {
   it('"Association and books" needs both the association and open books', () => {
     expect(stateOf({ ...NOTHING, association: [1], books: [0] }, 'association')).toBe('todo')
     expect(stateOf({ ...NOTHING, association: [0], books: [null] }, 'association')).toBe('todo')
-    expect(stateOf({ ...NOTHING, association: [1], books: [null] }, 'association')).toBe('unknown')
-    expect(stateOf({ ...NOTHING, association: [1], books: [1] }, 'association')).toBe('done')
+    expect(stateOf({ ...NOTHING, association: [1], books: [null], location: [1] }, 'association')).toBe('unknown')
+    expect(stateOf({ ...NOTHING, association: [1], books: [1], location: [1] }, 'association')).toBe('done')
   })
 
   it('is complete when every required step is done; optional bank and mailbox don’t block it', () => {
     expect([...OPTIONAL_SETUP_KEYS].sort()).toEqual(['bank', 'mailbox'])
     const c = buildSetupChecklist({ ...ALL_DONE, bank: [0], mailbox: [0] })
     expect(c.complete).toBe(true)
-    expect(c.doneCount).toBe(7)
+    expect(c.doneCount).toBe(8)
     expect(c.steps.filter((s) => s.optional).map((s) => s.key)).toEqual(['bank', 'mailbox'])
   })
 
   it('is complete with everything done', () => {
     const c = buildSetupChecklist(ALL_DONE)
-    expect(c.doneCount).toBe(9)
+    expect(c.doneCount).toBe(10)
     expect(c.percent).toBe(100)
     expect(c.complete).toBe(true)
     expect(c.unknownCount).toBe(0)
@@ -155,16 +164,75 @@ describe('buildSetupChecklist', () => {
     const c = buildSetupChecklist({ ...ALL_DONE, governingDocs: [null] })
     const docs = c.steps.find((s) => s.key === 'governing_docs')!
     expect(docs.state).toBe('unknown')
-    expect(c.doneCount).toBe(8)
+    expect(c.doneCount).toBe(9)
     expect(c.unknownCount).toBe(1)
     expect(c.complete).toBe(false)
   })
 
   it('every source failing reads as unknowns, not todos', () => {
-    const failed = Object.fromEntries(Object.entries(NOTHING).map(([k, v]) => [k, v.map(() => null)])) as SetupFacts
+    const failed = Object.fromEntries(
+      Object.entries(NOTHING).map(([k, v]) => [k, Array.isArray(v) ? v.map(() => null) : null]),
+    ) as unknown as SetupFacts
     const c = buildSetupChecklist(failed)
     expect(c.steps.every((s) => s.state === 'unknown')).toBe(true)
     expect(c.doneCount).toBe(0)
+  })
+})
+
+describe('"Invite your owners" step', () => {
+  const step = (facts: SetupFacts) => buildSetupChecklist(facts).steps.find((s) => s.key === 'invite_owners')!
+
+  it('comes right after "Invite the board"', () => {
+    const keys = buildSetupChecklist(NOTHING).steps.map((s) => s.key)
+    expect(keys.indexOf('invite_owners')).toBe(keys.indexOf('board') + 1)
+  })
+
+  it('is done only when no owner with an email is still waiting for an invitation', () => {
+    expect(ownersInvitedState(0)).toBe('done')
+    expect(ownersInvitedState(1)).toBe('todo')
+    expect(ownersInvitedState(40)).toBe('todo')
+    expect(stateOf({ ...NOTHING, ownersToInvite: 0 }, 'invite_owners')).toBe('done')
+    expect(stateOf({ ...NOTHING, ownersToInvite: 7 }, 'invite_owners')).toBe('todo')
+  })
+
+  it('a failed read is "couldn’t check", never done', () => {
+    expect(ownersInvitedState(null)).toBe('unknown')
+    expect(stateOf({ ...ALL_DONE, ownersToInvite: null }, 'invite_owners')).toBe('unknown')
+    expect(buildSetupChecklist({ ...ALL_DONE, ownersToInvite: null }).complete).toBe(false)
+  })
+
+  it('is a required step that blocks completion until it is done', () => {
+    expect(step(NOTHING).optional).toBe(false)
+    expect(buildSetupChecklist({ ...ALL_DONE, ownersToInvite: 2 }).complete).toBe(false)
+  })
+
+  it('links to the invite flow, offers the printable notice, and opens the right guide article', () => {
+    const s = step(NOTHING)
+    expect(s.href).toBe('/settings/members#invite-owners')
+    expect(s.secondary).toEqual({ href: '/people/join-notice', label: 'Print the “How to join” notice' })
+    expect(s.guide).toBe('members-invite-owners')
+    expect(s.description).toContain('How to join')
+    expect(s.description).toContain('no email')
+  })
+
+  it('uses plain words: no em dashes in the visible text', () => {
+    const s = step(NOTHING)
+    for (const t of [s.title, s.description, s.cta, s.secondary!.label]) expect(t).not.toContain('\u2014')
+  })
+})
+
+describe('"Association and books" also needs the community city and ZIP', () => {
+  it('is todo while the city and ZIP are missing, done once saved', () => {
+    expect(stateOf({ ...ALL_DONE, location: [0] }, 'association')).toBe('todo')
+    expect(stateOf({ ...ALL_DONE, location: [1] }, 'association')).toBe('done')
+    expect(stateOf({ ...ALL_DONE, location: [null] }, 'association')).toBe('unknown')
+  })
+
+  it('says in one plain sentence why the city and ZIP are asked for', () => {
+    const s = buildSetupChecklist(NOTHING).steps.find((x) => x.key === 'association')!
+    expect(s.description).toContain('house photos show for street-only addresses')
+    expect(s.description).not.toContain('\u2014')
+    expect(s.secondary!.label).not.toContain('\u2014')
   })
 })
 
@@ -233,6 +301,8 @@ const SECRET = 'test-secret'
 
 describe('loadSetupChecklist', () => {
   beforeEach(() => {
+    mocks.loadOwnersWithoutAccount.mockReset()
+    mocks.loadOwnersWithoutAccount.mockResolvedValue([])
     vi.stubEnv('PAY_SETTINGS_SECRET', SECRET)
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -243,7 +313,7 @@ describe('loadSetupChecklist', () => {
   const signedAssociation = {
     id: 'assoc-1',
     compliance_settings: withZelleSettings(
-      {},
+      withCommunityLocation({}, { city: 'Alpharetta', zip: '30005' }),
       signZelleSettings('assoc-1', { recipient: 'pay@example.test', recipientName: null, instructions: null }, SECRET),
     ),
   }
@@ -276,6 +346,42 @@ describe('loadSetupChecklist', () => {
     }
     const failed = await loadSetupChecklist(fakeDb({ associations: timeout }) as never, ORG)
     expect(failed.steps.find((s) => s.key === 'payments')!.state).toBe('unknown')
+  })
+
+  it('"Invite your owners" counts the owners the People page calls not invited yet', async () => {
+    mocks.loadOwnersWithoutAccount.mockResolvedValue([
+      { email: 'a@example.test', name: null, unitIds: ['u1'] },
+      { email: 'b@example.test', name: null, unitIds: ['u2'] },
+    ])
+    const todo = await loadSetupChecklist(fakeDb({}) as never, ORG)
+    expect(todo.steps.find((s) => s.key === 'invite_owners')!.state).toBe('todo')
+    expect(mocks.loadOwnersWithoutAccount).toHaveBeenCalledWith(expect.anything(), ORG)
+
+    mocks.loadOwnersWithoutAccount.mockResolvedValue([])
+    const done = await loadSetupChecklist(fakeDb({}) as never, ORG)
+    expect(done.steps.find((s) => s.key === 'invite_owners')!.state).toBe('done')
+  })
+
+  it('"Invite your owners" is unknown, not done, when the owner read fails or throws', async () => {
+    mocks.loadOwnersWithoutAccount.mockResolvedValue(null)
+    const failed = await loadSetupChecklist(fakeDb({}) as never, ORG)
+    expect(failed.steps.find((s) => s.key === 'invite_owners')!.state).toBe('unknown')
+    mocks.loadOwnersWithoutAccount.mockRejectedValue(new Error('boom'))
+    const threw = await loadSetupChecklist(fakeDb({}) as never, ORG)
+    expect(threw.steps.find((s) => s.key === 'invite_owners')!.state).toBe('unknown')
+  })
+
+  it('"Association and books" needs the saved city and ZIP, read from the same association row', async () => {
+    const base = { associations: { count: 1, data: signedAssociation }, fiscal_periods: { count: 1 } }
+    const ok = await loadSetupChecklist(fakeDb(base) as never, ORG)
+    expect(ok.steps.find((s) => s.key === 'association')!.state).toBe('done')
+    for (const loc of [{ city: '', zip: '' }, { city: 'Alpharetta', zip: '' }, { city: '', zip: '30005' }]) {
+      const data = { id: 'assoc-1', compliance_settings: withCommunityLocation({}, loc) }
+      const c = await loadSetupChecklist(fakeDb({ ...base, associations: { count: 1, data } }) as never, ORG)
+      expect(c.steps.find((s) => s.key === 'association')!.state).toBe('todo')
+    }
+    const bad = await loadSetupChecklist(fakeDb({ ...base, associations: timeout }) as never, ORG)
+    expect(bad.steps.find((s) => s.key === 'association')!.state).toBe('unknown')
   })
 
   it('counts only board roles for "Invite the board" (a resident invite doesn’t tick it)', async () => {

@@ -25,6 +25,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@homeowner-portal/db/types'
+import { createAdminClient } from '@homeowner-portal/db'
+import { readCommunityLocation } from '@/lib/association-location'
+import { loadOwnersWithoutAccount, type Db as OwnerInvitesDb } from '@/lib/owner-invites'
 import { paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
 
 type Db = SupabaseClient<Database>
@@ -37,6 +40,7 @@ export const SETUP_CHECKLIST_KEYS = [
   'properties',
   'residents',
   'board',
+  'invite_owners',
   'dues',
   'payments',
   'governing_docs',
@@ -96,7 +100,15 @@ export interface SetupFacts {
   residents: Array<number | null>
   /** org_members with a BOARD role (admin or board) — residents don't count. */
   board: Array<number | null>
+  /**
+   * Owners on the roster with an email and no account yet (the People page's
+   * "Owners not invited yet"). null = the read failed. 0 means done, and so
+   * does a roster where no owner has an email.
+   */
+  ownersToInvite: number | null
   dues: Array<number | null>
+  /** 1 when the community's city and ZIP are both saved, else 0. */
+  location: Array<number | null>
   /** 1 when residents can see verified Zelle details, else 0. */
   payments: Array<number | null>
   governingDocs: Array<number | null>
@@ -123,6 +135,17 @@ export function allOf(...states: SetupStepState[]): SetupStepState {
 }
 
 /**
+ * The owners step: done when no owner with an email is still waiting for an
+ * invitation (invited owners and owners who joined both drop out of the
+ * count). A roster with no emails at all is also 0, so it reads done and the
+ * printable notice stays on offer as the other route.
+ */
+export function ownersInvitedState(ownersToInvite: number | null): SetupStepState {
+  if (ownersToInvite === null) return 'unknown'
+  return ownersToInvite === 0 ? 'done' : 'todo'
+}
+
+/**
  * The properties step. Was shared word for word with the old sign-up
  * checklist (BL-072); now there is only one checklist. A spreadsheet goes
  * to the board's own import (P4), never to support.
@@ -140,14 +163,18 @@ type StepCopy = Omit<SetupChecklistStep, 'key' | 'state' | 'optional'>
 const STEP_COPY: Record<SetupChecklistKey, StepCopy> = {
   association: {
     title: 'Set up your association and books',
-    description: 'The association your homes and dues belong to, with its funds, chart of accounts and fiscal year.',
+    description:
+      'The association your homes and dues belong to, with its funds, chart of accounts and fiscal year. Add the community’s city and ZIP too, so house photos show for street-only addresses.',
     // Shows "Set up your association" (no association yet) or "Open the
     // books" (association, no books) — whichever is missing.
     href: '/accounting/periods',
     cta: 'Set up',
     // BL-176: the state and type decide which law applies; they were only
     // ever chosen once, in the create form.
-    secondary: { href: '/settings/association', label: 'Confirm your state and association type' },
+    // The same page also holds the community's city and ZIP (item 2 of
+    // round 30): without them a house photo can't be found for an address
+    // that is only a street.
+    secondary: { href: '/settings/association', label: 'Confirm your state, type, city and ZIP' },
     guide: 'dues-generate-monthly',
   },
   properties: { ...PROPERTIES_STEP_COPY, guide: 'setup-properties-residents' },
@@ -164,6 +191,15 @@ const STEP_COPY: Record<SetupChecklistKey, StepCopy> = {
     href: '/settings/members',
     cta: 'Invite',
     guide: 'members-invite-board',
+  },
+  invite_owners: {
+    title: 'Invite your owners',
+    description:
+      'Send each owner with an email a link to join the portal. For owners with no email, print the “How to join” notice and hand it out.',
+    href: '/settings/members#invite-owners',
+    cta: 'Invite owners',
+    secondary: { href: '/people/join-notice', label: 'Print the “How to join” notice' },
+    guide: 'members-invite-owners',
   },
   dues: {
     title: 'Set up dues',
@@ -207,12 +243,13 @@ const STEP_COPY: Record<SetupChecklistKey, StepCopy> = {
 
 export function buildSetupChecklist(facts: SetupFacts): SetupChecklist {
   const states: Record<SetupChecklistKey, SetupStepState> = {
-    association: allOf(stepStateFrom(facts.association), stepStateFrom(facts.books)),
+    association: allOf(stepStateFrom(facts.association), stepStateFrom(facts.books), stepStateFrom(facts.location)),
     properties: stepStateFrom(facts.properties),
     residents: stepStateFrom(facts.residents),
     // The person who created the org is already an admin; "invited the
     // board" means at least one more board member or admin.
     board: stepStateFrom(facts.board, 2),
+    invite_owners: ownersInvitedState(facts.ownersToInvite),
     dues: stepStateFrom(facts.dues),
     payments: stepStateFrom(facts.payments),
     governing_docs: stepStateFrom(facts.governingDocs),
@@ -282,12 +319,17 @@ async function countOrNull(label: string, orgId: string, query: PromiseLike<Coun
 }
 
 /**
- * 1 when the org's primary association (first by name — the one
- * /settings/payments edits) has Zelle details residents can see (signed
- * by the board's save), 0 when not or when there is no association, null
- * when the read failed.
+ * One read of the org's primary association (first by name, the one
+ * /settings/payments and /settings/association edit), two facts from it:
+ *   payments: 1 when residents can see Zelle details signed by the board's save
+ *   location: 1 when both the community's city and ZIP are saved
+ * Each is 0 when not or when there is no association, null when the read failed.
  */
-async function paymentsConfigured(db: Db, orgId: string): Promise<number | null> {
+async function primaryAssociationFacts(
+  db: Db,
+  orgId: string,
+): Promise<{ payments: number | null; location: number | null }> {
+  const failed = { payments: null, location: null }
   try {
     const { data, error } = await db
       .from('associations')
@@ -297,15 +339,34 @@ async function paymentsConfigured(db: Db, orgId: string): Promise<number | null>
       .limit(1)
       .maybeSingle()
     if (error) {
-      logFailed('payments read', orgId, error.code)
-      return null
+      logFailed('association read', orgId, error.code)
+      return failed
     }
     const row = data as { id: string; compliance_settings: unknown } | null
-    if (!row) return 0
+    if (!row) return { payments: 0, location: 0 }
     const state = readZelleSettings(row.id, row.compliance_settings, paySettingsSecret()).state
-    return state === 'configured' || state === 'checks_only' ? 1 : 0
+    const loc = readCommunityLocation(row.compliance_settings)
+    return {
+      payments: state === 'configured' || state === 'checks_only' ? 1 : 0,
+      location: loc.city && loc.zip ? 1 : 0,
+    }
   } catch (err) {
-    logFailed('payments read', orgId, err instanceof Error ? err.name : undefined)
+    logFailed('association read', orgId, err instanceof Error ? err.name : undefined)
+    return failed
+  }
+}
+
+/**
+ * Owners with an email and no account yet: the same number the People page
+ * shows as "Owners not invited yet". Needs the service role (profiles are
+ * per-user under RLS); the dashboard and setup page are board/admin only.
+ */
+async function ownersWaitingForInvite(orgId: string): Promise<number | null> {
+  try {
+    const owners = await loadOwnersWithoutAccount(createAdminClient() as unknown as OwnerInvitesDb, orgId)
+    return owners ? owners.length : null
+  } catch (err) {
+    logFailed('owners read', orgId, err instanceof Error ? err.name : undefined)
     return null
   }
 }
@@ -322,7 +383,8 @@ export async function loadSetupChecklist(db: Db, orgId: string): Promise<SetupCh
     ownerships,
     boardMembers,
     dues,
-    payments,
+    assoc,
+    ownersToInvite,
     governingDocs,
     bank,
     mailbox,
@@ -367,7 +429,8 @@ export async function loadSetupChecklist(db: Db, orgId: string): Promise<SetupCh
       orgId,
       db.from('assessments').select('id', head).eq('organization_id', orgId).is('deleted_at', null),
     ),
-    paymentsConfigured(db, orgId),
+    primaryAssociationFacts(db, orgId),
+    ownersWaitingForInvite(orgId),
     countOrNull(
       'governing_documents',
       orgId,
@@ -391,8 +454,10 @@ export async function loadSetupChecklist(db: Db, orgId: string): Promise<SetupCh
     properties: [hoaProperties, units],
     residents: [residents, ownerships],
     board: [boardMembers],
+    ownersToInvite,
     dues: [dues],
-    payments: [payments],
+    location: [assoc.location],
+    payments: [assoc.payments],
     governingDocs: [governingDocs],
     bank: [bank],
     mailbox: [mailbox],
