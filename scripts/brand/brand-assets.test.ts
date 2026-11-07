@@ -33,9 +33,11 @@ describe('generated brand assets', () => {
     expect(svg('marketing', 'logo-wordmark-dark.svg')).toContain('#BFDBFE')
   })
 
-  it('the website set contains none of the old purples or violets', () => {
-    for (const name of FILES) {
-      for (const c of OLD_PURPLES) expect(svg('marketing', name).toUpperCase(), name).not.toContain(c)
+  it('neither the website nor the app set contains the old purples or violets', () => {
+    for (const app of ['marketing', 'hoa']) {
+      for (const name of FILES) {
+        for (const c of OLD_PURPLES) expect(svg(app, name).toUpperCase(), `${app}/${name}`).not.toContain(c)
+      }
     }
   })
 })

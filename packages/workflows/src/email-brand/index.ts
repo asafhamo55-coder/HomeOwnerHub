@@ -99,7 +99,7 @@ export function brandLogoUrl(env: Record<string, string | undefined> = process.e
 }
 
 /**
- * The call-to-action button: primary blue, white 17px bold text (7.1:1),
+ * The call-to-action button: primary blue, white 17px bold text (5.2:1),
  * 52px tall. The td carries bgcolor AND an inline background so Outlook
  * (which ignores border-radius and CSS padding on anchors) still shows a
  * solid blue block. The 2px border matches the fill so the shape holds

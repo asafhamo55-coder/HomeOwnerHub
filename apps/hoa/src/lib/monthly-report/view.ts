@@ -22,7 +22,7 @@ import { MEETING_TYPE } from '@/lib/status/community'
 import type { ComplianceSummary } from '@/lib/compliance/obligations'
 import type { MonthlyReportData, ReserveReport, Section, Variance } from './model'
 
-/** primary blue, the marketing site's primary (email/brand.ts). */
+/** primary blue, the app and email primary (email/brand.ts) (email/brand.ts). */
 export const BRAND_PRIMARY: string = BRAND.primary
 
 /** BL-145: the state-law obligations page. */
