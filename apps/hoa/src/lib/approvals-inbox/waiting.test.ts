@@ -5,6 +5,9 @@ vi.mock('@homeowner-portal/observability/report', () => ({ reportError: vi.fn() 
 import type { InboxDb } from './load'
 import { APPROVAL_SOURCES, buildInbox, type InboxSection, type SourceCounts } from './model'
 import { getBoardWaiting, summarizeWaiting } from './waiting'
+import { sidebarBadges } from './sidebar-badge'
+import { approvalsBadge } from './model'
+import * as load from './load'
 
 type Resp = { data: unknown; error: { code: string; message: string } | null; count?: number | null }
 
@@ -61,11 +64,6 @@ describe('getBoardWaiting', () => {
     expect(pageInbox(waiting.counts).total).toBe(waiting.total)
   })
 
-  it('parity holds for every source: tile total equals the page total whatever is pending', () => {
-    const counts = Object.fromEntries(APPROVAL_SOURCES.map((s, i) => [s, i])) as SourceCounts
-    expect(summarizeWaiting(counts).total).toBe(pageInbox(counts).total)
-  })
-
   it('empty: every source loaded and every one empty is 0 and not failed (Inbox zero)', async () => {
     const { db } = fakeDb({ ...quiet(), owner_join_requests: [ok(0)], amenity_reservations: [ok(0)] })
     expect(await getBoardWaiting(db, ORG, FLAGS)).toMatchObject({ total: 0, failed: false })
@@ -102,5 +100,93 @@ describe('getBoardWaiting', () => {
     }
     const assoc = calls.find((c) => c.table === 'associations')!.ops
     expect(assoc).toContainEqual(['eq', ['organization_id', ORG]])
+  })
+})
+
+/** A builder that records every chained call (any method) and resolves one fixed response. */
+function recordingDb(resp: Resp) {
+  const calls: { table: string; ops: [string, unknown[]][] }[] = []
+  const db = {
+    from(table: string) {
+      const entry = { table, ops: [] as [string, unknown[]][] }
+      calls.push(entry)
+      const builder: unknown = new Proxy(() => {}, {
+        get(_t, prop) {
+          if (prop === 'then') return (res: (r: Resp) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(resp).then(res, rej)
+          return (...args: unknown[]) => {
+            entry.ops.push([String(prop), args])
+            return builder
+          }
+        },
+      })
+      return builder
+    },
+  }
+  return { db: db as unknown as InboxDb, calls }
+}
+
+const FILTERS = new Set(['eq', 'neq', 'in', 'is', 'gt', 'gte', 'lt', 'lte', 'not', 'or', 'contains', 'ilike'])
+const filterSig = (ops: [string, unknown[]][]) =>
+  ops
+    .filter(([op]) => FILTERS.has(op))
+    .map(([op, args]) => `${op}:${JSON.stringify(args)}`)
+    .sort()
+    .join('|')
+
+describe('the tile counts exactly what each page section loads (recorded query filters)', () => {
+  const NOW = new Date('2026-11-06T12:00:00Z')
+  const empty: Resp = { data: [], error: null, count: 0 }
+
+  const loaders: Record<string, (db: InboxDb) => Promise<unknown>> = {
+    w18: (db) => load.loadW18Section(db, ORG),
+    bill: (db) => load.loadBillSection(db, ORG),
+    opening: (db) => load.loadOpeningSection(db, ORG),
+    w3: (db) => load.loadW3Section(db, ORG),
+    collections: (db) => load.loadLetterSection(db, ORG),
+    arc: (db) => load.loadArcSection(db, ORG, { associationName: 'A' }),
+    join: (db) => load.loadJoinSection(db, ORG, true),
+    amenity: (db) => load.loadAmenitySection(db, ORG, 'America/New_York', { live: true, now: NOW }),
+    pro: (db) => load.loadProSection(db, ORG, true),
+  }
+
+  async function sigs(run: (db: InboxDb) => Promise<unknown>, isCount: boolean) {
+    const { db, calls } = recordingDb(empty)
+    await run(db).catch(() => {})
+    return calls
+      .filter((c) => {
+        const select = c.ops.find(([op]) => op === 'select')
+        const opts = (select?.[1][1] ?? {}) as { head?: boolean; count?: string }
+        return isCount ? opts.head === true : opts.count === 'exact' && opts.head !== true
+      })
+      .map((c) => `${c.table}#${filterSig(c.ops)}`)
+  }
+
+  it('every list section has a head count with identical eq/in/is/gt filters on the same table', async () => {
+    const counted = await sigs((db) => load.countPendingApprovals(db, ORG, { m5: true, m6: true, m11: true, now: NOW }), true)
+    for (const [source, run] of Object.entries(loaders)) {
+      const listed = await sigs(run, false)
+      expect(listed.length, `${source} should record its list query`).toBeGreaterThan(0)
+      for (const sig of listed) expect(counted, `${source}: ${sig}`).toContain(sig)
+    }
+  })
+})
+
+describe('M6 professionals and the sidebar badge', () => {
+  it('with M6 on, professional items are counted for everyone (all pro actions, no treasurer narrowing)', async () => {
+    const { db, calls } = recordingDb({ data: null, error: null, count: 1 })
+    const waiting = await getBoardWaiting(db, ORG, { m5: false, m6: true, m11: false })
+    expect(waiting.counts.pro).toBe(1)
+    const proCall = calls.find((c) => c.ops.some(([op, a]) => op === 'in' && a[0] === 'action_type' && (a[1] as string[]).includes('pro.journal_entry')))
+    expect(proCall).toBeDefined()
+    expect(calls.some((c) => c.table === 'org_members')).toBe(false)
+  })
+
+  it('the sidebar badge equals the tile for a non-treasurer board member (no viewer narrowing)', async () => {
+    const a = recordingDb({ data: null, error: null, count: 1 })
+    const badges = await sidebarBadges(a.db, ORG)
+    expect(a.calls.some((c) => c.table === 'org_members')).toBe(false)
+    const b = recordingDb({ data: null, error: null, count: 1 })
+    const waiting = await getBoardWaiting(b.db, ORG)
+    expect(badges['/approvals']).toBe(approvalsBadge(waiting.counts))
   })
 })

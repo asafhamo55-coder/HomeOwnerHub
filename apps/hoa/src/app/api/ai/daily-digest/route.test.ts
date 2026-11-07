@@ -277,6 +277,26 @@ describe('POST /api/ai/daily-digest conventions (RC-1, RC-2, RC-6, RC-10)', () =
 // was written with the caller's session, and dashboard_daily_snapshots has
 // no INSERT policy (0038: "writes go through the service role"). The board
 // gate had already passed, so this was never a role problem.
+describe('POST /api/ai/daily-digest when the approvals count failed', () => {
+  it('stores no approvalsPending and leaves the approvals line out of the suggestion', async () => {
+    const { getBoardWaiting } = await import('@/lib/approvals-inbox/waiting')
+    vi.mocked(getBoardWaiting).mockResolvedValueOnce({ counts: {} as never, total: 1, failed: true })
+
+    const response = await POST(req())
+
+    expect(response.status).toBe(200)
+    const [write] = db.adminUpserts
+    expect((write.row as { counts: Record<string, unknown> }).counts.approvalsPending).toBeNull()
+    expect(vi.mocked(generateDigestSuggestion).mock.calls[0]![0]).toMatchObject({ approvalsPending: null })
+  })
+
+  it('stores the number when the count is complete', async () => {
+    await POST(req())
+    const [write] = db.adminUpserts
+    expect((write.row as { counts: Record<string, unknown> }).counts.approvalsPending).toBe(3)
+  })
+})
+
 describe('POST /api/ai/daily-digest snapshot write (42501 regression)', () => {
   it('a board member gets 200, not the 42501 500, and the snapshot is written', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})

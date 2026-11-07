@@ -55,7 +55,7 @@ export function ApprovalsInbox({
         }
       >
         <CardTitle as="h2">Drafts to finish</CardTitle>
-        <p className="text-sm text-muted">Oldest first. Nothing goes out until you sign off. The Approvals tile counts Things to approve instead.</p>
+        <p className="text-sm text-muted">Oldest first. Nothing goes out until you sign off. These are separate from the Approvals count above.</p>
       </CardHeader>
       {items.length === 0 ? (
         <CardContent>

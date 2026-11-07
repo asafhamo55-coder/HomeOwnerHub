@@ -25,6 +25,7 @@ import { kpiDelta } from '@/lib/dashboard/kpi-delta'
 import { loadSetupChecklist, setupDismissedCookie } from '@/lib/dashboard/setup-checklist'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { loadOrFail, tryLoad } from '@/lib/load-or-fail'
+import { approvalsTile } from '@/lib/dashboard/approvals-tile'
 import { timed } from '@/lib/perf/timing'
 import { buildBullets, formatNextMeeting } from '@/lib/dashboard/digest-facts'
 import { MailTriageCard } from '@/components/dashboard/MailTriageCard'
@@ -240,6 +241,7 @@ async function DoNextSection({ orgId, isAdmin, dismissed }: { orgId: string; isA
     arcPastDecideBy: arcLate,
     // A partial list is not "inbox zero", and a partial count of 0 proves nothing.
     approvals: approvals.failed && approvals.total === 0 ? FAILED : ok(approvals.total),
+    approvalsPartial: approvals.failed,
     residentReplies: triage.failed ? FAILED : ok(triage.needsReply.count),
     violationsOverdue: atRisk.failed ? FAILED : ok(atRisk.counts.cureDeadlinesElapsed),
     homesBehind: atRisk.failed ? FAILED : ok(atRisk.counts.duesOverdueUnits),
@@ -414,18 +416,8 @@ function DashboardSections({ orgId, healthOpen }: { orgId: string; healthOpen: b
 }
 
 async function ApprovalsKpi({ orgId }: { orgId: string }) {
-  const waiting = await load.boardWaiting(orgId)
-  return (
-    <Kpi
-      label="Approvals"
-      icon={<ClipboardCheck />}
-      value={waiting.total.toLocaleString()}
-      hint={waiting.total === 0 ? 'Inbox zero' : waiting.failed ? 'at least, some could not load' : 'waiting on you'}
-      href="/approvals"
-      linkAs={Link}
-      state={waiting.failed && waiting.total === 0 ? 'failed' : 'ready'}
-    />
-  )
+  const tile = approvalsTile(await load.boardWaiting(orgId))
+  return <Kpi label="Approvals" icon={<ClipboardCheck />} value={tile.value} hint={tile.hint} href="/approvals" linkAs={Link} state={tile.state} />
 }
 
 async function AtRiskKpi({ orgId }: { orgId: string }) {

@@ -110,7 +110,7 @@ export const POST = withRoute('ai.daily-digest', async () => {
     needsReply: triage.needsReply.count,
     oldestWaitingDays: triage.needsReply.oldestWaitingDays,
     untriaged: triage.untriaged.count,
-    approvalsPending: approvals.total,
+    approvalsPending: approvals.failed ? null : approvals.total,
     duesOutstandingUsd: Math.round(kpis.duesOutstandingUsd.value),
   })
   checkWrite(snapshot, 'daily-digest.snapshot', { orgId })
@@ -120,7 +120,7 @@ export const POST = withRoute('ai.daily-digest', async () => {
   // of a button a board member is watching. Each keeps its own try/catch,
   // so one model failure still cannot take out the other half.
   const [suggestion, insights] = await Promise.all([
-    buildSuggestion(org.name, triage, approvals.total),
+    buildSuggestion(org.name, triage, approvals.failed ? null : approvals.total),
     buildInsights(org.name, {
       atRisk,
       staleApprovals,
@@ -151,7 +151,7 @@ export const POST = withRoute('ai.daily-digest', async () => {
 async function buildSuggestion(
   hoaName: string,
   triage: Awaited<ReturnType<typeof getTriageSnapshot>>,
-  approvalsPending: number,
+  approvalsPending: number | null,
 ): Promise<string | null> {
   try {
     const raw = await generateDigestSuggestion({
