@@ -31,6 +31,7 @@ import { arcClock, pickArcClockSettings } from '@/lib/arc-review/clock'
 import { ArcDecisionForm } from './ArcDecisionForm'
 import { ArcBoardReplyForm } from './ArcBoardReplyForm'
 import { ArcActions } from './ArcActions'
+import { PrintArcLetterLink } from './PrintArcLetterLink'
 import { formatShortDate } from '@/lib/format-datetime'
 
 export const metadata = { title: 'ARC application' }
@@ -192,6 +193,11 @@ export default async function ArcReviewDetailPage({
               </CardHeader>
               <CardContent>
                 <ArcDecisionForm arcId={arc.id} currentResponse={arc.board_response} currentStatus={arc.status} />
+                {decided ? (
+                  <div className="mt-4 border-t border-border pt-4">
+                    <PrintArcLetterLink arcId={arc.id} />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           )}
