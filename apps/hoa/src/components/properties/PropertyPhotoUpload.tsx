@@ -85,7 +85,7 @@ export function PropertyPhotoUpload({
         disabled={busy}
         onChange={onPick}
         aria-describedby={inputId + '-help'}
-        className="block min-h-11 w-full cursor-pointer rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:text-sm file:font-medium file:text-primary-foreground"
+        className="block min-h-11 w-full cursor-pointer rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:text-sm file:font-medium file:text-primary-fg"
       />
       <p id={inputId + '-help'} className="text-sm text-foreground-secondary">
         JPG, PNG or WebP, up to 5 MB. This replaces the Google Street View picture.
