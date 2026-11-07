@@ -18,7 +18,7 @@ const ratio = (a: string, b: string): number => {
  */
 const PAIRS: ReadonlyArray<{ fg: string; bg: string; min: number; use: string }> = [
   { fg: BRAND.ink, bg: BRAND.card, min: 4.5, use: 'headings on the card' },
-  { fg: BRAND.ink, bg: BRAND.tint, min: 4.5, use: 'callout text on the lilac wash' },
+  { fg: BRAND.ink, bg: BRAND.tint, min: 4.5, use: 'callout text on the light blue wash' },
   { fg: BRAND.ink, bg: BRAND.page, min: 4.5, use: 'text on the page well' },
   { fg: BRAND.body, bg: BRAND.card, min: 4.5, use: 'body paragraphs' },
   { fg: BRAND.body, bg: BRAND.tint, min: 4.5, use: 'body on the wash' },
@@ -29,12 +29,15 @@ const PAIRS: ReadonlyArray<{ fg: string; bg: string; min: number; use: string }>
   { fg: BRAND.primary, bg: BRAND.tint, min: 4.5, use: 'links on the wash' },
   { fg: '#FFFFFF', bg: BRAND.primary, min: 4.5, use: 'button text, band text (17px bold / 14px)' },
   { fg: '#FFFFFF', bg: BRAND.primaryHover, min: 4.5, use: 'pressed button' },
-  { fg: BRAND.deep, bg: BRAND.card, min: 4.5, use: 'deep purple text on white' },
+  { fg: BRAND.deep, bg: BRAND.card, min: 4.5, use: 'deep blue text on white' },
   { fg: BRAND.mintText, bg: BRAND.mintTint, min: 4.5, use: 'mint pill text' },
   { fg: BRAND.mintText, bg: BRAND.card, min: 4.5, use: 'mint-coloured text on white' },
   // Non-text: the bar fill against its track, and the rule against the card.
   { fg: BRAND.primary, bg: BRAND.track, min: 3, use: 'poll bar fill on track (non-text)' },
-  { fg: BRAND.primary, bg: BRAND.card, min: 3, use: 'rule under the logo (non-text)' },
+  { fg: BRAND.deep, bg: BRAND.card, min: 3, use: 'rule under the logo (non-text)' },
+  { fg: '#FFFFFF', bg: BRAND.deep, min: 4.5, use: 'text on a deep blue band' },
+  { fg: '#FFFFFF', bg: '#172554', min: 4.5, use: 'text on the dark-mode band' },
+  { fg: BRAND.mintText, bg: BRAND.page, min: 4.5, use: 'green text on the page well' },
 ]
 
 describe('email brand palette contrast', () => {
@@ -42,11 +45,13 @@ describe('email brand palette contrast', () => {
     expect(ratio(fg, bg)).toBeGreaterThanOrEqual(min)
   })
 
-  it('matches the marketing site tokens', () => {
-    expect(BRAND.primary).toBe('#6D28D9')
-    expect(BRAND.primaryHover).toBe('#5B21B6')
-    expect(BRAND.ink).toBe('#211B2C')
-    expect(BRAND.deep).toBe('#3B0764')
+  it('matches the approved Option B palette', () => {
+    expect(BRAND.primary).toBe('#2563EB')
+    expect(BRAND.primaryHover).toBe('#1D4ED8')
+    expect(BRAND.ink).toBe('#0F172A')
+    expect(BRAND.deep).toBe('#1E40AF')
+    expect(BRAND.mintText).toBe('#047857')
+    expect(BRAND.line).toBe('#E2E8F0')
   })
 
   it('mint is decoration only: plain mint fails as text on white, the text mint passes', () => {
@@ -54,7 +59,7 @@ describe('email brand palette contrast', () => {
     expect(ratio(BRAND.mintText, BRAND.card)).toBeGreaterThanOrEqual(4.5)
   })
 
-  it('royal purple survives dark-mode inversion (assertAccent window)', () => {
+  it('primary blue survives dark-mode inversion (assertAccent window)', () => {
     expect(isValidAccent(BRAND.primary)).toBe(true)
   })
 })
@@ -66,7 +71,7 @@ describe('the brand header in every renderer', () => {
     try {
       const html = renderEmailDocument({ bodyHtml: '<p>x</p>', footerHtml: 'y' })
       const img = html.match(/<img[^>]*>/)?.[0] ?? ''
-      expect(img).toContain('src="https://app.homeownerhub.test/email/v3/homeownerhub-logo.png"')
+      expect(img).toContain('src="https://app.homeownerhub.test/email/v4/homeownerhub-logo.png"')
       expect(img).toContain('alt="HomeownerHub"')
       expect(img).toContain('width="200"')
       expect(img).toContain('height="48"')
@@ -76,7 +81,7 @@ describe('the brand header in every renderer', () => {
       expect(style).not.toMatch(/border:\s*[1-9]/)
       expect(img).not.toMatch(/bgcolor/i)
       // Clients honouring prefers-color-scheme: dark get the band in dark ink.
-      expect(html).toMatch(/@media \(prefers-color-scheme: dark\)\{\.eh-logo\{background-color:#1f1033 !important/)
+      expect(html).toMatch(/@media \(prefers-color-scheme: dark\)\{\.eh-logo\{background-color:#172554 !important/)
     } finally {
       if (prev === undefined) delete process.env.EMAIL_ASSET_BASE_URL
       else process.env.EMAIL_ASSET_BASE_URL = prev
@@ -88,12 +93,12 @@ describe('the brand header in every renderer', () => {
     process.env.EMAIL_ASSET_BASE_URL = 'https://app.homeownerhub.test'
     try {
       const html = wrapBrandedEmail({ bodyHtml: '<p>Hello</p>', footerHtml: 'Sent by HomeownerHub', title: 'T' })
-      expect(html).toContain('src="https://app.homeownerhub.test/email/v3/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48"')
+      expect(html).toContain('src="https://app.homeownerhub.test/email/v4/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48"')
       expect(html).toContain('lang="en"')
       expect(html).toContain('<title>T</title>')
       expect(html).toContain('<meta name="color-scheme" content="light" />')
-      expect(html).toMatch(/bgcolor="#6D28D9" height="4"/)
-      expect(html).toMatch(/bgcolor="#FBF8FD" style="background-color:#FBF8FD;color:#5C5469;[^"]*font-size:14px/)
+      expect(html).toMatch(/bgcolor="#1E40AF" height="4"/)
+      expect(html).toMatch(/bgcolor="#F8FAFC" style="background-color:#F8FAFC;color:#526077;[^"]*font-size:14px/)
       expect(html).not.toMatch(/[–—]/)
       expect(html).not.toContain('gradient')
     } finally {
@@ -122,7 +127,7 @@ describe('the brand header in every renderer', () => {
 
 describe('ensureBranded (the send-time safety net)', () => {
   it('wraps a bare fragment in the brand frame', () => {
-    const out = ensureBranded('<p>Your booking is confirmed.</p>', 'https://a.test/email/v3/homeownerhub-logo.png')
+    const out = ensureBranded('<p>Your booking is confirmed.</p>', 'https://a.test/email/v4/homeownerhub-logo.png')
     expect(out).toContain('alt="HomeownerHub"')
     expect(out).toContain('Your booking is confirmed.')
     expect(out).toMatch(/^<!DOCTYPE/i)
@@ -148,7 +153,7 @@ describe('ensureBranded (the send-time safety net)', () => {
     expect(safeLogoUrlFromOrigin('http://localhost:3000')).toBeNull()
     expect(safeLogoUrlFromOrigin('https://x-git-abc.vercel.app')).toBeNull()
     expect(safeLogoUrlFromOrigin('https://www.homeownerledger.com/')).toBe(
-      'https://www.homeownerledger.com/email/v3/homeownerhub-logo.png',
+      'https://www.homeownerledger.com/email/v4/homeownerhub-logo.png',
     )
   })
 

@@ -1,17 +1,17 @@
 // scripts/build-email-logo.ts
 /**
- * Rasterises the email header logo as a self-contained BADGE: a royal purple
- * (#6D28D9) rounded rectangle holding the marketing site's WHITE logo
+ * Rasterises the email header logo as a self-contained BADGE: a primary blue
+ * (#2563EB) rounded rectangle holding the marketing site's WHITE logo
  * variant (logo-full-dark.svg, exactly as shipped), at 2x (400x96, shown at
  * 200x48), with real alpha outside the rounded corners.
  *
  * Why a badge and not dark ink on white: mail clients in dark mode invert
  * CSS colours but never image pixels, so the old opaque white field showed
- * as a white rectangle. A purple badge with transparent corners looks
+ * as a white rectangle. A blue badge with transparent corners looks
  * deliberate on a light band and on a dark one.
  *
- * Output: apps/hoa/public/email/v3/ (v3 so caches drop the white-field PNG).
- * v2 stays in place for emails already sent.
+ * Output: apps/hoa/public/email/v4/ (v4 so caches drop the purple PNG).
+ * v3 stays in place for emails already sent.
  *
  * Run: pnpm build:email-logo
  */
@@ -25,7 +25,10 @@ const LOGO_PX_HEIGHT = 56 // white logo height inside the badge at 2x
 
 async function main(): Promise<void> {
   const root = process.cwd()
-  const svg = await readFile(path.join(root, 'apps/marketing/public/brand/logo-full-dark.svg'), 'utf8')
+  // The marketing SVG may still carry the old purple tile and door; repaint them to the blue palette in memory.
+  const svg = (await readFile(path.join(root, 'apps/marketing/public/brand/logo-full-dark.svg'), 'utf8'))
+    .replace(/#6D28D9/gi, BRAND.primary)
+    .replace(/#E9D5FF/gi, '#FFFFFF')
   const w = LOGO_WIDTH * 2
   const h = LOGO_HEIGHT * 2
   const logo = await sharp(Buffer.from(svg), { density: 600 }).resize({ height: LOGO_PX_HEIGHT }).png().toBuffer()

@@ -7,7 +7,7 @@
  * leaving others alone. A pastel accent inverts to near-white and disappears;
  * a near-black one is indistinguishable from body text.
  *
- * The 0.09–0.30 window (0.09 lets royal purple #6D28D9, luminance 0.098, through) is the band that reads as a deliberate accent in both
+ * The 0.09–0.30 window (0.09 lets primary blue #2563EB, luminance 0.17, through) is the band that reads as a deliberate accent in both
  * directions. It will reject colours a designer wants. That is the point.
  */
 

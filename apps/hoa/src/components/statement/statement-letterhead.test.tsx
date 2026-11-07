@@ -6,7 +6,7 @@ import { StatementDocument } from './StatementDocument'
 ;(globalThis as { React?: typeof React }).React = React
 
 describe('StatementDocument letterhead', () => {
-  it('prints the website-purple logo with alt text above the association name', () => {
+  it('prints the website logo with alt text above the association name', () => {
     const html = renderToStaticMarkup(
       <StatementDocument
         associationName="Madison Park"

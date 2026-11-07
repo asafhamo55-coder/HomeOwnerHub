@@ -10,7 +10,7 @@
  *
  * Email rules followed: tables for layout, every style inline, a bgcolor on
  * every coloured cell (dark-mode engines recolour the backgrounds they can
- * see), no SVG (Gmail strips it) and no remote images. The logo is a violet
+ * see), no SVG (Gmail strips it) and no remote images. The logo is a blue
  * cell with an "H", as in the release-note email. Aggregates only: no
  * resident names, emails or phone numbers.
  *
@@ -50,7 +50,7 @@ const TINT = BRAND.panel
 const PRIMARY = BRAND_PRIMARY
 const PRIMARY_TINT = BRAND.tint
 const DANGER = '#C4261B'
-const SUCCESS = '#067647'
+const SUCCESS = '#047857'
 const WARN_BG = '#FFF8E6'
 const WARN_EDGE = '#F79009'
 const WARN_FG = '#93370D'

@@ -92,15 +92,15 @@ export function emailHead(title: string, extraCss = ''): string {
 <style>
   :root { color-scheme: light dark; supported-color-schemes: light dark; }
   @media (prefers-color-scheme: dark) {
-    .rn-bg { background-color:#1A0E2B !important; }
-    .rn-card { background-color:#261540 !important; }
-    .rn-fg, .rn-card h2, .rn-card h3 { color:#F6F2FB !important; }
-    .rn-card p, .rn-card li { color:#DDD3EE !important; }
-    .rn-muted { color:#BDB3D0 !important; }
+    .rn-bg { background-color:#0F172A !important; }
+    .rn-card { background-color:#172554 !important; }
+    .rn-fg, .rn-card h2, .rn-card h3 { color:#F1F5F9 !important; }
+    .rn-card p, .rn-card li { color:#CBD5E1 !important; }
+    .rn-muted { color:#B6C4DA !important; }
     .rn-action { background-color:#2B2110 !important; }
     .rn-action p, .rn-action li { color:#FEC84B !important; }
-    .rn-card a, .rn-link { color:#CBC2FF !important; }
-    .rn-card code { background-color:#33204F !important; color:#F6F2FB !important; }
+    .rn-card a, .rn-link { color:#93C5FD !important; }
+    .rn-card code { background-color:#1E3A8A !important; color:#F1F5F9 !important; }
   }
   @media screen and (max-width: 620px) {
     .rn-container { width:100% !important; }

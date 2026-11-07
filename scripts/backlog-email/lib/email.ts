@@ -28,9 +28,9 @@ const PILL: Record<Tone, { bg: string; fg: string; cls: string }> = {
 const EXTRA_CSS = `  @media (prefers-color-scheme: dark) {
     .bl-block { background-color:#3D1512 !important; color:#FDA29B !important; }
     .bl-warn { background-color:#2B2110 !important; color:#FEC84B !important; }
-    .bl-info { background-color:#33204F !important; color:#BDB3D0 !important; }
-    .bl-ga { background-color:#3B0764 !important; color:#E9D5FF !important; }
-    .bl-item { border-color:#33204F !important; }
+    .bl-info { background-color:#1E3A8A !important; color:#B6C4DA !important; }
+    .bl-ga { background-color:#1E40AF !important; color:#BFDBFE !important; }
+    .bl-item { border-color:#1E3A8A !important; }
   }
 `
 

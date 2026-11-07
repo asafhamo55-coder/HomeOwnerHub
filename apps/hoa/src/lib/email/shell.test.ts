@@ -54,9 +54,9 @@ describe('renderEmailDocument', () => {
     // "no bgcolor anywhere" to prove the band is absent would forbid these
     // and silently degrade every email in Outlook.
     const html = renderEmailDocument(BASE)
-    expect(html).toContain('bgcolor="#F6F2FB"') // page background (lilac)
+    expect(html).toContain('bgcolor="#F1F5F9"') // page background (light slate)
     expect(html).toContain('bgcolor="#FFFFFF"') // card
-    expect(html).toContain('bgcolor="#FBF8FD"') // footer
+    expect(html).toContain('bgcolor="#F8FAFC"') // footer
   })
 
   it('escapes band text', () => {
@@ -102,11 +102,11 @@ describe('the brand header', () => {
     withBase('https://app.homeownerhub.test/', () => {
       const html = renderEmailDocument(BASE)
       expect(html).toContain(
-        '<img src="https://app.homeownerhub.test/email/v3/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48"',
+        '<img src="https://app.homeownerhub.test/email/v4/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48"',
       )
-      // White band, then the royal purple rule.
-      expect(html).toMatch(/class="eh-logo" bgcolor="#FFFFFF" style="background-color:#FFFFFF;color:#211B2C/)
-      expect(html).toMatch(/bgcolor="#6D28D9" height="4"/)
+      // White band, then the primary blue rule.
+      expect(html).toMatch(/class="eh-logo" bgcolor="#FFFFFF" style="background-color:#FFFFFF;color:#0F172A/)
+      expect(html).toMatch(/bgcolor="#1E40AF" height="4"/)
       // The logo comes before the body.
       expect(html.indexOf('alt="HomeownerHub"')).toBeLessThan(html.indexOf('Hello'))
     })
@@ -114,8 +114,8 @@ describe('the brand header', () => {
 
   it('can be given its own URL (the browser-built welcome email), and null forces the text wordmark', () => {
     withBase(undefined, () => {
-      expect(renderEmailDocument({ ...BASE, logoUrl: 'https://x.test/email/v3/homeownerhub-logo.png' })).toContain(
-        'src="https://x.test/email/v3/homeownerhub-logo.png"',
+      expect(renderEmailDocument({ ...BASE, logoUrl: 'https://x.test/email/v4/homeownerhub-logo.png' })).toContain(
+        'src="https://x.test/email/v4/homeownerhub-logo.png"',
       )
       const text = renderEmailDocument({ ...BASE, logoUrl: null })
       expect(text).not.toContain('<img')

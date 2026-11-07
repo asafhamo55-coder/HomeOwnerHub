@@ -54,6 +54,46 @@ easier. Never paste a key or password into a file in this repo; it is public.
 3. Redeploy production.
 4. Tell Claude. Changing this secret later stops every resident's calendar link at once, so keep it.
 
+### OA-49 · Put the association name and a big button in the invite email (Supabase dashboard)
+
+**Urgency:** Soon
+
+**Asaf must paste this again in Supabase.** The template you saved earlier is the old purple one. The colours and logo address below are the new blue ones; nothing changes in Supabase until you paste it.
+
+**Why it matters:** the app now sends the association name with every invitation, so the email can say who is inviting. The email wording lives in Supabase, not in the app, so it stays plain until you paste the new wording in. Many residents are older and read this on a phone, so the button is big and the words are plain. If the name is ever missing, the email says "your community" instead of showing a gap.
+
+**Steps:**
+
+1. In Supabase, open Authentication, then Email Templates, then "Invite user".
+2. Replace the subject with this:
+
+```
+Join {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }} on HomeownerHub
+```
+
+3. Replace the message body with this (switch the editor to its source or HTML view first):
+
+```
+<div style="font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:1.5;color:#0F172A;max-width:560px;margin:0 auto;padding:16px">
+  <p style="margin:0 0 12px;padding:0 0 16px;border-bottom:4px solid #1E40AF">
+    <img src="https://www.homeownerledger.com/email/v4/homeownerhub-logo.png" alt="HomeownerHub" width="200" height="48" style="display:block;border:0;height:48px;width:200px">
+  </p>
+  <p style="font-size:20px;font-weight:bold;margin:0 0 16px">You are invited to {{ if .Data.association_name }}{{ .Data.association_name }}{{ else }}your community{{ end }}.</p>
+  <p style="margin:0 0 16px">HomeownerHub is where you see your dues, ask the board a question, and find your community's rules and news. There is nothing to download.</p>
+  <p style="margin:0 0 24px">Tap the button below to get in. You do not need to make a password.</p>
+  <p style="margin:0 0 24px">
+    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#2563EB;color:#ffffff;font-size:20px;font-weight:bold;text-decoration:none;padding:18px 32px;min-height:48px;line-height:1.2;border-radius:8px">Open HomeownerHub</a>
+  </p>
+  <p style="margin:0 0 16px">This link works for 24 hours. If it stops working, ask your board to send a new one, or email support@homeownerledger.com and we will help.</p>
+  <p style="margin:0;font-size:18px;color:#0F172A">If the button does not work, copy this address into your phone's browser:<br><a href="{{ .ConfirmationURL }}" style="color:#2563EB;word-break:break-all">{{ .ConfirmationURL }}</a></p>
+</div>
+```
+
+4. Save, then send yourself a test invite from the Members page and open it on a phone. Check that the subject names the association and the button is easy to tap. Also test once with a name that has an apostrophe, such as O'Brien Park, to make sure the subject and greeting show it correctly.
+5. Tell Claude when it is done.
+
+**Files:** `apps/hoa/src/lib/invite-data.ts`
+
 ### OA-51 · Send sign-in emails from HomeownerHub (Supabase custom SMTP)
 
 **Urgency:** Soon
@@ -209,12 +249,6 @@ prices; review it before pitching.
 2. Send Claude the real traction numbers, or tell Claude to remove the traction slide. Claude rebuilds the deck.
 
 ## Done
-
-### OA-49 · Put the association name and a big button in the invite email (Supabase dashboard)
-
-**Done:** 2026-11-07
-
-Template saved in Supabase by Asaf. Checked from our side: the logo address in the template loads (400x96 purple badge), and the app sends the association name with every invitation (`apps/hoa/src/lib/invite-data.ts`), falling back to "your community". Until OA-51 is done, invites still come from Supabase's default sender, which is rate limited.
 
 ### OA-11 · Texting through Vonage · Closed 2026-11-06
 

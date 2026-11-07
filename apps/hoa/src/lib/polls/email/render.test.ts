@@ -31,7 +31,7 @@ describe('renderBarHtml', () => {
     expect(html).toContain('width="60%"')
     expect(html).toContain('width:60%')
     expect(html).toContain(`bgcolor="${POLL_ACCENT}"`)
-    expect(html).toContain('bgcolor="#E4DAF5"')
+    expect(html).toContain('bgcolor="#DBEAFE"')
     expect((html.match(/<td /g) ?? []).length).toBe(2)
   })
 
@@ -46,7 +46,7 @@ describe('renderBarHtml', () => {
     const html = renderBarHtml(100)
     expect((html.match(/<td /g) ?? []).length).toBe(1)
     expect(html).toContain(`bgcolor="${POLL_ACCENT}"`)
-    expect(html).not.toContain('#E4DAF5')
+    expect(html).not.toContain('#DBEAFE')
   })
 
   it('clamps nonsense to 0 to 100', () => {
@@ -61,7 +61,7 @@ describe('renderBarHtml', () => {
     expect(html).toContain('role="presentation"')
     // Dark-mode safety: the cell text colour equals its fill.
     expect(html).toContain(`background-color:${POLL_ACCENT};color:${POLL_ACCENT}`)
-    expect(html).toContain('background-color:#E4DAF5;color:#E4DAF5')
+    expect(html).toContain('background-color:#DBEAFE;color:#DBEAFE')
   })
 
   it('the accent survives dark-mode inversion (same window the other emails use)', () => {
