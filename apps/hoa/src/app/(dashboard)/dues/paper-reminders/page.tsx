@@ -119,11 +119,11 @@ export default async function PaperRemindersPage() {
     .filter((c) => c.phone !== '' || c.email !== '')
     .slice(0, MAX_NOTICE_CONTACTS)
 
-  const unplaced = noOwner + charges.data.unmappedUnits
   const noPayHow = !pay.checks && !pay.zelle
   const cannotPrint = noPayHow && contacts.length === 0
   const roster = buildOwnerRoster(loaded.data.input, asOf)
   const { letters, noAddress, noOwner } = buildPaperReminders(roster.rows, charges.data.byProperty, consent.data)
+  const unplaced = noOwner + charges.data.unmappedUnits
 
   return page(
     <div className="space-y-5 print:space-y-0">

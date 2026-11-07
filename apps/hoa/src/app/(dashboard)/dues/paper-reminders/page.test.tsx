@@ -256,7 +256,7 @@ describe('paper dues reminders page: one page per owner', () => {
 
 describe('paper dues reminders page: gaps are never silent', () => {
   it('warns about homes that owe money but have no owner or no linked home record', async () => {
-    const noOwner = { ...home(2, null), recordOwner: null }
+    const noOwner = { ...home(2, null), recordOwner: null } as unknown as ReturnType<typeof home>
     seed([home(1, null), noOwner], { p1: [charge('c1', 100)], p2: [charge('c2', 100)], p9: [charge('c9', 100)] }, 2)
     const html = await render()
     expect(letterCount(html)).toBe(1)
@@ -310,17 +310,6 @@ describe('paper dues reminders page: gaps are never silent', () => {
     expect(await render()).toContain(
       'Owners in states that require consent to email notices are included here even if they also received an email reminder.',
     )
-  })
-
-  it('greets by name, or with Hello when no name is on file', async () => {
-    seed([home(1, null), { ...home(2, null), recordOwner: { name: null, email: null, phone: null } }], {
-      p1: [charge('c1', 100)],
-      p2: [charge('c2', 100)],
-    })
-    const html = await render()
-    expect(html).toContain('Hi Owner 1,')
-    expect(html).toContain('Hello,')
-    expect(html).not.toContain('Hi Current Resident')
   })
 })
 

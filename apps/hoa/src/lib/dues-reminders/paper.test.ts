@@ -73,7 +73,7 @@ describe('buildPaperReminders selection', () => {
 
   it('counts paper homes with a balance but no street', () => {
     const rows = [row('a', [owner('Pat Lee', null)], { address: '' })]
-    expect(buildPaperReminders(rows, owing({ a: [charge('1', 5)] }))).toEqual({ letters: [], noAddress: 1 })
+    expect(buildPaperReminders(rows, owing({ a: [charge('1', 5)] }))).toEqual({ letters: [], noAddress: 1, noOwner: 0 })
   })
 
   it('never issues a letter for a home with nothing owed', () => {
