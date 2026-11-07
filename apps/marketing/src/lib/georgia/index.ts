@@ -641,6 +641,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     kind: 'tool',
   },
   {
+    slug: 'georgia-hoa-architectural-change-request-form',
+    path: '/templates/georgia-hoa-architectural-change-request-form',
+    title: 'Georgia HOA architectural change request form (printable)',
+    blurb: 'A checklist and a fill-in request form for exterior changes: what the owner describes and attaches, what the board records, and the Georgia text behind the review power.',
+    kind: 'tool',
+  },
+  {
+    slug: 'georgia-hoa-new-owner-welcome-letter',
+    path: '/templates/georgia-hoa-new-owner-welcome-letter',
+    title: 'Georgia HOA new owner welcome letter template (printable)',
+    blurb: 'A checklist and a fill-in welcome letter for new owners: dues, contacts, documents, rules, meetings and how to reach the board, with the Georgia text behind each.',
+    kind: 'tool',
+  },
+  {
+    slug: 'georgia-hoa-rules-adoption-resolution',
+    path: '/templates/georgia-hoa-rules-adoption-resolution',
+    title: 'Georgia HOA rules and regulations adoption resolution (printable)',
+    blurb: 'A checklist and a fill-in board resolution adopting a rule: authority, quorum, vote, effective date and delivery to owners, with the Georgia text behind each step.',
+    kind: 'tool',
+  },
+  {
     slug: 'florida-hoa-fine-cap-and-daily-fine-checklist',
     path: '/templates/florida-hoa-fine-cap-and-daily-fine-checklist',
     title: 'Florida HOA fine cap and daily fine checklist (printable)',

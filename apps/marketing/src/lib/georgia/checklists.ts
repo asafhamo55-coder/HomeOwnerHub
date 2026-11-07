@@ -16,6 +16,7 @@ import { FL_DIRECTOR_CERTIFICATION } from './checklists-n'
 import { FL_FINE_CAP_CHECKLIST } from './checklists-o'
 import { FL_ESTOPPEL_CHECKLIST } from './checklists-p'
 import { TX_VIOLATION_CHECKLIST } from './checklists-q'
+import { GA_ARC_REQUEST_FORM, GA_NEW_OWNER_WELCOME, GA_RULES_ADOPTION_RESOLUTION } from './checklists-r'
 
 export interface Checklist {
   slug: string
@@ -135,4 +136,7 @@ export const CHECKLISTS: Readonly<Record<string, Checklist>> = {
   [FL_FINE_CAP_CHECKLIST.slug]: FL_FINE_CAP_CHECKLIST,
   [FL_ESTOPPEL_CHECKLIST.slug]: FL_ESTOPPEL_CHECKLIST,
   [TX_VIOLATION_CHECKLIST.slug]: TX_VIOLATION_CHECKLIST,
+  [GA_ARC_REQUEST_FORM.slug]: GA_ARC_REQUEST_FORM,
+  [GA_NEW_OWNER_WELCOME.slug]: GA_NEW_OWNER_WELCOME,
+  [GA_RULES_ADOPTION_RESOLUTION.slug]: GA_RULES_ADOPTION_RESOLUTION,
 }

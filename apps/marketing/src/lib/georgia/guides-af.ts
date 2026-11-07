@@ -24,7 +24,7 @@ export const GA_BOARD_TRANSITION: Guide = {
   dateModified: PUBLISHED,
   howTo: true,
   summary: [
-    'The Georgia text we hold has no turnover procedure. It does say what the association must keep, and those duties do not change when the people on the board do: minutes, financial records, a member list, the bylaws and a current list of directors and officers.',
+    'The Georgia text we hold has no turnover procedure. It does say what the association must keep. The Act requires detailed minutes and financial records. If the association is a nonprofit corporation, the nonprofit chapter adds a member list, the bylaws and a list of current directors and officers. These duties do not change when the people on the board do.',
     'So a handover is mostly a matter of making sure the next board can find and open each of those, and that the state registration names the right officers. How and when to do it is practice, not a statutory step.',
     'This is a plain-language guide to the text we hold, not legal advice. Check your declaration and bylaws, and ask your attorney.',
   ],
@@ -59,14 +59,14 @@ export const GA_BOARD_TRANSITION: Guide = {
     {
       heading: '4. The member list',
       body: [
-        'The corporation or its agent keeps a record of members that can produce a list of names and addresses, in alphabetical order by class, with the number of votes each member may cast. Practice: confirm who holds the current file, and whether a management company or a volunteer has the only copy.',
+        'If the association is a nonprofit corporation, the corporation or its agent keeps a record of members that can produce a list of names and addresses, in alphabetical order by class, with the number of votes each member may cast. Practice: confirm who holds the current file, and whether a management company or a volunteer has the only copy.',
       ],
       quotes: ['recMemberList'],
     },
     {
       heading: '5. Officers and the state registration',
       body: [
-        'The nonprofit chapter says the corporation keeps a list of its current directors and officers. The annual registration names the chief executive officer, chief financial officer and secretary, and its information must be current when it is executed. So when offices change, update the internal list and check the names before the next filing. Our annual registration guide covers the window.',
+        'The nonprofit chapter says the corporation keeps a list of its current directors and officers. A nonprofit corporation’s annual registration names the chief executive officer, chief financial officer and secretary, and its information must be current when it is executed. Practice: when offices change, update the internal list and check the names before the next filing. Our annual registration guide covers the window.',
       ],
       quotes: ['recOfficers', 'annualRegOfficers', 'annualRegCurrent'],
     },
@@ -95,7 +95,7 @@ export const GA_BOARD_TRANSITION: Guide = {
   faqs: [
     {
       q: 'Does Georgia law say how an HOA board hands over to a new board?',
-      a: 'Not in the text we hold. What it does say is what the association keeps: minutes, financial records, a member list, bylaws and a list of directors and officers. Your bylaws may add more, so check them and ask your attorney.',
+      a: 'Not in the text we hold. What it does say is what the association keeps: detailed minutes and financial records. If the association is a nonprofit corporation, the nonprofit chapter adds a member list, bylaws and a list of directors and officers. Your bylaws may add more, so check them and ask your attorney.',
     },
     {
       q: 'Who keeps the HOA records when a director leaves?',
@@ -103,7 +103,7 @@ export const GA_BOARD_TRANSITION: Guide = {
     },
     {
       q: 'Do we update the Secretary of State when officers change?',
-      a: 'The annual registration lists the chief executive officer, chief financial officer and secretary, and its information must be current when it is executed. Check the names before each filing and ask your attorney whether an earlier correction is wise.',
+      a: 'For a Georgia nonprofit corporation, the annual registration lists the chief executive officer, chief financial officer and secretary, and its information must be current when it is executed. Check the names before each filing and ask your attorney whether an earlier correction is wise.',
     },
     {
       q: 'Should the old board share passwords with the new one?',
@@ -146,7 +146,7 @@ export const GA_BOARD_MEETINGS: Guide = {
   summary: [
     'Section 44-3-228 sets a default quorum for a board meeting: the presence of persons entitled to cast one-half of the votes of the board, unless the instrument or bylaws specify a larger percentage.',
     'Section 44-3-231(d) says the association keeps detailed minutes of all meetings of the members and of the board. The text we hold does not say what must be in them.',
-    'The text is silent on how many votes pass a motion, on notice of board meetings and on remote participation. Your bylaws decide those. This is a plain-language guide, not legal advice.',
+    'The text is silent on how many votes pass a motion, on whether its notice periods reach board meetings and on remote participation. Your bylaws decide those. This is a plain-language guide, not legal advice.',
   ],
   sections: [
     {
@@ -165,14 +165,14 @@ export const GA_BOARD_MEETINGS: Guide = {
     {
       heading: 'The owner quorum is a different number',
       body: [
-        'Do not confuse it with the owners’ meeting. For members, the default is more than one-third of the votes present at the beginning of the meeting, unless the instrument or bylaws provide otherwise.',
+        'Do not confuse it with the owners’ meeting. For members, the default is that a quorum is present if persons entitled to cast more than one-third of the votes are present at the beginning of the meeting, unless the instrument or bylaws provide otherwise.',
       ],
       quotes: ['memberQuorum'],
     },
     {
       heading: 'What the text we hold leaves out',
       body: [
-        'It does not say how many of the directors present must vote yes for a motion to pass, whether a director may join by phone or video, whether the board may act by written consent, or how much notice a board meeting needs. The notice periods in § 44-3-230(a) are written for meetings of the members. Your bylaws, and the nonprofit chapter if it applies to you, fill the gaps. Ask your attorney before relying on a vote taken in a way the bylaws do not describe.',
+        'It does not say how many of the directors present must vote yes for a motion to pass, whether a director may join by phone or video, whether the board may act by written consent, or how much notice a board meeting needs. Section 44-3-230(a) opens with meetings of the members and the text we hold does not say whether its notice periods apply to board meetings, so check your bylaws and ask your attorney. Your bylaws, and the nonprofit chapter if it applies to you, fill the gaps. Ask your attorney before relying on a vote taken in a way the bylaws do not describe.',
       ],
     },
     {
@@ -191,7 +191,7 @@ export const GA_BOARD_MEETINGS: Guide = {
     {
       heading: 'Resolutions and outside parties',
       body: [
-        'A third party dealing with the association may rely in good faith on a certified resolution of the board. That makes a clear, signed record of the vote worth having when a bank, vendor or lender asks for one.',
+        'In the section on easements, leases, acquiring property, borrowing and pledging, a third party dealing with the association may rely in good faith on a certified resolution of the board authorizing that act or transaction. The text we hold ties this to those powers. A clear, signed record of each board vote is still worth having when anyone outside asks for proof.',
       ],
       quotes: ['powResolution'],
     },
@@ -209,7 +209,7 @@ export const GA_BOARD_MEETINGS: Guide = {
     'Record each motion, who moved and seconded it, and the result.',
     'Draft the minutes soon after the meeting, while memory is fresh, and circulate them for correction.',
     'Approve the minutes at the next meeting and file the signed copy with the permanent records.',
-    'If a vendor or lender asks for proof of a board decision, ask your attorney about a certified resolution.',
+    'If a bank, vendor or lender asks for proof of a board decision, ask your attorney what record it will accept.',
   ],
   faqs: [
     {
@@ -239,7 +239,7 @@ export const GA_BOARD_MEETINGS: Guide = {
   ],
   hoaDoes: [
     {
-      text: 'New meeting turns a pasted transcript into draft minutes. The board edits and approves them, and you can write the minutes yourself on the same screen if the AI is offline.',
+      text: 'New meeting turns a pasted transcript into draft minutes. The board edits and approves them, and if the AI summary is unavailable you can edit the transcript into minutes yourself on the same screen.',
       route: '/meetings/new',
       release: '2026-10-17-2100-user-guide',
     },
@@ -268,22 +268,22 @@ export const GA_SECRETARY: Guide = {
   dateModified: PUBLISHED,
   howTo: true,
   summary: [
-    'The Georgia text we hold does not list a secretary’s duties. The bylaws do. What the statute does is put certain tasks on the association, and in most boards the secretary ends up holding them.',
-    'The secretary is named in one place: the annual registration lists the chief executive officer, chief financial officer and secretary. Owners who call a meeting deliver their call to any corporate officer.',
+    'The Georgia text we hold does not list a secretary’s duties. The bylaws do. What the statute does is put certain tasks on the association, and in many boards the secretary holds them.',
+    'In the sections we hold, the secretary is named in one place: the nonprofit annual registration lists the chief executive officer, chief financial officer and secretary. Owners who call a meeting deliver their call to any corporate officer.',
     'Everything below labelled practice is how boards commonly divide the work, not a legal duty. Check your declaration and bylaws, and ask your attorney.',
   ],
   sections: [
     {
       heading: 'Where the secretary’s duties come from',
       body: [
-        'Your bylaws describe each office. In the sections we hold, the Act says the board acts through the officers but does not define any office. So start with the bylaws, then see which statutory tasks they place with the secretary.',
+        'Your bylaws describe each office. In the sections we hold, the Act says the association’s powers may be exercised by the board, acting through the officers, but it does not define any office. So start with the bylaws, then see which statutory tasks they place with the secretary.',
       ],
       quotes: ['powBoard'],
     },
     {
       heading: 'Owner notices',
       body: [
-        'The Act sets the notice owners receive of meetings: at least 21 days for an annual or regularly scheduled meeting and at least seven days for any other, stating time, place and, for a special meeting, purpose. It also sets how notice is delivered. Practice: the secretary often prepares and sends the notice and keeps proof of mailing.',
+        'The Act sets the notice owners receive of meetings of the members: at least 21 days for an annual or regularly scheduled meeting and at least seven days for any other, stating time, place and, for a special meeting, purpose. It also sets how notice is delivered. It does not say who gives it. Practice: the secretary often prepares and sends the notice and keeps proof of mailing.',
       ],
       quotes: ['meetingNotice', 'meetingDelivery'],
     },
@@ -304,21 +304,21 @@ export const GA_SECRETARY: Guide = {
     {
       heading: 'Calls from owners',
       body: [
-        'If the association misses its annual meeting, owners holding the required share can call one. Their call is signed, dated and delivered to any corporate officer. Practice: tell the whole board that a call may arrive at any officer, and log the date it was received.',
+        'If the association fails to hold its annual meeting by the last day of its fiscal year, the holders of at least 5 percent of the voting power, or the amount the articles or bylaws specify (not more than 25 percent as a minimum), can call it. Their call is signed, dated and delivered to any corporate officer. Practice: tell the whole board that a call may arrive at any officer, and log the date it was received.',
       ],
       quotes: ['ownerCallForm'],
     },
     {
       heading: 'Copies for owners',
       body: [
-        'The Act says copies of the instrument and bylaws are furnished to a lot owner on request, for a reasonable charge. Practice: keep a current copy ready and a note of what the board charges.',
+        'The Act says copies of the articles of incorporation and bylaws, and all amendments, are furnished to any lot owner on request, for a reasonable charge. It does not say this about the declaration. Practice: keep a current copy ready and a note of what the board charges.',
       ],
       quotes: ['copiesOfBylaws'],
     },
     {
       heading: 'Officer names on the state registration',
       body: [
-        'The registration names the secretary, and its information must be current when it is executed. Practice: when you take the office, confirm the filing shows your name and address.',
+        'A nonprofit corporation’s annual registration names the secretary, and its information must be current when it is executed. Practice: when you take the office, confirm the filing shows your name and address.',
       ],
       quotes: ['annualRegOfficers', 'annualRegCurrent'],
     },
@@ -338,7 +338,7 @@ export const GA_SECRETARY: Guide = {
     },
     {
       q: 'Who sends the annual meeting notice?',
-      a: 'The Act says notice goes to each lot owner at least 21 days ahead. It does not name who sends it. Many boards assign it to the secretary under the bylaws.',
+      a: 'The Act says notice of an annual or regularly scheduled members’ meeting goes to each lot owner at least 21 days ahead. It does not name who sends it. Many boards assign it to the secretary under the bylaws.',
     },
     {
       q: 'Who takes the minutes?',
@@ -346,7 +346,7 @@ export const GA_SECRETARY: Guide = {
     },
     {
       q: 'Does the secretary appear on any state filing?',
-      a: 'Yes. The annual registration names the chief executive officer, chief financial officer and secretary.',
+      a: 'For a Georgia nonprofit corporation, yes. The annual registration names the chief executive officer, chief financial officer and secretary. In the sections we hold, that is the only place the secretary is named.',
     },
   ],
   related: [
@@ -359,7 +359,7 @@ export const GA_SECRETARY: Guide = {
   ],
   hoaDoes: [
     {
-      text: 'New meeting turns a pasted transcript into draft minutes. The board edits and approves them, and you can write the minutes yourself on the same screen if the AI is offline.',
+      text: 'New meeting turns a pasted transcript into draft minutes. The board edits and approves them, and if the AI summary is unavailable you can edit the transcript into minutes yourself on the same screen.',
       route: '/meetings/new',
       release: '2026-10-17-2100-user-guide',
     },
