@@ -14,25 +14,26 @@
 
 import PDFDocument from 'pdfkit'
 import { MARK } from '@homeowner-portal/ui/brand'
+import { LOGO, palette } from '@homeowner-portal/ui/tokens'
 import { formatDay, usd } from '@/lib/money/format'
 import { packetPeriodLabel, sourceLabel, summarizePacket, type PacketPdfInput } from './pdf-summary'
 
 export type { PacketPdfInput } from './pdf-summary'
 
 const C = {
-  primary: '#4B27C9',
-  primarySubtle: '#F0ECFF',
+  primary: palette('hoa', 'light').primary,
+  primarySubtle: palette('hoa', 'light')['primary-subtle'],
   text: '#0F172A',
   text2: '#334155',
   muted: '#526077',
   line: '#E2E8F0',
   tint: '#F5F8FC',
   danger: '#C4261B',
-  success: '#067647',
+  success: palette('hoa', 'light').success,
   warnBg: '#FFF8E6',
   warnEdge: '#F79009',
   warnText: '#93370D',
-  door: '#DDD6FE',
+  door: LOGO.light.line,
 }
 
 const MARGIN = 48

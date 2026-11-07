@@ -2,7 +2,7 @@ import { GreetingHeadline } from '@/components/dashboard/GreetingHeadline'
 
 /**
  * The board dashboard's welcome band: greeting, today's date and the
- * association's name on a soft brand tint (the sign-in panel's violet,
+ * association's name on a soft brand tint (the sign-in panel's blue,
  * lightened to a token so it follows light and dark), The one big action lives in the
  * "Do this next" card right below. GreetingHeadline renders the page's single <h1>.
  */

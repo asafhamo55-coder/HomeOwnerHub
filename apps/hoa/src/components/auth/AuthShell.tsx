@@ -26,7 +26,7 @@ export function AuthShell({
   /** Replaces the default trust line. */
   footer?: React.ReactNode
   /**
-   * Sign-in family: on lg+ a violet brand panel sits beside the form; below
+   * Sign-in family: on lg+ a deep-blue brand panel sits beside the form; below
    * lg a slim gradient strip replaces it. The panel carries the logo.
    */
   split?: boolean
@@ -82,7 +82,7 @@ export function AuthShell({
 }
 
 const BRAND_GRADIENT =
-  'bg-[radial-gradient(60%_80%_at_0%_100%,#4a1dc2,transparent_75%),linear-gradient(135deg,#2a1288_0%,#4a1dc2_48%,#2b3cc4_100%)]'
+  'bg-[radial-gradient(60%_80%_at_0%_100%,#2563EB,transparent_75%),linear-gradient(135deg,#1E40AF_0%,#1E40AF_55%,#2563EB_100%)]'
 
 function BrandLockup({ className }: { className?: string }) {
   return (
@@ -95,7 +95,7 @@ function BrandLockup({ className }: { className?: string }) {
   )
 }
 
-/** Below lg: a slim violet header above the form. */
+/** Below lg: a slim deep-blue header above the form. */
 function AuthBrandStrip() {
   return (
     <div className={cn('flex h-14 items-center px-5 lg:hidden', BRAND_GRADIENT)}>
@@ -117,7 +117,7 @@ function AuthBrandPanel() {
       className={cn('relative hidden overflow-hidden text-on-solid lg:order-2 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16', BRAND_GRADIENT)}
     >
       <div
-        className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-[#22c7c0]/30 blur-3xl"
+        className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-[#6EE7B7]/20 blur-3xl"
         aria-hidden
       />
       <BrandLockup className="relative" />
