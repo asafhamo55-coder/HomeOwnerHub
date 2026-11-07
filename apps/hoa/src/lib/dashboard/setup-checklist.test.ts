@@ -88,11 +88,11 @@ describe('buildSetupChecklist', () => {
     expect(c.steps.map((s) => s.key)).toEqual([...SETUP_CHECKLIST_KEYS])
     expect(c.steps.map((s) => s.key)).toEqual([
       'association',
-      'community_location',
       'properties',
       'residents',
       'board',
       'invite_owners',
+      'community_location',
       'dues',
       'payments',
       'governing_docs',
@@ -151,7 +151,7 @@ describe('buildSetupChecklist', () => {
     const c = buildSetupChecklist({ ...ALL_DONE, bank: [0], mailbox: [0], location: [0], ownersToInvite: 4 })
     expect(c.complete).toBe(true)
     expect(c.doneCount).toBe(7)
-    expect(c.steps.filter((s) => s.optional).map((s) => s.key)).toEqual(['community_location', 'invite_owners', 'bank', 'mailbox'])
+    expect(c.steps.filter((s) => s.optional).map((s) => s.key)).toEqual(['invite_owners', 'community_location', 'bank', 'mailbox'])
   })
 
   it('is complete with everything done', () => {
@@ -207,7 +207,7 @@ describe('"Invite your owners" step', () => {
     expect(ownersInvitedState(0, 0)).toBe('todo')
     const s = step({ ...ALL_DONE, ownersToInvite: 0, ownersOnRoster: 0 })
     expect(s.state).toBe('todo')
-    expect(s.description).toBe('Add your owners first, then invite them')
+    expect(s.description).toBe('Add your owners first, then invite them.')
     expect(s.href).toBe('/properties/import')
     expect(s.secondary).toBeUndefined()
     // And once an owner is added the normal copy returns.
@@ -415,7 +415,7 @@ describe('loadSetupChecklist', () => {
     const c = await loadSetupChecklist(fakeDb({ ownerships: { count: 0 } }) as never, ORG)
     const s = c.steps.find((x) => x.key === 'invite_owners')!
     expect(s.state).toBe('todo')
-    expect(s.description).toBe('Add your owners first, then invite them')
+    expect(s.description).toBe('Add your owners first, then invite them.')
   })
 
   it('"Invite your owners" is unknown, not done, when the owner read fails or throws', async () => {

@@ -37,11 +37,11 @@ export type SetupStepState = 'done' | 'todo' | 'unknown'
 /** In the order a new board should do them. */
 export const SETUP_CHECKLIST_KEYS = [
   'association',
-  'community_location',
   'properties',
   'residents',
   'board',
   'invite_owners',
+  'community_location',
   'dues',
   'payments',
   'governing_docs',
@@ -157,7 +157,7 @@ export function ownersInvitedState(ownersToInvite: number | null, ownersOnRoster
 
 /** What the owners step says while the roster has no owners at all. */
 const NO_OWNERS_YET: Pick<StepCopy, 'description' | 'href' | 'cta'> & { secondary: undefined } = {
-  description: 'Add your owners first, then invite them',
+  description: 'Add your owners first, then invite them.',
   href: '/properties/import',
   cta: 'Import owners',
   secondary: undefined,
@@ -197,7 +197,7 @@ const STEP_COPY: Record<SetupChecklistKey, StepCopy> = {
     description: 'So we can show a photo of each home, even when the address has no city.',
     href: '/settings/association#community-location',
     cta: 'Add city and ZIP',
-    guide: 'dues-generate-monthly',
+    guide: 'settings-association-state-type',
   },
   properties: { ...PROPERTIES_STEP_COPY, guide: 'setup-properties-residents' },
   residents: {
