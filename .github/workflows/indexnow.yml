@@ -1,0 +1,85 @@
+name: IndexNow
+
+# After a successful production deploy of the marketing site, tell Bing,
+# Yandex and other engines which URLs changed (https://www.indexnow.org).
+# Same trigger as release-notes.yml (deployment_status on prod). Runs only
+# when apps/marketing changed in the deployed commit. Never fails: the
+# script exits 0 and prints a warning on any error. Logs counts only.
+
+on:
+  deployment_status: {}
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'changed = since the deployed commit parent, all = every sitemap URL'
+        type: choice
+        options: [changed, all]
+        default: changed
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit changed URLs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Vercel environment names look like "Production – <project>" (en-dash),
+    # so match by prefix and the marketing project name, as release-notes.yml
+    # does for hoa.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.creator.login == 'vercel[bot]' &&
+       startsWith(github.event.deployment.environment, 'Production') &&
+       contains(github.event.deployment.environment, 'marketing'))
+    concurrency:
+      group: indexnow-${{ github.event.deployment.sha || github.sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Did apps/marketing change?
+        id: changed
+        env:
+          MODE: ${{ inputs.mode || 'changed' }}
+        run: |
+          if [ "$MODE" = "all" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if git diff --quiet HEAD^ HEAD -- apps/marketing; then
+            echo "::notice::apps/marketing unchanged in this deploy; nothing to submit."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pnpm
+        if: steps.changed.outputs.run == 'true'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 10.33.0
+
+      - name: Setup Node 24
+        if: steps.changed.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.changed.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Submit to IndexNow
+        if: steps.changed.outputs.run == 'true'
+        env:
+          MODE: ${{ inputs.mode || 'changed' }}
+        run: |
+          if [ "$MODE" = "all" ]; then
+            pnpm indexnow --all || echo "::warning::IndexNow step failed (deploy unaffected)"
+          else
+            pnpm indexnow --changed HEAD^ || echo "::warning::IndexNow step failed (deploy unaffected)"
+          fi

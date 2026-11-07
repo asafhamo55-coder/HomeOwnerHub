@@ -41,6 +41,20 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-54 · Get the marketing site indexed (Bing and Google)
+
+**Urgency:** Soon
+
+**Why it matters:** 132 pages are live with a correct sitemap, but almost no one finds them because search engines have barely indexed the site. After each deploy that changes the marketing site, a workflow now tells Bing and other engines about the changed pages (IndexNow, no account needed). Google does not support that, so it needs the steps below. Bing also feeds ChatGPT search.
+
+**Steps:**
+
+1. In Bing Webmaster Tools, add `https://www.homeownerledger.online` and submit `https://www.homeownerledger.online/sitemap.xml`, if not done already.
+2. In Google Search Console, open the Pages report for the site and note how many pages are indexed and the main reasons others are not. Submit the sitemap there too if it is not listed.
+3. Tell Claude the indexed count from each.
+
+**Files:** `.github/workflows/indexnow.yml`, `scripts/indexnow-submit.ts`
+
 ### OA-53 · Read the real monthly job count from the Inngest dashboard
 
 **Urgency:** Soon
