@@ -662,6 +662,27 @@ export const GENERAL_LINKS: readonly GeorgiaLink[] = [
     kind: 'tool',
   },
   {
+    slug: 'georgia-hoa-fine-hearing-notice',
+    path: '/templates/georgia-hoa-fine-hearing-notice',
+    title: 'Georgia HOA fine hearing notice template (printable)',
+    blurb: 'A checklist and a fill-in hearing notice for a board that is considering a fine. Georgia sets no hearing step in the text we hold, so it follows your documents and says so.',
+    kind: 'tool',
+  },
+  {
+    slug: 'georgia-hoa-records-inspection-response-checklist',
+    path: '/templates/georgia-hoa-records-inspection-response-checklist',
+    title: 'Georgia HOA records inspection response checklist (printable)',
+    blurb: 'A checklist and a fill-in reply for a nonprofit HOA that gets a written request to inspect records: the five business days, the two groups of records and the conditions.',
+    kind: 'tool',
+  },
+  {
+    slug: 'georgia-hoa-estoppel-statement-request-checklist',
+    path: '/templates/georgia-hoa-estoppel-statement-request-checklist',
+    title: 'Georgia HOA estoppel or payoff statement request checklist (printable)',
+    blurb: 'A working list for one estoppel or payoff request during a sale: who may ask, the five business days, the figures, the $10 fee limit and the delivery record.',
+    kind: 'tool',
+  },
+  {
     slug: 'florida-hoa-fine-cap-and-daily-fine-checklist',
     path: '/templates/florida-hoa-fine-cap-and-daily-fine-checklist',
     title: 'Florida HOA fine cap and daily fine checklist (printable)',

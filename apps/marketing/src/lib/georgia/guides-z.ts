@@ -303,6 +303,7 @@ export const GA_OWNER_COMPLIANCE: Guide = {
     'late-fee-limits',
     'georgia-hoa-assessment-lien-rules',
     'georgia-hoa-board-powers-44-3-231',
+    'georgia-hoa-fine-hearing-notice',
   ],
   hoaDoes: [],
   hoaDoesNot:
