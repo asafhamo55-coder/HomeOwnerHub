@@ -70,11 +70,15 @@ vi.mock('@homeowner-portal/db', async (orig) => ({
   })),
 }))
 
-// getApprovalsInbox / getNextMeeting resolve their own cookie-bound client,
+// getBoardWaiting (the same count /approvals shows) reads through the session client.
+vi.mock('@/lib/approvals-inbox/waiting', () => ({
+  getBoardWaiting: vi.fn(async () => ({ counts: {}, total: 3, failed: false })),
+}))
+
+// getNextMeeting resolve their own cookie-bound client,
 // which does not exist outside a Next request. Mocked so this test exercises
 // the route's own branching, not Next's request plumbing.
 vi.mock('@/lib/dashboard/queries', () => ({
-  getApprovalsInbox: vi.fn(async () => ({ items: [], totalCount: 3 })),
   getNextMeeting: vi.fn(async () => null),
   getAtRiskThisWeek: vi.fn(async () => ({
     items: [],
@@ -205,8 +209,8 @@ describe('POST /api/ai/daily-digest conventions (RC-1, RC-2, RC-6, RC-10)', () =
   })
 
   it('turns a thrown dashboard query into the generic JSON 500, not a framework error', async () => {
-    const { getApprovalsInbox } = await import('@/lib/dashboard/queries')
-    vi.mocked(getApprovalsInbox).mockRejectedValueOnce(
+    const { getBoardWaiting } = await import('@/lib/approvals-inbox/waiting')
+    vi.mocked(getBoardWaiting).mockRejectedValueOnce(
       new Error('relation "approvals" does not exist at row 7'),
     )
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})

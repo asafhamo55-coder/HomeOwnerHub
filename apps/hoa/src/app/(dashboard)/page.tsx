@@ -216,7 +216,7 @@ const setupChecklistFor = cache(async (orgId: string) => {
 // (memoized per request in lib/dashboard/loaders.ts), so it adds no queries.
 async function DoNextSection({ orgId, isAdmin, dismissed }: { orgId: string; isAdmin: boolean; dismissed: boolean }) {
   const [approvals, atRisk, triage, compliance, setup, arcLate] = await Promise.all([
-    load.approvalsInbox(orgId),
+    load.boardWaiting(orgId),
     load.atRiskThisWeek(orgId),
     load.triageSnapshot(orgId),
     complianceFor(orgId),
@@ -239,7 +239,7 @@ async function DoNextSection({ orgId, isAdmin, dismissed }: { orgId: string; isA
           : ok(compliance.items.filter((i) => i.tone === 'overdue').length),
     arcPastDecideBy: arcLate,
     // A partial list is not "inbox zero", and a partial count of 0 proves nothing.
-    approvals: approvals.failed === true && approvals.totalCount === 0 ? FAILED : ok(approvals.totalCount),
+    approvals: approvals.failed && approvals.total === 0 ? FAILED : ok(approvals.total),
     residentReplies: triage.failed ? FAILED : ok(triage.needsReply.count),
     violationsOverdue: atRisk.failed ? FAILED : ok(atRisk.counts.cureDeadlinesElapsed),
     homesBehind: atRisk.failed ? FAILED : ok(atRisk.counts.duesOverdueUnits),
@@ -414,16 +414,16 @@ function DashboardSections({ orgId, healthOpen }: { orgId: string; healthOpen: b
 }
 
 async function ApprovalsKpi({ orgId }: { orgId: string }) {
-  const approvals = await load.approvalsInbox(orgId)
+  const waiting = await load.boardWaiting(orgId)
   return (
     <Kpi
       label="Approvals"
       icon={<ClipboardCheck />}
-      value={approvals.totalCount.toLocaleString()}
-      hint={approvals.totalCount === 0 ? 'Inbox zero' : 'waiting on you'}
-      href="#approvals"
+      value={waiting.total.toLocaleString()}
+      hint={waiting.total === 0 ? 'Inbox zero' : waiting.failed ? 'at least, some could not load' : 'waiting on you'}
+      href="/approvals"
       linkAs={Link}
-      state={approvals.failed === true && approvals.totalCount === 0 ? 'failed' : 'ready'}
+      state={waiting.failed && waiting.total === 0 ? 'failed' : 'ready'}
     />
   )
 }

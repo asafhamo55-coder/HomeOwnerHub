@@ -15,6 +15,7 @@ import { requireAiQuota } from '@/lib/api/rate-limit'
 import { createAdminClient } from '@homeowner-portal/db'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
+import { getBoardWaiting } from '@/lib/approvals-inbox/waiting'
 import {
   buildBullets,
   countNewSince,
@@ -24,7 +25,6 @@ import {
   writeSnapshot,
 } from '@/lib/dashboard/digest-facts'
 import {
-  getApprovalsInbox,
   getAtRiskThisWeek,
   getLeaseSummary,
   getNextMeeting,
@@ -74,7 +74,7 @@ export const POST = withRoute('ai.daily-digest', async () => {
   const [triage, approvals, nextMeeting, atRisk, lease, residentQueues, kpis, staleApprovals] =
     await Promise.all([
       getTriageSnapshot(supabase, orgId),
-      getApprovalsInbox(orgId),
+      getBoardWaiting(supabase, orgId),
       getNextMeeting(orgId),
       getAtRiskThisWeek(orgId),
       getLeaseSummary(orgId),
@@ -110,7 +110,7 @@ export const POST = withRoute('ai.daily-digest', async () => {
     needsReply: triage.needsReply.count,
     oldestWaitingDays: triage.needsReply.oldestWaitingDays,
     untriaged: triage.untriaged.count,
-    approvalsPending: approvals.totalCount,
+    approvalsPending: approvals.total,
     duesOutstandingUsd: Math.round(kpis.duesOutstandingUsd.value),
   })
   checkWrite(snapshot, 'daily-digest.snapshot', { orgId })
@@ -120,7 +120,7 @@ export const POST = withRoute('ai.daily-digest', async () => {
   // of a button a board member is watching. Each keeps its own try/catch,
   // so one model failure still cannot take out the other half.
   const [suggestion, insights] = await Promise.all([
-    buildSuggestion(org.name, triage, approvals.totalCount),
+    buildSuggestion(org.name, triage, approvals.total),
     buildInsights(org.name, {
       atRisk,
       staleApprovals,

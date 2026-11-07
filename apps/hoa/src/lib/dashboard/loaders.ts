@@ -20,6 +20,7 @@ import {
 import { getTriageSnapshot } from '@/lib/dashboard/triage'
 import { countNewSince, readBaseline, todayISO } from '@/lib/dashboard/digest-facts'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { getBoardWaiting } from '@/lib/approvals-inbox/waiting'
 import { timed } from '@/lib/perf/timing'
 
 /**
@@ -50,6 +51,10 @@ export const thirtyDayActivity = cache((orgId: string) =>
 )
 export const approvalsInbox = cache((orgId: string) =>
   timed(R, 'dashboard.approvals', () => getApprovalsInbox(orgId)),
+)
+/** What /approvals shows under "All": the tile, "Do this next" and the digest read this. */
+export const boardWaiting = cache((orgId: string) =>
+  timed(R, 'dashboard.boardWaiting', async () => getBoardWaiting(await getSupabaseServerClient(), orgId)),
 )
 export const atRiskThisWeek = cache((orgId: string) => timed(R, 'dashboard.atRisk', () => getAtRiskThisWeek(orgId)))
 export const nextMeeting = cache((orgId: string) =>

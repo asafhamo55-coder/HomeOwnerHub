@@ -49,7 +49,7 @@ describe('pickDoNext', () => {
       kind: 'item',
       message: '3 requests are waiting for your approval.',
       cta: 'Review them',
-      href: '#approvals',
+      href: '/approvals',
     })
     expect(pick({ approvals: ok(1) })).toMatchObject({ message: '1 request is waiting for your approval.' })
     expect(pick({ homesBehind: ok(1) })).toMatchObject({ message: '1 home is behind on dues.' })

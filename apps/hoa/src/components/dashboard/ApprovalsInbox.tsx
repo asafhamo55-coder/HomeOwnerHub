@@ -43,7 +43,7 @@ export function ApprovalsInbox({
   const overflow = items.length - visible.length
 
   return (
-    <Card id="approvals">
+    <Card id="drafts">
       <CardHeader
         className="pb-3"
         actions={
@@ -54,17 +54,17 @@ export function ApprovalsInbox({
           ) : null
         }
       >
-        <CardTitle as="h2">Waiting on your approval</CardTitle>
-        <p className="text-sm text-muted">Oldest first. Nothing goes out until you sign off.</p>
+        <CardTitle as="h2">Drafts to finish</CardTitle>
+        <p className="text-sm text-muted">Oldest first. Nothing goes out until you sign off. The Approvals tile counts Things to approve instead.</p>
       </CardHeader>
       {items.length === 0 ? (
         <CardContent>
           {failed ? (
-            <FailedNote what="your approvals" />
+            <FailedNote what="your drafts" />
           ) : (
             <p className="flex items-center gap-2 text-sm text-foreground-secondary">
               <CheckCircle2 className="size-4 text-success" aria-hidden />
-              Inbox zero — nothing is waiting on your approval.
+              No drafts are waiting on you.
             </p>
           )}
         </CardContent>

@@ -80,7 +80,7 @@ export function pickDoNext(input: DoNextInput): DoNext {
       key: 'approvals',
       message: `${n(approvals, 'request is', 'requests are')} waiting for your approval.`,
       cta: 'Review them',
-      href: '#approvals',
+      href: '/approvals',
     }
   }
   const replies = positive(input.residentReplies)
