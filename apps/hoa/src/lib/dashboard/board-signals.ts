@@ -283,7 +283,7 @@ export function buildBoardSignals(input: BoardSignalsInput): BoardSignal[] {
   if (!staleApprovals.failed && staleApprovals.count > 0) {
     signals.push({
       kind: 'stale_approvals',
-      headline: `${staleApprovals.count} board ${plural(staleApprovals.count, 'approval has', 'approvals have')} been pending over ${STALE_APPROVAL_DAYS} days`,
+      headline: `${staleApprovals.count} ${plural(staleApprovals.count, 'draft has', 'drafts have')} been waiting over ${STALE_APPROVAL_DAYS} days`,
       href: '/',
       severity: 'red',
     })

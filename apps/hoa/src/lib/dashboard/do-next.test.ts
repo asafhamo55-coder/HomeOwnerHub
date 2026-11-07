@@ -49,10 +49,16 @@ describe('pickDoNext', () => {
       kind: 'item',
       message: '3 requests are waiting for your approval.',
       cta: 'Review them',
-      href: '#approvals',
+      href: '/approvals',
     })
     expect(pick({ approvals: ok(1) })).toMatchObject({ message: '1 request is waiting for your approval.' })
     expect(pick({ homesBehind: ok(1) })).toMatchObject({ message: '1 home is behind on dues.' })
+  })
+
+  it('says "at least" when some approval sources could not be counted', () => {
+    expect(pick({ approvals: ok(2), approvalsPartial: true })).toMatchObject({
+      message: 'At least 2 requests are waiting for your approval.',
+    })
   })
 
   it('puts ARC requests past decide-by in the picker, ahead of general approvals', () => {

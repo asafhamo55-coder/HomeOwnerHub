@@ -26,6 +26,8 @@ export interface DoNextInput {
   arcPastDecideBy: Check<number>
   /** Requests waiting for a board decision. */
   approvals: Check<number>
+  /** True when some approval sources could not be counted: the number is then a lower bound. */
+  approvalsPartial?: boolean
   /** Resident emails still waiting for a reply. */
   residentReplies: Check<number>
   /** Violations past their fix-by (cure) date. */
@@ -78,9 +80,9 @@ export function pickDoNext(input: DoNextInput): DoNext {
     return {
       kind: 'item',
       key: 'approvals',
-      message: `${n(approvals, 'request is', 'requests are')} waiting for your approval.`,
+      message: `${input.approvalsPartial ? 'At least ' : ''}${n(approvals, 'request is', 'requests are')} waiting for your approval.`,
       cta: 'Review them',
-      href: '#approvals',
+      href: '/approvals',
     }
   }
   const replies = positive(input.residentReplies)

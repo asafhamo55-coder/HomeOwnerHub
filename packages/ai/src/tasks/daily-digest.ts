@@ -32,7 +32,8 @@ export async function generateDigestSuggestion(params: {
   hoaName: string
   needsReply: number
   oldestWaitingDays: number | null
-  approvalsPending: number
+  /** Null = the count is unknown; the line is left out of the prompt. */
+  approvalsPending: number | null
   /** At most five, so the model can name one specifically. */
   threadSubjects: string[]
 }): Promise<string> {
@@ -41,8 +42,7 @@ export async function generateDigestSuggestion(params: {
     `HOA: ${params.hoaName}
 Resident emails awaiting a reply: ${params.needsReply}
 Longest wait: ${params.oldestWaitingDays ?? 0} days
-Items awaiting board approval: ${params.approvalsPending}
-Oldest waiting threads (subjects): ${params.threadSubjects.join(' | ') || 'none'}
+${params.approvalsPending === null ? '' : `Items awaiting board approval: ${params.approvalsPending}\n`}Oldest waiting threads (subjects): ${params.threadSubjects.join(' | ') || 'none'}
 
 Write ONE sentence, under ${MAX_SUGGESTION_CHARS} characters, telling the board
 member what to start with and why. Name a specific thread from the list above

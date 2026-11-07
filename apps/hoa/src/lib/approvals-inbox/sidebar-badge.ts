@@ -15,8 +15,8 @@ export type SidebarBadges = Record<string, string | null>
  * is simply no badge (countPendingApprovals already reports a failed read as
  * unknown, never as 0).
  */
-export function sidebarBadges(db: CountDb, orgId: string, viewerId: string): Promise<SidebarBadges> {
-  return timed('layout', 'layout.approvalsBadge', () => countPendingApprovals(db, orgId, { viewerId })).then(
+export function sidebarBadges(db: CountDb, orgId: string): Promise<SidebarBadges> {
+  return timed('layout', 'layout.approvalsBadge', () => countPendingApprovals(db, orgId)).then(
     (counts) => ({ '/approvals': approvalsBadge(counts) }),
     () => ({}),
   )

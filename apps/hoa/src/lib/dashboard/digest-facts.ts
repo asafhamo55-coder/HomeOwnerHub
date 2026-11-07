@@ -32,7 +32,8 @@ export type DigestCounts = {
   needsReply: number
   oldestWaitingDays: number | null
   untriaged: number
-  approvalsPending: number
+  /** Null when the count could not be read in full: unknown, never stored as a number. */
+  approvalsPending: number | null
   /** Whole US dollars — the unit getDashboardKpis already returns. */
   duesOutstandingUsd: number
 }

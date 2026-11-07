@@ -90,7 +90,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // all of them before sending anything. The sidebar receives the promise and
   // fills the badge in when it resolves (navigation-perf-ratchet.test.ts).
   // A failed count yields no badge (or a "3+" lower bound), never a false 0.
-  const badges = sidebarBadges(supabase, org.id, user.id)
+  const badges = sidebarBadges(supabase, org.id)
 
   return (
     <DashboardProviders>
