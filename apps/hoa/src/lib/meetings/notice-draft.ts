@@ -38,7 +38,8 @@ const CONTACT_LINE = `<p>All owners are welcome. If you have a question for the 
 const PRINT_GREETING = '<p>Dear Homeowner,</p>'
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  // The contact marker is ours alone: strip it from anything a person typed.
+  return s.split(CONTACT_MARK).join('').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 export function longMeetingDay(day: string): string {
@@ -92,7 +93,10 @@ export function buildMeetingNoticeDraft(input: MeetingNoticeDraftInput): { subje
   // Contacts go in after the render, so a "{{" in a contact name is never expanded.
   const contacts = (input.contactLines ?? []).map((l) => l.trim()).filter(Boolean)
   const tail = contacts.length ? `contact the board:<br>${contacts.map(escapeHtml).join('<br>')}` : 'contact the board.'
-  return { subject, bodyHtml: rendered.replace(CONTACT_MARK, () => tail) }
+  return { subject, bodyHtml: (() => {
+    const at = rendered.lastIndexOf(CONTACT_MARK)
+    return at < 0 ? rendered : rendered.slice(0, at) + tail + rendered.slice(at + CONTACT_MARK.length)
+  })() }
 }
 
 /**

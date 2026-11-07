@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   assocError: null as unknown,
   assocFail: false,
   noAssocRow: false,
+  noAssocData: false,
   state: 'GA' as string | null,
   type: 'hoa' as string | null,
   queried: 0,
@@ -58,7 +59,7 @@ vi.mock('@/lib/association-time', async (orig) => ({
 }))
 vi.mock('@/lib/primary-association', () => ({
   getPrimaryAssociationResult: vi.fn(async () =>
-    h.assocFail ? { ok: false } : { ok: true, data: { id: 'a1', name: 'Peachtree Fixture HOA', timeZone: 'America/New_York' }, count: null },
+    h.assocFail ? { ok: false } : h.noAssocData ? { ok: true, data: null, count: null } : { ok: true, data: { id: 'a1', name: 'Peachtree Fixture HOA', timeZone: 'America/New_York' }, count: null },
   ),
 }))
 
@@ -139,6 +140,14 @@ describe('meeting notice builder: print matches email minus the email-only lines
     expect(tricky.bodyHtml).not.toContain('@@CONTACTS@@')
   })
 
+  it('strips the contact marker from typed text and fills the last one only', () => {
+    const d = buildMeetingNoticeDraft({ ...INPUT, location: 'Hall @@CONTACTS@@', agenda: '@@CONTACTS@@ Budget', mode: 'print', contactLines: ['Pat'] })
+    expect(d.bodyHtml).not.toContain('@@CONTACTS@@')
+    expect(d.bodyHtml).toContain('<strong>Where:</strong> Hall ')
+    expect(d.bodyHtml).toContain('Budget')
+    expect(d.bodyHtml.match(/contact the board:<br>Pat/g)).toHaveLength(1)
+  })
+
   it('has no brackets, and no unfilled merge fields', () => {
     for (const draft of [paper, buildMeetingNoticeDraft({ ...INPUT, agenda: null, mode: 'print' }), buildMeetingNoticeDraft({ ...INPUT, mode: 'print', contactLines: [] })]) {
       expect(text(draft.bodyHtml)).not.toMatch(/[[\]]/)
@@ -199,6 +208,7 @@ describe('meeting notice print page', () => {
     const html = await render({ time: '19:00', where: 'p'.repeat(201) })
     expect(html).toContain('Shorten the place to 200 characters or less.')
     expect(html).not.toContain('aria-label="Meeting notice"')
+    expect(html).toContain(`value="${'p'.repeat(200)}"`)
     const ok = await render({ time: '19:00', where: 'p'.repeat(200) })
     expect(ok).toContain('aria-label="Meeting notice"')
   })
@@ -299,7 +309,14 @@ describe('meeting notice print page', () => {
       const html = await render()
       h.noAssocRow = false
       expect(orig).toBeNull()
-      expect(html).toContain('State not set, so the notice timing was not checked.')
+      expect(html).toContain('Association details missing, so the notice timing was not checked.')
+      expect(html).toContain('aria-label="Meeting notice"')
+    })
+    it('no primary association data: says the timing was not checked', async () => {
+      h.noAssocData = true
+      const html = await render()
+      h.noAssocData = false
+      expect(html).toContain('Association details missing, so the notice timing was not checked.')
       expect(html).toContain('aria-label="Meeting notice"')
     })
     it('no board contacts', async () => {

@@ -143,7 +143,7 @@ export default async function MeetingNoticePage({
               name="where"
               required
               maxLength={MAX_CALENDAR_WHERE}
-              defaultValue={where ?? ''}
+              defaultValue={tooLong ? rawWhere.slice(0, MAX_CALENDAR_WHERE) : (where ?? '')}
               placeholder="Clubhouse, 100 Elm St"
               className="min-h-12"
             />
@@ -159,7 +159,7 @@ export default async function MeetingNoticePage({
   const warnings: string[] = []
   // No association row means no zone and no state: say so, never default quietly.
   const noAssoc = !a || !assoc.data
-  if (noAssoc) warnings.push('State not set, so the notice timing was not checked.')
+  if (noAssoc) warnings.push('Association details missing, so the notice timing was not checked.')
   const zone = assoc.data ? assoc.data.timeZone : 'America/New_York'
   const today = todayIn(zone)
   const contactLines = noticeContacts(a?.compliance_settings).map((c) =>
