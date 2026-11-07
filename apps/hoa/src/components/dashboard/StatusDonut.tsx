@@ -20,7 +20,7 @@ const TONE_FILL: Record<DonutSegment['tone'], string> = {
   success: '#10b981',     // emerald-500  — cured / positive
   muted: '#64748b',       // slate-500    — resolved / archival
   destructive: '#ef4444', // red-500      — fined / non-compliant
-  severe: '#db2777',      // pink-600     — escalated / legal (apart from the blue brand)
+  severe: '#f472b6',      // pink-400     — escalated / legal (apart from the blue brand)
 }
 
 interface StatusDonutProps {

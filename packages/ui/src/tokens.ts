@@ -232,6 +232,12 @@ export const CONTRAST_PAIRS: { fg: ColorRole; bg: ColorRole; min: number }[] = [
   { fg: 'primary', bg: 'surface', min: 4.5 },
   { fg: 'primary', bg: 'elevated', min: 4.5 },
   { fg: 'primary', bg: 'primary-subtle', min: 4.5 },
+  { fg: 'primary', bg: 'subtle', min: 4.5 },
+  { fg: 'primary-hover', bg: 'background', min: 4.5 },
+  { fg: 'primary-hover', bg: 'surface', min: 4.5 },
+  { fg: 'primary-hover', bg: 'primary-subtle', min: 4.5 },
+  { fg: 'foreground-secondary', bg: 'primary-subtle', min: 4.5 },
+  { fg: 'muted', bg: 'primary-subtle', min: 4.5 },
   { fg: 'primary-fg', bg: 'primary', min: 4.5 },
   { fg: 'primary-fg', bg: 'primary-hover', min: 4.5 },
   { fg: 'foreground', bg: 'primary-subtle', min: 4.5 },
@@ -251,6 +257,11 @@ export const CONTRAST_PAIRS: { fg: ColorRole; bg: ColorRole; min: number }[] = [
   { fg: 'input', bg: 'background', min: 3 },
   { fg: 'ring', bg: 'background', min: 3 },
   { fg: 'ring', bg: 'surface', min: 3 },
+  { fg: 'ring', bg: 'elevated', min: 3 },
+  { fg: 'ring', bg: 'subtle', min: 3 },
+  { fg: 'ring', bg: 'primary-subtle', min: 3 },
+  { fg: 'success-solid', bg: 'background', min: 3 },
+  { fg: 'primary', bg: 'background', min: 3 },
 ]
 
 // ── Colour maths ──────────────────────────────────────────────────────────

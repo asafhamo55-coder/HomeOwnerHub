@@ -23,7 +23,7 @@ export { MARK, WORDMARK }
  * (scripts/build-brand-assets.ts) builds every SVG/PNG/ICO from it.
  *
  * The mark is a fixed brand asset: its tile is brand blue in both modes (it
- * already stands off the dark canvas at 3.9:1); white would not read
+ * already stands off the dark canvas at 3.71:1 and the dark surface at 3.43:1); white would not read
  * on the dark `primary`, so it uses LOGO from tokens.ts, not `primary`.
  */
 

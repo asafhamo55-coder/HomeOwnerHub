@@ -23,11 +23,11 @@ const SIZES = {
 // clear AA. Status hues are excluded so an avatar never reads as a state.
 const HUES = [
   'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200',
-  'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200',
-  'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-200',
-  'bg-cyan-100 text-cyan-900 dark:bg-cyan-500/20 dark:text-cyan-200',
-  'bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-200',
+  'bg-orange-100 text-orange-900 dark:bg-orange-500/20 dark:text-orange-200',
   'bg-slate-200 text-slate-800 dark:bg-slate-500/25 dark:text-slate-200',
+  'bg-pink-100 text-pink-900 dark:bg-pink-500/20 dark:text-pink-200',
+  'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-200',
+  'bg-stone-200 text-stone-800 dark:bg-stone-500/25 dark:text-stone-200',
 ] as const
 
 export function initialsOf(name: string): string {

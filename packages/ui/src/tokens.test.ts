@@ -62,6 +62,11 @@ it('HOA brand is blue #2563EB with green #047857, code and logo agree', () => {
   expect(palette('hoa', 'light').primary).toBe('#2563EB')
   expect(palette('hoa', 'dark').primary).toBe('#60A5FA')
   expect(LOGO.light.tile).toBe(palette('hoa', 'light').primary)
+  expect(palette('hoa', 'light')['primary-hover']).toBe('#1D4ED8')
+  expect(palette('hoa', 'light')['primary-subtle']).toBe('#EFF6FF')
+  expect(palette('hoa', 'dark')['primary-subtle']).toBe('#172554')
+  expect(palette('hoa', 'dark')['primary-fg']).toBe('#0A0F1A')
+  expect(palette('hoa', 'light').success).toBe('#047857')
 })
 
 // BL-095 key pairs, stated as explicit ratios so a palette change that
@@ -73,7 +78,8 @@ describe('HOA blue palette — key pairs', () => {
     ['light', 'primary-fg', 'primary-hover', 6.6],
     ['light', 'primary', 'surface', 5.1],
     ['light', 'primary', 'background', 4.8],
-    ['light', 'primary', 'primary-subtle', 4.5],
+    ['light', 'primary', 'primary-subtle', 4.7],
+    ['light', 'primary', 'subtle', 4.5],
     ['light', 'foreground', 'background', 16],
     ['light', 'muted', 'subtle', 5.5],
     ['light', 'ring', 'background', 3.4],
@@ -81,6 +87,7 @@ describe('HOA blue palette — key pairs', () => {
     ['dark', 'primary-fg', 'primary-hover', 10.5],
     ['dark', 'primary', 'surface', 6.9],
     ['dark', 'primary', 'primary-subtle', 5.5],
+    ['dark', 'primary-hover', 'background', 4.5],
     ['dark', 'foreground', 'background', 17],
     ['dark', 'muted', 'subtle', 5.5],
   ] as const)('%s: %s on %s ≥ %s:1', (mode, fg, bg, min) => {

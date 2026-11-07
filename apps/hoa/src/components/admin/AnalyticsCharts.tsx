@@ -47,7 +47,7 @@ const FALLBACK: Tokens = Object.fromEntries(
   TOKEN_NAMES.map((name) => [name, palette('hoa', 'light')[name]]),
 ) as Tokens
 
-/** "243 75% 59%" → "hsl(243, 75%, 59%)" (ECharts wants the comma form). */
+/** "221 83% 53%" → "hsl(221, 83%, 53%)" (ECharts wants the comma form). */
 function toHsl(channels: string): string | null {
   const parts = channels.trim().split(/\s+/)
   if (parts.length < 3) return null
