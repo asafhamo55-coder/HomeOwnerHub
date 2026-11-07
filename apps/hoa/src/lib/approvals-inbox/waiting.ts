@@ -26,7 +26,7 @@ export function summarizeWaiting(counts: SourceCounts): BoardWaiting {
 /**
  * One round of parallel head-only counts. No viewerId on purpose: the page
  * lists every professional's item to every board member, so the tile must
- * too (the sidebar badge alone narrows those by viewer). Never rejects: a
+ * too, and so does the sidebar badge. Never rejects: a
  * thrown error is every source unknown.
  */
 export async function getBoardWaiting(db: InboxDb, orgId: string, opts: { m5?: boolean; m6?: boolean; m11?: boolean; now?: Date } = {}): Promise<BoardWaiting> {

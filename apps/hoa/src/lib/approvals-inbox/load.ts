@@ -298,12 +298,11 @@ async function loadAssociations(db: InboxDb, orgId: string) {
 }
 
 /**
- * BL-168 follow-up: the professionals count in the sidebar badge. A CPA's
- * proposed entry or "reviewed" note is the Treasurer's to see first (or the
- * admins' when the board has no Treasurer), so for a signed-in viewer who is
- * not that recipient those two kinds are left out of the BADGE (they are
- * still listed on /approvals). An attorney's items count for every board
- * member. No viewerId (monthly report, tests) counts everything, as before.
+ * BL-168 follow-up: the professionals count. With a viewerId, a CPA's
+ * proposed entry or "reviewed" note counts only for the Treasurer (or the
+ * admins when the board has no Treasurer). The sidebar badge and the
+ * dashboard tile pass no viewerId, so every board member sees the same
+ * number as /approvals; only tests and the monthly report pass one.
  * Only called when M6 is live. A failed read is unknown, never 0.
  */
 async function countProBadge(db: InboxDb, orgId: string, viewerId?: string) {
