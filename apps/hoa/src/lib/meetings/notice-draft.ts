@@ -5,13 +5,12 @@
  * (lib/communications/built-in-templates.ts), so the two cannot drift. Print
  * mode changes only what paper cannot do: the "Hi {{ recipient_name }}"
  * greeting becomes "Dear Homeowner,", the "reply to this email" line points
- * to the board contacts, and an agenda nobody wrote is left out instead of
- * printing a promise. Pure and client-safe.
+ * to the board contacts. The agenda keeps the email's fallback line. Pure and client-safe.
  */
 
 import { BUILT_IN_TEMPLATES } from '@/lib/communications/built-in-templates'
 import { renderTemplate } from '@/lib/communications/templates'
-import { MEETING_NOTICE_TEMPLATE_ID, TEMPLATE_MEETING_TYPE } from './notice-prefill'
+import { MAX_PREFILL_AGENDA, MEETING_NOTICE_TEMPLATE_ID, TEMPLATE_MEETING_TYPE } from './notice-prefill'
 
 export interface MeetingNoticeDraftInput {
   associationName: string
@@ -34,6 +33,8 @@ export interface MeetingNoticeDraftInput {
 export const EMAIL_GREETING = '<p>Hi {{ recipient_name }},</p>'
 export const EMAIL_REPLY_LINE =
   '<p>All owners are welcome. If you have a question for the board, bring it to the meeting or reply to this email.</p>'
+const CONTACT_MARK = '@@CONTACTS@@'
+const CONTACT_LINE = `<p>All owners are welcome. If you have a question for the board, bring it to the meeting or ${CONTACT_MARK}</p>`
 const PRINT_GREETING = '<p>Dear Homeowner,</p>'
 
 function escapeHtml(s: string): string {
@@ -62,7 +63,7 @@ export function buildMeetingNoticeDraft(input: MeetingNoticeDraftInput): { subje
   const t = BUILT_IN_TEMPLATES.find((b) => b.id === MEETING_NOTICE_TEMPLATE_ID)
   if (!t) throw new Error('meeting notice template missing')
   const print = input.mode === 'print'
-  const agenda = (input.agenda ?? '').trim()
+  const agenda = (input.agenda ?? '').trim().slice(0, MAX_PREFILL_AGENDA)
   const typeLabel = TEMPLATE_MEETING_TYPE[input.meetingType ?? 'regular'] ?? 'Board meeting'
   const dayLabel = longMeetingDay(input.meetingDate)
   const bag = {
@@ -81,16 +82,42 @@ export function buildMeetingNoticeDraft(input: MeetingNoticeDraftInput): { subje
 
   let lines = t.bodyHtml.split('\n')
   if (print) {
-    const contacts = (input.contactLines ?? []).map((l) => l.trim()).filter(Boolean)
-    const replyLine = contacts.length
-      ? `<p>All owners are welcome. If you have a question for the board, bring it to the meeting or contact the board:<br>${contacts.map(escapeHtml).join('<br>')}</p>`
-      : '<p>All owners are welcome. If you have a question for the board, bring it to the meeting or contact the board.</p>'
-    lines = lines
-      .filter((l) => !(l.startsWith('<p><strong>Agenda:</strong>') && !agenda))
-      .map((l) => (l === EMAIL_GREETING ? PRINT_GREETING : l === EMAIL_REPLY_LINE ? replyLine : l))
+    lines = lines.map((l) => (l === EMAIL_GREETING ? PRINT_GREETING : l === EMAIL_REPLY_LINE ? CONTACT_LINE : l))
     // Keep the closing together so it never splits across pages.
     const last = lines.length - 1
     lines[last] = `<div style="break-inside:avoid">${lines[last]}</div>`
   }
-  return { subject, bodyHtml: renderTemplate(lines.join('\n'), bag).rendered }
+  const rendered = renderTemplate(lines.join('\n'), bag).rendered
+  if (!print) return { subject, bodyHtml: rendered }
+  // Contacts go in after the render, so a "{{" in a contact name is never expanded.
+  const contacts = (input.contactLines ?? []).map((l) => l.trim()).filter(Boolean)
+  const tail = contacts.length ? `contact the board:<br>${contacts.map(escapeHtml).join('<br>')}` : 'contact the board.'
+  return { subject, bodyHtml: rendered.replace(CONTACT_MARK, () => tail) }
+}
+
+/**
+ * Hours from now to the typed start, both read as wall-clock time in the
+ * association's zone (an hour off across a clock change, which is fine for a
+ * 48-hour warning). Null when the zone or the time is unreadable.
+ */
+export function hoursUntilStart(day: string, time: string, zone: string, now: Date = new Date()): number | null {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: zone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).formatToParts(now)
+    const g = (t: string) => Number(parts.find((p) => p.type === t)?.value)
+    const nowMs = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'))
+    const [y, mo, d] = day.split('-').map(Number)
+    const [h, mi] = time.split(':').map(Number)
+    const startMs = Date.UTC(y!, mo! - 1, d!, h!, mi!)
+    return Number.isNaN(nowMs) || Number.isNaN(startMs) ? null : (startMs - nowMs) / 3_600_000
+  } catch {
+    return null
+  }
 }

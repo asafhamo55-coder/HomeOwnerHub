@@ -13,7 +13,10 @@ export interface MeetingNoticeView {
   subject: string
   /** The body from buildMeetingNoticeDraft. Every value in it is escaped by the builder. */
   bodyHtml: string
-  /** Where "Change the time or place" goes. */
+  /** The details to confirm, e.g. "Thursday, December 10, 2026, 7:00 PM" and the place. */
+  when: string
+  where: string
+  /** Where "Change" goes. */
   changeHref: string
   /** Shown above the letter and never printed. */
   warnings?: string[]
@@ -37,19 +40,23 @@ export function MeetingNoticePrint({ view }: { view: MeetingNoticeView }) {
             {w}
           </Alert>
         ))}
+        <Alert variant="info" title="You are printing">
+          {view.when}, at {view.where}. Is this right?{' '}
+          <Link href={view.changeHref} className="inline-flex min-h-12 items-center font-medium text-primary underline-offset-2 hover:underline">
+            Change
+          </Link>
+        </Alert>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" size="lg" className="min-h-12" icon={<Printer aria-hidden />} onClick={() => window.print()}>
             Print / Save as PDF
           </Button>
-          <Link href={view.changeHref} className="inline-flex min-h-12 items-center text-sm text-primary hover:underline">
-            Change the time or place
-          </Link>
         </div>
       </div>
       <article
         aria-label="Meeting notice"
         className="meeting-notice mx-auto [overflow-wrap:anywhere] max-w-[8.5in] space-y-4 rounded-lg border border-border bg-white p-6 text-[12pt] leading-snug text-black [print-color-adjust:exact] print:max-w-none print:rounded-none print:border-0 print:p-0"
       >
+        {/* bg-white and text-black are intentional: this is paper, whatever the app theme. */}
         <style>{'@media print { @page { size: letter; margin: 0.75in; } }'}</style>
         <header className="space-y-3">
           <Letterhead name={view.association} />

@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   rowError: null as unknown,
   assocError: null as unknown,
   assocFail: false,
+  noAssocRow: false,
   state: 'GA' as string | null,
   type: 'hoa' as string | null,
   queried: 0,
@@ -42,7 +43,7 @@ vi.mock('@/lib/supabase/server', () => ({
         is: () => chain,
         order: () => chain,
         range: async () => ({
-          data: h.assocError ? null : [{ state: h.state, type: h.type, compliance_settings: { board_contacts: h.contacts } }],
+          data: h.assocError ? null : h.noAssocRow ? [] : [{ state: h.state, type: h.type, compliance_settings: { board_contacts: h.contacts } }],
           error: h.assocError,
         }),
         maybeSingle: async () => ({ data: h.rowError ? null : h.row, error: h.rowError }),
@@ -65,7 +66,8 @@ import * as React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 ;(globalThis as { React?: unknown }).React = React
 import Page from './page'
-import { buildMeetingNoticeDraft, EMAIL_GREETING, EMAIL_REPLY_LINE } from '@/lib/meetings/notice-draft'
+import { buildMeetingNoticeDraft, hoursUntilStart, EMAIL_GREETING, EMAIL_REPLY_LINE } from '@/lib/meetings/notice-draft'
+import { MAX_PREFILL_AGENDA } from '@/lib/meetings/notice-prefill'
 
 const MEETING = { id: ID, meeting_date: '2026-12-10', meeting_type: 'annual', status: 'draft', ai_summary: '1. Budget\n2. Election <of> directors' }
 const FULL = { time: '19:00', where: 'Clubhouse <Room 2>' }
@@ -127,6 +129,16 @@ describe('meeting notice builder: print matches email minus the email-only lines
     expect(paper.bodyHtml).toContain('contact the board:<br>President, Pat Board, 404-555-0100')
   })
 
+  it('caps the agenda like the email, and never expands {{ in a contact or the place', () => {
+    const capped = buildMeetingNoticeDraft({ ...INPUT, agenda: 'a'.repeat(MAX_PREFILL_AGENDA + 500), mode: 'print' })
+    expect(capped.bodyHtml).toContain('a'.repeat(MAX_PREFILL_AGENDA))
+    expect(capped.bodyHtml).not.toContain('a'.repeat(MAX_PREFILL_AGENDA + 1))
+    const tricky = buildMeetingNoticeDraft({ ...INPUT, location: '{{ agenda }}', mode: 'print', contactLines: ['Pat {{ association_name }} $&'] })
+    expect(tricky.bodyHtml).toContain('<strong>Where:</strong> {{ agenda }}')
+    expect(tricky.bodyHtml).toContain('Pat {{ association_name }} $&amp;')
+    expect(tricky.bodyHtml).not.toContain('@@CONTACTS@@')
+  })
+
   it('has no brackets, and no unfilled merge fields', () => {
     for (const draft of [paper, buildMeetingNoticeDraft({ ...INPUT, agenda: null, mode: 'print' }), buildMeetingNoticeDraft({ ...INPUT, mode: 'print', contactLines: [] })]) {
       expect(text(draft.bodyHtml)).not.toMatch(/[[\]]/)
@@ -134,10 +146,9 @@ describe('meeting notice builder: print matches email minus the email-only lines
     }
   })
 
-  it('leaves the agenda out when there is none, and keeps the closing together', () => {
+  it('keeps the email fallback when there is no agenda, and keeps the closing together', () => {
     const none = buildMeetingNoticeDraft({ ...INPUT, agenda: '  ', mode: 'print' })
-    expect(none.bodyHtml).not.toContain('Agenda')
-    expect(none.bodyHtml).not.toContain('will be shared')
+    expect(none.bodyHtml).toContain('The agenda will be shared before the meeting.')
     expect(none.bodyHtml).toContain('contact the board.')
     expect(paper.bodyHtml).toContain('<div style="break-inside:avoid"><p>Thank you,<br>Peachtree Fixture HOA Board</p></div>')
   })
@@ -154,18 +165,48 @@ describe('meeting notice print page', () => {
   })
 
   it('prints a long agenda in full and wraps it', async () => {
-    const long = Array.from({ length: 60 }, (_, i) => `${i + 1}. Item ${i + 1} ${'x'.repeat(120)}`).join('\n')
+    const long = Array.from({ length: 25 }, (_, i) => `${i + 1}. Item ${i + 1} ${'x'.repeat(120)}`).join('\n')
     h.row = { ...MEETING, ai_summary: long }
     const html = await render()
-    expect(html).toContain('60. Item 60 ' + 'x'.repeat(120))
+    expect(html).toContain('25. Item 25 ' + 'x'.repeat(120))
     expect(html).toContain('[overflow-wrap:anywhere]')
     expect(html).toContain('break-inside:avoid')
   })
 
-  it('prints no agenda for a meeting that is not a draft', async () => {
+  it('prints no agenda text for a meeting that is not a draft', async () => {
     h.row = { ...MEETING, status: 'approved' }
     const html = await render()
     expect(html).not.toContain('Election')
+    expect(html).toContain('The agenda will be shared before the meeting.')
+  })
+
+  it('shows what is being printed, with a Change link, above the letter', async () => {
+    const html = await render()
+    expect(html).toContain('You are printing')
+    expect(html).toContain('Thursday, December 10, 2026, 7:00 PM, at Clubhouse &lt;Room 2&gt;. Is this right?')
+    expect(html).toContain('>Change</a>')
+    expect(html).toContain('edit=1')
+    expect(html.indexOf('You are printing')).toBeLessThan(html.indexOf('aria-label="Meeting notice"'))
+  })
+
+  it('the form says what to type, and gives an example time', async () => {
+    const html = await render({})
+    expect(html).toContain('Type the start time and the place, the same ones you put in the email.')
+    expect(html).toContain('Start time (for example 7:00 PM)')
+  })
+
+  it('a place over 200 characters counts as missing', async () => {
+    const html = await render({ time: '19:00', where: 'p'.repeat(201) })
+    expect(html).toContain('Shorten the place to 200 characters or less.')
+    expect(html).not.toContain('aria-label="Meeting notice"')
+    const ok = await render({ time: '19:00', where: 'p'.repeat(200) })
+    expect(ok).toContain('aria-label="Meeting notice"')
+  })
+
+  it('does not expand {{ in the place from the address bar', async () => {
+    const html = await render({ time: '19:00', where: '{{ agenda }}' })
+    expect(html).toContain('<strong>Where:</strong> {{ agenda }}')
+    expect(html).not.toContain('Where:</strong> 1. Budget')
   })
 
   describe('refuses when the time or place is missing', () => {
@@ -203,6 +244,63 @@ describe('meeting notice print page', () => {
     it('enough notice gives no notice warning', async () => {
       h.today = '2026-11-07'
       expect(await render()).not.toContain('Check before you print')
+    })
+    it('empty agenda: warns for special and annual, FL, and GA condo; not for a GA regular HOA meeting', async () => {
+      const W = 'No agenda is written, and this state asks the notice to say what the meeting is for. Add it to the meeting first.'
+      h.row = { ...MEETING, ai_summary: null }
+      expect(await render()).toContain(W) // annual
+      h.row = { ...MEETING, ai_summary: '  ', meeting_type: 'special' }
+      expect(await render()).toContain(W)
+      h.row = { ...MEETING, ai_summary: null, meeting_type: 'regular' }
+      expect(await render()).not.toContain(W)
+      h.state = 'FL'
+      expect(await render()).toContain(W)
+      h.state = 'GA'
+      h.type = 'condo'
+      expect(await render()).toContain(W)
+      h.type = 'hoa'
+      h.row = { ...MEETING, meeting_type: 'regular' }
+      expect(await render()).not.toContain(W) // has an agenda
+    })
+    it('Florida 14 days, California and Texas bylaws', async () => {
+      h.state = 'FL'
+      h.today = '2026-12-01'
+      expect(await render()).toContain('needs at least 14 days')
+      h.state = 'CA'
+      h.today = '2026-11-07'
+      expect(await render()).toContain('check your bylaws')
+      h.state = 'TX'
+      expect(await render()).toContain('Check your bylaws and governing documents')
+    })
+    it('Florida 48 hours from the typed start for a regular meeting', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      try {
+        h.state = 'FL'
+        h.row = { ...MEETING, meeting_type: 'regular', meeting_date: '2026-12-10' }
+        h.today = '2026-12-08'
+        vi.setSystemTime(new Date('2026-12-08T17:00:00Z')) // noon Eastern
+        const W = 'less than 48 hours'
+        expect(await render({ time: '06:00', where: 'Clubhouse' })).toContain(W)
+        h.today = '2026-12-07'
+        vi.setSystemTime(new Date('2026-12-07T17:00:00Z'))
+        expect(await render({ time: '06:00', where: 'Clubhouse' })).not.toContain(W)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+    it('the held warning', async () => {
+      h.row = { ...MEETING, status: 'approved' }
+      expect(await render()).toContain('This meeting is marked as held.')
+    })
+    it('no association row: says the timing was not checked', async () => {
+      const orig = h.assocError
+      h.assocFail = false
+      h.noAssocRow = true
+      const html = await render()
+      h.noAssocRow = false
+      expect(orig).toBeNull()
+      expect(html).toContain('State not set, so the notice timing was not checked.')
+      expect(html).toContain('aria-label="Meeting notice"')
     })
     it('no board contacts', async () => {
       h.contacts = []
@@ -272,5 +370,12 @@ describe('meeting notice print page', () => {
       h.assocFail = true
       shows(await render())
     })
+  })
+})
+
+describe('hoursUntilStart', () => {
+  it('counts wall-clock hours in the association zone', () => {
+    expect(hoursUntilStart('2026-12-10', '19:00', 'America/New_York', new Date('2026-12-08T17:00:00Z'))).toBe(55)
+    expect(hoursUntilStart('2026-12-10', '19:00', 'Not/AZone', new Date())).toBeNull()
   })
 })
