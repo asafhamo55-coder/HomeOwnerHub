@@ -4,7 +4,7 @@ import { fakeSupabase, type Recorded } from './test-utils/fake-supabase'
 const h = vi.hoisted(() => ({ failing: new Set<string>(), data: {} as Record<string, unknown>, client: null as unknown }))
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
-vi.mock('@/lib/auth', () => ({ requireBoardOrAdmin: vi.fn(async () => ({})) }))
+vi.mock('@/lib/auth', () => ({ requireBoardOrAdmin: vi.fn(async () => ({ org: { id: 'org-1' } })) }))
 vi.mock('@/lib/orgs', () => ({ getCurrentOrg: vi.fn(async () => null) }))
 vi.mock('@/lib/supabase/server', () => ({ getSupabaseServerClient: vi.fn(async () => h.client) }))
 vi.mock('@/lib/resident-notify/notify', () => ({ notifyResidentAfterResponse: vi.fn() }))

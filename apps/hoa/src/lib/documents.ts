@@ -125,6 +125,7 @@ export async function deleteDocument(documentId: string) {
     .from('hoa_documents')
     .select('storage_path')
     .eq('id', documentId)
+    .eq('org_id', gate.orgId)
     .maybeSingle()
 
   // Also collect every prior version's storage_path so the bucket
@@ -211,6 +212,7 @@ export async function replaceDocumentFile(
     .from('hoa_documents')
     .select('id, name, storage_path, file_size, parsed_text, parsed_at, org_id')
     .eq('id', parsed.data.documentId)
+    .eq('org_id', org.id)
     .single()
   if (cErr || !current) return { error: cErr?.message ?? 'document not found' }
   if (current.org_id !== org.id) {
@@ -354,6 +356,7 @@ export async function restoreDocumentVersion(input: {
     .from('hoa_documents')
     .select('id, name, storage_path, file_size, parsed_text, parsed_at, org_id')
     .eq('id', version.document_id)
+    .eq('org_id', org.id)
     .single()
   if (!current) return { ok: false, error: 'document not found' }
 

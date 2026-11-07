@@ -5,6 +5,7 @@ import { M6_APPLIED } from '@homeowner-portal/db/m6'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { grantExpired, isProfessionalRole } from '@/lib/roles'
 import { timed } from '@/lib/perf/timing'
+import { SWITCHER_SEARCH_THRESHOLD } from '@/lib/org-switcher'
 
 export interface CurrentOrg {
   id: string
@@ -51,9 +52,14 @@ export const getSignedInUser = cache(async (): Promise<User | null> => {
   return user ?? null
 })
 
-/** How many memberships one read returns. A user in more orgs than this
- *  gets a direct read for a role lookup past the list (getMembershipRole). */
-const MEMBERSHIP_LIMIT = 20
+/**
+ * How many memberships the per-request page read returns: one more than the
+ * switcher shows inline, so "more than 8" is known without counting. A user
+ * in hundreds of orgs (a management company) never loads them all on a
+ * normal request: the active org is resolved by a direct lookup and the
+ * rest are found by the switcher's search.
+ */
+const MEMBERSHIP_PAGE = SWITCHER_SEARCH_THRESHOLD + 1
 
 interface MembershipRow {
   org_id: string
@@ -66,52 +72,82 @@ interface MembershipRow {
   org: { id: string; name: string; hub_type: string; plan: string; doors_count: number | null } | null
 }
 
+const MEMBER_SELECT = M6_APPLIED
+  ? 'org_id, role, access_expires_at, officer_title, general_counsel, org:orgs(id, name, hub_type, plan, doors_count)'
+  : 'org_id, role, org:orgs(id, name, hub_type, plan, doors_count)'
+
 /**
- * The signed-in user's memberships (oldest first), read ONCE per request:
- * getCurrentOrg, getUserHoaOrgs, getUserHubs and getMembershipRole all
- * answer from it. They used to be three identical org_members reads plus a
- * role read per check. `rows: null` means the read failed.
+ * BL-168: a professional cannot read the orgs table (every column of it,
+ * billing ids included); pro_org_info() returns the name, and only the
+ * name once their grant has ended.
  */
-const membershipRows = cache(async (): Promise<{ userId: string; rows: MembershipRow[] | null } | null> => {
+async function fillProfessionalOrgs(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  rows: MembershipRow[],
+): Promise<void> {
+  if (!M6_APPLIED) return
+  await Promise.all(
+    rows
+      .filter((r) => !r.org && isProfessionalRole(r.role))
+      .map(async (r) => {
+        const { data: info } = await supabase.rpc('pro_org_info' as never, { p_org_id: r.org_id } as never)
+        const first = (info as unknown as Array<{ org_name: string }> | null)?.[0]
+        if (first) r.org = { id: r.org_id, name: first.org_name, hub_type: 'hoa', plan: 'free', doors_count: null }
+      }),
+  )
+}
+
+/**
+ * The first page of the signed-in user's memberships (oldest first), read
+ * ONCE per request, plus how many memberships they have in all. `complete`
+ * means the page holds every membership, so a miss in it is a real "not a
+ * member". `rows: null` means the read failed.
+ */
+const membershipPage = cache(
+  async (): Promise<{ userId: string; rows: MembershipRow[] | null; total: number; complete: boolean } | null> => {
+    const user = await getSignedInUser()
+    if (!user) return null
+    const supabase = await getSupabaseServerClient()
+    const { data, error, count } = await timed('auth', 'auth.memberships', () =>
+      supabase
+        .from('org_members')
+        .select(MEMBER_SELECT, { count: 'exact' })
+        .eq('user_id', user.id)
+        .order('joined_at', { ascending: true })
+        .limit(MEMBERSHIP_PAGE),
+    )
+    if (error || !data) return { userId: user.id, rows: null, total: 0, complete: false }
+    const rows = data as unknown as MembershipRow[]
+    await fillProfessionalOrgs(supabase, rows)
+    const total = typeof count === 'number' ? Math.max(count, rows.length) : rows.length
+    return { userId: user.id, rows, total, complete: rows.length < MEMBERSHIP_PAGE && rows.length >= total }
+  },
+)
+
+/**
+ * One membership of the signed-in user, by org id: a single indexed row,
+ * however many orgs they belong to. Memoized per request and org.
+ */
+const membershipIn = cache(async (orgId: string): Promise<MembershipRow | null> => {
   const user = await getSignedInUser()
   if (!user) return null
   const supabase = await getSupabaseServerClient()
-  const { data, error } = await timed('auth', 'auth.memberships', () =>
-    supabase
-      .from('org_members')
-      .select(
-        M6_APPLIED
-          ? 'org_id, role, access_expires_at, officer_title, general_counsel, org:orgs(id, name, hub_type, plan, doors_count)'
-          : 'org_id, role, org:orgs(id, name, hub_type, plan, doors_count)',
-      )
-      .eq('user_id', user.id)
-      .order('joined_at', { ascending: true })
-      .limit(MEMBERSHIP_LIMIT),
-  )
-  if (error || !data) return { userId: user.id, rows: null }
-  const rows = data as unknown as MembershipRow[]
-  // BL-168: a professional cannot read the orgs table (every column of it,
-  // billing ids included); pro_org_info() returns the name, and only the
-  // name once their grant has ended.
-  if (M6_APPLIED) {
-    await Promise.all(
-      rows
-        .filter((r) => !r.org && isProfessionalRole(r.role))
-        .map(async (r) => {
-          const { data: info } = await supabase.rpc('pro_org_info' as never, { p_org_id: r.org_id } as never)
-          const first = (info as unknown as Array<{ org_name: string }> | null)?.[0]
-          if (first) r.org = { id: r.org_id, name: first.org_name, hub_type: 'hoa', plan: 'free', doors_count: null }
-        }),
-    )
-  }
-  return { userId: user.id, rows }
+  const { data, error } = await supabase
+    .from('org_members')
+    .select(MEMBER_SELECT)
+    .eq('user_id', user.id)
+    .eq('org_id', orgId)
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  const row = data as unknown as MembershipRow
+  await fillProfessionalOrgs(supabase, [row])
+  return row
 })
 
 /**
  * The signed-in user's raw role string in `orgId`, or null (not a member /
- * signed out). Answered from the membership read when that list is known to
- * be complete; otherwise (read failed, or the list hit its limit) by the
- * direct one-row read this replaced. Memoized per request.
+ * signed out). Memoized per request.
  */
 export const getMembershipRole = cache(async (orgId: string): Promise<string | null> => {
   const detail = await getMembershipDetail(orgId)
@@ -133,73 +169,88 @@ export interface MembershipDetail {
 
 /**
  * The signed-in user's membership in `orgId`, expiry and officer title
- * included, or null (not a member / signed out). Answered from the one
- * membership read when that list is known to be complete; otherwise by a
- * direct one-row read. Memoized per request. Without M6_APPLIED the extra
- * columns are never selected (they may not exist yet) and nothing is
- * expired.
+ * included, or null (not a member / signed out). Answered from the page
+ * read when that page is known to be complete (the usual one-to-eight org
+ * user, no extra query); otherwise by a direct one-row read. Memoized per
+ * request. Without M6_APPLIED the extra columns are never selected (they
+ * may not exist yet) and nothing is expired.
  */
 export const getMembershipDetail = cache(async (orgId: string): Promise<MembershipDetail | null> => {
-  const membership = await membershipRows()
-  if (!membership) return null
-  const { rows, userId } = membership
-  const toDetail = (r: { role: string | null; access_expires_at?: string | null; officer_title?: string | null; general_counsel?: boolean | null }): MembershipDetail => ({
+  const page = await membershipPage()
+  if (!page) return null
+  const toDetail = (r: {
+    role: string | null
+    access_expires_at?: string | null
+    officer_title?: string | null
+    general_counsel?: boolean | null
+  }): MembershipDetail => ({
     role: r.role,
     officerTitle: M6_APPLIED ? (r.officer_title ?? null) : null,
     accessExpiresAt: M6_APPLIED ? (r.access_expires_at ?? null) : null,
     generalCounsel: M6_APPLIED && r.general_counsel === true,
     expired: M6_APPLIED && isProfessionalRole(r.role) && grantExpired(r.access_expires_at ?? null),
   })
-  if (rows) {
-    const row = rows.find((r) => r.org_id === orgId)
+  if (page.rows) {
+    const row = page.rows.find((r) => r.org_id === orgId)
     if (row) return toDetail(row)
-    if (rows.length < MEMBERSHIP_LIMIT) return null
+    if (page.complete) return null
   }
-  const supabase = await getSupabaseServerClient()
-  const { data } = await supabase
-    .from('org_members')
-    .select(M6_APPLIED ? 'role, access_expires_at, officer_title, general_counsel' : 'role')
-    .eq('org_id', orgId)
-    .eq('user_id', userId)
-    .maybeSingle<{ role: string | null; access_expires_at?: string | null; officer_title?: string | null; general_counsel?: boolean | null }>()
-  return data ? toDetail(data) : null
+  const direct = await membershipIn(orgId)
+  return direct ? toDetail(direct) : null
 })
 
 // Resolution order for the active HOA org:
 //   1. Cookie `hoa_active_org_id` (set by the switcher), iff the user is
-//      a member of that org and it's an HOA hub.
+//      a member of that org and it's an HOA hub. Checked with ONE
+//      membership lookup filtered on that org id, so a user in hundreds of
+//      orgs does not load them all to find the one they are in.
 //   2. First HOA org by `joined_at` ascending (legacy default).
 // Returns null if the user has no HOA org membership.
 export async function getCurrentOrg(): Promise<CurrentOrg | null> {
-  const membership = await membershipRows()
-  if (!membership?.rows) return null
-
-  const hoaOrgs: CurrentOrg[] = []
-  for (const row of membership.rows) {
-    const org = row.org
-    if (org && org.hub_type === 'hoa') hoaOrgs.push(org)
-  }
-  if (hoaOrgs.length === 0) return null
-
   const cookieStore = await cookies()
   const wanted = cookieStore.get(ACTIVE_ORG_COOKIE)?.value
   if (wanted) {
-    const match = hoaOrgs.find((o) => o.id === wanted)
-    if (match) return match
-    // Cookie points to an org the user no longer has access to — ignore
-    // and fall through. The next setActiveOrg call will replace it.
+    const row = await membershipIn(wanted)
+    if (row?.org && row.org.hub_type === 'hoa') return row.org
+    // Cookie points to an org the user no longer has access to (or one that
+    // is not an HOA) — ignore and fall through. The next setActiveOrg call
+    // will replace it.
   }
-  return hoaOrgs[0]
+
+  const page = await membershipPage()
+  if (!page?.rows) return null
+  for (const row of page.rows) {
+    if (row.org && row.org.hub_type === 'hoa') return row.org
+  }
+  if (page.complete) return null
+
+  // None of the oldest few memberships is an HOA (a user with many other
+  // hubs): ask for the first HOA directly.
+  const user = await getSignedInUser()
+  if (!user) return null
+  const supabase = await getSupabaseServerClient()
+  const { data } = await supabase
+    .from('org_members')
+    .select('org_id, org:orgs!inner(id, name, hub_type, plan, doors_count)')
+    .eq('user_id', user.id)
+    .eq('org.hub_type', 'hoa')
+    .order('joined_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  const org = (data as unknown as { org: CurrentOrg | null } | null)?.org
+  return org ?? null
 }
 
-// All HOA orgs the user belongs to. Powers the in-app org switcher.
+// The first few HOA orgs the user belongs to (all of them when they have
+// eight or fewer). Powers the in-app org switcher's plain list; a user in
+// more orgs than that gets the search box instead (see getUserOrgCount).
 export async function getUserHoaOrgs(): Promise<UserHoaOrg[]> {
-  const membership = await membershipRows()
-  if (!membership?.rows) return []
+  const page = await membershipPage()
+  if (!page?.rows) return []
 
   const seen = new Set<string>()
   const out: UserHoaOrg[] = []
-  for (const row of membership.rows) {
+  for (const row of page.rows) {
     const org = row.org
     if (!org || org.hub_type !== 'hoa' || seen.has(org.id)) continue
     seen.add(org.id)
@@ -208,19 +259,45 @@ export async function getUserHoaOrgs(): Promise<UserHoaOrg[]> {
   return out
 }
 
+/**
+ * How many orgs the user belongs to (any hub; for the switcher this is the
+ * "do we need a search box" test, so a few non-HOA orgs only make it err
+ * toward showing the box). 0 when signed out or the read failed.
+ */
+export async function getUserOrgCount(): Promise<number> {
+  const page = await membershipPage()
+  return page?.rows ? page.total : 0
+}
+
 // All hubs the user has any org in. Powers the cross-app hub switcher.
 export async function getUserHubs(): Promise<UserHub[]> {
-  const membership = await membershipRows()
-  if (!membership) return []
+  const page = await membershipPage()
+  if (!page) return []
 
   const seen = new Set<string>()
   const hubs: UserHub[] = []
-  for (const row of membership.rows ?? []) {
-    const org = row.org
-    if (!org || seen.has(org.hub_type)) continue
+  const add = (org: { hub_type: string; name: string } | null | undefined) => {
+    if (!org || seen.has(org.hub_type)) return
     if (org.hub_type === 'hoa' || org.hub_type === 'eviction' || org.hub_type === 'pm') {
       seen.add(org.hub_type)
       hubs.push({ type: org.hub_type, orgName: org.name })
+    }
+  }
+  for (const row of page.rows ?? []) add(row.org)
+
+  // A user past the first page may also run a pm or eviction org: one small
+  // read for the non-HOA ones, instead of loading every membership.
+  if (page.rows && !page.complete) {
+    const supabase = await getSupabaseServerClient()
+    const { data } = await supabase
+      .from('org_members')
+      .select('org:orgs!inner(name, hub_type)')
+      .eq('user_id', page.userId)
+      .neq('org.hub_type', 'hoa')
+      .order('joined_at', { ascending: true })
+      .limit(MEMBERSHIP_PAGE)
+    for (const row of (data as unknown as Array<{ org: { hub_type: string; name: string } | null }> | null) ?? []) {
+      add(row.org)
     }
   }
   return hubs

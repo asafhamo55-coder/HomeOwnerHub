@@ -266,6 +266,7 @@ export async function deleteActionItem(id: string): Promise<ActionResult> {
     .from('meeting_action_items' as never)
     .select('meeting_id')
     .eq('id' as never, id)
+    .eq('org_id' as never, gate.orgId)
     .single()
 
   const { error } = await supabase

@@ -197,6 +197,8 @@ export type VendorLoad =
   | { ok: false; reason: 'not_found' | 'error' }
 
 export async function getVendor(id: string): Promise<VendorLoad> {
+  const org = await getCurrentOrg()
+  if (!org) return { ok: false, reason: 'not_found' }
   const supabase = await getSupabaseServerClient()
   const assocRes = await getPrimaryAssociationResult()
 
@@ -208,6 +210,7 @@ export async function getVendor(id: string): Promise<VendorLoad> {
         'id, legal_name, dba, ein, address, service_area_zips, status, trades, primary_email, primary_phone, notes, created_at',
       )
       .eq('id', id)
+      .eq('organization_id', org.id)
       .is('deleted_at', null)
       .maybeSingle(),
   )

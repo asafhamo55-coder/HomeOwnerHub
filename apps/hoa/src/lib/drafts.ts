@@ -112,12 +112,15 @@ export async function discardDraft(draftId: string): Promise<void> {
 }
 
 export async function listUnfinishedDrafts(): Promise<WizardDraft[]> {
+  const org = await getCurrentOrg()
+  if (!org) return []
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
     .from('wizard_drafts')
     .select(
       'id, kind, payload, current_step, step_index, total_steps, completed, created_at, updated_at',
     )
+    .eq('org_id', org.id)
     .eq('completed', false)
     .order('updated_at', { ascending: false })
     .limit(10)
@@ -125,6 +128,8 @@ export async function listUnfinishedDrafts(): Promise<WizardDraft[]> {
 }
 
 export async function loadDraft(draftId: string): Promise<WizardDraft | null> {
+  const org = await getCurrentOrg()
+  if (!org) return null
   const supabase = await getSupabaseServerClient()
   const { data } = await supabase
     .from('wizard_drafts')
@@ -132,6 +137,7 @@ export async function loadDraft(draftId: string): Promise<WizardDraft | null> {
       'id, kind, payload, current_step, step_index, total_steps, completed, created_at, updated_at',
     )
     .eq('id', draftId)
+    .eq('org_id', org.id)
     .maybeSingle()
   return data ? ((data as unknown) as WizardDraft) : null
 }

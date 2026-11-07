@@ -18,10 +18,13 @@ export async function setActiveOrg(orgId: string): Promise<
   } = await supabase.auth.getUser()
   if (!user) return { ok: false, reason: 'not authenticated' }
 
-  // RLS on org_members ensures we only see the current user's rows.
+  // Filtered on the caller's own id as well as the org: org_members'
+  // policies also expose co-members' rows, so the org filter alone would
+  // match someone else's membership.
   const { data, error } = await supabase
     .from('org_members')
     .select('org_id, org:orgs(hub_type)')
+    .eq('user_id', user.id)
     .eq('org_id', orgId)
     .limit(1)
     .maybeSingle()
