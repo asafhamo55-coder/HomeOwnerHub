@@ -115,6 +115,38 @@ describe('real sitemap', () => {
   })
 }, 120_000)
 
+describe('shared-change edge cases', () => {
+  const lm = new Map<string, Date>([
+    [urlForPath('/hoa'), new Date('2026-11-05T00:00:00Z')],
+    [urlForPath('/pricing'), new Date('2026-11-04T00:00:00Z')],
+  ])
+  it('floors a mid-day since to the start of its UTC day', () => {
+    const out = mapChangedFilesToUrls(['apps/marketing/src/lib/site.ts'], ALL, {
+      lastModified: lm,
+      since: new Date('2026-11-05T15:30:00Z'),
+    }).map((u) => new URL(u).pathname)
+    expect(out).toEqual(['/hoa'])
+  })
+  it('a sitemap.ts-only change is shared and narrowed by lastModified', () => {
+    const out = mapChangedFilesToUrls(['apps/marketing/src/app/sitemap.ts'], ALL, {
+      lastModified: lm,
+      since: new Date('2026-11-04T09:00:00Z'),
+    }).map((u) => new URL(u).pathname)
+    expect(out).toEqual(['/hoa', '/pricing'])
+  })
+})
+
+describe('key consistency', () => {
+  it('workflow key equals the script key, the key file name and its content', () => {
+    const wf = readFileSync(new URL('../../.github/workflows/indexnow.yml', import.meta.url), 'utf8')
+    expect(wf.match(/INDEXNOW_KEY: ([0-9a-f]{32})/)?.[1]).toBe(INDEXNOW_KEY)
+    const src = readFileSync(new URL('./submit.ts', import.meta.url), 'utf8')
+    expect(src).toContain(`INDEXNOW_KEY = '${INDEXNOW_KEY}'`)
+    const file = new URL(`../../apps/marketing/public/${INDEXNOW_KEY}.txt`, import.meta.url)
+    expect(readFileSync(file, 'utf8')).toBe(INDEXNOW_KEY)
+  })
+})
+
 describe('chunk', () => {
   it('batches at the 10,000 protocol limit', () => {
     const urls = Array.from({ length: BATCH_SIZE * 2 + 5 }, (_, i) => `u${i}`)

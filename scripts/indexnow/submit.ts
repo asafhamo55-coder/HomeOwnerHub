@@ -85,7 +85,9 @@ export interface MapOptions {
 export function isSharedChange(file: string): boolean {
   if (!file.startsWith(MARKETING) || isTest(file)) return false
   const rel = file.slice(MARKETING.length)
-  if (rel === 'app/layout.tsx') return true
+  // sitemap.ts holds the lastModified dates: a commit that only bumps them
+  // must still submit, narrowed by those dates.
+  if (rel === 'app/layout.tsx' || rel === 'app/sitemap.ts') return true
   return rel.startsWith('lib/') && LIB_RULES.some((r) => r.routes === 'ALL' && r.match(rel.slice(4)))
 }
 
@@ -115,11 +117,15 @@ export function mapChangedFilesToUrls(
   }
   const addShared = () => {
     const { lastModified, since } = opts
+    // lastModified is a UTC date at midnight; compare against the start of
+    // the previous deploy's UTC day so a mid-day deploy doesn't drop pages
+    // dated that same day.
+    const floor = since ? Date.UTC(since.getUTCFullYear(), since.getUTCMonth(), since.getUTCDate()) : 0
     for (const u of allUrls) {
       if (!lastModified || !since) hit.add(u)
       else {
         const d = lastModified.get(u)
-        if (d && d.getTime() >= since.getTime()) hit.add(u)
+        if (d && d.getTime() >= floor) hit.add(u)
       }
     }
   }
