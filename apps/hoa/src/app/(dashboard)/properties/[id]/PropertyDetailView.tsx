@@ -228,6 +228,7 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
           propertyId={p.id}
           address={p.address}
           enabled={photoEnabled}
+          knownReason={p.address?.trim() ? null : 'no_address'}
           canManage={canManage}
           uploaded={photoUpload?.hasUpload === true}
           canUpload={Boolean(photoUpload)}

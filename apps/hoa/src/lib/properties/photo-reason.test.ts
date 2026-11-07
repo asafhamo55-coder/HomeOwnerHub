@@ -15,7 +15,7 @@ describe('photoReasonMessage', () => {
   it('says each other reason in plain words', () => {
     expect(photoReasonMessage('no_street_view', true).text).toBe('Google has no street picture for this address.')
     expect(photoReasonMessage('no_key', true).text).toBe('Photos are turned off.')
-    expect(photoReasonMessage('upstream', true).text).toBe('Google could not be reached, try later.')
+    expect(photoReasonMessage('upstream', true).text).toBe('Google could not be reached. Try again later.')
     expect(photoReasonMessage('no_address', true).text).toContain('no street address')
     expect(photoReasonMessage('unknown', true).text).toBe('No photo is available for this home.')
   })

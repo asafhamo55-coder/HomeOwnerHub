@@ -35,7 +35,7 @@ export function photoReasonMessage(reason: PhotoReason, canManage: boolean): Pho
     case 'no_key':
       return { text: 'Photos are turned off.' }
     case 'upstream':
-      return { text: 'Google could not be reached, try later.' }
+      return { text: 'Google could not be reached. Try again later.' }
     case 'no_address':
       return { text: 'No photo: this home has no street address yet.' }
     default:

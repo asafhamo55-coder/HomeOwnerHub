@@ -1,21 +1,24 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Home } from 'lucide-react'
 import Link from 'next/link'
-import { formatAddressLine } from '@/lib/properties/address-format'
+import { Home } from 'lucide-react'
 import { PHOTO_UPLOAD_HINT } from '@/lib/properties/photo-upload/rules'
+import { formatAddressLine } from '@/lib/properties/address-format'
 import { PHOTO_REASON_HEADER, photoReasonMessage, toPhotoReason, type PhotoReason } from '@/lib/properties/photo-reason'
 
 /**
  * The street picture of a home, from our own route (which asks Google Street
  * View on the server, so the key never reaches the browser).
  *
+ * - One request: the picture is fetched once, when the box nears the screen
+ *   (IntersectionObserver). On success the bytes become a blob URL for the
+ *   img; on a miss the reason code is read from that same response, so there
+ *   is never a second call to our route or to Google.
  * - Fixed 8:5 box, so the page does not jump when the picture arrives.
- * - Lazy: the browser fetches it only when it is near the screen.
- * - `enabled` is computed on the server (is a key set?). When false there is
- *   no request at all, just the house placeholder.
- * - A 404 or any error shows the same neutral placeholder, never a broken image.
+ * - `enabled` and `knownReason` are computed on the server. When either says
+ *   there is no picture, no request is made at all.
+ * - A miss or any error shows a neutral placeholder and a plain sentence.
  * - Alt text is the formatted address; the credit line is shown with a picture.
  */
 
@@ -26,23 +29,24 @@ export function photoSrc(propertyId: string): string {
 }
 
 export function PropertyPhotoView({
-  propertyId,
   address,
   enabled,
   state,
+  src = null,
   className = '',
   reason = null,
   canManage = false,
   uploaded = false,
   canUpload = false,
-  onLoad,
-  onError,
-  imgRef,
+  boxRef,
 }: {
-  propertyId: string
+  /** Kept for callers that still pass it; the view no longer builds the route URL. */
+  propertyId?: string
   address: string
   enabled: boolean
   state: PhotoState
+  /** The blob URL of the loaded picture. */
+  src?: string | null
   className?: string
   /** Why there is no picture (when known). Shown as a sentence under the placeholder. */
   reason?: PhotoReason | null
@@ -51,94 +55,65 @@ export function PropertyPhotoView({
   uploaded?: boolean
   /** M20 on and the reader may upload: the 'no photo' sentence also offers that. */
   canUpload?: boolean
-  onLoad?: () => void
-  onError?: () => void
-  imgRef?: React.Ref<HTMLImageElement>
+  boxRef?: React.Ref<HTMLElement>
 }) {
   const label = formatAddressLine(address) || 'This home'
-  const showImage = enabled && state !== 'failed'
+  const showImage = enabled && state === 'loaded' && Boolean(src)
+  const note = !showImage && reason ? photoReasonMessage(reason, canManage) : null
   return (
-    <figure className={`m-0 ${className}`}>
+    <figure className={`m-0 ${className}`} ref={boxRef}>
       <div className="relative aspect-[8/5] w-full overflow-hidden rounded-lg border border-border bg-subtle">
-        {state !== 'loaded' ? (
+        {!showImage ? (
           <div
             className="absolute inset-0 flex items-center justify-center text-muted"
-            role={showImage ? undefined : 'img'}
-            aria-label={showImage ? undefined : `No picture available for ${label}`}
+            role="img"
+            aria-label={note ? `No picture available for ${label}. ${note.text}` : `No picture available for ${label}`}
             data-photo-placeholder
           >
             <Home className="size-10" aria-hidden />
           </div>
         ) : null}
         {showImage ? (
-          // A plain img on purpose: the route is ours, the bytes are never stored,
-          // and next/image would cache a copy on our server.
+          // A plain img on purpose: the bytes come from our own route and are never stored.
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            ref={imgRef}
-            src={photoSrc(propertyId)}
-            alt={label}
-            loading="lazy"
-            decoding="async"
-            width={640}
-            height={400}
-            onLoad={onLoad}
-            onError={onError}
-            className={`absolute inset-0 size-full object-cover transition-opacity ${state === 'loaded' ? 'opacity-100' : 'opacity-0'}`}
-          />
+          <img src={src!} alt={label} decoding="async" width={640} height={400} className="absolute inset-0 size-full object-cover" />
         ) : null}
       </div>
-      {showImage && state === 'loaded' && !uploaded ? (
+      {showImage && !uploaded ? (
         <figcaption className="mt-1 text-sm text-foreground-secondary">Image: Google Street View</figcaption>
       ) : null}
-      {!showImage && reason ? <PhotoReasonNote reason={reason} canManage={canManage} canUpload={canUpload} /> : null}
+      <div aria-live="polite">
+        {note ? (
+          <p className="mt-1 text-sm text-foreground-secondary" data-photo-reason={reason}>
+            {note.text}
+            {note.fix ? (
+              <>
+                {' '}
+                <Link href={note.fix.href} className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">
+                  {note.fix.label}
+                </Link>
+              </>
+            ) : null}
+            {canUpload ? (
+              <>
+                {' '}
+                <a href="#photo-upload" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">
+                  {PHOTO_UPLOAD_HINT}
+                </a>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
     </figure>
   )
-}
-
-function PhotoReasonNote({ reason, canManage, canUpload }: { reason: PhotoReason; canManage: boolean; canUpload: boolean }) {
-  const { text, fix } = photoReasonMessage(reason, canManage)
-  return (
-    <figcaption className="mt-1 text-sm text-foreground-secondary" data-photo-reason={reason}>
-      {text}
-      {fix ? (
-        <>
-          {' '}
-          <Link href={fix.href} className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">
-            {fix.label}
-          </Link>
-        </>
-      ) : null}
-      {canUpload ? (
-        <>
-          {' '}
-          <a href="#photo-upload" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">
-            {PHOTO_UPLOAD_HINT}
-          </a>
-        </>
-      ) : null}
-    </figcaption>
-  )
-}
-
-/**
- * Reads the reason code the photo route sent with its miss. Only the browser
- * cache is asked (only-if-cached), so this never calls our route or Google a
- * second time; if the miss is not cached the sentence stays generic.
- */
-async function readCachedReason(propertyId: string): Promise<PhotoReason> {
-  try {
-    const res = await fetch(photoSrc(propertyId), { cache: 'only-if-cached', mode: 'same-origin' })
-    return toPhotoReason(res.headers.get(PHOTO_REASON_HEADER))
-  } catch {
-    return 'unknown'
-  }
 }
 
 export function PropertyPhoto({
   propertyId,
   address,
   enabled,
+  knownReason = null,
   canManage = false,
   uploaded = false,
   canUpload = false,
@@ -148,45 +123,97 @@ export function PropertyPhoto({
   address: string
   /** Server-computed: a Google key is set. False means no request is made. */
   enabled: boolean
+  /** Server-computed reason that needs no Google call (no address). No request is made. */
+  knownReason?: PhotoReason | null
   /** Board or admin: the reason can link to the setting that fixes it. */
   canManage?: boolean
-  /** M20: an uploaded photo exists, so it is shown even without a Google key. */
+  /** M20: an uploaded photo exists. It is served by the same route (no Google call), even without a key or an address. */
   uploaded?: boolean
   /** M20 on and the reader may upload. */
   canUpload?: boolean
   className?: string
 }) {
   const [state, setState] = useState<PhotoState>('loading')
-  const [reason, setReason] = useState<PhotoReason | null>(null)
-  const fail = () => {
-    setState('failed')
-    void readCachedReason(propertyId).then(setReason)
-  }
-  const ref = useRef<HTMLImageElement>(null)
+  const [src, setSrc] = useState<string | null>(null)
+  const [fetched, setFetched] = useState<PhotoReason | null>(null)
+  const [visible, setVisible] = useState(false)
+  const box = useRef<HTMLElement | null>(null)
 
-  // The image can fail before React attaches onError (server-rendered page).
+  const skip = (!enabled && !uploaded) || (knownReason !== null && !uploaded)
+
+  // Lazy: start only when the box is near the screen (or at once without the API).
   useEffect(() => {
-    const img = ref.current
-    if (!img || !img.complete) return
-    if (img.naturalWidth > 0) setState('loaded')
-    else fail()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (skip) return
+    const el = box.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [skip, propertyId])
+
+  // The one request. Cleanup aborts it, revokes the blob URL and ignores late results.
+  useEffect(() => {
+    setState('loading')
+    setSrc(null)
+    setFetched(null)
+    if (skip || !visible) return
+    const controller = new AbortController()
+    let objectUrl: string | null = null
+    let live = true
+    ;(async () => {
+      try {
+        const res = await fetch(photoSrc(propertyId), { signal: controller.signal })
+        if (!live) return
+        if (res.ok) {
+          const blob = await res.blob()
+          if (!live) return
+          objectUrl = URL.createObjectURL(blob)
+          setSrc(objectUrl)
+          setState('loaded')
+        } else {
+          setFetched(toPhotoReason(res.headers.get(PHOTO_REASON_HEADER)))
+          setState('failed')
+        }
+      } catch {
+        if (!live) return
+        setFetched('upstream')
+        setState('failed')
+      }
+    })()
+    return () => {
+      live = false
+      controller.abort()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [skip, visible, propertyId])
+
+  const reason: PhotoReason | null = !enabled && !uploaded ? 'no_key' : (uploaded ? null : knownReason) ?? fetched
 
   return (
     <PropertyPhotoView
-      propertyId={propertyId}
       address={address}
       enabled={enabled || uploaded}
-      state={state}
+      state={skip ? 'failed' : state}
+      src={src}
       className={className}
-      reason={enabled || uploaded ? reason : 'no_key'}
+      reason={reason}
       canManage={canManage}
       uploaded={uploaded}
       canUpload={canUpload}
-      imgRef={ref}
-      onLoad={() => setState('loaded')}
-      onError={fail}
+      boxRef={(el) => {
+        box.current = el
+      }}
     />
   )
 }

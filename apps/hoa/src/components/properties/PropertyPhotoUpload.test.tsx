@@ -61,7 +61,7 @@ describe('the no-photo sentence', () => {
   })
   it('shows an uploaded photo without the Street View credit', () => {
     const html = renderToStaticMarkup(
-      React.createElement(PropertyPhotoView, { propertyId: ID, address: '1 Main St', enabled: true, uploaded: true, state: 'loaded' }),
+      React.createElement(PropertyPhotoView, { propertyId: ID, address: '1 Main St', enabled: true, uploaded: true, state: 'loaded', src: 'blob:x' }),
     )
     expect(html).not.toContain('Google Street View')
   })
