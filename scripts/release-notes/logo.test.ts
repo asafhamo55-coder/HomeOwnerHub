@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { LOGO_DIR } from '../../packages/workflows/src/email-brand'
 import { BRAND, LOGO_DIRS, LOGO_FILE } from './lib/brand'
 import { wordmarkHeader } from './lib/email'
 import { getLogoUrl, resetLogo, resolveLogo } from './lib/logo'
@@ -77,5 +78,60 @@ describe('logo fallback', () => {
     const log = vi.fn()
     await resolveLogo(fakeFetch({ [urlFor(previous)]: 200 }), log)
     for (const [line] of log.mock.calls) expect(String(line)).not.toContain('http')
+  })
+
+  it('sends the HEAD request with an abort signal', async () => {
+    const f = fakeFetch({ [urlFor(newest)]: 200 })
+    await resolveLogo(f)
+    const init = (f as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1] as RequestInit
+    expect(init.method).toBe('HEAD')
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  describe('HEAD not supported', () => {
+    /** HEAD answers `headStatus`; GET answers 206 with an image. */
+    function headBlocked(headRes: () => Response) {
+      return vi.fn(async (_u: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === 'HEAD' ? headRes() : new Response('x', { status: 206, headers: { 'content-type': 'image/png' } }),
+      ) as unknown as typeof fetch & ReturnType<typeof vi.fn>
+    }
+
+    it.each([405, 403, 501])('retries with a ranged GET after HEAD %i', async (status) => {
+      const f = headBlocked(() => reply(status, 'text/plain'))
+      expect(await resolveLogo(f)).toBe(urlFor(newest))
+      const calls = f.mock.calls as [string, RequestInit][]
+      expect(calls.map((c) => c[1].method)).toEqual(['HEAD', 'GET'])
+      expect((calls[1]![1].headers as Record<string, string>).Range).toBe('bytes=0-0')
+      expect(calls[1]![1].signal).toBeInstanceOf(AbortSignal)
+    })
+
+    it('retries with GET when HEAD is 200 with no content-type', async () => {
+      const f = headBlocked(() => new Response(null, { status: 200 }))
+      expect(await resolveLogo(f)).toBe(urlFor(newest))
+      expect(f).toHaveBeenCalledTimes(2)
+    })
+
+    it('rejects when the GET retry is not an image', async () => {
+      const f = vi.fn(async (_u: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === 'HEAD' ? reply(405) : reply(200, 'text/html'),
+      ) as unknown as typeof fetch
+      expect(await resolveLogo(f)).toBeNull()
+    })
+
+    it('does not retry a 404', async () => {
+      const f = fakeFetch({})
+      await resolveLogo(f)
+      expect(f).toHaveBeenCalledTimes(LOGO_DIRS.length)
+    })
+  })
+
+  it('uses the app LOGO_DIR as the newest folder', () => {
+    expect(LOGO_DIRS[0]).toBe(LOGO_DIR)
+  })
+
+  it('marks the logo and the text wordmark for dark mode', async () => {
+    expect(wordmarkHeader('X')).toContain('<img class="rn-link"')
+    await resolveLogo(fakeFetch({}))
+    expect(wordmarkHeader('X')).toContain('<span class="rn-link"')
   })
 })

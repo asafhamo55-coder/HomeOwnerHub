@@ -5,11 +5,12 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildEmail, notesAddedInRange, toPayload } from './lib/build'
 import { renderEmail } from './lib/email'
+import { resetLogo } from './lib/logo'
 import { formatDeployedAt, noteFromCommits, parseSubject, toNewYorkIso } from './lib/fallback'
 import { MAX_SCREENSHOTS, prepareImages, type ImageProcessor, type InlineImage } from './lib/images'
 import { inline } from './lib/markdown'
 import { combineNotes, parseNote, selectNotes } from './lib/note'
-import { runSend } from './lib/run'
+import { runRender, runSend } from './lib/run'
 import { readSendEnv } from './lib/send'
 import { BRAND } from './lib/brand'
 import { BRAND as EMAIL_BRAND, LOGO_FILE, LOGO_HEIGHT, LOGO_WIDTH } from '../../packages/workflows/src/email-brand'
@@ -128,7 +129,7 @@ describe('render', () => {
     expect(html).toContain('One-click approvals &amp; search')
     expect(subject).toBe('HomeownerHub release: One-click approvals & search (c56061f)')
     // Header: the HomeownerHub logo PNG (absolute https, with alt text and size), primary blue accents.
-    expect(html).toMatch(/<img src="https:\/\/[^"]+\/email\/v4\/homeownerhub-logo\.png" alt="HomeownerHub" width="200" height="48"/)
+    expect(html).toMatch(/<img class="rn-link" src="https:\/\/[^"]+\/email\/v4\/homeownerhub-logo\.png" alt="HomeownerHub" width="200" height="48"/)
     expect(html).toContain('#2563EB')
     expect(html).not.toContain('Ledger')
     expect(html).not.toContain('HOA Hub')
@@ -389,6 +390,26 @@ describe('send', () => {
     expect(fetchMock).not.toHaveBeenCalled()
     expect(existsSync(out)).toBe(true)
     expect(readFileSync(out, 'utf8')).toContain('Hostile')
+  })
+
+  it('runRender uses the previous logo folder when only v3 answers', async () => {
+    const { root, shas } = repoWithHostileNote()
+    const out = path.join(root, 'out', 'logo.html')
+    const logoFetch = vi.fn(async (u: RequestInfo | URL) =>
+      new Response(null, { status: String(u).includes('/email/v3/') ? 200 : 404, headers: { 'content-type': 'image/png' } }),
+    ) as unknown as typeof fetch
+    const code = await runRender(['--sha', shas[1]!, '--prev', shas[0]!, '--out', out], {
+      env: {},
+      cwd: root,
+      logoFetch,
+      imageProcessor: fakeProcessor,
+    })
+    resetLogo()
+    expect(code).toBe(0)
+    expect(logoFetch).toHaveBeenCalled()
+    const html = readFileSync(out, 'utf8')
+    expect(html).toContain('/email/v3/homeownerhub-logo.png')
+    expect(html).not.toContain('/email/v4/homeownerhub-logo.png')
   })
 
   it('--dry-run needs no secrets', async () => {

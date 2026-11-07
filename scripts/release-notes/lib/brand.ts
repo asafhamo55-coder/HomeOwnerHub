@@ -16,12 +16,14 @@
 export const LOGO_DIRS = ['email/v4', 'email/v3'] as const
 export const LOGO_FILE = 'homeownerhub-logo.png'
 
+const prodUrl = process.env.APP_ORIGIN || 'https://www.homeownerledger.com'
+
 export const BRAND = {
   productName: 'HomeownerHub',
   appName: 'HomeownerHub',
   // The app's public origin (APP_ORIGIN, set by release-notes.yml from the
   // repo variable); the pre-split host until then.
-  prodUrl: process.env.APP_ORIGIN || 'https://www.homeownerledger.com',
+  prodUrl,
   repoUrl: 'https://github.com/asafhamo55-coder/HomeOwnerHub',
   primary: '#2563EB',
   primaryFg: '#FFFFFF',
@@ -36,7 +38,7 @@ export const BRAND = {
   accentSubtle: '#FFF6E5',
   accentFg: '#93370D',
   /** Absolute https URL of the header logo, served by the app (middleware leaves /email/ public). */
-  logoUrl: `${process.env.APP_ORIGIN || 'https://www.homeownerledger.com'}/${LOGO_DIRS[0]}/${LOGO_FILE}`,
+  logoUrl: `${prodUrl}/${LOGO_DIRS[0]}/${LOGO_FILE}`,
   logoWidth: 200,
   logoHeight: 48,
   font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif",

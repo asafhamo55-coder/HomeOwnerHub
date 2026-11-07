@@ -116,9 +116,9 @@ ${extraCss}</style>
 function logoCell(): string {
   const url = getLogoUrl()
   if (!url) {
-    return `<span style="display:block;font-family:${BRAND.font};font-size:22px;line-height:30px;font-weight:700;color:${BRAND.primary};">${BRAND.productName}</span>`
+    return `<span class="rn-link" style="display:block;font-family:${BRAND.font};font-size:22px;line-height:30px;font-weight:700;color:${BRAND.primary};">${BRAND.productName}</span>`
   }
-  return `<img src="${escapeHtml(url)}" alt="${BRAND.productName}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" border="0" style="display:block;border:0;background:none;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;font-family:${BRAND.font};font-size:20px;line-height:30px;font-weight:700;color:${BRAND.primary};" />`
+  return `<img class="rn-link" src="${escapeHtml(url)}" alt="${BRAND.productName}" width="${BRAND.logoWidth}" height="${BRAND.logoHeight}" border="0" style="display:block;border:0;background:none;width:${BRAND.logoWidth}px;height:${BRAND.logoHeight}px;font-family:${BRAND.font};font-size:20px;line-height:30px;font-weight:700;color:${BRAND.primary};" />`
 }
 
 /** The logo row at the top of the 600px column, with a right-aligned label. */

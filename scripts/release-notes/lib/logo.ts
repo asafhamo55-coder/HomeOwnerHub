@@ -21,17 +21,37 @@ export function resetLogo(): void {
   resolved = undefined
 }
 
-async function loads(url: string, f: typeof fetch, timeoutMs: number): Promise<boolean> {
+const isImage = (res: Response) => (res.headers.get('content-type') ?? '').toLowerCase().startsWith('image/')
+
+/** One request with its own timer; null on a network error or timeout. */
+async function attempt(url: string, f: typeof fetch, timeoutMs: number, init: RequestInit): Promise<Response | null> {
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), timeoutMs)
   try {
-    const res = await f(url, { method: 'HEAD', signal: ctl.signal, redirect: 'follow' })
-    return res.status === 200 && (res.headers.get('content-type') ?? '').toLowerCase().startsWith('image/')
+    const res = await f(url, { ...init, signal: ctl.signal, redirect: 'follow' })
+    // Only the status line and headers matter; never download the body.
+    if (init.method === 'GET') await res.body?.cancel().catch(() => {})
+    return res
   } catch {
-    return false
+    return null
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * HEAD first. Some hosts answer HEAD with 405/403/501, or a 200 with no
+ * content-type, so those retry once with GET and Range: bytes=0-0 and accept
+ * 200 or 206 with an image type. At most two attempts, each with its own timer.
+ */
+async function loads(url: string, f: typeof fetch, timeoutMs: number): Promise<boolean> {
+  const head = await attempt(url, f, timeoutMs, { method: 'HEAD' })
+  if (!head) return false
+  const type = head.headers.get('content-type')
+  if (head.status === 200 && type) return isImage(head)
+  if (![403, 405, 501].includes(head.status) && !(head.status === 200 && !type)) return false
+  const get = await attempt(url, f, timeoutMs, { method: 'GET', headers: { Range: 'bytes=0-0' } })
+  return !!get && (get.status === 200 || get.status === 206) && isImage(get)
 }
 
 /**
