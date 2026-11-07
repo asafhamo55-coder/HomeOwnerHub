@@ -1,6 +1,6 @@
 # Management companies as customers: tenancy design
 
-**Date:** 2026-11-07 · **Status:** Proposed, needs owner decisions (section 0) · **Scope:** design only, no product code, no migration applied. Everything below was checked against the code at the tip of `claude/quality-oracle` on 2026-11-07. File and line references are to that tip.
+**Date:** 2026-11-07 · **Status:** Approved 2026-11-07 (owner: "all recommendations OK"; all 12 decisions in section 0 are decided as recommended) · **Scope:** design only, no product code, no migration applied. Everything below was checked against the code at the tip of `claude/quality-oracle` on 2026-11-07. File and line references are to that tip.
 
 ---
 
@@ -21,22 +21,24 @@ In plain words:
 
 **Step one (Phase 0, no new tables): Homeside-ready.** Lift the 20-organization cap and add the searchable switcher (being built on `claude/org-switcher-scale`); the platform admin creates each HOA organization by hand; each HOA's board invites Homeside staff using the existing roles; each HOA pays its own subscription; a free-text "managed by" line goes in the footer. **The cost, stated plainly: until the manager role ships, Homeside staff hold board powers in each HOA, and a per-HOA split of responsibilities is not possible.** An HOA that wants a narrower split can invite Homeside staff as `board` only where it is comfortable with that; otherwise it waits for step two. That is acceptable for one trusted customer onboarded by hand, and it teaches us what a manager really needs before we build it. Company-pays billing waits until a customer asks (section 7).
 
-### Decisions the owner must make (ranked)
+### Decisions (ranked; all 12 decided 2026-11-07, as recommended)
 
-| # | Decision | My recommendation |
+| # | Decision | Decided |
 |---|---|---|
-| 1 | **Hand-onboard Homeside first with board powers (Phase 0), or build the manager role first?** | Hand-onboard first. Fast, no migration, and the risk is one known customer for a limited time. Per-HOA splits of responsibility are only possible from step 2 (section 3.2). |
-| 2 | **Approve the capability areas, levels, presets and the security floor** (section 3.2): 13 areas, levels none, view, prepare, act; four presets; five things that stay board-only. | Approve as written, then adjust areas after Homeside's first HOAs. |
-| 3 | **May the board reduce the matrix alone, or does every change need both sides?** | The board can always reduce alone and immediately; any increase needs both sides. |
-| 4 | **Should residents see the agreed matrix?** | No. The board sees it, with its history. |
-| 5 | **Leaving rights.** Can an HOA end the relationship alone, instantly? Can the company? What does the company hand back? | Either side, one button, no approval from the other. Departing-company checklist and export (section 11.5). |
-| 6 | **Handover.** Immediate cut-off, or a read-only period of up to 30 days chosen by the board? | Immediate by default, optional board-chosen read-only handover. |
-| 7 | **Inngest capacity.** The job runner's free tier allows 50,000 runs a month and mail sync alone uses about half. Gate onboarding of 100 HOAs on measured headroom, or pay for a bigger plan? | Gate on measurement; plan the upgrade before the 20th HOA (section 11.4). |
-| 8 | **Company-pays billing now or later?** | Later, when a customer asks. The unique `stripe_customer_id` and the webhook's customer lookup make it a real project (section 7). |
-| 9 | **Overlap.** May one HOA have two companies active at once? | No. One active company per HOA (section 11.7). |
-| 10 | **Lawyer gate.** Must a lawyer approve the signature wording and attestation before the agreement flow launches? | Yes, a hard gate on Phase 4. |
-| 11 | **Timeout for an unconfirmed company-created HOA.** | 30 days to confirm, then it freezes (section 11.7). |
-| 12 | **Role precedence** when someone is both company staff and a resident or board member of a managed HOA. | Highest of their own roles in that HOA, with the audit trail showing the capacity they acted in (section 11.7). |
+| 1 | **Hand-onboard Homeside first with board powers (Phase 0), or build the manager role first?** | **Decided:** Hand-onboard first. Fast, no migration, and the risk is one known customer for a limited time. Per-HOA splits of responsibility are only possible from step 2 (section 3.2). |
+| 2 | **Approve the capability areas, levels, presets and the security floor** (section 3.2): 13 areas, levels none, view, prepare, act; four presets; five things that stay board-only. | **Decided:** Approve as written, then adjust areas after Homeside's first HOAs. |
+| 3 | **May the board reduce the matrix alone, or does every change need both sides?** | **Decided:** The board can always reduce alone and immediately; any increase needs both sides. |
+| 4 | **Should residents see the agreed matrix?** | **Decided:** No. The board sees it, with its history. |
+| 5 | **Leaving rights.** Can an HOA end the relationship alone, instantly? Can the company? What does the company hand back? | **Decided:** Either side, one button, no approval from the other. Departing-company checklist and export (section 11.5). |
+| 6 | **Handover.** Immediate cut-off, or a read-only period of up to 30 days chosen by the board? | **Decided:** Immediate by default, optional board-chosen read-only handover. |
+| 7 | **Inngest capacity.** The job runner's free tier allows 50,000 runs a month and mail sync alone uses about half. Gate onboarding of 100 HOAs on measured headroom, or pay for a bigger plan? | **Decided:** Gate on measurement; plan the upgrade before the 20th HOA (section 11.4). |
+| 8 | **Company-pays billing now or later?** | **Decided:** Later, when a customer asks. The unique `stripe_customer_id` and the webhook's customer lookup make it a real project (section 7). |
+| 9 | **Overlap.** May one HOA have two companies active at once? | **Decided:** No. One active company per HOA (section 11.7). |
+| 10 | **Lawyer gate.** Must a lawyer approve the signature wording and attestation before the agreement flow launches? | **Decided:** Yes, a hard gate on Phase 4. |
+| 11 | **Timeout for an unconfirmed company-created HOA.** | **Decided:** 30 days to confirm, then it freezes (section 11.7). |
+| 12 | **Role precedence** when someone is both company staff and a resident or board member of a managed HOA. | **Decided:** Highest of their own roles in that HOA, with the audit trail showing the capacity they acted in (section 11.7). |
+
+**Volume discount (company-pays only): not set. The owner will give numbers if wanted.** The illustrative tiers in section 7 are not approved figures.
 
 **Not our business: what the company charges the HOA.** Management fees and how a company prices a heavier or lighter split are between them. HomeownerHub does not bill, mediate or even see them; the agreement has only an optional free-text "service notes" field for the parties' own reference. Our subscription stays per HOA.
 
@@ -408,7 +410,7 @@ Each phase ships on its own and changes nothing for existing self-managed HOAs.
 2. Is there a read-only company role (for example an accountant at the company), or only admin and manager?
 3. Does a company get a named support contact? Affects how Homeside is onboarded.
 4. Should company staff be able to keep private notes about an HOA that the HOA cannot see? Not in v1 unless wanted.
-5. Volume discount tiers (illustrative only: 10, 15, 20 percent at 10, 25, 50 HOAs), needed only when company-pays is built.
+5. Volume discount: **not set; owner to give numbers if wanted** (the 10, 15, 20 percent at 10, 25, 50 HOAs in section 7 are illustrative only). Needed only when company-pays is built.
 6. How many days of grace a company-paid HOA gets to add a card after the company leaves (suggest 30), again only when company-pays is built.
 
 ---
@@ -426,8 +428,8 @@ Sizes: S under half a day, M about a day, L two to three days. Follow the repo r
 | T3 | Audit of RLS-only list queries without an org filter (the 69 `limit(1)` files and list pages), fixed where a multi-org user would see mixed rows. | `apps/hoa/src/app/**`, `apps/hoa/src/lib/**` (inventory first) | L |
 | T4 | 300-org test fixture and a measurement of `auth_org_ids()` with 300 elements. | `tests/integration/` fixture, a note in this doc | M |
 | T5 | Free-text "managed by" footer line in email and letters, settable by the board. | `apps/hoa/src/lib/email/shell.ts`, `apps/hoa/src/lib/mailed-letters/`, settings page | M |
-| T6 | Inngest usage table measured from the dashboard; go/no-go sheet. | this doc, `docs/owner-actions.md` | S |
-| T7 | Runbook for the platform admin to create and hand over an HOA org, a list of Homeside staff holding board powers, and the rule that a narrower split means inviting staff as `board` only where the HOA is comfortable, otherwise waiting for Phase 2. | `docs/` runbook, `apps/hoa/src/app/admin/tenants/` | S |
+| T6 | Inngest usage table and go/no-go sheet. **Done** (section 11.4); real dashboard count requested in OA-53. | this doc, `docs/owner-actions.md` | S |
+| T7 | **Done** (`docs/runbooks/management-company-phase0.md`). Runbook for the platform admin to create and hand over an HOA org, a list of Homeside staff holding board powers, and the rule that a narrower split means inviting staff as `board` only where the HOA is comfortable, otherwise waiting for Phase 2. | `docs/` runbook, `apps/hoa/src/app/admin/tenants/` | S |
 
 ### Phase 1: Groundwork (no migration)
 
@@ -524,21 +526,67 @@ Sizes: S under half a day, M about a day, L two to three days. Follow the repo r
 - A 300-org fixture in the integration suite.
 - **Portfolio summary function:** `company_portfolio_summary()` returns rows only for HOAs where the caller's company has an active agreement **and** the caller is assigned (or is a company admin), and returns counts and statuses only: no resident names, addresses, balances per person or message text.
 
-### 11.4 Inngest Hobby budget
+### 11.4 Inngest Hobby budget: the usage table and the go or no-go sheet (task T6)
 
-The plan allows 50,000 runs a month and at the limit every job stops, including dues reminders and late fees (`docs/releases/2026-10-30-0745-background-job-schedule.md`). Baseline from the cron declarations in `packages/jobs/src` (starts only, before event-driven runs and any per-org fan-out):
+**How Inngest counts.** From Inngest's pricing page (read 2026-11-07): an execution is "a single durable function run or step execution", so a function with 5 `step.run()` calls uses 6 executions. The entry tier (called Free on their page, Hobby in our notes) includes 50,000 executions a month with **no overage: execution pauses at the quota**, which is why every job stops, including dues reminders and late fees (`docs/releases/2026-10-30-0745-background-job-schedule.md`). The next plan, Pro, is listed at $99 a month with 1,000,000 executions included. Prices can change, so confirm on the pricing page before buying.
 
-| Schedule | Jobs | Runs a month |
+**Usage table, from the code** (`packages/jobs/src`, exports in `index.ts`). "Per HOA" means the function scales with the number of HOAs; "fixed" means one run however many HOAs exist, because the work loops inside the run with no `step.run` per HOA. Figures marked **(confirm)** need the dashboard.
+
+| Function | Trigger | Scales per HOA? | Executions a month |
+|---|---|---|---|
+| `communications-scheduled-dispatch` | cron every 5 min | fixed; steps only when a scheduled message is due | 8,640 fixed, plus 1 per due message (confirm) |
+| `mailbox-sync` (first job) | cron every 5 min | fixed (no steps; loops over mailboxes in code) | 8,640 |
+| `mailbox-sync` (watchdog) | cron every 30 min | fixed | 1,440 |
+| `mailbox-reconcile` | cron every 30 min | fixed | 1,440 |
+| `mailbox-reply-embeddings` | cron every 30 min | fixed | 1,440 |
+| `mailbox-attachments` | cron every 15 min, plus event `mailbox/attachments.queued` | fixed backstop; events scale with mail (confirm) | 2,880 plus events |
+| `plaid-sync` | cron every 4 hours | **per linked bank connection**: 2 steps a run (`sync-page`, `find-unreconciled`) plus 1 step per unreconciled transaction | 180 fixed, plus about 360 per linked bank connection, plus 1 per transaction |
+| `dues-reminders` | cron daily 09:00 ET | **per HOA**: 2 steps a day (`dues-reminders-<assoc>`, `payment-plans-<assoc>`) | 30 fixed, plus about 60 per HOA |
+| `hoa-late-fees` | cron daily 00:00 ET | **per HOA**: 1 step a day | 30 fixed, plus about 30 per HOA |
+| `vendor-coi-reminders` | cron daily 10:00 ET | **per HOA**: 1 step a day | 30 fixed, plus about 30 per HOA |
+| `recurring-jes` | cron daily 01:00 ET | per due recurring rule (1 step each) plus 1 load step | 60 fixed, plus about 2 per HOA (assumes a monthly rule) |
+| `monthly-board-report` | cron monthly (1st, 08:00 ET) or event | **per HOA**: 1 step per org | 1 fixed, plus about 1 per HOA |
+| `daily-digest` | cron daily 07:00 ET | fixed (no steps) | 30 |
+| `autopay-daily` | cron daily 13:00 UTC | fixed (no steps) | 30 |
+| `billing-renewal`, `billing-band-sync`, `ai-spend-alert`, `wizard-draft-reminders` | cron daily | fixed (no steps) | about 120 together |
+| `poll-results-email` | cron daily 09:00 ET | fixed (1 step for the whole batch) | 60 |
+| `weekly-analytics` | cron weekly | fixed | about 5 |
+| `state-law-refresh`, `law-statute-changed` | cron weekly, plus events | fixed per state (about 6 steps a state) and events per statute change | about 100 (confirm) |
+| `ticket-notifications` | event `ticket/created` | **per service ticket**: function run plus 5 steps | 6 per ticket |
+| `mailbox-send` | event `mailbox/reply.queued` | **per reply sent** from the inbox: run plus several steps (at least `claim`) | about 3 to 5 per reply (confirm) |
+| `mailbox-backfill` | event `mailbox/backfill.requested` | per mailbox connected, once | small, one-off (confirm) |
+| `pm-late-fees`, `eviction-reminders` | cron daily | property-manager and eviction orgs only, none for HOAs | about 60 (the apps are hidden; confirm they still run) |
+
+**Fixed baseline.** About **25,000 to 25,500 executions a month** before any HOA-driven work. This matches the release note ("usage drops to about half" after the 2026-10-30 slowdown). The big fixed items are the two every-5-minute jobs (17,280).
+
+**Per HOA, estimated:**
+
+| Profile | Executions a month per HOA | What it assumes |
 |---|---|---|
-| every 5 minutes | `communications-scheduled`, `mailbox-sync` (first) | 17,280 |
-| every 15 minutes | `mailbox-attachments` | 2,880 |
-| every 30 minutes | `mailbox-reconcile`, `mailbox-sync` (second), `mailbox-reply-embeddings` | 4,320 |
-| every 4 hours | `plaid-sync` | 180 |
-| daily (13 jobs: digest, late fees, pm late fees, dues reminders, autopay, billing renewal, band sync, poll results, vendor COI, recurring entries, eviction reminders, wizard draft reminders, AI spend alert) | | about 390 |
-| weekly | `weekly-analytics`, `state-law-refresh` | about 9 |
-| **Cron starts total** | | **about 25,000** |
+| Floor (daily per-HOA steps only) | about 120 | dues 60, late fees 30, vendor insurance 30, plus a few |
+| Light (no bank link) | about 260 | floor plus 10 tickets (60) and 20 inbox replies (80) |
+| Typical with one Plaid bank link | about 640 | light plus 360 for the link and about 20 reconciled transactions |
 
-That matches the release note ("usage drops to about half"). What I did not trace, and task T6 must measure from the Inngest dashboard: whether the mailbox and digest jobs fan out one run per org, whether steps count as executions, and how many event-driven runs come on top. Until measured, the table shows only headroom of roughly 25,000 runs. Rule: **do not onboard past 20 HOAs, and gate 100 HOAs, on measured headroom or an upgraded plan.** Any new job must add its row to this table before it ships.
+The ticket and reply counts are assumptions; replace them with measured values.
+
+**Go or no-go sheet** (usable ceiling is 40,000, which is 50,000 less a 20 percent safety margin; room for new HOAs is 40,000 minus the measured current monthly count, estimated here as 25,500 plus about 1,500 for today's HOAs, so about 13,000):
+
+| Added HOAs on the free plan | Light profile (260) | Typical with Plaid (640) | Verdict |
+|---|---|---|---|
+| 10 | +2,600 (about 29,600 total) | +6,400 (about 33,400) | Go |
+| 20 | +5,200 (about 32,200) | +12,800 (about 40,000) | Go for light; at the ceiling for Plaid-heavy |
+| 30 | +7,800 (about 34,800) | +19,200 (about 46,200) | **Upgrade first** |
+| 50 | +13,000 (about 40,000) | +32,000 (about 59,000) | **Upgrade first** (over the cap in the Plaid case) |
+| 100 | +26,000 (about 53,000) | +64,000 (about 91,000) | **Over the free cap in every case** |
+
+**Rules.**
+1. **Do not onboard past 20 HOAs on the free plan.** The upgrade to Pro ($99 a month, 1M executions) is small next to the revenue: 20 HOAs at the smallest $59 band is $1,180 a month. Plan the upgrade before the 20th HOA, not after.
+2. **Hard trigger:** upgrade when the dashboard shows 35,000 executions in a month (70 percent of the cap) or the projection for the month crosses 40,000, whichever comes first. At the cap everything stops, including late fees and reminders.
+3. **Gate 100 HOAs on measured headroom or the upgraded plan.** Measured means the real per-HOA count from the dashboard after the first 5 HOAs, not these estimates.
+4. Free levers if we must stay on the free plan longer: slow `mailbox-sync` from every 5 to every 10 minutes (saves about 4,320), slow the attachment backstop from every 15 to every 30 (about 1,440), and run `plaid-sync` every 8 hours instead of 4 (saves about half of the Plaid steps). Each trades freshness for headroom.
+5. Any new job must add its row to this table before it ships.
+
+**Needs confirmation from the dashboard (owner action OA-53):** the true monthly total; whether `dues-reminders` and `vendor-coi-reminders` run their per-HOA steps every day for every HOA or only when there is work (this halves or doubles the floor); how many event-driven runs (`ticket/created`, `mailbox/reply.queued`, attachments) there are; and whether `pm-late-fees` and `eviction-reminders` still count.
 
 ### 11.5 Leaving: people, rows and connections
 
