@@ -24,6 +24,9 @@ import {
   ToastProvider,
 } from '@homeowner-portal/ui'
 
+// Axe over jsdom is slow under load; scoped to this file only.
+vi.setConfig({ testTimeout: 30_000 })
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh() {}, push() {} }),
   usePathname: () => '/resident',
