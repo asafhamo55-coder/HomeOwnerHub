@@ -50,6 +50,13 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 3. Change what's wrong. Leave **Mailing address** empty if your mail goes to the home.
 4. Tap [[Send to the board]].
 
+### Make the text bigger
+1. Tap **Account** and find **Text size**.
+2. Tap **Normal**, **Large** or **Largest**.
+3. The whole app gets bigger right away, charts included.
+
+Your choice is remembered on that phone or computer. On another device, choose it again.
+
 ### Get urgent notices by text
 1. Tap **Account** and scroll to **Text messages**. It shows the mobile number texts would go to. If it's wrong or missing, fix it under **My contact details** first.
 2. Read the terms and tick **I agree to receive text messages**. The box is never ticked for you.
