@@ -1,0 +1,10 @@
+{
+  "extends": "../../apps/marketing/tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "incremental": false,
+    "plugins": [],
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../../apps/marketing/next-env.d.ts"]
+}
