@@ -17,6 +17,8 @@ const buttonVariants = cva(
     'relative inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium',
     'transition-[background-color,border-color,color,box-shadow,transform] duration-fast ease-standard',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+    // Forced-colors drops box-shadow rings; fall back to a real outline.
+    'forced-colors:focus-visible:outline forced-colors:focus-visible:outline-2 forced-colors:focus-visible:outline-offset-2',
     'active:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50',
     '[&_svg]:pointer-events-none [&_svg]:shrink-0',
   ].join(' '),
@@ -24,18 +26,18 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-fg shadow-xs hover:bg-primary-hover',
+          'bg-primary text-primary-fg shadow-xs hover:bg-primary-hover forced-colors:border forced-colors:border-[ButtonText]',
         primary:
-          'bg-primary text-primary-fg shadow-xs hover:bg-primary-hover',
+          'bg-primary text-primary-fg shadow-xs hover:bg-primary-hover forced-colors:border forced-colors:border-[ButtonText]',
         secondary:
           'border border-border-strong bg-surface text-foreground shadow-xs hover:bg-subtle hover:border-input/60',
         outline:
           'border border-border-strong bg-surface text-foreground shadow-xs hover:bg-subtle hover:border-input/60',
-        ghost: 'bg-transparent text-foreground-secondary hover:bg-subtle hover:text-foreground',
-        subtle: 'bg-primary-subtle text-primary hover:bg-primary/15',
+        ghost: 'bg-transparent text-foreground-secondary hover:bg-subtle hover:text-foreground forced-colors:border forced-colors:border-[ButtonText]',
+        subtle: 'bg-primary-subtle text-primary hover:bg-primary/15 forced-colors:border forced-colors:border-[ButtonText]',
         destructive:
-          'bg-danger-solid text-on-solid shadow-xs hover:bg-danger-solid/90',
-        'destructive-ghost': 'bg-transparent text-danger hover:bg-danger-subtle',
+          'bg-danger-solid text-on-solid shadow-xs hover:bg-danger-solid/90 forced-colors:border forced-colors:border-[ButtonText]',
+        'destructive-ghost': 'bg-transparent text-danger hover:bg-danger-subtle forced-colors:border forced-colors:border-[ButtonText]',
         link: 'h-auto bg-transparent px-0 text-primary underline-offset-4 hover:underline',
       },
       size: {

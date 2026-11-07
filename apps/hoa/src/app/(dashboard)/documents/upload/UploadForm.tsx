@@ -38,7 +38,7 @@ export function UploadForm() {
       <Field label="File" required error={f.file} hint="PDF, DOCX or text, up to 50 MB.">
         {(control) => (
           <label
-            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-subtle px-6 py-8 text-center transition-colors duration-fast hover:border-primary focus-within:ring-2 focus-within:ring-ring"
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong bg-subtle px-6 py-8 text-center transition-colors duration-fast hover:border-primary focus-within:ring-2 focus-within:ring-ring forced-colors:focus-within:outline forced-colors:focus-within:outline-2"
           >
             <Upload className="size-6 text-muted" aria-hidden />
             <span className="text-sm font-medium text-foreground">
