@@ -22,6 +22,7 @@
  * a body.
  */
 
+import { readManagedBy } from '@/lib/managed-by'
 import { createHash } from 'node:crypto'
 import { OUTBOUND_BLOCKED_ERROR } from '@homeowner-portal/observability/outbound-guard'
 import { finalSendStatus } from '@homeowner-portal/observability/send-status'
@@ -179,7 +180,11 @@ export interface NotifyLogger {
 // ─── running ────────────────────────────────────────────────────────
 
 function render(event: ResidentNotifyEvent, ctx: NotifyContext, deps: ResidentNotifyDeps): RenderedNotice {
-  const common = { associationName: ctx.association.name, residentName: ctx.resident.name }
+  const common = {
+    associationName: ctx.association.name,
+    residentName: ctx.resident.name,
+    managedBy: readManagedBy(ctx.association.complianceSettings),
+  }
   if (event.kind === 'ticket_reply') {
     return renderTicketReplyEmail({
       ...common,

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { Alert, Card, CardContent, CardHeader, CardTitle, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadManagedByLine } from '@/lib/managed-by-load'
 import { tryLoad } from '@/lib/load-or-fail'
 import { formatDay, formatStamp } from '@/lib/money/format'
 import { propertyHref } from '@/lib/properties/href'
@@ -113,6 +114,7 @@ export default async function CollectionsLetterPage({ params }: { params: Promis
         pending={pending ? view(pending) : null}
         approved={approved ? view(approved) : null}
         printed={printed.map((r) => ({ kind: r.payload.kind, printedAt: r.printedAt! }))}
+        managedBy={await loadManagedByLine(supabase, ctx.org.id)}
       />
       {M14_APPLIED && canMail && mailedLoad && !mailedLoad.ok ? (
         <Alert variant="warning" title="Couldn’t check the mailing status" className="print:hidden">

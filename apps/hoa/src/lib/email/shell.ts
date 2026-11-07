@@ -10,6 +10,7 @@
  * `linear-gradient` entirely, leaving no background at all.
  */
 
+import { cleanManagedBy, MAX_MANAGED_BY_LENGTH } from '@/lib/managed-by'
 import { emailAssetUrl } from './asset-url'
 import { BRAND, EMAIL_FONT, LOGO_DIR, LOGO_DARK_CSS, LOGO_FILE, logoHeaderRowsHtml } from './brand'
 
@@ -23,6 +24,13 @@ export interface EmailDocumentOptions {
   bodyHtml: string
   footerHtml: string
   band?: EmailBand
+  /**
+   * The association's "Managed by" line (Settings, Association). Plain text:
+   * it is cleaned, capped and HTML-escaped here, so a caller passes the raw
+   * stored value. Empty or omitted renders nothing and the footer is exactly
+   * what it was.
+   */
+  managedBy?: string | null
   /** Inbox preview line. Hidden in the body, shown in the list view. */
   previewText?: string
   /** The document title (the subject, for mail that has one). Read by screen readers and the browser view. */
@@ -126,8 +134,30 @@ function preheader(text: string): string {
   return `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${PAGE_BG};">${escapeHtml(text)}</div>`
 }
 
+/**
+ * Where the "Managed by" row goes. Every shell document carries this comment
+ * at the end of its footer, so a message built from a template (merge fields
+ * filled in later, per association) can have the row added at send time with
+ * applyManagedBy, without the template knowing the association.
+ */
+export const MANAGED_BY_MARKER = '<!--eh-managed-by-->'
+
+/** Put the association's "Managed by" row into a shell document. No line, or no marker: unchanged. */
+export function applyManagedBy(html: string, line: string | null | undefined): string {
+  const row = managedByFooterHtml(line)
+  if (!row || !html.includes(MANAGED_BY_MARKER)) return html
+  return html.replace(MANAGED_BY_MARKER, () => row + MANAGED_BY_MARKER)
+}
+
+/** The footer's "Managed by" row, or '' when there is no line. */
+export function managedByFooterHtml(line: string | null | undefined): string {
+  const text = cleanManagedBy(line).slice(0, MAX_MANAGED_BY_LENGTH).trim()
+  if (!text) return ''
+  return `<div data-managed-by style="margin-top:10px;padding-top:10px;border-top:1px solid ${LINE};font-family:${FONT};font-size:14px;line-height:1.6;color:${MUTED};">${escapeHtml(text)}</div>`
+}
+
 export function renderEmailDocument(opts: EmailDocumentOptions): string {
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+  const html = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -152,10 +182,11 @@ ${opts.band ? bandRow(opts.band) : ''}
 ${opts.bodyHtml}
 </td></tr>
 <tr><td bgcolor="${FOOTER_BG}" style="background-color:${FOOTER_BG};color:${MUTED};padding:14px 22px;border-top:1px solid ${LINE};font-family:${FONT};font-size:14px;line-height:1.6;">
-${opts.footerHtml}
+${opts.footerHtml}${MANAGED_BY_MARKER}
 </td></tr>
 </table>
 ${opts.fluid ? '<!--[if mso]></td></tr></table><![endif]-->' : ''}
 </td></tr></table>
 </body></html>`
+  return applyManagedBy(html, opts.managedBy)
 }

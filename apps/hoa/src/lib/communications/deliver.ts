@@ -49,6 +49,8 @@ export interface DeliverInput {
   organizationId: string
   associationName: string
   associationType: string | null
+  /** The association's "Managed by" line (plain text); added to the shell footer at send time. */
+  managedBy?: string | null
   subject: string
   bodyHtml: string
   bodyText?: string | null
@@ -239,6 +241,7 @@ export async function deliverToRecipients(db: Db, input: DeliverInput): Promise<
       senderName,
       extraFields,
       extraMergeFields: input.extraMergeFields,
+      managedBy: input.managedBy,
     })
     // `failures` is ignored here on purpose: deliverOne re-renders, throws
     // identically, and records the real message against the row.

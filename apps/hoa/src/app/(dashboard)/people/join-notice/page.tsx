@@ -1,3 +1,4 @@
+import { readManagedBy } from '@/lib/managed-by'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Alert, LoadFailed, Page } from '@homeowner-portal/ui'
@@ -79,6 +80,7 @@ export default async function JoinNoticePage() {
           welcomeUrl={appUrl(WELCOME_PATH)}
           qrSvg={qrSvg}
           contacts={noticeContacts(row?.compliance_settings)}
+          managedBy={readManagedBy(row?.compliance_settings)}
         />
       </div>
     </Page>

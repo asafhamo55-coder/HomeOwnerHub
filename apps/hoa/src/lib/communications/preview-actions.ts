@@ -1,5 +1,6 @@
 'use server'
 
+import { readManagedBy } from '@/lib/managed-by'
 import { z } from 'zod'
 import { fetchOrgSandbox } from '@homeowner-portal/observability/outbound-guard'
 import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
@@ -102,7 +103,7 @@ export async function previewForSample(input: PreviewInput): Promise<PreviewForS
   const supabase = await getSupabaseServerClient()
   const { data: assocRow, error: assocErr } = await supabase
     .from('associations')
-    .select('name, type')
+    .select('name, type, compliance_settings')
     .eq('id', assoc.id)
     .single()
   if (assocErr || !assocRow) return { ok: false, error: PREVIEW_FAILED }
@@ -128,6 +129,7 @@ export async function previewForSample(input: PreviewInput): Promise<PreviewForS
     bodyText: body.bodyText,
     extraFields: value.extraFields,
     associationName: assocRow.name,
+    managedBy: readManagedBy(assocRow.compliance_settings),
     senderName: buildSenderName(assocRow.name, assocRow.type),
     portalLink: appUrl(`/communications/${SAMPLE_LINK_ID}`),
   })
@@ -156,7 +158,7 @@ export async function sendTestToMe(input: TestSendInput): Promise<TestSendResult
   if (!assoc) return { ok: false, error: 'No HOA association configured.' }
   const { data: assocRow } = await supabase
     .from('associations')
-    .select('name, type, organization_id')
+    .select('name, type, organization_id, compliance_settings')
     .eq('id', assoc.id)
     .single()
   if (!assocRow) return { ok: false, error: 'Association not found.' }
@@ -177,6 +179,7 @@ export async function sendTestToMe(input: TestSendInput): Promise<TestSendResult
     bodyText: body.bodyText,
     extraFields: value.extraFields,
     associationName: assocRow.name,
+    managedBy: readManagedBy(assocRow.compliance_settings),
     portalLink: appUrl(`/communications/${SAMPLE_LINK_ID}`),
   })
   // No recipientRef: there is no communication_recipients row, so a reply

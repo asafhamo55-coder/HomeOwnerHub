@@ -67,7 +67,7 @@ export interface StatementEmailResult {
 }
 
 export interface StatementContext {
-  association: { id: string; name: string; type: string | null; organizationId: string }
+  association: { id: string; name: string; type: string | null; organizationId: string; managedBy?: string | null }
   unitId: string | null
   /** "Unit · address", as the statement page prints it. */
   home: string
@@ -212,6 +212,7 @@ export async function runStatementEmail(
 
     const mail = renderStatementEmail({
       associationName: association.name,
+      managedBy: association.managedBy,
       period: ctx.period,
       statementDate: ctx.statementDate,
       home: ctx.home,

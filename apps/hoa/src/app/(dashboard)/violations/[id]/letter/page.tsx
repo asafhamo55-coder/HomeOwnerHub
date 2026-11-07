@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { LoadFailed } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadManagedByLine } from '@/lib/managed-by-load'
 import { loadOrFail } from '@/lib/load-or-fail'
 import { getPrimaryAssociationResult } from '@/lib/primary-association'
 import { formatAddressLines } from '@/lib/properties/address-format'
@@ -81,6 +82,7 @@ export default async function ViolationLetterPage({ params }: { params: Promise<
           ownerName: v.property?.owner_name ?? null,
           addressLines,
           letter: v.approved_letter,
+          managedBy: await loadManagedByLine(supabase, ctx.org.id),
         }}
       />
     </div>

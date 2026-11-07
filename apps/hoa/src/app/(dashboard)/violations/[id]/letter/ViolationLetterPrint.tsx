@@ -1,6 +1,7 @@
 'use client'
 
 import { Letterhead } from '@/components/print/Letterhead'
+import { ManagedByFooter } from '@/components/print/ManagedByFooter'
 import { useTransition } from 'react'
 import { Printer } from 'lucide-react'
 import { Alert, Button, useToast } from '@homeowner-portal/ui'
@@ -16,6 +17,8 @@ export interface ViolationLetterView {
   /** Two lines in standard format: street, then city, state and ZIP. */
   addressLines: string[]
   letter: string
+  /** The board's "Managed by" line, printed at the foot. */
+  managedBy?: string | null
 }
 
 /**
@@ -70,6 +73,7 @@ export function ViolationLetterPrint({ view }: { view: ViolationLetterView }) {
           </div>
         </header>
         <div className="whitespace-pre-wrap leading-relaxed text-foreground">{view.letter}</div>
+        <ManagedByFooter line={view.managedBy} />
       </article>
     </div>
   )

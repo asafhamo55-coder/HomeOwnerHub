@@ -1,0 +1,29 @@
+-- Creek Valley demo fragment 095: the "Managed by" footer line.
+--
+-- OFF BY DEFAULT. Every statement below is commented out. Uncomment it only
+-- when the demo shows a managed community. Not a migration: run by hand.
+--
+-- Sets associations.compliance_settings.managed_by_line for Creek Valley.
+-- Idempotent: jsonb_set replaces the same key each time, other keys are kept.
+-- Aborts unless exactly one org is named 'Creek Valley'.
+
+-- DO $$
+-- DECLARE
+--   n int;
+--   org uuid;
+-- BEGIN
+--   SELECT count(*) INTO n FROM orgs WHERE name = 'Creek Valley';
+--   IF n <> 1 THEN
+--     RAISE EXCEPTION 'Expected exactly one org named Creek Valley, found %', n;
+--   END IF;
+--   SELECT id INTO org FROM orgs WHERE name = 'Creek Valley';
+--
+--   UPDATE associations
+--   SET compliance_settings = jsonb_set(
+--     COALESCE(compliance_settings, '{}'::jsonb),
+--     '{managed_by_line}',
+--     to_jsonb('Managed by Example Property Management, (404) 555-0142'::text),
+--     true
+--   )
+--   WHERE organization_id = org;
+-- END $$;

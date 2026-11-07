@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { Alert, Button, LoadFailed, Page } from '@homeowner-portal/ui'
 import { getCurrentUserRole } from '@/lib/auth'
 import { getAccountingContext } from '@/lib/accounting/queries'
+import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { loadManagedByLine } from '@/lib/managed-by-load'
 import { tryLoad } from '@/lib/load-or-fail'
 import { periodLabel } from '@/lib/money/format'
 import { loadBudgetNoticeInput } from '@/lib/budget-notice/load'
@@ -71,7 +73,7 @@ export default async function BudgetNoticePage({ params }: { params: Promise<{ i
 
   return page(
     <div className="space-y-5">
-      <BudgetNotice input={input} today={today} />
+      <BudgetNotice input={input} today={today} managedBy={await loadManagedByLine(await getSupabaseServerClient(), role.org.id)} />
       <div className="print:hidden">
         <LegalDisclaimer>{VERIFY_DISCLAIMER}</LegalDisclaimer>
       </div>

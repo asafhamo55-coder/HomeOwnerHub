@@ -12,6 +12,7 @@
  */
 
 import type { SendEmailInput } from '@/lib/email'
+import { applyManagedBy } from '@/lib/email/shell'
 import { buildRecipientBag, type RecipientIdentity } from './merge-bag'
 import { renderTemplateStrict, type MergeBag } from './templates'
 import { bodyForLanguage, recipientLanguagePreference, type LanguagePreference } from './bilingual'
@@ -39,6 +40,8 @@ export interface BuildEmailPayloadsArgs {
   extraFields?: MergeBag
   /** Per-recipient fields keyed by recipient email. */
   extraMergeFields?: Record<string, MergeBag>
+  /** The association's "Managed by" line; added to the shell footer of the rendered HTML. */
+  managedBy?: string | null
 }
 
 export interface EmailPayloads {
@@ -62,6 +65,7 @@ export function buildEmailPayloads({
   senderName,
   extraFields,
   extraMergeFields,
+  managedBy,
 }: BuildEmailPayloadsArgs): EmailPayloads {
   const payloads: SendEmailInput[] = []
   const owners: string[] = []
@@ -81,7 +85,7 @@ export function buildEmailPayloads({
         subject: renderTemplateStrict(subject, bag),
         // BL-025: the resident's preferred language when they chose one and
         // the body has a translation; otherwise both languages.
-        html: renderTemplateStrict(bodyForLanguage(bodyHtml, recipientLanguagePreference(recipient)), bag),
+        html: applyManagedBy(renderTemplateStrict(bodyForLanguage(bodyHtml, recipientLanguagePreference(recipient)), bag), managedBy),
         text: bodyText ? renderTemplateStrict(bodyText, bag) : undefined,
         senderName,
         // Our own Message-ID, so a reply can be linked to this row.

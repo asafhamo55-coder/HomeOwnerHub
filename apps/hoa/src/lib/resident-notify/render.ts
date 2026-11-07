@@ -64,18 +64,21 @@ function footer(associationName: string): string {
   return `You’re receiving this because ${escapeHtml(associationName)} emails residents when the board decides or answers their requests. Replies to this email may not be read. Use the resident portal to respond.`
 }
 
-function wrap(opts: { associationName: string; previewText: string; body: string }): string {
+function wrap(opts: { associationName: string; previewText: string; body: string; managedBy?: string | null }): string {
   return renderEmailDocument({
     fluid: true,
     previewText: opts.previewText,
     band: { text: opts.associationName, color: ACCENT },
     bodyHtml: `<div style="font-family:${FONT};font-size:17px;line-height:1.6;color:${BRAND.ink};">${opts.body}</div>`,
     footerHtml: footer(opts.associationName),
+    managedBy: opts.managedBy,
   })
 }
 
 export function renderArcDecisionEmail(i: {
   associationName: string
+  /** The association's "Managed by" line (plain text), shown in the footer. */
+  managedBy?: string | null
   residentName: string | null
   applicationSummary: string
   kind: ArcNoticeKind
@@ -94,6 +97,7 @@ export function renderArcDecisionEmail(i: {
 
   const html = wrap({
     associationName: i.associationName,
+    managedBy: i.managedBy,
     previewText: subject,
     body: `<p style="margin:0 0 12px;">${escapeHtml(greeting(i.residentName))}</p>
 <p style="margin:0 0 12px;">${escapeHtml(lead)}</p>
@@ -120,6 +124,8 @@ ${i.portalUrl}
 
 export function renderTicketReplyEmail(i: {
   associationName: string
+  /** The association's "Managed by" line (plain text), shown in the footer. */
+  managedBy?: string | null
   residentName: string | null
   ticketSubject: string
   reply: string
@@ -130,6 +136,7 @@ export function renderTicketReplyEmail(i: {
   const reply = i.reply.trim()
   const html = wrap({
     associationName: i.associationName,
+    managedBy: i.managedBy,
     previewText: subject,
     body: `<p style="margin:0 0 12px;">${escapeHtml(greeting(i.residentName))}</p>
 <p style="margin:0 0 12px;">${escapeHtml(lead)}</p>
