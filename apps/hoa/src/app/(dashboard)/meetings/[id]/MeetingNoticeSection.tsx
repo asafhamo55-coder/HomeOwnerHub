@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Megaphone } from 'lucide-react'
+import { Megaphone, Printer } from 'lucide-react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@homeowner-portal/ui'
 import { NoticeLawAlert } from '@/components/meetings/NoticeLawAlert'
 import { loadMeetingNoticeStatus, type NoticeMeeting } from '@/lib/meetings/notice-queries'
@@ -22,7 +22,7 @@ export async function MeetingNoticeSection({ meeting }: { meeting: NoticeMeeting
           <Megaphone className="size-4 text-muted" aria-hidden />
           Notice to owners
         </CardTitle>
-        <CardDescription>Email and portal notice to every owner, with an add-to-calendar link.</CardDescription>
+        <CardDescription>Email and portal notice to every owner, with an add-to-calendar link, or a paper copy to post.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {latest === 'failed' ? (
@@ -43,6 +43,14 @@ export async function MeetingNoticeSection({ meeting }: { meeting: NoticeMeeting
             <Link href={`/communications/new?meeting=${meeting.id}`}>
               <Megaphone className="size-4" aria-hidden />
               {latest && latest !== 'failed' ? 'Send another notice' : 'Send meeting notice'}
+            </Link>
+          </Button>
+        ) : null}
+        {canSend ? (
+          <Button asChild variant="secondary" size="lg" className="min-h-12 w-full">
+            <Link href={`/meetings/${meeting.id}/notice`}>
+              <Printer className="size-4" aria-hidden />
+              Print notice to post
             </Link>
           </Button>
         ) : null}

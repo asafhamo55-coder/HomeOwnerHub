@@ -1134,3 +1134,10 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Next batch (8e151d2d, in CI):** blue and green rebrand across app, website, emails, logo v4, letters and the welcome video; paper dues reminders; printable hearing notice; SEO batch 34.
 - **Incident:** an owner-actions email from the quality-oracle push linked the v4 logo before prod had it (shown as "?"). A fallback check is being built (claude/email-logo-fallback).
 - **Design:** management-company tenancy design revised after an adversarial review (ded858d6). Phase 0 (300-org switcher) is being built.
+
+## 2026-11-07 10:12 UTC: blue and green rebrand deploy
+
+- **Deployed 8e151d2d** (live 10:12): blue and green look across app, website, all emails (logo v4), letters and the welcome video; printed dues reminders and hearing notices for owners on paper; SEO batch 34 (Georgia fine hearing notice, records inspection, estoppel request). The v4 logo loads (200 image/png); the website serves #2563EB, no purple.
+- **Owner approved** all 12 management-company decisions. Phase 0 underway: 300-org switcher (second security review), "Managed by" line (fixing review findings), runbook and Inngest budget (OA-53) merged locally.
+- **New standing rule:** every visible change seeds Creek Valley demo data (CLAUDE.md "Demo data rule"). The full Creek Valley refresh is being built as per-area SQL fragments for Asaf to apply.
+- **In review:** printable meeting notice (approved, polish), printable ARC letter, amenity add/edit pages.
