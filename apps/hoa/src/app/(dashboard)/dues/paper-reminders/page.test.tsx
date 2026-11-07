@@ -278,6 +278,17 @@ describe('paper dues reminders page: gaps are never silent', () => {
     expect(html).toContain('Printing is turned off')
   })
 
+  it('hides the letters from the browser print command when Print is disabled', async () => {
+    seed([home(1, null)], { p1: [charge('c1', 100)] })
+    m.readAll.mockResolvedValue([{ id: 'a1', name: 'Madison Park', compliance_settings: {} }])
+    m.zelle.mockReturnValue({ state: 'not_configured' })
+    let doc = new DOMParser().parseFromString(await render(), 'text/html')
+    expect(doc.querySelector('[data-letters-container]')!.className).toContain('print:hidden')
+    m.zelle.mockReturnValue({ state: 'checks_only', settings: { recipientName: null, instructions: null, checks: CHECKS } })
+    doc = new DOMParser().parseFromString(await render(), 'text/html')
+    expect(doc.querySelector('[data-letters-container]')!.className).not.toContain('print:hidden')
+  })
+
   it('uses one association and says which one when the org has several', async () => {
     seed([home(1, null)], { p1: [charge('c1', 100)] })
     m.readAll.mockResolvedValue([

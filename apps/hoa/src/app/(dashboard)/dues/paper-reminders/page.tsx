@@ -194,13 +194,15 @@ export default async function PaperRemindersPage() {
           Every owner with a balance can be reached by email, or has nothing owing. You can send the reminders from the Dues page.
         </Alert>
       ) : (
-        <PaperReminderLetters
-          letters={letters}
-          associationName={associationName}
-          dateLabel={longDate(asOf)}
-          pay={pay}
-          contacts={contacts}
-        />
+        <div className={cannotPrint ? 'print:hidden' : undefined} data-letters-container>
+          <PaperReminderLetters
+            letters={letters}
+            associationName={associationName}
+            dateLabel={longDate(asOf)}
+            pay={pay}
+            contacts={contacts}
+          />
+        </div>
       )}
     </div>,
   )
