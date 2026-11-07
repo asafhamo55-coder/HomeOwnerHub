@@ -50,6 +50,7 @@ export type {
 } from './online-voting.types'
 export { M11_APPLIED } from './m11'
 export { M13_APPLIED } from './m13'
+export { M20_APPLIED } from './m20'
 
 export type {
   AssociationStripeAccountRow,

@@ -23,6 +23,7 @@ import { loadLetterHistory } from '@/lib/violations/letter-history'
 import { loadGaComplaintView } from '@/lib/ga-complaints/load'
 import { M8_APPLIED } from '@homeowner-portal/db/m8'
 import { OnlinePaymentsPanel } from './OnlinePaymentsPanel'
+import { loadPhotoUpload } from '@/lib/properties/photo-upload/load'
 
 export const metadata = { title: 'Property' }
 export const dynamic = 'force-dynamic'
@@ -89,6 +90,13 @@ export default async function PropertyDetailPage({
     )
   }
 
+  // M20: the upload control. Null while the flag is off (no query is made).
+  const photoUpload = await loadPhotoUpload(supabase, {
+    orgId: ctx.org.id,
+    propertyId: rawId,
+    role: ctx.role === 'admin' || ctx.role === 'board' ? ctx.role : 'resident',
+  })
+
   const today = todayIn(assocInfo.assoc?.timeZone ?? DEFAULT_ASSOCIATION_TIME_ZONE)
 
   // BL-080: "Behind on plan" / "Completed <day>" for the listed plans.
@@ -133,6 +141,7 @@ export default async function PropertyDetailPage({
       gaComplaints={gaComplaints}
       letterHistory={letterHistory}
       photoEnabled={streetViewConfigured()}
+      photoUpload={photoUpload}
       onlinePayments={M8_APPLIED && canManage && complaintUnitId ? <OnlinePaymentsPanel unitId={complaintUnitId} /> : null}
       now={new Date()}
       today={today}

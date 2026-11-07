@@ -51,6 +51,7 @@ import { propertyHref } from '@/lib/properties/href'
 import { asPropertyId } from '@/lib/properties/resolve'
 import { formatAddressLine, formatStreetOnly } from '@/lib/properties/address-format'
 import { PropertyPhoto } from '@/components/properties/PropertyPhoto'
+import { PropertyPhotoUpload } from '@/components/properties/PropertyPhotoUpload'
 import { SECTIONS, SECTION_LABEL, SECTION_TAB_LABEL, type SectionKey } from '@/lib/properties/sections'
 import type { Part, Property360, UnitPart } from '@/lib/properties/property-360'
 import { LATEST } from '@/lib/properties/property-360'
@@ -143,12 +144,14 @@ export interface PropertyDetailViewProps {
   letterHistory?: LoadResult<LetterHistoryPage> | null
   /** A Google Street View key is set on the server. False (or omitted) means no picture request is made. */
   photoEnabled?: boolean
+  /** M20: set only when the flag is on and the reader may change this home's photo. Omitted hides the upload control. */
+  photoUpload?: { hasUpload: boolean; version: string | null } | null
   /** BL-035: the card and bank payments panel (board/admin, online payments on); omitted renders nothing. */
   onlinePayments?: React.ReactNode
 }
 
 export function PropertyDetailView(props: PropertyDetailViewProps) {
-  const { data, now, today, isAdmin, canManage = false, capInPlace, capLoadFailed = false, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null, onlinePayments = null, photoEnabled = false } = props
+  const { data, now, today, isAdmin, canManage = false, capInPlace, capLoadFailed = false, section, listHref, listQuery, consent, planStandings, gaThreshold = null, gaComplaints = null, letterHistory = null, onlinePayments = null, photoEnabled = false, photoUpload = null } = props
   const p = data.property
   const pid = asPropertyId(p.id)
   const scoped = (path: string) => `${path}?property=${p.id}`
@@ -220,7 +223,18 @@ export function PropertyDetailView(props: PropertyDetailViewProps) {
         </div>
       }
     >
-      <PropertyPhoto propertyId={p.id} address={p.address} enabled={photoEnabled} canManage={canManage} className="w-48 sm:w-72" />
+      <div key={photoUpload?.version ?? 'street-view'}>
+        <PropertyPhoto
+          propertyId={p.id}
+          address={p.address}
+          enabled={photoEnabled}
+          canManage={canManage}
+          uploaded={photoUpload?.hasUpload === true}
+          canUpload={Boolean(photoUpload)}
+          className="w-48 sm:w-72"
+        />
+        {photoUpload ? <PropertyPhotoUpload propertyId={p.id} hasUpload={photoUpload.hasUpload} /> : null}
+      </div>
 
       <ActionBar
         propertyId={p.id}

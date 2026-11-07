@@ -3828,6 +3828,10 @@ export type Database = {
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
+          // M20 (0086) hand-added: keep through the next gen:types.
+          photo_path: string | null
+          photo_updated_at: string | null
+          photo_updated_by: string | null
           tenure: Database["public"]["Enums"]["property_tenure"]
           tenure_updated_at: string | null
           tenure_updated_by: string | null
@@ -3844,6 +3848,10 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          // M20 (0086) hand-added: keep through the next gen:types.
+          photo_path?: string | null
+          photo_updated_at?: string | null
+          photo_updated_by?: string | null
           tenure?: Database["public"]["Enums"]["property_tenure"]
           tenure_updated_at?: string | null
           tenure_updated_by?: string | null
@@ -3860,6 +3868,10 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          // M20 (0086) hand-added: keep through the next gen:types.
+          photo_path?: string | null
+          photo_updated_at?: string | null
+          photo_updated_by?: string | null
           tenure?: Database["public"]["Enums"]["property_tenure"]
           tenure_updated_at?: string | null
           tenure_updated_by?: string | null
@@ -9513,6 +9525,13 @@ export type Database = {
       auth_is_platform_admin: { Args: never; Returns: boolean }
       auth_org_ids: { Args: never; Returns: string[] }
       auth_owner_unit_ids: { Args: never; Returns: string[] }
+      // M20 (migration 0086): hand-added, NOT from `supabase gen types`. The next
+      // regen reads the live DB and drops this until 0086 is applied in prod.
+      // KEEP IT (CLAUDE.md footgun 3), then re-diff columns.
+      set_property_photo: {
+        Args: { p_property_id: string; p_path: string | null }
+        Returns: undefined
+      }
       auth_pro_active: {
         Args: { p_org_id: string; p_role?: string }
         Returns: boolean

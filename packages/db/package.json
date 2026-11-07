@@ -24,6 +24,7 @@
     "./m13": "./src/m13.ts",
     "./m14": "./src/m14.ts",
     "./m16": "./src/m16.ts",
+    "./m20": "./src/m20.ts",
     "./online-payments-types": "./src/online-payments.types.ts"
   },
   "scripts": {

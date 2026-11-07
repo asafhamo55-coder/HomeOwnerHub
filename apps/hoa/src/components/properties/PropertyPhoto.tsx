@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Home } from 'lucide-react'
 import Link from 'next/link'
 import { formatAddressLine } from '@/lib/properties/address-format'
+import { PHOTO_UPLOAD_HINT } from '@/lib/properties/photo-upload/rules'
 import { PHOTO_REASON_HEADER, photoReasonMessage, toPhotoReason, type PhotoReason } from '@/lib/properties/photo-reason'
 
 /**
@@ -32,6 +33,8 @@ export function PropertyPhotoView({
   className = '',
   reason = null,
   canManage = false,
+  uploaded = false,
+  canUpload = false,
   onLoad,
   onError,
   imgRef,
@@ -44,6 +47,10 @@ export function PropertyPhotoView({
   /** Why there is no picture (when known). Shown as a sentence under the placeholder. */
   reason?: PhotoReason | null
   canManage?: boolean
+  /** M20: the picture is the owner's own upload, so the Street View credit is not shown. */
+  uploaded?: boolean
+  /** M20 on and the reader may upload: the 'no photo' sentence also offers that. */
+  canUpload?: boolean
   onLoad?: () => void
   onError?: () => void
   imgRef?: React.Ref<HTMLImageElement>
@@ -81,15 +88,15 @@ export function PropertyPhotoView({
           />
         ) : null}
       </div>
-      {showImage && state === 'loaded' ? (
+      {showImage && state === 'loaded' && !uploaded ? (
         <figcaption className="mt-1 text-sm text-foreground-secondary">Image: Google Street View</figcaption>
       ) : null}
-      {!showImage && reason ? <PhotoReasonNote reason={reason} canManage={canManage} /> : null}
+      {!showImage && reason ? <PhotoReasonNote reason={reason} canManage={canManage} canUpload={canUpload} /> : null}
     </figure>
   )
 }
 
-function PhotoReasonNote({ reason, canManage }: { reason: PhotoReason; canManage: boolean }) {
+function PhotoReasonNote({ reason, canManage, canUpload }: { reason: PhotoReason; canManage: boolean; canUpload: boolean }) {
   const { text, fix } = photoReasonMessage(reason, canManage)
   return (
     <figcaption className="mt-1 text-sm text-foreground-secondary" data-photo-reason={reason}>
@@ -100,6 +107,14 @@ function PhotoReasonNote({ reason, canManage }: { reason: PhotoReason; canManage
           <Link href={fix.href} className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">
             {fix.label}
           </Link>
+        </>
+      ) : null}
+      {canUpload ? (
+        <>
+          {' '}
+          <a href="#photo-upload" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline">
+            {PHOTO_UPLOAD_HINT}
+          </a>
         </>
       ) : null}
     </figcaption>
@@ -125,6 +140,8 @@ export function PropertyPhoto({
   address,
   enabled,
   canManage = false,
+  uploaded = false,
+  canUpload = false,
   className,
 }: {
   propertyId: string
@@ -133,6 +150,10 @@ export function PropertyPhoto({
   enabled: boolean
   /** Board or admin: the reason can link to the setting that fixes it. */
   canManage?: boolean
+  /** M20: an uploaded photo exists, so it is shown even without a Google key. */
+  uploaded?: boolean
+  /** M20 on and the reader may upload. */
+  canUpload?: boolean
   className?: string
 }) {
   const [state, setState] = useState<PhotoState>('loading')
@@ -156,11 +177,13 @@ export function PropertyPhoto({
     <PropertyPhotoView
       propertyId={propertyId}
       address={address}
-      enabled={enabled}
+      enabled={enabled || uploaded}
       state={state}
       className={className}
-      reason={enabled ? reason : 'no_key'}
+      reason={enabled || uploaded ? reason : 'no_key'}
       canManage={canManage}
+      uploaded={uploaded}
+      canUpload={canUpload}
       imgRef={ref}
       onLoad={() => setState('loaded')}
       onError={fail}

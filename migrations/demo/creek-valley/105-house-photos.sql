@@ -1,0 +1,36 @@
+-- Creek Valley demo fragment 105: uploaded house photos.
+--
+-- OFF BY DEFAULT. Every statement below is commented out. Uncomment it only
+-- after M20 is on (migration 0086 applied, OA-54, flag flipped). Until then
+-- the photo columns do not exist and this would fail.
+--
+-- Not a migration: run by hand. It uses no real images. A photo is a file in
+-- the private property-photos bucket, and a demo has no files to ship, so
+-- upload one by hand through the app ("Upload your own photo" on a property
+-- page) when you want the demo to show one. What this fragment can do is mark
+-- which homes are meant to show an uploaded photo: it leaves photo_path NULL,
+-- so every Creek Valley home keeps its Street View picture, and it tells you
+-- the path an uploaded file will get.
+--
+-- Idempotent. Aborts unless exactly one org is named 'Creek Valley'.
+
+-- DO $$
+-- DECLARE
+--   n int;
+--   org uuid;
+--   homes int;
+-- BEGIN
+--   SELECT count(*) INTO n FROM orgs WHERE name = 'Creek Valley';
+--   IF n <> 1 THEN
+--     RAISE EXCEPTION 'Expected exactly one org named Creek Valley, found %', n;
+--   END IF;
+--   SELECT id INTO org FROM orgs WHERE name = 'Creek Valley';
+--
+--   -- Placeholder only: clear any photo path on the demo homes so the demo
+--   -- starts on Street View. Re-run after a demo reset.
+--   UPDATE hoa_properties
+--   SET photo_path = NULL, photo_updated_at = NULL, photo_updated_by = NULL
+--   WHERE org_id = org AND photo_path IS NOT NULL;
+--   GET DIAGNOSTICS homes = ROW_COUNT;
+--   RAISE NOTICE 'Creek Valley homes reset to Street View: %', homes;
+-- END $$;

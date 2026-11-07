@@ -41,6 +41,20 @@ easier. Never paste a key or password into a file in this repo; it is public.
 
 ## Open
 
+### OA-54 · Turn on "upload your own house photo" (database change 0086)
+
+**Urgency:** Whenever
+
+**Why it matters:** board members can add a real photo of any home, and an owner can add one for their own home. The photo replaces the Google Street View picture, and "Remove photo" brings Street View back. The feature is built and stays hidden (no upload button anywhere) until this is done. Nothing else is affected.
+
+**Steps:**
+
+1. Ask Claude to copy `migrations/0086_property_photos.sql` to your clipboard. Open the Supabase dashboard for the production project, go to **SQL Editor**, click **New query**, paste, and click **Run**. It is safe to run twice.
+2. Do the same with `migrations/verify-0086-property-photos.sql`. Every row of the result must say PASS.
+3. Tell Claude. It switches the feature on in a separate commit (flag M20) and deploys.
+
+**Files:** `migrations/0086_property_photos.sql`, `migrations/verify-0086-property-photos.sql`, `migrations/rollback-0086-property-photos.sql`
+
 ### OA-53 · Read the real monthly job count from the Inngest dashboard
 
 **Urgency:** Soon

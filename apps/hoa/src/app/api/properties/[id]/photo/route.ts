@@ -10,6 +10,7 @@
 // a missing property.
 //
 // 200 image/jpeg        — streamed, Cache-Control: private, max-age=86400
+//                         (an uploaded photo, M20, is served first and never calls Google)
 // 401 unauthenticated   — no session
 // 403 forbidden         — no org, or a role that reads no tenant data
 // 404 not_found         — bad id, not visible, no key, or Google has no imagery
@@ -38,6 +39,7 @@ import { logRouteEvent, logRouteFailure } from '@/lib/api/log'
 import { zUuid } from '@/lib/api/schemas'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { PHOTO_REASON_HEADER, type PhotoReason } from '@/lib/properties/photo-reason'
+import { serveUploadedPhoto } from '@/lib/properties/photo-upload/serve'
 import { formatAddress } from '@/lib/properties/address-format'
 import { readCommunityLocation } from '@/lib/association-location'
 import { asPropertyId, resolveUnitForProperty } from '@/lib/properties/resolve'
@@ -211,13 +213,18 @@ export const GET = withRoute('properties.photo', async (_request: Request, ctx: 
   if (!parsedId.success) return notFound('not_visible')
   const propertyId = parsedId.data
 
+  // M20: an uploaded photo always wins over Street View, so it is checked
+  // first, before the key or the address matter. Flag off: no query, null.
+  const supabase = await getSupabaseServerClient()
+  const uploaded = await serveUploadedPhoto(supabase, orgId, propertyId)
+  if (uploaded) return uploaded
+
   const key = process.env.GOOGLE_MAPS_API_KEY?.trim()
   if (!key) {
     logPhoto('miss', 'no_key', { propertyId })
     return notFound('no_key')
   }
 
-  const supabase = await getSupabaseServerClient()
   const { data: property, error } = await supabase
     .from('hoa_properties')
     .select('address')
