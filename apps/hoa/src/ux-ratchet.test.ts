@@ -657,3 +657,74 @@ describe('no developer instructions in user-facing text (BL-072)', () => {
     expect(src).toMatch(/<BooksNotOpenNotice\b/)
   })
 })
+
+// Round 30 item 5: Windows High Contrast / forced-colors removes box-shadow
+// rings, so every ring-only focus style needs an outline fallback. The global
+// rule in globals.css covers :focus-visible; custom focus styles that move
+// the ring onto a parent (has-[:focus-visible], focus-within) are not matched
+// by it, so they must carry their own forced-colors: outline.
+describe('forced-colors keeps focus and control edges visible', () => {
+  const css = readFileSync(path.join(repoRoot, 'apps/hoa/src/app/globals.css'), 'utf8')
+  // The @media block up to its matching closing brace, not to the end of the file.
+  const block = (() => {
+    const start = css.indexOf('@media (forced-colors: active)')
+    if (start < 0) return ''
+    let depth = 0
+    for (let i = css.indexOf('{', start); i < css.length; i++) {
+      if (css[i] === '{') depth++
+      else if (css[i] === '}' && --depth === 0) return css.slice(start, i + 1)
+    }
+    return ''
+  })()
+  const buttonSrc = readFileSync(path.join(repoRoot, 'packages/ui/src/components/Button.tsx'), 'utf8')
+
+  it('globals.css draws a real outline on :focus-visible', () => {
+    expect(block).not.toBe('')
+    expect(block).toMatch(/:focus-visible\s*{[^}]*outline:\s*2px solid Highlight/)
+  })
+
+  it('globals.css gives buttons, checkboxes and radios a system border', () => {
+    expect(block).toMatch(/border:\s*1px solid ButtonText/)
+  })
+
+  it('the shared Button base has a forced-colors outline', () => {
+    expect(buttonSrc).toMatch(/forced-colors:focus-visible:outline-2/)
+  })
+
+  it.each(['default', 'primary', 'ghost', 'subtle', 'destructive', "'destructive-ghost'", 'secondary', 'outline'])(
+    'Button variant %s carries a border in forced-colors',
+    (v) => {
+      const m = new RegExp(`(?:^|\\s)${v}:\\s*'([^']*)'`, 'm').exec(buttonSrc)
+      expect(m, `variant ${v} not found`).not.toBeNull()
+      expect(m![1]).toMatch(/forced-colors:border\b|(^|\s)border\s/)
+    },
+  )
+
+  // A ring drawn on a parent or pseudo-element is invisible in forced-colors
+  // and is not matched by the global :focus-visible rule. Every such class
+  // token needs a forced-colors outline of the same kind in the SAME string.
+  const PARENT_RING =
+    /(?<![\w-])(peer-focus-visible|group-focus-within|group-focus-visible|has-\[:focus-visible\]|focus-within|focus-visible:after):ring/g
+  // These wrap a native input, which gets the global :focus-visible outline.
+  const EXEMPT = /(components\/Input\.tsx|inbox\/\[id\]\/RecipientFields\.tsx)$/
+
+  it('every parent or pseudo-element focus ring has a forced-colors outline in its own class string', () => {
+    const bad: string[] = []
+    for (const d of [path.join(repoRoot, 'apps/hoa/src'), path.join(repoRoot, 'packages/ui/src')]) {
+      for (const file of walkSource(d)) {
+        if (!file.endsWith('.tsx') || EXEMPT.test(file)) continue
+        const src = readFileSync(file, 'utf8')
+        for (const m of src.matchAll(PARENT_RING)) {
+          const at = m.index!
+          const start = Math.max(src.lastIndexOf("'", at), src.lastIndexOf('"', at), src.lastIndexOf('`', at))
+          const ends = ["'", '"', '`'].map((q) => src.indexOf(q, at)).filter((n) => n >= 0)
+          const literal = src.slice(start, Math.min(...ends))
+          if (!literal.includes(`forced-colors:${m[1]}:outline`)) {
+            bad.push(`${path.relative(repoRoot, file)}:${src.slice(0, at).split('\n').length} ${m[1]}:ring`)
+          }
+        }
+      }
+    }
+    expect(bad).toEqual([])
+  })
+})

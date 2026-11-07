@@ -1,5 +1,6 @@
 import { FileCheck2, Lock, ShieldCheck, Users } from 'lucide-react'
 import { cn, BrandLogo, BrandMark } from '@homeowner-portal/ui'
+import { TextSizeControl } from '@/components/theme/TextSizeControl'
 import { AppVersion } from '@/components/layout/AppVersion'
 import { appVersion } from '@/lib/app-version'
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from './auth-errors-shared'
@@ -44,6 +45,12 @@ export function AuthShell({
               <BrandLogo size="lg" />
             </div>
           )}
+          {/* Above the form on purpose: the person who cannot read the form
+              needs this first. One compact row, so the sign-in button stays
+              near the top. Works signed out (localStorage only). */}
+          <div data-testid="auth-text-size">
+            <TextSizeControl compact />
+          </div>
           {children}
           <div className="text-center text-sm text-muted">
             {footer ?? (

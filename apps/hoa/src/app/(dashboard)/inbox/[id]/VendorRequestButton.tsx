@@ -144,7 +144,7 @@ function VendorRequestDialog({
                   <label
                     key={option.value}
                     className={cn(
-                      'flex cursor-pointer gap-2.5 rounded-lg border p-3 text-left transition-colors duration-fast focus-within:ring-2 focus-within:ring-ring',
+                      'flex cursor-pointer gap-2.5 rounded-lg border p-3 text-left transition-colors duration-fast focus-within:ring-2 focus-within:ring-ring forced-colors:focus-within:outline forced-colors:focus-within:outline-2',
                       selected ? 'border-primary/50 bg-primary-subtle' : 'border-border hover:bg-subtle',
                     )}
                   >
