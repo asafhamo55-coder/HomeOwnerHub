@@ -10,6 +10,7 @@ import {
   EmptyState,
 } from '@homeowner-portal/ui'
 import { palette } from '@homeowner-portal/ui/tokens'
+import { scaleChartFont, scaleChartSpace, useChartFontScale } from '@/components/charts/useChartFontScale'
 import type { ActivityBucket } from '@/lib/dashboard/charts'
 
 const SERIES: Array<{
@@ -38,25 +39,26 @@ export function ActivityBar({ buckets }: ActivityBarProps) {
   )
   const total = totals.violations + totals.arc + totals.invitations
 
+  const scale = useChartFontScale()
   const option = useMemo(
     () => ({
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        textStyle: { fontSize: 12 },
+        textStyle: { fontSize: scaleChartFont(12, scale) },
         borderColor: '#e5e7eb',
         borderWidth: 1,
-        padding: [6, 10],
+        padding: [scaleChartSpace(6, scale), scaleChartSpace(10, scale)],
       },
       // Legend is rendered in the header above the chart (matches the
       // prior design), so suppress ECharts' own legend.
       legend: { show: false },
       grid: {
         // Tight margins — matches the recharts version's compact look.
-        top: 8,
-        right: 8,
-        bottom: 20,
-        left: 28,
+        top: scaleChartSpace(8, scale),
+        right: scaleChartSpace(8, scale),
+        bottom: scaleChartSpace(20, scale),
+        left: scaleChartSpace(28, scale),
         containLabel: false,
       },
       xAxis: {
@@ -65,14 +67,14 @@ export function ActivityBar({ buckets }: ActivityBarProps) {
         data: buckets.map((b) => b.date.slice(5)),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { fontSize: 11, color: '#6b7280' },
+        axisLabel: { fontSize: scaleChartFont(11, scale), color: '#6b7280' },
       },
       yAxis: {
         type: 'value',
         axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { lineStyle: { color: '#e5e7eb', type: [2, 4] as [number, number] } },
-        axisLabel: { fontSize: 11, color: '#6b7280' },
+        axisLabel: { fontSize: scaleChartFont(11, scale), color: '#6b7280' },
         minInterval: 1,
       },
       series: SERIES.map((s, i) => ({
@@ -89,7 +91,7 @@ export function ActivityBar({ buckets }: ActivityBarProps) {
         data: buckets.map((b) => b[s.key]),
       })),
     }),
-    [buckets],
+    [buckets, scale],
   )
 
   return (
