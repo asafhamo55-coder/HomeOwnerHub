@@ -42,14 +42,18 @@ describe('PropertyPhoto', () => {
       const html = view(s)
       expect(html).not.toContain('<img')
       expect(html).toContain('data-photo-placeholder')
-      expect(html).toContain('No picture available for 1234 Peachtree St NE, Atlanta, GA 30309')
     }
+    expect(view('failed')).toContain('aria-label="No picture available for 1234 Peachtree St NE, Atlanta, GA 30309"')
+    const loading = view('loading')
+    expect(loading).toContain('aria-busy="true"')
+    expect(loading).toContain('aria-label="1234 Peachtree St NE, Atlanta, GA 30309"')
+    expect(loading).not.toContain('No picture available')
   })
 
-  it('puts the reason in the placeholder label and a polite live note, with the fix link for the board', () => {
+  it('announces the reason once, in a polite live note, with the fix link for the board', () => {
     const html = view('failed', { reason: 'needs_location', canManage: true })
     expect(html).toContain('we need your community&#x27;s city and ZIP')
-    expect(html).toMatch(/aria-label="No picture available[^"]*city and ZIP/)
+    expect(html).not.toMatch(/aria-label="[^"]*city and ZIP/)
     expect(html).toContain('aria-live="polite"')
     expect(html).toContain('href="/settings/association#community-location"')
     expect(html).toContain('min-h-11')

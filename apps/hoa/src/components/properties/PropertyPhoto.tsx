@@ -67,7 +67,8 @@ export function PropertyPhotoView({
           <div
             className="absolute inset-0 flex items-center justify-center text-muted"
             role="img"
-            aria-label={note ? `No picture available for ${label}. ${note.text}` : `No picture available for ${label}`}
+            aria-label={state === 'loading' ? label : `No picture available for ${label}`}
+            aria-busy={state === 'loading' ? true : undefined}
             data-photo-placeholder
           >
             <Home className="size-10" aria-hidden />
