@@ -121,6 +121,7 @@ export const GA_ARC: Guide = {
     'georgia-hoa-owner-compliance-and-remedies-44-3-223',
     'fines-and-violation-hearings',
     'georgia-hoa-amend-covenants-two-thirds',
+    'georgia-hoa-architectural-change-request-form',
   ],
   hoaDoes: [],
   hoaDoesNot:
