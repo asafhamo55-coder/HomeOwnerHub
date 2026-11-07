@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   orgFilters: [] as unknown[],
   contacts: [{ label: 'President', name: 'Pat Board', phone: '404-555-0100', email: '' }] as unknown[],
   settingsError: null as unknown,
+  assocs: {} as Record<string, { name: string; compliance_settings: unknown }>,
 }))
 
 class NotFound extends Error {}
@@ -29,16 +30,22 @@ vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServerClient: vi.fn(async () => ({
     from: (table: string) => {
       h.queried += 1
+      const filters: Record<string, unknown> = {}
       const chain: Record<string, unknown> = {
         select: () => chain,
         eq: (col: string, val: unknown) => {
           h.orgFilters.push([table, col, val])
+          filters[col] = val
           return chain
         },
         is: () => chain,
-        order: () => chain,
-        range: async () => ({ data: h.settingsError ? null : [{ compliance_settings: { board_contacts: h.contacts } }], error: h.settingsError }),
-        maybeSingle: async () => ({ data: h.rowError ? null : h.row, error: h.rowError }),
+        maybeSingle: async () => {
+          if (table === 'associations') {
+            const hit = h.settingsError ? null : (h.assocs[String(filters.id)] ?? null)
+            return { data: hit, error: h.settingsError }
+          }
+          return { data: h.rowError ? null : h.row, error: h.rowError }
+        },
       }
       return chain
     },
@@ -57,6 +64,7 @@ const ROW = {
   status: 'approved',
   summary: 'Back fence',
   board_response: LETTER,
+  association_id: 'assoc-1',
   board_response_at: '2026-11-05T15:00:00Z',
   unit: { address_line1: '1234 PEACHTREE STREET NORTHEAST', address_line2: null, city: 'ATLANTA', state: 'GA', postal_code: '30309', unit_number: '5' },
   submitter: { full_name: 'Jane Owner' },
@@ -74,6 +82,7 @@ beforeEach(() => {
   h.orgFilters = []
   h.contacts = [{ label: 'President', name: 'Pat Board', phone: '404-555-0100', email: '' }]
   h.settingsError = null
+  h.assocs = { 'assoc-1': { name: 'Peachtree Fixture HOA', compliance_settings: { board_contacts: h.contacts } } }
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
@@ -83,7 +92,8 @@ describe('ARC decision letter print view', () => {
     expect(html).toContain('Your fence is approved.\nCondition 1: keep it under 6 feet.\nCondition 2: stain it a natural colour.')
     expect(html).toContain('whitespace-pre-wrap')
     expect(html).toContain('Jane Owner')
-    expect(html).toContain('1234 Peachtree St NE')
+    expect(html).toContain('<p>1234 Peachtree St NE, #5</p>')
+    expect(html).toContain('Dear Jane Owner,')
     expect(html).not.toContain('PEACHTREE STREET')
     expect(html).toContain('Atlanta, GA 30309')
     expect(html).toContain('Nov 5, 2026')
@@ -100,15 +110,16 @@ describe('ARC decision letter print view', () => {
     expect(html).toContain(line)
   })
 
-  it('prints conditions given in an approval, as written', async () => {
+  it('keeps the decision line exactly plain, with conditions only in the stored text', async () => {
     const html = await render()
+    expect(html).toContain('<strong>Decision: Approved</strong>')
     expect(html).toContain('Condition 1: keep it under 6 feet.')
   })
 
   it('prints board contacts, or "Please contact the board." with a warning', async () => {
     let html = await render()
     expect(html).toContain('President, Pat Board, 404-555-0100')
-    h.contacts = []
+    h.assocs['assoc-1'] = { name: 'Peachtree Fixture HOA', compliance_settings: { board_contacts: [] } }
     html = await render()
     expect(html).toContain('Please contact the board.')
     expect(html).toContain('No board contacts are set')
@@ -150,6 +161,7 @@ describe('ARC decision letter print view', () => {
     await render()
     expect(h.orgFilters).toContainEqual(['arc_requests', 'organization_id', 'org-1'])
     expect(h.orgFilters).toContainEqual(['associations', 'organization_id', 'org-1'])
+    expect(h.orgFilters).toContainEqual(['associations', 'id', 'assoc-1'])
   })
 
   it('also serves an admin', async () => {
@@ -168,12 +180,49 @@ describe('ARC decision letter print view', () => {
     await expect(Page({ params: Promise.resolve({ id: ID }) })).rejects.toBeInstanceOf(NotFound)
   })
 
-  it.each(['submitted', 'in_review', 'withdrawn'])('refuses an undecided request (%s)', async (status) => {
+  it.each(['submitted', 'in_review'])('refuses an undecided request (%s)', async (status) => {
     h.row = { ...ROW, status }
     const html = await render()
     expect(html).toContain('Decide the request first')
     expect(html).not.toContain('Your fence is approved')
     expect(html).not.toContain('aria-label="ARC decision letter"')
+  })
+
+  it('says a withdrawn application was withdrawn', async () => {
+    h.row = { ...ROW, status: 'withdrawn' }
+    const html = await render()
+    expect(html).toContain('This application was withdrawn')
+    expect(html).toContain('The resident withdrew it, so there is no decision letter to print.')
+    expect(html).not.toContain('Decide the request first')
+    expect(html).not.toContain('aria-label="ARC decision letter"')
+  })
+
+  it('uses the request’s own association for the name and contacts', async () => {
+    h.assocs = {
+      'assoc-1': { name: 'First HOA', compliance_settings: { board_contacts: [{ label: 'President', name: 'Pat First', phone: '404-555-0100', email: '' }] } },
+      'assoc-2': { name: 'Second HOA', compliance_settings: { board_contacts: [{ label: 'Chair', name: 'Sam Second', phone: '404-555-0199', email: '' }] } },
+    }
+    h.row = { ...ROW, association_id: 'assoc-2' }
+    const html = await render()
+    expect(html).toContain('Second HOA')
+    expect(html).toContain('Sam Second')
+    expect(html).not.toContain('First HOA')
+    expect(html).not.toContain('Pat First')
+    expect(h.orgFilters).toContainEqual(['associations', 'id', 'assoc-2'])
+    expect(h.orgFilters).toContainEqual(['associations', 'organization_id', 'org-1'])
+  })
+
+  it('warns, print-hidden, and prints today when the decision has no date', async () => {
+    h.row = { ...ROW, board_response_at: null }
+    const html = await render()
+    expect(html).toContain('This decision has no saved date')
+    expect(html.indexOf('This decision has no saved date')).toBeLessThan(html.indexOf('aria-label="ARC decision letter"'))
+    expect(html).not.toContain('Nov 5, 2026')
+  })
+
+  it('leaves out the salutation when the owner name is not set', async () => {
+    h.row = { ...ROW, submitter: { full_name: null } }
+    expect(await render()).not.toContain('Dear ')
   })
 })
 

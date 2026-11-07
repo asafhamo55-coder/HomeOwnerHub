@@ -49,7 +49,7 @@ export function ArcLetterPrint({ view }: { view: ArcLetterView }) {
       </div>
       <article
         aria-label="ARC decision letter"
-        className="arc-letter mx-auto [overflow-wrap:anywhere] max-w-[8.5in] space-y-4 rounded-lg border border-border bg-white p-6 text-[12pt] leading-snug text-black [print-color-adjust:exact] print:max-w-none print:rounded-none print:border-0 print:p-0"
+        className="arc-letter mx-auto [overflow-wrap:anywhere] max-w-[8.5in] space-y-4 rounded-lg border border-border bg-white p-6 text-[12pt] leading-snug text-black [print-color-adjust:exact] print:max-w-none print:mt-0 print:rounded-none print:border-0 print:p-0"
       >
         <style>{'@media print { @page { size: letter; margin: 0.75in; } }'}</style>
         <header className="space-y-3">
@@ -63,11 +63,12 @@ export function ArcLetterPrint({ view }: { view: ArcLetterView }) {
           </div>
           <h1 className="text-[14pt] font-bold">Architectural request: {view.requestSummary}</h1>
         </header>
+        {view.ownerName ? <p>Dear {view.ownerName},</p> : null}
         <p>
           <strong>Decision: {view.decisionLabel}</strong>
         </p>
         {view.letterText ? <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{view.letterText}</p> : null}
-        <div className="space-y-1 [break-inside:avoid]" data-testid="arc-letter-signature">
+        <div className="space-y-1 [break-before:avoid] [break-inside:avoid]" data-testid="arc-letter-signature">
           {view.contactLines.length === 0 ? (
             <p>Please contact the board.</p>
           ) : (
