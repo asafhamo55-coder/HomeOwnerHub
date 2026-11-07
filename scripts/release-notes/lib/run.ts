@@ -4,6 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { buildEmail, parseArgs, resolveSha, toPayload, type EmailPayload } from './build'
+import { resolveLogo } from './logo'
 import type { ImageProcessor } from './images'
 import { ConfigError, readSendEnv, sendViaResend, type SendEnv } from './send'
 
@@ -11,6 +12,8 @@ export interface RunDeps {
   env: NodeJS.ProcessEnv
   cwd: string
   fetch?: typeof fetch
+  /** Set by the CLI entry points: enables the logo URL check (logo.ts). Left unset in tests. */
+  logoFetch?: typeof fetch
   log?: (line: string) => void
   imageProcessor?: ImageProcessor
 }
@@ -33,6 +36,7 @@ async function buildPayload(args: Args, deps: RunDeps): Promise<EmailPayload> {
   }
   const shotsDirArg = str(args['ui-shots-dir'])
   const uiShotsDir = shotsDirArg ? path.resolve(deps.cwd, shotsDirArg) : undefined
+  if (deps.logoFetch) await resolveLogo(deps.logoFetch, deps.log)
   const built = await buildEmail({ root, sha, previousSha, deployedAt, imageProcessor: deps.imageProcessor, uiShotsDir })
   deps.log?.(
     `notes: ${built.note.source === 'file' ? built.note.files.map((f) => path.relative(root, f)).join(', ') : 'generated from commit subjects'}` +

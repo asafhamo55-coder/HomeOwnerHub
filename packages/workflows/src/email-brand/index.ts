@@ -52,6 +52,7 @@ export const BRAND = {
 
 export const EMAIL_FONT = "-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
+// Bump LOGO_DIR only in the same deploy that ships the file; scripted emails fall back automatically.
 /** Folder of the header logo under the app's public root. v4: blue badge; v3 (purple) stays on disk for emails already sent. */
 export const LOGO_DIR = 'email/v4'
 /** File name of the header logo inside apps/hoa/public/email/v4/. */
