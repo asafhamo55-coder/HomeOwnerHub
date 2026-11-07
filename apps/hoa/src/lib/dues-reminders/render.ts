@@ -10,7 +10,7 @@
  * due is always marked with TEXT as well as colour for the same reason.
  */
 
-import { cleanManagedBy } from '@/lib/managed-by'
+import { cleanManagedBy, MAX_MANAGED_BY_LENGTH } from '@/lib/managed-by'
 import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { BRAND } from '@/lib/email/brand'
 import { emailButton } from '@/lib/email/components'
@@ -189,7 +189,7 @@ ${emailButton(opts.portalUrl, 'View my dues')}
 
 export function renderShellText(opts: { note?: string; portalUrl: string; managedBy?: string | null }): string {
   const note = opts.note?.trim()
-  const managedBy = opts.managedBy ? neutralizeMergeSyntax(cleanManagedBy(opts.managedBy)) : ''
+  const managedBy = opts.managedBy ? neutralizeMergeSyntax(cleanManagedBy(opts.managedBy).slice(0, MAX_MANAGED_BY_LENGTH).trim()) : ''
   return [
     // The raw variant, not {{association_name}}: renderTemplate does not
     // escape, and the HTML-escaped value would read as literal "&amp;" in

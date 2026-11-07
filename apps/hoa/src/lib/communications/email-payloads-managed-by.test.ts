@@ -48,6 +48,14 @@ describe('buildEmailPayloads, Managed by line', () => {
     expect(applyManagedByText(t, LINE)).toBe(t)
   })
 
+  it('does not append a line with braces twice when the text already has its inert form', () => {
+    const line = 'Managed by {{dues_table}} PM'
+    const withInert = 'Hello\n\nManaged by {dues_table} PM'
+    expect(applyManagedByText(withInert, line)).toBe(withInert)
+    const withRaw = `Hello\n\n${line}`
+    expect(applyManagedByText(withRaw, line)).toBe(withRaw)
+  })
+
   it('adds the line as the final line of the text part', () => {
     const text = build({ managedBy: LINE }).text!
     expect(text).toBe(`Hi Ana\n\n${LINE}`)

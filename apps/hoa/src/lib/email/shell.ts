@@ -172,7 +172,11 @@ export function applyManagedBy(html: string, line: string | null | undefined): s
 /** The plain-text part's closing "Managed by" line. Same rules: none when empty, once when applied twice. */
 export function applyManagedByText(text: string, line: string | null | undefined): string {
   const clean = cleanManagedBy(line).slice(0, MAX_MANAGED_BY_LENGTH).trim()
-  if (!clean || text.trimEnd().endsWith(clean)) return text
+  if (!clean) return text
+  // Already there, either as typed or with merge braces made inert (the dues
+  // shell does that): do not append it a second time.
+  const inert = clean.replace(/\{{2,}/g, '{').replace(/\}{2,}/g, '}')
+  if (text.includes(clean) || text.includes(inert)) return text
   return `${text.trimEnd()}\n\n${clean}`
 }
 

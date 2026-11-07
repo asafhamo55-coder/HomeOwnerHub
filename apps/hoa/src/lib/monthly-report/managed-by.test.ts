@@ -28,6 +28,11 @@ describe('dues reminder shell, Managed by line', () => {
     const text = renderShellText({ portalUrl: 'https://x.test/dues', managedBy: 'Managed by {{dues_table}} PM' })
     expect(text.endsWith('Managed by {dues_table} PM')).toBe(true)
   })
+  it('caps and cleans the raw stored string in the text part', () => {
+    const text = renderShellText({ portalUrl: 'https://x.test/dues', managedBy: `<b>${'a'.repeat(300)}</b>` })
+    const last = text.split('\n').at(-1)!
+    expect(last).toBe('a'.repeat(120))
+  })
   it('is unchanged without a line', () => {
     expect(renderShellHtml({ portalUrl: 'https://x.test/dues' })).not.toContain('data-managed-by')
     expect(renderShellText({ portalUrl: 'https://x.test/dues' })).not.toContain('Managed by')
