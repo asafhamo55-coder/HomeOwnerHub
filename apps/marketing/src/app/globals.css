@@ -127,7 +127,9 @@
   }
 
   /* The HomeownerHub mark and wordmark keep their shape (packages/ui
-     BrandLogo); only the colours move to the marketing palette. */
+     BrandLogo); only the colours move to the marketing palette. The dark-logo tile keeps
+     #2563EB because it clears 3:1 on the footer slate #0F172A (3.45), not on
+     the deep blue canvas. */
   svg[viewBox='0 0 32 32'] > rect:first-child {
     fill: #2563eb;
   }

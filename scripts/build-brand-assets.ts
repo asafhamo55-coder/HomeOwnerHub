@@ -135,11 +135,11 @@ const touchBody = () => [
 // ── Files ─────────────────────────────────────────────────────────────────
 
 const buildSvgs = (): Record<string, string> => ({
-  'logo-mark.svg': svgDoc(32, 32, 'HomeownerHub mark (BL-098): an H whose crossbar is a roof, with a light-blue door.', markBody()),
+  'logo-mark.svg': svgDoc(32, 32, 'HomeownerHub mark (BL-098): an H whose crossbar is a roof, with a white door.', markBody()),
   'logo-mark-dark.svg': svgDoc(
     32,
     32,
-    'HomeownerHub mark (BL-098), dark-background variant: the same tile on purpose (it clears 3:1 on the dark canvas).',
+    'HomeownerHub mark (BL-098), dark-background variant: the same tile on purpose (it clears 3:1 on the footer slate #0F172A).',
     markBody(),
   ),
   'logo-wordmark.svg': svgDoc(
