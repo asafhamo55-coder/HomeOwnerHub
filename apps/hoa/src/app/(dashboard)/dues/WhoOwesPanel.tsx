@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Alert, Button, Card, CardDescription, CardHeader, CardTitle, DataTable, StatusPill } from '@homeowner-portal/ui'
 import { buildReminderPackets } from '@/lib/dues-reminders/packets'
 import { getLastRemindedByEmail, RECENT_REMINDER_DAYS } from '@/lib/dues-reminders/queries'
@@ -205,7 +206,10 @@ export async function WhoOwesPanel({
       {skipped.length > 0 ? (
         <p className="border-t border-border px-5 py-3 text-xs text-muted">
           {skipped.length} {skipped.length === 1 ? 'owner has' : 'owners have'} no email on file and
-          cannot be reminded: {skipped.map((s) => s.ownerName).join(', ')}
+          cannot be reminded by email: {skipped.map((s) => s.ownerName).join(', ')}.{' '}
+          <Link href="/dues/paper-reminders" className="inline-flex min-h-11 items-center font-medium text-primary underline">
+            Print reminders for owners who get paper
+          </Link>
         </p>
       ) : null}
     </Card>
