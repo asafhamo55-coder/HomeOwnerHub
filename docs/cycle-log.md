@@ -1126,3 +1126,11 @@ Backlog: `docs/backlog.md`. Production: www.homeownerledger.com (`/api/health` â
 - **Deployed 82e305dc** (pushed 23:13, live 23:31): chart labels follow Text size with truncation and scaled padding; SEO batch 31 (Florida budget and reserves, Florida recall, Texas 209.017). CI and smoke green; release-notes email running.
 - **Decks:** investor timeline and product roadmap gained the Nov 6 night line.
 - **Next batch:** ESLint for apps/hoa (approved, final wording polish), SEO batch 32 (three Georgia templates, in legal review), setup invite step and city/ZIP, forced-colors and Text size on sign-in.
+
+## 2026-11-07 09:00 UTC: setup steps, sign-in text size, labels deploy
+
+- **Deployed a5e06e08** (live 08:59): ESLint for apps/hoa in CI, SEO batch 33 (Georgia board transition, quorum and minutes, secretary duties), optional "Invite your owners" and city/ZIP setup steps, Text size above the sign-in form, high-contrast focus and borders, help articles (Text size, How to join notice, welcome video), printable mailing labels for owners on paper.
+- **CI failed twice before green:** the help chat corpus was stale after a new article, and the labels page used an undefined colour token. Both fixed; builders now include colour-token-ratchet, and new articles need scripts/chat-corpus-build.ts.
+- **Next batch (8e151d2d, in CI):** blue and green rebrand across app, website, emails, logo v4, letters and the welcome video; paper dues reminders; printable hearing notice; SEO batch 34.
+- **Incident:** an owner-actions email from the quality-oracle push linked the v4 logo before prod had it (shown as "?"). A fallback check is being built (claude/email-logo-fallback).
+- **Design:** management-company tenancy design revised after an adversarial review (ded858d6). Phase 0 (300-org switcher) is being built.
