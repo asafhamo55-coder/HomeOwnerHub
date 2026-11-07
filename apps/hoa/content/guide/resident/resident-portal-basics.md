@@ -55,7 +55,7 @@ Everything you need is in the tabs at the bottom of the screen: Home, Dues, Requ
 2. Tap **Normal**, **Large** or **Largest**.
 3. The whole app gets bigger right away, charts included.
 
-Your choice is remembered on that phone or computer. On another device, choose it again.
+Your choice is remembered on that phone or computer. On another device, choose it again. You can also change it on the sign-in screen, before you sign in.
 
 ### Get urgent notices by text
 1. Tap **Account** and scroll to **Text messages**. It shows the mobile number texts would go to. If it's wrong or missing, fix it under **My contact details** first.

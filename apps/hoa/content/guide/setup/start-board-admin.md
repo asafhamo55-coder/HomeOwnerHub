@@ -47,3 +47,4 @@ Homes you add before the association exists are attached to it automatically whe
 ## Good to know
 - Hiding the card only hides it in this browser. If a step stops being true later, the card comes back.
 - The sign-up setup page shows the same checklist as the dashboard, with the same steps and ticks.
+- **Bigger text.** Open the account menu at the top right and find **Text size**. Choose **Normal**, **Large** or **Largest**. The menu stays open so you can see the change. It is remembered on that device only.
