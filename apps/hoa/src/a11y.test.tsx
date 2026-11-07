@@ -107,6 +107,7 @@ describe('a11y (axe-core, WCAG 2.2 AA): no serious or critical violations', () =
       <div>
         <button type="button" />
         <input type="text" />
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- fixture checks the missing-alt case */}
         <img src="/x.png" />
       </div>,
     )

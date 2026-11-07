@@ -31,7 +31,6 @@ export const HANDOFF_LABEL: Record<HandoffAction, string> = {
 /** Model-written text → one trimmed, bounded, control-free string. */
 export function clampHandoffText(v: unknown, max: number): string {
   if (typeof v !== 'string') return ''
-  // eslint-disable-next-line no-control-regex
   return v.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').replace(/[ \t]+/g, ' ').trim().slice(0, max)
 }
 

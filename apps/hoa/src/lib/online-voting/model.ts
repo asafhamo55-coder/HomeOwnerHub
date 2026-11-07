@@ -22,7 +22,6 @@ export interface DraftInput {
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string }
 
 const clean = (s: unknown) =>
-  // eslint-disable-next-line no-control-regex
   typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim() : ''
 
 /** A draft as the database will see it, or a plain-word reason it can't be saved. */

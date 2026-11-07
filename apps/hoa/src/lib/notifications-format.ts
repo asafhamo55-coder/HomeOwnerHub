@@ -99,7 +99,6 @@ export function safeNotificationHref(link: string | null | undefined): string | 
   if (trimmed.length === 0) return null
   if (!trimmed.startsWith('/')) return null
   if (trimmed.startsWith('//') || trimmed.startsWith('/\\')) return null
-  // eslint-disable-next-line no-control-regex
   if (/[\s\u0000-\u001f\u007f]/.test(trimmed)) return null
 
   return trimmed

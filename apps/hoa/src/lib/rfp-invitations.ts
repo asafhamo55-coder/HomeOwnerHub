@@ -328,7 +328,7 @@ export async function inviteVendorsToRfp(
   const insuranceLines = await loadInsuranceLines(supabase, rfp.association_id, { orgId: org.id, rfpId: rfp.id })
 
   let sent = 0
-  let skipped = alreadyInvited.size
+  const skipped = alreadyInvited.size
   const failed: Array<{ vendorId: string; reason: RfpInviteFailureReason }> = []
 
   for (const vendorId of parsed.data.vendor_ids) {

@@ -202,11 +202,10 @@ export function GoverningDocsUploader({
           </div>
 
           <div className="space-y-2">
-            <div role="tablist" className="flex gap-1 rounded-lg border border-border bg-subtle p-1">
+            <div role="group" aria-label="Add the document by" className="flex gap-1 rounded-lg border border-border bg-subtle p-1">
               <button
                 type="button"
-                role="tab"
-                aria-selected={mode === 'file'}
+                aria-pressed={mode === 'file'}
                 onClick={() => setMode('file')}
                 className={
                   'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ' +
@@ -219,8 +218,7 @@ export function GoverningDocsUploader({
               </button>
               <button
                 type="button"
-                role="tab"
-                aria-selected={mode === 'paste'}
+                aria-pressed={mode === 'paste'}
                 onClick={() => setMode('paste')}
                 className={
                   'flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors ' +

@@ -164,6 +164,7 @@ export function PhonePreview({
         </Alert>
       ) : null}
 
+      {/* eslint-disable-next-line jsx-a11y/interactive-supports-focus -- roving tabindex lives on the tabs */}
       <div
         role="tablist"
         aria-label="Preview channel"

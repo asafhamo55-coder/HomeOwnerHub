@@ -773,7 +773,7 @@ export function NewCommunicationWizard({
         : { kind: 'board', boardUserIds: Array.from(checkedBoardIds) }
     } else if (audience === 'manual_emails') {
       // Fold any in-flight draft into the committed list before sending.
-      let contacts = [...manualContacts]
+      const contacts = [...manualContacts]
       const dEmail = draftEmail.trim().toLowerCase()
       const dPhone = draftPhone.trim()
       if (dEmail || dPhone) {

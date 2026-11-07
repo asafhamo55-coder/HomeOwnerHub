@@ -513,7 +513,7 @@ export function Wizard({ properties, ccrStatus, initialDraft, initialPropertyId 
                       {preview ? (
                         <Image
                           src={preview}
-                          alt={`Violation photo ${i + 1}`}
+                          alt={`Attachment ${i + 1}`}
                           fill
                           className="object-cover"
                           unoptimized

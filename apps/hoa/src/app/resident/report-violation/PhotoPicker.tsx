@@ -94,14 +94,14 @@ export function PhotoPicker({
               {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL, not a remote asset */}
               <img
                 src={previews[i]}
-                alt={file.name}
+                alt={`Attachment ${i + 1}`}
                 className="h-20 w-20 rounded-md border border-border object-cover"
               />
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => removeAt(i)}
-                aria-label={`Remove ${file.name}`}
+                aria-label={`Remove attachment ${i + 1}`}
                 className="absolute -right-2 -top-2 inline-flex size-7 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               >
                 <X className="h-3.5 w-3.5" aria-hidden />

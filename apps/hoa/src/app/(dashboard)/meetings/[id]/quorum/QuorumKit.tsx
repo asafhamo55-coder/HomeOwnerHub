@@ -251,11 +251,11 @@ export function QuorumKit({
               : 'Record a proxy when it arrives, and tap Present as owners sign in.'}
           </CardDescription>
           <div className="flex flex-wrap items-end gap-3 pt-2">
-            <div role="tablist" aria-label="Homes" className="flex gap-2">
-              <Button role="tab" aria-selected={view === 'checkin'} size="sm" variant={view === 'checkin' ? 'default' : 'secondary'} onClick={() => setView('checkin')}>
+            <div role="group" aria-label="Homes" className="flex gap-2">
+              <Button aria-pressed={view === 'checkin'} size="sm" variant={view === 'checkin' ? 'default' : 'secondary'} onClick={() => setView('checkin')}>
                 All homes
               </Button>
-              <Button role="tab" aria-selected={view === 'chase'} size="sm" variant={view === 'chase' ? 'default' : 'secondary'} onClick={() => setView('chase')}>
+              <Button aria-pressed={view === 'chase'} size="sm" variant={view === 'chase' ? 'default' : 'secondary'} onClick={() => setView('chase')}>
                 Chase list ({chase.length})
               </Button>
             </div>
