@@ -8,30 +8,35 @@
 
 **The ask.** A management company (for example Homeside) that runs tens or hundreds of HOAs must be able to sign up, put its staff in the system, and onboard new HOAs under its account. Many self-managed HOAs and many management companies must live side by side. HomeownerHub is never in an HOA's money flow.
 
-**Recommendation: keep every HOA as its own tenant, and add a management company as a new kind of account that is linked to HOAs by an agreement (option B in section 2).**
+**Recommendation: keep every HOA as its own tenant, and add a management company as a new kind of account linked to HOAs by an agreement (option B in section 2). Ship it in two steps: first a "Homeside-ready" step with no new tables, then the real manager role and agreements once we have learned from Homeside.**
 
 In plain words:
 
-- An HOA stays exactly what it is today: its own workspace, its own data, its own billing, its own bank connection. Nothing about a self-managed HOA changes.
-- A management company is a new account type. It has staff, a portfolio page, and a list of HOAs it manages.
-- The link between a company and an HOA is a recorded **management agreement** (pending, active, ended). An active agreement gives the company's assigned staff a "manager" seat inside that HOA's workspace. Ending the agreement removes those seats in one step.
-- The HOA owns its records the whole time. Switching companies, or going back to self-managing, moves nothing, because the data never lived in the company.
+- An HOA stays exactly what it is today: its own workspace, data, billing and bank connection. Nothing changes for a self-managed HOA.
+- A management company is a new account type with staff, a portfolio page and a list of HOAs it manages.
+- The link is a recorded **management agreement** (pending, active, ended). An active agreement gives assigned staff a **manager** seat inside the HOA. Ending the agreement removes the seats.
+- The HOA owns its records the whole time. Switching companies, or going back to self-managing, moves nothing.
 
-**Why this and not "one company org holding many associations".** The database was drawn for that second shape (`migrations/0004_v1_schema_phase2a.sql:27-36`), but the application was not. 110 files call `getPrimaryAssociation`, which silently picks the first association by name (`apps/hoa/src/lib/association-setup.ts:77-95`). Making a company hold many HOAs inside one tenant means touching every one of them, and every missed spot is a cross-HOA data leak. Option B keeps "one organization has exactly one association" true, so those 110 files do not change. It also makes "an HOA leaves its manager and keeps everything" a non-event, and it keeps Stripe Connect one account per association with the HOA as merchant of record, as already designed.
+**An earlier draft said this needs "no policy changes". That was wrong and is withdrawn.** A new `manager` role is not free: database policies and app code check "admin or board" in about 30 places (inventory in section 11.1). Mapping `manager` into the existing board helper would hand managers every board power, including adding and removing board members and the second signature on money approvals. The design now uses a separate helper and an explicit allow-list of what a manager may do, plus a generated test that checks every policy and every app role check.
 
-**What it costs.** One new set of tables, one new role (`manager`), a portfolio page, a company-aware organization switcher (today's switcher quietly stops at 20 organizations, section 1.4), and a company billing option. 26 tasks over 6 phases (0 to 5), each phase shippable alone, and the first customer-visible phase needs one migration.
+**Step one (Phase 0, no new tables): Homeside-ready.** Lift the 20-organization cap and add the searchable switcher (being built on `claude/org-switcher-scale`); the platform admin creates each HOA organization by hand; each HOA's board invites Homeside staff using the existing roles; each HOA pays its own subscription; a free-text "managed by" line goes in the footer. **The cost, stated plainly: until the manager role ships, Homeside staff hold board powers in each HOA.** That is acceptable for one trusted customer onboarded by hand, and it teaches us what a manager really needs before we build it. Company-pays billing waits until a customer asks (section 7).
 
-### Decisions the owner must make
+### Decisions the owner must make (ranked)
 
 | # | Decision | My recommendation |
 |---|---|---|
-| D1 | **Tenancy shape.** Each HOA its own tenant, linked to a company by agreement (B), or one company tenant holding many associations (A)? | **B.** |
-| D2 | **Who pays.** The HOA pays its own subscription by default, with an option for the company to pay for the HOAs it manages. Or company-pays only? | **Both, HOA pays by default**, company-pays as a switch per HOA. |
-| D3 | **Company volume discount.** Is there one, and from how many HOAs? | **Yes, a percentage off per HOA by portfolio size** (illustrative 10 / 15 / 20 percent at 10 / 25 / 50 HOAs). Numbers need your call. |
-| D4 | **What happens when an agreement ends.** Immediate loss of access, or an optional short read-only handover? | **Immediate by default**, with a board-chosen read-only handover of up to 30 days. |
-| D5 | **Who may start the link.** Can a company create an HOA and add the board later (company-led), with the board confirming afterwards? | **Yes**, with a signed-agreement attestation from the company and a confirmation step for the board. Until the board confirms, the company cannot turn on online payments or send mailed letters. |
+| 1 | **Hand-onboard Homeside first with board powers (Phase 0), or build the manager role first?** | Hand-onboard first. Fast, no migration, and the risk is one known customer for a limited time. |
+| 2 | **Manager powers.** What may a manager do, and what stays with the board only (bank details, board roster, second signature on money, ending the agreement)? | The default-deny table in section 3.2. Fines and letters to owners need board release (section 11.6). |
+| 3 | **Leaving rights.** Can an HOA end the relationship alone, instantly? Can the company? What does the company hand back? | Either side, one button, no approval from the other. Departing-company checklist and export (section 11.5). |
+| 4 | **Handover.** Immediate cut-off, or a read-only period of up to 30 days chosen by the board? | Immediate by default, optional board-chosen read-only handover. |
+| 5 | **Inngest capacity.** The job runner's free tier allows 50,000 runs a month and mail sync alone uses about half. Gate onboarding of 100 HOAs on measured headroom, or pay for a bigger plan? | Gate on measurement; plan the upgrade before the 20th HOA (section 11.4). |
+| 6 | **Company-pays billing now or later?** | Later, when a customer asks. The unique `stripe_customer_id` and the webhook's customer lookup make it a real project (section 7). |
+| 7 | **Overlap.** May one HOA have two companies active at once? | No. One active company per HOA (section 11.7). |
+| 8 | **Lawyer gate.** Must a lawyer approve the signature wording and attestation before the agreement flow launches? | Yes, a hard gate on Phase 4. |
+| 9 | **Timeout for an unconfirmed company-created HOA.** | 30 days to confirm, then it freezes (section 11.7). |
+| 10 | **Role precedence** when someone is both company staff and a resident or board member of a managed HOA. | Highest of their own roles in that HOA, with the audit trail showing the capacity they acted in (section 11.7). |
 
-Full list of open questions is in section 9.
+Smaller open questions are in section 9.
 
 ---
 
@@ -102,7 +107,7 @@ The company is a new entity with its own staff. A `management_agreements` row li
 | **HOA leaves or switches companies and keeps all data** | Hard. Every row is in the company's tenant. Leaving means a data migration that rewrites `organization_id` on dozens of tables, under live use. | **Trivial.** Data never moved. End the agreement, seats disappear. A new company links in. | Hard for company-created HOAs, easy for claimed ones. Two paths to test and explain. |
 | **Board's own access next to the manager's** | The board are residents or board members of the company's tenant. They share a tenant with 99 other HOAs' managers, so isolation between HOAs depends on new association-level rules. | **Natural.** Board are `admin` or `board` in their own org, manager is `manager` in the same org. Today's role model. | As A until claimed. |
 | **Per-HOA billing vs company billing** | Billing is on the org row, so one subscription for the whole company, with no per-HOA record. Hard to price per HOA and impossible to hand an HOA its own bill later. | Each HOA keeps its own subscription record. Company-pays is a payer setting on top. HOA can take over its bill without data change. | Mixed. |
-| **RLS complexity and isolation** | Every policy is `org_id = ANY(auth_org_ids())` (`0070`). A company staff member in the company org would see all 100 HOAs, and "only my assigned HOAs" needs a second layer on every table. Migration 0070 and 0081 were large, careful efforts to make exactly this single layer trustworthy; A would reopen all of it. | **No policy changes.** A manager is a member of exactly the HOA orgs they are assigned to, so `auth_org_ids()` already scopes them. Two helper functions get a `manager` mapping. | As A plus extra. |
+| **RLS complexity and isolation** | Every policy is `org_id = ANY(auth_org_ids())` (`0070`). A company staff member in the company org would see all 100 HOAs, and "only my assigned HOAs" needs a second layer on every table. Migration 0070 and 0081 were large, careful efforts to make exactly this single layer trustworthy; A would reopen all of it. | **Org scoping needs no change** (a manager is a member of exactly the HOA orgs they are assigned to, so `auth_org_ids()` scopes them), but **role checks do**: a separate `auth_is_manager_or_board` helper opted in table by table (section 11.1). | As A plus extra. |
 | **Stripe Connect per association** | One org, many accounts. Doable (the design already allows it, section 1.2) but every payments code path must pick an association first. | One org, one association, one account. Matches the design as written. | Mixed. |
 | **State-law records ownership (association owns its records)** | Records sit in the company's tenant. Easy to argue the company owns them, and a contract dispute traps the HOA's records. | **Records sit in the association's own tenant**, which is the legal truth. The company is a delegate. | Ambiguous. |
 | **Reporting across many HOAs** | Easy: one tenant, query all. | Needs a cross-tenant read for the portfolio page (section 5). One RPC and an index. | Mixed. |
@@ -120,8 +125,8 @@ B's cost is the cross-tenant read for a portfolio dashboard, plus switching betw
 ### Details that matter in B
 
 1. **Where does `organization_type = 'management_company'` go?** I recommend **not** reusing the `orgs` table for the company. `orgs` is the HOA tenant (`hub_type='hoa'`, `getCurrentOrg` filters on it, billing columns, unique customer id). Making a company an `orgs` row would put it in the HOA switcher and in every `orgs`-keyed query. The company is a new table, `management_companies`. The dormant `organization_type='management_company'` value stays unused (a note in migration 0083 documents that, no destructive change). Decision D1 is where you can override this.
-2. **Access is materialized as `org_members` rows.** When an agreement is active and a company staff member is assigned to the HOA, a row `(org_id = HOA, user_id = staff, role = 'manager', source_agreement_id = agreement)` exists. All 22+ policies and the helpers that read membership then work without edits. Ending the agreement or the assignment deletes the row in the same transaction.
-3. **Fail closed.** Because the seat is a real row, a bug in the new company tables cannot widen access: no row, no access. The reverse bug (seat not removed) is guarded by a database trigger on agreement end, plus a nightly check that reports any `manager` seat whose agreement is not active (cheap, single query, no Inngest cost beyond a daily run).
+2. **Access is materialized as `org_members` rows.** When an agreement is active and a company staff member is assigned to the HOA, a row `(org_id = HOA, user_id = staff, role = 'manager', source_agreement_id = agreement)` exists. Org scoping then works without edits, but role checks do not: see section 11.1. Seats are bound to their agreement (section 11.2) and ending the agreement or assignment deletes the row in the same transaction.
+3. **Fail closed.** Because the seat is a real row, a bug in the new company tables cannot widen access: no row, no access. The reverse bug (seat not removed) is controlled by the foreign key, check constraint and trigger in section 11.2; the nightly sweep is only an alarm.
 
 ---
 
@@ -147,7 +152,7 @@ Company roles live in `management_company_members` (role `admin` or `manager`); 
 |---|---|---|---|---|
 | Residents, units, violations, ARC, tickets, announcements, vendors, calendar | full | as today | **full** | nothing (portfolio totals only) |
 | Accounting: read books, enter invoices, reconcile | full | as today | **full** | none |
-| Approve money above the dual-control amount | full | per role | **cannot be the only approver** (needs a board sign-off; the dual-control rule in 0071 already supports this) | none |
+| Approve money above the dual-control amount | full | per role | **cannot be the only approver** (needs a board sign-off; the dual-control rule in 0071 already supports this, and the generated test in 11.1 proves a manager cannot supply a second signature) | none |
 | Letters, email, SMS to residents | full | as today | **full** (sent as the HOA, section 6) | none |
 | Stripe Connect onboarding, bank details, payout changes | treasurer or admin | treasurer | **blocked** (per `docs/decisions/2026-10-31-online-dues-payments-design.md` 1.3) | none |
 | Governing documents, board roster, officer titles | full | read | read; edit only if board allows | none |
@@ -194,7 +199,7 @@ A short wizard, each step skippable and resumable:
 1. **Name and basics:** HOA name, state (Georgia first), number of homes, type (HOA, condo, co-op). Creates a new `orgs` row (`hub_type='hoa'`, `organization_type='self_managed_hoa'`, because as an HOA tenant it is its own tenant) with its one `associations` row, the same way onboarding does today (`apps/hoa/src/app/onboarding/actions.ts:56`, then association setup). Creates an **active agreement** and assigns the creator.
 2. **Attestation:** "We have a signed management agreement with this association." Recorded with date and person. This is a statement by the company, not verified by us.
 3. **Roster import:** the existing importers (`apps/hoa/src/app/admin/import-units`, `(dashboard)/properties/import`) run in the context of the HOA once the manager has entered it. The wizard just links to them with the HOA already selected.
-4. **Invite the board:** the existing member invite flow; the email says "Homeside has set up a community workspace for Creek Valley HOA. You are being invited as president." The first board person to accept becomes `admin` of the HOA org and the board confirms the agreement (D5).
+4. **Invite the board:** the existing member invite flow; the email says "Homeside has set up a community workspace for Creek Valley HOA. You are being invited as president." The first board person to accept becomes `admin` of the HOA org and the board confirms the agreement (decision 9 and section 11.7).
 5. **Assign managers.**
 
 Until the board confirms, the HOA is marked "pending board confirmation": a manager can load data but cannot turn on online payments, cannot mail letters, and cannot invite a CPA or attorney. Payments are the line the owner insists on; this keeps an unconfirmed claim of authority from ever reaching money.
@@ -213,7 +218,7 @@ Bulk onboarding of 50 HOAs: a CSV (name, state, homes, board contact email) crea
 
 Either side, one button, no approval from the other: HOA Settings, Management company, **End this agreement**; or company side, the HOA row, **Stop managing**.
 
-- Default (D4): all `manager` seats for that agreement are removed immediately, in one transaction.
+- Default (decision 4): all `manager` seats for that agreement are removed immediately, in one transaction.
 - Optional read-only handover for up to 30 days, chosen by the HOA board only (the manager seats become read-only with an end date, mirroring the CPA and attorney expiry).
 - HOA keeps everything; nothing is copied or deleted. The board can export everything with the existing data export (`apps/hoa/src/lib/data-export/`).
 - If the company was paying (section 5): the HOA gets a clear banner and a 30-day grace to add a card before the normal billing-failure path starts (decision D2 follow-up, question Q3).
@@ -282,13 +287,14 @@ See 1.5. One plan sized by homes, $59 to $249 per month by band, then $0.65 per 
 | **Company pays** | The company's Stripe customer pays one subscription per managed HOA. One invoice line per HOA. | What companies expect. One bill. | Needs a payer concept, and an exit path when the agreement ends. |
 | **Both (recommended)** | HOA pays by default; the company can switch a given HOA to "company pays". | Matches how real contracts differ, no forced choice. | Slightly more settings. |
 
-### Recommendation (D2)
+### Recommendation: HOA pays now, company-pays later
 
+- **Company-pays is deferred until a customer asks.** It is the one part of this design that touches shared billing infrastructure: `orgs.stripe_customer_id` is unique where not null (`migrations/0070_tenant_isolation.sql:72`) so many HOAs cannot share one company customer on `orgs`, and the webhook finds the org by customer id (`packages/billing/src/webhook.ts` near `:224`), so it needs a second lookup by subscription id. Until then every HOA pays itself, which is also what Phase 0 does. The plan below is what we would build when asked.
 - Keep one subscription **per HOA**, each priced on its own home count, so the existing price tables, trial, webhook and "doors" logic are unchanged.
 - Add a payer on the HOA: `self` (default) or `company`. For `company`, the subscription is created on the company's Stripe customer.
 - Because `orgs.stripe_customer_id` is unique and would be shared by many HOAs under a company customer, company-paid subscriptions do **not** write the company's customer id into `orgs`. The company's customer id lives on `management_companies`; the HOA org keeps only `stripe_sub_id` and a `billing_payer` marker. This is verified work for the billing owner: the webhook (`packages/billing/src/webhook.ts`) matches events to an org by customer id today (`:224` area), so it needs a second lookup by subscription id. Treated as task B2 and a risk R3.
 - Company billing page: one table, one row per HOA with its plan band, price and renewal date; one total; invoices from Stripe.
-- **Volume pricing (D3):** a percentage off per HOA by the number of active company-paid HOAs, implemented as a Stripe coupon or a second price table applied at checkout, not by changing the band prices. Illustrative only: 10 HOAs, 10 percent off; 25, 15 percent; 50 and above, 20 percent. At about $2 to $5 variable cost per community (one-plan doc), a 20 percent cut on the lowest band ($59) still leaves a wide margin. The numbers are yours to set; the prices have never been proven with paying customers (one-plan doc, "Costs we accept"), so I recommend keeping the discount modest until real customers exist.
+- **Volume pricing (only when company-pays is built):** a percentage off per HOA by the number of active company-paid HOAs, implemented as a Stripe coupon or a second price table applied at checkout, not by changing the band prices. Illustrative only: 10 HOAs, 10 percent off; 25, 15 percent; 50 and above, 20 percent. At about $2 to $5 variable cost per community (one-plan doc), a 20 percent cut on the lowest band ($59) still leaves a wide margin. The numbers are yours to set; the prices have never been proven with paying customers (one-plan doc, "Costs we accept"), so I recommend keeping the discount modest until real customers exist.
 - Trial: each new HOA gets its own 30-day trial from creation, consistent with today. A company may prefer one trial for the whole portfolio; that is question Q2.
 - **Never in the money flow.** Subscription billing is HomeownerHub's own fee. HOA dues and fees are paid by residents straight into the association's own Stripe Standard account. The company pays HomeownerHub for software only. Neither HomeownerHub nor the company touches HOA funds through us.
 
@@ -298,32 +304,34 @@ See 1.5. One plan sized by homes, $59 to $249 per month by band, then $0.65 per 
 
 ### 8.1 Migrations (applied by Asaf, by hand)
 
-Numbering: the last applied migration is `0082_money_integrity.sql` (flag M16, `packages/db/src/m16.ts`). `0080` and flag `M15` are reserved by the unbuilt vendor bill pay design (`docs/backlog.md:2083`, `docs/backlog.md:2509`: "There is no M15"). I leave them alone. Next free numbers are therefore **0083** and **M17**. Re-check the numbers when work starts, because parallel sessions also add migrations.
+Numbering: the last applied migration is `0082_money_integrity.sql` (flag M16, `packages/db/src/m16.ts`). `0080` and flag `M15` are reserved by the unbuilt vendor bill pay design (`docs/backlog.md:2083`, `docs/backlog.md:2509`: "There is no M15"). I leave them alone. Next free numbers are **0083** and **M17**. Re-check when work starts, because parallel sessions also add migrations.
 
-| Migration | Flag | Contents | Needed by phase |
+| Migration | Flag | Contents | Phase |
 |---|---|---|---|
-| `0083_management_companies.sql` | **M17** | Tables `management_companies`, `management_company_members` (role `admin` or `manager`), `management_agreements` (status `pending`, `active`, `ended`; initiated by; attestation date and person; started, ended, ended by, reason; `board_confirmed_at`; `handover_until`), `management_assignments` (agreement, staff member, primary flag). `org_members.role` CHECK gains `manager`; `org_members.source_agreement_id`. Helper function changes: `manager` counts in `auth_is_board_or_admin` for the operations in 3.2 only (the blocked actions stay `auth_is_admin`). Trigger: ending an agreement deletes its seats. RLS for the new tables. Audit columns `acting_company_id`, `acting_role`. `company_portfolio_summary()`. Idempotent like the others. A matching `verify-0083-management-companies.sql` in the style of `verify-0082-money-integrity.sql`. | Phase 1 |
-| `0084_company_billing.sql` | **M18** | `management_companies.stripe_customer_id` (unique), `orgs.billing_payer` (`self` default or `company`), `management_companies.discount_tier` view or function, grace-period columns. Verify file. | Phase 4 |
-| `0085_portfolio_rollup.sql` | **M19** (optional) | Only if `company_portfolio_summary()` proves too slow: a cached summary table plus refresh function. Skipped if the live function is fast enough. | Phase 5, only if needed |
+| none | none | Phase 0 needs no migration at all. | 0 |
+| `0083_management_companies.sql` | **M17** | Tables `management_companies`, `management_company_members` (role `admin` or `manager`), `management_agreements` (status `pending`, `active`, `ended`; initiated by; attestation date and person; started, ended, ended by, reason; `board_confirmed_at`; `confirm_by`; `handover_until`), `management_assignments`. `org_members.role` CHECK gains `manager`; `org_members.source_agreement_id` with the bindings in 11.2; `org_members.access_expires_at` is reused for manager seats. New helper `auth_is_manager_or_board(org)` and the allow-listed policy changes in 11.1 (`auth_is_board_or_admin` itself is **not** edited). Guard trigger and policies so only service-role agreement functions create or delete manager seats. Actor-name snapshot columns (11.5). Audit columns `acting_company_id`, `acting_role`. `company_portfolio_summary()` (11.3). Verify script `verify-0083-management-companies.sql` in the style of `verify-0082-money-integrity.sql`. | 2 |
+| `0084_company_billing.sql` | **M18** | **Deferred until a customer asks** (section 7). Company Stripe customer id, `orgs.billing_payer`, grace columns. | 5 |
+| `0085_portfolio_rollup.sql` | **M19** (optional) | Cached summary table, only if the live function is measured slow at 300 HOAs. | 6 |
 
-Both required migrations are additive: new tables, one widened CHECK, new nullable columns. No existing row changes, so self-managed customers cannot be affected by applying them. CI replays them against the ephemeral database, and the integration suite runs "objects present, flag false", like every other M flag.
+**Rollback story for 0083.** Applying is additive (new tables, a widened CHECK, nullable columns), and flag M17 stays false until verified. If it must be undone before any company exists: drop the new tables and functions, remove the `manager` value from the CHECK (no rows hold it), drop the added columns. That is a prepared `rollback-0083.sql` committed beside the migration and rehearsed in CI against the ephemeral database. Once real manager seats or agreements exist, rollback is no longer a drop: first end every agreement (the trigger removes the seats), export the agreement history, then run the rollback. The migration is idempotent so a half-applied run can be re-run.
 
 ### 8.2 Feature flags (M-flag style)
 
-New files `packages/db/src/m17.ts`, `m18.ts` (and `m19.ts` if needed), each a single exported boolean constant with no imports, defaulting `false`, flipped to `true` in a one-line commit after the owner confirms the migration is applied and verified (exact pattern of `m16.ts`, `m14.ts`). Every code path that reads a new column or table checks the flag first. Plus a UI hide switch, `MANAGEMENT_COMPANIES_ENABLED`, in `packages/ui` next to `hubs.ts`, so even with the migration applied the product stays invisible until the owner chooses to launch. An allow-list lets Homeside in first.
+New files `packages/db/src/m17.ts` (and `m18.ts`, `m19.ts` later), each a single exported boolean with no imports, defaulting `false`, flipped to `true` in a one-line commit after the owner confirms the migration is applied and verified (exact pattern of `m16.ts`, `m14.ts`). Every code path that reads a new column or table checks the flag first. A UI hide switch `MANAGEMENT_COMPANIES_ENABLED` in `packages/ui`, next to `hubs.ts`, keeps the feature invisible until launch, with an allow-list for Homeside. Phase 0 needs neither: it uses only existing roles and features.
 
 ### 8.3 Phased rollout
 
 Each phase ships on its own and changes nothing for existing self-managed HOAs.
 
-| Phase | Ships | Migration | Customer-visible |
+| Phase | Ships | Migration | Visible to |
 |---|---|---|---|
-| **0. Groundwork** | Fix the 20-membership ceiling, make active-org resolution direct, add the permission table as a pure module. | none | No (bug fix for large multi-org users) |
-| **1. Core tenancy** | Tables, `manager` role, RLS helpers, audit columns, verify script, flag M17. No screens. | **0083** | No |
-| **2. Company signup, create-an-HOA, switcher, portfolio v1** | Company sign-up, add-HOA wizard, staff invites, assignment, searchable switcher, portfolio, "Working as" bar. Allow-listed. | none (uses 0083) | Only allow-listed companies (Homeside) |
-| **3. Agreements for existing HOAs** | Invite and accept for self-managed HOAs, board confirmation, end agreement, handover, activity list, "Managed by" lines and email footer. | none | Boards of managed HOAs only |
-| **4. Company billing** | Company-pays, company billing page, volume discount, grace on exit. | **0084** | Companies |
-| **5. Scale and polish** | Bulk CSV onboarding, portfolio rollup if needed, reports, company admin tools in platform admin. | 0085 optional | Companies |
+| **0. Homeside-ready, no new tables** | Lift the 20-org cap and the lazy searchable switcher (branch `claude/org-switcher-scale`). Platform admin creates each HOA org by hand (existing `apps/hoa/src/app/admin/tenants` tooling). Board invites Homeside staff with existing roles. Each HOA pays itself. Free-text "managed by" footer line. 300-org fixture and measurements. | none | Homeside and its HOAs only |
+| **1. Groundwork** | Permission module (default-deny), role inventory and generated test harness, flags. | none | no one |
+| **2. Core tenancy** | Tables, `manager` role, allow-listed policies, seat bindings, audit, verify and rollback scripts. Manager replaces the borrowed board powers for Homeside's staff. | **0083** | allow-listed companies |
+| **3. Company signup, add-an-HOA, portfolio** | Company sign-up, add-HOA wizard, staff invites, assignment, portfolio, "working as" bar. | none | allow-listed companies |
+| **4. Agreements for existing HOAs** | Invite and accept, board confirmation and timeout, end agreement, handover, leaving checklist, board release, "managed by" lines. **Gated on lawyer approval.** | none | managed boards |
+| **5. Company-pays billing (deferred)** | Only when a customer asks. | **0084** | companies |
+| **6. Scale** | Bulk CSV onboarding, rollup if needed, platform admin Companies tab. | 0085 optional | companies |
 
 ---
 
@@ -333,104 +341,177 @@ Each phase ships on its own and changes nothing for existing self-managed HOAs.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| R1 | A stale `manager` seat leaves a former company with access. | Seat is a real row removed by a database trigger on agreement end; nightly check lists any seat without an active agreement; integration test ends an agreement and asserts zero access. |
-| R2 | A manager is wrongly allowed an action reserved for the association (bank, board changes). | Default-deny permission table in one pure module with a test per row; helpers keep `auth_is_admin` for reserved actions. |
-| R3 | Company-paid subscriptions break the unique `stripe_customer_id` and the webhook's lookup. | Keep the company customer id off `orgs`; add subscription-id lookup in `webhook.ts`; webhook tests extended in `packages/billing/src/webhook.test.ts`. Build the billing phase last. |
-| R4 | The 20-membership ceiling (1.4) silently hides orgs. | Phase 0, with a test at 25 and 150 memberships. |
-| R5 | A company claims an HOA it does not manage. | Attestation recorded, board confirmation required before payments, mailed letters, or professional invites; the first board accept proves a real person at the association. Platform admin can freeze an agreement. |
-| R6 | A manager acts in the wrong HOA. | Persistent "working as" bar, searchable switcher with recents, confirmation text on bulk sends naming the HOA. |
-| R7 | Email deliverability at volume (hundreds of HOAs, one sending domain) while a Gmail rejection is under investigation. | Sending address unchanged in this design; revisit per-company sending domains separately. |
-| R8 | Inngest Hobby cap (50,000 executions a month) with hundreds of HOAs, since every cron runs per org. | Budget each new job before it ships; keep the nightly seat check to one run for all orgs, not one per org. |
-| R9 | Portfolio dashboard slow at several hundred HOAs. | Indexed counts in one function; cached summary table only if measured slow (0085). |
-| R10 | Legal: delegated authority and notices differ by state (Georgia first). | Lawyer review of the letter signature wording and the agreement attestation before Phase 3 launches. |
-| R11 | Privacy of residents' data across a company's staff. | Seats are per HOA; the audit trail is visible to the board; no company-wide resident search in v1. |
+| R1 | A stale `manager` seat leaves a former company with access. | The control is the database: seat bound to its agreement by foreign key with cascade, check constraint and the end-of-agreement trigger (11.2). The nightly sweep is only an alarm that pages if the control failed. |
+| R2 | A manager is allowed an action reserved for the board (roster, bank, second signature). | Separate helper, per-table allow-list, generated test over every policy and role check (11.1). |
+| R3 | Company-paid subscriptions break the unique `stripe_customer_id` and the webhook lookup. | Deferred (section 7). |
+| R4 | The 20-membership ceiling hides orgs. | Phase 0, with 25, 150 and 300 org tests (11.3). |
+| R5 | A company claims an HOA it does not manage. | Attestation, board confirmation before payments, mailed letters or pro invites, 30-day timeout (11.7), platform-admin freeze. |
+| R6 | A manager acts in the wrong HOA. | Persistent "working as" bar, searchable switcher with recents. |
+| R7 | Email deliverability at volume on one sending domain (a Gmail rejection is under investigation). | Sending address unchanged by this design. |
+| R8 | Inngest Hobby cap (50,000 runs a month). | Section 11.4: measured table and a go/no-go gate. |
+| R9 | Portfolio slow or leaky at hundreds of HOAs. | Section 11.3. |
+| R10 | Legal: delegated authority and notices differ by state (Georgia first). | Lawyer review is a hard gate before Phase 4. |
+| R11 | Resident data exposure to company staff. | Seats per HOA only, portfolio function returns no resident data (11.3), audit visible to the board. |
+| R12 | Departing staff or company leaves live OAuth, Plaid or Stripe links, and author names vanish from rows. | Section 11.5. |
+| R13 | Phase 0 gives Homeside board powers. | Accepted knowingly for one hand-onboarded customer (decision 1); ends when Phase 2 ships. Their staff are named in an owner-visible list. |
 
-### Open questions for the owner
+### Smaller open questions
 
-1. **Q1 (D1).** Confirm option B (HOA stays its own tenant). The cost is a portfolio query and a switcher; the gain is that nothing existing changes.
-2. **Q2.** Trial: a free 30 days per HOA as today, or one trial for the whole company portfolio?
-3. **Q3.** When a company-paid HOA leaves, how many days of grace to add a card (I suggest 30)?
-4. **Q4 (D3).** Discount tiers and whether they apply to monthly and yearly alike.
-5. **Q5.** Do you want a lawyer to review the "on behalf of the association" signature wording and the attestation text before Phase 3 (recommended)?
-6. **Q6.** Should the company be able to keep private notes about an HOA that the HOA cannot see? Not in v1 unless you want it.
-7. **Q7.** Is there a read-only company role (for example an accountant at the company), or only admin and manager?
-8. **Q8.** Does a company get its own support level or a named contact? Affects how Homeside is onboarded.
-9. **Q9.** Should the dormant `organization_type='management_company'` value be removed later, or left alone? Left alone is safe.
-10. **Q10.** Homeside timing: do you want them onboarded by hand through Phase 2 before the public sign-up opens (recommended)?
+1. Trial: a free 30 days per HOA as today, or one trial for the whole company portfolio?
+2. Is there a read-only company role (for example an accountant at the company), or only admin and manager?
+3. Does a company get a named support contact? Affects how Homeside is onboarded.
+4. Should company staff be able to keep private notes about an HOA that the HOA cannot see? Not in v1 unless wanted.
+5. Volume discount tiers (illustrative only: 10, 15, 20 percent at 10, 25, 50 HOAs), needed only when company-pays is built.
+6. How many days of grace a company-paid HOA gets to add a card after the company leaves (suggest 30), again only when company-pays is built.
 
 ---
 
 ## 10. Phased implementation plan
 
-Sizes: S under half a day, M about a day, L two to three days. Follow the repo rules: a builder, a tester and an independent reviewer per task; run `pnpm typecheck`, `pnpm test:unit` and the `apps/hoa` build before pushing; migrations are given to the owner to apply, then the flag flips.
+Sizes: S under half a day, M about a day, L two to three days. Follow the repo rules: a builder, a tester and an independent reviewer per task; run `pnpm typecheck`, `pnpm test:unit` and the `apps/hoa` build before pushing; migrations go to the owner to apply, then the flag flips.
 
-### Phase 0: Groundwork (no migration)
-
-| ID | Task | Files | Size |
-|---|---|---|---|
-| T1 | Remove the 20-org ceiling: page the membership list and resolve the active org by direct lookup of the cookie's org. Tests with 25 and 150 memberships. | `apps/hoa/src/lib/orgs.ts`, `apps/hoa/src/lib/orgs.test.ts` (new or extended), `apps/hoa/src/app/actions/set-active-org.ts` | M |
-| T2 | Pure permission module: roles, the 3.2 table, default-deny. | `apps/hoa/src/lib/roles.ts`, `apps/hoa/src/lib/management/permissions.ts` (new) and test | M |
-| T3 | Flag files and UI hide switch, all `false`. | `packages/db/src/m17.ts`, `m18.ts`, `packages/ui/src/` (new management switch next to `hubs.ts`) | S |
-
-### Phase 1: Core tenancy (migration 0083, flag M17)
+### Phase 0: Homeside-ready (no migration)
 
 | ID | Task | Files | Size |
 |---|---|---|---|
-| T4 | Migration 0083: tables, role, trigger, RLS, audit columns, summary function. Verify script. | `migrations/0083_management_companies.sql`, `migrations/verify-0083-management-companies.sql` | L |
-| T5 | Integration tests: seat granted on assign, removed on end, manager blocked from reserved actions, no cross-HOA read, two companies side by side. | `tests/integration/management-companies.test.ts` (new) | L |
-| T6 | Writers for the audit columns; regenerate DB types by hand-adding then checking (see the repo footgun on `pnpm gen:types`, only after 0083 is applied). | `apps/hoa/src/lib/audit*` (find writer), `packages/db/src/database.types.ts` | M |
-| T7 | Extend `Role` and the membership read for `manager`. | `apps/hoa/src/lib/roles.ts`, `apps/hoa/src/lib/auth.ts`, `apps/hoa/src/lib/orgs.ts` | M |
+| T1 | Lift the 20-org cap: resolve the active org by a direct `.eq('org_id', cookieOrg)` read and page the list. Tests at 25, 150, 300. (In flight on `claude/org-switcher-scale`; confirm it covers `getUserHoaOrgs` and `getMembershipRole`.) | `apps/hoa/src/lib/orgs.ts`, `apps/hoa/src/lib/orgs.test.ts`, `apps/hoa/src/app/actions/set-active-org.ts` | M |
+| T2 | Lazy searchable switcher and recents. | `apps/hoa/src/components/layout/OrgSwitcher.tsx` | M |
+| T3 | Audit of RLS-only list queries without an org filter (the 69 `limit(1)` files and list pages), fixed where a multi-org user would see mixed rows. | `apps/hoa/src/app/**`, `apps/hoa/src/lib/**` (inventory first) | L |
+| T4 | 300-org test fixture and a measurement of `auth_org_ids()` with 300 elements. | `tests/integration/` fixture, a note in this doc | M |
+| T5 | Free-text "managed by" footer line in email and letters, settable by the board. | `apps/hoa/src/lib/email/shell.ts`, `apps/hoa/src/lib/mailed-letters/`, settings page | M |
+| T6 | Inngest usage table measured from the dashboard; go/no-go sheet. | this doc, `docs/owner-actions.md` | S |
+| T7 | Runbook for the platform admin to create and hand over an HOA org, and a list of Homeside staff holding board powers. | `docs/` runbook, `apps/hoa/src/app/admin/tenants/` | S |
 
-### Phase 2: Company, add-an-HOA, switcher, portfolio
-
-| ID | Task | Files | Size |
-|---|---|---|---|
-| T8 | Company sign-up and company record creation (allow-listed). | `apps/hoa/src/app/(auth)/` new `management-signup`, `apps/hoa/src/lib/management/companies.ts` | M |
-| T9 | Staff invites and role assignment. | `apps/hoa/src/lib/management/staff.ts`, `apps/hoa/src/app/(portfolio)/staff/` | M |
-| T10 | Add-an-HOA wizard (creates org, association, active agreement, attestation). Reuses onboarding logic. | `apps/hoa/src/app/(portfolio)/communities/new/`, `apps/hoa/src/app/onboarding/actions.ts` (extract shared create) | L |
-| T11 | Link roster import and board invite into the wizard. | `apps/hoa/src/app/admin/import-units/actions.ts`, `apps/hoa/src/app/(dashboard)/properties/import/` | M |
-| T12 | Searchable switcher and "working as" bar. | `apps/hoa/src/components/layout/OrgSwitcher.tsx`, new `WorkingAsBar.tsx`, layout | M |
-| T13 | Portfolio page using `company_portfolio_summary`. | `apps/hoa/src/app/(portfolio)/portfolio/page.tsx`, `apps/hoa/src/lib/management/portfolio.ts` | L |
-| T14 | Assignment UI (admin assigns staff to HOAs, primary contact). | `apps/hoa/src/app/(portfolio)/communities/[id]/` | M |
-
-### Phase 3: Agreements for existing HOAs
+### Phase 1: Groundwork (no migration)
 
 | ID | Task | Files | Size |
 |---|---|---|---|
-| T15 | Invite a company from HOA Settings, accept screen in plain language, from either side. | `apps/hoa/src/app/(dashboard)/settings/management/` (new), email template under `apps/hoa/src/lib/email/` | L |
-| T16 | End agreement from both sides, optional read-only handover, seat removal check. | `apps/hoa/src/lib/management/agreements.ts`, settings page | M |
-| T17 | Board confirmation gate: block online payments, mailed letters, pro invites until confirmed. | `apps/hoa/src/app/(dashboard)/settings/online-payments/`, `apps/hoa/src/lib/mailed-letters/config.ts`, `apps/hoa/src/lib/professionals/guard.ts` | M |
-| T18 | Activity view for the board (management company filter). | `apps/hoa/src/app/(dashboard)/settings/activity/` | M |
-| T19 | "Managed by" line in email footer, letters, and Settings. | `apps/hoa/src/lib/email/shell.ts`, `apps/hoa/src/lib/mailed-letters/`, tests | M |
+| T8 | Default-deny permission module and the role inventory as data. | `apps/hoa/src/lib/roles.ts`, `apps/hoa/src/lib/management/permissions.ts` (new) and test | M |
+| T9 | Flag files and UI hide switch, all false. | `packages/db/src/m17.ts`, `packages/ui/src/` | S |
+| T10 | Generated test: enumerate every policy and every role check, assert the manager result (11.1). Runs "red" against today's tree to list what must be opted in. | `tests/integration/role-matrix.test.ts` (new) | L |
 
-### Phase 4: Company billing (migration 0084, flag M18)
+### Phase 2: Core tenancy (migration 0083, flag M17)
 
 | ID | Task | Files | Size |
 |---|---|---|---|
-| T20 | Migration 0084 and verify script. | `migrations/0084_company_billing.sql`, verify file | M |
-| T21 | Company-pays checkout, payer switch per HOA, webhook lookup by subscription id. | `packages/billing/src/checkout-v2.ts`, `packages/billing/src/webhook.ts` and tests, `apps/hoa/src/lib/billing.ts` | L |
-| T22 | Company billing page and volume discount. | `apps/hoa/src/app/(portfolio)/billing/`, `packages/billing/src/pricing-v2.ts` (discount helper, band prices untouched) | L |
-| T23 | Exit grace when a company-paid HOA leaves. | `packages/billing/src/billing-status.ts`, `apps/hoa/src/components/billing/BillingStatusBanner.tsx` | M |
+| T11 | Migration 0083, verify and rollback scripts. | `migrations/0083_management_companies.sql`, `migrations/verify-0083-management-companies.sql`, `migrations/rollback-0083.sql` | L |
+| T12 | Allow-listed policies using `auth_is_manager_or_board` on the opted-in tables only. | in 0083 | L |
+| T13 | App guards: `Role`, `getCurrentUserRoleInOrg`, `requireBoardOrAdmin`, and the guards named in 11.1 learn `manager` explicitly. | `apps/hoa/src/lib/auth.ts`, `roles.ts`, the files in 11.1 | L |
+| T14 | Seat integration tests: invites, queued sends, concurrent grant, cascade on end, expiry (11.2). | `tests/integration/management-seats.test.ts` | L |
+| T15 | Audit writers, actor-name snapshots, type regeneration only after 0083 is applied (see the `gen:types` footgun). | audit writer (find first), `packages/db/src/database.types.ts` | M |
 
-### Phase 5: Scale and polish
+### Phase 3: Company, add-an-HOA, portfolio
 
 | ID | Task | Files | Size |
 |---|---|---|---|
-| T24 | Bulk CSV onboarding of HOAs. | `apps/hoa/src/app/(portfolio)/communities/import/` | L |
-| T25 | Platform admin Companies tab and freeze switch. | `apps/hoa/src/app/admin/tenants/`, `apps/hoa/src/lib/platform-admin.ts` | M |
-| T26 | Nightly stale-seat check; rollup table if measured slow (0085). | `apps/hoa/src/lib/management/seat-check.ts`, optional `migrations/0085_portfolio_rollup.sql` | M |
+| T16 | Company sign-up and record creation (allow-listed). | `apps/hoa/src/app/(auth)/management-signup`, `apps/hoa/src/lib/management/companies.ts` | M |
+| T17 | Staff invites and assignment, primary contact. | `apps/hoa/src/lib/management/staff.ts`, `apps/hoa/src/app/(portfolio)/staff/` | M |
+| T18 | Add-an-HOA wizard (creates org, association, active agreement, attestation). | `apps/hoa/src/app/(portfolio)/communities/new/`, `apps/hoa/src/app/onboarding/actions.ts` (extract shared create) | L |
+| T19 | Roster import and board invite from the wizard. | `apps/hoa/src/app/admin/import-units/actions.ts`, `(dashboard)/properties/import/` | M |
+| T20 | Portfolio page on `company_portfolio_summary`, "working as" bar. | `apps/hoa/src/app/(portfolio)/portfolio/page.tsx`, `apps/hoa/src/lib/management/portfolio.ts` | L |
 
-**Total:** 26 tasks, 8 large, 17 medium, 1 small. Roughly 5 to 7 weeks of one agent team working in parallel on disjoint files, with the owner steps being two or three migration applies and two flag flips.
+### Phase 4: Agreements for existing HOAs (gated on lawyer approval)
 
-### Owner actions this will create (for `docs/owner-actions.md`, when built)
+| ID | Task | Files | Size |
+|---|---|---|---|
+| T21 | Invite a company, plain-language accept screen, from either side. | `apps/hoa/src/app/(dashboard)/settings/management/`, `apps/hoa/src/lib/email/` | L |
+| T22 | End agreement, read-only handover, invite and pending-send revocation, departing-company checklist and export (11.5). | `apps/hoa/src/lib/management/agreements.ts`, settings page | L |
+| T23 | Board confirmation gate and 30-day timeout; board release for owner-facing actions (11.6, 11.7). | `settings/online-payments/`, `lib/mailed-letters/config.ts`, `lib/professionals/guard.ts` | L |
+| T24 | Board activity view; "managed by" lines now driven by the agreement. | `settings/activity/`, `lib/email/shell.ts` | M |
 
-Apply 0083 (then flip M17), apply 0084 (then flip M18), choose D1 to D5 now, approve the allow-list for Homeside, and (if company billing is wanted) create the discount coupons in Stripe.
+### Phase 5 (deferred) and Phase 6
+
+| ID | Task | Files | Size |
+|---|---|---|---|
+| T25 | Company-pays billing, only when asked: 0084, webhook lookup by subscription id, company billing page, discount. | `migrations/0084_company_billing.sql`, `packages/billing/src/webhook.ts`, `checkout-v2.ts`, `pricing-v2.ts` | L |
+| T26 | Bulk CSV onboarding. | `apps/hoa/src/app/(portfolio)/communities/import/` | L |
+| T27 | Platform admin Companies tab and freeze switch. | `apps/hoa/src/app/admin/tenants/`, `lib/platform-admin.ts` | M |
+| T28 | Rollup table (0085) only if measured slow. | `migrations/0085_portfolio_rollup.sql` | M |
+
+**Total:** 28 tasks: 13 large, 12 medium, 3 small. Phase 0 alone is roughly one to two weeks and needs no owner migration step.
+
+---
+
+## 11. Hardening added after the architecture review
+
+### 11.1 Making `manager` safe (replaces "RLS works unchanged")
+
+**Rule.** Do not map `manager` into `auth_is_board_or_admin`. Add a separate helper `auth_is_manager_or_board(org)` and use it, table by table, only where the allow-list says a manager may act. Anything not on the allow-list behaves as it does today, which means a manager is denied.
+
+**Why.** Mapping it in would give managers the `org_members` write policies at `migrations/0071_m6_roles.sql:187-208` (they could add and remove board members and professionals) and the second sign-off on money approvals (`0071` around line 66). Both are reserved for the association.
+
+**Inventory of places that must be reviewed (from the architecture review; line numbers are the reviewer's and are re-checked in task T10):**
+
+| Kind | Where |
+|---|---|
+| Inlined `role IN ('admin','board')` in migrations | `0012:228-255`, `0040:134`, `0045:197`, `0046:182`, `0051:195`, `0070:190`, `0071:949`, `0071:233`, `0071:1051` |
+| Policies on `org_members` writes | `0071:187-208` (must exclude `manager`) |
+| App guards | `lib/auth.ts` `getCurrentUserRoleInOrg` (about lines 27-30) and `requireBoardOrAdmin` (about 57); `lib/approvals-inbox/model.ts:317`; `lib/community-board/rules.ts:26`; `lib/ga-registration/model.ts:357`; `lib/contact-updates/apply.ts:70`; `lib/board-in-app-notify.ts:23`; `lib/communications/audience.ts:714` |
+
+**Generated test (task T10).** A test that reads the live catalog (`pg_policies`, function bodies) and the TypeScript guards, enumerates every policy and every role check, and asserts the result for a `manager`: allowed only for entries on the explicit allow-list file, denied otherwise. Adding a new policy or guard that mentions a role without a matching allow-list line fails CI. This replaces trust in a hand-made list.
+
+**Who creates and removes seats.** Only service-role agreement functions create or delete `manager` rows. The 0071 insert and update policies exclude `manager`, and a guard trigger rejects any manager insert, update or delete not coming from those functions, even from `admin`.
+
+### 11.2 Binding each seat to its agreement
+
+- `CHECK (role <> 'manager' OR source_agreement_id IS NOT NULL)`.
+- `source_agreement_id` is a foreign key to `management_agreements` with `ON DELETE CASCADE`.
+- The grant function takes `SELECT ... FOR UPDATE` on the agreement row so a seat cannot be granted while the agreement is ending.
+- Manager seats carry their own expiry in `access_expires_at`, the pattern from `0071:156-157`; the read-only handover is the same column with a shorter date and a read-only flag.
+- Ending an agreement, in the same transaction, deletes the seats, revokes invites the manager created, and cancels pending sends (queued emails, letters and scheduled communications) authored by those seats.
+- The end-of-agreement trigger is the control. The nightly sweep is only an alarm that reports any seat without an active agreement.
+- Integration tests: invites created by a manager are dead after the end; a queued send is cancelled; two concurrent grants against an ending agreement end with no seat; cascade removes seats when an agreement row is deleted.
+
+### 11.3 Scale for 300 organizations
+
+- Resolve the active org with a direct `.eq('org_id', cookieOrg)` rather than scanning a capped list (T1).
+- A lazy, searchable switcher (T2) that loads names on demand.
+- Measure `auth_org_ids()` with a 300-element result and every policy using `= ANY(auth_org_ids())`; record numbers in this doc (T4). If slow, cache the id array per request.
+- Audit list queries that depend on RLS alone with no `org_id` filter. With one org per user that was invisible; with 300 a missing filter returns rows from many HOAs mixed together. The 69 files containing `.limit(1)` are the first sweep (T3).
+- A 300-org fixture in the integration suite.
+- **Portfolio summary function:** `company_portfolio_summary()` returns rows only for HOAs where the caller's company has an active agreement **and** the caller is assigned (or is a company admin), and returns counts and statuses only: no resident names, addresses, balances per person or message text.
+
+### 11.4 Inngest Hobby budget
+
+The plan allows 50,000 runs a month and at the limit every job stops, including dues reminders and late fees (`docs/releases/2026-10-30-0745-background-job-schedule.md`). Baseline from the cron declarations in `packages/jobs/src` (starts only, before event-driven runs and any per-org fan-out):
+
+| Schedule | Jobs | Runs a month |
+|---|---|---|
+| every 5 minutes | `communications-scheduled`, `mailbox-sync` (first) | 17,280 |
+| every 15 minutes | `mailbox-attachments` | 2,880 |
+| every 30 minutes | `mailbox-reconcile`, `mailbox-sync` (second), `mailbox-reply-embeddings` | 4,320 |
+| every 4 hours | `plaid-sync` | 180 |
+| daily (13 jobs: digest, late fees, pm late fees, dues reminders, autopay, billing renewal, band sync, poll results, vendor COI, recurring entries, eviction reminders, wizard draft reminders, AI spend alert) | | about 390 |
+| weekly | `weekly-analytics`, `state-law-refresh` | about 9 |
+| **Cron starts total** | | **about 25,000** |
+
+That matches the release note ("usage drops to about half"). What I did not trace, and task T6 must measure from the Inngest dashboard: whether the mailbox and digest jobs fan out one run per org, whether steps count as executions, and how many event-driven runs come on top. Until measured, the table shows only headroom of roughly 25,000 runs. Rule: **do not onboard past 20 HOAs, and gate 100 HOAs, on measured headroom or an upgraded plan.** Any new job must add its row to this table before it ships.
+
+### 11.5 Leaving: people, rows and connections
+
+- **Actor-name snapshots.** Author foreign keys are `ON DELETE SET NULL` (see `0007`), so when a manager leaves their name vanishes from rows they wrote. Rows authored by a manager seat store a snapshot of the actor's display name and company at write time.
+- **Departing-company checklist** shown to both sides at the end of an agreement: open items the company still owns, scheduled and queued sends cancelled, invites revoked, connections to transfer or revoke, and the export below.
+- **Export on leaving:** the HOA gets the existing data export (`apps/hoa/src/lib/data-export/`) plus the agreement history. The company gets an export of its own activity log for the HOA.
+- **Company-level assets** (templates, vendor lists, letterhead) are **copy-on-use or out of scope**: when a manager uses a company template in an HOA it is copied into the HOA and belongs to it; nothing is shared by reference, so nothing is lost or leaked when the agreement ends.
+- **Connections made in a manager's session** (Gmail OAuth for the shared mailbox, Plaid bank links, Stripe Connect prompts): each connection records who created it. At the end of an agreement the list is shown and each is revoked or transferred to a board member. Stripe Connect and bank details are blocked to managers by design, so those stay with the treasurer; mailbox OAuth and Plaid are the ones to check.
+
+### 11.6 Board release for owner-facing manager actions
+
+Letters, fines and notices that change an owner's position (violation fines, mailed letters, collection steps) need a **board release** from a board member before they go out, when sent by a manager. Releases are logged. Whether this is on by default or a per-HOA setting is part of decision 2; my recommendation is on by default for fines and collection steps, optional for routine notices and announcements.
+
+### 11.7 Rules for edge cases
+
+- **Role precedence.** If company staff are also a resident or board member of a managed HOA, they hold the highest of their own roles there, and the audit trail records the capacity (`manager`, `board`, `resident`) of each action.
+- **Overlap.** One active management company per HOA. A second invitation is refused until the first agreement ends; a switch is end-then-start, never two at once.
+- **Unconfirmed company-created HOA.** `confirm_by` is 30 days after creation. If the board has not confirmed by then, the HOA is frozen: managers lose write access (the board, if any has joined, keeps it), a notice goes to the company admin, and the platform admin can review. Online payments and mailed letters stay off in the meantime.
+- **Lawyer review as a gate.** Phase 4 does not launch until a lawyer has approved the attestation text, the "on behalf of the association" signature wording and the accept screen for Georgia.
+- **The dormant `organization_type='management_company'`.** The company is its own table, so this value is **unused and left alone** (dropping a CHECK value gives no benefit and risks the platform-admin badge at `apps/hoa/src/app/admin/tenants/[id]/page.tsx:63`). Migration 0083 documents it as reserved and unused.
 
 ---
 
 ## Appendix: facts that could not be settled from the code
 
-- Whether `auth_is_board_or_admin` can be extended without touching other callers is assumed from its role in `0070`/`0071`; the migration author must read its current body in `0012` and `0071` before editing.
+- The role-check inventory in 11.1 and the Inngest fan-out question in 11.4 come from the architecture review and a cron scan; task T10 re-verifies every line number, and task T6 measures actual Inngest usage.
 - The exact audit-log writer location was not traced; task T6 starts there.
 - Whether the matching of Stripe events to orgs depends only on customer id is inferred from `webhook.ts:224`; task T21 must confirm it.
 - `docs/` and `apps` contain no prior mention of Homeside or management company onboarding beyond the schema comment, so the Homeside contract terms (who signs, who pays) are an owner input.
