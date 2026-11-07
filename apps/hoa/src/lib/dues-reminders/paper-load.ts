@@ -9,24 +9,32 @@ interface Row extends ChargeSource {
 }
 
 /**
- * Every open charge in the organization, grouped by home (property). The
+ * Every open charge of one association, grouped by home (property). The
  * same open/partial, not-deleted rule and the same balance math as the
  * emailed reminder. Read to the end with readAll and scoped to the org; a
  * failed page throws, so the page can show a load failure instead of a
  * quietly short list. Nothing is logged here, and error text carries only a
  * table name and code.
  */
+export interface OpenCharges {
+  byProperty: Map<string, ReminderCharge[]>
+  /** Units that owe money but are not linked to a home record (no legacy_hoa_property_id). Counts, never ids. */
+  unmappedUnits: number
+}
+
 export async function loadOpenChargesByProperty(
   supabase: SupabaseClient,
   orgId: string,
+  associationId: string,
   today: string,
-): Promise<Map<string, ReminderCharge[]>> {
+): Promise<OpenCharges> {
   const rows = await readAll<Row>(
     (from, to) =>
       supabase
         .from('assessments')
         .select('id, unit_id, amount, due_date, assessment_type, payments(amount)')
         .eq('organization_id', orgId)
+        .eq('association_id', associationId)
         .in('status', ['open', 'partial'])
         .is('deleted_at', null)
         .order('id', { ascending: true })
@@ -35,15 +43,19 @@ export async function loadOpenChargesByProperty(
   )
   const unitToProperty = await unitPropertyIndex(supabase as never, orgId)
   const out = new Map<string, ReminderCharge[]>()
+  const unmapped = new Set<string>()
   for (const r of rows) {
-    const propertyId = unitToProperty.get(r.unit_id as never) as string | undefined
-    if (!propertyId) continue
     const charge = chargeFromAssessment(r, today)
     if (!charge) continue
+    const propertyId = unitToProperty.get(r.unit_id as never) as string | undefined
+    if (!propertyId) {
+      unmapped.add(r.unit_id)
+      continue
+    }
     const list = out.get(propertyId) ?? []
     list.push(charge)
     out.set(propertyId, list)
   }
   for (const list of out.values()) sortCharges(list)
-  return out
+  return { byProperty: out, unmappedUnits: unmapped.size }
 }

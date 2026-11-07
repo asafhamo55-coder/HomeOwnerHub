@@ -11,10 +11,10 @@ import { loadRosterInput, readRosterAssociations } from '@/lib/properties/statut
 import { buildOwnerRoster } from '@/lib/properties/statutory-roster/model'
 import { buildPaperReminders } from '@/lib/dues-reminders/paper'
 import { loadOpenChargesByProperty } from '@/lib/dues-reminders/paper-load'
-import { checksOf, paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
+import { paySettingsSecret, readZelleSettings } from '@/lib/pay-by-zelle'
 import { readBoardContacts } from '@/lib/association-contacts'
 import { MAX_NOTICE_CONTACTS } from '@/lib/join-notice'
-import { PaperReminderLetters, type PayHow } from './PaperReminderLetters'
+import { PaperReminderLetters, payHowFrom } from './PaperReminderLetters'
 import { PrintRemindersButton } from './PrintRemindersButton'
 
 export const metadata = { title: 'Paper dues reminders' }
@@ -85,7 +85,14 @@ export default async function PaperRemindersPage() {
   })
   if (!consent.ok) return page(<LoadFailed what="who agreed to electronic notices" retryHref={PATH} />)
 
-  const charges = await tryLoad('paper reminders charges', () => loadOpenChargesByProperty(supabase, ctx.org.id, asOf))
+  // ONE association is the source for the letters: its name, its payee, its
+  // contacts and its charges. Another association's payee is never printed
+  // on this association's homes.
+  const primaryAssoc = assoc.data.primary
+  if (!primaryAssoc) return page(<LoadFailed what="your association" retryHref={PATH} />)
+  const charges = await tryLoad('paper reminders charges', () =>
+    loadOpenChargesByProperty(supabase, ctx.org.id, primaryAssoc.id, asOf),
+  )
   if (!charges.ok) return page(<LoadFailed what="what owners owe" retryHref={PATH} />)
 
   const settings = await tryLoad('paper reminders settings', () =>
@@ -103,27 +110,26 @@ export default async function PaperRemindersPage() {
   )
   if (!settings.ok) return page(<LoadFailed what="your payment details" retryHref={PATH} />)
 
-  const primary = settings.data[0] ?? null
-  const associationName = primary?.name ?? ctx.org.name
-  const read = primary ? readZelleSettings(primary.id, primary.compliance_settings, paySettingsSecret()) : ({ state: 'not_configured' } as const)
-  const zelle = read.state === 'configured' ? read.settings : null
-  const pay: PayHow = {
-    checks: checksOf(read),
-    zelle: zelle ? { recipient: zelle.recipient, recipientName: zelle.recipientName } : null,
-    instructions: read.state === 'configured' || read.state === 'checks_only' ? read.settings.instructions : null,
-  }
-  const contacts = readBoardContacts(primary?.compliance_settings)
+  const primary = settings.data.find((a) => a.id === primaryAssoc.id)
+  if (!primary) return page(<LoadFailed what="your payment details" retryHref={PATH} />)
+  const associationName = primary.name
+  const read = readZelleSettings(primary.id, primary.compliance_settings, paySettingsSecret())
+  const pay = payHowFrom(read)
+  const contacts = readBoardContacts(primary.compliance_settings)
     .filter((c) => c.phone !== '' || c.email !== '')
     .slice(0, MAX_NOTICE_CONTACTS)
 
+  const unplaced = noOwner + charges.data.unmappedUnits
+  const noPayHow = !pay.checks && !pay.zelle
+  const cannotPrint = noPayHow && contacts.length === 0
   const roster = buildOwnerRoster(loaded.data.input, asOf)
-  const { letters, noAddress } = buildPaperReminders(roster.rows, charges.data, consent.data)
+  const { letters, noAddress, noOwner } = buildPaperReminders(roster.rows, charges.data.byProperty, consent.data)
 
   return page(
     <div className="space-y-5 print:space-y-0">
       <div className="space-y-4 print:hidden">
         <ol
-          className="list-decimal space-y-1 rounded-lg border-2 border-foreground/30 bg-surface-subtle p-4 pl-9 text-base text-foreground"
+          className="list-decimal space-y-1 rounded-lg border-2 border-foreground/30 bg-subtle p-4 pl-9 text-base text-foreground"
           aria-label="How to print"
         >
           <li>Press the Print button. Each owner gets their own page.</li>
@@ -148,12 +154,40 @@ export default async function PaperRemindersPage() {
             Properties page.
           </Alert>
         ) : null}
-        {letters.length > 0 && !pay.checks && !pay.zelle ? (
+        {settings.data.length > 1 ? (
+          <p className="text-sm text-foreground-secondary">
+            These letters are for {associationName}. Its payment details and contacts are printed on every letter.
+          </p>
+        ) : null}
+        <p className="text-sm text-foreground-secondary">
+          Owners in states that require consent to email notices are included here even if they also received an email reminder.
+        </p>
+        {unplaced > 0 ? (
+          <Alert variant="warning" title={`${unplaced} ${unplaced === 1 ? 'home owes' : 'homes owe'} money but no letter was made`}>
+            {unplaced === 1 ? 'This home has' : 'These homes have'} no owner on file or no linked home record, so there is nobody to send a letter to. Fix{' '}
+            {unplaced === 1 ? 'it' : 'them'} under Properties.
+          </Alert>
+        ) : null}
+        {letters.length > 0 && read.state === 'unverified' ? (
+          <Alert variant="warning" title="Payment details could not be checked">
+            Your saved payment details could not be verified. Please save them again under Settings, Payments.
+          </Alert>
+        ) : letters.length > 0 && noPayHow ? (
           <Alert variant="warning" title="How to pay is not set up yet">
             The letters will tell owners to contact the board. Add check or Zelle details under Settings, then Payments, to print them on every letter.
           </Alert>
         ) : null}
-        {letters.length > 0 ? <PrintRemindersButton count={letters.length} /> : null}
+        {letters.length > 0 && contacts.length === 0 ? (
+          <Alert variant="warning" title="No board contact is set up">
+            The letters will say to ask the board for contact details. Add a phone number or email under Settings, then Contacts.
+          </Alert>
+        ) : null}
+        {letters.length > 0 && cannotPrint ? (
+          <p className="text-base font-medium text-foreground" role="status">
+            Printing is turned off until you add how to pay or a board contact. A letter with neither would leave owners with no way to respond.
+          </p>
+        ) : null}
+        {letters.length > 0 ? <PrintRemindersButton count={letters.length} disabled={cannotPrint} /> : null}
       </div>
       {letters.length === 0 ? (
         <Alert variant="info" title="Nobody needs a paper reminder">

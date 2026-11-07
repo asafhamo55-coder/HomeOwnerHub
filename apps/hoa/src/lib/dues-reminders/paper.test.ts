@@ -115,3 +115,26 @@ describe('buildPaperReminders letters', () => {
     expect(pat.addressLines).toEqual(['Pat Lee', 'PO Box 9', 'Ocala, FL 34470'])
   })
 })
+
+describe('buildPaperReminders extras', () => {
+  it('keeps two different owners at one address as separate letters', () => {
+    const mailing = { text: 'PO BOX 9, OCALA FL 34470', source: 'on_file' as const }
+    const rows = [row('a', [owner('Pat Lee', null)], { mailing }), row('bb', [owner('Sam Roe', null)], { mailing })]
+    const { letters } = buildPaperReminders(rows, owing({ a: [charge('1', 10)], bb: [charge('2', 20)] }))
+    expect(letters.map((l) => l.addressee).sort()).toEqual(['Pat Lee', 'Sam Roe'])
+  })
+
+  it('counts charged homes with no owner or no roster row', () => {
+    const rows = [row('a', [], {}), row('b', [owner('Pat Lee', null)])]
+    const out = buildPaperReminders(rows, owing({ a: [charge('1', 10)], b: [charge('2', 10)], zz: [charge('3', 10)] }))
+    expect(out.noOwner).toBe(2)
+    expect(out.letters).toHaveLength(1)
+  })
+
+  it('marks a letter with no owner name as unnamed and labels the property by its street only', () => {
+    const rows = [row('a', [owner('', null)], { unitNumber: '5' })]
+    const l = buildPaperReminders(rows, owing({ a: [charge('1', 10)] })).letters[0]!
+    expect(l.named).toBe(false)
+    expect(l.packet.properties[0]!.label).toBe('101 Oak St, #5')
+  })
+})

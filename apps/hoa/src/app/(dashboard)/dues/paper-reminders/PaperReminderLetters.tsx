@@ -2,7 +2,7 @@ import { chargeTypeLabel } from '@/lib/assessment-labels'
 import { telHref, type BoardContact } from '@/lib/association-contacts'
 import { formatDueDate, formatUsd } from '@/lib/dues-reminders/render'
 import type { PaperLetter } from '@/lib/dues-reminders/paper'
-import type { CheckSettings } from '@/lib/pay-by-zelle'
+import { checksOf, type CheckSettings, type ZelleReadResult } from '@/lib/pay-by-zelle'
 import { Letterhead } from '@/components/print/Letterhead'
 
 /** How the board takes payment, already verified (pay-by-zelle.ts). Nulls mean "not set up". */
@@ -10,6 +10,16 @@ export interface PayHow {
   checks: CheckSettings | null
   zelle: { recipient: string; recipientName: string | null } | null
   instructions: string | null
+}
+
+/** Only a verified read is printed. Unverified or missing settings print nothing about payment. */
+export function payHowFrom(read: ZelleReadResult): PayHow {
+  const zelle = read.state === 'configured' ? read.settings : null
+  return {
+    checks: checksOf(read),
+    zelle: zelle ? { recipient: zelle.recipient, recipientName: zelle.recipientName } : null,
+    instructions: read.state === 'configured' || read.state === 'checks_only' ? read.settings.instructions : null,
+  }
 }
 
 /**
@@ -56,7 +66,7 @@ export function PaperReminderLetters({
               ))}
             </address>
 
-            <p className="mt-4 font-bold">Hi {letter.addressee},</p>
+            <p className="mt-4 font-bold">{letter.named ? `Hi ${letter.addressee},` : 'Hello,'}</p>
             <p>Here is everything currently outstanding on your account.</p>
 
             <section aria-label="Amount due" className="keep mt-3 border-4 border-black p-3">
@@ -112,7 +122,7 @@ export function PaperReminderLetters({
                   ))}
                 </ul>
               ) : (
-                <p>{associationName}</p>
+                <p>Please ask the board for contact details.</p>
               )}
             </section>
           </article>

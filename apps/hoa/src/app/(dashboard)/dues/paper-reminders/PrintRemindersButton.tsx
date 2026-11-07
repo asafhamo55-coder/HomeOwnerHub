@@ -3,9 +3,9 @@
 import { Printer } from 'lucide-react'
 import { Button } from '@homeowner-portal/ui'
 
-export function PrintRemindersButton({ count }: { count: number }) {
+export function PrintRemindersButton({ count, disabled = false }: { count: number; disabled?: boolean }) {
   return (
-    <Button type="button" icon={<Printer aria-hidden />} onClick={() => window.print()} className="min-h-11">
+    <Button type="button" icon={<Printer aria-hidden />} onClick={() => window.print()} className="min-h-11" disabled={disabled}>
       {count === 1 ? 'Print 1 reminder' : `Print ${count} reminders`}
     </Button>
   )

@@ -41,7 +41,9 @@ vi.mock('@/lib/pay-by-zelle', () => ({
   readZelleSettings: m.zelle,
   checksOf: (r: { state: string; settings?: { checks?: unknown } }) => r.settings?.checks ?? null,
 }))
-vi.mock('./PrintRemindersButton', () => ({ PrintRemindersButton: ({ count }: { count: number }) => <button>PRINT {count}</button> }))
+vi.mock('./PrintRemindersButton', () => ({ PrintRemindersButton: ({ count, disabled }: { count: number; disabled?: boolean }) => (
+    <button disabled={disabled}>PRINT {count}</button>
+  ) }))
 
 const { default: Page } = await import('./page')
 
@@ -73,13 +75,13 @@ const charge = (id: string, balance: number, pastDue = true) => ({
   daysLate: pastDue ? 37 : 0,
 })
 
-function seed(homes: ReturnType<typeof home>[], owed: Record<string, ReturnType<typeof charge>[]>) {
-  m.assoc.mockResolvedValue({ rows: [], primary: { state: 'GA' }, timeZone: 'America/New_York' })
+function seed(homes: ReturnType<typeof home>[], owed: Record<string, ReturnType<typeof charge>[]>, unmappedUnits = 0) {
+  m.assoc.mockResolvedValue({ rows: [], primary: { id: 'a1', state: 'GA' }, timeZone: 'America/New_York' })
   m.load.mockResolvedValue({
     states: [...new Set(homes.map((h) => h.state))],
     input: { homes, ownerships: [], residents: [], charges: [], payments: [], timeZone: 'America/New_York' },
   })
-  m.charges.mockResolvedValue(new Map(Object.entries(owed)))
+  m.charges.mockResolvedValue({ byProperty: new Map(Object.entries(owed)), unmappedUnits })
 }
 
 const CHECKS = { payableTo: 'Madison Park HOA', mailTo: 'PO Box 9, Atlanta, GA 30301', dropOff: null }
@@ -124,6 +126,7 @@ describe('paper dues reminders page: access', () => {
     expect(m.assoc.mock.calls[0]![1]).toBe('o1')
     expect(m.load.mock.calls[0]![1]).toBe('o1')
     expect(m.charges.mock.calls[0]![1]).toBe('o1')
+    expect(m.charges.mock.calls[0]![2]).toBe('a1')
     expect(m.consent.mock.calls[0]![1]).toBe('o1')
   })
 })
@@ -248,6 +251,76 @@ describe('paper dues reminders page: one page per owner', () => {
     // Siblings under one parent, so :last-child is the final letter only.
     expect(new Set(articles.map((a) => a.parentElement)).size).toBe(1)
     expect(articles[2]!.nextElementSibling).toBeNull()
+  })
+})
+
+describe('paper dues reminders page: gaps are never silent', () => {
+  it('warns about homes that owe money but have no owner or no linked home record', async () => {
+    const noOwner = { ...home(2, null), recordOwner: null }
+    seed([home(1, null), noOwner], { p1: [charge('c1', 100)], p2: [charge('c2', 100)], p9: [charge('c9', 100)] }, 2)
+    const html = await render()
+    expect(letterCount(html)).toBe(1)
+    // p2 has no owner, p9 is not on the roster, plus 2 units with no home record.
+    expect(html).toContain('4 homes owe money but no letter was made')
+    expect(html).toContain('Fix')
+  })
+
+  it('warns, changes the letter fallback and disables Print when there is no contact', async () => {
+    seed([home(1, null)], { p1: [charge('c1', 100)] })
+    m.readAll.mockResolvedValue([{ id: 'a1', name: 'Madison Park', compliance_settings: {} }])
+    let html = await render()
+    expect(html).toContain('No board contact is set up')
+    expect(html).toContain('Please ask the board for contact details.')
+    expect(html).not.toContain('<button disabled')
+    m.zelle.mockReturnValue({ state: 'not_configured' })
+    html = await render()
+    expect(html).toContain('<button disabled')
+    expect(html).toContain('Printing is turned off')
+  })
+
+  it('uses one association and says which one when the org has several', async () => {
+    seed([home(1, null)], { p1: [charge('c1', 100)] })
+    m.readAll.mockResolvedValue([
+      { id: 'a0', name: 'Other Association', compliance_settings: { board_contacts: [{ label: 'X', name: 'Wrong Person', phone: '678-555-9999', email: '' }] } },
+      { id: 'a1', name: 'Madison Park', compliance_settings: { board_contacts: [{ label: 'Treasurer', name: 'Pat Lee', phone: '678-555-0100', email: '' }] } },
+    ])
+    const html = await render()
+    expect(html).toContain('These letters are for Madison Park.')
+    expect(html).toContain('Pat Lee')
+    expect(html).not.toContain('Wrong Person')
+    expect(m.zelle.mock.calls[0]![0]).toBe('a1')
+  })
+
+  it('fails closed when the chosen association is missing from the settings read', async () => {
+    seed([home(1, null)], { p1: [charge('c1', 100)] })
+    m.readAll.mockResolvedValue([{ id: 'zzz', name: 'Other', compliance_settings: {} }])
+    expect(letterCount(await render())).toBe(0)
+  })
+
+  it('tells the board when saved payment details do not verify', async () => {
+    seed([home(1, null)], { p1: [charge('c1', 100)] })
+    m.zelle.mockReturnValue({ state: 'unverified' })
+    const html = await render()
+    expect(html).toContain('Your saved payment details could not be verified. Please save them again under Settings, Payments.')
+    expect(html).toContain('Please contact the board to find out how to pay.')
+  })
+
+  it('explains the consent rule on the page', async () => {
+    seed([home(1, null)], { p1: [charge('c1', 100)] })
+    expect(await render()).toContain(
+      'Owners in states that require consent to email notices are included here even if they also received an email reminder.',
+    )
+  })
+
+  it('greets by name, or with Hello when no name is on file', async () => {
+    seed([home(1, null), { ...home(2, null), recordOwner: { name: null, email: null, phone: null } }], {
+      p1: [charge('c1', 100)],
+      p2: [charge('c2', 100)],
+    })
+    const html = await render()
+    expect(html).toContain('Hi Owner 1,')
+    expect(html).toContain('Hello,')
+    expect(html).not.toContain('Hi Current Resident')
   })
 })
 
