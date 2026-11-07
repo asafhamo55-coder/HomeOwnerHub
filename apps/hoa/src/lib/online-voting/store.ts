@@ -2,6 +2,7 @@
 // RLS decides what each caller sees: drafts only to the board, the box to nobody.
 import { M10_APPLIED } from '@homeowner-portal/db'
 import type { BallotOptionRow, BallotRow } from '@homeowner-portal/db'
+import { unitIdsForProperties } from '@/lib/properties/resolve'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type BallotClient = { from: (t: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any }
@@ -65,18 +66,30 @@ export async function myVoterHomes(db: BallotClient, ballotId: string): Promise<
   const propertyIds = (ids ?? []) as string[]
   if (propertyIds.length === 0) return { ok: true, data: [] }
   // ballot_voter_property_ids() answers for EVERY org the owner is in; this
-  // ballot belongs to one, so only that org's homes are shown for it.
+  // ballot belongs to one, so only that org's homes are shown for it. A home
+  // counts as this org's if EITHER the property row says so (when the owner's
+  // client can read it) OR one of the owner's units in this org links to it
+  // (units.legacy_hoa_property_id, which the voter-ids function also walks).
+  // A home whose property row RLS hides is therefore still kept when it is
+  // otherwise in scope; it just shows the plain "Your home" label.
   const { data: ballotRow, error: bErr } = await db.from('ballots').select('organization_id').eq('id', ballotId).maybeSingle()
   const ballotOrg = (ballotRow as { organization_id: string } | null)?.organization_id
   if (bErr || !ballotOrg) return { ok: false }
-  const [{ data: props }, { data: voted, error: vErr }] = await Promise.all([
-    db.from('hoa_properties').select('id, address').in('id', propertyIds).eq('org_id', ballotOrg),
+  const [{ data: props }, bridged, { data: voted, error: vErr }] = await Promise.all([
+    db.from('hoa_properties').select('id, address, org_id').in('id', propertyIds),
+    // The bridge lookup (units of THIS org linked to each property); a failed read just adds nothing.
+    unitIdsForProperties(db as never, ballotOrg, propertyIds).catch(() => new Map<string, string>()),
     db.rpc('ballot_homes_voted', { p_ballot: ballotId }),
   ])
   if (vErr) return { ok: false }
   const done = new Set((voted ?? []) as string[])
-  const addr = new Map(((props ?? []) as { id: string; address: string | null }[]).map((p) => [p.id, p.address]))
-  const here = propertyIds.filter((id) => addr.has(id))
+  const rows = (props ?? []) as { id: string; address: string | null; org_id: string | null }[]
+  const addr = new Map(rows.map((p) => [p.id, p.address]))
+  const inOrg = new Set<string>([
+    ...rows.filter((p) => p.org_id === ballotOrg).map((p) => p.id),
+    ...bridged.keys(),
+  ])
+  const here = propertyIds.filter((id) => inOrg.has(id))
   return {
     ok: true,
     data: here.map((id, i) => ({

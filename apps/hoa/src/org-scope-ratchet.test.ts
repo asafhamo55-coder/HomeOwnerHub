@@ -204,7 +204,6 @@ const BASELINE: Readonly<Record<string, number>> = {
   'lib/accounting/opening-balances/executor.ts|funds': 1,
   'lib/accounting/opening-balances/executor.ts|units': 1,
   'lib/accounting/queries.ts|bank_transactions': 1,
-  'lib/accounting/queries.ts|fiscal_periods': 2,
   'lib/accounting/year-end/load.ts|bank_reconciliations': 1,
   'lib/accounting/year-end/load.ts|invoices': 1,
   'lib/assessments.ts|payments': 1,
@@ -302,6 +301,7 @@ const BASELINE: Readonly<Record<string, number>> = {
   'lib/submission-attachments.ts|submission_attachments': 2,
   // ── filter added to a builder held in a variable (optional orgId the board screens pass), which the scan cannot follow
   'lib/online-voting/store.ts|ballots': 3,
+  'lib/online-voting/store.ts|hoa_properties': 1,
   'lib/polls/store.ts|polls': 2,
   // ── cross-org by design: platform admin tenant counts
   'lib/platform-admin.ts|arc_requests': 1,

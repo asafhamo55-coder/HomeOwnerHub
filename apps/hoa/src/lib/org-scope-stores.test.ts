@@ -37,19 +37,43 @@ describe('polls', () => {
 })
 
 describe('myVoterHomes shows only the ballot’s own org homes', () => {
-  it('filters the homes by the ballot’s org, not every org the owner is in', async () => {
-    const { client, queries } = fakeSupabase((q) => {
-      if (q.table === 'ballots') return { data: { organization_id: 'org-B' }, error: null }
-      if (q.table === 'hoa_properties') return { data: [{ id: 'p-B', address: '1 B St' }], error: null }
-      return undefined
-    })
+  function dbFor(tables: Record<string, unknown>) {
+    const { client, queries } = fakeSupabase((q) => (q.table in tables ? { data: tables[q.table], error: null } : undefined))
     const db = {
       ...client,
       rpc: async (fn: string) => ({ data: fn === 'ballot_voter_property_ids' ? ['p-A', 'p-B'] : [], error: null }),
     } as unknown as BallotClient
+    return { db, queries }
+  }
+
+  it('drops a home of another org the owner is also in', async () => {
+    const { db, queries } = dbFor({
+      ballots: { organization_id: 'org-B' },
+      hoa_properties: [
+        { id: 'p-A', address: '1 A St', org_id: 'org-A' },
+        { id: 'p-B', address: '1 B St', org_id: 'org-B' },
+      ],
+      units: [],
+    })
     const r = await myVoterHomes(db, 'b-1')
     expect(r.ok && r.data.map((h) => h.propertyId)).toEqual(['p-B'])
-    const props = queries.find((q) => q.table === 'hoa_properties')!
-    expect(hasEq(props, 'org_id', 'org-B')).toBe(true)
+    const units = queries.find((q) => q.table === 'units')!
+    expect(hasEq(units, 'organization_id', 'org-B')).toBe(true)
+  })
+
+  it('keeps an owner’s home whose property row RLS hides, when their unit in this org links to it', async () => {
+    const { db } = dbFor({
+      ballots: { organization_id: 'org-B' },
+      hoa_properties: [], // not readable through hoa_properties RLS
+      units: [{ id: 'u-1', legacy_hoa_property_id: 'p-B', created_at: '2020-01-01T00:00:00Z' }],
+    })
+    const r = await myVoterHomes(db, 'b-1')
+    expect(r.ok && r.data).toEqual([{ propertyId: 'p-B', label: 'Your home', voted: false }])
+  })
+
+  it('does not keep an unreadable home that nothing ties to this org', async () => {
+    const { db } = dbFor({ ballots: { organization_id: 'org-B' }, hoa_properties: [], units: [] })
+    const r = await myVoterHomes(db, 'b-1')
+    expect(r.ok && r.data).toEqual([])
   })
 })
