@@ -162,7 +162,7 @@ export function GuidePage({ guide }: { guide: Guide }) {
               <ol className="mt-5 space-y-3">
                 {guide.steps.map((s, i) => (
                   <li key={s} className="flex gap-4 text-[18px] leading-relaxed text-foreground-secondary">
-                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-sm font-semibold text-primary">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-sm font-semibold text-accent-fg">
                       {i + 1}
                     </span>
                     <span>{s}</span>
