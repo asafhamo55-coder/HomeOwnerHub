@@ -35,6 +35,7 @@ let host: HTMLElement
 beforeEach(async () => {
   window.localStorage.clear()
   document.documentElement.removeAttribute('style')
+  document.documentElement.removeAttribute('data-text-size')
   host = document.createElement('div')
   document.body.appendChild(host)
   root = createRoot(host)

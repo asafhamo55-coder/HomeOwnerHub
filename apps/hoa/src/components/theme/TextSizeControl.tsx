@@ -16,7 +16,7 @@ export function TextSizeControl({ compact = false }: { compact?: boolean }) {
   const { size, choose, message } = useTextSize()
 
   return (
-    <fieldset className={compact ? 'flex min-w-0 items-center gap-3' : 'min-w-0'}>
+    <fieldset className={compact ? 'flex min-w-0 flex-col gap-1.5' : 'min-w-0'}>
       <legend className={compact ? 'sr-only' : 'text-sm font-semibold text-foreground'}>Text size</legend>
       {compact ? (
         <span aria-hidden className="shrink-0 text-sm font-semibold text-foreground">
