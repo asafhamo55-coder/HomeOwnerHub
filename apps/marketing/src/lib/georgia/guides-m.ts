@@ -141,6 +141,7 @@ export const GA_BOARD_POWERS: Guide = {
   ],
   related: ['georgia-hoa-board-borrowing-and-lawsuits', 'georgia-hoa-board-resolution-template', 'georgia-hoa-amend-covenants-two-thirds', 'hoa-board-meeting-minutes', 'georgia-hoa-assessment-lien-rules', 'hoa-board-conflict-of-interest-disclosure-checklist',
     'georgia-hoa-architectural-review-covenants-44-3-231',
+    'georgia-hoa-board-meeting-quorum-and-minutes-44-3-228',
   ],
   hoaDoes: [
     {
