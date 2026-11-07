@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { getCurrentOrg } from '@/lib/orgs'
+import { BOARD_ONLY_DENIED, requireBoardOrAdminForAction } from '@/lib/accounting/guard'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { isChecklistDismissible, loadSetupChecklist, setupDismissedCookie } from './setup-checklist'
 
@@ -16,8 +16,10 @@ import { isChecklistDismissible, loadSetupChecklist, setupDismissedCookie } from
  * (the last property deleted) brings the card back.
  */
 export async function dismissSetupChecklist(): Promise<{ ok: boolean; error?: string }> {
-  const org = await getCurrentOrg()
-  if (!org) return { ok: false, error: 'No HOA selected.' }
+  // The checklist read now includes the owner roster (service role), so gate first.
+  const gate = await requireBoardOrAdminForAction(BOARD_ONLY_DENIED)
+  if (!gate.ok) return { ok: false, error: gate.error }
+  const org = { id: gate.orgId }
 
   const supabase = await getSupabaseServerClient()
   const checklist = await loadSetupChecklist(supabase, org.id)

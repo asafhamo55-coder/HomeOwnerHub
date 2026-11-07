@@ -14,7 +14,7 @@ import { z } from 'zod'
 export const COMMUNITY_CITY_KEY = 'community_city'
 export const COMMUNITY_ZIP_KEY = 'community_zip'
 
-export const COMMUNITY_LOCATION_HELP = 'Used to find each home on the map when a home’s address has only the street.'
+export const COMMUNITY_LOCATION_HELP = 'This lets house photos show for homes whose address is only a street.'
 
 export const saveCommunityLocationSchema = z.object({
   associationId: z.string().uuid(),

@@ -35,7 +35,7 @@ export default async function AssociationSettingsPage() {
     <Page
       width="narrow"
       title="Association"
-      description="Which state’s law your community follows, and whether it is an HOA, condominium or co-op."
+      description="Which state’s law your community follows, whether it is an HOA, condominium or co-op, and the city and ZIP code it is in."
       tabs={<SettingsTabs current="/settings/association" role={role} />}
       linkAs={Link}
     >

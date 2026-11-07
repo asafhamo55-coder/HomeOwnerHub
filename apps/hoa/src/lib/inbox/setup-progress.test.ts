@@ -19,7 +19,7 @@ const NOTHING: SetupFacts = {
   books: [0],
   properties: [0, 0],
   residents: [0, 0],
-  board: [1],
+  board: [1], ownersToInvite: 3, ownersOnRoster: 5, location: [0],
   dues: [0],
   payments: [0],
   governingDocs: [0],
